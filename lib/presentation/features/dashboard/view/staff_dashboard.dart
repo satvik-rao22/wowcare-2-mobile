@@ -8,7 +8,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart'
 import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
+// import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_attendance_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
@@ -64,8 +64,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
   void dispose() {
     // ignore: discarded_futures
     _dashboardCubit.close();
-    // ignore: discarded_futures
-    _geofenceCubit.close();
+    // GeofenceCubit is a singleton — do NOT close it here; it must survive navigation.
     // ignore: discarded_futures
     _ratioMonitoringCubit.close();
     // ignore: discarded_futures
@@ -90,31 +89,36 @@ class _StaffDashboardState extends State<StaffDashboard> {
     }
   }
 
-  Widget _buildHeader(String userName) {
-    return Material(
-      type: MaterialType.transparency,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DashboardWelcomeHeader(userName: userName, showSectionLabel: false),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
+  // Widget _buildHeader(String userName) {
+  //   return Material(
+  //     type: MaterialType.transparency,
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         DashboardWelcomeHeader(userName: userName, showSectionLabel: false),
+  //         const SizedBox(height: 16),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<StaffDashboardCubit>.value(value: _dashboardCubit),
-        BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
-        BlocProvider<RatioMonitoringCubit>.value(value: _ratioMonitoringCubit),
-        BlocProvider<MyDayCubit>.value(value: _myDayCubit),
-        BlocProvider<MyAttendanceCubit>.value(value: _myAttendanceCubit),
-        BlocProvider<MyShiftsCubit>.value(value: _myShiftsCubit),
-      ],
-      child: _buildScaffold(),
+    return Padding(
+      padding: const EdgeInsets.only(top: 20),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<StaffDashboardCubit>.value(value: _dashboardCubit),
+          BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
+          BlocProvider<RatioMonitoringCubit>.value(
+            value: _ratioMonitoringCubit,
+          ),
+          BlocProvider<MyDayCubit>.value(value: _myDayCubit),
+          BlocProvider<MyShiftsCubit>.value(value: _myShiftsCubit),
+          BlocProvider<MyAttendanceCubit>.value(value: _myAttendanceCubit),
+        ],
+        child: _buildScaffold(),
+      ),
     );
   }
 
@@ -145,12 +149,12 @@ class _StaffDashboardState extends State<StaffDashboard> {
                       child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
-                            sliver: SliverToBoxAdapter(
-                              child: _buildHeader(dashState.userName),
-                            ),
-                          ),
+                          // SliverPadding(
+                          //   padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
+                          //   sliver: SliverToBoxAdapter(
+                          //     child: _buildHeader(dashState.userName),
+                          //   ),
+                          // ),
                           SliverPadding(
                             padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
                             sliver: SliverReorderableList(

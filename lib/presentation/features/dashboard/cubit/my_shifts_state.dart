@@ -5,9 +5,11 @@ enum _Status { initial, loading, loaded, empty, error }
 class MyShiftsState extends Equatable {
   const MyShiftsState({
     this.status = _Status.initial,
+    this.staffCode = '',
     this.staffName = '',
     this.designation = '',
     this.classroomLabel = '',
+    this.classroomNames = const <String, String>{},
     this.shifts = const <StaffShift>[],
     this.todayShifts = const <StaffShift>[],
     this.availableHours = 0,
@@ -19,9 +21,13 @@ class MyShiftsState extends Equatable {
   });
 
   final _Status status;
+  final String staffCode;
   final String staffName;
   final String designation;
   final String classroomLabel;
+
+  /// Classroom code → display name, resolved from the classroom list API.
+  final Map<String, String> classroomNames;
 
   final List<StaffShift> shifts;
   final List<StaffShift> todayShifts;
@@ -43,9 +49,11 @@ class MyShiftsState extends Equatable {
 
   MyShiftsState copyWith({
     _Status? status,
+    String? staffCode,
     String? staffName,
     String? designation,
     String? classroomLabel,
+    Map<String, String>? classroomNames,
     List<StaffShift>? shifts,
     List<StaffShift>? todayShifts,
     int? availableHours,
@@ -58,9 +66,11 @@ class MyShiftsState extends Equatable {
   }) {
     return MyShiftsState(
       status: status ?? this.status,
+      staffCode: staffCode ?? this.staffCode,
       staffName: staffName ?? this.staffName,
       designation: designation ?? this.designation,
       classroomLabel: classroomLabel ?? this.classroomLabel,
+      classroomNames: classroomNames ?? this.classroomNames,
       shifts: shifts ?? this.shifts,
       todayShifts: todayShifts ?? this.todayShifts,
       availableHours: availableHours ?? this.availableHours,
@@ -75,9 +85,11 @@ class MyShiftsState extends Equatable {
   @override
   List<Object?> get props => [
     status,
+    staffCode,
     staffName,
     designation,
     classroomLabel,
+    classroomNames,
     shifts,
     todayShifts,
     availableHours,

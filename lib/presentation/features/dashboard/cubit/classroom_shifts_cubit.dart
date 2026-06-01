@@ -7,10 +7,13 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
+import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
+import 'package:wowcare/domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/forecast_slot_mapper.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
+
 part 'classroom_shifts_state.dart';
 
 /// One classroom row in the Classroom Shifts dashboard card.
@@ -19,42 +22,48 @@ class ClassroomShiftEntry extends Equatable {
     required this.classroomCode,
     required this.name,
     required this.ratioStatus,
+    this.staff = const [],
   });
 
   final String classroomCode;
   final String name;
 
-  /// Derived from forecast `blockStatus` using the same logic as the
-  /// scheduling page: [ForecastSlotMapper.ratioFromBlocksForWeek].
+  /// Derived from forecast `blockStatus` — same logic as the scheduling page.
   final ClassroomRatioStatus ratioStatus;
 
+  /// Staff shifts for this classroom on the loaded date.
+  /// Each entry carries the data needed by [StaffRowLeft] and [StaffTimeRangePill].
+  final List<StaffScheduleEntry> staff;
+
   @override
-  List<Object?> get props => [classroomCode, name, ratioStatus];
+  List<Object?> get props => [classroomCode, name, ratioStatus, staff];
 }
 
 /// Cubit that powers [ClassroomShiftsCard].
 ///
-/// Uses the **exact same** API chain as the scheduling page:
+/// Phases (mirrors [SchedulingCubit._buildClassroomsWithForecast]):
 /// 1. School regular schedules → resolve `startTime/endTime/durationMinutes`
-/// 2. Classroom forecast API → list of [ClassroomForecastBlock] per classroom
-/// 3. [ForecastSlotMapper.ratioFromBlocksForWeek] → [ClassroomRatioStatus]
-///    (only `withinMonitoringWindow` blocks are considered; skips zero-count
-///    blocks; any `underRatio` block marks the classroom as under-ratio)
+/// 2. Forecast API → [ClassroomRatioStatus] via [ForecastSlotMapper]
+/// 3. Staff-shifts API → [StaffScheduleEntry] list per classroom (same endpoint
+///    as the scheduling screen, so data is consistent)
 class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
   ClassroomShiftsCubit({
     required GetRatioMonitoringClassroomsUseCase
     getRatioMonitoringClassroomsUseCase,
     required GetClassroomForecastUseCase getClassroomForecastUseCase,
+    required GetSchoolStaffShiftsUseCase getSchoolStaffShiftsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
   }) : _getClassrooms = getRatioMonitoringClassroomsUseCase,
        _getForecast = getClassroomForecastUseCase,
+       _getStaffShifts = getSchoolStaffShiftsUseCase,
        _staffRepository = staffRepository,
        _storage = storageService,
        super(const ClassroomShiftsState.initial());
 
   final GetRatioMonitoringClassroomsUseCase _getClassrooms;
   final GetClassroomForecastUseCase _getForecast;
+  final GetSchoolStaffShiftsUseCase _getStaffShifts;
   final StaffRepository _staffRepository;
   final StorageService _storage;
 
@@ -75,12 +84,6 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
     return _organizationCode!;
   }
 
-  /// Load classroom ratio statuses for [date].
-  ///
-  /// Mirrors [SchedulingCubit._buildClassroomsWithForecast]:
-  /// - Fetches school regular schedules to get the proper forecast time window
-  /// - Calls the forecast API with real school hours + block duration
-  /// - Derives [ClassroomRatioStatus] via [ForecastSlotMapper.ratioFromBlocksForWeek]
   Future<void> load(DateTime date) async {
     if (_isFetching) return;
     _isFetching = true;
@@ -92,34 +95,29 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
 
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
         if (!isClosed) {
-          emit(
-            state.copyWith(
-              status: ClassroomShiftsStatus.error,
-              errorMessage: 'School context missing. Please sign in again.',
-            ),
-          );
+          emit(state.copyWith(
+            status: ClassroomShiftsStatus.error,
+            errorMessage: 'School context missing. Please sign in again.',
+          ));
         }
         return;
       }
 
-      // ── Phase 1: classroom list + school hours (in parallel) ──────────────
+      // ── Phase 1: classroom list + school hours (parallel) ─────────────────
       final results = await Future.wait([
         _getClassrooms(schoolCode: schoolCode),
         _staffRepository.getSchoolRegularSchedules(schoolCode: schoolCode),
       ]);
 
-      final classrooms =
-          results[0] as List<dynamic>; // RatioMonitoringClassroomItem
+      final classrooms = results[0] as List<dynamic>;
       final scheduleDays = results[1] as List<dynamic>;
 
       if (classrooms.isEmpty) {
         if (!isClosed) {
-          emit(
-            state.copyWith(
-              status: ClassroomShiftsStatus.loaded,
-              entries: const [],
-            ),
-          );
+          emit(state.copyWith(
+            status: ClassroomShiftsStatus.loaded,
+            entries: const [],
+          ));
         }
         return;
       }
@@ -128,27 +126,37 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
       final resolver = SchoolHoursResolver.fromDays(scheduleDays.cast());
       final schoolHours = resolver.hoursFor(date);
 
-      // Fall back to a full-day window when no schedule is configured.
       final startTime =
           schoolHours?.startTimeOfDay ?? const TimeOfDay(hour: 6, minute: 0);
       final endTime =
           schoolHours?.endTimeOfDay ?? const TimeOfDay(hour: 22, minute: 0);
       final blockMinutes = schoolHours?.durationMinutes ?? 30;
 
-      // ── Phase 3: forecast for all classrooms on [date] ────────────────────
+      // ── Phase 3: forecast + staff shifts (parallel) ───────────────────────
       final codes = classrooms.map((c) => c.code as String).toList();
 
-      final forecastBlocks = await _getForecast(
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        date: date,
-        startTime: startTime,
-        endTime: endTime,
-        durationMinutes: blockMinutes,
-        classroomCodes: codes,
-      );
+      final parallel = await Future.wait([
+        _getForecast(
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          date: date,
+          startTime: startTime,
+          endTime: endTime,
+          durationMinutes: blockMinutes,
+          classroomCodes: codes,
+        ),
+        _getStaffShifts(
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          dateFrom: date,
+          dateTo: date,
+        ).catchError((_) => <StaffShift>[]), // non-fatal — UI degrades gracefully
+      ]);
 
-      // Group blocks by classroom code.
+      final forecastBlocks = parallel[0] as List<ClassroomForecastBlock>;
+      final rawShifts = parallel[1] as List<dynamic>; // List<StaffShift>
+
+      // Group forecast blocks by classroom.
       final blocksByClassroom = <String, List<ClassroomForecastBlock>>{};
       for (final block in forecastBlocks) {
         final code = block.classroomCode.trim();
@@ -156,10 +164,27 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
         blocksByClassroom.putIfAbsent(code, () => []).add(block);
       }
 
-      // ── Phase 4: derive ratio status per classroom ────────────────────────
-      // Uses ForecastSlotMapper.ratioFromBlocksForWeek — same function as the
-      // scheduling page. Only withinMonitoringWindow blocks are considered;
-      // any underRatio block marks the classroom as under-ratio.
+      // Group staff shifts by classroom code → List<StaffScheduleEntry>.
+      final staffByClassroom = <String, List<StaffScheduleEntry>>{};
+      for (final dynamic raw in rawShifts) {
+        final code = (raw.classroomCode as String).trim();
+        if (code.isEmpty) continue;
+        staffByClassroom.putIfAbsent(code, () => []).add(
+          StaffScheduleEntry(
+            staffName: raw.staffName as String? ?? '',
+            staffCode: raw.staffCode as String? ?? '',
+            startTime: _fmtTime(raw.startTime as TimeOfDay),
+            endTime: _fmtTime(raw.endTime as TimeOfDay),
+            isPublished: raw.isPublished as bool? ?? false,
+            shiftCode: raw.shiftCode as String?,
+            scheduledHours: (raw.scheduledHours as int? ?? 0).toDouble(),
+            availableHours: (raw.availableHours as int? ?? 0).toDouble(),
+            unscheduledHours: (raw.unscheduledHours as int? ?? 0).toDouble(),
+          ),
+        );
+      }
+
+      // ── Phase 4: assemble entries ─────────────────────────────────────────
       final entries = classrooms.map((c) {
         final code = c.code as String;
         final ratioStatus = ForecastSlotMapper.ratioFromBlocksForWeek(
@@ -170,28 +195,33 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
           classroomCode: code,
           name: c.name as String,
           ratioStatus: ratioStatus,
+          staff: staffByClassroom[code] ?? const [],
         );
       }).toList();
 
       if (!isClosed) {
-        emit(
-          state.copyWith(
-            status: ClassroomShiftsStatus.loaded,
-            entries: entries,
-          ),
-        );
+        emit(state.copyWith(
+          status: ClassroomShiftsStatus.loaded,
+          entries: entries,
+        ));
       }
     } catch (e) {
       if (!isClosed) {
-        emit(
-          state.copyWith(
-            status: ClassroomShiftsStatus.error,
-            errorMessage: ApiErrorHandler.extractErrorMessage(e),
-          ),
-        );
+        emit(state.copyWith(
+          status: ClassroomShiftsStatus.error,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ));
       }
     } finally {
       _isFetching = false;
     }
+  }
+
+  /// Converts [TimeOfDay] → "09:00 AM" format expected by [StaffTimeRangePill].
+  static String _fmtTime(TimeOfDay t) {
+    final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final m = t.minute.toString().padLeft(2, '0');
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    return '${h.toString().padLeft(2, '0')}:$m $period';
   }
 }

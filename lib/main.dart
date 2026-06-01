@@ -15,8 +15,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
 import 'package:wowcare/shared/services/geofence_notification_service.dart';
-import 'package:workmanager/workmanager.dart';
-import 'package:wowcare/core/background/geofence_background_task.dart';
+// Geofence is handled via OS-level native geofencing (Android GeofencingClient, iOS region monitoring).
 import 'src/app_router.dart';
 
 /// Handle FCM messages in background (when app is not in foreground)
@@ -100,16 +99,6 @@ Future<void> main() async {
 
   // Setup FCM messaging
   await _setupFCMMessaging();
-
-  // Initialize WorkManager for background geofence checks
-  await Workmanager().initialize(geofenceWorkmanagerCallbackDispatcher);
-  // Schedule periodic geofence check (15-minute minimum on Android)
-  await Workmanager().registerPeriodicTask(
-    'geofence_check',
-    'geofenceCheckTask',
-    frequency: const Duration(minutes: 15),
-    constraints: Constraints(networkType: NetworkType.notRequired),
-  );
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

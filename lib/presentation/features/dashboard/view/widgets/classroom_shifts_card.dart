@@ -1,26 +1,33 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_toggle.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_block_status_style.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/scheduling_block_status_style.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/day_classroom_section.dart';
+import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 
-/// Dashboard card listing each classroom's ratio status for the selected day.
+import '../../../../../app/theme/media_res.dart';
+import '../../../scheduling/view/scheduling_screen.dart';
+
+/// Dashboard card that mirrors the visual structure of [_ClassroomListCard]
+/// from the scheduling screen.
 ///
-/// Loading strategy (mirrors [RatioMonitoringCard]):
-/// - **First ever load** (no entries yet): the full-card shimmer is shown.
-/// - **Subsequent loads** (date change, background refresh): the card container
-///   stays mounted with the previous entries while new data arrives — no
-///   layout jump or shimmer flicker.
-///
-/// Status is driven exclusively by [ClassroomShiftEntry.blockStatus] from the
-/// forecast API — no frontend ratio calculations.
+/// Collapsed row  : classroom logo + name + chevron | ratio icon
+/// Expanded rows  : one [StaffRowLeft] + [StaffTimeRangePill] per staff member
+///                  (solid border = published, dotted border = draft)
 class ClassroomShiftsCard extends StatefulWidget {
-  const ClassroomShiftsCard({super.key});
+  const ClassroomShiftsCard({super.key, this.onRedirect});
+
+  /// Optional callback invoked when the redirect arrow is tapped.
+  /// Defaults to navigating to [SchedulingScreen].
+  final VoidCallback? onRedirect;
 
   @override
   State<ClassroomShiftsCard> createState() => _ClassroomShiftsCardState();
@@ -33,8 +40,13 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   bool _showAllClassrooms = false;
   bool _minimized = false;
 
-  double get _bodyFontSize =>
-      MediaQuery.of(context).size.width > 600 ? 16 : 14;
+  /// Global expand/collapse — mirrors [_SchedulingScreenContentState._expandAll].
+  bool _expandAll = false;
+
+  /// Per-row override; cleared when [_expandAll] flips so all rows follow it.
+  final Map<String, bool> _rowExpanded = {};
+
+  double get _bodyFontSize => MediaQuery.of(context).size.width > 600 ? 16 : 14;
 
   @override
   void didChangeDependencies() {
@@ -52,53 +64,41 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
     unawaited(context.read<ClassroomShiftsCubit>().load(newDate));
   }
 
+  void _toggleExpandAll() {
+    setState(() {
+      _expandAll = !_expandAll;
+      _rowExpanded.clear();
+    });
+  }
+
+  void _toggleRow(String code) {
+    setState(() {
+      _rowExpanded[code] = !(_rowExpanded[code] ?? _expandAll);
+    });
+  }
+
+  bool _isExpanded(String code) => _rowExpanded[code] ?? _expandAll;
+
   Widget _buildDateNavigator() {
-    final formattedDate = DateFormat('EEE, MMM d').format(_selectedDate);
+    final label = DateFormat('EEE, MMM d').format(_selectedDate);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _changeDate(-1),
-            borderRadius: BorderRadius.circular(100),
-            splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
-            child: const Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(
-                Icons.arrow_back_ios_new,
-                size: 18,
-                color: AppColors.primaryColor,
-              ),
-            ),
-          ),
-        ),
+        _NavArrow(icon: Icons.arrow_back_ios_new, onTap: () => _changeDate(-1)),
         const SizedBox(width: 2),
-        Text(
-          formattedDate,
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: _bodyFontSize,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: () => _changeDate(1),
-            borderRadius: BorderRadius.circular(100),
-            splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
-            child: const Padding(
-              padding: EdgeInsets.all(4),
-              child: Icon(
-                Icons.arrow_forward_ios,
-                size: 18,
-                color: AppColors.primaryColor,
-              ),
+        Flexible(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: AppColors.primaryColor,
+              fontSize: _bodyFontSize,
+              fontWeight: FontWeight.w600,
             ),
+            overflow: TextOverflow.ellipsis,
           ),
         ),
+        const SizedBox(width: 4),
+        _NavArrow(icon: Icons.arrow_forward_ios, onTap: () => _changeDate(1)),
       ],
     );
   }
@@ -107,16 +107,11 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   Widget build(BuildContext context) {
     return BlocBuilder<ClassroomShiftsCubit, ClassroomShiftsState>(
       builder: (context, state) {
-        // Show the full-card shimmer ONLY on the very first load when there
-        // is no entry data to display yet. This matches the ratio monitoring
-        // card pattern and prevents layout shift on subsequent refreshes.
         final showShimmer =
             state.status == ClassroomShiftsStatus.initial ||
             (state.isLoading && state.entries.isEmpty);
 
-        if (showShimmer) {
-          return const _ClassroomShiftsCardShimmer();
-        }
+        if (showShimmer) return const _ClassroomShiftsCardShimmer();
 
         final entries = state.entries;
         final displayEntries = _showAllClassrooms
@@ -134,9 +129,8 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ────────────────────────────────────────────────────
+              // ── Card header ─────────────────────────────────────────────────
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
                     'Classroom Shifts',
@@ -146,10 +140,24 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      if (widget.onRedirect != null) {
+                        widget.onRedirect!();
+                      } else {
+                        context.go(SchedulingScreen.routeName);
+                      }
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: SvgPicture.asset(
+                      MediaRes.redirectArrowGradientIcon,
+                      width: 16,
+                      height: 16,
+                    ),
+                  ),
+
                   const Spacer(),
-                  // Subtle inline loading indicator — shown on date changes
-                  // (when stale entries are already visible) so the user knows
-                  // a refresh is in flight without triggering a layout shift.
                   if (state.isLoading && entries.isNotEmpty)
                     const Padding(
                       padding: EdgeInsets.only(right: 8),
@@ -168,104 +176,156 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // ── Legend + table ────────────────────────────────────────────
-              AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                child: _minimized
-                    ? const SizedBox.shrink()
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          _legendItem(
-                            ClassroomRatioStatus.underRatio,
-                            'Not In Ratio',
-                          ),
-                          const SizedBox(width: 16),
-                          _legendItem(
-                            ClassroomRatioStatus.inRatio,
-                            'In Ratio',
-                          ),
-                        ],
-                      ),
-              ),
-              const SizedBox(height: 16),
-
+              // ── Body ────────────────────────────────────────────────────────
               AnimatedSize(
                 duration: const Duration(milliseconds: 250),
                 curve: Curves.easeInOut,
                 child: _minimized
                     ? const SizedBox.shrink()
                     : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Table(
-                            border: TableBorder(
-                              horizontalInside: BorderSide(
-                                color: Colors.grey[300]!,
-                                width: 1.0,
-                              ),
-                            ),
-                            columnWidths: const {
-                              0: FlexColumnWidth(1),
-                              1: FlexColumnWidth(1),
-                            },
+                          // Legend
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              // ── Column headers ───────────────────────────
-                              TableRow(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0),
-                                    child: Text(
-                                      'Classroom',
-                                      style: TextStyle(
-                                        fontSize: _bodyFontSize,
-                                        fontWeight: FontWeight.bold,
-                                        color: AppColors.primaryColor,
-                                      ),
-                                    ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 8.0),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [_buildDateNavigator()],
-                                    ),
-                                  ),
-                                ],
+                              _LegendItem(
+                                status: ClassroomRatioStatus.underRatio,
+                                label: 'Not In Ratio',
+                                fontSize: _bodyFontSize,
                               ),
-                              // ── Data rows (stale-on-reload, no shimmer) ──
-                              if (displayEntries.isEmpty && !state.isLoading)
-                                _buildEmptyRow()
-                              else
-                                ...displayEntries.map(_buildTableRow),
+                              const SizedBox(width: 16),
+                              _LegendItem(
+                                status: ClassroomRatioStatus.inRatio,
+                                label: 'In Ratio',
+                                fontSize: _bodyFontSize,
+                              ),
                             ],
                           ),
+                          const SizedBox(height: 12),
+
+                          // ── Scheduling-screen identical inner container ─────
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              border: Border.all(
+                                color: const Color(0x33162831),
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  // Header row: "Expand/Collapse All" | date
+                                  SchedulingTableRow(
+                                    onTap: entries.isNotEmpty
+                                        ? _toggleExpandAll
+                                        : null,
+                                    dividerColor: kSchedulingHeaderBorderColor,
+                                    backgroundColor:
+                                        kSchedulingHeaderBackground,
+                                    left: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 14,
+                                      ),
+                                      child: Text(
+                                        _expandAll
+                                            ? 'Collapse All'
+                                            : 'Expand All',
+                                        style: TextStyle(
+                                          fontFamily: 'Manrope',
+                                          fontSize: _bodyFontSize,
+                                          fontWeight: FontWeight.w600,
+                                          color: AppColors.primaryColor,
+                                        ),
+                                      ),
+                                    ),
+                                    right: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                      ),
+                                      child: _buildDateNavigator(),
+                                    ),
+                                  ),
+
+                                  // Classroom rows
+                                  if (displayEntries.isEmpty &&
+                                      !state.isLoading)
+                                    SchedulingTableRow(
+                                      isLast: true,
+                                      left: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 16,
+                                        ),
+                                        child: Text(
+                                          'No classrooms found',
+                                          style: TextStyle(
+                                            fontSize: _bodyFontSize,
+                                            color: Colors.grey[500],
+                                          ),
+                                        ),
+                                      ),
+                                      right: const SizedBox.shrink(),
+                                    )
+                                  else
+                                    for (
+                                      int i = 0;
+                                      i < displayEntries.length;
+                                      i++
+                                    )
+                                      _ClassroomSection(
+                                        entry: displayEntries[i],
+                                        isExpanded: _isExpanded(
+                                          displayEntries[i].classroomCode,
+                                        ),
+                                        onTap: () => _toggleRow(
+                                          displayEntries[i].classroomCode,
+                                        ),
+                                        isLast:
+                                            i == displayEntries.length - 1 &&
+                                            !hasMoreToShow,
+                                      ),
+                                ],
+                              ),
+                            ),
+                          ),
+
                           if (state.isError)
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
                               child: Text(
                                 state.errorMessage ?? 'Failed to load data.',
                                 style: const TextStyle(
-                                    color: AppColors.errorColor),
+                                  color: AppColors.errorColor,
+                                ),
                               ),
                             ),
+
+                          // Show More / Show Less
                           if (!state.isLoading && hasMoreToShow)
                             InkWell(
-                              onTap: () => setState(() =>
-                                  _showAllClassrooms = !_showAllClassrooms),
+                              onTap: () => setState(
+                                () => _showAllClassrooms = !_showAllClassrooms,
+                              ),
+                              borderRadius: const BorderRadius.only(
+                                bottomLeft: Radius.circular(12),
+                                bottomRight: Radius.circular(12),
+                              ),
                               child: Container(
                                 width: double.infinity,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryColor
-                                      .withValues(alpha: 0.03),
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.03,
+                                  ),
                                   borderRadius: const BorderRadius.only(
                                     bottomLeft: Radius.circular(12),
                                     bottomRight: Radius.circular(12),
@@ -303,69 +363,164 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
       },
     );
   }
+}
 
-  TableRow _buildTableRow(ClassroomShiftEntry entry) {
-    return TableRow(
+// ---------------------------------------------------------------------------
+// _ClassroomSection
+//
+// Mirrors [DayClassroomSection._buildWeekView] exactly:
+//   • Header row : [ClassroomRowLeft] + animated chevron  |  ratio status icon
+//   • Staff rows  : [StaffRowLeft]                        |  [StaffTimeRangePill]
+//
+// [StaffTimeRangePill] uses a solid border for published shifts and a dotted
+// border (via [_DashedRRectPainter] inside the widget) for drafts — the same
+// visual treatment as the scheduling screen.
+// ---------------------------------------------------------------------------
+
+class _ClassroomSection extends StatelessWidget {
+  const _ClassroomSection({
+    required this.entry,
+    required this.isExpanded,
+    required this.onTap,
+    required this.isLast,
+  });
+
+  final ClassroomShiftEntry entry;
+  final bool isExpanded;
+  final VoidCallback onTap;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasStaff = entry.staff.isNotEmpty;
+    final headerIsLast = isLast && (!isExpanded || !hasStaff);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 15.0),
-          child: Text(
-            entry.name,
-            style: const TextStyle(
-              fontSize: 18.0,
-              color: AppColors.primaryColor,
-            ),
-            overflow: TextOverflow.ellipsis,
+        // ── Classroom header row ─────────────────────────────────────────────
+        SchedulingTableRow(
+          onTap: hasStaff ? onTap : null,
+          isLast: headerIsLast,
+          left: Row(
+            children: [
+              Expanded(
+                child: Center(
+                  child: ClassroomRowLeft(
+                    classroomCode: entry.classroomCode,
+                    classroomName: entry.name,
+                  ),
+                ),
+              ),
+              if (hasStaff)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: AnimatedRotation(
+                    turns: isExpanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: const Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 20,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          right: SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
+            entry.ratioStatus,
+            size: 20,
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 15.0),
-          child: Center(
-            child: SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
-              entry.ratioStatus,
-              size: 20,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
-  // Shown when loaded data is genuinely empty (not while loading).
-  TableRow _buildEmptyRow() {
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 15.0),
-          child: Text(
-            'No classrooms found',
-            style: TextStyle(
-              fontSize: _bodyFontSize,
-              color: Colors.grey[500],
-            ),
-          ),
+        // ── Staff rows (animated, same as scheduling screen) ─────────────────
+        AnimatedSize(
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeInOut,
+          child: isExpanded && hasStaff
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (int i = 0; i < entry.staff.length; i++)
+                      SchedulingTableRow(
+                        isLast: isLast && i == entry.staff.length - 1,
+                        left: StaffRowLeft(entry: entry.staff[i]),
+                        right: StaffTimeRangePill(
+                          startTime: entry.staff[i].startTime,
+                          endTime: entry.staff[i].endTime,
+                          isPublished: entry.staff[i].isPublished,
+                        ),
+                      ),
+                  ],
+                )
+              : const SizedBox.shrink(),
         ),
-        const SizedBox(height: 48),
-      ],
-    );
-  }
-
-  Widget _legendItem(ClassroomRatioStatus status, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
-            status, size: 16),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: _bodyFontSize)),
       ],
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Full-card shimmer — shown only on the very first load (no entry data yet).
-// Matches card dimensions so layout is stable when the real card appears.
+// Legend item
+// ---------------------------------------------------------------------------
+
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({
+    required this.status,
+    required this.label,
+    required this.fontSize,
+  });
+
+  final ClassroomRatioStatus status;
+  final String label;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
+          status,
+          size: 16,
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: fontSize)),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _NavArrow — compact prev/next in the header right cell
+// ---------------------------------------------------------------------------
+
+class _NavArrow extends StatelessWidget {
+  const _NavArrow({required this.icon, required this.onTap});
+
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(100),
+        splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(icon, size: 16, color: AppColors.primaryColor),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Full-card shimmer — first load only
 // ---------------------------------------------------------------------------
 
 class _ClassroomShiftsCardShimmer extends StatelessWidget {
@@ -388,7 +543,7 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header placeholder
+            // Card header
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -410,8 +565,8 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            // Legend placeholder
+            const SizedBox(height: 12),
+            // Legend
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
@@ -434,19 +589,33 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
-            // Column header placeholder
+            const SizedBox(height: 12),
+            // Inner table
             Container(
-              height: 36,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
-            // Row placeholders
-            ...List.generate(
-              _shimmerRows,
-              (_) => Container(
-                height: 48,
-                margin: const EdgeInsets.only(top: 1),
-                color: Colors.white.withValues(alpha: 0.5),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(8),
+                      ),
+                    ),
+                  ),
+                  ...List.generate(
+                    _shimmerRows,
+                    (_) => Container(
+                      height: 80,
+                      margin: const EdgeInsets.only(top: 1),
+                      color: Colors.white.withValues(alpha: 0.5),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

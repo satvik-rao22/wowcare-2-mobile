@@ -275,16 +275,19 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
       String staffName = state.staffName;
 
       if (page == 0) {
+        // The API already scopes results to the requested staffCode, so
+        // case/whitespace mismatches in a local filter would silently drop data.
+        // Pick the first item that has a non-zero attendedDays, or just the first.
         final first = parsed.items
-            .where((i) => i.staffCode == staffCode)
             .cast<StaffAttendanceDailyItemModel?>()
-            .firstOrNull;
+            .where((i) => (i?.attendedDays ?? 0) > 0)
+            .firstOrNull ?? parsed.items.cast<StaffAttendanceDailyItemModel?>().firstOrNull;
         if (first != null) {
           attendedDays = first.attendedDays;
           attendedHours = first.attendedHours ?? 0;
           attendedMinutes = first.attendedMinutes ?? 0;
           totalAttendedTime = first.attendedTime ?? '';
-          staffName = first.staffName;
+          if (first.staffName.trim().isNotEmpty) staffName = first.staffName;
         }
       }
 
@@ -361,10 +364,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
       // Aggregation: absentDays from the first matching item.
       int absentDays = state.absentDays;
       if (page == 0) {
-        final first = parsed.items
-            .where((i) => i.staffCode == staffCode)
-            .cast<StaffAttendanceAbsentItemModel?>()
-            .firstOrNull;
+        final first = parsed.items.cast<StaffAttendanceAbsentItemModel?>().firstOrNull;
         if (first != null) {
           absentDays = first.absentDays;
         }

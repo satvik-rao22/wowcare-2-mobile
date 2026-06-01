@@ -924,6 +924,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ClassroomShiftsCubit(
       getRatioMonitoringClassroomsUseCase: serviceLocator(),
       getClassroomForecastUseCase: serviceLocator(),
+      getSchoolStaffShiftsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
     ),
@@ -937,6 +938,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<MyShiftsCubit>(
     () => MyShiftsCubit(
       getStaffShiftsUseCase: serviceLocator(),
+      getClassroomsUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );
@@ -1286,7 +1288,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<WatchGeofenceUseCase>(
     () => WatchGeofenceUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GeofenceCubit>(
+  // Singleton — one cubit for the entire app lifetime so GPS state survives
+  // navigation. Never call close() on this from a dashboard widget.
+  serviceLocator.registerLazySingleton<GeofenceCubit>(
     () => GeofenceCubit(
       checkLocationPermissionUseCase: serviceLocator(),
       requestLocationPermissionUseCase: serviceLocator(),

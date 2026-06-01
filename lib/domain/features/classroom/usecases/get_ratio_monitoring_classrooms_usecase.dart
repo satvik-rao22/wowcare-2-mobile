@@ -20,9 +20,11 @@ class GetStudentAttendanceSummaryByClassroomsUseCase {
 
   Future<Map<String, ClassroomAttendanceSummaryEntry>> call({
     required List<String> classroomCodes,
+    DateTime? date,
   }) {
     return _repository.getStudentAttendanceSummaryByClassrooms(
       classroomCodes: classroomCodes,
+      date: date,
     );
   }
 }
@@ -34,9 +36,11 @@ class GetStaffAttendanceSummaryByClassroomsUseCase {
 
   Future<Map<String, ClassroomAttendanceSummaryEntry>> call({
     required List<String> classroomCodes,
+    DateTime? date,
   }) {
     return _repository.getStaffAttendanceSummaryByClassrooms(
       classroomCodes: classroomCodes,
+      date: date,
     );
   }
 }

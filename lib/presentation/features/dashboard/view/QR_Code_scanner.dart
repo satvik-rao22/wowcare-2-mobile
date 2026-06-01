@@ -72,9 +72,9 @@ class _QrScanViewState extends State<_QrScanView> {
     final Widget destination;
     switch (route) {
       case QrNavigationRoute.guardianSignIn:
-        destination = const StudentSelectionSignInForm();
+        destination = const StudentSelectionSignInForm(isQrScan: true);
       case QrNavigationRoute.guardianSignOut:
-        destination = const StudentSelectionSignOutForm();
+        destination = const StudentSelectionSignOutForm(isQrScan: true);
       case QrNavigationRoute.staffSignIn:
         destination = const StaffSignInForm();
       case QrNavigationRoute.staffSignOut:

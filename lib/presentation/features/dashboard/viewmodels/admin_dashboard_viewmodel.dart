@@ -8,6 +8,6 @@ enum AdminDashboardCard {
   // todo,
   availability,
   movements,
-  billing,
+  // billing,
   // classroomProgress,
 }

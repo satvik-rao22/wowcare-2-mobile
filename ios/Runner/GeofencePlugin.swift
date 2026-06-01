@@ -13,6 +13,7 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
   private let prefsSchoolLatKey = "geofence_school_lat"
   private let prefsSchoolLonKey = "geofence_school_lon"
   private let prefsSchoolRadiusKey = "geofence_school_radius_m"
+  private let prefsGpsEnabledKey = "geofence_gps_sign_in_enabled"
   private let prefsLastInsideKey = "geofence_last_notified_inside"
 
   static func initializeWithChannel(_ channel: FlutterMethodChannel) {
@@ -26,8 +27,8 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
   private func configure() {
     locationManager.delegate = self
     locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-    locationManager.allowsBackgroundLocationUpdates = true
-    locationManager.pausesLocationUpdatesAutomatically = true
+    // Region monitoring wakes the app natively — continuous background location
+    // updates are not needed and would drain battery unnecessarily.
 
     channel?.setMethodCallHandler { [weak self] call, result in
       guard let self = self else { return }
@@ -50,6 +51,7 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     let longitude = args["longitude"] as? Double ?? 0.0
     let radiusMeters = args["radiusMeters"] as? Double ?? 250.0
     let schoolCode = args["schoolCode"] as? String ?? "school"
+    let gpsEnabled = args["gpsSignInEnabled"] as? Bool ?? true
 
     if latitude == 0.0 || longitude == 0.0 {
       result(FlutterError(code: "bad_location", message: "Invalid school coordinates", details: nil))
@@ -61,8 +63,21 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     defaults.set(latitude, forKey: prefsSchoolLatKey)
     defaults.set(longitude, forKey: prefsSchoolLonKey)
     defaults.set(radiusMeters, forKey: prefsSchoolRadiusKey)
+    defaults.set(gpsEnabled, forKey: prefsGpsEnabledKey)
 
     requestPermissionsIfNeeded()
+
+    if !gpsEnabled {
+      // Stop older monitored regions created by us to avoid duplicates.
+      for region in locationManager.monitoredRegions {
+        if region.identifier.hasPrefix("wowcare_geofence_") {
+          locationManager.stopMonitoring(for: region)
+        }
+      }
+      result(true)
+      return
+    }
+
     startMonitoringRegion(
       identifier: "wowcare_geofence_\(schoolCode)",
       latitude: latitude,
@@ -74,7 +89,14 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
   }
 
   private func requestPermissionsIfNeeded() {
-    if CLLocationManager.authorizationStatus() == .notDetermined {
+    // Use instance property (iOS 14+); class method is deprecated.
+    let status: CLAuthorizationStatus
+    if #available(iOS 14.0, *) {
+      status = locationManager.authorizationStatus
+    } else {
+      status = CLLocationManager.authorizationStatus()
+    }
+    if status == .notDetermined {
       locationManager.requestAlwaysAuthorization()
     }
 
@@ -122,6 +144,8 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
 
   private func handleRegionEvent(isInside: Bool, shouldNotify: Bool = true) {
     let defaults = UserDefaults.standard
+    let gpsEnabled = defaults.object(forKey: prefsGpsEnabledKey) as? Bool ?? true
+    if !gpsEnabled { return }
     let lastInside = defaults.bool(forKey: prefsLastInsideKey)
     if lastInside == isInside {
       // De-dup.
@@ -155,4 +179,3 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
   }
 }
-

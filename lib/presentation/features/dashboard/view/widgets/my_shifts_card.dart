@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Height of one hour-row in the shift calendar grid.
@@ -113,6 +115,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
     return BlocBuilder<MyShiftsCubit, MyShiftsState>(
       buildWhen: (p, c) =>
           p.status != c.status ||
+          p.staffCode != c.staffCode ||
           p.staffName != c.staffName ||
           p.designation != c.designation ||
           p.classroomLabel != c.classroomLabel ||
@@ -152,7 +155,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                 DashboardCardHeader(
                   title: 'My Shifts',
                   showRedirect: true,
-                  onRedirect: () {},
+                  onRedirect: () => context.go(StaffSchedulingScreen.routeName),
                   minimized: _minimized,
                   onToggle: () => setState(() => _minimized = !_minimized),
                 ),
@@ -170,41 +173,14 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                             // Staff profile row.
                             Row(
                               children: [
-                                Stack(
-                                  children: [
-                                    DocumentImageWidget(
-                                      fileUuid: '',
-                                      name: staffName,
-                                      size: 80,
-                                      fontSize: 28,
-                                      disableProfileLookupFallback: true,
-                                      disableAttendanceStatusLookup: true,
-                                    ),
-                                    // Signed-in status indicator.
-                                    Positioned(
-                                      top: 3,
-                                      right: 3,
-                                      child: Container(
-                                        width: 16,
-                                        height: 16,
-                                        decoration: BoxDecoration(
-                                          color: const Color.fromRGBO(
-                                            0,
-                                            177,
-                                            21,
-                                            1,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            100,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                DocumentImageWidget(
+                                  fileUuid: '',
+                                  staffCode: state.staffCode.isNotEmpty
+                                      ? state.staffCode
+                                      : null,
+                                  name: staffName,
+                                  size: 80,
+                                  fontSize: 28,
                                 ),
                                 const SizedBox(width: 24),
                                 Expanded(

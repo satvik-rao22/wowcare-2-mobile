@@ -9,6 +9,8 @@ enum GeofenceCubitStatus {
   checking,
   withinRange,
   outsideRange,
+  /// Admin disabled GPS sign-in via attendance settings.
+  gpsDisabledByAdmin,
   error,
 }
 
@@ -17,21 +19,35 @@ class GeofenceState extends Equatable {
     required this.status,
     this.schoolCode = '',
     this.errorMessage = '',
-    this.lastCheckedDistance,
+    this.distanceMeters,
+    this.radiusMeters,
+    this.gpsSignInEnabled = true,
   });
 
   const GeofenceState.initial()
       : status = GeofenceCubitStatus.initial,
         schoolCode = '',
         errorMessage = '',
-        lastCheckedDistance = null;
+        distanceMeters = null,
+        radiusMeters = null,
+        gpsSignInEnabled = true;
 
   final GeofenceCubitStatus status;
   final String schoolCode;
   final String errorMessage;
-  final double? lastCheckedDistance;
 
-  bool get isWithinGeofence => status == GeofenceCubitStatus.withinRange;
+  /// Live distance to school centre in metres (updated on each GPS fix).
+  final double? distanceMeters;
+
+  /// Geofence radius fetched from attendance-settings API.
+  final double? radiusMeters;
+
+  /// Mirrors [GeofenceConfig.gpsSignInEnabled] — false when admin turned off GPS attendance.
+  final bool gpsSignInEnabled;
+
+  /// True only when within range AND admin has GPS sign-in enabled.
+  bool get isWithinGeofence =>
+      status == GeofenceCubitStatus.withinRange && gpsSignInEnabled;
 
   bool get isLocationEnabled =>
       status == GeofenceCubitStatus.withinRange ||
@@ -42,16 +58,26 @@ class GeofenceState extends Equatable {
     GeofenceCubitStatus? status,
     String? schoolCode,
     String? errorMessage,
-    double? lastCheckedDistance,
+    double? distanceMeters,
+    double? radiusMeters,
+    bool? gpsSignInEnabled,
   }) =>
       GeofenceState(
         status: status ?? this.status,
         schoolCode: schoolCode ?? this.schoolCode,
         errorMessage: errorMessage ?? this.errorMessage,
-        lastCheckedDistance: lastCheckedDistance ?? this.lastCheckedDistance,
+        distanceMeters: distanceMeters ?? this.distanceMeters,
+        radiusMeters: radiusMeters ?? this.radiusMeters,
+        gpsSignInEnabled: gpsSignInEnabled ?? this.gpsSignInEnabled,
       );
 
   @override
-  List<Object?> get props =>
-      [status, schoolCode, errorMessage, lastCheckedDistance];
+  List<Object?> get props => [
+        status,
+        schoolCode,
+        errorMessage,
+        distanceMeters,
+        radiusMeters,
+        gpsSignInEnabled,
+      ];
 }

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -148,8 +150,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       _selectedChildCode = nextChildCode;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        context.read<MyChildsDayCubit>().loadForChild(
-          studentCode: nextChildCode,
+        unawaited(
+          context.read<MyChildsDayCubit>().loadForChild(
+            studentCode: nextChildCode,
+          ),
         );
       });
     }
@@ -278,166 +282,180 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // ----- Student detail row -----
 
-  Widget _buildStudentDetailContainer({
-    required String studentName,
-    required String classroomName,
-    required String dayOfWeek,
-    required String todayScheduleRange,
-    required String schoolTimeZone,
-    required DateTime? schoolNow,
-    required String studentStatus,
-  }) {
-    final statusColor = studentStatus == 'Upcoming'
-        ? const Color.fromARGB(255, 253, 205, 22)
-        : studentStatus == 'Active'
-        ? const Color.fromRGBO(0, 177, 21, 1)
-        : null;
-    final scheduleLabel = todayScheduleRange.trim().isNotEmpty
-        ? todayScheduleRange.trim()
-        : 'No schedule';
+  // Widget _buildStudentDetailContainer({
+  //   required String studentName,
+  //   required String classroomName,
+  //   required String dayOfWeek,
+  //   required String todayScheduleRange,
+  //   required String schoolTimeZone,
+  //   required DateTime? schoolNow,
+  //   required String studentStatus,
+  // }) {
+  //   final statusColor = studentStatus == 'Upcoming'
+  //       ? const Color.fromARGB(255, 253, 205, 22)
+  //       : studentStatus == 'Active'
+  //       ? const Color.fromRGBO(0, 177, 21, 1)
+  //       : null;
+  //   final scheduleLabel = todayScheduleRange.trim().isNotEmpty
+  //       ? todayScheduleRange.trim()
+  //       : 'No schedule';
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // LEFT: profile photo with status dot
-        Stack(
-          children: [
-            DocumentImageWidget(
-              fileUuid: '',
-              name: studentName,
-              size: 90,
-              fontSize: 28,
-              disableProfileLookupFallback: true,
-              disableAttendanceStatusLookup: true,
-            ),
-            if (statusColor != null)
-              Positioned(
-                right: 4,
-                top: 4,
-                child: Container(
-                  constraints: const BoxConstraints(
-                    minWidth: 18,
-                    minHeight: 18,
-                  ),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white, width: 2),
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(width: 20),
-        // RIGHT: name, hours chip, room
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                studentName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              // School hours chip
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color.fromRGBO(177, 175, 233, 0.3),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  scheduleLabel.replaceAll(' - ', ' – '),
-                  style: const TextStyle(
-                    color: AppColors.secondaryColor,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (schoolTimeZone.trim().isNotEmpty && schoolNow != null)
-                Text(
-                  'School Day: ${_formatDayOfWeek(dayOfWeek)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.primaryColor.withValues(alpha: 0.65),
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
-                  ),
-                ),
-              const SizedBox(height: 8),
-              // Room row
-              Row(
-                children: [
-                  // Room avatar (non-person image → Container + icon)
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      classroomName.trim().isNotEmpty
-                          ? classroomName.trim()
-                          : '-',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  //   return Row(
+  //     mainAxisAlignment: MainAxisAlignment.center,
+  //     children: [
+  //       // LEFT: profile photo with status dot
+  //       Stack(
+  //         children: [
+  //           DocumentImageWidget(
+  //             fileUuid: '',
+  //             name: studentName,
+  //             size: 90,
+  //             fontSize: 28,
+  //             disableProfileLookupFallback: true,
+  //             disableAttendanceStatusLookup: true,
+  //           ),
+  //           if (statusColor != null)
+  //             Positioned(
+  //               right: 4,
+  //               top: 4,
+  //               child: Container(
+  //                 constraints: const BoxConstraints(
+  //                   minWidth: 18,
+  //                   minHeight: 18,
+  //                 ),
+  //                 decoration: BoxDecoration(
+  //                   color: statusColor,
+  //                   borderRadius: BorderRadius.circular(8),
+  //                   border: Border.all(color: Colors.white, width: 2),
+  //                 ),
+  //               ),
+  //             ),
+  //         ],
+  //       ),
+  //       const SizedBox(width: 20),
+  //       // RIGHT: name, hours chip, room
+  //       Expanded(
+  //         child: Column(
+  //           crossAxisAlignment: CrossAxisAlignment.start,
+  //           children: [
+  //             Text(
+  //               studentName,
+  //               maxLines: 1,
+  //               overflow: TextOverflow.ellipsis,
+  //               style: const TextStyle(
+  //                 color: AppColors.primaryColor,
+  //                 fontSize: 18,
+  //                 fontWeight: FontWeight.w600,
+  //               ),
+  //             ),
+  //             const SizedBox(height: 4),
+  //             // School hours chip
+  //             Container(
+  //               padding: const EdgeInsets.symmetric(
+  //                 horizontal: 10,
+  //                 vertical: 4,
+  //               ),
+  //               decoration: BoxDecoration(
+  //                 color: const Color.fromRGBO(177, 175, 233, 0.3),
+  //                 borderRadius: BorderRadius.circular(20),
+  //               ),
+  //               child: Text(
+  //                 scheduleLabel.replaceAll(' - ', ' – '),
+  //                 style: const TextStyle(
+  //                   color: AppColors.secondaryColor,
+  //                   fontWeight: FontWeight.w500,
+  //                   fontSize: 12,
+  //                 ),
+  //               ),
+  //             ),
+  //             const SizedBox(height: 8),
+  //             if (schoolTimeZone.trim().isNotEmpty && schoolNow != null)
+  //               Text(
+  //                 'School Day: ${_formatDayOfWeek(dayOfWeek)}',
+  //                 maxLines: 1,
+  //                 overflow: TextOverflow.ellipsis,
+  //                 style: TextStyle(
+  //                   color: AppColors.primaryColor.withValues(alpha: 0.65),
+  //                   fontWeight: FontWeight.w500,
+  //                   fontSize: 12,
+  //                 ),
+  //               ),
+  //             const SizedBox(height: 8),
+  //             // Room row
+  //             Row(
+  //               children: [
+  //                 // Room avatar (non-person image → Container + icon)
+  //                 const SizedBox(width: 8),
+  //                 Expanded(
+  //                   child: Text(
+  //                     classroomName.trim().isNotEmpty
+  //                         ? classroomName.trim()
+  //                         : '-',
+  //                     maxLines: 1,
+  //                     overflow: TextOverflow.ellipsis,
+  //                     style: const TextStyle(
+  //                       color: AppColors.primaryColor,
+  //                       fontWeight: FontWeight.w500,
+  //                     ),
+  //                   ),
+  //                 ),
+  //               ],
+  //             ),
+  //           ],
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   // ----- Sign-In/Out gradient button -----
 
   Widget _buildSignInOutButton({required GeofenceState geofenceState}) {
-    final bool isWithin = geofenceState.isWithinGeofence;
-    final bool isEnabled = geofenceState.isLocationEnabled;
-    final bool enabled = isWithin && isEnabled;
-
-    AppLogger.d('[SignInButton] ═══════════════════════════════════════');
-    AppLogger.d('[SignInButton] Status: ${geofenceState.status}');
-    AppLogger.d(
-      '[SignInButton] isWithinGeofence (${geofenceState.status} == withinRange): $isWithin',
-    );
-    AppLogger.d(
-      '[SignInButton] isLocationEnabled (check against denied/disabled/initial/error): $isEnabled',
-    );
-    AppLogger.d(
-      '[SignInButton] Final enabled state ($isWithin && $isEnabled): $enabled',
-    );
-    AppLogger.d(
-      '[SignInButton] Button will be: ${enabled ? "🟦 ENABLED (BLUE)" : "⬜ DISABLED (GREY)"}',
-    );
-    AppLogger.d('[SignInButton] ═══════════════════════════════════════');
+    final bool enabled =
+        geofenceState.status == GeofenceCubitStatus.withinRange;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: CustomButtonLayout(
         isForm: false,
         showCancelButton: false,
-        confirmButtonLabel: 'Sign-In/Out',
+        confirmButtonLabel: 'GPS Sign-In / Out',
+        confirmButtonChild: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(
+              Icons.location_on_outlined,
+              size: 18,
+              color: AppColors.billingBackgroundColor,
+            ),
+            SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                'GPS Sign-In / Out',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.billingBackgroundColor,
+                ),
+              ),
+            ),
+          ],
+        ),
         onPressedConfirm: enabled
-            ? () {
-                context.go('/dashboard/student-selection-sign-in-form');
-              }
+            ? () => context.go('/dashboard/student-selection-sign-in-form')
             : null,
+        disabledConfirmTooltip: 'You are not within  geofencing Range',
+        onDisabledConfirmTap: () {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            isWarning: true,
+
+            message: 'You are not within geofencing Range',
+            context: context,
+          );
+        },
       ),
     );
   }
@@ -652,50 +670,64 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                   _didLoadCommunication = true;
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     if (!mounted) return;
-                    context.read<CommunicationCubit>().loadConversations();
+                    // fire-and-forget: errors are handled inside the cubit
+                    unawaited(
+                      context.read<CommunicationCubit>().loadConversations(),
+                    );
                   });
                 }
 
-                return BlocListener<MyChildsDayCubit, MyChildsDayState>(
-                  listenWhen: (prev, curr) =>
-                      prev.status != curr.status ||
-                      prev.studentCode != curr.studentCode ||
-                      prev.todayScheduleRange != curr.todayScheduleRange ||
-                      prev.schoolTimeZone != curr.schoolTimeZone ||
-                      prev.schoolCode != curr.schoolCode,
-                  listener: (context, state) {
-                    AppLogger.d(
-                      '[MyChildsDayCard] MyChildsDayState changed: status=${state.status}, schoolCode=${state.schoolCode}',
-                    );
-                    if (state.status == MyChildsDayStatus.loaded &&
-                        state.schoolTimeZone.trim().isNotEmpty) {
-                      AppLogger.d(
-                        '[MyChildsDayCard] Dashboard loaded, triggering geofence init',
-                      );
-                      _startCountdownTimer(
-                        schoolTimeZone: state.schoolTimeZone,
-                        todayScheduleRange: state.todayScheduleRange,
-                      );
-                      // Trigger geofence monitoring when school code is available
-                      if (state.schoolCode.isNotEmpty) {
+                return MultiBlocListener(
+                  listeners: [
+                    // ── MyChildsDay state changes ──────────────────────
+                    BlocListener<MyChildsDayCubit, MyChildsDayState>(
+                      listenWhen: (prev, curr) =>
+                          prev.status != curr.status ||
+                          prev.studentCode != curr.studentCode ||
+                          prev.todayScheduleRange != curr.todayScheduleRange ||
+                          prev.schoolTimeZone != curr.schoolTimeZone ||
+                          prev.schoolCode != curr.schoolCode,
+                      listener: (context, s) {
                         AppLogger.d(
-                          '[MyChildsDayCard] Calling GeofenceCubit.initForSchool with schoolCode: ${state.schoolCode}',
+                          '[MyChildsDayCard] status=${s.status}, schoolCode=${s.schoolCode}',
                         );
-                        context.read<GeofenceCubit>().initForSchool(
-                          schoolCode: state.schoolCode,
+                        if (s.status == MyChildsDayStatus.loaded &&
+                            s.schoolTimeZone.trim().isNotEmpty) {
+                          _startCountdownTimer(
+                            schoolTimeZone: s.schoolTimeZone,
+                            todayScheduleRange: s.todayScheduleRange,
+                          );
+                          if (s.schoolCode.isNotEmpty) {
+                            unawaited(
+                              context.read<GeofenceCubit>().initForSchool(
+                                schoolCode: s.schoolCode,
+                              ),
+                            );
+                          }
+                        } else {
+                          _stopCountdownTimer();
+                          _statusText.value = 'Loading schedule...';
+                          _duration.value = Duration.zero;
+                        }
+                      },
+                    ),
+                    // ── Show popup the moment the user enters the zone ──
+                    BlocListener<GeofenceCubit, GeofenceState>(
+                      listenWhen: (prev, curr) =>
+                          prev.status != GeofenceCubitStatus.withinRange &&
+                          curr.status == GeofenceCubitStatus.withinRange,
+                      listener: (context, _) {
+                        unawaited(
+                          GeofenceSignInSheet.show(
+                            context,
+                            role: 'parent',
+                            isSignedIn: false,
+                            studentName: selectedChild?.name,
+                          ),
                         );
-                      } else {
-                        AppLogger.d(
-                          '[MyChildsDayCard] WARNING: schoolCode is empty!',
-                        );
-                      }
-                    } else {
-                      AppLogger.d('[MyChildsDayCard] Dashboard not loaded yet');
-                      _stopCountdownTimer();
-                      _statusText.value = 'Loading schedule...';
-                      _duration.value = Duration.zero;
-                    }
-                  },
+                      },
+                    ),
+                  ],
                   child: BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
                     buildWhen: (prev, curr) =>
                         prev.status != curr.status ||
@@ -725,8 +757,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                           ),
                           if (!_isMinimized) ...[
                             const SizedBox(height: 12),
-                            if ((state.isLoading &&
-                                    state.children.isEmpty) ||
+                            if ((state.isLoading && state.children.isEmpty) ||
                                 isLoading)
                               const Padding(
                                 padding: EdgeInsets.symmetric(vertical: 16),
@@ -784,30 +815,30 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                               const SizedBox(height: 16),
                               _buildReminderRow(),
                               const SizedBox(height: 20),
-                              _buildStudentDetailContainer(
-                                studentName: isLoaded
-                                    ? myChildsDayState.fullName
-                                    : selectedChild.name,
-                                classroomName: isLoaded
-                                    ? myChildsDayState.classroomName
-                                    : (selectedChild.primaryClassroomName ??
-                                              selectedChild.classroom)
-                                          .trim(),
-                                dayOfWeek: isLoaded
-                                    ? myChildsDayState.todayDayOfWeek
-                                    : '',
-                                todayScheduleRange: isLoaded
-                                    ? myChildsDayState.todayScheduleRange
-                                    : '',
-                                schoolTimeZone: isLoaded
-                                    ? myChildsDayState.schoolTimeZone
-                                    : '',
-                                schoolNow: isLoaded
-                                    ? myChildsDayState.schoolNow
-                                    : null,
-                                studentStatus: selectedChild.status,
-                              ),
-                              const SizedBox(height: 16),
+                              // _buildStudentDetailContainer(
+                              //   studentName: isLoaded
+                              //       ? myChildsDayState.fullName
+                              //       : selectedChild.name,
+                              //   classroomName: isLoaded
+                              //       ? myChildsDayState.classroomName
+                              //       : (selectedChild.primaryClassroomName ??
+                              //                 selectedChild.classroom)
+                              //             .trim(),
+                              //   dayOfWeek: isLoaded
+                              //       ? myChildsDayState.todayDayOfWeek
+                              //       : '',
+                              //   todayScheduleRange: isLoaded
+                              //       ? myChildsDayState.todayScheduleRange
+                              //       : '',
+                              //   schoolTimeZone: isLoaded
+                              //       ? myChildsDayState.schoolTimeZone
+                              //       : '',
+                              //   schoolNow: isLoaded
+                              //       ? myChildsDayState.schoolNow
+                              //       : null,
+                              //   studentStatus: selectedChild.status,
+                              // ),
+                              // const SizedBox(height: 16),
                               _buildSignInPinRow(selectedChild: selectedChild),
                               const SizedBox(height: 16),
                               BlocBuilder<GeofenceCubit, GeofenceState>(

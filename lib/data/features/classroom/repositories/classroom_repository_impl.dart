@@ -303,11 +303,13 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   Future<Map<String, ClassroomAttendanceSummaryEntry>>
   getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   }) async {
     if (classroomCodes.isEmpty) return <String, ClassroomAttendanceSummaryEntry>{};
 
     final raw = await _remoteDataSource.getStudentAttendanceSummaryByClassrooms(
       classroomCodes: classroomCodes,
+      date: date,
     );
 
     return raw.map(
@@ -324,11 +326,13 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   Future<Map<String, ClassroomAttendanceSummaryEntry>>
   getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   }) async {
     if (classroomCodes.isEmpty) return <String, ClassroomAttendanceSummaryEntry>{};
 
     final raw = await _remoteDataSource.getStaffAttendanceSummaryByClassrooms(
       classroomCodes: classroomCodes,
+      date: date,
     );
 
     return raw.map(

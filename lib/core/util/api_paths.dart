@@ -569,6 +569,12 @@ class ApiPaths {
   static String qrCodeValidate(String schoolCode) =>
       '/api/v1/schools/$schoolCode/attendance-settings/qr-code/validate';
 
+  /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings
+  /// Single source of truth for GPS sign-in toggle, geofence radius, and
+  /// auto sign-out settings.
+  static String attendanceSettings(String schoolCode) =>
+      '/api/v1/attendance/schools/$schoolCode/attendance-settings';
+
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
   static const String classroomAll = '/api/v1/classroom/all';

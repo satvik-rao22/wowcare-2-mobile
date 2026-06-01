@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -70,8 +72,7 @@ List<_GroupedMovement> _buildGroupedRows(
   void addBucket(List<IndividualMovement> movements, String label) {
     for (final m in movements) {
       final dateKey = _dateKey(m.movementDate);
-      final key =
-          '$dateKey|${m.fromClassroomCode}|${m.toClassroomCode}|$label';
+      final key = '$dateKey|${m.fromClassroomCode}|${m.toClassroomCode}|$label';
       final existing = map[key];
       if (existing != null) {
         existing.students.add(_studentFrom(m));
@@ -111,13 +112,13 @@ List<_GroupedMovement> _buildGroupedRows(
 }
 
 _MovementStudent _studentFrom(IndividualMovement m) => _MovementStudent(
-      id: m.id,
-      name: m.studentName,
-      avatarInitials: m.studentAvatarInitials,
-      profilePhotoAssetCode: (m.profilePhotoAssetCode?.trim().isEmpty ?? true)
-          ? null
-          : m.profilePhotoAssetCode,
-    );
+  id: m.id,
+  name: m.studentName,
+  avatarInitials: m.studentAvatarInitials,
+  profilePhotoAssetCode: (m.profilePhotoAssetCode?.trim().isEmpty ?? true)
+      ? null
+      : m.profilePhotoAssetCode,
+);
 
 String _dateKey(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}'
@@ -126,8 +127,18 @@ String _dateKey(DateTime d) =>
 
 String _monthAbbr(int month) {
   const abbrs = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return abbrs[(month - 1).clamp(0, 11)];
 }
@@ -181,43 +192,47 @@ class _MovementsCardState extends State<MovementsCard> {
   // ── Students dialog ────────────────────────────────────────────────────────
 
   void _showStudentsDialog(
-      BuildContext context, List<_MovementStudent> students) {
-    unawaited(showDialog(
-      context: context,
-      builder: (BuildContext ctx) {
-        return AlertDialog(
-          title: const Text('Students'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: students.length,
-              itemBuilder: (_, index) {
-                final s = students[index];
-                return ListTile(
-                  leading: DocumentImageWidget(
-                    fileUuid: '',
-                    mediaAssetCode: s.profilePhotoAssetCode,
-                    name: s.name.isEmpty ? s.avatarInitials : s.name,
-                    size: 40,
-                    fontSize: 16,
-                    disableProfileLookupFallback: true,
-                    disableAttendanceStatusLookup: true,
-                  ),
-                  title: Text(s.name),
-                );
-              },
+    BuildContext context,
+    List<_MovementStudent> students,
+  ) {
+    unawaited(
+      showDialog(
+        context: context,
+        builder: (BuildContext ctx) {
+          return AlertDialog(
+            title: const Text('Students'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView.builder(
+                shrinkWrap: true,
+                itemCount: students.length,
+                itemBuilder: (_, index) {
+                  final s = students[index];
+                  return ListTile(
+                    leading: DocumentImageWidget(
+                      fileUuid: '',
+                      mediaAssetCode: s.profilePhotoAssetCode,
+                      name: s.name.isEmpty ? s.avatarInitials : s.name,
+                      size: 40,
+                      fontSize: 16,
+                      disableProfileLookupFallback: true,
+                      disableAttendanceStatusLookup: true,
+                    ),
+                    title: Text(s.name),
+                  );
+                },
+              ),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Close'),
-            ),
-          ],
-        );
-      },
-    ));
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('Close'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
   }
 
   // ── Student avatar stack (max 5, overflow indicator) ──────────────────────
@@ -247,8 +262,7 @@ class _MovementsCardState extends State<MovementsCard> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: Colors.grey.shade400,
-                            border:
-                                Border.all(color: Colors.white, width: 2),
+                            border: Border.all(color: Colors.white, width: 2),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -266,8 +280,7 @@ class _MovementsCardState extends State<MovementsCard> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border:
-                                Border.all(color: Colors.white, width: 2),
+                            border: Border.all(color: Colors.white, width: 2),
                           ),
                           child: DocumentImageWidget(
                             fileUuid: '',
@@ -443,7 +456,7 @@ class _MovementsCardState extends State<MovementsCard> {
           DashboardCardHeader(
             title: 'Movements',
             showRedirect: true,
-            onRedirect: () {},
+            onRedirect: () => context.go(IndividualMovementScreen.routeName),
             minimized: _minimized,
             onToggle: () => setState(() => _minimized = !_minimized),
           ),

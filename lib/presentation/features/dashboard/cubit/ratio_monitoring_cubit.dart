@@ -106,6 +106,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
     required String schoolCode,
     bool forceRefresh = false,
     bool isSilent = false,
+    DateTime? date,
   }) async {
     final code = schoolCode.trim();
     if (code.isEmpty) {
@@ -194,8 +195,14 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
       final codes = classrooms.map((c) => c.code).toList();
 
       final results = await Future.wait([
-        _getStudentAttendanceSummaryByClassroomsUseCase(classroomCodes: codes),
-        _getStaffAttendanceSummaryByClassroomsUseCase(classroomCodes: codes),
+        _getStudentAttendanceSummaryByClassroomsUseCase(
+          classroomCodes: codes,
+          date: date,
+        ),
+        _getStaffAttendanceSummaryByClassroomsUseCase(
+          classroomCodes: codes,
+          date: date,
+        ),
       ]);
 
       final studentMap = results[0];

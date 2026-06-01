@@ -1,13 +1,14 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/dashboard/viewmodels/admin_dashboard_viewmodel.dart';
 
 part 'admin_dashboard_state.dart';
 
-/// Owns the admin dashboard card list and drag-and-drop reorder logic.
-///
-/// Replaces [AdminDashboardViewModel] (ChangeNotifier) with a proper Cubit so
-/// the dashboard strictly follows Cubit / BLoC + Clean Architecture.
+/// Owns the admin dashboard card list, drag-and-drop reorder logic, and the
+/// logged-in user's display name shown in the welcome header.
 class AdminDashboardCubit extends Cubit<AdminDashboardState> {
   AdminDashboardCubit()
       : super(
@@ -16,10 +17,17 @@ class AdminDashboardCubit extends Cubit<AdminDashboardState> {
           ),
         );
 
+  /// Reads the logged-in user's display name from local storage and emits it
+  /// so the welcome header shows the correct name immediately.
+  Future<void> loadUserName() async {
+    final storage = serviceLocator<StorageService>();
+    final name = (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    if (!isClosed) {
+      emit(state.copyWith(userName: name.isNotEmpty ? name : null));
+    }
+  }
+
   /// Moves the card at [oldIndex] to [newIndex].
-  ///
-  /// Accepts raw indices from [SliverReorderableList] and applies the standard
-  /// downward-move adjustment before mutating the list.
   void reorderCard(int oldIndex, int newIndex) {
     var target = newIndex;
     if (target > oldIndex) target -= 1;

@@ -65,6 +65,7 @@ class StudentSignOutForm extends StatefulWidget {
     required this.students,
     this.refreshCallback,
     this.popOnSuccess = false,
+    this.isQrScan = false,
     super.key,
   });
 
@@ -74,6 +75,10 @@ class StudentSignOutForm extends StatefulWidget {
   // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
   // outside the Attendance tab (e.g. the Classroom Students card).
   final bool popOnSuccess;
+
+  /// True when triggered from a QR code scan.
+  /// Sets method=QR and withinGeofence=true in the API payload.
+  final bool isQrScan;
 
   static const String routeName = '/student-sign-out-form';
 
@@ -304,7 +309,17 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     } catch (_) {
       geofenceState = null;
     }
-    final bool withinGeofence = geofenceState?.isWithinGeofence ?? false;
+    // QR and GPS sign-outs are physical-presence methods — withinGeofence is
+    // always true. APP (staff/admin manual) derives it from the geofence state.
+    final String signOutMethod;
+    final bool withinGeofence;
+    if (isParent) {
+      signOutMethod = widget.isQrScan ? 'QR' : 'GPS';
+      withinGeofence = true; // physical presence proven by QR scan or GPS
+    } else {
+      signOutMethod = 'APP';
+      withinGeofence = geofenceState?.isWithinGeofence ?? false;
+    }
 
     Position? position;
     try {
@@ -322,11 +337,10 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
     final payload = <String, dynamic>{
       'studentCodes': studentCodes,
-      'method': isParent ? 'GPS' : 'APP',
+      'method': signOutMethod,
       'latitude': position?.latitude ?? 0,
       'longitude': position?.longitude ?? 0,
       'withinGeofence': withinGeofence,
-      'isGeofence': true,
       'timeZone': schoolTimeZone,
     };
     if (isParent) {

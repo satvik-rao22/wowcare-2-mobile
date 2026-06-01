@@ -51,6 +51,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     _dashboardCubit = serviceLocator<AdminDashboardCubit>();
+    // ignore: discarded_futures
+    _dashboardCubit.loadUserName();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
     _schoolStatusCubit = serviceLocator<SchoolStatusCubit>();
     _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
@@ -106,8 +108,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void dispose() {
     // ignore: discarded_futures
     _dashboardCubit.close();
-    // ignore: discarded_futures
-    _geofenceCubit.close();
+    // GeofenceCubit is a singleton — do NOT close it here; it must survive navigation.
     // ignore: discarded_futures
     _schoolStatusCubit.close();
     // ignore: discarded_futures
@@ -148,8 +149,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           value: _movementsCubit,
           child: const MovementsCard(),
         );
-      case AdminDashboardCard.billing:
-        return const BillingCard();
+      // case AdminDashboardCard.billing:
+      //   return const BillingCard();
     }
   }
 
@@ -197,8 +198,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
             return CustomRefreshIndicator(
               onRefresh: () async {
                 final storage = serviceLocator<StorageService>();
-                final schoolCode =
-                    await storage.getString(StorageKeys.schoolCode);
+                final schoolCode = await storage.getString(
+                  StorageKeys.schoolCode,
+                );
                 if (schoolCode != null && schoolCode.isNotEmpty) {
                   await Future.wait([
                     _schoolStatusCubit.loadSchoolStatus(
@@ -211,7 +213,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     ),
                     _movementsCubit.refresh(),
                     _availabilityCubit.refresh(
-                      date: _availabilityCubit.state.selectedDate ??
+                      date:
+                          _availabilityCubit.state.selectedDate ??
                           DateTime.now(),
                       isTwoShifts: true,
                     ),
@@ -227,21 +230,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   return Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(maxWidth: _maxContentWidth),
+                      constraints: const BoxConstraints(
+                        maxWidth: _maxContentWidth,
+                      ),
                       child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
+                            padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
                             sliver: SliverToBoxAdapter(
                               child: _buildHeader(dashState.userName),
                             ),
                           ),
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
                             sliver: SliverReorderableList(
                               itemCount: dashState.cards.length,
                               onReorder: context
@@ -253,8 +255,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                   key: ValueKey(card),
                                   index: index,
                                   child: Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 16),
+                                    padding: const EdgeInsets.only(bottom: 16),
                                     child: Material(
                                       type: MaterialType.transparency,
                                       child: _cardFor(card),

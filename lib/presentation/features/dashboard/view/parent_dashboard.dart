@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
+// import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_billing_card.dart';
@@ -45,6 +47,16 @@ class _ParentDashboardState extends State<ParentDashboard> {
     _communicationCubit = serviceLocator<CommunicationCubit>();
     _studentNewslettersCubit = serviceLocator<StudentNewslettersCubit>();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
+    // ignore: discarded_futures
+    _initGeofence();
+  }
+
+  Future<void> _initGeofence() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = await storage.getString(StorageKeys.schoolCode);
+    if (schoolCode != null && schoolCode.isNotEmpty) {
+      _geofenceCubit.initForSchool(schoolCode: schoolCode);
+    }
   }
 
   @override
@@ -59,8 +71,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
     _communicationCubit.close();
     // ignore: discarded_futures
     _studentNewslettersCubit.close();
-    // ignore: discarded_futures
-    _geofenceCubit.close();
+    // GeofenceCubit is a singleton — do NOT close it here; it must survive navigation.
     super.dispose();
   }
 
@@ -77,18 +88,18 @@ class _ParentDashboardState extends State<ParentDashboard> {
     }
   }
 
-  Widget _buildHeader(String userName) {
-    return Material(
-      type: MaterialType.transparency,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DashboardWelcomeHeader(userName: userName, showSectionLabel: false),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
+  // Widget _buildHeader(String userName) {
+  //   return Material(
+  //     type: MaterialType.transparency,
+  //     child: Column(
+  //       crossAxisAlignment: CrossAxisAlignment.start,
+  //       children: [
+  //         DashboardWelcomeHeader(userName: userName, showSectionLabel: false),
+  //         const SizedBox(height: 16),
+  //       ],
+  //     ),
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -127,21 +138,21 @@ class _ParentDashboardState extends State<ParentDashboard> {
                   return Align(
                     alignment: Alignment.topCenter,
                     child: ConstrainedBox(
-                      constraints:
-                          const BoxConstraints(maxWidth: _maxContentWidth),
+                      constraints: const BoxConstraints(
+                        maxWidth: _maxContentWidth,
+                      ),
                       child: CustomScrollView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         slivers: [
+                          // SliverPadding(
+                          //   padding:
+                          //       EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
+                          //   sliver: SliverToBoxAdapter(
+                          //     child: _buildHeader(dashState.userName),
+                          //   ),
+                          // ),
                           SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
-                            sliver: SliverToBoxAdapter(
-                              child: _buildHeader(dashState.userName),
-                            ),
-                          ),
-                          SliverPadding(
-                            padding:
-                                EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
                             sliver: SliverReorderableList(
                               itemCount: dashState.cards.length,
                               onReorder: context
@@ -153,8 +164,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
                                   key: ValueKey(card),
                                   index: index,
                                   child: Padding(
-                                    padding:
-                                        const EdgeInsets.only(bottom: 16),
+                                    padding: const EdgeInsets.only(bottom: 16),
                                     child: Material(
                                       type: MaterialType.transparency,
                                       child: _cardFor(card),

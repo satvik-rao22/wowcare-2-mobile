@@ -87,8 +87,8 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       context.read<ClassroomCubit>().loadActiveClassrooms(
-            onlyTypeClassroom: false,
-          );
+        onlyTypeClassroom: false,
+      );
       _silentlyRefreshStaffIfDirty();
       _bootstrapSchoolZone();
     });
@@ -103,7 +103,8 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
       final cubit = context.read<SchedulingCubit>();
       final selected = cubit.state.selectedDay;
       final initialToday = _initialDeviceToday;
-      final stillOnInitialToday = initialToday != null &&
+      final stillOnInitialToday =
+          initialToday != null &&
           selected.year == initialToday.year &&
           selected.month == initialToday.month &&
           selected.day == initialToday.day;
@@ -153,7 +154,8 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
       }
     }
     if (codes.isEmpty) {
-      if (_staffSignInStatusByCode.isNotEmpty || _lastRequestedStaffCodes.isNotEmpty) {
+      if (_staffSignInStatusByCode.isNotEmpty ||
+          _lastRequestedStaffCodes.isNotEmpty) {
         if (mounted) {
           setState(() {
             _staffSignInStatusByCode = const <String, String>{};
@@ -169,8 +171,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
     }
     _lastRequestedStaffCodes = codes;
     try {
-      final map =
-          await serviceLocator<GetStaffTodaySignInStatusMapUseCase>()(
+      final map = await serviceLocator<GetStaffTodaySignInStatusMapUseCase>()(
         staffCodes: codes.toList(growable: false),
       );
       if (!mounted) return;
@@ -227,11 +228,10 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
     String classroomName,
     DateTime selectedDay,
   ) {
-    _shiftNavigator(context, selectedDay).openFromStaffEntry(
+    _shiftNavigator(
       context,
-      entry: entry,
-      classroomName: classroomName,
-    );
+      selectedDay,
+    ).openFromStaffEntry(context, entry: entry, classroomName: classroomName);
   }
 
   void _openStaffShiftFromSlot(
@@ -254,8 +254,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
     // remain available inside the pushed [MaterialPageRoute] (which would
     // otherwise lose the provider scope).
     final classroomCubit = context.read<ClassroomCubit>();
-    final schedulingStaffListCubit =
-        context.read<SchedulingStaffListCubit>();
+    final schedulingStaffListCubit = context.read<SchedulingStaffListCubit>();
     final schedulingCubit = context.read<SchedulingCubit>();
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -385,11 +384,11 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
-                        context,
-                        entry,
-                        classroomName,
-                        state.selectedDay,
-                      ),
+                            context,
+                            entry,
+                            classroomName,
+                            state.selectedDay,
+                          ),
                     )
                   else
                     _DailyClassroomListCard(
@@ -401,19 +400,19 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
-                        context,
-                        entry,
-                        classroomName,
-                        state.selectedDay,
-                      ),
+                            context,
+                            entry,
+                            classroomName,
+                            state.selectedDay,
+                          ),
                       onStaffSlotTap: (entry, detail, classroomName) =>
                           _openStaffShiftFromSlot(
-                        context,
-                        entry,
-                        detail,
-                        classroomName,
-                        state.selectedDay,
-                      ),
+                            context,
+                            entry,
+                            detail,
+                            classroomName,
+                            state.selectedDay,
+                          ),
                     ),
                 ],
               ),
@@ -504,7 +503,7 @@ class _ClassroomListCard extends StatelessWidget {
   final bool expandAll;
   final VoidCallback onToggleExpandAll;
   final void Function(StaffScheduleEntry entry, String classroomName)
-      onStaffShiftTap;
+  onStaffShiftTap;
   final Map<String, String>? staffAttendanceStatusByCode;
 
   @override
@@ -560,12 +559,13 @@ class _DailyClassroomListCard extends StatelessWidget {
   final bool expandAll;
   final VoidCallback onToggleExpandAll;
   final void Function(StaffScheduleEntry entry, String classroomName)
-      onStaffShiftTap;
+  onStaffShiftTap;
   final void Function(
     StaffScheduleEntry entry,
     StaffShiftSlotDetail detail,
     String classroomName,
-  ) onStaffSlotTap;
+  )
+  onStaffSlotTap;
   final Map<String, String>? staffAttendanceStatusByCode;
 
   @override

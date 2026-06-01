@@ -8,6 +8,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 
@@ -16,12 +17,15 @@ part 'my_shifts_state.dart';
 class MyShiftsCubit extends Cubit<MyShiftsState> {
   MyShiftsCubit({
     required GetStaffShiftsUseCase getStaffShiftsUseCase,
+    required GetRatioMonitoringClassroomsUseCase getClassroomsUseCase,
     required StorageService storageService,
   }) : _getShifts = getStaffShiftsUseCase,
+       _getClassrooms = getClassroomsUseCase,
        _storage = storageService,
        super(const MyShiftsState());
 
   final GetStaffShiftsUseCase _getShifts;
+  final GetRatioMonitoringClassroomsUseCase _getClassrooms;
   final StorageService _storage;
 
   bool _isFetching = false;
@@ -55,13 +59,30 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
       final startOfWeek = _startOfWeek(now);
       final endOfWeek = startOfWeek.add(const Duration(days: 6));
 
-      final shifts = await _getShifts(
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        dateFrom: startOfWeek,
-        dateTo: endOfWeek,
-      );
+      // ── Fetch shifts + classroom name map in parallel ────────────────────
+      final results = await Future.wait([
+        _getShifts(
+          staffCode: staffCode,
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          dateFrom: startOfWeek,
+          dateTo: endOfWeek,
+        ),
+        _getClassrooms(schoolCode: schoolCode).catchError(
+          // Non-fatal — classroom names degrade to codes if this fails.
+          (_) => <dynamic>[],
+        ),
+      ]);
+
+      final shifts = results[0] as List<StaffShift>;
+
+      // Build code → name lookup from the classroom list.
+      final classroomList = results[1] as List<dynamic>;
+      final classroomNames = <String, String>{
+        for (final c in classroomList)
+          if (c.code.toString().trim().isNotEmpty)
+            c.code.toString().trim(): c.name.toString().trim(),
+      };
 
       final today = DateTime(now.year, now.month, now.day);
       final todays = shifts
@@ -72,19 +93,22 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
 
       final displayName =
           (await _storage.getString(StorageKeys.displayName) ?? '').trim();
-      final designation =
-          (await _storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+      final designation = (await _storage.getString(StorageKeys.staffDesignation) ?? '')
+          .trim()
+          .replaceAll('_', ' ');
 
       // Pick a classroom label for the profile row:
       // 1) today's first shift classroomName/code
       // 2) any shift classroomName/code
       final classroomLabel = _classroomLabelFor(
         todays.isNotEmpty ? todays : shifts,
+        classroomNames: classroomNames,
       );
 
       emit(
         state.copyWith(
           status: shifts.isEmpty ? _Status.empty : _Status.loaded,
+          staffCode: staffCode,
           staffName: displayName,
           designation: designation,
           classroomLabel: classroomLabel,
@@ -138,12 +162,19 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     );
   }
 
-  String _classroomLabelFor(List<StaffShift> shifts) {
+  String _classroomLabelFor(
+    List<StaffShift> shifts, {
+    Map<String, String> classroomNames = const {},
+  }) {
     if (shifts.isEmpty) return '';
     final first = shifts.first;
+    final code = first.classroomCode.trim();
+    // Prefer the classroom list name, then the API-provided name, then the code.
+    final fromList = code.isNotEmpty ? (classroomNames[code] ?? '') : '';
+    if (fromList.isNotEmpty) return fromList;
     final name = first.classroomName.trim();
     if (name.isNotEmpty) return name;
-    return first.classroomCode.trim();
+    return code;
   }
 
   /// Formats a shift block time for the existing card widgets

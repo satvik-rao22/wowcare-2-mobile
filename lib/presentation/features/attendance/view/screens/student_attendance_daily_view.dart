@@ -32,7 +32,6 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
-import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
@@ -173,10 +172,17 @@ class _StudentAttendanceDailyViewScreenState
           }
         });
       } else {
-        _statusLegendFilter = widget.incomingFilter == 'Present'
-            ? 'Signed-In'
-            : widget.incomingFilter;
-        _applyLegendApiFilters(_statusLegendFilter);
+        if (normalizedStatus == 'ABSENT') {
+          // When routed in from dashboards (e.g. EnrollmentCard "Absent"),
+          // open the Absent Toggle view inside the Daily tab.
+          _showAbsentOnly = true;
+          _statusLegendFilter = 'Absent';
+        } else {
+          _statusLegendFilter = widget.incomingFilter == 'Present'
+              ? 'Signed-In'
+              : widget.incomingFilter;
+          _applyLegendApiFilters(_statusLegendFilter);
+        }
       }
     }
 

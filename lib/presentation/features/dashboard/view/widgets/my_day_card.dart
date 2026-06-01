@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -10,43 +11,22 @@ import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart'
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-// ---------------------------------------------------------------------------
-// Local mock model – kept only for the chat preview row (not yet API-backed).
-// ---------------------------------------------------------------------------
+import '../../../../../core/util/core_utils.dart';
 
-class _MockChat {
-  const _MockChat({
-    required this.senderName,
-    required this.lastMessage,
-    this.isSignedIn = true,
-    this.isAbsent = false,
-    this.profileStatus = 'Active',
-  });
-
-  final String senderName;
-  final String lastMessage;
-  final bool isSignedIn;
-  final bool isAbsent;
-  final String profileStatus;
-}
-
-const _MockChat _mockChat = _MockChat(
-  senderName: 'Michael Torres',
-  lastMessage: 'Can you cover the morning session tomorrow?',
-  isSignedIn: true,
-  isAbsent: false,
-  profileStatus: 'Active',
-);
-
-// TODO: replace with real sign-in state from attendance cubit.
+// TODO: replace _mockIsSignedIn with real sign-in state from attendance cubit.
 const bool _mockIsSignedIn = false;
 const bool _mockIsReminder = true;
-const String _mockClockInPin = '4821';
 
 // ---------------------------------------------------------------------------
 // MyDayCard
@@ -69,12 +49,22 @@ class _MyDayCardState extends State<MyDayCard> {
   // ---- collapse state ----
   bool _minimized = false;
 
+  String _clockInPin = '';
+
+  // Guards the geofence popup: shown at most once per app session per entry
+  // transition. Resets to false when the user exits the geofence, ensuring
+  // the popup appears again on the next entry (e.g. after sign-out).
+  bool _geofencePopupShownThisEntry = false;
+
   // ---- shift countdown display state ----
   String _statusText = 'Loading schedule…';
   String _workTime = '- -';
   String _breakTime = '- -';
   bool _hasShifts = false;
   Duration _duration = Duration.zero;
+
+  // Ticks every second to keep the countdown live.
+  Timer? _ticker;
 
   // ---------------------------------------------------------------------------
   // Helpers – time conversion (24h API format → 12h display / DateTime)
@@ -86,7 +76,9 @@ class _MyDayCardState extends State<MyDayCard> {
     if (parts.length < 2) return '00:00:00';
     final h = parts[0].padLeft(2, '0');
     final m = parts[1].padLeft(2, '0');
-    final s = parts.length > 2 ? parts[2].split('.').first.padLeft(2, '0') : '00';
+    final s = parts.length > 2
+        ? parts[2].split('.').first.padLeft(2, '0')
+        : '00';
     return '$h:$m:$s';
   }
 
@@ -98,8 +90,10 @@ class _MyDayCardState extends State<MyDayCard> {
     final int m = int.parse(timeParts[1]);
     final bool isPm = h >= 12;
     final String period = isPm ? 'PM' : 'AM';
-    if (h == 0) h = 12;
-    else if (h > 12) h -= 12;
+    if (h == 0)
+      h = 12;
+    else if (h > 12)
+      h -= 12;
     return '${h.toString().padLeft(2, '0')}:${m.toString().padLeft(2, '0')} $period';
   }
 
@@ -110,6 +104,86 @@ class _MyDayCardState extends State<MyDayCard> {
     // Looks like a time if it contains ':'
     if (halfDay.contains(':')) return _formatDisplay(halfDay);
     return halfDay;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadClockPin());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Seed display fields from whatever state the cubit already holds.
+    // This covers the scroll-back case: the widget rebuilds but the cubit
+    // never emits a new event, so the BlocConsumer listener never fires.
+    final cubitState = context.read<MyDayCubit>().state;
+    if (cubitState.isLoaded) {
+      _computeCountdownFromSchedule(cubitState.todaySchedule);
+      _startTicker();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  // Starts (or restarts) a 1-second ticker that re-derives the countdown
+  // every second so the display stays live without rebuilding the cubit.
+  void _startTicker() {
+    _ticker?.cancel();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      final cubitState = context.read<MyDayCubit>().state;
+      if (cubitState.isLoaded) {
+        _computeCountdownFromSchedule(cubitState.todaySchedule);
+      }
+    });
+  }
+
+  Future<void> _loadClockPin() async {
+    final storage = serviceLocator<StorageService>();
+    final pin = (await storage.getString(StorageKeys.staffPin) ?? '').trim();
+    if (!mounted) return;
+    setState(() => _clockInPin = pin);
+  }
+
+  Future<void> _openMarkAbsentForSelf() async {
+    final storage = serviceLocator<StorageService>();
+    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+        .trim();
+    if (staffCode.isEmpty) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to find your staff profile to mark absent.',
+        isWarning: true,
+      );
+      return;
+    }
+
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    final designation =
+        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StaffMarkAbsentForm(
+          staff: StaffEntity(
+            id: 0,
+            name: displayName.isNotEmpty ? displayName : '—',
+            primaryRoomId: 0,
+            designation: designation.isNotEmpty ? designation : 'Staff',
+            staffCode: staffCode,
+          ),
+        ),
+      ),
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -169,10 +243,10 @@ class _MyDayCardState extends State<MyDayCard> {
 
       if (now.isBefore(startDt)) {
         _duration = startDt.difference(now);
-        _statusText = 'School starts in';
+        _statusText = 'Your shift starts in';
       } else if (now.isBefore(endDt)) {
         _duration = endDt.difference(now);
-        _statusText = 'School ends in';
+        _statusText = 'Your shift ends in';
       } else {
         // School day ended — show the schedule but zero out the timer.
         _hasShifts = false;
@@ -266,255 +340,407 @@ class _MyDayCardState extends State<MyDayCard> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocConsumer<MyDayCubit, MyDayState>(
-      // Re-compute countdown whenever the schedule data changes.
-      listenWhen: (prev, curr) =>
-          curr.isLoaded && prev.todaySchedule != curr.todaySchedule ||
-          curr.isLoaded && prev.schoolClosed != curr.schoolClosed,
-      listener: (context, state) {
-        _computeCountdownFromSchedule(state.todaySchedule);
+    return BlocListener<GeofenceCubit, GeofenceState>(
+      listenWhen: (prev, curr) {
+        // Reset popup guard whenever the user exits the geofence so it shows
+        // again on the next entry (e.g. after signing out and re-entering).
+        if (prev.status == GeofenceCubitStatus.withinRange &&
+            curr.status == GeofenceCubitStatus.outsideRange) {
+          _geofencePopupShownThisEntry = false;
+        }
+        // Fire only on the first transition INTO withinRange per entry.
+        return prev.status != GeofenceCubitStatus.withinRange &&
+            curr.status == GeofenceCubitStatus.withinRange;
       },
-      builder: (context, state) {
-        return Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.cardBorderColor),
-            borderRadius: BorderRadius.circular(12),
-            color: AppColors.cardColor,
-          ),
-          child: Column(
-            children: [
-              // ── Header ──────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: DashboardCardHeader(
-                  title: 'My Day',
-                  minimized: _minimized,
-                  onToggle: () => setState(() => _minimized = !_minimized),
-                ),
-              ),
-
-              // ── Status text ──────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: state.isLoading
-                    ? _ShimmerLine(width: 180, height: 18)
-                    : Text(
-                        _statusText,
-                        style: const TextStyle(
-                          color: AppColors.primaryColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-              ),
-
-              // ── Expanded body ────────────────────────────────────────────
-              if (!_minimized) ...[
-                // Countdown timer / shimmer
-                if (state.isLoading)
-                  _buildShimmerBody()
-                else ...[
-                  _buildAlignedTimerDisplay(_duration),
-                  if (_hasShifts) const SizedBox(height: 12),
-
-                  // ── Reminder toggle ──────────────────────────────────────
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () {},
-                      borderRadius: BorderRadius.circular(100),
-                      splashColor:
-                          AppColors.primaryColor.withValues(alpha: 0.1),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            SvgPicture.asset(
-                                MediaRes.notificationsGradientIcon),
-                            const SizedBox(width: 8),
-                            ShaderMask(
-                              shaderCallback: (bounds) =>
-                                  AppColors.buildPrimaryGradient()
-                                      .createShader(
-                                Rect.fromLTWH(
-                                    0, 0, bounds.width, bounds.height),
-                              ),
-                              child: Text(
-                                _mockIsReminder
-                                    ? 'Turn off reminder'
-                                    : 'Send reminder',
-                                style: const TextStyle(
-                                  color: AppColors.cardColor,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // ── Work time chip ───────────────────────────────────────
-                  _CustomChip(
-                    label: 'Work Time : $_workTime',
-                    labelStyle:
-                        const TextStyle(color: AppColors.secondaryColor),
-                    color: const Color.fromRGBO(177, 175, 233, 0.3),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // ── Half-day / break time chip ───────────────────────────
-                  _CustomChip(
-                    label: 'Half Day : $_breakTime',
-                    labelStyle:
-                        const TextStyle(color: AppColors.secondaryColor),
-                    color: const Color.fromRGBO(177, 175, 233, 0.3),
-                  ),
-                  const SizedBox(height: 8),
-
-                  // ── Sign-in pin + QR scanner ─────────────────────────────
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      ShaderMask(
-                        shaderCallback: (bounds) =>
-                            AppColors.buildPrimaryGradient().createShader(
-                          Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                        ),
-                        child: Text(
-                          'Your Sign-In Pin: ${_mockClockInPin.trim().isNotEmpty ? _mockClockInPin : 'N/A'}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 17 * (-3 / 100),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      const QrScanButton(),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // ── GPS-gated attendance button ──────────────────────────
-                  BlocBuilder<GeofenceCubit, GeofenceState>(
-                    builder: (context, geofenceState) {
-                      final bool enabled = geofenceState.isWithinGeofence &&
-                          geofenceState.isLocationEnabled;
-                      return Column(
-                        children: [
-                          Padding(
-                            padding:
-                                const EdgeInsets.symmetric(horizontal: 24.0),
-                            child: CustomButtonLayout(
-                              isForm: false,
-                              showCancelButton: false,
-                              confirmButtonLabel:
-                                  _mockIsSignedIn ? 'Sign-Out' : 'Sign-In',
-                              onPressedConfirm: enabled
-                                  ? () {
-                                      if (_mockIsSignedIn) {
-                                        context.go(
-                                            '/dashboard/student-selection-sign-out-form');
-                                      } else {
-                                        context.go(
-                                            '/dashboard/student-selection-sign-in-form');
-                                      }
-                                    }
-                                  : null,
-                            ),
-                          ),
-                          if (geofenceState.status ==
-                              GeofenceCubitStatus.permissionDenied)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  top: 12, left: 24, right: 24),
-                              child: GestureDetector(
-                                onTap: () => context
-                                    .read<GeofenceCubit>()
-                                    .retryPermission(),
-                                child: Text(
-                                  'Location permission required. Tap to enable.',
-                                  style: TextStyle(
-                                    color: AppColors.primaryColor
-                                        .withValues(alpha: 0.65),
-                                    fontSize: 12,
-                                    decoration: TextDecoration.underline,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ),
-                            )
-                          else if (geofenceState.status ==
-                              GeofenceCubitStatus.locationDisabled)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  top: 12, left: 24, right: 24),
-                              child: Text(
-                                'Location services are disabled.',
-                                style: TextStyle(
-                                  color: AppColors.primaryColor
-                                      .withValues(alpha: 0.65),
-                                  fontSize: 12,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                          else if (geofenceState.status ==
-                              GeofenceCubitStatus.outsideRange)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  top: 12, left: 24, right: 24),
-                              child: Text(
-                                'You are not within the school sign-in zone.',
-                                style: TextStyle(
-                                  color: AppColors.primaryColor
-                                      .withValues(alpha: 0.65),
-                                  fontSize: 12,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            )
-                          else if (geofenceState.status ==
-                                  GeofenceCubitStatus.checkingPermission ||
-                              geofenceState.status ==
-                                  GeofenceCubitStatus.fetchingSchoolLocation)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                  top: 12, left: 24, right: 24),
-                              child: Text(
-                                'Checking location...',
-                                style: TextStyle(
-                                  color: AppColors.primaryColor
-                                      .withValues(alpha: 0.65),
-                                  fontSize: 12,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
-              ],
-
-              const SizedBox(height: 10),
-
-              // ── Latest chat preview ──────────────────────────────────────
-              const _CommunicationRowWidget(),
-            ],
+      listener: (context, _) {
+        if (_geofencePopupShownThisEntry) return;
+        _geofencePopupShownThisEntry = true;
+        unawaited(
+          GeofenceSignInSheet.show(
+            context,
+            role: 'staff',
+            isSignedIn: _mockIsSignedIn,
           ),
         );
       },
-    );
+      child: BlocConsumer<MyDayCubit, MyDayState>(
+        // Re-compute countdown whenever the schedule data changes.
+        listenWhen: (prev, curr) =>
+            curr.isLoaded && prev.todaySchedule != curr.todaySchedule ||
+            curr.isLoaded && prev.schoolClosed != curr.schoolClosed,
+        listener: (context, state) {
+          _computeCountdownFromSchedule(state.todaySchedule);
+          _startTicker();
+        },
+        builder: (context, state) {
+          return Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.cardBorderColor),
+              borderRadius: BorderRadius.circular(12),
+              color: AppColors.cardColor,
+            ),
+            child: Column(
+              children: [
+                // ── Header ──────────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: DashboardCardHeader(
+                    title: 'My Day',
+                    minimized: _minimized,
+                    onToggle: () => setState(() => _minimized = !_minimized),
+                  ),
+                ),
+
+                // ── Status text ──────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: state.isLoading
+                      ? _ShimmerLine(width: 180, height: 18)
+                      : Text(
+                          _statusText,
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                ),
+
+                // ── Expanded body ────────────────────────────────────────────
+                if (!_minimized) ...[
+                  // Countdown timer / shimmer
+                  if (state.isLoading)
+                    _buildShimmerBody()
+                  else ...[
+                    _buildAlignedTimerDisplay(_duration),
+                    if (_hasShifts) const SizedBox(height: 12),
+
+                    // ── Reminder toggle ──────────────────────────────────────
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () {},
+                        borderRadius: BorderRadius.circular(100),
+                        splashColor: AppColors.primaryColor.withValues(
+                          alpha: 0.1,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SvgPicture.asset(
+                                MediaRes.notificationsGradientIcon,
+                              ),
+                              const SizedBox(width: 8),
+                              ShaderMask(
+                                shaderCallback: (bounds) =>
+                                    AppColors.buildPrimaryGradient()
+                                        .createShader(
+                                          Rect.fromLTWH(
+                                            0,
+                                            0,
+                                            bounds.width,
+                                            bounds.height,
+                                          ),
+                                        ),
+                                child: Text(
+                                  _mockIsReminder
+                                      ? 'Turn off reminder'
+                                      : 'Send reminder',
+                                  style: const TextStyle(
+                                    color: AppColors.cardColor,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── Work time chip ───────────────────────────────────────
+                    _CustomChip(
+                      label: 'Work Time : $_workTime',
+                      labelStyle: const TextStyle(
+                        color: AppColors.secondaryColor,
+                      ),
+                      color: const Color.fromRGBO(177, 175, 233, 0.3),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── Break time chip ──────────────────────────────────────
+                    _CustomChip(
+                      label: 'Break Time : $_breakTime',
+                      labelStyle: const TextStyle(
+                        color: AppColors.secondaryColor,
+                      ),
+                      color: const Color.fromRGBO(177, 175, 233, 0.3),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── Sign-in pin + QR scanner ─────────────────────────────
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ShaderMask(
+                          shaderCallback: (bounds) =>
+                              AppColors.buildPrimaryGradient().createShader(
+                                Rect.fromLTWH(
+                                  0,
+                                  0,
+                                  bounds.width,
+                                  bounds.height,
+                                ),
+                              ),
+                          child: Text(
+                            'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : 'N/A'}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 17 * (-3 / 100),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        const QrScanButton(),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── GPS-gated attendance button ──────────────────────────
+                    BlocBuilder<GeofenceCubit, GeofenceState>(
+                      builder: (context, geofenceState) {
+                        final bool enabled =
+                            geofenceState.status ==
+                            GeofenceCubitStatus.withinRange;
+                        return Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24.0,
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: _mockIsSignedIn
+                                          ? null
+                                          : _openMarkAbsentForSelf,
+                                      icon: const Icon(
+                                        Icons.person_off_outlined,
+                                        size: 18,
+                                      ),
+                                      label: const Text(
+                                        'Mark Absent',
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppColors.themeColor,
+                                        side: const BorderSide(
+                                          color: AppColors.themeColor,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                        ),
+                                        textStyle: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: CustomButtonLayout(
+                                      isForm: false,
+                                      showCancelButton: false,
+                                      confirmButtonLabel: _mockIsSignedIn
+                                          ? 'GPS Sign-Out'
+                                          : 'GPS Sign-In',
+                                      confirmButtonChild: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Icon(
+                                            Icons.location_on_outlined,
+                                            size: 18,
+                                            color: AppColors
+                                                .billingBackgroundColor,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Flexible(
+                                            child: Text(
+                                              _mockIsSignedIn
+                                                  ? 'GPS Sign-Out'
+                                                  : 'GPS Sign-In',
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors
+                                                    .billingBackgroundColor,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      onPressedConfirm: enabled
+                                          ? () {
+                                              if (_mockIsSignedIn) {
+                                                context.go(
+                                                  '/dashboard/staff-sign-out-form',
+                                                );
+                                              } else {
+                                                context.go(
+                                                  '/dashboard/staff-sign-in-form',
+                                                );
+                                              }
+                                            }
+                                          : null,
+                                      disabledConfirmTooltip:
+                                          'You are not within  geofencing Range',
+                                      onDisabledConfirmTap: () {
+                                        CoreUtils.showTopSnackBar(
+                                          isWarning: true,
+                                          message:
+                                              'You are not within geofencing Range',
+                                          context: context,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            _buildGeofenceStatusLabel(context, geofenceState),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ],
+
+                const SizedBox(height: 10),
+
+                // ── Latest chat preview ──────────────────────────────────────
+                const _CommunicationRowWidget(),
+              ],
+            ),
+          );
+        },
+      ), // BlocConsumer<MyDayCubit>
+    ); // BlocListener<GeofenceCubit>
+  }
+
+  // ── Geofence status label ────────────────────────────────────────────────────
+
+  Widget _buildGeofenceStatusLabel(BuildContext context, GeofenceState state) {
+    const style = TextStyle(fontSize: 12, height: 1.4);
+    const pad = EdgeInsets.only(top: 10, left: 24, right: 24);
+
+    switch (state.status) {
+      case GeofenceCubitStatus.withinRange:
+        return Padding(
+          padding: pad,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF22C55E),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Inside School Radius — GPS attendance enabled',
+                style: style.copyWith(
+                  color: const Color(0xFF16A34A),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        );
+      case GeofenceCubitStatus.outsideRange:
+        return Padding(
+          padding: pad,
+          child: Text(
+            'Outside School Radius — move closer to sign in',
+            style: style.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.65),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+      case GeofenceCubitStatus.gpsDisabledByAdmin:
+        return Padding(
+          padding: pad,
+          child: Text(
+            'GPS sign-in is currently disabled by your school admin.',
+            style: style.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.65),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+      case GeofenceCubitStatus.permissionDenied:
+        return Padding(
+          padding: pad,
+          child: GestureDetector(
+            onTap: () => context.read<GeofenceCubit>().retryPermission(),
+            child: Text(
+              'Location permission required. Tap to enable.',
+              style: style.copyWith(
+                color: AppColors.primaryColor.withValues(alpha: 0.65),
+                decoration: TextDecoration.underline,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        );
+      case GeofenceCubitStatus.locationDisabled:
+        return Padding(
+          padding: pad,
+          child: Text(
+            'Location services are disabled. Please enable GPS.',
+            style: style.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.65),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+      case GeofenceCubitStatus.checkingPermission:
+      case GeofenceCubitStatus.fetchingSchoolLocation:
+      case GeofenceCubitStatus.checking:
+        return Padding(
+          padding: pad,
+          child: Text(
+            'Checking your location...',
+            style: style.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.5),
+            ),
+            textAlign: TextAlign.center,
+          ),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   // ── Shimmer body ────────────────────────────────────────────────────────────
@@ -619,14 +845,37 @@ class _ShimmerLine extends StatelessWidget {
 // ---------------------------------------------------------------------------
 // _CommunicationRowWidget
 // ---------------------------------------------------------------------------
+// Shows the logged-in user's name (from StorageService) with a "Chat Not Found"
+// placeholder until the real messaging API is integrated.
+// ---------------------------------------------------------------------------
 
-class _CommunicationRowWidget extends StatelessWidget {
+class _CommunicationRowWidget extends StatefulWidget {
   const _CommunicationRowWidget();
 
   @override
-  Widget build(BuildContext context) {
-    const chat = _mockChat;
+  State<_CommunicationRowWidget> createState() =>
+      _CommunicationRowWidgetState();
+}
 
+class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
+  String _displayName = '';
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadDisplayName());
+  }
+
+  Future<void> _loadDisplayName() async {
+    final storage = serviceLocator<StorageService>();
+    final name = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    if (!mounted) return;
+    setState(() => _displayName = name);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: const BoxDecoration(
@@ -636,39 +885,13 @@ class _CommunicationRowWidget extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Stack(
-            children: [
-              DocumentImageWidget(
-                fileUuid: '',
-                name: chat.senderName,
-                size: 50,
-                fontSize: 20,
-                disableProfileLookupFallback: true,
-                disableAttendanceStatusLookup: true,
-              ),
-              if (chat.isSignedIn ||
-                  chat.isAbsent ||
-                  chat.profileStatus == 'Upcoming')
-                Positioned(
-                  left: 35,
-                  bottom: 35,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: chat.profileStatus == 'Upcoming'
-                          ? const Color.fromARGB(255, 253, 205, 22)
-                          : chat.isSignedIn
-                              ? const Color.fromRGBO(0, 177, 21, 1)
-                              : chat.isAbsent
-                                  ? const Color.fromRGBO(200, 32, 32, 1)
-                                  : Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                    constraints:
-                        const BoxConstraints(minWidth: 15, minHeight: 15),
-                  ),
-                ),
-            ],
+          DocumentImageWidget(
+            fileUuid: '',
+            name: _displayName,
+            size: 50,
+            fontSize: 20,
+            disableProfileLookupFallback: true,
+            disableAttendanceStatusLookup: true,
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -676,7 +899,7 @@ class _CommunicationRowWidget extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  chat.senderName,
+                  _displayName.isNotEmpty ? _displayName : '—',
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
@@ -685,10 +908,10 @@ class _CommunicationRowWidget extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  chat.lastMessage,
-                  style: const TextStyle(
+                  'Chat Not Found',
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.primaryColor,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
                   ),
                 ),
               ],
@@ -725,11 +948,7 @@ class _CustomChip extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(100),
       ),
-      child: Text(
-        label,
-        style: labelStyle,
-        overflow: TextOverflow.ellipsis,
-      ),
+      child: Text(label, style: labelStyle, overflow: TextOverflow.ellipsis),
     );
   }
 }
@@ -755,8 +974,7 @@ class _ChatActionButton extends StatelessWidget {
           MediaRes.communicationIcon,
           width: 24,
           height: 24,
-          colorFilter:
-              const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
         ),
       ),
     );

@@ -26,7 +26,9 @@ import 'student_sign_out_form.dart';
 class StudentSelectionSignOutForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-out-form';
 
-  const StudentSelectionSignOutForm({super.key});
+  const StudentSelectionSignOutForm({super.key, this.isQrScan = false});
+
+  final bool isQrScan;
 
   @override
   State<StudentSelectionSignOutForm> createState() =>
@@ -314,8 +316,10 @@ class _StudentSelectionSignOutFormState
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            StudentSignOutForm(students: selectedStudents.toList()),
+        builder: (context) => StudentSignOutForm(
+          students: selectedStudents.toList(),
+          isQrScan: widget.isQrScan,
+        ),
       ),
     );
   }

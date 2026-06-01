@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -53,7 +55,8 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
           prev.attendedDays != curr.attendedDays ||
           prev.attendedHours != curr.attendedHours ||
           prev.absentDays != curr.absentDays ||
-          prev.staffName != curr.staffName,
+          prev.staffName != curr.staffName ||
+          prev.staffCode != curr.staffCode,
       builder: (context, state) {
         // Show full-card shimmer on the very first load (before any data).
         if (state.isInitial || (state.isLoading && !state.attendanceLoaded)) {
@@ -80,7 +83,17 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
                   minimized: _minimized,
                   onToggle: () => setState(() => _minimized = !_minimized),
                   showRedirect: true,
-                  onRedirect: () {},
+                  onRedirect: () => context.push(
+                    StaffAttendanceProfile.routeName,
+                    extra: {
+                      'staffCode': state.staffCode,
+                      'staffName': state.staffName,
+                      'staffId': 0,
+                      'staffPhotoUuid': null,
+                      'designationName': '',
+                      'roomName': '-',
+                    },
+                  ),
                 ),
                 const SizedBox(height: 16),
 
@@ -101,6 +114,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
                   child: _minimized
                       ? const SizedBox.shrink()
                       : _AttendanceReportColumn(
+                          staffCode: state.staffCode,
                           staffName: state.staffName,
                           attendedDays: state.attendedDays,
                           attendedHours: state.attendedHours,
@@ -193,12 +207,14 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
 /// real values instead of reading mock constants.
 class _AttendanceReportColumn extends StatelessWidget {
   const _AttendanceReportColumn({
+    required this.staffCode,
     required this.staffName,
     required this.attendedDays,
     required this.attendedHours,
     required this.absentDays,
   });
 
+  final String staffCode;
   final String staffName;
   final int attendedDays;
   final int attendedHours;
@@ -213,30 +229,12 @@ class _AttendanceReportColumn extends StatelessWidget {
         // ── Profile row ──────────────────────────────────────────────────
         Row(
           children: [
-            Stack(
-              children: [
-                DocumentImageWidget(
-                  fileUuid: '',
-                  name: displayName,
-                  size: 80,
-                  fontSize: 28,
-                  disableProfileLookupFallback: true,
-                  disableAttendanceStatusLookup: true,
-                ),
-                Positioned(
-                  top: 3,
-                  right: 3,
-                  child: Container(
-                    width: 16,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: const Color.fromRGBO(0, 177, 21, 1),
-                      borderRadius: BorderRadius.circular(100),
-                      border: Border.all(color: Colors.white, width: 2),
-                    ),
-                  ),
-                ),
-              ],
+            DocumentImageWidget(
+              fileUuid: '',
+              staffCode: staffCode.isNotEmpty ? staffCode : null,
+              name: displayName,
+              size: 80,
+              fontSize: 28,
             ),
             const SizedBox(width: 24),
             Expanded(

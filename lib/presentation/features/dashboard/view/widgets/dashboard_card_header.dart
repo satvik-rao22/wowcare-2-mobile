@@ -42,6 +42,7 @@ class DashboardCardHeader extends StatelessWidget {
             fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
+          maxLines: 1,
         ),
         if (showRedirect) ...[
           const SizedBox(width: 6),
@@ -62,10 +63,7 @@ class DashboardCardHeader extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              if (trailing != null) ...[
-                trailing!,
-                const SizedBox(width: 8),
-              ],
+              if (trailing != null) ...[trailing!, const SizedBox(width: 8)],
               DashboardCardToggle(minimized: minimized, onTap: onToggle),
             ],
           ),
