@@ -58,15 +58,15 @@ class GeofenceNotificationService {
 
   Future<void> showEnteredZoneNotification() => _show(
     id: _enteredId,
-    title: 'You are now within school sign-in range',
-    body: 'Tap to sign your child in or out.',
+    title: 'Attendance Available',
+    body: 'You are within the school premises. You can now Sign In or Sign Out.',
     isCritical: true,
   );
 
   Future<void> showExitedZoneNotification() => _show(
     id: _exitedId,
-    title: 'You left the school sign-in zone',
-    body: 'GPS sign-in is unavailable until you return.',
+    title: 'Outside School Premises',
+    body: 'Attendance actions are currently unavailable.',
     isCritical: false,
   );
 

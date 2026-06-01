@@ -24,13 +24,21 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             else -> return
         }
 
-        // Update persisted state to track last known geofence status
+        // Persist new state (de-dupe so we only act when status actually changes).
         val stateChanged = GeofencePrefs.shouldNotify(context, isInside)
         if (stateChanged) {
             GeofencePrefs.setLastInside(context, isInside)
         }
 
-        // Always emit to Flutter event stream (will trigger notification from Flutter layer)
+        // Show the notification from native layer every time.
+        // This is the ONLY path that works when the app is backgrounded or killed
+        // because the Flutter EventChannel sink is null in those cases.
+        // When the app IS foreground Flutter will also call showEnteredZoneNotification()
+        // via the EventChannel, which replaces this one (same notification ID) — no duplicate.
+        GeofenceNotifications.ensureChannel(context)
+        GeofenceNotifications.show(context, isInside)
+
+        // Relay to Flutter so the cubit updates its state and button immediately.
         GeofenceEventStreamHandler.emit(isInside)
     }
 

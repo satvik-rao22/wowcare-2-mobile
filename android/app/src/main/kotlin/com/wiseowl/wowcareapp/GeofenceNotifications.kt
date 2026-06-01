@@ -30,14 +30,14 @@ object GeofenceNotifications {
             if (isInside) {
                 Triple(
                     1001,
-                    "Attendance Enabled",
-                    "You are now within the school radius.",
+                    "Attendance Available",
+                    "You are within the school premises. You can now Sign In or Sign Out.",
                 )
             } else {
                 Triple(
                     1002,
-                    "Attendance Disabled",
-                    "You moved outside the allowed school radius.",
+                    "Outside School Premises",
+                    "Attendance actions are currently unavailable.",
                 )
             }
 
