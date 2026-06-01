@@ -13,7 +13,6 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_c
 import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
-import 'package:wowcare/shared/services/geofence_notification_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -52,6 +51,10 @@ class _MyDayCardState extends State<MyDayCard> {
   // transition. Resets to false when the user exits the geofence, ensuring
   // the popup appears again on the next entry (e.g. after sign-out).
   bool _geofencePopupShownThisEntry = false;
+
+  // Prevents didChangeDependencies from stacking multiple geofence-init
+  // callbacks when ancestor InheritedWidgets rebuild.
+  bool _geofenceInitScheduled = false;
 
   // ---- sign-in status ----
   bool _isSignedIn = false;
@@ -113,11 +116,16 @@ class _MyDayCardState extends State<MyDayCard> {
       _startTicker();
     }
 
-    // Initialize GPS geofencing for the current school
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(_initializeGeofencing());
-    });
+    // Initialize GPS geofencing for the current school.
+    // Guard ensures exactly one callback is queued even when
+    // didChangeDependencies fires multiple times per frame.
+    if (!_geofenceInitScheduled) {
+      _geofenceInitScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_initializeGeofencing());
+      });
+    }
   }
 
   Future<void> _initializeGeofencing() async {
@@ -449,17 +457,19 @@ class _MyDayCardState extends State<MyDayCard> {
       listener: (context, _) {
         if (_geofencePopupShownThisEntry) return;
         _geofencePopupShownThisEntry = true;
-        // Show push notification when entering geofence
-        unawaited(
-          GeofenceNotificationService().showEnteredZoneNotification(),
-        );
-        unawaited(
-          GeofenceSignInSheet.show(
-            context,
-            role: 'staff',
-            isSignedIn: _isSignedIn,
-          ),
-        );
+        // GeofenceCubit already fires the notification via
+        // _triggerNotificationIfNeeded — no need to do it here too.
+        if (!context.mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          unawaited(
+            GeofenceSignInSheet.show(
+              context,
+              role: 'staff',
+              isSignedIn: _isSignedIn,
+            ),
+          );
+        });
       },
       child: BlocConsumer<MyDayCubit, MyDayState>(
         // Re-compute countdown whenever the schedule data changes.

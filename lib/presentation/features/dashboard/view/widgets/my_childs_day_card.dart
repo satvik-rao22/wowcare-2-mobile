@@ -19,7 +19,6 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
-import 'package:wowcare/shared/services/geofence_notification_service.dart';
 import '../../../../../core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -131,6 +130,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   // Reminder toggle
   bool _isReminder = false;
 
+  // Prevents didChangeDependencies from stacking multiple geofence-init
+  // callbacks when ancestor InheritedWidgets rebuild.
+  bool _geofenceInitScheduled = false;
+
   /// Returns true when the selected child is currently signed in.
   bool get _isSelectedChildSignedIn {
     final code = _selectedChildCode;
@@ -168,11 +171,16 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       unawaited(_loadChildrenSignInStatus(allChildCodes));
     }
 
-    // Initialize GPS geofencing for the current school
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(_initializeGeofencing());
-    });
+    // Initialize GPS geofencing for the current school.
+    // Guard ensures exactly one callback is queued even when
+    // didChangeDependencies fires multiple times per frame.
+    if (!_geofenceInitScheduled) {
+      _geofenceInitScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_initializeGeofencing());
+      });
+    }
   }
 
   Future<void> _initializeGeofencing() async {
@@ -644,19 +652,20 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                           prev.status != GeofenceCubitStatus.withinRange &&
                           curr.status == GeofenceCubitStatus.withinRange,
                       listener: (context, _) {
-                        // Show push notification when entering geofence
-                        unawaited(
-                          GeofenceNotificationService()
-                              .showEnteredZoneNotification(),
-                        );
-                        unawaited(
-                          GeofenceSignInSheet.show(
-                            context,
-                            role: 'parent',
-                            isSignedIn: _isSelectedChildSignedIn,
-                            studentName: selectedChild?.name,
-                          ),
-                        );
+                        // GeofenceCubit already fires the notification via
+                        // _triggerNotificationIfNeeded — no need to do it here.
+                        if (!context.mounted) return;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          unawaited(
+                            GeofenceSignInSheet.show(
+                              context,
+                              role: 'parent',
+                              isSignedIn: _isSelectedChildSignedIn,
+                              studentName: selectedChild?.name,
+                            ),
+                          );
+                        });
                       },
                     ),
                   ],
