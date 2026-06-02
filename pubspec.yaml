@@ -70,6 +70,8 @@ dependencies:
   qr_code_scanner_plus: ^2.0.10+1
   rename: ^3.0.2
   rxdart: ^0.28.0
+  flutter_secure_storage: ^9.2.4
+  local_auth: ^2.3.0
   shared_preferences: ^2.3.5
   shimmer: ^3.0.0
   sliding_up_panel: ^2.0.0+1
