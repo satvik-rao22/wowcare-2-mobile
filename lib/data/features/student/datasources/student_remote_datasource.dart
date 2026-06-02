@@ -370,6 +370,10 @@ abstract class StudentRemoteDataSource {
   /// `GET /api/v1/student/student-documents/expiry-count`
   Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
       getStudentDocumentExpiryCount({required String schoolCode});
+
+  /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode});
 }
 
 class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
@@ -1704,6 +1708,25 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       expiredDocumentCount: (data['expiredDocumentCount'] as num?)?.toInt() ?? 0,
       expiringWithinWeekCount: (data['expiringWithinWeekCount'] as num?)?.toInt() ?? 0,
       totalDocumentsWithExpiry: (data['totalDocumentsWithExpiry'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+    final endpoint = ApiPaths.url(
+      ApiPaths.studentPhysicalCheckupCount(schoolCode),
+    );
+    final response = await _client.get<dynamic>(endpoint);
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student physical checkup count response format');
+    }
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>? ?? {};
+    return (
+      overdueExamCount: (data['overdueExamCount'] as num?)?.toInt() ?? 0,
+      studentsWithoutActiveExamCount:
+          (data['studentsWithoutActiveExamCount'] as num?)?.toInt() ?? 0,
     );
   }
 }

@@ -3,6 +3,7 @@ package com.wiseowl.wowcareapp
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.util.Log
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofenceStatusCodes
 import com.google.android.gms.location.GeofencingEvent
@@ -16,7 +17,11 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         // is never persisted and Flutter never learns about the transition.
         try {
             val event = GeofencingEvent.fromIntent(intent) ?: return
-            if (event.hasError()) return
+            if (event.hasError()) {
+                Log.e("GeofenceBroadcastReceiver",
+                    "Geofence error: ${GeofenceStatusCodes.getStatusCodeString(event.errorCode)} (${event.errorCode})")
+                return
+            }
 
 
             val isInside = when (event.geofenceTransition) {

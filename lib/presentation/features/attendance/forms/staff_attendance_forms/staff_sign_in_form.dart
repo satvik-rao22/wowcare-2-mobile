@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -34,11 +33,15 @@ class StaffSignInForm extends StatefulWidget {
     this.staff,
     this.staffList,
     this.qrToken = '',
+    this.forceSelf = false,
   });
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
   final String qrToken;
+  /// When true, always uses the self sign-in endpoint regardless of admin role.
+  /// Set this when opening the form from a personal GPS sign-in button.
+  final bool forceSelf;
 
   static const String routeName = '/staff-sign-in-form';
 
@@ -95,10 +98,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // Then: Initialize school and persona
     await _initializeSchoolAndPersona();
 
-    // Non-admin staff (QR or GPS): if no staff pre-populated from widget params,
-    // always pre-fill with the current user so they sign in only themselves.
+    // Non-admin staff (QR or GPS): if no staff pre-populated, pre-fill with self.
+    // Also applies to admin scanning a QR code — QR always means self sign-in.
     final isAdmin = _isAdminRole ?? false;
-    if (mounted && !isAdmin && _selectedStaff.isEmpty && _currentStaffCode != null) {
+    final isQrFlow = widget.qrToken.isNotEmpty;
+    if (mounted &&
+        (!isAdmin || isQrFlow) &&
+        _selectedStaff.isEmpty &&
+        _currentStaffCode != null) {
       final displayName =
           (await serviceLocator<StorageService>().getString(
             StorageKeys.displayName,
@@ -453,8 +460,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     late final DateTime occurredAt;
     late final String attendanceDate;
 
-    if (!isStaffAdmin) {
-      if (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode) {
+    // QR sign-in is always self (current moment); admin GPS sign-in can use the picker.
+    final bool isQrForTime = widget.qrToken.isNotEmpty;
+    if (!isStaffAdmin || isQrForTime) {
+      if (!isStaffAdmin &&
+          (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode)) {
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
           snackBar: const SnackBar(
@@ -489,8 +499,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
     }
 
-    // Admin cannot sign in for future date/time.
-    if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
+    // Admin GPS (picker) cannot sign in for future date/time. QR uses "now" so skip.
+    if (isStaffAdmin && !isQrForTime && occurredAt.isAfter(nowUtc)) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
@@ -548,8 +558,13 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     final bool isQrSignIn = widget.qrToken.isNotEmpty;
     final String signInMethod = isQrSignIn ? 'QR' : 'GPS';
 
-    if (!isStaffAdmin) {
-      // Self sign-in for teacher persona.
+    // QR scan is always self sign-in — the person holding the phone is signing
+    // in themselves against the school kiosk QR. Admin bulk sign-in only happens
+    // via GPS flow where the admin selects other staff on the form.
+    final bool isSelfSignIn = !isStaffAdmin || isQrSignIn || widget.forceSelf;
+
+    if (isSelfSignIn) {
+      // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
       payload = <String, dynamic>{
         'staffCode': staffCode,
         'method': signInMethod,
@@ -563,12 +578,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           expectedFromApi,
         ),
       };
-      // Include QR token if this is a QR scan
       if (isQrSignIn) {
         payload['qrToken'] = widget.qrToken;
       }
     } else {
-      // Admin sign-in: supports signing in other staff in a bulk-like request.
+      // Admin bulk sign-in: supports signing in other staff.
       final staffCodes = targetStaffCodes;
       final classroomCodeByStaffCode = <String, String>{
         for (final s in _selectedStaff)
@@ -597,15 +611,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'timeZone': schoolTimeZone,
         'occurredAt': occurredAt.toUtc().toIso8601String(),
       };
-      // Include QR token if this is a QR scan
-      if (isQrSignIn) {
-        payload['qrToken'] = widget.qrToken;
-      }
     }
 
     try {
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignIn(payload: payload, isSelf: !isStaffAdmin);
+          .submitStaffSignIn(payload: payload, isSelf: isSelfSignIn);
       final success = result.success;
       final message = result.message;
 

@@ -393,6 +393,8 @@ class ApiPaths {
   static const String studentDocuments = '/api/v1/student-documents';
   static const String studentDocumentExpiryCount =
       '/api/v1/student/student-documents/expiry-count';
+  static String studentPhysicalCheckupCount(String schoolCode) =>
+      '/api/v1/student/student/physical-checkup-count/$schoolCode';
   static String studentProfile(String code) => '$studentList/$code';
   static String studentProfileUpdate(String code) =>
       '$studentList/$code/profile';

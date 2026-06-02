@@ -246,7 +246,9 @@ class _MyDayCardState extends State<MyDayCard> {
       return;
     }
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => StaffSignInForm(staff: staff)),
+      MaterialPageRoute(
+        builder: (_) => StaffSignInForm(staff: staff, forceSelf: true),
+      ),
     );
     if (mounted) unawaited(_loadSignInStatus());
   }

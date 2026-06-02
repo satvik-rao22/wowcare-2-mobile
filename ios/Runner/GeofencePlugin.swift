@@ -96,7 +96,9 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     } else {
       status = CLLocationManager.authorizationStatus()
     }
-    if status == .notDetermined {
+    // "When In Use" is not enough for background/terminated region monitoring —
+    // iOS only wakes the app for region events when the user has granted "Always".
+    if status == .notDetermined || status == .authorizedWhenInUse {
       locationManager.requestAlwaysAuthorization()
     }
 

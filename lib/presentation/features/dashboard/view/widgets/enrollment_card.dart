@@ -156,7 +156,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       Expanded(
                         child: _StatColumn(
                           value: state.classroomClassrooms.toString(),
-                          label: 'Total Classrooms',
+                          label: 'Total \n Classrooms',
                         ),
                       ),
                       // VerticalDivider(
@@ -166,7 +166,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       Expanded(
                         child: _StatColumn(
                           value: state.capacity.toString(),
-                          label: 'Total Capacity',
+                          label: 'Total \n Capacity',
                         ),
                       ),
                       // VerticalDivider(
@@ -176,7 +176,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       Expanded(
                         child: _StatColumn(
                           value: '${state.schoolFte.toStringAsFixed(0)}%',
-                          label: 'Full time Equivalent',
+                          label: 'Full time \n Equivalent',
                           showTrend: true,
                         ),
                       ),
@@ -361,28 +361,28 @@ class _StatColumn extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        if (showTrend) ...[
-          const SizedBox(height: 6),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
-              SizedBox(width: 3),
-              Flexible(
-                child: Text(
-                  '5% vs last month',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.successColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        // if (showTrend) ...[
+        //   const SizedBox(height: 6),
+        //   const Row(
+        //     mainAxisAlignment: MainAxisAlignment.center,
+        //     crossAxisAlignment: CrossAxisAlignment.start,
+        //     children: [
+        //       Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
+        //       SizedBox(width: 3),
+        //       Flexible(
+        //         child: Text(
+        //           '5% vs last month',
+        //           textAlign: TextAlign.center,
+        //           style: TextStyle(
+        //             color: AppColors.successColor,
+        //             fontSize: 10,
+        //             fontWeight: FontWeight.w600,
+        //           ),
+        //         ),
+        //       ),
+        //     ],
+        //   ),
+        // ],
       ],
     );
   }
