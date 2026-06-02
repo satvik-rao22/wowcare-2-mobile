@@ -102,6 +102,21 @@ Future<Map<String, String>?> _readNativeLaunchNotification() async {
   }
 }
 
+/// iOS only: reads the action stored by AppDelegate when the user tapped a
+/// native geofence UNNotification from the killed/background state.
+/// Returns e.g. {'action': 'GEOFENCE_ENTER'}, or null.
+Future<Map<String, String>?> _readIosGeofenceTap() async {
+  if (!Platform.isIOS) return null;
+  try {
+    const ch = MethodChannel('wowcare/geofence_tap');
+    final action = await ch.invokeMethod<String>('getPendingAction');
+    if (action == null || action.isEmpty) return null;
+    return {'action': action};
+  } catch (_) {
+    return null;
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tzdata.initializeTimeZones();
@@ -184,6 +199,26 @@ Future<void> main() async {
         AppLogger.d(
           '[main] stashed (local notif) pendingNotificationDeepLink=$pendingNotificationDeepLink',
         );
+      }
+    }
+
+    // iOS: native geofence UNNotification tap (not shown via flutter_local_notifications,
+    // so getNotificationAppLaunchDetails() misses it). AppDelegate stores the action
+    // in UserDefaults; we read it here and resolve to /dashboard.
+    if (pendingNotificationDeepLink == null) {
+      final geofenceTapData = await _readIosGeofenceTap();
+      if (geofenceTapData != null && (geofenceTapData['action'] ?? '').isNotEmpty) {
+        final dest = NotificationRouteResolver.resolve(
+          PushNotificationModel(
+            title: null,
+            body: null,
+            action: geofenceTapData['action'],
+            type: null,
+            data: geofenceTapData,
+          ),
+        );
+        if (dest != null) pendingNotificationDeepLink = dest.location;
+        AppLogger.d('[main] stashed (iOS geofence tap) pendingNotificationDeepLink=$pendingNotificationDeepLink');
       }
     }
   } catch (e) {

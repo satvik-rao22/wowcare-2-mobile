@@ -661,18 +661,37 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'student-selection-sign-in-form',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const StudentSelectionSignInForm()),
+                  pageBuilder: (context, state) {
+                    final code = state.uri.queryParameters['studentCode']?.trim() ?? '';
+                    return _fastPage(
+                      state,
+                      StudentSelectionSignInForm(
+                        preSelectedStudentCode: code.isNotEmpty ? code : null,
+                      ),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'student-selection-sign-out-form',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const StudentSelectionSignOutForm()),
+                  pageBuilder: (context, state) {
+                    final code = state.uri.queryParameters['studentCode']?.trim() ?? '';
+                    return _fastPage(
+                      state,
+                      StudentSelectionSignOutForm(
+                        preSelectedStudentCode: code.isNotEmpty ? code : null,
+                      ),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'staff-sign-in-form',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const StaffSignInForm()),
+                  pageBuilder: (context, state) {
+                    final isGps = state.uri.queryParameters['gps'] == '1';
+                    return _fastPage(
+                      state,
+                      StaffSignInForm(forceSelf: isGps),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'staff-sign-out-form',

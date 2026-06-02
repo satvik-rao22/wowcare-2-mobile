@@ -878,6 +878,34 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<({List<StaffProfileWorkSchedule> workSchedules, List<StaffProfileBreakSchedule> breakSchedules})>
+      getStaffSchedules({required String staffCode}) async {
+    final result = await _remoteDataSource.getStaffSchedules(staffCode: staffCode);
+
+    StaffProfileTime _mapTime(StaffProfileTimeModel m) =>
+        StaffProfileTime(hour: m.hour, minute: m.minute, second: m.second, nano: m.nano);
+
+    final work = result.workSchedules
+        .map((m) => StaffProfileWorkSchedule(
+              dayOfWeek: m.dayOfWeek,
+              workStartTime: _mapTime(m.workStartTime),
+              workEndTime: _mapTime(m.workEndTime),
+            ))
+        .toList(growable: false);
+
+    final breaks = result.breakSchedules
+        .map((m) => StaffProfileBreakSchedule(
+              dayOfWeek: m.dayOfWeek,
+              breakType: m.breakType,
+              breakStartTime: _mapTime(m.breakStartTime),
+              breakEndTime: _mapTime(m.breakEndTime),
+            ))
+        .toList(growable: false);
+
+    return (workSchedules: work, breakSchedules: breaks);
+  }
+
+  @override
   Future<String> updateStaffSchedules({
     required String staffCode,
     required List<Map<String, dynamic>> workSchedules,

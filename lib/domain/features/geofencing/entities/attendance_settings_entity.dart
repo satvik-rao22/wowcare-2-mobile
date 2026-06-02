@@ -8,6 +8,7 @@ import 'package:equatable/equatable.dart';
 class AttendanceSettingsEntity extends Equatable {
   const AttendanceSettingsEntity({
     required this.gpsSignInEnabled,
+    required this.parentGpsSignInEnabled,
     required this.proximityRadiusMeters,
     required this.maxProximityLimitMeters,
     required this.allowOutsideSchoolHours,
@@ -18,6 +19,7 @@ class AttendanceSettingsEntity extends Equatable {
   });
 
   final bool gpsSignInEnabled;
+  final bool parentGpsSignInEnabled;
   final double proximityRadiusMeters;
   final double maxProximityLimitMeters;
   final bool allowOutsideSchoolHours;
@@ -29,6 +31,7 @@ class AttendanceSettingsEntity extends Equatable {
   @override
   List<Object?> get props => [
         gpsSignInEnabled,
+        parentGpsSignInEnabled,
         proximityRadiusMeters,
         maxProximityLimitMeters,
         allowOutsideSchoolHours,

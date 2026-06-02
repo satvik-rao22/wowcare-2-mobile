@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -694,13 +695,25 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     } catch (e) {
       if (!mounted) return;
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
+      // GPS parent sign-in disabled: show a warning and close the form so the
+      // parent returns to the dashboard where the button will now be disabled.
+      final isGpsParentDisabled = errorMessage
+          .toLowerCase()
+          .contains('gps parent sign-in is disabled');
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: AppColors.errorColor,
+          content: Text(
+            isGpsParentDisabled
+                ? 'GPS sign-in for parents is disabled by the school admin.'
+                : errorMessage,
+          ),
+          backgroundColor: isGpsParentDisabled
+              ? AppColors.warningColor
+              : AppColors.errorColor,
         ),
       );
+      if (isGpsParentDisabled && mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) {
         setState(() {
@@ -777,7 +790,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                                 ? today
                                 : date;
                           });
-                          _runUnexpectedSignInGate();
+                          unawaited(_runUnexpectedSignInGate());
                         },
                       ),
                     ],

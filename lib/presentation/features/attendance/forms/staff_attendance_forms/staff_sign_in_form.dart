@@ -99,11 +99,11 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     await _initializeSchoolAndPersona();
 
     // Non-admin staff (QR or GPS): if no staff pre-populated, pre-fill with self.
-    // Also applies to admin scanning a QR code — QR always means self sign-in.
+    // Also applies to admin scanning QR or opening from GPS (forceSelf=true).
     final isAdmin = _isAdminRole ?? false;
     final isQrFlow = widget.qrToken.isNotEmpty;
     if (mounted &&
-        (!isAdmin || isQrFlow) &&
+        (!isAdmin || isQrFlow || widget.forceSelf) &&
         _selectedStaff.isEmpty &&
         _currentStaffCode != null) {
       final displayName =

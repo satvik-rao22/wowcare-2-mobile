@@ -67,9 +67,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       );
       if (outcome.returnToTabbedView) {
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const StaffAttendanceTabbedView(),
-          ),
+          MaterialPageRoute(builder: (_) => const StaffAttendanceTabbedView()),
           (route) => false,
         );
       } else {
@@ -240,7 +238,8 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                 itemBuilder: (context, index) => RemoveStaffTile(
                   staff: state.selectedStaff[index],
                   canRemove: state.selectedStaff.length > 1,
-                  onRemove: () => _cubit.removeStaff(state.selectedStaff[index]),
+                  onRemove: () =>
+                      _cubit.removeStaff(state.selectedStaff[index]),
                 ),
               ),
               const SizedBox(height: 20),
@@ -274,17 +273,11 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Colors.red,
-                      width: 1,
-                    ),
+                    borderSide: const BorderSide(color: Colors.red, width: 1),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Colors.red,
-                      width: 2,
-                    ),
+                    borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
                   filled: true,
                   fillColor: AppColors.cardColor,
@@ -303,7 +296,6 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       ),
     );
   }
-
 }
 
 class RemoveStaffTile extends StatelessWidget {
@@ -321,14 +313,9 @@ class RemoveStaffTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -371,4 +358,3 @@ class RemoveStaffTile extends StatelessWidget {
     );
   }
 }
-

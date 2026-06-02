@@ -117,6 +117,7 @@ class _ParentDashboardState extends State<ParentDashboard> {
         ),
         BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
       ],
+
       child: _buildScaffold(),
     );
   }

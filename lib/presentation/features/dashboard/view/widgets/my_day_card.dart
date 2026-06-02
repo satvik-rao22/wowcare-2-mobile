@@ -23,7 +23,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../core/util/core_utils.dart';
-
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 // ---------------------------------------------------------------------------
 // MyDayCard
@@ -59,7 +59,9 @@ class _MyDayCardState extends State<MyDayCard> {
 
   // ---- sign-in status ----
   bool _isSignedIn = false;
-
+  String _countdownLabel = 'Your shift starts in'; // Already have _statusText
+  String _nextDayName = ''; // For upcoming shifts
+  bool _isTodayShift = true; // Important flag
   // ---- shift countdown display state ----
   String _statusText = 'Loading schedule…';
   String _workTime = '- -';
@@ -73,6 +75,88 @@ class _MyDayCardState extends State<MyDayCard> {
   // ---------------------------------------------------------------------------
   // Helpers – time conversion (24h API format → 12h display / DateTime)
   // ---------------------------------------------------------------------------
+
+  /// Robust day-of-week → Dart weekday mapping.
+  /// Supports both full names (MONDAY) and 3-letter abbreviations (MON).
+  static const _kDayToWeekday = <String, int>{
+    'MONDAY': 1,
+    'MON': 1,
+    'TUESDAY': 2,
+    'TUE': 2,
+    'WEDNESDAY': 3,
+    'WED': 3,
+    'THURSDAY': 4,
+    'THU': 4,
+    'FRIDAY': 5,
+    'FRI': 5,
+    'SATURDAY': 6,
+    'SAT': 6,
+    'SUNDAY': 7,
+    'SUN': 7,
+  };
+
+  /// Returns the 3-letter uppercase abbreviation for any day-of-week string.
+  static String _dayAbbr(String dayOfWeek) {
+    final upper = dayOfWeek.trim().toUpperCase();
+    return upper.length >= 3 ? upper.substring(0, 3) : upper;
+  }
+
+  /// Returns the full display name for a Dart weekday integer (1 = Monday … 7 = Sunday).
+  /// e.g. _getDayName(3) → "Wednesday"
+  static String _getDayName(int weekday) {
+    const names = [
+      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+    ];
+    if (weekday < 1 || weekday > 7) return '';
+    return names[weekday - 1];
+  }
+
+  /// Finds the work schedule for [weekday] from [all].
+  /// Returns null when not found or when start+end are both zero (unset).
+  static StaffProfileWorkSchedule? _resolveWorkScheduleForDay(
+    int weekday,
+    List<StaffProfileWorkSchedule> all,
+  ) {
+    for (final ws in all) {
+      if (_kDayToWeekday[ws.dayOfWeek.trim().toUpperCase()] != weekday)
+        continue;
+      final isSet =
+          ws.workStartTime.hour != 0 ||
+          ws.workStartTime.minute != 0 ||
+          ws.workEndTime.hour != 0 ||
+          ws.workEndTime.minute != 0;
+      if (isSet) return ws;
+    }
+    return null;
+  }
+
+  /// Finds the break schedule for [weekday] from [all].
+  static StaffProfileBreakSchedule? _resolveBreakScheduleForDay(
+    int weekday,
+    List<StaffProfileBreakSchedule> all,
+  ) {
+    for (final bs in all) {
+      if (_kDayToWeekday[bs.dayOfWeek.trim().toUpperCase()] == weekday)
+        return bs;
+    }
+    return null;
+  }
+
+  /// Returns `true` when [bs] has at least one non-zero time component.
+  static bool _breakIsSet(StaffProfileBreakSchedule? bs) {
+    if (bs == null) return false;
+    return bs.breakStartTime.hour != 0 ||
+        bs.breakStartTime.minute != 0 ||
+        bs.breakEndTime.hour != 0 ||
+        bs.breakEndTime.minute != 0;
+  }
+
+  /// Builds the break-time display string (no day tag).
+  static String _formatBreakDisplay(StaffProfileBreakSchedule? bs) {
+    if (!_breakIsSet(bs)) return 'N/A';
+    return '${_formatStaffTime(bs!.breakStartTime)} - '
+        '${_formatStaffTime(bs.breakEndTime)}';
+  }
 
   /// Pads a 24h time string to `HH:mm:ss` for `DateTime.parse`.
   static String _normalize24h(String raw) {
@@ -113,6 +197,9 @@ class _MyDayCardState extends State<MyDayCard> {
         cubitState.todaySchedule,
         staffSchedule: cubitState.todayWorkSchedule,
         breakSchedule: cubitState.todayBreakSchedule,
+        schoolTimeZone: cubitState.schoolTimeZone,
+        allWorkSchedules: cubitState.allWorkSchedules,
+        allBreakSchedules: cubitState.allBreakSchedules,
       );
       _startTicker();
     }
@@ -161,6 +248,9 @@ class _MyDayCardState extends State<MyDayCard> {
           cubitState.todaySchedule,
           staffSchedule: cubitState.todayWorkSchedule,
           breakSchedule: cubitState.todayBreakSchedule,
+          schoolTimeZone: cubitState.schoolTimeZone,
+          allWorkSchedules: cubitState.allWorkSchedules,
+          allBreakSchedules: cubitState.allBreakSchedules,
         );
       }
     });
@@ -225,10 +315,13 @@ class _MyDayCardState extends State<MyDayCard> {
 
   Future<StaffEntity?> _buildSelfStaffEntity() async {
     final storage = serviceLocator<StorageService>();
-    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+        .trim();
     if (staffCode.isEmpty) return null;
-    final displayName = (await storage.getString(StorageKeys.displayName) ?? '').trim();
-    final designation = (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
+    final designation =
+        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
     return StaffEntity(
       id: 0,
       name: displayName.isNotEmpty ? displayName : '—',
@@ -242,7 +335,11 @@ class _MyDayCardState extends State<MyDayCard> {
     final staff = await _buildSelfStaffEntity();
     if (!mounted) return;
     if (staff == null) {
-      CoreUtils.showTopSnackBar(context: context, message: 'Unable to find your staff profile.', isWarning: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to find your staff profile.',
+        isWarning: true,
+      );
       return;
     }
     await Navigator.of(context).push(
@@ -257,12 +354,16 @@ class _MyDayCardState extends State<MyDayCard> {
     final staff = await _buildSelfStaffEntity();
     if (!mounted) return;
     if (staff == null) {
-      CoreUtils.showTopSnackBar(context: context, message: 'Unable to find your staff profile.', isWarning: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to find your staff profile.',
+        isWarning: true,
+      );
       return;
     }
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)));
     if (mounted) unawaited(_loadSignInStatus());
   }
 
@@ -270,146 +371,227 @@ class _MyDayCardState extends State<MyDayCard> {
   // Countdown computation
   // ---------------------------------------------------------------------------
 
-  /// Derives countdown display state from the staff's personal schedule or,
-  /// if unavailable, from the school's regular schedule.
+  /// Derives countdown display state from the staff's personal schedule.
   ///
-  /// [staffSchedule] is preferred when present — it contains the staff
-  /// member's own day-specific start/end times from their profile.
-  /// Uses device local time so the countdown matches the user's clock.
+  /// Priority order:
+  ///   1. cubit-resolved [staffSchedule] for today (fastest path).
+  ///   2. Scan [allWorkSchedules] directly for today — catches day-name format
+  ///      mismatches (full "TUESDAY" vs abbreviated "TUE") the cubit may miss.
+  ///   3. School regular [schedule] for today — fallback when no staff profile.
+  ///   4. Nearest upcoming shift from [allWorkSchedules] (up to 7 days ahead).
+  ///   5. [allWorkSchedules] empty → "School Closed".
+  ///
+  /// Sets [_isTodayShift] = true for cases 1–3, false for case 4.
+  /// Sets [_nextDayName] to the full day name for case 4 (e.g. "Wednesday").
+  /// All time comparisons use school-local time via [schoolTimeZone].
   void _computeCountdownFromSchedule(
     SchoolRegularScheduleDay? schedule, {
     StaffProfileWorkSchedule? staffSchedule,
     StaffProfileBreakSchedule? breakSchedule,
+    String schoolTimeZone = '',
+    List<StaffProfileWorkSchedule> allWorkSchedules = const [],
+    List<StaffProfileBreakSchedule> allBreakSchedules = const [],
   }) {
-    final now = DateTime.now();
+    // Resolve current moment in school-local time (naive DateTime).
+    final now = schoolTimeZone.isNotEmpty
+        ? SchoolZoneDateTime.dateTimeFromInstantInSchool(
+            DateTime.now().toUtc(),
+            schoolTimeZone,
+          )
+        : DateTime.now();
 
-    // Shared 3-letter day abbreviation — from profile when available, otherwise
-    // from the device clock so the format is always "h:mm AM/PM - h:mm AM/PM (DAY)".
-    const _weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    final dayAbbr = staffSchedule != null
-        ? (staffSchedule.dayOfWeek.length >= 3
-              ? staffSchedule.dayOfWeek.substring(0, 3).toUpperCase()
-              : staffSchedule.dayOfWeek.toUpperCase())
-        : _weekdays[now.weekday - 1];
+    // Prefer cubit-resolved schedule; fall back to direct allWorkSchedules scan
+    // so abbreviated day names ("TUE") that the cubit's exact match may miss
+    // are still found.
+    final todayWs = staffSchedule ??
+        _resolveWorkScheduleForDay(now.weekday, allWorkSchedules);
+    final todayBs = breakSchedule ??
+        _resolveBreakScheduleForDay(now.weekday, allBreakSchedules);
 
-    DateTime? startDt;
-    DateTime? endDt;
-    String displayStart;
-    String displayEnd;
-    String displayBreak;
-
-    if (staffSchedule != null) {
-      startDt = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        staffSchedule.workStartTime.hour,
-        staffSchedule.workStartTime.minute,
-        staffSchedule.workStartTime.second,
+    // ── Case 1 & 2: staff's personal schedule for today ───────────────────────
+    if (todayWs != null) {
+      final startDt = DateTime(
+        now.year, now.month, now.day,
+        todayWs.workStartTime.hour, todayWs.workStartTime.minute,
+        todayWs.workStartTime.second,
       );
-      endDt = DateTime(
-        now.year,
-        now.month,
-        now.day,
-        staffSchedule.workEndTime.hour,
-        staffSchedule.workEndTime.minute,
-        staffSchedule.workEndTime.second,
+      final endDt = DateTime(
+        now.year, now.month, now.day,
+        todayWs.workEndTime.hour, todayWs.workEndTime.minute,
+        todayWs.workEndTime.second,
       );
-      displayStart = _formatStaffTime(staffSchedule.workStartTime);
-      displayEnd = _formatStaffTime(staffSchedule.workEndTime);
-      if (breakSchedule != null) {
-        final breakIsSet = breakSchedule.breakStartTime.hour != 0 ||
-            breakSchedule.breakStartTime.minute != 0 ||
-            breakSchedule.breakEndTime.hour != 0 ||
-            breakSchedule.breakEndTime.minute != 0;
-        displayBreak = breakIsSet
-            ? '${_formatStaffTime(breakSchedule.breakStartTime)} - ${_formatStaffTime(breakSchedule.breakEndTime)} ($dayAbbr)'
-            : 'N/A';
-      } else {
-        displayBreak = 'N/A';
+      final abbr         = _dayAbbr(todayWs.dayOfWeek);
+      final displayStart = _formatStaffTime(todayWs.workStartTime);
+      final displayEnd   = _formatStaffTime(todayWs.workEndTime);
+      final displayBreak = _formatBreakDisplay(todayBs);
+
+      if (now.isBefore(startDt)) {
+        // Shift hasn't started yet — count down to start.
+        setState(() {
+          _isTodayShift = true;
+          _nextDayName  = '';
+          _hasShifts    = true;
+          _workTime     = '$displayStart - $displayEnd ($abbr)';
+          _breakTime    = displayBreak;
+          _duration     = startDt.difference(now);
+          _statusText   = 'Your shift starts in';
+        });
+        return;
       }
-    } else if (schedule != null) {
+      if (now.isBefore(endDt)) {
+        // Shift is active — count down to end.
+        setState(() {
+          _isTodayShift = true;
+          _nextDayName  = '';
+          _hasShifts    = true;
+          _workTime     = '$displayStart - $displayEnd ($abbr)';
+          _breakTime    = displayBreak;
+          _duration     = endDt.difference(now);
+          _statusText   = 'Your shift ends in';
+        });
+        return;
+      }
+      // Today's shift has ended — fall through to find the next upcoming shift.
+    }
+    // ── Case 3: school regular schedule for today (no personal schedule) ──────
+    else if (schedule != null) {
       final dateStr =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final start24 = _normalize24h(schedule.startTime);
-      final end24 = _normalize24h(schedule.endTime);
-      startDt = DateTime.tryParse('$dateStr $start24');
-      endDt = DateTime.tryParse('$dateStr $end24');
+      final start24  = _normalize24h(schedule.startTime);
+      final end24    = _normalize24h(schedule.endTime);
+      final startDt  = DateTime.tryParse('$dateStr $start24');
+      final endDt    = DateTime.tryParse('$dateStr $end24');
+      final sParts   = start24.split(':');
+      final eParts   = end24.split(':');
+      final abbr     = ['MON','TUE','WED','THU','FRI','SAT','SUN'][now.weekday - 1];
+      final displayStart = _fmtHM(
+          int.tryParse(sParts[0]) ?? 0, int.tryParse(sParts[1]) ?? 0);
+      final displayEnd = _fmtHM(
+          int.tryParse(eParts[0]) ?? 0, int.tryParse(eParts[1]) ?? 0);
 
-      // Parse hours/minutes from the normalised string so we can apply the
-      // same h:mm AM/PM format (no leading zero) as the staff schedule branch.
-      final sParts = start24.split(':');
-      final eParts = end24.split(':');
-      displayStart = _fmtHM(
-        int.tryParse(sParts[0]) ?? 0,
-        int.tryParse(sParts[1]) ?? 0,
-      );
-      displayEnd = _fmtHM(
-        int.tryParse(eParts[0]) ?? 0,
-        int.tryParse(eParts[1]) ?? 0,
-      );
-
-      // Prefer staff profile break schedule over school half-day field.
-      if (breakSchedule != null) {
-        final breakIsSet = breakSchedule.breakStartTime.hour != 0 ||
-            breakSchedule.breakStartTime.minute != 0 ||
-            breakSchedule.breakEndTime.hour != 0 ||
-            breakSchedule.breakEndTime.minute != 0;
-        displayBreak = breakIsSet
-            ? '${_formatStaffTime(breakSchedule.breakStartTime)} - ${_formatStaffTime(breakSchedule.breakEndTime)} ($dayAbbr)'
-            : 'N/A';
+      String displayBreak;
+      if (_breakIsSet(todayBs)) {
+        displayBreak = _formatBreakDisplay(todayBs);
       } else {
-        // Fall back to school half-day field.
         final hd = schedule.halfDay;
         if (hd != null && hd.contains(':')) {
-          final hd24 = _normalize24h(hd);
+          final hd24    = _normalize24h(hd);
           final hdParts = hd24.split(':');
-          displayBreak = _fmtHM(
-            int.tryParse(hdParts[0]) ?? 0,
-            int.tryParse(hdParts[1]) ?? 0,
-          );
+          displayBreak  = _fmtHM(
+              int.tryParse(hdParts[0]) ?? 0, int.tryParse(hdParts[1]) ?? 0);
         } else {
           displayBreak = (hd == null || hd.isEmpty) ? 'N/A' : hd;
         }
       }
-    } else {
-      setState(() {
-        _hasShifts = false;
-        _statusText = 'School Closed';
-        _workTime = '- -';
-        _breakTime = '- -';
-        _duration = Duration.zero;
-      });
-      return;
-    }
 
-    if (startDt == null || endDt == null) {
-      setState(() {
-        _hasShifts = false;
-        _statusText = 'Schedule unavailable';
-        _workTime = '- -';
-        _breakTime = '- -';
-        _duration = Duration.zero;
-      });
-      return;
-    }
-
-    setState(() {
-      _hasShifts = true;
-      _workTime = '$displayStart - $displayEnd ($dayAbbr)';
-      _breakTime = displayBreak;
-
-      if (now.isBefore(startDt!)) {
-        _duration = startDt.difference(now);
-        _statusText = 'Your shift starts in';
-      } else if (now.isBefore(endDt!)) {
-        _duration = endDt.difference(now);
-        _statusText = 'Your shift ends in';
-      } else {
-        _hasShifts = false;
-        _statusText = 'School day ended';
-        _duration = Duration.zero;
+      if (startDt != null && endDt != null) {
+        if (now.isBefore(startDt)) {
+          setState(() {
+            _isTodayShift = true;
+            _nextDayName  = '';
+            _hasShifts    = true;
+            _workTime     = '$displayStart - $displayEnd ($abbr)';
+            _breakTime    = displayBreak;
+            _duration     = startDt.difference(now);
+            _statusText   = 'Your shift starts in';
+          });
+          return;
+        }
+        if (now.isBefore(endDt)) {
+          setState(() {
+            _isTodayShift = true;
+            _nextDayName  = '';
+            _hasShifts    = true;
+            _workTime     = '$displayStart - $displayEnd ($abbr)';
+            _breakTime    = displayBreak;
+            _duration     = endDt.difference(now);
+            _statusText   = 'Your shift ends in';
+          });
+          return;
+        }
       }
+      // School schedule for today ended — fall through to find next shift.
+    }
+
+    // ── Case 4: no active shift today → nearest upcoming shift ───────────────
+    _applyNextShift(now, allWorkSchedules, allBreakSchedules);
+  }
+
+  /// Searches forward 1–7 days for the nearest upcoming scheduled work day.
+  ///
+  /// Uses [_kDayToWeekday] (supports "TUESDAY" and "TUE") so no entry is ever
+  /// silently dropped. Wraps the full week — e.g. today=Sunday, next=Monday.
+  ///
+  /// Sets [_isTodayShift] = false and [_nextDayName] to the full day name
+  /// (e.g. "Wednesday") so [_buildAlignedTimerDisplay] can show it above the
+  /// countdown.
+  void _applyNextShift(
+    DateTime schoolNow,
+    List<StaffProfileWorkSchedule> allWork,
+    List<StaffProfileBreakSchedule> allBreak,
+  ) {
+    if (allWork.isEmpty) {
+      setState(() {
+        _isTodayShift = true;
+        _nextDayName  = '';
+        _hasShifts    = false;
+        _statusText   = 'School Closed';
+        _workTime     = '- -';
+        _breakTime    = '- -';
+        _duration     = Duration.zero;
+      });
+      return;
+    }
+
+    // Build weekday → schedule maps with the robust _kDayToWeekday lookup.
+    final workByWd = <int, StaffProfileWorkSchedule>{};
+    for (final ws in allWork) {
+      final wd = _kDayToWeekday[ws.dayOfWeek.trim().toUpperCase()];
+      if (wd != null) workByWd[wd] = ws;
+    }
+    final breakByWd = <int, StaffProfileBreakSchedule>{};
+    for (final bs in allBreak) {
+      final wd = _kDayToWeekday[bs.dayOfWeek.trim().toUpperCase()];
+      if (wd != null) breakByWd[wd] = bs;
+    }
+
+    // Scan tomorrow → 7 days ahead. Offset starts at 1 because today's shift
+    // is already confirmed ended or absent.
+    for (int offset = 1; offset <= 7; offset++) {
+      final candidate = schoolNow.add(Duration(days: offset));
+      final ws = workByWd[candidate.weekday];
+      if (ws == null) continue;
+
+      final startDt = DateTime(
+        candidate.year, candidate.month, candidate.day,
+        ws.workStartTime.hour, ws.workStartTime.minute, ws.workStartTime.second,
+      );
+      final abbr    = _dayAbbr(ws.dayOfWeek);
+      final dayName = _getDayName(candidate.weekday); // e.g. "Wednesday"
+      final bs      = breakByWd[candidate.weekday];   // null-safe
+
+      setState(() {
+        _isTodayShift = false;
+        _nextDayName  = dayName;
+        _hasShifts    = true;
+        _workTime     = '${_formatStaffTime(ws.workStartTime)} - '
+            '${_formatStaffTime(ws.workEndTime)} ($abbr)';
+        _breakTime    = _formatBreakDisplay(bs);
+        _duration     = startDt.difference(schoolNow);
+        _statusText   = 'Your next shift starts in';
+      });
+      return;
+    }
+
+    // Unreachable with a valid weekly schedule, but guard anyway.
+    setState(() {
+      _isTodayShift = true;
+      _nextDayName  = '';
+      _hasShifts    = false;
+      _statusText   = 'No upcoming shifts';
+      _workTime     = '- -';
+      _breakTime    = '- -';
+      _duration     = Duration.zero;
     });
   }
 
@@ -483,6 +665,39 @@ class _MyDayCardState extends State<MyDayCard> {
 
     final bool showDays = duration.inHours >= 24;
 
+    // ── Upcoming shift: show full day name above the countdown ───────────────
+    if (!_isTodayShift && _nextDayName.isNotEmpty) {
+      return Column(
+        children: [
+          Text(
+            _nextDayName,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Show days unit when shift is more than 24 hours away.
+              if (showDays) ...[
+                _buildTimeUnit(twoDigits(duration.inDays), 'DD'),
+                _buildTimeSeparator(),
+              ],
+              _buildTimeUnit(twoDigits(duration.inHours.remainder(24)), 'HH'),
+              _buildTimeSeparator(),
+              _buildTimeUnit(twoDigits(duration.inMinutes.remainder(60)), 'MM'),
+              _buildTimeSeparator(),
+              _buildTimeUnit(twoDigits(duration.inSeconds.remainder(60)), 'SS'),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // ── Today's shift ────────────────────────────────────────────────────────
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -498,7 +713,6 @@ class _MyDayCardState extends State<MyDayCard> {
       ],
     );
   }
-
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -535,17 +749,25 @@ class _MyDayCardState extends State<MyDayCard> {
         });
       },
       child: BlocConsumer<MyDayCubit, MyDayState>(
-        // Re-compute countdown whenever the schedule data changes.
+        // Re-compute countdown whenever schedule data changes or first loads.
         listenWhen: (prev, curr) =>
             curr.isLoaded &&
-            (prev.todaySchedule != curr.todaySchedule ||
+            (!prev.isLoaded ||
+                prev.todaySchedule != curr.todaySchedule ||
                 prev.todayWorkSchedule != curr.todayWorkSchedule ||
-                prev.schoolClosed != curr.schoolClosed),
+                prev.todayBreakSchedule != curr.todayBreakSchedule ||
+                prev.schoolClosed != curr.schoolClosed ||
+                prev.allWorkSchedules != curr.allWorkSchedules ||
+                prev.allBreakSchedules != curr.allBreakSchedules ||
+                prev.schoolTimeZone != curr.schoolTimeZone),
         listener: (context, state) {
           _computeCountdownFromSchedule(
             state.todaySchedule,
             staffSchedule: state.todayWorkSchedule,
             breakSchedule: state.todayBreakSchedule,
+            schoolTimeZone: state.schoolTimeZone,
+            allWorkSchedules: state.allWorkSchedules,
+            allBreakSchedules: state.allBreakSchedules,
           );
           _startTicker();
         },

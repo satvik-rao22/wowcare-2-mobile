@@ -958,6 +958,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffShiftsUseCase: serviceLocator(),
       getClassroomsUseCase: serviceLocator(),
       storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<AdminDashboardCubit>(
@@ -973,6 +974,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => MyDayCubit(
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
+      apiClient: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<DashboardAttentionCubit>(

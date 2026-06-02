@@ -11,6 +11,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 part 'my_shifts_state.dart';
 
@@ -19,14 +20,17 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     required GetStaffShiftsUseCase getStaffShiftsUseCase,
     required GetRatioMonitoringClassroomsUseCase getClassroomsUseCase,
     required StorageService storageService,
+    required StaffRepository staffRepository,
   }) : _getShifts = getStaffShiftsUseCase,
        _getClassrooms = getClassroomsUseCase,
        _storage = storageService,
+       _staffRepository = staffRepository,
        super(const MyShiftsState());
 
   final GetStaffShiftsUseCase _getShifts;
   final GetRatioMonitoringClassroomsUseCase _getClassrooms;
   final StorageService _storage;
+  final StaffRepository _staffRepository;
 
   bool _isFetching = false;
 
@@ -93,9 +97,18 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
 
       final displayName =
           (await _storage.getString(StorageKeys.displayName) ?? '').trim();
-      final designation = (await _storage.getString(StorageKeys.staffDesignation) ?? '')
-          .trim()
-          .replaceAll('_', ' ');
+      String rawDesignation =
+          (await _storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+      if (rawDesignation.isEmpty && staffCode.isNotEmpty) {
+        try {
+          final profile = await _staffRepository.getStaffProfile(staffCode: staffCode);
+          rawDesignation = profile.designation.trim();
+          if (rawDesignation.isNotEmpty) {
+            await _storage.saveString(StorageKeys.staffDesignation, rawDesignation);
+          }
+        } catch (_) {}
+      }
+      final designation = _formatDesignation(rawDesignation);
 
       // Pick a classroom label for the profile row:
       // 1) today's first shift classroomName/code
@@ -175,6 +188,19 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     final name = first.classroomName.trim();
     if (name.isNotEmpty) return name;
     return code;
+  }
+
+  /// Converts enum-style designation strings to human-readable title case.
+  /// e.g. "ASSOCIATE_TEACHER" → "Associate Teacher", "FULL_TIME" → "Full-Time".
+  static String _formatDesignation(String raw) {
+    if (raw.isEmpty) return '';
+    final upper = raw.trim().toUpperCase();
+    if (upper == 'FULL_TIME') return 'Full-Time';
+    if (upper == 'PART_TIME') return 'Part-Time';
+    return upper.split(RegExp(r'[_\s]+')).map((w) {
+      if (w.isEmpty) return '';
+      return w[0].toUpperCase() + w.substring(1).toLowerCase();
+    }).where((w) => w.isNotEmpty).join(' ');
   }
 
   /// Formats a shift block time for the existing card widgets

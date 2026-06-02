@@ -377,5 +377,9 @@ class NotificationRouteResolver {
     // ── Settings (no settings screen in mobile → stay in notif center) ───────
     NotificationAction.schoolSettingsChanged: (n) =>
         const NotificationDestination(path: '/notifications'),
+
+    // ── Geofence (native enter tap → open dashboard where sign-in card lives) ─
+    NotificationAction.geofenceEnter: (n) =>
+        const NotificationDestination(path: AppRoutes.dashboard),
   };
 }

@@ -144,6 +144,11 @@ abstract class StaffRepository {
     required List<Map<String, String>> dates,
   });
 
+  /// Fetches the staff member's work and break schedules from the dedicated
+  /// schedule API: `GET /api/v1/staff-schedules/{staffCode}`.
+  Future<({List<StaffProfileWorkSchedule> workSchedules, List<StaffProfileBreakSchedule> breakSchedules})>
+      getStaffSchedules({required String staffCode});
+
   /// Updates staff work & break schedules via `/api/v1/staff-schedules/{staffCode}`.
   ///
   /// [workSchedules] and [breakSchedules] should already be shaped according to

@@ -216,6 +216,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           state.copyWith(
             status: GeofenceCubitStatus.gpsDisabledByAdmin,
             gpsSignInEnabled: false,
+            parentGpsSignInEnabled: _config!.parentGpsSignInEnabled,
             radiusMeters: _config!.radiusMeters,
           ),
         );
@@ -275,6 +276,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         state.copyWith(
           status: immediateStatus,
           gpsSignInEnabled: true,
+          parentGpsSignInEnabled: _config!.parentGpsSignInEnabled,
           radiusMeters: _config!.radiusMeters,
         ),
       );
