@@ -21,6 +21,8 @@ class DashboardAttentionState extends Equatable {
     this.expiringStudentDocuments = 0,
     this.overdueCheckups = 0,
     this.missingCheckups = 0,
+    this.overdueStudentCheckups = 0,
+    this.missingStudentCheckups = 0,
     this.errorMessage,
   });
 
@@ -32,8 +34,12 @@ class DashboardAttentionState extends Equatable {
   final int expiringDocuments;
   final int expiredStudentDocuments;
   final int expiringStudentDocuments;
+  // Staff physical checkups
   final int overdueCheckups;
   final int missingCheckups;
+  // Student physical checkups
+  final int overdueStudentCheckups;
+  final int missingStudentCheckups;
   final String? errorMessage;
 
   bool get isInitial => status == DashboardAttentionStatus.initial;
@@ -54,6 +60,8 @@ class DashboardAttentionState extends Equatable {
     int? expiringStudentDocuments,
     int? overdueCheckups,
     int? missingCheckups,
+    int? overdueStudentCheckups,
+    int? missingStudentCheckups,
     String? errorMessage,
   }) {
     return DashboardAttentionState(
@@ -69,6 +77,10 @@ class DashboardAttentionState extends Equatable {
           expiringStudentDocuments ?? this.expiringStudentDocuments,
       overdueCheckups: overdueCheckups ?? this.overdueCheckups,
       missingCheckups: missingCheckups ?? this.missingCheckups,
+      overdueStudentCheckups:
+          overdueStudentCheckups ?? this.overdueStudentCheckups,
+      missingStudentCheckups:
+          missingStudentCheckups ?? this.missingStudentCheckups,
       errorMessage: errorMessage,
     );
   }
@@ -85,6 +97,8 @@ class DashboardAttentionState extends Equatable {
     expiringStudentDocuments,
     overdueCheckups,
     missingCheckups,
+    overdueStudentCheckups,
+    missingStudentCheckups,
     errorMessage,
   ];
 }
