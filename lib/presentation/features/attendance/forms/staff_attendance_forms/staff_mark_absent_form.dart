@@ -146,41 +146,41 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                 fillColor: AppColors.cardColor,
               ),
             ),
-            const SizedBox(height: 16),
-            const AppText.label('Absence Type'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _typeController,
-              decoration: InputDecoration(
-                hintText: 'Enter absence type',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: const Color.fromRGBO(87, 51, 83, 0.5),
-                  fontSize: 15,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: AppColors.cardColor,
-              ),
-            ),
+            // const SizedBox(height: 16),
+            // const AppText.label('Absence Type'),
+            // const SizedBox(height: 8),
+            // TextField(
+            //   controller: _typeController,
+            //   decoration: InputDecoration(
+            //     hintText: 'Enter absence type',
+            //     hintStyle: AppTextStyles.body.copyWith(
+            //       color: const Color.fromRGBO(87, 51, 83, 0.5),
+            //       fontSize: 15,
+            //     ),
+            //     border: OutlineInputBorder(
+            //       borderRadius: BorderRadius.circular(10),
+            //       borderSide: const BorderSide(
+            //         color: Color.fromRGBO(87, 51, 83, 0.4),
+            //       ),
+            //     ),
+            //     enabledBorder: OutlineInputBorder(
+            //       borderRadius: BorderRadius.circular(10),
+            //       borderSide: const BorderSide(
+            //         color: Color.fromRGBO(87, 51, 83, 0.4),
+            //         width: 1,
+            //       ),
+            //     ),
+            //     focusedBorder: OutlineInputBorder(
+            //       borderRadius: BorderRadius.circular(10),
+            //       borderSide: const BorderSide(
+            //         color: Color.fromRGBO(87, 51, 83, 0.4),
+            //         width: 2,
+            //       ),
+            //     ),
+            //     filled: true,
+            //     fillColor: AppColors.cardColor,
+            //   ),
+            // ),
             const SizedBox(height: 24),
             Row(
               children: [

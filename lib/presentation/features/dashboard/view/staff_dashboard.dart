@@ -157,7 +157,12 @@ class _StaffDashboardState extends State<StaffDashboard> {
                           //   ),
                           // ),
                           SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                            padding: EdgeInsets.fromLTRB(
+                              gutter,
+                              24,
+                              gutter,
+                              28,
+                            ),
                             sliver: SliverReorderableList(
                               itemCount: dashState.cards.length,
                               onReorder: context

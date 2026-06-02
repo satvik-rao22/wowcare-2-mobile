@@ -143,37 +143,47 @@ class _ParentDashboardState extends State<ParentDashboard> {
                       constraints: const BoxConstraints(
                         maxWidth: _maxContentWidth,
                       ),
-                      child: CustomScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        slivers: [
-                          // SliverPadding(
-                          //   padding:
-                          //       EdgeInsets.fromLTRB(gutter, 24, gutter, 0),
-                          //   sliver: SliverToBoxAdapter(
-                          //     child: _buildHeader(dashState.userName),
-                          //   ),
-                          // ),
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
-                            sliver: SliverReorderableList(
-                              itemCount: dashState.cards.length,
-                              onReorder: context
-                                  .read<ParentDashboardCubit>()
-                                  .reorderCard,
-                              itemBuilder: (context, index) {
-                                final card = dashState.cards[index];
-                                return ReorderableDelayedDragStartListener(
-                                  key: ValueKey(card),
-                                  index: index,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    child: Material(
-                                      type: MaterialType.transparency,
-                                      child: _cardFor(card),
-                                    ),
+                      // Local Overlay scopes the SliverReorderableList drag-proxy
+                      // overlay entry, preventing duplicate GlobalKey conflicts with
+                      // the app-level overlay during card reordering.
+                      child: Overlay(
+                        initialEntries: [
+                          OverlayEntry(
+                            opaque: true,
+                            builder: (_) => CustomScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              slivers: [
+                                SliverPadding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    gutter,
+                                    24,
+                                    gutter,
+                                    28,
                                   ),
-                                );
-                              },
+                                  sliver: SliverReorderableList(
+                                    itemCount: dashState.cards.length,
+                                    onReorder: context
+                                        .read<ParentDashboardCubit>()
+                                        .reorderCard,
+                                    itemBuilder: (context, index) {
+                                      final card = dashState.cards[index];
+                                      return ReorderableDelayedDragStartListener(
+                                        key: ValueKey(card),
+                                        index: index,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            bottom: 16,
+                                          ),
+                                          child: Material(
+                                            type: MaterialType.transparency,
+                                            child: _cardFor(card),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
