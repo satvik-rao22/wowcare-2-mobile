@@ -8,10 +8,17 @@ import '../entities/student_physical_exam.dart';
 import '../entities/student_physician.dart';
 import '../entities/student_pickup.dart';
 import '../entities/student_profile.dart';
+import '../entities/student_regular_schedule.dart';
 
 abstract class StudentRepository {
   /// Fetches a single student profile via `GET /api/v1/student/student/{code}`.
   Future<StudentProfile> getStudentProfile({required String code});
+
+  /// Fetches a student's regular schedule from the dedicated schedule API:
+  /// `GET /api/v1/regular-schedules?studentCode={studentCode}`.
+  Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
+    required String studentCode,
+  });
   Future<StudentPage> getStudentPage({
     required String schoolCode,
     String? code,
@@ -202,6 +209,10 @@ abstract class StudentRepository {
   /// `GET /api/v1/student/student-documents/expiry-count`
   Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
       getStudentDocumentExpiryCount({required String schoolCode});
+
+  /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode});
 
   /// Updates a student's tags via `POST /api/v1/student-tags`.
   ///

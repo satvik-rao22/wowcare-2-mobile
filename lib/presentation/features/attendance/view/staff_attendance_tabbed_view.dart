@@ -39,6 +39,7 @@ class StaffAttendanceTabbedView extends StatefulWidget {
     this.initialTabIndex = 0, 
     this.dailyIncomingFilter,
     this.classroomFilter,
+    this.hasBackButton = false,
   });
 
   static const String routeName = '/dashboard/staff-attendance-tabbed-view';
@@ -46,6 +47,7 @@ class StaffAttendanceTabbedView extends StatefulWidget {
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
   final FilterData? classroomFilter; // classroom filter data
+  final bool hasBackButton;
 
   @override
   State<StaffAttendanceTabbedView> createState() => _StaffAttendanceTabbedViewState();
@@ -202,7 +204,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           ),
           child: Scaffold(
             appBar: CustomAppBar(
-              hasBackButton: false,
+              hasBackButton: widget.hasBackButton,
               tabController: _tabController,
               tabBarStyle: TabBarStyle(
                 indicator: const UnderlineTabIndicator(

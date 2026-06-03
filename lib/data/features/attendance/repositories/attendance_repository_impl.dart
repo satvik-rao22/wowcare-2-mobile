@@ -1489,9 +1489,11 @@ class AttendanceRepositoryImpl
     final body = Map<String, dynamic>.from(payload);
     Map<String, dynamic>? queryParameters;
     if (isParent) {
-      final g = body.remove('guardianCode');
-      if (g != null && g.toString().trim().isNotEmpty) {
-        queryParameters = {'guardianCode': g.toString().trim()};
+      final g = (body['guardianCode'] ?? '').toString().trim();
+      if (g.isNotEmpty) {
+        // Send in both query param (backend requirement) and request body (API schema).
+        queryParameters = {'guardianCode': g};
+        body['guardianCode'] = g;
       }
     }
     await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
@@ -1511,9 +1513,11 @@ class AttendanceRepositoryImpl
     final body = Map<String, dynamic>.from(payload);
     Map<String, dynamic>? queryParameters;
     if (isParent) {
-      final g = body.remove('guardianCode');
-      if (g != null && g.toString().trim().isNotEmpty) {
-        queryParameters = {'guardianCode': g.toString().trim()};
+      final g = (body['guardianCode'] ?? '').toString().trim();
+      if (g.isNotEmpty) {
+        // Send in both query param (backend requirement) and request body (API schema).
+        queryParameters = {'guardianCode': g};
+        body['guardianCode'] = g;
       }
     }
     await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
@@ -1544,7 +1548,11 @@ class AttendanceRepositoryImpl
     required bool isSelf,
   }) async {
     final body = Map<String, dynamic>.from(payload);
-    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    // The self sign-in endpoint does not accept allowedClassroomCodes — only
+    // the admin bulk endpoint uses that field for classroom-scoped authorization.
+    if (!isSelf) {
+      await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    }
     final data = await _remoteDataSource.postStaffSignIn(
       body: body,
       isSelf: isSelf,

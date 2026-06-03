@@ -1142,7 +1142,14 @@ class _StudentAttendanceDailyViewScreenState
                               final student = entry.value;
                               final isHighlightTarget =
                                   _isHighlightTarget(student.studentCode);
-                              if (isHighlightTarget && !_highlightApplied) {
+                              // Capture before mutating _highlightApplied so
+                              // the key is only assigned on the very first
+                              // build — removing it afterward prevents the
+                              // GlobalKey duplicate when the SliverList
+                              // deactivates/reactivates this item on fling.
+                              final needsHighlightKey =
+                                  isHighlightTarget && !_highlightApplied;
+                              if (needsHighlightKey) {
                                 _highlightApplied = true;
                                 WidgetsBinding.instance
                                     .addPostFrameCallback((_) {
@@ -1163,7 +1170,7 @@ class _StudentAttendanceDailyViewScreenState
                                 });
                               }
                               return HighlightableCard(
-                                key: isHighlightTarget
+                                key: needsHighlightKey
                                     ? _highlightCardKey
                                     : null,
                                 code: student.studentCode,

@@ -151,12 +151,24 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   Future<void> clearCache() async {
     // Full wipe so every module cache (staff list/profile, activity feed pages,
     // filters, guardian snapshot, timezone, PIN, credentials keys, legacy keys)
-    // is cleared and never leaks across users. Preserve first-run onboarding only.
+    // is cleared and never leaks across users. Preserve first-run onboarding AND
+    // the "Remember me" bundle (username + flag) so the sign-in form can still
+    // pre-fill after logout / session-expiry. The actual password lives in the
+    // biometric-gated secure store (Keychain/Keystore), never here.
     final seenOnboarding =
         await _storage.getBool(StorageKeys.onboardingSeen) ?? false;
+    final rememberMe = await _storage.getBool(StorageKeys.rememberMe) ?? false;
+    final savedUsername =
+        rememberMe ? await _storage.getString(StorageKeys.username) : null;
     await _storage.clear();
     if (seenOnboarding) {
       await _storage.saveBool(StorageKeys.onboardingSeen, true);
+    }
+    if (rememberMe) {
+      await _storage.saveBool(StorageKeys.rememberMe, true);
+      if (savedUsername != null && savedUsername.isNotEmpty) {
+        await _storage.saveString(StorageKeys.username, savedUsername);
+      }
     }
     try {
       await _sessionLocalCacheWiper?.wipe();

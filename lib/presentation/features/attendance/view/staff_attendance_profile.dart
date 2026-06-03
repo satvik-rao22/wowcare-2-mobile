@@ -744,9 +744,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
-          content: Text(
-            'This action is not allowed for current attendance state',
-          ),
+          content: Text('Please Sign in First'),
           backgroundColor: AppColors.warningColor,
         ),
       );

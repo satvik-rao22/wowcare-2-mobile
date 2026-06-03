@@ -28,6 +28,7 @@ import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/network/session_expired_interceptor.dart';
 import '../../core/storage/storage_service.dart';
+import '../../core/auth/secure_credential_store.dart';
 import '../../core/util/api_constants.dart';
 import '../../core/cache/cache_service.dart';
 import '../../core/cache/isar_cache_service.dart';
@@ -102,6 +103,10 @@ import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/services/dashboard_cubit_factory.dart';
+import '../../presentation/features/dashboard/cubit/parent_dashboard_coordinator_cubit.dart';
+import '../../presentation/features/dashboard/cubit/staff_dashboard_coordinator_cubit.dart';
+import '../../presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
@@ -267,11 +272,17 @@ import '../../domain/features/geofencing/usecases/request_location_permission_us
 import '../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
 import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../presentation/features/geofencing/cubit/geofence_cubit.dart';
+import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
+
 
 final GetIt serviceLocator = GetIt.instance;
 
 Future<void> configureDependencies({String? baseUrl}) async {
+  if (serviceLocator.isRegistered<StorageService>()) {
+    AppLogger.d('configureDependencies called but StorageService is already registered. Skipping initialization.');
+    return;
+  }
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
 
@@ -288,6 +299,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(serviceLocator()),
+  );
+  // Biometric-gated secure store for the "Remember me" password (Keychain /
+  // EncryptedSharedPreferences) — never the plaintext SharedPreferences.
+  serviceLocator.registerLazySingleton<SecureCredentialStore>(
+    () => SecureCredentialStore(),
   );
 
   // Cache
@@ -960,6 +976,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffShiftsUseCase: serviceLocator(),
       getClassroomsUseCase: serviceLocator(),
       storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<AdminDashboardCubit>(
@@ -971,10 +988,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ParentDashboardCubit>(
     () => ParentDashboardCubit(),
   );
+
+  serviceLocator.registerLazySingleton<ParentChildCubit>(
+    () => ParentChildCubit(),
+  );
+
+  // Dashboard Coordinators & Factory
+  serviceLocator.registerLazySingleton<DashboardCubitFactory>(
+    () => DashboardCubitFactory(serviceLocator),
+  );
+  serviceLocator.registerFactory<ParentDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createParentDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<StaffDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createStaffDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<AdminDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createAdminDashboardCoordinator(),
+  );
   serviceLocator.registerFactory<MyDayCubit>(
     () => MyDayCubit(
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
+      apiClient: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<DashboardAttentionCubit>(

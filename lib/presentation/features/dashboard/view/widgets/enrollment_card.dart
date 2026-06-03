@@ -156,7 +156,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       Expanded(
                         child: _StatColumn(
                           value: state.classroomClassrooms.toString(),
-                          label: 'Total Classrooms',
+                          label: 'Total \n Classrooms',
                         ),
                       ),
                       // VerticalDivider(
@@ -166,7 +166,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       Expanded(
                         child: _StatColumn(
                           value: state.capacity.toString(),
-                          label: 'Total Capacity',
+                          label: 'Total \n Capacity',
                         ),
                       ),
                       // VerticalDivider(
@@ -176,7 +176,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                       Expanded(
                         child: _StatColumn(
                           value: '${state.schoolFte.toStringAsFixed(0)}%',
-                          label: 'Full time Equivalent',
+                          label: 'Full time \n Equivalent',
                           showTrend: true,
                         ),
                       ),
@@ -207,7 +207,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     }
                     context.push(
                       StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
+                      extra: {'filter': filter, 'hasBackButton': true},
                     );
                   },
                   items: _percentItems(
@@ -253,7 +253,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     }
                     context.push(
                       StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
+                      extra: {'filter': filter, 'hasBackButton': true},
                     );
                   },
                   items: _percentItems(
@@ -301,7 +301,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     }
                     context.push(
                       StaffAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
+                      extra: {'filter': filter, 'hasBackButton': true},
                     );
                   },
                   items: _percentItems(
@@ -371,7 +371,7 @@ class _StatColumn extends StatelessWidget {
               SizedBox(width: 3),
               Flexible(
                 child: Text(
-                  '5% vs last month',
+                  '0% vs last month',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.successColor,

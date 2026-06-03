@@ -16,35 +16,103 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
 // Geofence is handled via OS-level native geofencing (Android GeofencingClient, iOS region monitoring).
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
 import 'src/app_router.dart';
 
-/// Handle FCM messages in background (when app is not in foreground)
+/// Handle FCM messages in background / terminated state.
+///
+/// Runs in a separate Dart isolate — no DI, no service locator available.
+/// For notification messages (FCM payload has a `notification` field) Android
+/// already shows the system tray notification automatically; we only need to
+/// act on data-only messages which Android silently drops without this handler.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  AppLogger.d('[FCM] Background message received: ${message.messageId}');
-  AppLogger.d('[FCM] Title: ${message.notification?.title}');
-  AppLogger.d('[FCM] Body: ${message.notification?.body}');
-  AppLogger.d('[FCM] Data: ${message.data}');
+
+  // Data-only messages: Android doesn't show anything automatically.
+  // Show a local notification so the user always sees the alert.
+  if (message.notification == null) {
+    final title = message.data['title']?.toString() ?? 'WowCare';
+    final body = message.data['body']?.toString() ?? 'You have a new notification';
+
+    const channelId = 'push_background_channel';
+    const channelName = 'Background Notifications';
+
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('ic_launcher_foreground'),
+        iOS: DarwinInitializationSettings(),
+      ),
+    );
+    await plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            channelId,
+            channelName,
+            importance: Importance.high,
+          ),
+        );
+    await plugin.show(
+      id: message.messageId.hashCode,
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          channelId,
+          channelName,
+          importance: Importance.high,
+          priority: Priority.high,
+          enableVibration: true,
+          playSound: true,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: false,
+          presentSound: true,
+        ),
+      ),
+    );
+  }
 }
 
 /// Native bridge to read the FCM `data` payload of the notification that
 /// cold-launched the app (killed state) — a reliable fallback for
 /// FirebaseMessaging.getInitialMessage() returning null with our manual plugin
 /// registration. See MainActivity.consumeLaunchNotificationData().
-const MethodChannel _notificationChannel =
-    MethodChannel('wowcare/notifications');
+const MethodChannel _notificationChannel = MethodChannel(
+  'wowcare/notifications',
+);
 
 Future<Map<String, String>?> _readNativeLaunchNotification() async {
   try {
-    final raw = await _notificationChannel
-        .invokeMapMethod<String, dynamic>('getInitialNotificationData');
+    final raw = await _notificationChannel.invokeMapMethod<String, dynamic>(
+      'getInitialNotificationData',
+    );
     if (raw == null) return null;
     return raw.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+  } catch (_) {
+    return null;
+  }
+}
+
+/// iOS only: reads the action stored by AppDelegate when the user tapped a
+/// native geofence UNNotification from the killed/background state.
+/// Returns e.g. {'action': 'GEOFENCE_ENTER'}, or null.
+Future<Map<String, String>?> _readIosGeofenceTap() async {
+  if (!Platform.isIOS) return null;
+  try {
+    const ch = MethodChannel('wowcare/geofence_tap');
+    final action = await ch.invokeMethod<String>('getPendingAction');
+    if (action == null || action.isEmpty) return null;
+    return {'action': action};
   } catch (_) {
     return null;
   }
@@ -107,7 +175,9 @@ Future<void> main() async {
         ),
       );
       if (dest != null) pendingNotificationDeepLink = dest.location;
-      AppLogger.d('[main] stashed pendingNotificationDeepLink=$pendingNotificationDeepLink');
+      AppLogger.d(
+        '[main] stashed pendingNotificationDeepLink=$pendingNotificationDeepLink',
+      );
     }
 
     // Killed-state tap of a LOCAL notification: when an FCM message arrives
@@ -127,7 +197,29 @@ Future<void> main() async {
           payload != null &&
           payload.isNotEmpty) {
         pendingNotificationDeepLink = payload;
-        AppLogger.d('[main] stashed (local notif) pendingNotificationDeepLink=$pendingNotificationDeepLink');
+        AppLogger.d(
+          '[main] stashed (local notif) pendingNotificationDeepLink=$pendingNotificationDeepLink',
+        );
+      }
+    }
+
+    // iOS: native geofence UNNotification tap (not shown via flutter_local_notifications,
+    // so getNotificationAppLaunchDetails() misses it). AppDelegate stores the action
+    // in UserDefaults; we read it here and resolve to /dashboard.
+    if (pendingNotificationDeepLink == null) {
+      final geofenceTapData = await _readIosGeofenceTap();
+      if (geofenceTapData != null && (geofenceTapData['action'] ?? '').isNotEmpty) {
+        final dest = NotificationRouteResolver.resolve(
+          PushNotificationModel(
+            title: null,
+            body: null,
+            action: geofenceTapData['action'],
+            type: null,
+            data: geofenceTapData,
+          ),
+        );
+        if (dest != null) pendingNotificationDeepLink = dest.location;
+        AppLogger.d('[main] stashed (iOS geofence tap) pendingNotificationDeepLink=$pendingNotificationDeepLink');
       }
     }
   } catch (e) {
@@ -147,7 +239,9 @@ class MyApp extends StatelessWidget {
       providers: [
         BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
         BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
-        BlocProvider<ParentChildCubit>(create: (_) => ParentChildCubit()),
+        BlocProvider<ParentChildCubit>(
+          create: (_) => serviceLocator<ParentChildCubit>(),
+        ),
       ],
       child: BlocBuilder<ThemeCubit, ThemeData>(
         builder: (context, currentTheme) {
@@ -181,6 +275,9 @@ class MyApp extends StatelessWidget {
                     ),
                     BlocProvider<PushNotificationCubit>(
                       create: (_) => serviceLocator<PushNotificationCubit>(),
+                    ),
+                    BlocProvider<GeofenceCubit>(
+                      create: (_) => serviceLocator<GeofenceCubit>(),
                     ),
                   ],
                   child: NotificationNavigator(

@@ -22,12 +22,14 @@ import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 
 // Student entity for Sign-Out UI & API payload
 class StudentEntity {
@@ -425,30 +427,20 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           if (context.mounted) {
             context.read<ParentChildCubit>().selectByCode(s.studentCode);
           }
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(
-                name: StudentAttendanceProfile.routeName,
-              ),
-              builder: (_) => StudentAttendanceProfile(
-                studentCode: s.studentCode,
-                studentId: s.id,
-                studentName: s.fullName,
-                studentPhotoUuid: s.photoUuid,
-                roomName: s.roomName,
-                isSignedIn: false,
-                syncWithParentChildSelection: true,
-              ),
-            ),
-            (route) => false,
+          context.go(
+            StudentAttendanceProfile.routeName,
+            extra: <String, dynamic>{
+              'studentCode': s.studentCode,
+              'studentId': s.id,
+              'studentName': s.fullName,
+              'studentPhotoUuid': s.photoUuid,
+              'roomName': s.roomName,
+              'isSignedIn': false,
+              'syncWithParentChildSelection': true,
+            },
           );
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          context.go(StudentAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {
@@ -472,6 +464,21 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Access Denied: You must be inside geofence and signed in to manage student attendance.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (currentStudents.isEmpty && widget.students.isNotEmpty) {
       currentStudents = List.from(widget.students);
     }

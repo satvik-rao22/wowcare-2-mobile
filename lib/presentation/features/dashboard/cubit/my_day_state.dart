@@ -8,7 +8,11 @@ class MyDayState extends Equatable {
     this.todaySchedule,
     this.todayWorkSchedule,
     this.todayBreakSchedule,
+    this.allSchoolSchedules = const [],
+    this.allWorkSchedules = const [],
+    this.allBreakSchedules = const [],
     this.schoolClosed = false,
+    this.schoolTimeZone = '',
     this.errorMessage,
   });
 
@@ -24,8 +28,21 @@ class MyDayState extends Equatable {
   /// The staff member's break schedule for today (from their profile).
   final StaffProfileBreakSchedule? todayBreakSchedule;
 
+  /// All school schedule days — used to build the weekly schedule grid.
+  final List<SchoolRegularScheduleDay> allSchoolSchedules;
+
+  /// All staff work schedule entries (one per day) — used for the weekly grid.
+  final List<StaffProfileWorkSchedule> allWorkSchedules;
+
+  /// All staff break schedule entries (one per day) — used for the weekly grid.
+  final List<StaffProfileBreakSchedule> allBreakSchedules;
+
   /// True when today has no school schedule or the schedule is not ACTIVE.
   final bool schoolClosed;
+
+  /// School's IANA timezone (e.g. "America/New_York"). Used by the card to
+  /// compute the countdown in school-local time, not device-local time.
+  final String schoolTimeZone;
 
   final String? errorMessage;
 
@@ -38,7 +55,11 @@ class MyDayState extends Equatable {
     SchoolRegularScheduleDay? todaySchedule,
     StaffProfileWorkSchedule? todayWorkSchedule,
     StaffProfileBreakSchedule? todayBreakSchedule,
+    List<SchoolRegularScheduleDay>? allSchoolSchedules,
+    List<StaffProfileWorkSchedule>? allWorkSchedules,
+    List<StaffProfileBreakSchedule>? allBreakSchedules,
     bool? schoolClosed,
+    String? schoolTimeZone,
     String? errorMessage,
     bool clearTodaySchedule = false,
     bool clearWorkSchedule = false,
@@ -54,7 +75,11 @@ class MyDayState extends Equatable {
       todayBreakSchedule: clearBreakSchedule
           ? null
           : (todayBreakSchedule ?? this.todayBreakSchedule),
+      allSchoolSchedules: allSchoolSchedules ?? this.allSchoolSchedules,
+      allWorkSchedules: allWorkSchedules ?? this.allWorkSchedules,
+      allBreakSchedules: allBreakSchedules ?? this.allBreakSchedules,
       schoolClosed: schoolClosed ?? this.schoolClosed,
+      schoolTimeZone: schoolTimeZone ?? this.schoolTimeZone,
       errorMessage: errorMessage,
     );
   }
@@ -65,7 +90,11 @@ class MyDayState extends Equatable {
         todaySchedule,
         todayWorkSchedule,
         todayBreakSchedule,
+        allSchoolSchedules,
+        allWorkSchedules,
+        allBreakSchedules,
         schoolClosed,
+        schoolTimeZone,
         errorMessage,
       ];
 }

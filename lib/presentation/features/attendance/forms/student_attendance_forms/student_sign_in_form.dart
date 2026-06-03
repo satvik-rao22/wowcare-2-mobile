@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -27,6 +29,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
@@ -659,48 +662,54 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       if (success) {
         if (widget.popOnSuccess) {
           widget.refreshCallback();
-          Navigator.of(context).pop();
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            Navigator.of(context).pop();
+          }
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
             context.read<ParentChildCubit>().selectByCode(s.studentCode);
           }
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(
-                name: StudentAttendanceProfile.routeName,
-              ),
-              builder: (_) => StudentAttendanceProfile(
-                studentCode: s.studentCode,
-                studentId: s.id,
-                studentName: s.fullName,
-                studentPhotoUuid: s.photoUuid,
-                roomName: s.roomName,
-                isSignedIn: true,
-                syncWithParentChildSelection: true,
-              ),
-            ),
-            (route) => false,
+          context.go(
+            StudentAttendanceProfile.routeName,
+            extra: <String, dynamic>{
+              'studentCode': s.studentCode,
+              'studentId': s.id,
+              'studentName': s.fullName,
+              'studentPhotoUuid': s.photoUuid,
+              'roomName': s.roomName,
+              'isSignedIn': true,
+              'syncWithParentChildSelection': true,
+            },
           );
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          context.go(StudentAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {
       if (!mounted) return;
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
+      // GPS parent sign-in disabled: show a warning and close the form so the
+      // parent returns to the dashboard where the button will now be disabled.
+      final isGpsParentDisabled = errorMessage
+          .toLowerCase()
+          .contains('gps parent sign-in is disabled');
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: AppColors.errorColor,
+          content: Text(
+            isGpsParentDisabled
+                ? 'GPS sign-in for parents is disabled by the school admin.'
+                : errorMessage,
+          ),
+          backgroundColor: isGpsParentDisabled
+              ? AppColors.warningColor
+              : AppColors.errorColor,
         ),
       );
+      if (isGpsParentDisabled && mounted) Navigator.of(context).pop();
     } finally {
       if (mounted) {
         setState(() {
@@ -712,6 +721,21 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Access Denied: You must be inside geofence and signed in to manage student attendance.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (currentStudents.isEmpty) {
       // Fallback if students list is empty
       currentStudents = List.from(widget.students);
@@ -777,7 +801,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                                 ? today
                                 : date;
                           });
-                          _runUnexpectedSignInGate();
+                          unawaited(_runUnexpectedSignInGate());
                         },
                       ),
                     ],

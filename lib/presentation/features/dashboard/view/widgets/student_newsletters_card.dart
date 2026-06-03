@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StudentNewslettersCard extends StatefulWidget {
   const StudentNewslettersCard({super.key});
@@ -201,14 +202,9 @@ class _NewsletterRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 75,
-              height: 75,
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.article_outlined, color: accentColor, size: 32),
+            _NewsletterThumbnail(
+              assetCode: item.assetCode,
+              accentColor: accentColor,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -272,6 +268,46 @@ class _NewsletterRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NewsletterThumbnail extends StatelessWidget {
+  const _NewsletterThumbnail({
+    required this.assetCode,
+    required this.accentColor,
+  });
+
+  final String? assetCode;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = assetCode != null && assetCode!.trim().isNotEmpty;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 75,
+        height: 75,
+        child: hasImage
+            ? DocumentImageWidget(
+                fileUuid: '',
+                mediaAssetCode: assetCode,
+                name: '',
+                size: 75,
+                fontSize: 0,
+                disableProfileLookupFallback: true,
+                disableAttendanceStatusLookup: true,
+              )
+            : Container(
+                color: accentColor.withValues(alpha: 0.18),
+                child: Icon(
+                  Icons.article_outlined,
+                  color: accentColor,
+                  size: 32,
+                ),
+              ),
       ),
     );
   }

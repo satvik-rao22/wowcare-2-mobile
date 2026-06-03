@@ -30,19 +30,14 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs access to the camera to capture photos.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID is used to unlock your saved password for a quick, secure sign-in.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>This app needs access to your location even in the background for geofencing features.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app needs permission to save photos to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to upload images.</string>
-	<key>UIUserNotificationAlertOptions</key>
-	<integer>7</integer>
-	<key>UserNotifications</key>
-	<dict>
-		<key>Description</key>
-		<string>This app needs permission to send notifications for school sign-in zone alerts.</string>
-	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

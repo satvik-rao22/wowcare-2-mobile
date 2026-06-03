@@ -28,6 +28,22 @@ enum _AttentionCardRoute {
   expiredStaffDocs,
   expiringStaffDocs,
   overdueCheckups,
+  studentCheckups,
+}
+
+// ── Sub-item model ────────────────────────────────────────────────────────────
+
+/// One bullet row inside an attention card (e.g. "Overdue (3)").
+class AttentionCardSubItem {
+  const AttentionCardSubItem({
+    required this.label,
+    required this.count,
+    required this.tone,
+  });
+
+  final String label;
+  final int count;
+  final _AttentionTone tone;
 }
 
 // ── Card model ────────────────────────────────────────────────────────────────
@@ -37,21 +53,26 @@ class AttentionCardModel {
   const AttentionCardModel({
     required this.label,
     required this.count,
-    required this.pillText,
     required this.route,
+    this.pillText,
     this.tone = _AttentionTone.danger,
     this.showThumbDown = false,
     this.isCurrency = false,
     this.valueText,
+    this.subItems,
+    this.labelTag,
   });
 
   final String label;
 
-  /// The numeric count driving visibility and display. Cards with [count] == 0
-  /// are hidden (unless [isCurrency] is true and [valueText] is non-empty).
+  /// Optional small tag shown next to the label (e.g. "This Month").
+  final String? labelTag;
+
+  /// The numeric count driving visibility and display.
   final int count;
 
-  final String pillText;
+  /// Shown as a pill badge when [subItems] is null and [valueText] is null.
+  final String? pillText;
   final _AttentionTone tone;
   final bool showThumbDown;
   final _AttentionCardRoute route;
@@ -62,8 +83,9 @@ class AttentionCardModel {
   /// Display string for the currency card (e.g. "\$5 000 (5%)").
   final String? valueText;
 
-  /// Currency cards show when [valueText] is non-empty.
-  /// All other cards show only when [count] > 0.
+  /// When non-null, shows bullet sub-item rows instead of the pill badge.
+  final List<AttentionCardSubItem>? subItems;
+
   bool get shouldShow =>
       isCurrency ? (valueText != null && valueText!.isNotEmpty) : count > 0;
 }
@@ -152,20 +174,25 @@ class _AttentionGridState extends State<AttentionGrid> {
     switch (route) {
       case _AttentionCardRoute.incidentApproval:
         context.go('/activityFeed');
+
       case _AttentionCardRoute.classroomRatio:
         context.go(ClassroomOverviewScreen.routeName);
+
       case _AttentionCardRoute.classroomShifts:
         context.go('/dashboard/scheduling');
+
       case _AttentionCardRoute.pendingMovements:
       case _AttentionCardRoute.overdueMovements:
         context.go('/dashboard/individual-movement');
+
+      // Disable navigation for Expiry & Physical Checkup cards
       case _AttentionCardRoute.expiredStudentDocs:
       case _AttentionCardRoute.expiringStudentDocs:
-        context.go('/dashboard/students');
       case _AttentionCardRoute.expiredStaffDocs:
       case _AttentionCardRoute.expiringStaffDocs:
       case _AttentionCardRoute.overdueCheckups:
-        context.go('/dashboard/staff');
+      case _AttentionCardRoute.studentCheckups:
+        return;
     }
   }
 
@@ -261,15 +288,15 @@ class _AttentionGridState extends State<AttentionGrid> {
         : 0;
 
     return [
-      // Incident Approvals - new card
+      // Incidents — single count, pill badge
       AttentionCardModel(
-        label: 'Pending Incident Approvals',
+        label: 'Incidents',
         count: attentionState.pendingIncidents,
-        pillText: 'Pending Review',
-        tone: _AttentionTone.danger,
+        pillText: 'Pending Approval',
+        tone: _AttentionTone.warning,
         route: _AttentionCardRoute.incidentApproval,
       ),
-      // Existing cards
+      // Classrooms — single count, pill badge
       AttentionCardModel(
         label: 'Classrooms',
         count: classroomCount,
@@ -278,6 +305,7 @@ class _AttentionGridState extends State<AttentionGrid> {
         showThumbDown: true,
         route: _AttentionCardRoute.classroomRatio,
       ),
+      // Classroom Shifts — single count, pill badge
       AttentionCardModel(
         label: 'Classroom Shifts',
         count: shiftsCount,
@@ -285,54 +313,102 @@ class _AttentionGridState extends State<AttentionGrid> {
         tone: _AttentionTone.danger,
         route: _AttentionCardRoute.classroomShifts,
       ),
+      // Movement — consolidated with sub-items
       AttentionCardModel(
-        label: 'Pending Movements',
-        count: attentionState.pendingMovements,
-        pillText: 'Needs Review',
-        tone: _AttentionTone.warning,
+        label: 'Movement',
+        labelTag: 'This Month',
+        count:
+            attentionState.overdueMovements + attentionState.pendingMovements,
         route: _AttentionCardRoute.pendingMovements,
+        subItems: [
+          AttentionCardSubItem(
+            label: 'Overdue',
+            count: attentionState.overdueMovements,
+            tone: _AttentionTone.danger,
+          ),
+          AttentionCardSubItem(
+            label: 'Pending Confirmation',
+            count: attentionState.pendingMovements,
+            tone: _AttentionTone.warning,
+          ),
+        ],
       ),
+      // Student Documents — consolidated with sub-items
       AttentionCardModel(
-        label: 'Overdue Movements',
-        count: attentionState.overdueMovements,
-        pillText: 'Overdue',
-        tone: _AttentionTone.danger,
-        route: _AttentionCardRoute.overdueMovements,
-      ),
-      AttentionCardModel(
-        label: 'Expired Student Docs',
-        count: attentionState.expiredStudentDocuments,
-        pillText: 'Overdue',
-        tone: _AttentionTone.danger,
+        label: 'Student Documents',
+        count:
+            attentionState.expiredStudentDocuments +
+            attentionState.expiringStudentDocuments,
         route: _AttentionCardRoute.expiredStudentDocs,
+        subItems: [
+          AttentionCardSubItem(
+            label: 'Expired',
+            count: attentionState.expiredStudentDocuments,
+            tone: _AttentionTone.danger,
+          ),
+          AttentionCardSubItem(
+            label: 'Expiring Soon',
+            count: attentionState.expiringStudentDocuments,
+            tone: _AttentionTone.warning,
+          ),
+        ],
       ),
+      // Staff Documents — consolidated with sub-items
       AttentionCardModel(
-        label: 'Student Docs Expiring',
-        count: attentionState.expiringStudentDocuments,
-        pillText: 'Expiring Soon',
-        tone: _AttentionTone.warning,
-        route: _AttentionCardRoute.expiringStudentDocs,
-      ),
-      AttentionCardModel(
-        label: 'Expired Staff Docs',
-        count: attentionState.expiredDocuments,
-        pillText: 'Overdue',
-        tone: _AttentionTone.danger,
+        label: 'Staff Documents',
+        count:
+            attentionState.expiredDocuments + attentionState.expiringDocuments,
         route: _AttentionCardRoute.expiredStaffDocs,
+        subItems: [
+          AttentionCardSubItem(
+            label: 'Expired',
+            count: attentionState.expiredDocuments,
+            tone: _AttentionTone.danger,
+          ),
+          AttentionCardSubItem(
+            label: 'Expiring Soon',
+            count: attentionState.expiringDocuments,
+            tone: _AttentionTone.warning,
+          ),
+        ],
       ),
+      // Student Physical Checkups — consolidated with sub-items
       AttentionCardModel(
-        label: 'Expiring Soon Docs',
-        count: attentionState.expiringDocuments,
-        pillText: 'Expiring Soon',
-        tone: _AttentionTone.warning,
-        route: _AttentionCardRoute.expiringStaffDocs,
+        label: 'Student Physical Checkups',
+        count:
+            attentionState.overdueStudentCheckups +
+            attentionState.missingStudentCheckups,
+        route: _AttentionCardRoute.studentCheckups,
+        subItems: [
+          AttentionCardSubItem(
+            label: 'Overdue',
+            count: attentionState.overdueStudentCheckups,
+            tone: _AttentionTone.danger,
+          ),
+          AttentionCardSubItem(
+            label: 'Not Added',
+            count: attentionState.missingStudentCheckups,
+            tone: _AttentionTone.warning,
+          ),
+        ],
       ),
+      // Staff Physical Checkups — consolidated with sub-items
       AttentionCardModel(
-        label: 'Overdue Checkups',
-        count: attentionState.overdueCheckups,
-        pillText: 'Overdue',
-        tone: _AttentionTone.danger,
+        label: 'Staff Physical Checkups',
+        count: attentionState.overdueCheckups + attentionState.missingCheckups,
         route: _AttentionCardRoute.overdueCheckups,
+        subItems: [
+          AttentionCardSubItem(
+            label: 'Overdue',
+            count: attentionState.overdueCheckups,
+            tone: _AttentionTone.danger,
+          ),
+          AttentionCardSubItem(
+            label: 'Not Added',
+            count: attentionState.missingCheckups,
+            tone: _AttentionTone.warning,
+          ),
+        ],
       ),
     ].where((c) => c.shouldShow).toList();
   }
@@ -458,6 +534,7 @@ class _AttentionCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // ── Header row: count + label (+ optional tag) ──────────────────
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -474,21 +551,56 @@ class _AttentionCard extends StatelessWidget {
                   ),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
-                    model.label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  child: model.labelTag != null
+                      ? RichText(
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: model.label,
+                                style: const TextStyle(
+                                  color: AppColors.primaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              TextSpan(
+                                text: ' (${model.labelTag})',
+                                style: TextStyle(
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.55,
+                                  ),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Text(
+                          model.label,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                 ),
               ],
             ),
             const SizedBox(height: 10),
-            if (model.valueText != null)
+            // ── Bottom section: sub-items, value text, or pill ───────────────
+            if (model.subItems != null)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: model.subItems!
+                    .map((item) => _SubItemRow(item: item))
+                    .toList(),
+              )
+            else if (model.valueText != null)
               Text(
                 model.valueText!,
                 style: const TextStyle(
@@ -499,7 +611,7 @@ class _AttentionCard extends StatelessWidget {
               )
             else
               _StatusPill(
-                text: model.pillText,
+                text: model.pillText ?? '',
                 tone: model.tone,
                 showThumbDown: model.showThumbDown,
               ),
@@ -579,6 +691,47 @@ class _StatusPill extends StatelessWidget {
             const SizedBox(width: 6),
             SvgPicture.asset(MediaRes.thumbDown, width: 14, height: 14),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+// ── Sub-item row ──────────────────────────────────────────────────────────────
+
+class _SubItemRow extends StatelessWidget {
+  const _SubItemRow({required this.item});
+
+  final AttentionCardSubItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = item.tone == _AttentionTone.danger
+        ? AppColors.errorColor
+        : AppColors.accentColor;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 4),
+      child: Row(
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '${item.label} (${item.count})',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: AppColors.primaryColor.withValues(alpha: 0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
         ],
       ),
     );

@@ -107,8 +107,8 @@ List<_GroupedMovement> _filterPriorityMovements(
   if (recentOverdue.isNotEmpty) {
     addBucket(recentOverdue, 'Overdue');
     final rows = map.values.toList(growable: false);
-    // Sort overdue: oldest first
-    rows.sort((a, b) => a.movementDate.compareTo(b.movementDate));
+    // Sort overdue: most recent first
+    rows.sort((a, b) => b.movementDate.compareTo(a.movementDate));
     return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
   }
 
@@ -394,26 +394,38 @@ class _MovementsCardState extends State<MovementsCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            studentCount,
+                      if (students.length == 1)
+                        Flexible(
+                          child: Text(
+                            students.first.name,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Students',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                        )
+                      else
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              studentCount,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Students',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       const SizedBox(width: 4),
                       _buildStatusBadge(status),
                       const SizedBox(width: 8),

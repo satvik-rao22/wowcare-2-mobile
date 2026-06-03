@@ -42,6 +42,7 @@ class GeofencingRepositoryImpl implements GeofencingRepository {
     final settingsFuture = getAttendanceSettings(schoolCode: schoolCode)
         .catchError((Object _) => AttendanceSettingsEntity(
               gpsSignInEnabled: true,
+              parentGpsSignInEnabled: true,
               proximityRadiusMeters: 500,
               maxProximityLimitMeters: 500,
               allowOutsideSchoolHours: true,
@@ -62,6 +63,7 @@ class GeofencingRepositoryImpl implements GeofencingRepository {
       longitude: locationModel.longitude,
       radiusMeters: settings.proximityRadiusMeters,
       gpsSignInEnabled: settings.gpsSignInEnabled,
+      parentGpsSignInEnabled: settings.parentGpsSignInEnabled,
       autoSignOutEnabled: settings.autoSignOutEnabled,
       autoSignOutDelayMinutes: settings.autoSignOutDelayMinutes,
     );

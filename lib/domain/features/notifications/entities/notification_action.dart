@@ -96,6 +96,9 @@ class NotificationAction {
   // ── Settings ────────────────────────────────────────────────────────────
   static const String schoolSettingsChanged = 'SCHOOL_SETTINGS_CHANGED';
 
+  // ── Geofence (device-local, fired by native geofence on enter) ───────────
+  static const String geofenceEnter = 'GEOFENCE_ENTER';
+
   /// Backend variants that should be treated as a known action above.
   static const Map<String, String> aliases = <String, String>{
     'CREATE_CLASSROOM': addClassroom,
