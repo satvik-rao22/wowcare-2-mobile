@@ -13,6 +13,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_cubit.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
 class StaffMarkAbsentForm extends StatefulWidget {
@@ -66,14 +67,13 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
         ),
       );
       if (outcome.returnToTabbedView) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const StaffAttendanceTabbedView(),
-          ),
-          (route) => false,
-        );
+        context.go(StaffAttendanceTabbedView.routeName);
       } else {
-        Navigator.pop(context);
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          Navigator.of(context).pop();
+        }
       }
     } else {
       final message = outcome.error != null
@@ -148,41 +148,41 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                 fillColor: AppColors.cardColor,
               ),
             ),
-            const SizedBox(height: 16),
-            const AppText.label('Absence Type'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _typeController,
-              decoration: InputDecoration(
-                hintText: 'Enter absence type',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: const Color.fromRGBO(87, 51, 83, 0.5),
-                  fontSize: 15,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: AppColors.cardColor,
-              ),
-            ),
+            // const SizedBox(height: 16),
+            // const AppText.label('Absence Type'),
+            // const SizedBox(height: 8),
+            // TextField(
+            //   controller: _typeController,
+            //   decoration: InputDecoration(
+            //     hintText: 'Enter absence type',
+            //     hintStyle: AppTextStyles.body.copyWith(
+            //       color: const Color.fromRGBO(87, 51, 83, 0.5),
+            //       fontSize: 15,
+            //     ),
+            //     border: OutlineInputBorder(
+            //       borderRadius: BorderRadius.circular(10),
+            //       borderSide: const BorderSide(
+            //         color: Color.fromRGBO(87, 51, 83, 0.4),
+            //       ),
+            //     ),
+            //     enabledBorder: OutlineInputBorder(
+            //       borderRadius: BorderRadius.circular(10),
+            //       borderSide: const BorderSide(
+            //         color: Color.fromRGBO(87, 51, 83, 0.4),
+            //         width: 1,
+            //       ),
+            //     ),
+            //     focusedBorder: OutlineInputBorder(
+            //       borderRadius: BorderRadius.circular(10),
+            //       borderSide: const BorderSide(
+            //         color: Color.fromRGBO(87, 51, 83, 0.4),
+            //         width: 2,
+            //       ),
+            //     ),
+            //     filled: true,
+            //     fillColor: AppColors.cardColor,
+            //   ),
+            // ),
             const SizedBox(height: 24),
             Row(
               children: [
@@ -240,7 +240,8 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                 itemBuilder: (context, index) => RemoveStaffTile(
                   staff: state.selectedStaff[index],
                   canRemove: state.selectedStaff.length > 1,
-                  onRemove: () => _cubit.removeStaff(state.selectedStaff[index]),
+                  onRemove: () =>
+                      _cubit.removeStaff(state.selectedStaff[index]),
                 ),
               ),
               const SizedBox(height: 20),
@@ -274,17 +275,11 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Colors.red,
-                      width: 1,
-                    ),
+                    borderSide: const BorderSide(color: Colors.red, width: 1),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Colors.red,
-                      width: 2,
-                    ),
+                    borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
                   filled: true,
                   fillColor: AppColors.cardColor,
@@ -303,7 +298,6 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
       ),
     );
   }
-
 }
 
 class RemoveStaffTile extends StatelessWidget {
@@ -321,14 +315,9 @@ class RemoveStaffTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -371,4 +360,3 @@ class RemoveStaffTile extends StatelessWidget {
     );
   }
 }
-

@@ -289,6 +289,14 @@ abstract class StudentRemoteDataSource {
     required String code,
   });
 
+  /// Fetches a student's regular schedules via `GET /api/v1/regular-schedules?studentCode={studentCode}`.
+  ///
+  /// Returns a list of raw schedule maps each containing:
+  /// { "dayOfWeek": "MONDAY", "startTime": {"hour":8,"minute":0}, "endTime": {"hour":17,"minute":0} }
+  Future<List<Map<String, dynamic>>> getStudentRegularSchedules({
+    required String studentCode,
+  });
+
   /// Updates a student's regular schedules via `PATCH /api/v1/regular-schedules`.
   ///
   /// Expected body shape:
@@ -1432,6 +1440,29 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     // Backend returns `"data": null` when no important dates are set.
     // Treat this as an empty important-dates model instead of throwing.
     return StudentImportantDatesModel.fromJson(data);
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getStudentRegularSchedules({
+    required String studentCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentRegularSchedules,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'studentCode': studentCode},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student regular schedules GET response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final dataList = root['data'] as List<dynamic>? ?? [];
+    return dataList.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
   @override

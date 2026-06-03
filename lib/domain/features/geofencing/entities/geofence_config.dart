@@ -12,6 +12,7 @@ class GeofenceConfig extends Equatable {
     required this.longitude,
     required this.radiusMeters,
     this.gpsSignInEnabled = true,
+    this.parentGpsSignInEnabled = true,
     this.autoSignOutEnabled = false,
     this.autoSignOutDelayMinutes = 0,
   });
@@ -26,6 +27,9 @@ class GeofenceConfig extends Equatable {
   /// When false the sign-in button must be disabled regardless of GPS position.
   final bool gpsSignInEnabled;
 
+  /// When false, parents specifically cannot sign in via GPS.
+  final bool parentGpsSignInEnabled;
+
   final bool autoSignOutEnabled;
   final int autoSignOutDelayMinutes;
 
@@ -36,6 +40,7 @@ class GeofenceConfig extends Equatable {
         longitude,
         radiusMeters,
         gpsSignInEnabled,
+        parentGpsSignInEnabled,
         autoSignOutEnabled,
         autoSignOutDelayMinutes,
       ];

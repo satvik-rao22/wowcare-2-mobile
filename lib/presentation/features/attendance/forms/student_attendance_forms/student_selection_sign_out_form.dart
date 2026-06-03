@@ -32,10 +32,14 @@ class StudentSelectionSignOutForm extends StatefulWidget {
     super.key,
     this.isQrScan = false,
     this.qrToken = '',
+    this.preSelectedStudentCode,
   });
 
   final bool isQrScan;
   final String qrToken;
+
+  /// When set (GPS flow), this student is pre-selected after the list loads.
+  final String? preSelectedStudentCode;
 
   @override
   State<StudentSelectionSignOutForm> createState() =>
@@ -44,6 +48,7 @@ class StudentSelectionSignOutForm extends StatefulWidget {
 
 class _StudentSelectionSignOutFormState
     extends State<StudentSelectionSignOutForm> {
+  bool _preSelectionApplied = false;
   bool isSelectAllChecked = false;
   String? _selectedClassroom = null;
   String? _selectedClassroomCode;
@@ -104,9 +109,7 @@ class _StudentSelectionSignOutFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms(
-      applyAttendanceStaffScope: true,
-    );
+    _classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -264,12 +267,19 @@ class _StudentSelectionSignOutFormState
         (s) => !students.any((e) => e.studentCode == s.studentCode),
       );
 
+      if (!_preSelectionApplied && widget.preSelectedStudentCode != null) {
+        _preSelectionApplied = true;
+        final code = widget.preSelectedStudentCode!.trim();
+        final match = students.where((s) => s.studentCode == code).firstOrNull;
+        if (match != null) selectedStudents.add(match);
+      }
+
       setState(() {
         _filteredStudents = List.from(students);
         _isLoading = false;
-        isSelectAllChecked =
-            _filteredStudents.isNotEmpty &&
-            _filteredStudents.every((s) => selectedStudents.contains(s));
+        // Auto-select all signed-in students
+        selectedStudents.addAll(_filteredStudents);
+        isSelectAllChecked = _filteredStudents.isNotEmpty;
       });
     } catch (e) {
       setState(() {

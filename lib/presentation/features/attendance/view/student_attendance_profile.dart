@@ -28,6 +28,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
@@ -775,8 +776,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
       final absentData = await serviceLocator<AttendanceRepository>()
           .fetchStudentAttendanceProfileAbsentToggle(
-        queryParameters: absentQueryParameters,
-      );
+            queryParameters: absentQueryParameters,
+          );
 
       if (absentData is Map<String, dynamic>) {
         final root = absentData['data'] as Map<String, dynamic>? ?? {};
@@ -878,8 +879,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     todayStatusRaw: _todayStatusRaw,
   );
 
-  bool get _canSignIn => !_isTodayStatusLoading && _todayGate.canSignIn;
-  bool get _canSignOut => !_isTodayStatusLoading && _todayGate.canSignOut;
+  bool get _canSignIn =>
+      !_isTodayStatusLoading &&
+      _todayGate.canSignIn &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+  bool get _canSignOut =>
+      !_isTodayStatusLoading &&
+      _todayGate.canSignOut &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
   bool get _canTransfer => !_isTodayStatusLoading && _todayGate.canTransfer;
   bool get _canMarkAbsent => !_isTodayStatusLoading && _todayGate.canMarkAbsent;
 
@@ -919,9 +926,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
-          content: Text(
-            'This action is not allowed for current attendance state',
-          ),
+          content: Text('Please Sign in First'),
           backgroundColor: AppColors.warningColor,
         ),
       );
@@ -1028,6 +1033,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
+      // Highlight the Attendance tab while a parent views their child's profile.
+      activeTabIndexOverride: isParentPersona ? 1 : null,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(
@@ -1304,7 +1311,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         children: [
           InkWell(
             onTap: () {
-              context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Present'});
+              context.push(
+                StudentAttendanceTabbedView.routeName,
+                extra: {'filter': 'Present'},
+              );
             },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
@@ -1319,7 +1329,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           InkWell(
             onTap: () {
-              context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Absent'});
+              context.push(
+                StudentAttendanceTabbedView.routeName,
+                extra: {'filter': 'Absent'},
+              );
             },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
@@ -1337,7 +1350,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       children: [
         InkWell(
           onTap: () {
-            context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Present'});
+            context.push(
+              StudentAttendanceTabbedView.routeName,
+              extra: {'filter': 'Present'},
+            );
           },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
@@ -1352,7 +1368,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         const SizedBox(height: 16),
         InkWell(
           onTap: () {
-            context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Absent'});
+            context.push(
+              StudentAttendanceTabbedView.routeName,
+              extra: {'filter': 'Absent'},
+            );
           },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,

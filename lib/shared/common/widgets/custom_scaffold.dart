@@ -180,10 +180,11 @@ class GlobalScaffold extends StatefulWidget {
     this.isParent = false,
     this.studentList,
     this.customButtonLayout,
-    /// When null, defaults to 8 px on all sides. Screens like the activity feed
-    /// can use asymmetric padding (e.g. zero right/bottom) to align with edges and
-    /// sit closer above the bottom navigation bar.
+    /// When null, defaults to 8 px on all sides.
     this.bodyPadding,
+    /// Forces a specific nav-bar slot to highlight regardless of the shell's
+    /// current branch. Pass 1 for screens conceptually under the Attendance tab.
+    this.activeTabIndexOverride,
     super.key,
   });
 
@@ -195,6 +196,7 @@ class GlobalScaffold extends StatefulWidget {
   final List<String>? studentList;
   final Widget? customButtonLayout;
   final EdgeInsetsGeometry? bodyPadding;
+  final int? activeTabIndexOverride;
 
   @override
   State<GlobalScaffold> createState() => _GlobalScaffoldState();
@@ -263,7 +265,9 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
                 child: _showBars
-                    ? const CustomNavigationBar()
+                    ? CustomNavigationBar(
+                        activeTabIndexOverride: widget.activeTabIndexOverride,
+                      )
                     : const SizedBox.shrink(),
               )
             : widget.customButtonLayout,

@@ -32,6 +32,7 @@ class StudentSelectionSignInForm extends StatefulWidget {
     super.key,
     this.isQrScan = false,
     this.qrToken = '',
+    this.preSelectedStudentCode,
   });
 
   /// True when opened after a QR code scan. Passed down to [StudentSignInForm]
@@ -42,6 +43,9 @@ class StudentSelectionSignInForm extends StatefulWidget {
   /// Passed to StudentSignInForm for inclusion in the API payload.
   final String qrToken;
 
+  /// When set (GPS flow), this student is pre-selected after the list loads.
+  final String? preSelectedStudentCode;
+
   @override
   State<StudentSelectionSignInForm> createState() =>
       _StudentSelectionSignInFormState();
@@ -49,6 +53,7 @@ class StudentSelectionSignInForm extends StatefulWidget {
 
 class _StudentSelectionSignInFormState
     extends State<StudentSelectionSignInForm> {
+  bool _preSelectionApplied = false;
   bool isSelectAllChecked = false;
   String? _selectedClassroom = null;
   String? _selectedClassroomCode;
@@ -275,6 +280,15 @@ class _StudentSelectionSignInFormState
       selectedStudents.removeWhere(
         (s) => !students.any((e) => e.studentCode == s.studentCode),
       );
+
+      // GPS flow: pre-select the child the parent was viewing, but only on the
+      // first load so the user can de-select without it snapping back.
+      if (!_preSelectionApplied && widget.preSelectedStudentCode != null) {
+        _preSelectionApplied = true;
+        final code = widget.preSelectedStudentCode!.trim();
+        final match = students.where((s) => s.studentCode == code).firstOrNull;
+        if (match != null) selectedStudents.add(match);
+      }
 
       setState(() {
         _allStudents = students;

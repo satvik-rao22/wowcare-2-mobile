@@ -43,6 +43,8 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
@@ -851,6 +853,9 @@ class _StudentScreenState extends State<StudentScreen> {
     if (_attendanceStatusLoading || _attendanceStatusError) {
       return StudentAttendanceActionAvailability.allDisabled;
     }
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
 
     final selected = _getSelectedStudents(students);
     if (selected.isEmpty) {
@@ -1143,6 +1148,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<GeofenceCubit>();
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
     final classroomState = context.watch<ClassroomCubit>().state;

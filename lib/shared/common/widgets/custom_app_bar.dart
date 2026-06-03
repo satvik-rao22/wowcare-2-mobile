@@ -147,7 +147,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 // branch root (e.g. /messageFeed for staff has
                 // hasBackButton:true but nothing to pop), so the back icon
                 // appeared broken.
-                if (Navigator.of(context).canPop()) {
+                if (context.canPop()) {
+                  context.pop();
+                } else if (Navigator.of(context).canPop()) {
                   Navigator.of(context).pop();
                 } else {
                   context.go(DashboardScreen.routeName);

@@ -4,15 +4,23 @@ import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/features/notifications/datasources/fcm_registration_remote_data_source.dart';
 import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_data_source.dart';
+import '../../data/features/notifications/datasources/notification_center_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_logs_remote_data_source.dart';
+import '../../data/features/notifications/repositories/fcm_registration_repository_impl.dart';
 import '../../data/features/notifications/repositories/notification_center_repository_impl.dart';
 import '../../data/features/notifications/repositories/push_notification_repository_impl.dart';
+import '../../data/features/notifications/services/fcm_token_registration_service.dart';
+import '../../domain/features/notifications/repositories/fcm_registration_repository.dart';
 import '../../domain/features/notifications/repositories/notification_center_repository.dart';
 import '../../domain/features/notifications/repositories/push_notification_repository.dart';
 import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
+import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
+import '../../domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
 import '../../core/network/api_client.dart';
@@ -95,6 +103,10 @@ import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/services/dashboard_cubit_factory.dart';
+import '../../presentation/features/dashboard/cubit/parent_dashboard_coordinator_cubit.dart';
+import '../../presentation/features/dashboard/cubit/staff_dashboard_coordinator_cubit.dart';
+import '../../presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
@@ -260,11 +272,17 @@ import '../../domain/features/geofencing/usecases/request_location_permission_us
 import '../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
 import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../presentation/features/geofencing/cubit/geofence_cubit.dart';
+import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
+
 
 final GetIt serviceLocator = GetIt.instance;
 
 Future<void> configureDependencies({String? baseUrl}) async {
+  if (serviceLocator.isRegistered<StorageService>()) {
+    AppLogger.d('configureDependencies called but StorageService is already registered. Skipping initialization.');
+    return;
+  }
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
 
@@ -958,6 +976,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStaffShiftsUseCase: serviceLocator(),
       getClassroomsUseCase: serviceLocator(),
       storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<AdminDashboardCubit>(
@@ -969,10 +988,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ParentDashboardCubit>(
     () => ParentDashboardCubit(),
   );
+
+  serviceLocator.registerLazySingleton<ParentChildCubit>(
+    () => ParentChildCubit(),
+  );
+
+  // Dashboard Coordinators & Factory
+  serviceLocator.registerLazySingleton<DashboardCubitFactory>(
+    () => DashboardCubitFactory(serviceLocator),
+  );
+  serviceLocator.registerFactory<ParentDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createParentDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<StaffDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createStaffDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<AdminDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createAdminDashboardCoordinator(),
+  );
   serviceLocator.registerFactory<MyDayCubit>(
     () => MyDayCubit(
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
+      apiClient: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<DashboardAttentionCubit>(
@@ -1010,6 +1048,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       loginUseCase: serviceLocator(),
       localDataSource: serviceLocator(),
       remoteDataSource: serviceLocator(),
+      registerDeviceFcmToken: serviceLocator(),
+      unregisterDeviceFcmToken: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffCubit>(
@@ -1305,6 +1345,30 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<FcmRemoteDataSource>(
     () => FcmRemoteDataSourceImpl(serviceLocator()),
   );
+  serviceLocator.registerLazySingleton<FcmRegistrationRemoteDataSource>(
+    () => FcmRegistrationRemoteDataSourceImpl(apiClient: serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<FcmTokenRegistrationService>(
+    () => FcmTokenRegistrationService(
+      remote: serviceLocator(),
+      storage: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<FcmRegistrationRepository>(
+    () => FcmRegistrationRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RegisterDeviceFcmTokenUseCase>(
+    () => RegisterDeviceFcmTokenUseCase(
+      serviceLocator(),
+      serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<UnregisterDeviceFcmTokenUseCase>(
+    () => UnregisterDeviceFcmTokenUseCase(
+      serviceLocator(),
+      serviceLocator(),
+    ),
+  );
   serviceLocator.registerLazySingleton<PushNotificationRepository>(
     () => PushNotificationRepositoryImpl(serviceLocator()),
   );
@@ -1312,14 +1376,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => PushNotificationCubit(
       repository: serviceLocator(),
       localNotifications: serviceLocator(),
+      registerDeviceFcmToken: serviceLocator(),
     ),
   );
 
-  // Notification center (bell-icon inbox) — domain → data → presentation.
-  // Currently backed by an in-memory mock data source; swapping in a real REST
-  // data source is a one-line change here.
+  // Notification center (bell-icon inbox) — delivery logs API.
+  serviceLocator.registerLazySingleton<NotificationLogsRemoteDataSource>(
+    () => NotificationLogsRemoteDataSourceImpl(apiClient: serviceLocator()),
+  );
   serviceLocator.registerLazySingleton<NotificationCenterDataSource>(
-    () => MockNotificationCenterDataSource(),
+    () => NotificationCenterRemoteDataSource(
+      logsRemote: serviceLocator(),
+      storage: serviceLocator(),
+    ),
   );
   serviceLocator.registerLazySingleton<NotificationCenterRepository>(
     () => NotificationCenterRepositoryImpl(serviceLocator()),

@@ -237,6 +237,10 @@ abstract class StaffRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// `GET /api/v1/staff-schedules/{staffCode}`
+  Future<({List<StaffProfileWorkScheduleModel> workSchedules, List<StaffProfileBreakScheduleModel> breakSchedules})>
+      getStaffSchedules({required String staffCode});
+
   /// `GET /api/v1/organization/school/{schoolCode}/regular-schedule`
   Future<SchoolRegularScheduleListModel> getSchoolRegularSchedules({
     required String schoolCode,
@@ -979,6 +983,45 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Schedule updated successfully';
+  }
+
+  @override
+  Future<({List<StaffProfileWorkScheduleModel> workSchedules, List<StaffProfileBreakScheduleModel> breakSchedules})>
+      getStaffSchedules({required String staffCode}) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.staffSchedules}/$staffCode',
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(endpoint);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected staff schedules GET response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>? ?? {};
+
+    final workList = (data['workSchedules'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map((e) => StaffProfileWorkScheduleModel(
+              dayOfWeek: (e['dayOfWeek'] ?? '').toString(),
+              workStartTime: StaffProfileTimeModel.fromJson(e['workStartTime']),
+              workEndTime: StaffProfileTimeModel.fromJson(e['workEndTime']),
+            ))
+        .toList(growable: false);
+
+    final breakList = (data['breakSchedules'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map((e) => StaffProfileBreakScheduleModel(
+              dayOfWeek: (e['dayOfWeek'] ?? '').toString(),
+              breakType: (e['breakType'] ?? '').toString(),
+              breakStartTime: StaffProfileTimeModel.fromJson(e['breakStartTime']),
+              breakEndTime: StaffProfileTimeModel.fromJson(e['breakEndTime']),
+            ))
+        .toList(growable: false);
+
+    return (workSchedules: workList, breakSchedules: breakList);
   }
 
   @override

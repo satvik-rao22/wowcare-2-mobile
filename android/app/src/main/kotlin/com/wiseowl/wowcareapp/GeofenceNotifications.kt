@@ -41,10 +41,14 @@ object GeofenceNotifications {
                 )
             }
 
-        // Open the app when the notification is tapped.
+        // Open the app and carry GEOFENCE_ENTER so MainActivity passes it to
+        // Dart via consumeLaunchNotificationData(), which routes to /dashboard.
         val launchIntent = context.packageManager
             .getLaunchIntentForPackage(context.packageName)
-            ?.apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
+            ?.apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                if (isInside) putExtra("action", "GEOFENCE_ENTER")
+            }
             ?: Intent()
         val tapIntent = PendingIntent.getActivity(
             context,

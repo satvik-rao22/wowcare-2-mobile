@@ -16,6 +16,7 @@ import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.d
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
+import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -167,6 +168,10 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
               organizationCode: orgCode,
               schoolCode: schoolCode,
             );
+        // PushNotificationCubit.init() runs before splash restores org/school.
+        try {
+          await serviceLocator<RegisterDeviceFcmTokenUseCase>()();
+        } catch (_) {}
       }
 
       if (!mounted) return;

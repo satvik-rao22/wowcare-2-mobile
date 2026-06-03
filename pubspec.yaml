@@ -37,6 +37,7 @@ dependencies:
   flutter_bloc: ^9.0.0
   flutter_card_swiper: ^7.0.2
   flutter_html: ^3.0.0
+  mobile_scanner: ^7.2.0
   flutter_inappwebview: ^6.0.0
   flutter_linkify: ^6.0.0
   flutter_local_notifications: ^21.0.0
