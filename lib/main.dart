@@ -239,7 +239,9 @@ class MyApp extends StatelessWidget {
       providers: [
         BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
         BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
-        BlocProvider<ParentChildCubit>(create: (_) => ParentChildCubit()),
+        BlocProvider<ParentChildCubit>(
+          create: (_) => serviceLocator<ParentChildCubit>(),
+        ),
       ],
       child: BlocBuilder<ThemeCubit, ThemeData>(
         builder: (context, currentTheme) {

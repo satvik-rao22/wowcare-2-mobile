@@ -82,7 +82,6 @@ import '../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
-import '../../presentation/features/dashboard/cubit/dashboard_overall_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
@@ -96,6 +95,10 @@ import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/services/dashboard_cubit_factory.dart';
+import '../../presentation/features/dashboard/cubit/parent_dashboard_coordinator_cubit.dart';
+import '../../presentation/features/dashboard/cubit/staff_dashboard_coordinator_cubit.dart';
+import '../../presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
@@ -261,11 +264,17 @@ import '../../domain/features/geofencing/usecases/request_location_permission_us
 import '../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
 import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../presentation/features/geofencing/cubit/geofence_cubit.dart';
+import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
+
 
 final GetIt serviceLocator = GetIt.instance;
 
 Future<void> configureDependencies({String? baseUrl}) async {
+  if (serviceLocator.isRegistered<StorageService>()) {
+    AppLogger.d('configureDependencies called but StorageService is already registered. Skipping initialization.');
+    return;
+  }
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
 
@@ -962,9 +971,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator(),
     ),
   );
-  serviceLocator.registerFactory<DashboardOverallCubit>(
-    () => DashboardOverallCubit(),
-  );
   serviceLocator.registerFactory<AdminDashboardCubit>(
     () => AdminDashboardCubit(),
   );
@@ -973,6 +979,24 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ParentDashboardCubit>(
     () => ParentDashboardCubit(),
+  );
+
+  serviceLocator.registerLazySingleton<ParentChildCubit>(
+    () => ParentChildCubit(),
+  );
+
+  // Dashboard Coordinators & Factory
+  serviceLocator.registerLazySingleton<DashboardCubitFactory>(
+    () => DashboardCubitFactory(serviceLocator),
+  );
+  serviceLocator.registerFactory<ParentDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createParentDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<StaffDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createStaffDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<AdminDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createAdminDashboardCoordinator(),
   );
   serviceLocator.registerFactory<MyDayCubit>(
     () => MyDayCubit(

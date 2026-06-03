@@ -22,6 +22,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
 import 'staff_entity.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -639,14 +640,13 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           context.read<GeofenceCubit>().updateStaffSignInStatus(true);
         }
         if (isStaffAdmin) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StaffAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          context.go(StaffAttendanceTabbedView.routeName);
         } else {
-          Navigator.pop(context);
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            Navigator.of(context).pop();
+          }
         }
       }
     } catch (e) {

@@ -13,6 +13,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_cubit.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
 class StaffMarkAbsentForm extends StatefulWidget {
@@ -66,12 +67,13 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
         ),
       );
       if (outcome.returnToTabbedView) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const StaffAttendanceTabbedView()),
-          (route) => false,
-        );
+        context.go(StaffAttendanceTabbedView.routeName);
       } else {
-        Navigator.pop(context);
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          Navigator.of(context).pop();
+        }
       }
     } else {
       final message = outcome.error != null

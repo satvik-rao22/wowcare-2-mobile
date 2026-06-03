@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_cubit.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
@@ -92,12 +93,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          context.go(StudentAttendanceTabbedView.routeName);
         }
       case false:
         final message = outcome.error != null

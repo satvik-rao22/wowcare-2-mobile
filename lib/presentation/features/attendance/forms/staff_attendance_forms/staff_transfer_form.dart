@@ -26,6 +26,7 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
 import 'staff_entity.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
@@ -414,14 +415,13 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
       if (success) {
         if (isStaffAdmin) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StaffAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          context.go(StaffAttendanceTabbedView.routeName);
         } else {
-          Navigator.pop(context);
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            Navigator.of(context).pop();
+          }
         }
       }
     } catch (e) {

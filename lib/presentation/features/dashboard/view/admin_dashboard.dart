@@ -2,25 +2,25 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
-import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/constants/dashboard_constants.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/services/dashboard_initialization_service.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_shifts_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/enrollment_card.dart';
+import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/ratio_monitoring_card.dart';
+import 'package:wowcare/presentation/features/dashboard/viewmodels/admin_dashboard_viewmodel.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -34,20 +34,20 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
+  late final AdminDashboardCoordinatorCubit _coordinator;
+
   static const double _maxContentWidth = 640;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(DashboardInitializationService.loadAdminDashboardData(context));
-    });
+    _coordinator = serviceLocator<AdminDashboardCoordinatorCubit>();
   }
 
   @override
   void dispose() {
-    // Note: All non-singleton cubits are closed automatically when they go out of scope.
-    // GeofenceCubit is a singleton managed by ServiceLocator and must NOT be closed.
+    // AdminDashboardCoordinatorCubit is closed automatically by BlocProvider,
+    // which then automatically disposes of all screen-scoped child cubits.
     super.dispose();
   }
 
@@ -58,15 +58,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case AdminDashboardCard.enrollment:
         return const EnrollmentCard(isDashboard: true);
       case AdminDashboardCard.ratioMonitoring:
-        return const RatioMonitoringCard();
+        return BlocProvider<RatioMonitoringCubit>.value(
+          value: _coordinator.ratioMonitoringCubit,
+          child: const RatioMonitoringCard(),
+        );
       case AdminDashboardCard.classroomShifts:
         return const ClassroomShiftsCard();
       case AdminDashboardCard.availability:
-        return const AvailabilityCard();
+        return BlocProvider<FutureAvailabilityCubit>.value(
+          value: _coordinator.availabilityCubit,
+          child: const AvailabilityCard(),
+        );
       case AdminDashboardCard.movements:
-        return const MovementsCard();
-      // case AdminDashboardCard.billing:
-      //   return const BillingCard();
+        return BlocProvider<IndividualMovementsCubit>.value(
+          value: _coordinator.movementsCubit,
+          child: const MovementsCard(),
+        );
     }
   }
 
@@ -87,100 +94,113 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: DashboardInitializationService.initializeAdminDashboardProviders(),
-      child: _buildScaffold(),
+    return BlocProvider<AdminDashboardCoordinatorCubit>(
+      create: (context) => _coordinator,
+      child: Builder(
+        builder: (context) {
+          final coordinator = context.read<AdminDashboardCoordinatorCubit>();
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<AdminDashboardCubit>.value(value: coordinator.dashboardCubit),
+              BlocProvider<GeofenceCubit>.value(value: coordinator.geofenceCubit),
+              BlocProvider<SchoolStatusCubit>.value(value: coordinator.schoolStatusCubit),
+              BlocProvider<RatioMonitoringCubit>.value(value: coordinator.ratioMonitoringCubit),
+              BlocProvider<ClassroomShiftsCubit>.value(value: coordinator.classroomShiftsCubit),
+              BlocProvider<IndividualMovementsCubit>.value(value: coordinator.movementsCubit),
+              BlocProvider<FutureAvailabilityCubit>.value(value: coordinator.availabilityCubit),
+              BlocProvider<DashboardAttentionCubit>.value(value: coordinator.attentionCubit),
+              BlocProvider<MyDayCubit>.value(value: coordinator.myDayCubit),
+            ],
+            child: _buildScaffold(context),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildScaffold() {
+  Widget _buildScaffold(BuildContext context) {
+    final coordinator = context.read<AdminDashboardCoordinatorCubit>();
     return GlobalScaffold(
       showCustomNavigationBar: true,
       bodyPadding: EdgeInsets.zero,
       body: Material(
         type: MaterialType.transparency,
-        child: BlocBuilder<AdminDashboardCubit, AdminDashboardState>(
-          builder: (context, dashState) {
-            return CustomRefreshIndicator(
-              onRefresh: () async {
-                final storage = serviceLocator<StorageService>();
-                final schoolCode = await storage.getString(
-                  StorageKeys.schoolCode,
-                );
-                if (!context.mounted) return;
-                if (schoolCode != null && schoolCode.isNotEmpty) {
-                  final availabilityCubit = context.read<FutureAvailabilityCubit>();
-                  await Future.wait([
-                    context.read<SchoolStatusCubit>().loadSchoolStatus(
-                      schoolCode: schoolCode,
-                      forceRefresh: true,
-                    ),
-                    context.read<RatioMonitoringCubit>().loadRatioMonitoring(
-                      schoolCode: schoolCode,
-                      forceRefresh: true,
-                    ),
-                    context.read<IndividualMovementsCubit>().refresh(),
-                    availabilityCubit.refresh(
-                      date: availabilityCubit.state.selectedDate ?? DateTime.now(),
-                      isTwoShifts: true,
-                    ),
-                    context.read<DashboardAttentionCubit>().refresh(),
-                    context.read<MyDayCubit>().refresh(),
-                  ]);
-                }
-              },
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final double gutter = constraints.maxWidth < 360 ? 12 : 16;
+        child: CustomRefreshIndicator(
+          onRefresh: () => coordinator.refresh(),
+          child: _DashboardCardList(
+            cardFor: _cardFor,
+            buildHeader: _buildHeader,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _maxContentWidth,
-                      ),
-                      child: CustomScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        slivers: [
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
-                            sliver: SliverToBoxAdapter(
-                              child: _buildHeader(dashState.userName),
-                            ),
-                          ),
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
-                            sliver: SliverReorderableList(
-                              itemCount: dashState.cards.length,
-                              onReorder: context
-                                  .read<AdminDashboardCubit>()
-                                  .reorderCard,
-                              itemBuilder: (context, index) {
-                                final card = dashState.cards[index];
-                                return ReorderableDelayedDragStartListener(
-                                  key: ValueKey(card),
-                                  index: index,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    child: Material(
-                                      type: MaterialType.transparency,
-                                      child: _cardFor(card),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
+class _DashboardCardList extends StatelessWidget {
+  const _DashboardCardList({required this.cardFor, required this.buildHeader});
+
+  final Widget Function(AdminDashboardCard) cardFor;
+  final Widget Function(String) buildHeader;
+
+  static const double _maxContentWidth = 640;
+
+  @override
+  Widget build(BuildContext context) {
+    final userName = context.select<AdminDashboardCubit, String>((cubit) => cubit.state.userName);
+
+    return BlocBuilder<AdminDashboardCubit, AdminDashboardState>(
+      buildWhen: (prev, curr) => prev.cards != curr.cards,
+      builder: (context, dashState) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final double gutter = constraints.maxWidth < 360 ? 12 : 16;
+
+            return Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(
+                  maxWidth: _maxContentWidth,
+                ),
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
+                      sliver: SliverToBoxAdapter(
+                        child: buildHeader(userName),
                       ),
                     ),
-                  );
-                },
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
+                      sliver: SliverReorderableList(
+                        itemCount: dashState.cards.length,
+                        onReorder: context
+                            .read<AdminDashboardCubit>()
+                            .reorderCard,
+                        itemBuilder: (context, index) {
+                          final card = dashState.cards[index];
+                          return ReorderableDelayedDragStartListener(
+                            key: ValueKey(card),
+                            index: index,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Material(
+                                type: MaterialType.transparency,
+                                child: cardFor(card),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
-        ),
-      ),
+        );
+      },
     );
   }
 }

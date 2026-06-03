@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -661,36 +662,30 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       if (success) {
         if (widget.popOnSuccess) {
           widget.refreshCallback();
-          Navigator.of(context).pop();
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            Navigator.of(context).pop();
+          }
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
             context.read<ParentChildCubit>().selectByCode(s.studentCode);
           }
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(
-                name: StudentAttendanceProfile.routeName,
-              ),
-              builder: (_) => StudentAttendanceProfile(
-                studentCode: s.studentCode,
-                studentId: s.id,
-                studentName: s.fullName,
-                studentPhotoUuid: s.photoUuid,
-                roomName: s.roomName,
-                isSignedIn: true,
-                syncWithParentChildSelection: true,
-              ),
-            ),
-            (route) => false,
+          context.go(
+            StudentAttendanceProfile.routeName,
+            extra: <String, dynamic>{
+              'studentCode': s.studentCode,
+              'studentId': s.id,
+              'studentName': s.fullName,
+              'studentPhotoUuid': s.photoUuid,
+              'roomName': s.roomName,
+              'isSignedIn': true,
+              'syncWithParentChildSelection': true,
+            },
           );
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          context.go(StudentAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {

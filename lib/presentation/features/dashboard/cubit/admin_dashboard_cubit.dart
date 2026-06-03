@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/dashboard/constants/dashboard_constants.dart';
+import 'package:wowcare/presentation/features/dashboard/viewmodels/admin_dashboard_viewmodel.dart';
 
 part 'admin_dashboard_state.dart';
 

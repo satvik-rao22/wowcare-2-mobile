@@ -20,6 +20,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
@@ -442,12 +443,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          context.go(StudentAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {

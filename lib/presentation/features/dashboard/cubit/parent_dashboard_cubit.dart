@@ -1,6 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/presentation/features/dashboard/constants/dashboard_constants.dart';
+import 'package:wowcare/presentation/features/dashboard/viewmodels/parent_dashboard_viewmodel.dart';
 
 part 'parent_dashboard_state.dart';
 

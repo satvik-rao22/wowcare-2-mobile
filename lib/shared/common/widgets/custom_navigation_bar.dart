@@ -140,11 +140,12 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       if (branchIndex == shell.currentIndex) {
         // Already on this branch. If the user is on a sub-route or has pushed routes
         // on top of this branch's nested navigator, pop them all to return to the root.
+        final router = GoRouter.of(context);
         final navigator = Navigator.of(context);
         while (navigator.canPop()) {
           navigator.pop();
         }
-        context.go(branchRootPaths[branchIndex]);
+        router.go(branchRootPaths[branchIndex]);
         return;
       }
       // Different branch → IndexedStack swap; state of the outgoing branch is

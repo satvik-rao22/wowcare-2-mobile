@@ -7,7 +7,33 @@ enum AdminDashboardCard {
   // events,
   // todo,
   availability,
-  movements,
+  movements;
   // billing,
   // classroomProgress,
+
+  String get title {
+    switch (this) {
+      case AdminDashboardCard.myDay:
+        return 'My Day';
+      case AdminDashboardCard.enrollment:
+        return 'Enrollment';
+      case AdminDashboardCard.ratioMonitoring:
+        return 'Ratio Monitoring';
+      case AdminDashboardCard.classroomShifts:
+        return 'Classroom Shifts';
+      case AdminDashboardCard.availability:
+        return 'Future Availability';
+      case AdminDashboardCard.movements:
+        return 'Individual Movements';
+    }
+  }
 }
+
+class AdminDashboardViewModel {
+  const AdminDashboardViewModel();
+
+  static const double maxContentWidth = 640;
+
+  static List<AdminDashboardCard> get defaultCards => AdminDashboardCard.values;
+}
+
