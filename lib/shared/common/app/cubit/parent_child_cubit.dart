@@ -59,12 +59,14 @@ class ParentChildState extends Equatable {
     this.children = const <ParentChildRef>[],
     this.isLoading = false,
     this.isLoaded = false,
+    this.refreshNonce = 0,
   });
 
   final ParentChildRef? selectedChild;
   final List<ParentChildRef> children;
   final bool isLoading;
   final bool isLoaded;
+  final int refreshNonce;
 
   ParentChildState copyWith({
     ParentChildRef? selectedChild,
@@ -72,6 +74,7 @@ class ParentChildState extends Equatable {
     List<ParentChildRef>? children,
     bool? isLoading,
     bool? isLoaded,
+    int? refreshNonce,
   }) {
     return ParentChildState(
       selectedChild:
@@ -79,6 +82,7 @@ class ParentChildState extends Equatable {
       children: children ?? this.children,
       isLoading: isLoading ?? this.isLoading,
       isLoaded: isLoaded ?? this.isLoaded,
+      refreshNonce: refreshNonce ?? this.refreshNonce,
     );
   }
 
@@ -88,6 +92,7 @@ class ParentChildState extends Equatable {
         children.map((c) => c.code).toList(),
         isLoading,
         isLoaded,
+        refreshNonce,
       ];
 }
 
@@ -130,6 +135,11 @@ class ParentChildCubit extends Cubit<ParentChildState> {
   void invalidate() {
     _lastLoadedContextKey = '';
     _safeEmit(const ParentChildState());
+  }
+
+  /// Reactively triggers a refresh for all listeners of the parent children state.
+  void forceRefresh() {
+    _safeEmit(state.copyWith(refreshNonce: state.refreshNonce + 1));
   }
 
   Future<void> ensureLoaded({bool force = false}) async {

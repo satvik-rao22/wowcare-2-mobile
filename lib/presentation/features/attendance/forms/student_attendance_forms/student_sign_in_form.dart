@@ -660,6 +660,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       );
 
       if (success) {
+        serviceLocator<ParentChildCubit>().forceRefresh();
         if (widget.popOnSuccess) {
           widget.refreshCallback();
           if (context.canPop()) {

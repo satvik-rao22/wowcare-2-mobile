@@ -446,15 +446,50 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // ----- Sign-In/Out gradient button -----
 
-  Widget _buildSignInOutButton({required GeofenceState geofenceState}) {
+  Widget _buildSignInOutButton({
+    required GeofenceState geofenceState,
+    required ParentChildState parentChildState,
+  }) {
     final bool enabled =
         geofenceState.status == GeofenceCubitStatus.withinRange;
-    final String buttonLabel = _isSelectedChildSignedIn
-        ? 'Sign-Out'
-        : 'Sign-In';
-    final String route = _isSelectedChildSignedIn
-        ? '/dashboard/student-selection-sign-out-form'
-        : '/dashboard/student-selection-sign-in-form';
+
+    final children = parentChildState.children;
+    final signedInCodes = <String>[];
+    final signedOutCodes = <String>[];
+    for (final child in children) {
+      final code = child.code.trim();
+      if (code.isEmpty) continue;
+      final isSignedIn =
+          (_childrenSignInStatusMap[code] ?? '').toUpperCase() == 'SIGNED_IN';
+      if (isSignedIn) {
+        signedInCodes.add(code);
+      } else {
+        signedOutCodes.add(code);
+      }
+    }
+
+    final String buttonLabel;
+    final String route;
+    final Map<String, dynamic> extraArgs;
+
+    final bool isMixed = signedInCodes.isNotEmpty && signedOutCodes.isNotEmpty;
+
+    if (isMixed) {
+      buttonLabel = 'Sign In / Out';
+      route = '/dashboard/student-sign-in-out-selection';
+      extraArgs = <String, dynamic>{
+        'signedInCodes': signedInCodes,
+        'signedOutCodes': signedOutCodes,
+      };
+    } else if (signedOutCodes.isEmpty) {
+      buttonLabel = 'Sign Out';
+      route = '/dashboard/student-selection-sign-out-form';
+      extraArgs = <String, dynamic>{'allowedStudentCodes': signedInCodes};
+    } else {
+      buttonLabel = 'Sign In';
+      route = '/dashboard/student-selection-sign-in-form';
+      extraArgs = <String, dynamic>{'allowedStudentCodes': signedOutCodes};
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -485,7 +520,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ),
           ],
         ),
-        onPressedConfirm: enabled ? () => context.go(route) : null,
+        onPressedConfirm: enabled
+            ? () => context.go(route, extra: extraArgs)
+            : null,
         disabledConfirmTooltip: 'You are not within  geofencing Range',
         onDisabledConfirmTap: () {
           if (!mounted) return;
@@ -794,6 +831,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                     children: [
                                       _buildSignInOutButton(
                                         geofenceState: geofenceState,
+                                        parentChildState: state,
                                       ),
                                       if (geofenceState.status ==
                                           GeofenceCubitStatus.permissionDenied)

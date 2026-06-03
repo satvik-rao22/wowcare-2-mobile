@@ -34,11 +34,19 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
   Timer? _clockTimer;
 
+  void _safeEmit(MyChildsDayState state) {
+    if (!isClosed) {
+      try {
+        emit(state);
+      } catch (_) {}
+    }
+  }
+
   Future<void> loadForChild({required String studentCode}) async {
     final code = studentCode.trim();
     if (code.isEmpty) {
       _stopClock();
-      emit(const MyChildsDayState.initial());
+      _safeEmit(const MyChildsDayState.initial());
       return;
     }
 
@@ -47,7 +55,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
     }
 
     _stopClock();
-    emit(
+    _safeEmit(
       state.copyWith(
         status: MyChildsDayStatus.loading,
         studentCode: code,
@@ -60,6 +68,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
         storage: _storageService,
         apiClient: _apiClient,
       );
+      if (isClosed) return;
 
       final results = await Future.wait([
         _getStudentProfileUseCase(code: code)
@@ -70,6 +79,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
             .then<Object?>((v) => v)
             .onError((_, __) => <StudentRegularScheduleEntry>[]),
       ], eagerError: false);
+      if (isClosed) return;
 
       final profile = results[0];
       final regularSchedules =
@@ -136,7 +146,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
       }
 
       final typedProfile = profile as dynamic;
-      emit(
+      _safeEmit(
         state.copyWith(
           status: MyChildsDayStatus.loaded,
           studentCode: code,
@@ -158,7 +168,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
       _startClock(tz);
     } catch (e) {
-      emit(
+      _safeEmit(
         state.copyWith(
           status: MyChildsDayStatus.error,
           studentCode: code,
@@ -169,9 +179,14 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
   }
 
   void _startClock(String iana) {
+    if (isClosed) return;
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (isClosed) {
+        _stopClock();
+        return;
+      }
       if (state.status != MyChildsDayStatus.loaded) return;
-      emit(
+      _safeEmit(
         state.copyWith(
           schoolNow: SchoolZoneDateTime.dateTimeFromInstantInSchool(
             DateTime.now().toUtc(),

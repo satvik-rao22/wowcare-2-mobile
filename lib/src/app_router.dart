@@ -17,6 +17,7 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_out_selection_screen.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
@@ -668,10 +669,13 @@ final GoRouter appRouter = GoRouter(
                   path: 'student-selection-sign-in-form',
                   pageBuilder: (context, state) {
                     final code = state.uri.queryParameters['studentCode']?.trim() ?? '';
+                    final extra = state.extra as Map<String, dynamic>?;
+                    final allowed = extra?['allowedStudentCodes'] as List<String>?;
                     return _fastPage(
                       state,
                       StudentSelectionSignInForm(
                         preSelectedStudentCode: code.isNotEmpty ? code : null,
+                        allowedStudentCodes: allowed,
                       ),
                     );
                   },
@@ -680,10 +684,28 @@ final GoRouter appRouter = GoRouter(
                   path: 'student-selection-sign-out-form',
                   pageBuilder: (context, state) {
                     final code = state.uri.queryParameters['studentCode']?.trim() ?? '';
+                    final extra = state.extra as Map<String, dynamic>?;
+                    final allowed = extra?['allowedStudentCodes'] as List<String>?;
                     return _fastPage(
                       state,
                       StudentSelectionSignOutForm(
                         preSelectedStudentCode: code.isNotEmpty ? code : null,
+                        allowedStudentCodes: allowed,
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'student-sign-in-out-selection',
+                  pageBuilder: (context, state) {
+                    final extra = state.extra as Map<String, dynamic>?;
+                    final signedInCodes = extra?['signedInCodes'] as List<String>? ?? [];
+                    final signedOutCodes = extra?['signedOutCodes'] as List<String>? ?? [];
+                    return _fastPage(
+                      state,
+                      StudentSignInOutSelectionScreen(
+                        signedInCodes: signedInCodes,
+                        signedOutCodes: signedOutCodes,
                       ),
                     );
                   },

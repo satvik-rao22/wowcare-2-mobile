@@ -419,6 +419,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       );
 
       if (success) {
+        serviceLocator<ParentChildCubit>().forceRefresh();
         if (widget.popOnSuccess) {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
