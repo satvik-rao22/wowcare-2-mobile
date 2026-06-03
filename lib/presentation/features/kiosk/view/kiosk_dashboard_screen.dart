@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
@@ -97,6 +98,13 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   Widget build(BuildContext context) {
     final bool isTablet = isIpad();
 
+    return BlocProvider<KioskDashboardCubit>(
+      create: (_) => serviceLocator<KioskDashboardCubit>(),
+      child: _buildScaffold(isTablet),
+    );
+  }
+
+  Widget _buildScaffold(bool isTablet) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.white,
