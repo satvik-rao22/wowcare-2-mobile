@@ -70,11 +70,13 @@ class StudentAttendanceAbsentView extends StatefulWidget {
     this.contentOnly = false,
     this.staffAllowedClassrooms,
     this.staffAllowedClassroomIds,
+    this.refreshNotifier,
   });
 
   final bool contentOnly;
   final List<String>? staffAllowedClassrooms;
   final List<int>? staffAllowedClassroomIds;
+  final ValueNotifier<int>? refreshNotifier;
 
   @override
   State<StudentAttendanceAbsentView> createState() => _StudentAttendanceAbsentViewState();
@@ -122,6 +124,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     _cacheManager = CacheManager(serviceLocator<StorageService>());
     _initializeDefaultRange();
     _searchController.addListener(_onSearchChanged);
+    widget.refreshNotifier?.addListener(_onRefreshRequested);
     _classroomCubit = serviceLocator<ClassroomCubit>();
     // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
@@ -136,6 +139,8 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       _loadInitialData();
     });
   }
+
+  void _onRefreshRequested() => refreshAfterReturningFromAttendanceFlow();
 
   @override
   void refreshAfterReturningFromAttendanceFlow() {
@@ -212,6 +217,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
   @override
   void dispose() {
+    widget.refreshNotifier?.removeListener(_onRefreshRequested);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);

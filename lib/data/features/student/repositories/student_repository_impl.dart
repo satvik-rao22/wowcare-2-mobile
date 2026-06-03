@@ -14,6 +14,7 @@ import '../../../../domain/features/student/entities/student_physical_exam.dart'
 import '../../../../domain/features/student/entities/student_physician.dart';
 import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
+import '../../../../domain/features/student/entities/student_regular_schedule.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../mappers/student_guardian_mapper.dart';
@@ -91,6 +92,35 @@ class StudentRepositoryImpl
       }
     }
     return scheduleByDay;
+  }
+
+  @override
+  Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
+    required String studentCode,
+  }) async {
+    final rawList = await _remoteDataSource.getStudentRegularSchedules(
+      studentCode: studentCode,
+    );
+
+    int _extractInt(dynamic timeMap, String key) {
+      if (timeMap is! Map) return 0;
+      final v = timeMap[key];
+      if (v == null) return 0;
+      if (v is int) return v;
+      return int.tryParse(v.toString()) ?? 0;
+    }
+
+    return rawList.map((e) {
+      final startTime = e['startTime'];
+      final endTime = e['endTime'];
+      return StudentRegularScheduleEntry(
+        dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
+        startHour: _extractInt(startTime, 'hour'),
+        startMinute: _extractInt(startTime, 'minute'),
+        endHour: _extractInt(endTime, 'hour'),
+        endMinute: _extractInt(endTime, 'minute'),
+      );
+    }).toList(growable: false);
   }
 
   @override

@@ -16,6 +16,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
 // Geofence is handled via OS-level native geofencing (Android GeofencingClient, iOS region monitoring).
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
@@ -97,6 +98,21 @@ Future<Map<String, String>?> _readNativeLaunchNotification() async {
     );
     if (raw == null) return null;
     return raw.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+  } catch (_) {
+    return null;
+  }
+}
+
+/// iOS only: reads the action stored by AppDelegate when the user tapped a
+/// native geofence UNNotification from the killed/background state.
+/// Returns e.g. {'action': 'GEOFENCE_ENTER'}, or null.
+Future<Map<String, String>?> _readIosGeofenceTap() async {
+  if (!Platform.isIOS) return null;
+  try {
+    const ch = MethodChannel('wowcare/geofence_tap');
+    final action = await ch.invokeMethod<String>('getPendingAction');
+    if (action == null || action.isEmpty) return null;
+    return {'action': action};
   } catch (_) {
     return null;
   }
@@ -186,6 +202,26 @@ Future<void> main() async {
         );
       }
     }
+
+    // iOS: native geofence UNNotification tap (not shown via flutter_local_notifications,
+    // so getNotificationAppLaunchDetails() misses it). AppDelegate stores the action
+    // in UserDefaults; we read it here and resolve to /dashboard.
+    if (pendingNotificationDeepLink == null) {
+      final geofenceTapData = await _readIosGeofenceTap();
+      if (geofenceTapData != null && (geofenceTapData['action'] ?? '').isNotEmpty) {
+        final dest = NotificationRouteResolver.resolve(
+          PushNotificationModel(
+            title: null,
+            body: null,
+            action: geofenceTapData['action'],
+            type: null,
+            data: geofenceTapData,
+          ),
+        );
+        if (dest != null) pendingNotificationDeepLink = dest.location;
+        AppLogger.d('[main] stashed (iOS geofence tap) pendingNotificationDeepLink=$pendingNotificationDeepLink');
+      }
+    }
   } catch (e) {
     // Non-fatal: app still launches to its default destination.
     AppLogger.d('[main] launch-notification capture failed: $e');
@@ -203,7 +239,9 @@ class MyApp extends StatelessWidget {
       providers: [
         BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
         BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
-        BlocProvider<ParentChildCubit>(create: (_) => ParentChildCubit()),
+        BlocProvider<ParentChildCubit>(
+          create: (_) => serviceLocator<ParentChildCubit>(),
+        ),
       ],
       child: BlocBuilder<ThemeCubit, ThemeData>(
         builder: (context, currentTheme) {
@@ -237,6 +275,9 @@ class MyApp extends StatelessWidget {
                     ),
                     BlocProvider<PushNotificationCubit>(
                       create: (_) => serviceLocator<PushNotificationCubit>(),
+                    ),
+                    BlocProvider<GeofenceCubit>(
+                      create: (_) => serviceLocator<GeofenceCubit>(),
                     ),
                   ],
                   child: NotificationNavigator(

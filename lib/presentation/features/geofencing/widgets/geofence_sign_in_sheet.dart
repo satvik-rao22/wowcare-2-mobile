@@ -13,6 +13,7 @@ class GeofenceSignInSheet extends StatelessWidget {
     required this.role,
     required this.isSignedIn,
     this.studentName,
+    this.studentCode,
   });
 
   /// 'parent' | 'staff' | 'admin'
@@ -24,11 +25,15 @@ class GeofenceSignInSheet extends StatelessWidget {
   /// Child name for parent role display.
   final String? studentName;
 
+  /// Child student code — pre-selects this child in the sign-in form (parent only).
+  final String? studentCode;
+
   static Future<void> show(
     BuildContext context, {
     required String role,
     required bool isSignedIn,
     String? studentName,
+    String? studentCode,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -38,6 +43,7 @@ class GeofenceSignInSheet extends StatelessWidget {
         role: role,
         isSignedIn: isSignedIn,
         studentName: studentName,
+        studentCode: studentCode,
       ),
     );
   }
@@ -227,14 +233,17 @@ class GeofenceSignInSheet extends StatelessWidget {
 
   String _resolveRoute() {
     if (role == 'parent') {
-      return isSignedIn
+      final base = isSignedIn
           ? '/dashboard/student-selection-sign-out-form'
           : '/dashboard/student-selection-sign-in-form';
+      // Pass the currently-viewed child so the form pre-selects them.
+      final code = (studentCode ?? '').trim();
+      return code.isNotEmpty ? '$base?studentCode=${Uri.encodeComponent(code)}' : base;
     } else {
-      // staff or admin
+      // staff or admin: gps=1 tells the form to always self-fill (incl. admin).
       return isSignedIn
-          ? '/dashboard/staff-sign-out-form'
-          : '/dashboard/staff-sign-in-form';
+          ? '/dashboard/staff-sign-out-form?gps=1'
+          : '/dashboard/staff-sign-in-form?gps=1';
     }
   }
 }

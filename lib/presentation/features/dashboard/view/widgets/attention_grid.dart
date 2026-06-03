@@ -174,22 +174,25 @@ class _AttentionGridState extends State<AttentionGrid> {
     switch (route) {
       case _AttentionCardRoute.incidentApproval:
         context.go('/activityFeed');
+
       case _AttentionCardRoute.classroomRatio:
         context.go(ClassroomOverviewScreen.routeName);
+
       case _AttentionCardRoute.classroomShifts:
         context.go('/dashboard/scheduling');
+
       case _AttentionCardRoute.pendingMovements:
       case _AttentionCardRoute.overdueMovements:
         context.go('/dashboard/individual-movement');
+
+      // Disable navigation for Expiry & Physical Checkup cards
       case _AttentionCardRoute.expiredStudentDocs:
       case _AttentionCardRoute.expiringStudentDocs:
-        context.go('/dashboard/students');
       case _AttentionCardRoute.expiredStaffDocs:
       case _AttentionCardRoute.expiringStaffDocs:
       case _AttentionCardRoute.overdueCheckups:
-        context.go('/dashboard/staff');
       case _AttentionCardRoute.studentCheckups:
-        context.go('/dashboard/students');
+        return;
     }
   }
 
@@ -314,7 +317,8 @@ class _AttentionGridState extends State<AttentionGrid> {
       AttentionCardModel(
         label: 'Movement',
         labelTag: 'This Month',
-        count: attentionState.overdueMovements + attentionState.pendingMovements,
+        count:
+            attentionState.overdueMovements + attentionState.pendingMovements,
         route: _AttentionCardRoute.pendingMovements,
         subItems: [
           AttentionCardSubItem(
@@ -332,7 +336,9 @@ class _AttentionGridState extends State<AttentionGrid> {
       // Student Documents — consolidated with sub-items
       AttentionCardModel(
         label: 'Student Documents',
-        count: attentionState.expiredStudentDocuments + attentionState.expiringStudentDocuments,
+        count:
+            attentionState.expiredStudentDocuments +
+            attentionState.expiringStudentDocuments,
         route: _AttentionCardRoute.expiredStudentDocs,
         subItems: [
           AttentionCardSubItem(
@@ -350,7 +356,8 @@ class _AttentionGridState extends State<AttentionGrid> {
       // Staff Documents — consolidated with sub-items
       AttentionCardModel(
         label: 'Staff Documents',
-        count: attentionState.expiredDocuments + attentionState.expiringDocuments,
+        count:
+            attentionState.expiredDocuments + attentionState.expiringDocuments,
         route: _AttentionCardRoute.expiredStaffDocs,
         subItems: [
           AttentionCardSubItem(
@@ -368,7 +375,9 @@ class _AttentionGridState extends State<AttentionGrid> {
       // Student Physical Checkups — consolidated with sub-items
       AttentionCardModel(
         label: 'Student Physical Checkups',
-        count: attentionState.overdueStudentCheckups + attentionState.missingStudentCheckups,
+        count:
+            attentionState.overdueStudentCheckups +
+            attentionState.missingStudentCheckups,
         route: _AttentionCardRoute.studentCheckups,
         subItems: [
           AttentionCardSubItem(
@@ -559,7 +568,9 @@ class _AttentionCard extends StatelessWidget {
                               TextSpan(
                                 text: ' (${model.labelTag})',
                                 style: TextStyle(
-                                  color: AppColors.primaryColor.withValues(alpha: 0.55),
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.55,
+                                  ),
                                   fontSize: 11,
                                   fontWeight: FontWeight.w500,
                                 ),

@@ -18,13 +18,14 @@
         android:requestLegacyExternalStorage="true"
         android:name="${applicationName}"
         android:largeHeap="true"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
-            android:enableOnBackInvokedCallback="false"
+            android:enableOnBackInvokedCallback="true"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:theme="@style/LaunchTheme"
@@ -55,6 +56,13 @@
             android:foregroundServiceType="location"
             android:enabled="true"
             android:exported="false" />
+        <!-- Keeps process alive on OEM devices to ensure geofence delivery -->
+        <service
+            android:name="com.wiseowl.wowcareapp.GeofenceForegroundService"
+            android:foregroundServiceType="location"
+            android:enabled="true"
+            android:exported="false"
+            android:stopWithTask="false" />
         <!-- flutter_local_notifications: required for notification action callbacks -->
         <receiver android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />

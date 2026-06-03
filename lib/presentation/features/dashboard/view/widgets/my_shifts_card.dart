@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -122,7 +123,8 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
           p.availableHours != c.availableHours ||
           p.scheduledHours != c.scheduledHours ||
           p.unscheduledHours != c.unscheduledHours ||
-          p.todayShifts != c.todayShifts,
+          p.todayShifts != c.todayShifts ||
+          p.selectedDate != c.selectedDate,
       builder: (context, state) {
         final staffName = state.staffName.trim().isNotEmpty
             ? state.staffName.trim()
@@ -260,7 +262,13 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
 
                             // Day shift calendar grid (Time header + grid).
                             ShiftCalendar(
-                              dailyRoomSchedule: DailyShifts(shifts: blocks),
+                              selectedDate: state.selectedDate ?? DateTime.now(),
+                              shifts: blocks,
+                              onDateChanged: (newDate) {
+                                unawaited(
+                                  context.read<MyShiftsCubit>().changeSelectedDate(newDate),
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -332,32 +340,20 @@ class ShiftHoursTile extends StatelessWidget {
 
 /// Day shift calendar — a "Time" / date-navigator header, an hourly time
 /// column on the left, and the day's shift blocks positioned by time.
-class ShiftCalendar extends StatefulWidget {
-  const ShiftCalendar({super.key, required this.dailyRoomSchedule});
+class ShiftCalendar extends StatelessWidget {
+  const ShiftCalendar({
+    super.key,
+    required this.selectedDate,
+    required this.shifts,
+    required this.onDateChanged,
+  });
 
-  final DailyShifts dailyRoomSchedule;
-
-  @override
-  State<ShiftCalendar> createState() => _ShiftCalendarState();
-}
-
-class _ShiftCalendarState extends State<ShiftCalendar> {
-  /// Shifts sorted so work shifts paint before break shifts (break on top).
-  late final List<Shift> _shifts;
-  DateTime _selectedDate = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _shifts = List<Shift>.of(widget.dailyRoomSchedule.shifts)
-      ..sort((a, b) {
-        if (a.isBreakShift == b.isBreakShift) return 0;
-        return a.isBreakShift ? 1 : -1;
-      });
-  }
+  final DateTime selectedDate;
+  final List<Shift> shifts;
+  final ValueChanged<DateTime> onDateChanged;
 
   void _changeDate(int days) {
-    setState(() => _selectedDate = _selectedDate.add(Duration(days: days)));
+    onDateChanged(selectedDate.add(Duration(days: days)));
   }
 
   DateTime _parseTime(String input) {
@@ -446,7 +442,7 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
   }
 
   Widget _buildDateNavigator() {
-    final formattedDate = DateFormat('EEE, MMM d').format(_selectedDate);
+    final formattedDate = DateFormat('EEE, MMM d').format(selectedDate);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -602,7 +598,16 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
     );
   }
 
+  List<Shift> _getSortedShifts() {
+    return List<Shift>.of(shifts)
+      ..sort((a, b) {
+        if (a.isBreakShift == b.isBreakShift) return 0;
+        return a.isBreakShift ? 1 : -1;
+      });
+  }
+
   Widget _buildShifts() {
+    final sorted = _getSortedShifts();
     final slotCount = _generateHourlyTimeSlots(
       _schoolStartTime,
       _schoolEndTime,
@@ -618,8 +623,8 @@ class _ShiftCalendarState extends State<ShiftCalendar> {
         clipBehavior: Clip.antiAlias,
         child: Stack(
           children: [
-            ..._shifts.map(_buildTimeContainer),
-            if (_shifts.isEmpty)
+            ...sorted.map(_buildTimeContainer),
+            if (sorted.isEmpty)
               const Center(
                 child: Text(
                   'No Shifts for Today',

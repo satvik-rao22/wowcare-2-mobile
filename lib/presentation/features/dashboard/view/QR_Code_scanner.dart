@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/qr_validation_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 
 class QrScanScreen extends StatelessWidget {
   const QrScanScreen({super.key});
@@ -53,9 +54,10 @@ class _QrScanViewState extends State<_QrScanView>
       duration: const Duration(seconds: 2),
     );
     unawaited(_scanAnim.repeat(reverse: true));
-    _scanLine = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _scanAnim, curve: Curves.easeInOut),
-    );
+    _scanLine = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _scanAnim, curve: Curves.easeInOut));
   }
 
   @override
@@ -85,6 +87,21 @@ class _QrScanViewState extends State<_QrScanView>
   void _navigateAfterSuccess(QrNavigationRoute route, String qrToken) {
     if (_hasNavigated) return;
     _hasNavigated = true;
+
+    if (route == QrNavigationRoute.guardianSignIn ||
+        route == QrNavigationRoute.guardianSignOut) {
+      if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'You must be inside geofence and signed in to manage student attendance.',
+            ),
+          ),
+        );
+        _resetScan();
+        return;
+      }
+    }
 
     final Widget destination;
     switch (route) {
@@ -126,9 +143,9 @@ class _QrScanViewState extends State<_QrScanView>
             _resetScan();
           }
         } else if (state is QrValidationFailure) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.message)));
           _resetScan();
         }
       },
@@ -199,7 +216,9 @@ class _QrScanViewState extends State<_QrScanView>
                     children: [
                       const SizedBox(height: 260), // clears the frame
                       Text(
-                        _result != null ? 'Validating...' : 'Point camera at a QR code',
+                        _result != null
+                            ? 'Validating...'
+                            : 'Point camera at a QR code',
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
@@ -237,9 +256,7 @@ class _QrScanViewState extends State<_QrScanView>
                             icon: Icons.flip_camera_ios_rounded,
                             label: 'Flip',
                             onTap: () async {
-                              setState(
-                                () => _isFrontCamera = !_isFrontCamera,
-                              );
+                              setState(() => _isFrontCamera = !_isFrontCamera);
                               await _controller?.flipCamera();
                             },
                           ),
@@ -297,9 +314,9 @@ class _QrScanViewState extends State<_QrScanView>
       final token = _extractToken(raw);
       if (token == null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid QR code')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Invalid QR code')));
         _resetScan();
         return;
       }
@@ -308,8 +325,9 @@ class _QrScanViewState extends State<_QrScanView>
       List<String> guardianChildCodes = [];
       try {
         final parentChildCubit = context.read<ParentChildCubit>();
-        guardianChildCodes =
-            parentChildCubit.children.map((c) => c.code).toList();
+        guardianChildCodes = parentChildCubit.children
+            .map((c) => c.code)
+            .toList();
       } catch (_) {}
       context.read<QrValidationCubit>().validate(
         qrToken: token,
@@ -330,9 +348,9 @@ class _QrScanViewState extends State<_QrScanView>
 
   void _onPermissionSet(QRViewController ctrl, bool granted) {
     if (!granted && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Camera permission denied')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Camera permission denied')));
     }
   }
 
@@ -411,11 +429,7 @@ class _FramePainter extends CustomPainter {
     canvas.drawLine(Offset(w, r), Offset(w, cornerLen), cornerPaint);
 
     // Bottom-left
-    canvas.drawLine(
-      Offset(0, h - cornerLen),
-      Offset(0, h - r),
-      cornerPaint,
-    );
+    canvas.drawLine(Offset(0, h - cornerLen), Offset(0, h - r), cornerPaint);
     canvas.drawArc(
       Rect.fromLTWH(0, h - r * 2, r * 2, r * 2),
       3.14159 / 2,
@@ -426,11 +440,7 @@ class _FramePainter extends CustomPainter {
     canvas.drawLine(Offset(r, h), Offset(cornerLen, h), cornerPaint);
 
     // Bottom-right
-    canvas.drawLine(
-      Offset(w - cornerLen, h),
-      Offset(w - r, h),
-      cornerPaint,
-    );
+    canvas.drawLine(Offset(w - cornerLen, h), Offset(w - r, h), cornerPaint);
     canvas.drawArc(
       Rect.fromLTWH(w - r * 2, h - r * 2, r * 2, r * 2),
       0,
@@ -438,11 +448,7 @@ class _FramePainter extends CustomPainter {
       false,
       cornerPaint,
     );
-    canvas.drawLine(
-      Offset(w, h - r),
-      Offset(w, h - cornerLen),
-      cornerPaint,
-    );
+    canvas.drawLine(Offset(w, h - r), Offset(w, h - cornerLen), cornerPaint);
 
     // Animated scan line
     final lineY = scanProgress * h;
@@ -454,9 +460,13 @@ class _FramePainter extends CustomPainter {
           color.withValues(alpha: 0),
         ],
       ).createShader(Rect.fromLTWH(0, lineY - 1, w, 2));
-    canvas.drawLine(Offset(8, lineY), Offset(w - 8, lineY), linePaint
-      ..strokeWidth = 2.5
-      ..strokeCap = StrokeCap.round);
+    canvas.drawLine(
+      Offset(8, lineY),
+      Offset(w - 8, lineY),
+      linePaint
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round,
+    );
   }
 
   @override

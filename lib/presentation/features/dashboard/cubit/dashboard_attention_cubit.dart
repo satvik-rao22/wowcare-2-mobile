@@ -99,8 +99,10 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
   Future<void> _fetch(String schoolCode) async {
     final now = DateTime.now();
     final fromDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+    // Last day of current month: day-0 of the next month = last day of this month.
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
     final toDate =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDayOfMonth.toString().padLeft(2, '0')}';
 
     // Run all six in parallel; capture individual errors so one failure
     // does not suppress the other results.

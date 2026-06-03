@@ -5,8 +5,6 @@ import 'package:wowcare/presentation/features/dashboard/view/parent_dashboard.da
 import 'package:wowcare/presentation/features/dashboard/view/staff_dashboard.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
-/// Entry point for the `/dashboard` route.
-///
 /// Dispatches to the role-appropriate dashboard:
 /// - staff (Lead/Associate/Assistant teacher, Floater, …) → [StaffDashboard]
 /// - admin / director → [AdminDashboard]

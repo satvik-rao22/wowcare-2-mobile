@@ -16,13 +16,15 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
         // Without this, an exception before setLastInside() means the state
         // is never persisted and Flutter never learns about the transition.
         try {
+            val config = GeofencePrefs.readConfig(context)
+            if (config == null || !config.gpsSignInEnabled) return
+
             val event = GeofencingEvent.fromIntent(intent) ?: return
             if (event.hasError()) {
                 Log.e("GeofenceBroadcastReceiver",
                     "Geofence error: ${GeofenceStatusCodes.getStatusCodeString(event.errorCode)} (${event.errorCode})")
                 return
             }
-
 
             val isInside = when (event.geofenceTransition) {
                 Geofence.GEOFENCE_TRANSITION_ENTER -> true

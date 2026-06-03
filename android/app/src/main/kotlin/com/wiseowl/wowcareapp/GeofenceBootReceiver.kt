@@ -36,6 +36,10 @@ class GeofenceBootReceiver : BroadcastReceiver() {
         } catch (t: Throwable) {
             Log.e("GeofenceBootReceiver", "Re-registration failed: ${t.message}")
         }
+
+        // Restart the foreground service so OEM battery managers do not kill
+        // the process before the first geofence event is delivered post-reboot.
+        GeofenceForegroundService.start(context)
     }
 }
 

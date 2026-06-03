@@ -119,6 +119,12 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   void _onItemTapped(int tabIndex, BuildContext context, bool isParent) {
     // The Attendance slot (index 1) is a modal popup, not a route.
     if (tabIndex == 1) {
+      if (isParent) {
+        final shell = appNavigationShell(context);
+        if (shell != null && shell.currentIndex != 0) {
+          shell.goBranch(0);
+        }
+      }
       AttendancePopupManager.showAttendancePopup(context);
       return;
     }
@@ -132,14 +138,14 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     final shell = appNavigationShell(context);
     if (shell != null) {
       if (branchIndex == shell.currentIndex) {
-        // Already on this branch. If the user is on a sub-route (e.g.
-        // /dashboard/student-attendance-tabbed-view), navigate back to the
-        // branch root so they return to the dashboard. If already at the
-        // branch root, context.canPop() is false and we do nothing —
-        // preserving the user's scroll position and state.
-        if (context.canPop()) {
-          context.go(branchRootPaths[branchIndex]);
+        // Already on this branch. If the user is on a sub-route or has pushed routes
+        // on top of this branch's nested navigator, pop them all to return to the root.
+        final router = GoRouter.of(context);
+        final navigator = Navigator.of(context);
+        while (navigator.canPop()) {
+          navigator.pop();
         }
+        router.go(branchRootPaths[branchIndex]);
         return;
       }
       // Different branch → IndexedStack swap; state of the outgoing branch is

@@ -31,11 +31,13 @@ class StudentAttendanceCustomView extends StatefulWidget {
     this.contentOnly = false,
     this.staffAllowedClassrooms,
     this.staffAllowedClassroomIds,
+    this.refreshNotifier,
   });
 
   final bool contentOnly;
   final List<String>? staffAllowedClassrooms;
   final List<int>? staffAllowedClassroomIds;
+  final ValueNotifier<int>? refreshNotifier;
 
   @override
   State<StudentAttendanceCustomView> createState() => _StudentAttendanceCustomViewState();
@@ -79,6 +81,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     }
 
     _customSearchController.addListener(_onSearchChanged);
+    widget.refreshNotifier?.addListener(_onRefreshRequested);
     _classroomCubit = serviceLocator<ClassroomCubit>();
     // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
@@ -87,6 +90,8 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     // Initial load should use cached data when available.
     _loadAttendanceData(reset: false);
   }
+
+  void _onRefreshRequested() => refreshAfterReturningFromAttendanceFlow();
 
   @override
   void refreshAfterReturningFromAttendanceFlow() {
@@ -127,6 +132,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
 
   @override
   void dispose() {
+    widget.refreshNotifier?.removeListener(_onRefreshRequested);
     _customSearchController.removeListener(_onSearchChanged);
     _customSearchController.dispose();
     _scrollController.dispose();

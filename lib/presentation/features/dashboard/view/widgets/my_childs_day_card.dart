@@ -541,6 +541,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   Widget _buildSignInPinRow({required ParentChildRef selectedChild}) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         ShaderMask(
           shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
@@ -548,7 +550,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             end: Alignment.bottomCenter,
           ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
           child: const Text(
-            'Student Sign In/Out Pin : ',
+            'Your Sign-In Pin : ',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -556,27 +558,30 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ),
           ),
         ),
-        const SizedBox(height: 10),
         BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
           buildWhen: (prev, curr) =>
               prev.guardianClockPin != curr.guardianClockPin ||
               prev.status != curr.status,
           builder: (context, state) {
             final pin = state.guardianClockPin.trim();
-            return Text(
-              pin.isEmpty ? '—' : pin,
-              style: TextStyle(
-                color: AppColors.themeColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-                fontFeatures: const [FontFeature.tabularFigures()],
+            return ShaderMask(
+              shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+              child: Text(
+                pin.isEmpty ? '—' : pin,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             );
           },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(width: 16),
         const QrScanButton(),
       ],
     );

@@ -172,6 +172,8 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       content.body = "You moved outside the allowed school radius."
     }
     content.sound = .default
+    // Carry the action so AppDelegate can deep-link to /dashboard on tap.
+    content.userInfo = ["action": isInside ? "GEOFENCE_ENTER" : "GEOFENCE_EXIT"]
 
     let request = UNNotificationRequest(
       identifier: isInside ? "wowcare_geofence_enter" : "wowcare_geofence_exit",
