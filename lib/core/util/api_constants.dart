@@ -1,5 +1,3 @@
-import 'api_constants_uat.dart';
-
 /// Logical id for [ApiConstants.baseUrlForMicroservice] (not a path segment).
 /// Host is chosen from the first resource segment after `/api/v1/` via [ApiPaths.microserviceKeyFromPath].
 abstract final class ApiMicroservices {
@@ -133,8 +131,6 @@ class ApiConstants {
     }
   }
 }
-
-
 
 // import 'api_constants_uat.dart';
 

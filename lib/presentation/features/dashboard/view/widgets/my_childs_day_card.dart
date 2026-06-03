@@ -23,6 +23,11 @@ import '../../../../../core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
+    as student_sign_in;
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
+    as student_sign_out;
+
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -446,15 +451,116 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // ----- Sign-In/Out gradient button -----
 
-  Widget _buildSignInOutButton({required GeofenceState geofenceState}) {
+  Widget _buildSignInOutButton({
+    required GeofenceState geofenceState,
+    required ParentChildState parentChildState,
+  }) {
     final bool enabled =
         geofenceState.status == GeofenceCubitStatus.withinRange;
-    final String buttonLabel = _isSelectedChildSignedIn
-        ? 'Sign-Out'
-        : 'Sign-In';
-    final String route = _isSelectedChildSignedIn
-        ? '/dashboard/student-selection-sign-out-form'
-        : '/dashboard/student-selection-sign-in-form';
+
+    final children = parentChildState.children;
+    final signedInCodes = <String>[];
+    final signedOutCodes = <String>[];
+    for (final child in children) {
+      final code = child.code.trim();
+      if (code.isEmpty) continue;
+      final isSignedIn =
+          (_childrenSignInStatusMap[code] ?? '').toUpperCase() == 'SIGNED_IN';
+      if (isSignedIn) {
+        signedInCodes.add(code);
+      } else {
+        signedOutCodes.add(code);
+      }
+    }
+
+    final String buttonLabel;
+    final VoidCallback? onPressed;
+
+    final bool isMixed = signedInCodes.isNotEmpty && signedOutCodes.isNotEmpty;
+
+    if (isMixed) {
+      buttonLabel = 'Sign In / Out';
+      onPressed = enabled
+          ? () => context.go(
+                '/dashboard/student-sign-in-out-selection',
+                extra: <String, dynamic>{
+                  'signedInCodes': signedInCodes,
+                  'signedOutCodes': signedOutCodes,
+                },
+              )
+          : null;
+    } else if (signedOutCodes.isEmpty) {
+      buttonLabel = 'Sign Out';
+      onPressed = enabled
+          ? () {
+              final signedInChildren = children
+                  .where((c) => signedInCodes.contains(c.code.trim()))
+                  .toList();
+              final students = signedInChildren.asMap().entries.map((entry) {
+                final index = entry.key;
+                final child = entry.value;
+                return student_sign_out.StudentEntity(
+                  id: index + 1,
+                  studentCode: child.code,
+                  fullName: child.name,
+                  roomId: 0,
+                  roomName: child.primaryClassroomName ?? child.classroom,
+                  classroomCode: '',
+                  photoUuid: '',
+                );
+              }).toList();
+
+              unawaited(
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => student_sign_out.StudentSignOutForm(
+                      students: students,
+                      popOnSuccess: true,
+                      refreshCallback: () {},
+                    ),
+                  ),
+                ),
+              );
+            }
+          : null;
+    } else {
+      buttonLabel = 'Sign In';
+      onPressed = enabled
+          ? () {
+              final signedOutChildren = children
+                  .where((c) => signedOutCodes.contains(c.code.trim()))
+                  .toList();
+              final students = signedOutChildren.asMap().entries.map((entry) {
+                final index = entry.key;
+                final child = entry.value;
+                return student_sign_in.StudentEntity(
+                  id: index + 1,
+                  studentCode: child.code,
+                  fullName: child.name,
+                  roomId: 0,
+                  roomName: child.primaryClassroomName ?? child.classroom,
+                  classroomCode: '',
+                  photoUuid: null,
+                  isExpectedToday: true,
+                );
+              }).toList();
+
+              unawaited(
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => student_sign_in.StudentSignInForm(
+                      students: students,
+                      refreshCallback: () {},
+                      popOnSuccess: true,
+                    ),
+                  ),
+                ),
+              );
+            }
+          : null;
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -485,7 +591,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ),
           ],
         ),
-        onPressedConfirm: enabled ? () => context.go(route) : null,
+        onPressedConfirm: onPressed,
         disabledConfirmTooltip: 'You are not within  geofencing Range',
         onDisabledConfirmTap: () {
           if (!mounted) return;
@@ -624,6 +730,20 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
                 return MultiBlocListener(
                   listeners: [
+                    BlocListener<ParentChildCubit, ParentChildState>(
+                      listenWhen: (prev, curr) =>
+                          prev.refreshNonce != curr.refreshNonce ||
+                          prev.selectedChild?.code != curr.selectedChild?.code ||
+                          prev.children.length != curr.children.length,
+                      listener: (context, parentState) {
+                        final allChildCodes = parentState.children
+                            .map((c) => c.code)
+                            .toList();
+                        if (allChildCodes.isNotEmpty) {
+                          unawaited(_loadChildrenSignInStatus(allChildCodes));
+                        }
+                      },
+                    ),
                     // ── MyChildsDay state changes ──────────────────────
                     BlocListener<MyChildsDayCubit, MyChildsDayState>(
                       listenWhen: (prev, curr) =>
@@ -794,6 +914,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                     children: [
                                       _buildSignInOutButton(
                                         geofenceState: geofenceState,
+                                        parentChildState: state,
                                       ),
                                       if (geofenceState.status ==
                                           GeofenceCubitStatus.permissionDenied)

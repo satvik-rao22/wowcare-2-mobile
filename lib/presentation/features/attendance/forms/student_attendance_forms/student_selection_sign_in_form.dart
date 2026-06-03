@@ -33,6 +33,7 @@ class StudentSelectionSignInForm extends StatefulWidget {
     this.isQrScan = false,
     this.qrToken = '',
     this.preSelectedStudentCode,
+    this.allowedStudentCodes,
   });
 
   /// True when opened after a QR code scan. Passed down to [StudentSignInForm]
@@ -45,6 +46,9 @@ class StudentSelectionSignInForm extends StatefulWidget {
 
   /// When set (GPS flow), this student is pre-selected after the list loads.
   final String? preSelectedStudentCode;
+
+  /// List of student codes that are allowed to be shown/selected.
+  final List<String>? allowedStudentCodes;
 
   @override
   State<StudentSelectionSignInForm> createState() =>
@@ -258,6 +262,18 @@ class _StudentSelectionSignInFormState
                 i.studentCode,
                 allowUpper,
               ),
+            )
+            .toList();
+      }
+
+      if (widget.allowedStudentCodes != null) {
+        final allowedUpper = widget.allowedStudentCodes!
+            .map((c) => c.trim().toUpperCase())
+            .toSet();
+        items = items
+            .where(
+              (i) => i.studentCode.trim().isNotEmpty &&
+                  allowedUpper.contains(i.studentCode.trim().toUpperCase()),
             )
             .toList();
       }

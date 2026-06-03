@@ -8,16 +8,20 @@ class WatchGeofenceUseCase {
   final GeofencingRepository _repository;
 
   Stream<GeofenceStatus> call({required GeofenceConfig config}) {
+    const hysteresisExitMeters = 50.0;
     return _repository.getPositionStream().map((position) {
-      final distanceMeters = Geolocator.distanceBetween(
+      final distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
         config.latitude,
         config.longitude,
       );
-      return distanceMeters <= config.radiusMeters
-          ? GeofenceStatus.within
-          : GeofenceStatus.outside;
-    });
+      // Enter immediately; exit only when confidently beyond radius + hysteresis buffer
+      if (distance <= config.radiusMeters) return GeofenceStatus.within;
+      final accuracy = position.accuracy.clamp(0.0, double.infinity);
+      final confidentlyOutside =
+          distance - accuracy > config.radiusMeters + hysteresisExitMeters;
+      return confidentlyOutside ? GeofenceStatus.outside : null;
+    }).where((status) => status != null).cast<GeofenceStatus>();
   }
 }

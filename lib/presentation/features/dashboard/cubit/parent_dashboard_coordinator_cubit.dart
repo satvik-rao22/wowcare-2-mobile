@@ -138,9 +138,12 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
   Future<void> refresh() async {
     final selectedChild = parentChildCubit.state.selectedChild;
     if (selectedChild == null) return;
-    
+
     emit(state.copyWith(status: DashboardStatus.refreshing));
-    
+
+    // Re-validate GPS position immediately on refresh
+    unawaited(geofenceCubit.refreshSettings());
+
     final now = DateTime.now();
     final fromDate = DateTime(now.year, now.month, 1);
     final toDate = now;
