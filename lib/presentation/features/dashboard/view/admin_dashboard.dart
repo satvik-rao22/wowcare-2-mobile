@@ -1,10 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/constants/dashboard_constants.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/services/dashboard_initialization_service.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
@@ -102,25 +109,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 final schoolCode = await storage.getString(
                   StorageKeys.schoolCode,
                 );
+                if (!context.mounted) return;
                 if (schoolCode != null && schoolCode.isNotEmpty) {
+                  final availabilityCubit = context.read<FutureAvailabilityCubit>();
                   await Future.wait([
-                    _schoolStatusCubit.loadSchoolStatus(
+                    context.read<SchoolStatusCubit>().loadSchoolStatus(
                       schoolCode: schoolCode,
                       forceRefresh: true,
                     ),
-                    _ratioMonitoringCubit.loadRatioMonitoring(
+                    context.read<RatioMonitoringCubit>().loadRatioMonitoring(
                       schoolCode: schoolCode,
                       forceRefresh: true,
                     ),
-                    _movementsCubit.refresh(),
-                    _availabilityCubit.refresh(
-                      date:
-                          _availabilityCubit.state.selectedDate ??
-                          DateTime.now(),
+                    context.read<IndividualMovementsCubit>().refresh(),
+                    availabilityCubit.refresh(
+                      date: availabilityCubit.state.selectedDate ?? DateTime.now(),
                       isTwoShifts: true,
                     ),
-                    _attentionCubit.refresh(),
-                    _myDayCubit.refresh(),
+                    context.read<DashboardAttentionCubit>().refresh(),
+                    context.read<MyDayCubit>().refresh(),
                   ]);
                 }
               },
