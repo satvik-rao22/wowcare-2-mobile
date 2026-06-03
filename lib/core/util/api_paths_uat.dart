@@ -67,7 +67,7 @@ class ApiPathsUat {
       'individual-movements',
       'future-availability',
     },
-    ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types'},
+    ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
     // Document endpoints in this app are handled separately via `/document-ms/...`.
     ApiMicroservices.document: {},
 

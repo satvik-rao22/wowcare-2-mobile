@@ -55,7 +55,9 @@ object GeofenceNotifications {
 
         val notification =
             NotificationCompat.Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                // ic_launcher_foreground is a single-layer drawable (white-on-transparent)
+                // required for Android 8+ notifications; mipmap adaptive icons are not valid here.
+                .setSmallIcon(R.drawable.ic_launcher_foreground)
                 .setContentTitle(title)
                 .setContentText(body)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)

@@ -21,7 +21,7 @@ class GeofenceNotificationService {
     if (_initialized) return;
     _initialized = true;
     try {
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidInit = AndroidInitializationSettings('ic_launcher_foreground');
       const iosInit = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,

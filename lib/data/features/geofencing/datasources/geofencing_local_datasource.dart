@@ -19,6 +19,13 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
   @override
   Future<bool> requestLocationPermission() async {
     final status = await Permission.location.request();
+    if (status.isGranted) {
+      // Android 10+ requires background location as a separate request step
+      // so GeofencingClient can fire events when the app is backgrounded/killed.
+      // iOS: the native GeofencePlugin handles requestAlwaysAuthorization() itself.
+      // Best-effort — foreground GPS still works if the user denies "Allow all the time".
+      await Permission.locationAlways.request();
+    }
     return status.isGranted;
   }
 

@@ -1544,7 +1544,11 @@ class AttendanceRepositoryImpl
     required bool isSelf,
   }) async {
     final body = Map<String, dynamic>.from(payload);
-    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    // The self sign-in endpoint does not accept allowedClassroomCodes — only
+    // the admin bulk endpoint uses that field for classroom-scoped authorization.
+    if (!isSelf) {
+      await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    }
     final data = await _remoteDataSource.postStaffSignIn(
       body: body,
       isSelf: isSelf,

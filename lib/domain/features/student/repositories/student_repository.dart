@@ -203,6 +203,10 @@ abstract class StudentRepository {
   Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
       getStudentDocumentExpiryCount({required String schoolCode});
 
+  /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode});
+
   /// Updates a student's tags via `POST /api/v1/student-tags`.
   ///
   /// [tagCodes] must be backend tag codes (e.g. TAG_...).

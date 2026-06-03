@@ -1,9 +1,8 @@
 package com.wiseowl.wowcareapp
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import android.util.Log
 import com.google.android.gms.location.LocationServices
 
 class GeofenceBootReceiver : BroadcastReceiver() {
@@ -31,12 +30,12 @@ class GeofenceBootReceiver : BroadcastReceiver() {
             android.app.PendingIntent.getBroadcast(context, 0, i, flags)
         }
 
-        // Best-effort: will fail silently without location permissions.
+        // Best-effort: will fail if background location permission was revoked after reboot.
         try {
-            val pluginRegistrar =
-                javaClass.classLoader // no-op: just to avoid unused warnings
             GeofenceRegistrarBoot.register(context, client, config, pending)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            Log.e("GeofenceBootReceiver", "Re-registration failed: ${t.message}")
+        }
     }
 }
 

@@ -316,6 +316,14 @@ class StudentRepositoryImpl
     );
   }
 
+  @override
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+    return _remoteDataSource.getStudentPhysicalCheckupCount(
+      schoolCode: schoolCode,
+    );
+  }
+
   static String _studentImmunizationCacheKey(String studentCode) =>
       CacheManager.buildCacheKey(
         feature: 'student',
