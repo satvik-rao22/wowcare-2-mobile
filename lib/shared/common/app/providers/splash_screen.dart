@@ -145,6 +145,14 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
     if (!mounted) return;
 
     if (hasCachedLogin) {
+      // Fast kiosk check from stored roles — no API needed.
+      final storedRoles = await storage.getString(StorageKeys.roles) ?? '';
+      if (storedRoles.toUpperCase().contains('KIOSK')) {
+        if (!mounted) return;
+        context.go('/kiosk');
+        return;
+      }
+
       await context.read<RoleCubit>().refreshAccessFromServer(force: true);
 
       try {

@@ -160,6 +160,29 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthError(message));
       },
       (response) async {
+        // KIOSK SHORT-CIRCUIT: check role BEFORE any further processing.
+        // This prevents all unnecessary APIs (context, staff lookup, profile, PIN) for kiosk users.
+        if (loginResponseIsKioskUser(response.roles)) {
+          // Persist login response for kiosk users (needed for cold-start session restore)
+          try {
+            await _localDataSource.cacheLoginResponse(response);
+          } catch (_) {
+            // Non-fatal: if caching fails, login can still proceed.
+          }
+          // Emit immediately and return — skip all post-login processing
+          emit(AuthLoaded(
+            loginResponse: response,
+            schoolsByOrg: const <String, List<Map<String, String>>>{},
+            isPrefetchingSchools: false,
+            lastErrorMessage: null,
+            orgNames: const [],
+            hasLastSchoolFromContext: false,
+            redirectUrl: null,
+          ));
+          return; // skip context API, staff lookup, staff profile, PIN
+        }
+
+        // Non-kiosk users: continue with normal post-login flow.
         // Persist latest login response (tokens, user, roles) for future app launches.
         try {
           await _localDataSource.cacheLoginResponse(response);

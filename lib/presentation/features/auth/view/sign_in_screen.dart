@@ -7,6 +7,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/auth/secure_credential_store.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -180,6 +181,18 @@ class _SignInScreenState extends State<SignInScreen>
     if (state is AuthLoaded) {
       // Save credentials after successful login
       _saveCredentials();
+
+      // KIOSK: detect from login response roles — no API call, no RoleCubit needed.
+      AppLogger.d('[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}');
+      if (loginResponseIsKioskUser(state.loginResponse.roles)) {
+        AppLogger.d('[SignIn] Kiosk user detected - redirecting to /kiosk');
+        if (context.mounted) {
+          context.go('/kiosk');
+        }
+        return;
+      }
+      AppLogger.d('[SignIn] Not a kiosk user - continuing normal flow');
+
       await _preloadGuardianChildrenIfNeeded(context);
 
       // The await above can outlive this screen (e.g. a duplicate auth event
