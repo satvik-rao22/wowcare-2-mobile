@@ -606,7 +606,19 @@ class AuthCubit extends Cubit<AuthState> {
           (await storage.getString(StorageKeys.staffCode) ?? '').trim();
       final cachedStaffUser =
           (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
-      String trimmed = (cachedStaffUser == login.userCode) ? cachedStaffCode : '';
+      final cachedStaffOrg =
+          (await storage.getString(StorageKeys.staffCodeOrganization) ?? '')
+              .trim();
+      final cachedStaffSchool =
+          (await storage.getString(StorageKeys.staffCodeSchool) ?? '').trim();
+      // Only reuse the cached staffCode when it was resolved for the SAME
+      // user *and* the same org/school. Otherwise (e.g. the user switched
+      // school) it belongs to a different selection and must be re-resolved,
+      // or My Profile renders the previous school's staff data.
+      final cacheMatchesContext = cachedStaffUser == login.userCode &&
+          cachedStaffOrg == org &&
+          cachedStaffSchool == school;
+      String trimmed = cacheMatchesContext ? cachedStaffCode : '';
 
       final staffRepository = serviceLocator<StaffRepository>();
       if (trimmed.isEmpty) {
@@ -616,7 +628,18 @@ class AuthCubit extends Cubit<AuthState> {
           schoolCode: school,
         );
         trimmed = (resolved ?? '').trim();
-        if (trimmed.isEmpty) return;
+        if (trimmed.isEmpty) {
+          // Resolution failed for this selection: drop the stale staffCode so
+          // downstream reads (My Profile, photo upload) don't serve the
+          // previous school's code.
+          if (!cacheMatchesContext && cachedStaffCode.isNotEmpty) {
+            await storage.remove(StorageKeys.staffCode);
+            await storage.remove(StorageKeys.staffCodeUser);
+            await storage.remove(StorageKeys.staffCodeOrganization);
+            await storage.remove(StorageKeys.staffCodeSchool);
+          }
+          return;
+        }
         await storage.saveString(StorageKeys.staffCode, trimmed);
         await storage.saveString(StorageKeys.staffCodeUser, login.userCode);
         await storage.saveString(StorageKeys.staffCodeOrganization, org);
