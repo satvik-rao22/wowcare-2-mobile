@@ -49,9 +49,9 @@ class ApiConstantsUat {
   static const String documentMsBaseUrl = '$_host/api/v1/document';
   static const String communicationBaseUrl = _host;
 
-  /// Notification MS (FCM + delivery logs) — same host as Swagger gateway.
-  static const String notificationBaseUrl =
-      'https://fitten-vallie-forthrightly.ngrok-free.dev';
+  /// Notification MS (FCM + delivery logs) — served on the shared UAT host,
+  /// like every other microservice (was a temporary ngrok dev tunnel).
+  static const String notificationBaseUrl = _host;
 
   static String baseUrlForMicroservice(String microserviceKey) {
     // In UAT we default to a single host; keep the switch for flexibility.
