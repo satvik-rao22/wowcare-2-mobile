@@ -54,6 +54,7 @@ import 'package:wowcare/presentation/features/user-profile/view/user_profile_scr
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
 /// existing call sites that read those constants keep working.
@@ -259,6 +260,13 @@ final GoRouter appRouter = GoRouter(
           child: const NotificationCenterScreen(),
         ),
       ),
+    ),
+
+    // Kiosk dashboard — full-screen tablet UI for school entrance kiosk.
+    // Top-level route (outside StatefulShellRoute) so it bypasses the nav shell.
+    GoRoute(
+      path: KioskDashboardScreen.routeName,
+      builder: (context, state) => const KioskDashboardScreen(),
     ),
 
     StatefulShellRoute.indexedStack(
