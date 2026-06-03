@@ -13,6 +13,7 @@ abstract final class ApiMicroservicesUat {
   static const String activity = 'activity';
   static const String document = 'document';
   static const String communication = 'communication';
+  static const String notification = 'notification';
 }
 
 class ApiConstantsUat {
@@ -48,6 +49,10 @@ class ApiConstantsUat {
   static const String documentMsBaseUrl = '$_host/api/v1/document';
   static const String communicationBaseUrl = _host;
 
+  /// Notification MS (FCM + delivery logs) — same host as Swagger gateway.
+  static const String notificationBaseUrl =
+      'https://fitten-vallie-forthrightly.ngrok-free.dev';
+
   static String baseUrlForMicroservice(String microserviceKey) {
     // In UAT we default to a single host; keep the switch for flexibility.
     switch (microserviceKey) {
@@ -69,6 +74,8 @@ class ApiConstantsUat {
       case ApiMicroservicesUat.user:
       case ApiMicroservicesUat.communication:
         return communicationBaseUrl;
+      case ApiMicroservicesUat.notification:
+        return notificationBaseUrl;
       default:
         return baseUrl;
     }

@@ -160,6 +160,8 @@ class ApiPathsUat {
       case 'conversations':
       case 'messages':
         return ApiMicroservices.communication;
+      case 'notification':
+        return ApiMicroservices.notification;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
       case 'admin':
@@ -201,6 +203,9 @@ class ApiPathsUat {
 
     // Special-case: communication/messaging endpoints do not use a microservice segment in UAT.
     if (microserviceKeyFromPath(p) == ApiMicroservices.communication) return p;
+
+    // Notification MS is rooted at `/api/v1/notification/...` on the gateway.
+    if (p.startsWith('/api/v1/notification/')) return p;
 
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') return p;

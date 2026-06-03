@@ -229,6 +229,8 @@ class ApiPaths {
       // case 'newsletters':
       case 'messages':
         return ApiMicroservices.communication;
+      case 'notification':
+        return ApiMicroservices.notification;
       default:
         return ApiMicroservices.user;
     }
@@ -724,4 +726,18 @@ class ApiPaths {
   /// GET /api/v1/newsletters/{code}
   static String newsletterByCode(String code) =>
       '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
+
+  // —— Notification service (FCM + delivery logs) ——
+  static const String notificationFcmRegister = '/api/v1/notification/fcm/register';
+  static String notificationFcmToken(String fcmToken) =>
+      '/api/v1/notification/fcm/token/${Uri.encodeComponent(fcmToken.trim())}';
+  static String notificationFcmUser(String userCode) =>
+      '/api/v1/notification/fcm/user/${Uri.encodeComponent(userCode.trim())}';
+  static const String notificationLogs = '/api/v1/notification/logs';
+  static String notificationLogRead(String code) =>
+      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/read';
+  static String notificationLogClick(String code) =>
+      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/click';
+  static const String notificationLogsReadAll =
+      '/api/v1/notification/logs/read-all';
 }
