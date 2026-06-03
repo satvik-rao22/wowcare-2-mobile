@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_mark_absent_form.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 
 typedef StudentAttendanceActionTap = void Function(String actionLabel);
 
@@ -34,6 +35,14 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Check permission using the shared service
+    final isStudentAttendanceAllowed =
+        AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+    final activeDisabledActions = Set<String>.from(disabledActions);
+    if (!isStudentAttendanceAllowed) {
+      activeDisabledActions.addAll(const ['Sign-in', 'Sign-Out']);
+    }
+
     // Use the shared GradientAddButton for consistent FAB styling.
     // Mirror the responsive sizing used in StaffScreen by deriving
     // tablet breakpoints from the current screen width.
@@ -42,13 +51,13 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     final bool isLargeTablet = screenWidth >= 900;
 
     return GradientAddButton(
-      onTap: () => _showActionMenu(context),
+      onTap: () => _showActionMenu(context, activeDisabledActions),
       isTablet: isTablet,
       isLargeTablet: isLargeTablet,
     );
   }
 
-  void _showActionMenu(BuildContext context) {
+  void _showActionMenu(BuildContext context, Set<String> activeDisabledActions) {
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isTablet = screenWidth >= 600;
     final bool isLargeTablet = screenWidth >= 900;
@@ -88,13 +97,13 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
+                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in', activeDisabledActions),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
+                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out', activeDisabledActions),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                  _buildMenuItem(context, MediaRes.transfer, 'Transfer', activeDisabledActions),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent', activeDisabledActions),
                 ],
               ),
             ),
@@ -104,8 +113,8 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
-    final isDisabled = disabledActions.contains(label);
+  Widget _buildMenuItem(BuildContext context, String svgPath, String label, Set<String> activeDisabledActions) {
+    final isDisabled = activeDisabledActions.contains(label);
     return InkWell(
       onTap: isDisabled
           ? null

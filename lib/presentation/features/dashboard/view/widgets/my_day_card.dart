@@ -16,10 +16,12 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../core/util/core_utils.dart';
@@ -59,13 +61,20 @@ class _MyDayCardState extends State<MyDayCard> {
 
   // ---- sign-in status ----
   bool _isSignedIn = false;
+
+  // Cached staff identity — loaded once in initState so button taps never hit
+  // a timing window where storage hasn't resolved yet.
+  String _staffCode = '';
+  String _staffDisplayName = '';
+  String _staffDesignation = '';
+  bool _staffIdentityLoaded = false;
   String _countdownLabel = 'Your shift starts in'; // Already have _statusText
   String _nextDayName = ''; // For upcoming shifts
   bool _isTodayShift = true; // Important flag
   // ---- shift countdown display state ----
   String _statusText = 'Loading schedule…';
-  String _workTime = '- -';
-  String _breakTime = '- -';
+  String _workTime = '--:--';
+  String _breakTime = '--:--';
   bool _hasShifts = false;
   Duration _duration = Duration.zero;
 
@@ -182,7 +191,7 @@ class _MyDayCardState extends State<MyDayCard> {
   void initState() {
     super.initState();
     unawaited(_loadClockPin());
-    unawaited(_loadSignInStatus());
+    unawaited(_loadStaffIdentity());
   }
 
   @override
@@ -263,27 +272,61 @@ class _MyDayCardState extends State<MyDayCard> {
     setState(() => _clockInPin = pin);
   }
 
-  Future<void> _loadSignInStatus() async {
+  /// Loads staff identity and sign-in status in one pass so button taps
+  /// never hit a timing window where storage hasn't resolved yet.
+  Future<void> _loadStaffIdentity() async {
     final storage = serviceLocator<StorageService>();
-    final staffCode =
-        (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
-    if (staffCode.isEmpty || !mounted) return;
+    final code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    final name = (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final designation =
+        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+    if (!mounted) return;
+    setState(() {
+      _staffCode = code;
+      _staffDisplayName = name;
+      _staffDesignation = designation;
+      _staffIdentityLoaded = true;
+    });
+    if (code.isEmpty) return;
     try {
       final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
-      final status = await useCase(staffCode: staffCode);
+      final status = await useCase(staffCode: code);
       if (!mounted) return;
       setState(() => _isSignedIn = status?.toUpperCase() == 'SIGNED_IN');
     } catch (_) {
-      // If status check fails, keep default (false)
+      // sign-in status check is best-effort
     }
   }
 
+  Future<void> _openTransferForSelf() async {
+    if (_staffCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to find your staff profile to transfer.',
+        isWarning: true,
+      );
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StaffTransferForm(
+          staff: StaffEntity(
+            id: 0,
+            name: _staffDisplayName.isNotEmpty ? _staffDisplayName : '—',
+            primaryRoomId: 0,
+            designation: _staffDesignation.isNotEmpty ? _staffDesignation : 'Staff',
+            staffCode: _staffCode,
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openMarkAbsentForSelf() async {
-    final storage = serviceLocator<StorageService>();
-    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
-        .trim();
-    if (staffCode.isEmpty) {
-      if (!mounted) return;
+    final staff = _buildSelfStaffEntity();
+    if (!mounted) return;
+    if (staff == null) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Unable to find your staff profile to mark absent.',
@@ -291,48 +334,29 @@ class _MyDayCardState extends State<MyDayCard> {
       );
       return;
     }
-
-    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
-    final designation =
-        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
-
-    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => StaffMarkAbsentForm(
-          staff: StaffEntity(
-            id: 0,
-            name: displayName.isNotEmpty ? displayName : '—',
-            primaryRoomId: 0,
-            designation: designation.isNotEmpty ? designation : 'Staff',
-            staffCode: staffCode,
-          ),
+          staff: staff,
         ),
       ),
     );
+    if (mounted) unawaited(_loadStaffIdentity());
   }
 
-  Future<StaffEntity?> _buildSelfStaffEntity() async {
-    final storage = serviceLocator<StorageService>();
-    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
-        .trim();
-    if (staffCode.isEmpty) return null;
-    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
-    final designation =
-        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+  StaffEntity? _buildSelfStaffEntity() {
+    if (_staffCode.isEmpty) return null;
     return StaffEntity(
       id: 0,
-      name: displayName.isNotEmpty ? displayName : '—',
+      name: _staffDisplayName.isNotEmpty ? _staffDisplayName : '—',
       primaryRoomId: 0,
-      designation: designation.isNotEmpty ? designation : 'Staff',
-      staffCode: staffCode,
+      designation: _staffDesignation.isNotEmpty ? _staffDesignation : 'Staff',
+      staffCode: _staffCode,
     );
   }
 
   Future<void> _openSignInForm() async {
-    final staff = await _buildSelfStaffEntity();
+    final staff = _buildSelfStaffEntity();
     if (!mounted) return;
     if (staff == null) {
       CoreUtils.showTopSnackBar(
@@ -347,11 +371,11 @@ class _MyDayCardState extends State<MyDayCard> {
         builder: (_) => StaffSignInForm(staff: staff, forceSelf: true),
       ),
     );
-    if (mounted) unawaited(_loadSignInStatus());
+    if (mounted) unawaited(_loadStaffIdentity());
   }
 
   Future<void> _openSignOutForm() async {
-    final staff = await _buildSelfStaffEntity();
+    final staff = _buildSelfStaffEntity();
     if (!mounted) return;
     if (staff == null) {
       CoreUtils.showTopSnackBar(
@@ -364,7 +388,7 @@ class _MyDayCardState extends State<MyDayCard> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)));
-    if (mounted) unawaited(_loadSignInStatus());
+    if (mounted) unawaited(_loadStaffIdentity());
   }
 
   // ---------------------------------------------------------------------------
@@ -536,19 +560,40 @@ class _MyDayCardState extends State<MyDayCard> {
         _nextDayName  = '';
         _hasShifts    = false;
         _statusText   = 'School Closed';
-        _workTime     = '- -';
-        _breakTime    = '- -';
+        _workTime     = '--:--';
+        _breakTime    = '--:--';
         _duration     = Duration.zero;
       });
       return;
     }
 
     // Build weekday → schedule maps with the robust _kDayToWeekday lookup.
+    // Skip entries with all-zero times — those are unset placeholders, not real shifts.
     final workByWd = <int, StaffProfileWorkSchedule>{};
     for (final ws in allWork) {
       final wd = _kDayToWeekday[ws.dayOfWeek.trim().toUpperCase()];
-      if (wd != null) workByWd[wd] = ws;
+      if (wd == null) continue;
+      final isSet = ws.workStartTime.hour != 0 ||
+          ws.workStartTime.minute != 0 ||
+          ws.workEndTime.hour != 0 ||
+          ws.workEndTime.minute != 0;
+      if (isSet) workByWd[wd] = ws;
     }
+
+    // All entries had zero times — treat as no schedule.
+    if (workByWd.isEmpty) {
+      setState(() {
+        _isTodayShift = true;
+        _nextDayName  = '';
+        _hasShifts    = false;
+        _statusText   = 'School Closed';
+        _workTime     = '--:--';
+        _breakTime    = '--:--';
+        _duration     = Duration.zero;
+      });
+      return;
+    }
+
     final breakByWd = <int, StaffProfileBreakSchedule>{};
     for (final bs in allBreak) {
       final wd = _kDayToWeekday[bs.dayOfWeek.trim().toUpperCase()];
@@ -589,8 +634,8 @@ class _MyDayCardState extends State<MyDayCard> {
       _nextDayName  = '';
       _hasShifts    = false;
       _statusText   = 'No upcoming shifts';
-      _workTime     = '- -';
-      _breakTime    = '- -';
+      _workTime     = '--:--';
+      _breakTime    = '--:--';
       _duration     = Duration.zero;
     });
   }
@@ -654,11 +699,11 @@ class _MyDayCardState extends State<MyDayCard> {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildTimeUnit('- -', 'HH'),
+          _buildTimeUnit('--', 'HH'),
           _buildTimeSeparator(),
-          _buildTimeUnit('- -', 'MM'),
+          _buildTimeUnit('--', 'MM'),
           _buildTimeSeparator(),
-          _buildTimeUnit('- -', 'SS'),
+          _buildTimeUnit('--', 'SS'),
         ],
       );
     }
@@ -914,9 +959,10 @@ class _MyDayCardState extends State<MyDayCard> {
                     // ── GPS-gated attendance button ──────────────────────────
                     BlocBuilder<GeofenceCubit, GeofenceState>(
                       builder: (context, geofenceState) {
-                        final bool enabled =
-                            geofenceState.status ==
-                            GeofenceCubitStatus.withinRange;
+                        final roleProvider = context.watch<RoleCubit>();
+                        final bool isStaff = roleProvider.isStaff;
+                        final bool isWithinGeofence = geofenceState.isWithinGeofence;
+                        final bool enabled = !isStaff || isWithinGeofence;
                         return Column(
                           children: [
                             Padding(
@@ -926,34 +972,86 @@ class _MyDayCardState extends State<MyDayCard> {
                               child: Row(
                                 children: [
                                   Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: _isSignedIn
-                                          ? null
-                                          : _openMarkAbsentForSelf,
+                                    child: _isSignedIn
+                                        ? OutlinedButton.icon(
+                                            // Disabled while identity is loading or staffCode missing.
+                                            onPressed: (!_staffIdentityLoaded ||
+                                                    _staffCode.isEmpty)
+                                                ? null
+                                                : _openTransferForSelf,
 
-                                      label: const Text(
-                                        'Mark Absent',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppColors.themeColor,
-                                        side: const BorderSide(
-                                          color: AppColors.themeColor,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 14,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
+                                            icon: !_staffIdentityLoaded
+                                                ? const SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 1.5,
+                                                      color: AppColors.themeColor,
+                                                    ),
+                                                  )
+                                                : const SizedBox.shrink(),
+                                            label: const Text(
+                                              'Transfer',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AppColors.themeColor,
+                                              side: const BorderSide(
+                                                color: AppColors.themeColor,
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 14,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(
+                                                  14,
+                                                ),
+                                              ),
+                                              textStyle: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          )
+                                        : OutlinedButton.icon(
+                                            onPressed: (!_staffIdentityLoaded ||
+                                                    _staffCode.isEmpty)
+                                                ? null
+                                                : _openMarkAbsentForSelf,
+
+                                            icon: !_staffIdentityLoaded
+                                                ? const SizedBox(
+                                                    width: 14,
+                                                    height: 14,
+                                                    child: CircularProgressIndicator(
+                                                      strokeWidth: 1.5,
+                                                      color: AppColors.themeColor,
+                                                    ),
+                                                  )
+                                                : const SizedBox.shrink(),
+                                            label: const Text(
+                                              'Mark Absent',
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            style: OutlinedButton.styleFrom(
+                                              foregroundColor: AppColors.themeColor,
+                                              side: const BorderSide(
+                                                color: AppColors.themeColor,
+                                              ),
+                                              padding: const EdgeInsets.symmetric(
+                                                vertical: 14,
+                                              ),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(
+                                                  14,
+                                                ),
+                                              ),
+                                              textStyle: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                        textStyle: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -968,11 +1066,12 @@ class _MyDayCardState extends State<MyDayCard> {
                                             MainAxisAlignment.center,
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          const Icon(
+                                          Icon(
                                             Icons.location_on_outlined,
                                             size: 18,
-                                            color: AppColors
-                                                .billingBackgroundColor,
+                                            color: enabled
+                                                ? AppColors.billingBackgroundColor
+                                                : Colors.grey[600],
                                           ),
                                           const SizedBox(width: 8),
                                           Flexible(
@@ -981,11 +1080,12 @@ class _MyDayCardState extends State<MyDayCard> {
                                                   ? 'Sign-Out'
                                                   : 'Sign-In',
                                               overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
-                                                color: AppColors
-                                                    .billingBackgroundColor,
+                                                color: enabled
+                                                    ? AppColors.billingBackgroundColor
+                                                    : Colors.grey[600],
                                               ),
                                             ),
                                           ),
@@ -1038,6 +1138,11 @@ class _MyDayCardState extends State<MyDayCard> {
   // ── Geofence status label ────────────────────────────────────────────────────
 
   Widget _buildGeofenceStatusLabel(BuildContext context, GeofenceState state) {
+    final roleProvider = context.read<RoleCubit>();
+    if (!roleProvider.isStaff) {
+      return const SizedBox.shrink();
+    }
+
     const style = TextStyle(fontSize: 12, height: 1.4);
     const pad = EdgeInsets.only(top: 10, left: 24, right: 24);
 

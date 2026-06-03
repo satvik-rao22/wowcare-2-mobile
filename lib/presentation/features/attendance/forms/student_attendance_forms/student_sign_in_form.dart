@@ -28,6 +28,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
@@ -725,6 +726,21 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Access Denied: You must be inside geofence and signed in to manage student attendance.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (currentStudents.isEmpty) {
       // Fallback if students list is empty
       currentStudents = List.from(widget.students);

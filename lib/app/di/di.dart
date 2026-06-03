@@ -82,6 +82,7 @@ import '../../domain/features/staff/usecases/get_staff_shifts_usecase.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
+import '../../presentation/features/dashboard/cubit/dashboard_overall_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
@@ -960,6 +961,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
       staffRepository: serviceLocator(),
     ),
+  );
+  serviceLocator.registerFactory<DashboardOverallCubit>(
+    () => DashboardOverallCubit(),
   );
   serviceLocator.registerFactory<AdminDashboardCubit>(
     () => AdminDashboardCubit(),

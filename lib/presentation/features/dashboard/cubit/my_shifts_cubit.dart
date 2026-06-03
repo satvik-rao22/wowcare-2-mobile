@@ -9,6 +9,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_classroom.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -34,9 +35,14 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
 
   bool _isFetching = false;
 
-  Future<void> load({bool forceRefresh = false}) async {
+  Future<void> load({DateTime? date, bool forceRefresh = false}) async {
+    final targetDate = date ?? state.selectedDate ?? DateTime.now();
+    final normalizedDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
+
+    final startOfWeek = _startOfWeek(normalizedDate);
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
     if (_isFetching) return;
-    if (!forceRefresh && state.isLoaded) return;
     _isFetching = true;
 
     emit(state.copyWith(status: _Status.loading, clearError: true));
@@ -59,10 +65,6 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
         return;
       }
 
-      final now = DateTime.now();
-      final startOfWeek = _startOfWeek(now);
-      final endOfWeek = startOfWeek.add(const Duration(days: 6));
-
       // ── Fetch shifts + classroom name map in parallel ────────────────────
       final results = await Future.wait([
         _getShifts(
@@ -74,7 +76,7 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
         ),
         _getClassrooms(schoolCode: schoolCode).catchError(
           // Non-fatal — classroom names degrade to codes if this fails.
-          (_) => <dynamic>[],
+          (_) => <RatioMonitoringClassroom>[],
         ),
       ]);
 
@@ -88,9 +90,8 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
             c.code.toString().trim(): c.name.toString().trim(),
       };
 
-      final today = DateTime(now.year, now.month, now.day);
       final todays = shifts
-          .where((s) => _sameDay(s.shiftDate, today))
+          .where((s) => _sameDay(s.shiftDate, normalizedDate))
           .toList(growable: false);
 
       final totals = _extractTotals(shifts);
@@ -110,9 +111,6 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
       }
       final designation = _formatDesignation(rawDesignation);
 
-      // Pick a classroom label for the profile row:
-      // 1) today's first shift classroomName/code
-      // 2) any shift classroomName/code
       final classroomLabel = _classroomLabelFor(
         todays.isNotEmpty ? todays : shifts,
         classroomNames: classroomNames,
@@ -132,6 +130,8 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
           unscheduledHours: totals.unscheduledHours,
           weekFrom: startOfWeek,
           weekTo: endOfWeek,
+          selectedDate: normalizedDate,
+          classroomNames: classroomNames,
         ),
       );
     } catch (e) {
@@ -141,6 +141,10 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     } finally {
       _isFetching = false;
     }
+  }
+
+  Future<void> changeSelectedDate(DateTime date) async {
+    await load(date: date);
   }
 
   DateTime _startOfWeek(DateTime dt) {

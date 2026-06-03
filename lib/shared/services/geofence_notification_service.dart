@@ -22,10 +22,12 @@ class GeofenceNotificationService {
     _initialized = true;
     try {
       const androidInit = AndroidInitializationSettings('ic_launcher_foreground');
+      // Request iOS alert/sound permission at init so the system prompt appears
+      // as soon as GPS monitoring starts, not silently after the first event.
       const iosInit = DarwinInitializationSettings(
-        requestAlertPermission: false,
+        requestAlertPermission: true,
         requestBadgePermission: false,
-        requestSoundPermission: false,
+        requestSoundPermission: true,
       );
       await _plugin.initialize(
         settings: const InitializationSettings(

@@ -87,9 +87,12 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
         if (!gpsEnabled) {
             GeofenceRegistrar.clear(appContext)
+            GeofenceForegroundService.stop(appContext)
             result.success(true)
             return
         }
+
+        GeofenceForegroundService.start(appContext)
 
         GeofenceRegistrar.register(
             context = appContext,

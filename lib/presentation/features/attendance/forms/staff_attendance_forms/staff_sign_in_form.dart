@@ -25,6 +25,7 @@ import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
 class StaffSignInForm extends StatefulWidget {
@@ -39,6 +40,7 @@ class StaffSignInForm extends StatefulWidget {
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
   final String qrToken;
+
   /// When true, always uses the self sign-in endpoint regardless of admin role.
   /// Set this when opening the form from a personal GPS sign-in button.
   final bool forceSelf;
@@ -464,7 +466,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     final bool isQrForTime = widget.qrToken.isNotEmpty;
     if (!isStaffAdmin || isQrForTime) {
       if (!isStaffAdmin &&
-          (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode)) {
+          (targetStaffCodes.length != 1 ||
+              targetStaffCodes.first != staffCode)) {
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
           snackBar: const SnackBar(
@@ -632,6 +635,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
 
       if (success) {
+        if (isSelfSignIn) {
+          context.read<GeofenceCubit>().updateStaffSignInStatus(true);
+        }
         if (isStaffAdmin) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(

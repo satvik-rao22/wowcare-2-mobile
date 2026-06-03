@@ -16,6 +16,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
 // Geofence is handled via OS-level native geofencing (Android GeofencingClient, iOS region monitoring).
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
@@ -272,6 +273,9 @@ class MyApp extends StatelessWidget {
                     ),
                     BlocProvider<PushNotificationCubit>(
                       create: (_) => serviceLocator<PushNotificationCubit>(),
+                    ),
+                    BlocProvider<GeofenceCubit>(
+                      create: (_) => serviceLocator<GeofenceCubit>(),
                     ),
                   ],
                   child: NotificationNavigator(

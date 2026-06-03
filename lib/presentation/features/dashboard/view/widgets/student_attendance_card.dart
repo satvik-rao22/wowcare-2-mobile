@@ -178,7 +178,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              child.name.length > 10
+                              child.name.length > 6
                                   ? '${child.name.substring(0, 8)}...'
                                   : child.name,
                               overflow: TextOverflow.ellipsis,

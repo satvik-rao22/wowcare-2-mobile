@@ -207,7 +207,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     }
                     context.push(
                       StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
+                      extra: {'filter': filter, 'hasBackButton': true},
                     );
                   },
                   items: _percentItems(
@@ -253,7 +253,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     }
                     context.push(
                       StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
+                      extra: {'filter': filter, 'hasBackButton': true},
                     );
                   },
                   items: _percentItems(
@@ -301,7 +301,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     }
                     context.push(
                       StaffAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
+                      extra: {'filter': filter, 'hasBackButton': true},
                     );
                   },
                   items: _percentItems(
@@ -361,28 +361,28 @@ class _StatColumn extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        // if (showTrend) ...[
-        //   const SizedBox(height: 6),
-        //   const Row(
-        //     mainAxisAlignment: MainAxisAlignment.center,
-        //     crossAxisAlignment: CrossAxisAlignment.start,
-        //     children: [
-        //       Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
-        //       SizedBox(width: 3),
-        //       Flexible(
-        //         child: Text(
-        //           '5% vs last month',
-        //           textAlign: TextAlign.center,
-        //           style: TextStyle(
-        //             color: AppColors.successColor,
-        //             fontSize: 10,
-        //             fontWeight: FontWeight.w600,
-        //           ),
-        //         ),
-        //       ),
-        //     ],
-        //   ),
-        // ],
+        if (showTrend) ...[
+          const SizedBox(height: 6),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
+              SizedBox(width: 3),
+              Flexible(
+                child: Text(
+                  '0% vs last month',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.successColor,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

@@ -1,27 +1,19 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/constants/dashboard_constants.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/services/dashboard_initialization_service.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_shifts_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/enrollment_card.dart';
-import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
-import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/ratio_monitoring_card.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/admin_dashboard_viewmodel.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -35,97 +27,20 @@ class AdminDashboard extends StatefulWidget {
 }
 
 class _AdminDashboardState extends State<AdminDashboard> {
-  late final AdminDashboardCubit _dashboardCubit;
-  late final GeofenceCubit _geofenceCubit;
-  late final SchoolStatusCubit _schoolStatusCubit;
-  late final RatioMonitoringCubit _ratioMonitoringCubit;
-  late final IndividualMovementsCubit _movementsCubit;
-  late final FutureAvailabilityCubit _availabilityCubit;
-  late final ClassroomShiftsCubit _classroomShiftsCubit;
-  late final DashboardAttentionCubit _attentionCubit;
-  late final MyDayCubit _myDayCubit;
-
   static const double _maxContentWidth = 640;
 
   @override
   void initState() {
     super.initState();
-    _dashboardCubit = serviceLocator<AdminDashboardCubit>();
-    _geofenceCubit = serviceLocator<GeofenceCubit>();
-    _schoolStatusCubit = serviceLocator<SchoolStatusCubit>();
-    _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
-    _movementsCubit = serviceLocator<IndividualMovementsCubit>();
-    _availabilityCubit = serviceLocator<FutureAvailabilityCubit>();
-    _classroomShiftsCubit = serviceLocator<ClassroomShiftsCubit>();
-    _attentionCubit = serviceLocator<DashboardAttentionCubit>();
-    _myDayCubit = serviceLocator<MyDayCubit>();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_dashboardCubit.loadUserName());
-      unawaited(_classroomShiftsCubit.load(DateTime.now()));
-      unawaited(_attentionCubit.load());
-      unawaited(_myDayCubit.load());
-      unawaited(_initSchoolDependentCubits());
+      unawaited(DashboardInitializationService.loadAdminDashboardData(context));
     });
-  }
-
-  Future<void> _initSchoolDependentCubits() async {
-    await Future.wait([
-      _initRatioMonitoring(),
-      _initGeofence(),
-      _initMovements(),
-      _initAvailability(),
-    ]);
-  }
-
-  Future<void> _initMovements() async {
-    await _movementsCubit.loadInitial();
-  }
-
-  Future<void> _initAvailability() async {
-    await _availabilityCubit.load(date: DateTime.now(), isTwoShifts: true);
-  }
-
-  Future<void> _initRatioMonitoring() async {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = await storage.getString(StorageKeys.schoolCode);
-    if (schoolCode != null && schoolCode.isNotEmpty && mounted) {
-      try {
-        await _ratioMonitoringCubit.loadRatioMonitoring(
-          schoolCode: schoolCode,
-          isSilent: true,
-        );
-      } catch (_) {}
-    }
-  }
-
-  Future<void> _initGeofence() async {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = await storage.getString(StorageKeys.schoolCode);
-    if (schoolCode != null && schoolCode.isNotEmpty) {
-      await _geofenceCubit.initForSchool(schoolCode: schoolCode);
-    }
   }
 
   @override
   void dispose() {
-    // ignore: discarded_futures
-    _dashboardCubit.close();
-    // GeofenceCubit is a singleton — do NOT close it here; it must survive navigation.
-    // ignore: discarded_futures
-    _schoolStatusCubit.close();
-    // ignore: discarded_futures
-    _ratioMonitoringCubit.close();
-    // ignore: discarded_futures
-    _movementsCubit.close();
-    // ignore: discarded_futures
-    _availabilityCubit.close();
-    // ignore: discarded_futures
-    _classroomShiftsCubit.close();
-    // ignore: discarded_futures
-    _attentionCubit.close();
-    // ignore: discarded_futures
-    _myDayCubit.close();
+    // Note: All non-singleton cubits are closed automatically when they go out of scope.
+    // GeofenceCubit is a singleton managed by ServiceLocator and must NOT be closed.
     super.dispose();
   }
 
@@ -136,22 +51,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case AdminDashboardCard.enrollment:
         return const EnrollmentCard(isDashboard: true);
       case AdminDashboardCard.ratioMonitoring:
-        return BlocProvider<RatioMonitoringCubit>.value(
-          value: _ratioMonitoringCubit,
-          child: const RatioMonitoringCard(),
-        );
+        return const RatioMonitoringCard();
       case AdminDashboardCard.classroomShifts:
         return const ClassroomShiftsCard();
       case AdminDashboardCard.availability:
-        return BlocProvider<FutureAvailabilityCubit>.value(
-          value: _availabilityCubit,
-          child: const AvailabilityCard(),
-        );
+        return const AvailabilityCard();
       case AdminDashboardCard.movements:
-        return BlocProvider<IndividualMovementsCubit>.value(
-          value: _movementsCubit,
-          child: const MovementsCard(),
-        );
+        return const MovementsCard();
+      case AdminDashboardCard.attentionGrid:
+        return const AttentionGrid();
       // case AdminDashboardCard.billing:
       //   return const BillingCard();
     }
@@ -175,17 +83,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
   @override
   Widget build(BuildContext context) {
     return MultiBlocProvider(
-      providers: [
-        BlocProvider<AdminDashboardCubit>.value(value: _dashboardCubit),
-        BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
-        BlocProvider<SchoolStatusCubit>.value(value: _schoolStatusCubit),
-        BlocProvider<RatioMonitoringCubit>.value(value: _ratioMonitoringCubit),
-        BlocProvider<ClassroomShiftsCubit>.value(value: _classroomShiftsCubit),
-        BlocProvider<IndividualMovementsCubit>.value(value: _movementsCubit),
-        BlocProvider<FutureAvailabilityCubit>.value(value: _availabilityCubit),
-        BlocProvider<DashboardAttentionCubit>.value(value: _attentionCubit),
-        BlocProvider<MyDayCubit>.value(value: _myDayCubit),
-      ],
+      providers: DashboardInitializationService.initializeAdminDashboardProviders(),
       child: _buildScaffold(),
     );
   }

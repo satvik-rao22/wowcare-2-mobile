@@ -550,7 +550,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             end: Alignment.bottomCenter,
           ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
           child: const Text(
-            'Sign In/Out Pin : ',
+            'Your Sign-In Pin : ',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,

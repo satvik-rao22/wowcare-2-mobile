@@ -1,21 +1,17 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
-import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/constants/dashboard_constants.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/services/dashboard_initialization_service.dart';
 // import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_attendance_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/ratio_monitoring_card.dart';
-import 'package:wowcare/presentation/features/dashboard/viewmodels/staff_dashboard_viewmodel.dart';
-import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -29,51 +25,20 @@ class StaffDashboard extends StatefulWidget {
 }
 
 class _StaffDashboardState extends State<StaffDashboard> {
-  late final StaffDashboardCubit _dashboardCubit;
-  late final GeofenceCubit _geofenceCubit;
-  late final RatioMonitoringCubit _ratioMonitoringCubit;
-  late final MyDayCubit _myDayCubit;
-  late final MyAttendanceCubit _myAttendanceCubit;
-  late final MyShiftsCubit _myShiftsCubit;
-
   static const double _maxContentWidth = 640;
 
   @override
   void initState() {
     super.initState();
-    _dashboardCubit = serviceLocator<StaffDashboardCubit>();
-    _geofenceCubit = serviceLocator<GeofenceCubit>();
-    _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
-    _myDayCubit = serviceLocator<MyDayCubit>();
-    _myAttendanceCubit = serviceLocator<MyAttendanceCubit>();
-    _myShiftsCubit = serviceLocator<MyShiftsCubit>();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_initGeofence());
-      _myDayCubit.load(isSilent: true);
+      unawaited(DashboardInitializationService.loadStaffDashboardData(context));
     });
-  }
-
-  Future<void> _initGeofence() async {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = await storage.getString(StorageKeys.schoolCode);
-    if (schoolCode != null && schoolCode.isNotEmpty) {
-      await _geofenceCubit.initForSchool(schoolCode: schoolCode);
-    }
   }
 
   @override
   void dispose() {
-    // ignore: discarded_futures
-    _dashboardCubit.close();
-    // GeofenceCubit is a singleton — do NOT close it here; it must survive navigation.
-    // ignore: discarded_futures
-    _ratioMonitoringCubit.close();
-    // ignore: discarded_futures
-    _myDayCubit.close();
-    // ignore: discarded_futures
-    _myAttendanceCubit.close();
-    // ignore: discarded_futures
-    _myShiftsCubit.close();
+    // Note: All non-singleton cubits are closed automatically when they go out of scope.
+    // GeofenceCubit is a singleton managed by ServiceLocator and must NOT be closed.
     super.dispose();
   }
 
@@ -108,16 +73,7 @@ class _StaffDashboardState extends State<StaffDashboard> {
     return Padding(
       padding: const EdgeInsets.only(top: 20),
       child: MultiBlocProvider(
-        providers: [
-          BlocProvider<StaffDashboardCubit>.value(value: _dashboardCubit),
-          BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
-          BlocProvider<RatioMonitoringCubit>.value(
-            value: _ratioMonitoringCubit,
-          ),
-          BlocProvider<MyDayCubit>.value(value: _myDayCubit),
-          BlocProvider<MyShiftsCubit>.value(value: _myShiftsCubit),
-          BlocProvider<MyAttendanceCubit>.value(value: _myAttendanceCubit),
-        ],
+        providers: DashboardInitializationService.initializeStaffDashboardProviders(),
         child: _buildScaffold(),
       ),
     );
@@ -133,9 +89,9 @@ class _StaffDashboardState extends State<StaffDashboard> {
           builder: (context, dashState) {
             return CustomRefreshIndicator(
               onRefresh: () => Future.wait([
-                _myDayCubit.refresh(),
-                _myAttendanceCubit.refresh(),
-                _myShiftsCubit.load(forceRefresh: true),
+                context.read<MyDayCubit>().refresh(),
+                context.read<MyAttendanceCubit>().refresh(),
+                context.read<MyShiftsCubit>().load(forceRefresh: true),
               ]),
               child: LayoutBuilder(
                 builder: (context, constraints) {

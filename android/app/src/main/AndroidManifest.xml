@@ -55,6 +55,13 @@
             android:foregroundServiceType="location"
             android:enabled="true"
             android:exported="false" />
+        <!-- Keeps process alive on OEM devices to ensure geofence delivery -->
+        <service
+            android:name="com.wiseowl.wowcareapp.GeofenceForegroundService"
+            android:foregroundServiceType="location"
+            android:enabled="true"
+            android:exported="false"
+            android:stopWithTask="false" />
         <!-- flutter_local_notifications: required for notification action callbacks -->
         <receiver android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />

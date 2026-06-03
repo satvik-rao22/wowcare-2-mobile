@@ -213,7 +213,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         for (final classroom in classrooms)
           if (classroom.name.trim().isNotEmpty &&
               classroom.code.trim().isNotEmpty &&
-              (!isScopedStaff || allowedCodes.contains(classroom.code.trim())) &&
+              (!isScopedStaff ||
+                  allowedCodes.contains(classroom.code.trim())) &&
               isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
@@ -324,7 +325,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     setState(() {
       _isSubmitting = true;
     });
-
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
