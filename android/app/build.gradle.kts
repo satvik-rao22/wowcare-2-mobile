@@ -86,4 +86,7 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // Provides Theme.MaterialComponents.* used by LaunchTheme/NormalTheme — the
+    // AppCompat host theme local_auth's BiometricPrompt requires.
+    implementation("com.google.android.material:material:1.12.0")
 }

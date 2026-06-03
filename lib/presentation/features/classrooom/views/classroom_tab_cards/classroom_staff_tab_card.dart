@@ -317,13 +317,32 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   }
 
   List<Staff> _getVisibleStaff() {
+      final List<Staff> base;
       if (_filteredStaff.isEmpty &&
           _searchController.text.isEmpty &&
           _selectedDesignation.isEmpty) {
-      return _allStaff.where((staff) => staff.designation != 'Kiosk').toList();
+      base = _allStaff.where((staff) => staff.designation != 'Kiosk').toList();
       } else {
-        return _filteredStaff;
+        base = _filteredStaff;
       }
+      return _floatHighlightTargetToTop(base);
+  }
+
+  /// When opened from an assign-to-classroom notification, the deep-linked
+  /// staff must flash + scroll into view. The list is sorted by name, so the
+  /// target can land far down the lazy [ListView.builder] and never get built —
+  /// its [HighlightableCard] then never mounts, so no flash fires. Floating the
+  /// target to the top guarantees the row renders, is visible, and highlights.
+  List<Staff> _floatHighlightTargetToTop(List<Staff> staff) {
+    final target = (widget.highlightCode ?? '').trim().toUpperCase();
+    if (target.isEmpty) return staff;
+    final idx = staff.indexWhere(
+      (s) => s.staffCode.trim().toUpperCase() == target,
+    );
+    if (idx <= 0) return staff;
+    final reordered = List<Staff>.of(staff);
+    reordered.insert(0, reordered.removeAt(idx));
+    return reordered;
   }
 
   Set<String> _getSelectedStaffCodes() {

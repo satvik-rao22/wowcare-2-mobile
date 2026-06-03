@@ -2,6 +2,6 @@
 enum ParentDashboardCard {
   myChildsDay,
   studentAttendance,
-  studentBilling,
+  // studentBilling,
   studentNewsletters,
 }

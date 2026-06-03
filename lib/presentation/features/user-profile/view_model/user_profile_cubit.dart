@@ -178,25 +178,38 @@ class UserProfileCubit extends Cubit<UserProfileState> {
   }
 
   /// Attempts to resolve staffCode for the logged-in user from local cache.
-  /// Falls back to any cached staffCode to keep my-profile fetch non-blocking.
+  ///
+  /// Only reuses the cached staffCode when it was resolved for the SAME user
+  /// *and* the currently selected org/school. A user can be staff in multiple
+  /// schools under different codes, so matching on user alone would serve the
+  /// previously selected school's profile after an org/school switch.
   Future<String> resolveLoggedInStaffCode() async {
     try {
       final currentUserCode =
           (await _storage.getString(StorageKeys.userCode) ?? '').trim();
+      final currentOrg =
+          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final currentSchool =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
       final cachedStaffCode =
           (await _storage.getString(StorageKeys.staffCode) ?? '').trim();
       final cachedStaffUser =
           (await _storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
+      final cachedStaffOrg =
+          (await _storage.getString(StorageKeys.staffCodeOrganization) ?? '')
+              .trim();
+      final cachedStaffSchool =
+          (await _storage.getString(StorageKeys.staffCodeSchool) ?? '').trim();
 
       if (cachedStaffCode.isNotEmpty &&
-          cachedStaffUser.isNotEmpty &&
           currentUserCode.isNotEmpty &&
-          cachedStaffUser == currentUserCode) {
+          cachedStaffUser == currentUserCode &&
+          cachedStaffOrg == currentOrg &&
+          cachedStaffSchool == currentSchool) {
         return cachedStaffCode;
       }
-      if (cachedStaffCode.isNotEmpty) {
-        return cachedStaffCode;
-      }
+      // Cached code belongs to a different user or selection — don't serve it.
+      // load() will emit profile:null and fall back to login-based summary.
       return '';
     } catch (_) {
       return '';

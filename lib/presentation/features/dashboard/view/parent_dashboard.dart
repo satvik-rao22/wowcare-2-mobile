@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -11,7 +12,6 @@ import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletter
 // import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/student_billing_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_newsletters_card.dart';
 import 'package:wowcare/presentation/features/dashboard/viewmodels/parent_dashboard_viewmodel.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -47,15 +47,16 @@ class _ParentDashboardState extends State<ParentDashboard> {
     _communicationCubit = serviceLocator<CommunicationCubit>();
     _studentNewslettersCubit = serviceLocator<StudentNewslettersCubit>();
     _geofenceCubit = serviceLocator<GeofenceCubit>();
-    // ignore: discarded_futures
-    _initGeofence();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_initGeofence());
+    });
   }
 
   Future<void> _initGeofence() async {
     final storage = serviceLocator<StorageService>();
     final schoolCode = await storage.getString(StorageKeys.schoolCode);
     if (schoolCode != null && schoolCode.isNotEmpty) {
-      _geofenceCubit.initForSchool(schoolCode: schoolCode);
+      await _geofenceCubit.initForSchool(schoolCode: schoolCode);
     }
   }
 
@@ -81,8 +82,8 @@ class _ParentDashboardState extends State<ParentDashboard> {
         return const MyChildsDayCard();
       case ParentDashboardCard.studentAttendance:
         return const StudentAttendanceCard();
-      case ParentDashboardCard.studentBilling:
-        return const StudentBillingCard();
+      // case ParentDashboardCard.studentBilling:
+      //   return const StudentBillingCard();
       case ParentDashboardCard.studentNewsletters:
         return const StudentNewslettersCard();
     }

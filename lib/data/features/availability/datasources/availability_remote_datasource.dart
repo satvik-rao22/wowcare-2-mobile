@@ -295,10 +295,10 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
     required DateTime endDate,
     required String shift,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.futureAvailability,
-      ApiConstants.classroomBaseUrl,
-    );
+    // Use ApiPaths.url() so routing works correctly in both LOCAL and UAT.
+    // urlWithBase(..., classroomBaseUrl) passed the devtunnel host in UAT,
+    // causing requests to hit the wrong endpoint.
+    final endpoint = ApiPaths.url(ApiPaths.futureAvailability);
 
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
@@ -325,10 +325,7 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.futureAvailabilityRecompute,
-      ApiConstants.classroomBaseUrl,
-    );
+    final endpoint = ApiPaths.url(ApiPaths.futureAvailabilityRecompute);
 
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,

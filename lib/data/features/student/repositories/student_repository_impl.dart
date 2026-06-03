@@ -308,6 +308,22 @@ class StudentRepositoryImpl
     return fresh;
   }
 
+  @override
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
+      getStudentDocumentExpiryCount({required String schoolCode}) async {
+    return _remoteDataSource.getStudentDocumentExpiryCount(
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+    return _remoteDataSource.getStudentPhysicalCheckupCount(
+      schoolCode: schoolCode,
+    );
+  }
+
   static String _studentImmunizationCacheKey(String studentCode) =>
       CacheManager.buildCacheKey(
         feature: 'student',

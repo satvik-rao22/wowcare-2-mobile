@@ -16,6 +16,8 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
@@ -142,6 +144,19 @@ int tabIndexForBranchIndex({required bool isParent, required int branchIndex}) {
   return 0;
 }
 
+/// Stable navigator keys for each shell branch.
+///
+/// These MUST be declared outside [appRouter] so they survive router rebuilds
+/// (hot reload, GoRouter.refresh, etc.). Re-creating them inside the [routes]
+/// list on every build gives each branch a new GlobalKey, which confuses
+/// Flutter's element lifecycle and triggers the
+/// "_elements.contains(element)" assertion.
+final _dashboardBranchKey = GlobalKey<NavigatorState>(debugLabel: 'dashboard');
+final _classroomBranchKey = GlobalKey<NavigatorState>(debugLabel: 'classroom');
+final _activityBranchKey  = GlobalKey<NavigatorState>(debugLabel: 'activity');
+final _messagingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'messaging');
+final _billingBranchKey   = GlobalKey<NavigatorState>(debugLabel: 'billing');
+
 /// Deep-link captured from a notification that cold-launched the app (killed
 /// state). On a killed-state tap the app starts at the splash, which runs an
 /// auth check and then navigates to the dashboard — clobbering the deep-link if
@@ -249,7 +264,19 @@ final GoRouter appRouter = GoRouter(
         // Expose the shell to descendants. CustomNavigationBar reads it and
         // switches tabs via goBranch — preserving each branch's widget tree
         // and navigation stack instead of rebuilding screens on every tap.
-        return _ShellScope(shell: navigationShell, child: navigationShell);
+        //
+        // _ShellScopeContent is a plain StatelessWidget that renders
+        // navigationShell as its child. Wrapping it here (rather than passing
+        // navigationShell directly as the InheritedWidget's child) gives the
+        // InheritedElement a stable element type to update, avoiding the
+        // "_elements.contains(element)" assertion that occurs when a
+        // LayoutBuilder inside the shell subtree triggers a layout-phase
+        // rebuild and both go_router and _ShellScope try to operate on the
+        // same StatefulNavigationShell element in the same frame.
+        return _ShellScope(
+          shell: navigationShell,
+          child: _ShellScopeContent(navigationShell: navigationShell),
+        );
       },
       branches: [
         // Branch 0 — Dashboard with every non-tab destination nested
@@ -262,6 +289,7 @@ final GoRouter appRouter = GoRouter(
         // drill-down — e.g. Staff → Edit Profile — still use
         // `context.push(...)` and live as siblings here.)
         StatefulShellBranch(
+          navigatorKey: _dashboardBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,
@@ -641,6 +669,16 @@ final GoRouter appRouter = GoRouter(
                   pageBuilder: (context, state) =>
                       _fastPage(state, const StudentSelectionSignOutForm()),
                 ),
+                GoRoute(
+                  path: 'staff-sign-in-form',
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, const StaffSignInForm()),
+                ),
+                GoRoute(
+                  path: 'staff-sign-out-form',
+                  pageBuilder: (context, state) =>
+                      _fastPage(state, const StaffSignOutForm()),
+                ),
               ],
             ),
           ],
@@ -648,6 +686,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 1 — Classrooms (staff/admin only).
         StatefulShellBranch(
+          navigatorKey: _classroomBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.classroom,
@@ -667,6 +706,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 2 — Activities.
         StatefulShellBranch(
+          navigatorKey: _activityBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.activityFeed,
@@ -684,6 +724,7 @@ final GoRouter appRouter = GoRouter(
         // same branch serves both parent and staff/admin without having to
         // pass arguments through the URL.
         StatefulShellBranch(
+          navigatorKey: _messagingBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.messaging,
@@ -704,6 +745,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 4 — Parent billing (parent only).
         StatefulShellBranch(
+          navigatorKey: _billingBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.parentBilling,
@@ -843,6 +885,20 @@ DateTime? _parseYmd(String? raw) {
   final parsed = DateTime.tryParse(value);
   if (parsed == null) return null;
   return DateTime(parsed.year, parsed.month, parsed.day);
+}
+
+/// Thin wrapper that renders the [StatefulNavigationShell] as its content.
+///
+/// Being a plain [StatelessWidget] (not an [InheritedWidget]) it has its own
+/// stable element in the tree. [_ShellScope] stores this as its child instead
+/// of storing [StatefulNavigationShell] directly, so Flutter never tries to
+/// retake the shell's element during a layout-phase rebuild of [_ShellScope].
+class _ShellScopeContent extends StatelessWidget {
+  const _ShellScopeContent({required this.navigationShell});
+  final StatefulNavigationShell navigationShell;
+
+  @override
+  Widget build(BuildContext context) => navigationShell;
 }
 
 /// InheritedWidget so CustomNavigationBar can find the

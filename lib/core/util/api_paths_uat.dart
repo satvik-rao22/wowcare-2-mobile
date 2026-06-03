@@ -60,13 +60,14 @@ class ApiPathsUat {
       'staff-attendance',
       'staff-absence-records',
       'staff-attendance-records',
+      'schools', // GPS sign-in settings: /api/v1/attendance/schools/{code}/attendance-settings
     },
     ApiMicroservices.classroom: {
       'classroom',
       'individual-movements',
       'future-availability',
     },
-    ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types'},
+    ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
     // Document endpoints in this app are handled separately via `/document-ms/...`.
     ApiMicroservices.document: {},
 

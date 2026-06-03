@@ -61,8 +61,10 @@ class SessionExpiredCoordinator {
         }
       }
 
+      // clearCache() preserves the "Remember me" username + flag (password is in
+      // the secure store) so the sign-in form can pre-fill after a session
+      // expiry. Do NOT clearCredentials() — that would break the pre-fill.
       await authLocal.clearCache();
-      await authLocal.clearCredentials();
 
       final ctx = CoreUtils.rootNavigatorKey.currentContext;
       if (ctx != null && ctx.mounted) {

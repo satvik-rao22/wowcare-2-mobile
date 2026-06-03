@@ -410,6 +410,11 @@ class ActivityRepositoryImpl implements ActivityRepository {
       ownerCode: ownerCode,
     );
   }
+
+  @override
+  Future<int> getPendingIncidentCount() {
+    return _remoteDataSource.getPendingIncidentCount();
+  }
 }
 
 

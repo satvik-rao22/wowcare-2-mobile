@@ -101,6 +101,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   late final PageController _sectionPageController;
   late final IndividualMovementsCubit _individualMovementsCubit;
   int _currentSectionIndex = 0;
+  // Once we've auto-jumped to the bucket holding the deep-link highlighted
+  // movement, don't fight the user's subsequent swipes.
+  bool _highlightBucketApplied = false;
   bool _isDraggingCard = false;
   Timer? _edgeAutoPageTimer;
   int _edgeDirection = 0; // -1 left, 1 right, 0 none
@@ -308,6 +311,36 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         items: (board?.rejected ?? const []).map(MovementItem.fromEntity).toList(),
       ),
     ];
+  }
+
+  /// A movement deep-link highlights a card by its numeric id, but that card may
+  /// live in any bucket (Overdue/Upcoming/Confirmed/Rejected) — and the board
+  /// opens on Overdue. Find which bucket holds it and swipe there once, so the
+  /// highlight flashes without the user having to switch buckets manually.
+  void _maybeJumpToHighlightBucket(List<MovementSection> sections) {
+    if (_highlightBucketApplied) return;
+    final target = (widget.highlightCode ?? '').trim();
+    if (target.isEmpty) return;
+    final bucketIndex = sections.indexWhere(
+      (s) => s.items.any((i) => i.id.toString() == target),
+    );
+    // Sections still empty (board not loaded yet) — wait for the next build.
+    if (bucketIndex < 0) {
+      if (sections.every((s) => s.items.isEmpty)) return;
+      _highlightBucketApplied = true; // loaded but not found; stop trying.
+      return;
+    }
+    _highlightBucketApplied = true;
+    if (bucketIndex == _currentSectionIndex) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sectionPageController.hasClients) return;
+      _sectionPageController.animateToPage(
+        bucketIndex,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+      setState(() => _currentSectionIndex = bucketIndex);
+    });
   }
 
   Future<void> _clearFilters() async {
@@ -884,6 +917,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       child: BlocBuilder<IndividualMovementsCubit, IndividualMovementsState>(
         builder: (BuildContext context, IndividualMovementsState state) {
           final sections = _buildSections(state.board);
+          _maybeJumpToHighlightBucket(sections);
           final students = _filterStudentCodes.isNotEmpty
               ? _filterStudentCodes
               : _uniqueStudents(state.board);
