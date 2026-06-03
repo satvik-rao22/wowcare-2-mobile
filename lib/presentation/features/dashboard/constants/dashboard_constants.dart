@@ -19,5 +19,4 @@ enum AdminDashboardCard {
   classroomShifts,
   availability,
   movements,
-  attentionGrid,
 }

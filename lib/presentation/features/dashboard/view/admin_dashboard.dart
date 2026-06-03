@@ -65,8 +65,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
         return const AvailabilityCard();
       case AdminDashboardCard.movements:
         return const MovementsCard();
-      case AdminDashboardCard.attentionGrid:
-        return const AttentionGrid();
       // case AdminDashboardCard.billing:
       //   return const BillingCard();
     }
