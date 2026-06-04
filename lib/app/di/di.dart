@@ -1470,7 +1470,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // Data layer - Remote datasources
   serviceLocator.registerSingleton<KioskAttendanceRemoteDataSource>(
-    KioskAttendanceRemoteDataSourceImpl(serviceLocator<Dio>()),
+    KioskAttendanceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
 
   // Data layer - Repository implementations
