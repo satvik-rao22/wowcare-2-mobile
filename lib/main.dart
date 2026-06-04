@@ -18,6 +18,8 @@ import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
 // Geofence is handled via OS-level native geofencing (Android GeofencingClient, iOS region monitoring).
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
@@ -278,6 +280,14 @@ class MyApp extends StatelessWidget {
                     ),
                     BlocProvider<GeofenceCubit>(
                       create: (_) => serviceLocator<GeofenceCubit>(),
+                    ),
+                    // Kiosk cubits provided at app root so all routes have access
+                    // This fixes ProviderNotFoundException in GoRouter nested routes
+                    BlocProvider<KioskDashboardCubit>(
+                      create: (_) => serviceLocator<KioskDashboardCubit>(),
+                    ),
+                    BlocProvider<KioskAttendanceCubitV2>(
+                      create: (_) => serviceLocator<KioskAttendanceCubitV2>(),
                     ),
                   ],
                   child: NotificationNavigator(

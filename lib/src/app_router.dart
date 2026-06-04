@@ -55,8 +55,6 @@ import 'package:wowcare/presentation/features/user-profile/view/user_profile_scr
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
-import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
-import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_staff_sign_screen_v2.dart';
 
@@ -273,45 +271,28 @@ final GoRouter appRouter = GoRouter(
 
     // Kiosk dashboard — full-screen tablet UI for school entrance kiosk.
     // Top-level route (outside StatefulShellRoute) so it bypasses the nav shell.
-    // REFACTORED: Using pageBuilder to wrap entire kiosk section with MultiBlocProvider
-    // Problem: GoRouter's nested route builders receive context from NavigatorWidget, not from app's widget tree.
-    // Solution: Wrap at the page level so the entire kiosk navigator is a child of MultiBlocProvider.
+    // REFACTORED: Cubits provided at app root level in main.dart
+    // Problem: GoRouter's nested route builders receive context from NavigatorWidget.
+    // Solution: Provide cubits at app root (main.dart) instead of route level.
+    //           All screens (including nested routes) now have access to shared cubits.
     GoRoute(
       path: KioskDashboardScreen.routeName,
-      pageBuilder: (context, state) => _fastPage(
-        state,
-        MultiBlocProvider(
-          providers: [
-            BlocProvider<KioskDashboardCubit>(
-              create: (_) {
-                AppLogger.d('[Kiosk] KioskDashboardCubit created');
-                return serviceLocator<KioskDashboardCubit>();
-              },
-            ),
-            BlocProvider<KioskAttendanceCubitV2>(
-              create: (_) {
-                AppLogger.d('[Kiosk] KioskAttendanceCubitV2 created for session');
-                return serviceLocator<KioskAttendanceCubitV2>();
-              },
-            ),
-          ],
-          // This wraps the entire kiosk navigator, ensuring all nested routes have cubit access
-          child: const KioskDashboardScreen(),
-        ),
-      ),
+      builder: (context, state) {
+        AppLogger.d('[Kiosk] Building kiosk dashboard');
+        return const KioskDashboardScreen();
+      },
       routes: [
         // Kiosk staff sign-in/out form
-        // Now context.read<KioskAttendanceCubitV2>() works because MultiBlocProvider wraps KioskDashboardScreen
+        // BlocBuilder now finds KioskAttendanceCubitV2 from app root level
         GoRoute(
           path: 'staff-sign',
           builder: (context, state) {
-            AppLogger.d('[Kiosk] Building staff-sign screen: cubit access verified');
+            AppLogger.d('[Kiosk] Building staff-sign screen');
             return const KioskStaffSignScreenV2();
           },
         ),
 
         // Student attendance routes
-        // All routes inherit MultiBlocProvider scope from parent
         GoRoute(
           path: 'student-sign-in',
           builder: (context, state) {
