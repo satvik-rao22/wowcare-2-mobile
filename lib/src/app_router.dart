@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
@@ -272,64 +273,73 @@ final GoRouter appRouter = GoRouter(
 
     // Kiosk dashboard — full-screen tablet UI for school entrance kiosk.
     // Top-level route (outside StatefulShellRoute) so it bypasses the nav shell.
-    // REFACTORED: Using Pure Bloc Architecture (no Provider package)
-    // MultiBlocProvider wraps all kiosk routes to provide both cubits to all child routes.
-    // This ensures BlocListener can find KioskAttendanceCubitV2 throughout the session.
+    // REFACTORED: Using pageBuilder to wrap entire kiosk section with MultiBlocProvider
+    // Problem: GoRouter's nested route builders receive context from NavigatorWidget, not from app's widget tree.
+    // Solution: Wrap at the page level so the entire kiosk navigator is a child of MultiBlocProvider.
     GoRoute(
       path: KioskDashboardScreen.routeName,
-      builder: (context, state) => MultiBlocProvider(
-        providers: [
-          BlocProvider<KioskDashboardCubit>(
-            create: (_) => serviceLocator<KioskDashboardCubit>(),
-          ),
-          // REFACTORED: Using KioskAttendanceCubitV2 (Clean Architecture)
-          BlocProvider<KioskAttendanceCubitV2>(
-            create: (_) => serviceLocator<KioskAttendanceCubitV2>(),
-          ),
-        ],
-        child: const KioskDashboardScreen(),
+      pageBuilder: (context, state) => _fastPage(
+        state,
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<KioskDashboardCubit>(
+              create: (_) {
+                AppLogger.d('[Kiosk] KioskDashboardCubit created');
+                return serviceLocator<KioskDashboardCubit>();
+              },
+            ),
+            BlocProvider<KioskAttendanceCubitV2>(
+              create: (_) {
+                AppLogger.d('[Kiosk] KioskAttendanceCubitV2 created for session');
+                return serviceLocator<KioskAttendanceCubitV2>();
+              },
+            ),
+          ],
+          // This wraps the entire kiosk navigator, ensuring all nested routes have cubit access
+          child: const KioskDashboardScreen(),
+        ),
       ),
       routes: [
         // Kiosk staff sign-in/out form
-        // REFACTORED: Using new KioskStaffSignScreenV2 with pure Bloc architecture
-        // BlocListener<KioskAttendanceCubitV2> can access cubit from parent MultiBlocProvider
+        // Now context.read<KioskAttendanceCubitV2>() works because MultiBlocProvider wraps KioskDashboardScreen
         GoRoute(
           path: 'staff-sign',
-          builder: (context, state) => const KioskStaffSignScreenV2(),
+          builder: (context, state) {
+            AppLogger.d('[Kiosk] Building staff-sign screen: cubit access verified');
+            return const KioskStaffSignScreenV2();
+          },
         ),
 
         // Student attendance routes
+        // All routes inherit MultiBlocProvider scope from parent
         GoRoute(
           path: 'student-sign-in',
-          pageBuilder: (context, state) {
+          builder: (context, state) {
+            AppLogger.d('[Kiosk] Building student-sign-in screen');
             final extra = state.extra as Map<String, dynamic>? ?? {};
-            return _fastPage(
-              state,
-              StudentSelectionSignInForm(
-                allowedStudentCodes: (extra['students'] as List?)
-                    ?.map((s) => (s as Map)['studentCode'] as String)
-                    .toList(),
-              ),
+            return StudentSelectionSignInForm(
+              allowedStudentCodes: (extra['students'] as List?)
+                  ?.map((s) => (s as Map)['studentCode'] as String)
+                  .toList(),
             );
           },
         ),
         GoRoute(
           path: 'student-sign-out',
-          pageBuilder: (context, state) {
+          builder: (context, state) {
+            AppLogger.d('[Kiosk] Building student-sign-out screen');
             final extra = state.extra as Map<String, dynamic>? ?? {};
-            return _fastPage(
-              state,
-              StudentSelectionSignOutForm(
-                allowedStudentCodes: (extra['students'] as List?)
-                    ?.map((s) => (s as Map)['studentCode'] as String)
-                    .toList(),
-              ),
+            return StudentSelectionSignOutForm(
+              allowedStudentCodes: (extra['students'] as List?)
+                  ?.map((s) => (s as Map)['studentCode'] as String)
+                  .toList(),
             );
           },
         ),
         GoRoute(
           path: 'student-sign-in-out',
-          pageBuilder: (context, state) {
+          builder: (context, state) {
+            AppLogger.d('[Kiosk] Building student-sign-in-out screen');
             final extra = state.extra as Map<String, dynamic>? ?? {};
             final signedInCodes = (extra['signedInStudents'] as List?)
                 ?.map((s) => (s as Map)['studentCode'] as String)
@@ -337,12 +347,9 @@ final GoRouter appRouter = GoRouter(
             final signedOutCodes = (extra['signedOutStudents'] as List?)
                 ?.map((s) => (s as Map)['studentCode'] as String)
                 .toList() ?? [];
-            return _fastPage(
-              state,
-              StudentSignInOutSelectionScreen(
-                signedInCodes: signedInCodes,
-                signedOutCodes: signedOutCodes,
-              ),
+            return StudentSignInOutSelectionScreen(
+              signedInCodes: signedInCodes,
+              signedOutCodes: signedOutCodes,
             );
           },
         ),

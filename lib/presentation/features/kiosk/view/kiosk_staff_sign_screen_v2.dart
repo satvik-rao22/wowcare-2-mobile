@@ -46,6 +46,21 @@ class _KioskStaffSignScreenV2State extends State<KioskStaffSignScreenV2> {
     final currentStatus = extras['staffStatus'] as String? ?? 'SIGNED_OUT';
     final designation = extras['designation'] as String? ?? 'Staff';
 
+    // Debug: Log entry to staff sign screen
+    AppLogger.d(
+      '[Kiosk] KioskStaffSignScreenV2 built: staffCode=$staffCode, '
+      'route=/kiosk/staff-sign, CubitAccessible=checking',
+    );
+
+    // Verify cubit is accessible in context
+    try {
+      // ignore: unused_local_variable
+      final _ = context.read<KioskAttendanceCubitV2>();
+      AppLogger.d('[Kiosk] KioskAttendanceCubitV2 accessible: CubitAccessible=true');
+    } catch (e) {
+      AppLogger.e('[Kiosk] KioskAttendanceCubitV2 NOT accessible: Error=$e');
+    }
+
     if (staffCode.isEmpty) {
       return Scaffold(
         appBar: AppBar(title: const Text('Sign In/Out')),
@@ -59,19 +74,26 @@ class _KioskStaffSignScreenV2State extends State<KioskStaffSignScreenV2> {
         ? 'Mark yourself as signed out'
         : 'Mark yourself as signed in';
 
-    return BlocListener<KioskAttendanceCubitV2, KioskAttendanceStateV2>(
-      listener: (context, state) {
+    // Use BlocBuilder with builder to get a new BuildContext that has access to the BlocProvider
+    // This solves the ProviderNotFoundException issue with GoRouter nested routes
+    return BlocBuilder<KioskAttendanceCubitV2, KioskAttendanceStateV2>(
+      builder: (newContext, state) {
         AppLogger.d(
-          '[Kiosk] BlocListener reacting to state: ${state.runtimeType}',
+          '[Kiosk] BlocBuilder state: ${state.runtimeType}',
         );
 
+        // Handle state changes
         if (state is KioskAttendanceSuccessV2) {
-          _handleSuccess(context, state);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _handleSuccess(newContext, state);
+          });
         } else if (state is KioskAttendanceErrorV2) {
-          _handleError(context, state);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _handleError(newContext, state);
+          });
         }
-      },
-      child: Scaffold(
+
+        return Scaffold(
         appBar: AppBar(
           backgroundColor: Colors.white,
           elevation: 0,
@@ -270,7 +292,8 @@ class _KioskStaffSignScreenV2State extends State<KioskStaffSignScreenV2> {
             ),
           ),
         ),
-      ),
+      );
+      },
     );
   }
 

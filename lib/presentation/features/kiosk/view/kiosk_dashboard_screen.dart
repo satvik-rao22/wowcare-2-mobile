@@ -551,9 +551,16 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   void _handlePinSuccess(BuildContext context, KioskPinResultEntity result) {
     _resetPin();
 
+    AppLogger.d(
+      '[Kiosk] PIN verification success: persona=${result.persona}, '
+      'isStaff=${result.isStaff}, isGuardian=${result.isGuardian}',
+    );
+
     if (result.isStaff) {
+      AppLogger.d('[Kiosk] Routing to staff attendance flow');
       _routeStaffAttendance(context, result);
     } else if (result.isGuardian) {
+      AppLogger.d('[Kiosk] Routing to guardian/student attendance flow');
       _routeGuardianStudentAttendance(context, result);
     }
   }
@@ -561,6 +568,8 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   void _routeStaffAttendance(BuildContext context, KioskPinResultEntity result) {
     final staffCode = result.staffCode ?? '';
     final staffName = result.staffName ?? 'Staff';
+
+    AppLogger.d('[Kiosk] _routeStaffAttendance: staffCode=$staffCode, staffName=$staffName');
 
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -572,6 +581,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     }
 
     // Route to unified kiosk staff sign-in/out form
+    AppLogger.d('[Kiosk] NavigatingTo=/kiosk/staff-sign');
     GoRouter.of(context).go('/kiosk/staff-sign', extra: {
       'staffCode': staffCode,
       'staffName': staffName,
@@ -590,6 +600,11 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     final signedOut = result.signedOutStudents;
     final guardianCode = result.guardianCode ?? '';
     final guardianName = result.guardianName ?? 'Guardian';
+
+    AppLogger.d(
+      '[Kiosk] _routeGuardianStudentAttendance: guardianCode=$guardianCode, '
+      'signedInStudents=${signedIn.length}, signedOutStudents=${signedOut.length}',
+    );
 
     if (guardianCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -612,6 +627,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     // Route based on sign-in/out status
     if (signedIn.isNotEmpty && signedOut.isNotEmpty) {
       // Mixed status — show sign-in/out selection
+      AppLogger.d('[Kiosk] CallingStudentSignInOutApi=true, route=/kiosk/student-sign-in-out');
       GoRouter.of(context).go('/kiosk/student-sign-in-out', extra: {
         'guardianCode': guardianCode,
         'guardianName': guardianName,
@@ -636,6 +652,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
       });
     } else if (signedOut.isNotEmpty) {
       // Only signed-out students — go to sign-in
+      AppLogger.d('[Kiosk] CallingStudentSignInApi=true, route=/kiosk/student-sign-in');
       GoRouter.of(context).go('/kiosk/student-sign-in', extra: {
         'guardianCode': guardianCode,
         'guardianName': guardianName,
@@ -650,6 +667,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
       });
     } else if (signedIn.isNotEmpty) {
       // Only signed-in students — go to sign-out
+      AppLogger.d('[Kiosk] CallingStudentSignOutApi=true, route=/kiosk/student-sign-out');
       GoRouter.of(context).go('/kiosk/student-sign-out', extra: {
         'guardianCode': guardianCode,
         'guardianName': guardianName,
