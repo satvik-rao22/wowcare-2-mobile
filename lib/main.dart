@@ -1,6 +1,7 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:io';
 
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -33,11 +34,21 @@ import 'src/app_router.dart';
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
 
+  AppLogger.d('[FCM] ════════ Background notification received ════════');
+  AppLogger.d('[FCM] messageId : ${message.messageId}');
+  AppLogger.d('[FCM] from      : ${message.from}');
+  AppLogger.d('[FCM] title     : ${message.notification?.title}');
+  AppLogger.d('[FCM] body      : ${message.notification?.body}');
+  AppLogger.d('[FCM] android   : ${message.notification?.android}');
+  AppLogger.d('[FCM] data      : ${message.data}');
+  AppLogger.d('[FCM] ═══════════════════════════════════════════════════');
+
   // Data-only messages: Android doesn't show anything automatically.
   // Show a local notification so the user always sees the alert.
   if (message.notification == null) {
     final title = message.data['title']?.toString() ?? 'WowCare';
     final body = message.data['body']?.toString() ?? 'You have a new notification';
+    AppLogger.d('[FCM] Background data-only → showing local notif "$title"');
 
     const channelId = 'push_background_channel';
     const channelName = 'Background Notifications';
@@ -131,10 +142,38 @@ Future<void> main() async {
     await Firebase.initializeApp();
   }
 
+  // Touch FirebaseAnalytics so the analytics library is linked and registered —
+  // FCM otherwise logs "Unable to log event: analytics library is missing" on
+  // every push. Collection itself stays at the Firebase console's default.
+  try {
+    FirebaseAnalytics.instance;
+  } catch (_) {}
+
   // Register the background/terminated isolate handler (must be a top-level
   // function). Foreground messages, token and tap-navigation are owned by
   // PushNotificationCubit, wired up via NotificationNavigator at the app root.
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Create the default FCM notification channel up-front so it exists before any
+  // notification-type push arrives. The AndroidManifest references this id as
+  // `default_notification_channel_id`; without the channel existing, Android logs
+  // "Missing Default Notification Channel metadata".
+  if (Platform.isAndroid) {
+    try {
+      await FlutterLocalNotificationsPlugin()
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(
+            const AndroidNotificationChannel(
+              'push_background_channel',
+              'Background Notifications',
+              importance: Importance.high,
+            ),
+          );
+    } catch (_) {
+      // Non-fatal: notifications still arrive on the system default channel.
+    }
+  }
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

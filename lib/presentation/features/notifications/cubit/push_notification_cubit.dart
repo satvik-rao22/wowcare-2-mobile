@@ -81,7 +81,11 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
       // notification redirects exactly like a background-tray tap (otherwise a
       // foreground tap does nothing and the user stays put).
       _onMessageSub = _repository.onMessage.listen((message) {
-        AppLogger.d('[FCM] Foreground: ${message.title} | ${message.data}');
+        AppLogger.d('[FCM] ════════ Foreground notification received ════════');
+        AppLogger.d('[FCM] title : ${message.title}');
+        AppLogger.d('[FCM] body  : ${message.body}');
+        AppLogger.d('[FCM] data  : ${message.data}');
+        AppLogger.d('[FCM] ═══════════════════════════════════════════════════');
         final destination = NotificationRouteResolver.resolve(message);
         _localNotifications.showCustomNotification(
           title: message.title ?? 'School Alert',
