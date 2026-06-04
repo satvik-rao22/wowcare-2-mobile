@@ -141,17 +141,17 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? IconButton(
               icon: SvgPicture.asset(MediaRes.backButton),
               onPressed: () {
-                // Always do something useful: pop one level if possible,
-                // otherwise go home to Dashboard. Previously this was just
-                // Navigator.maybePop — which silently does nothing on a tab
-                // branch root (e.g. /messageFeed for staff has
-                // hasBackButton:true but nothing to pop), so the back icon
-                // appeared broken.
+                // Use GoRouter's navigation for proper back handling in shell routes.
+                // In StatefulShellRoute, context.canPop() may not work as expected because
+                // the route hierarchy differs from traditional Navigator stacks.
+                // Always try to pop from the shell context first, preserving route history.
+                debugPrint('[CustomAppBar] Back button pressed. '
+                    'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}');
+
                 if (context.canPop()) {
                   context.pop();
-                } else if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
                 } else {
+                  // Fallback: navigate to dashboard if nothing to pop
                   context.go(DashboardScreen.routeName);
                 }
               },

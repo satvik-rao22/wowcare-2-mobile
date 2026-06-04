@@ -57,6 +57,10 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
     _tabController.addListener(_onTabChanged);
+
+    debugPrint('[StudentAttendanceTabbedView] initialized: '
+        'filter=${widget.dailyIncomingFilter}, hasBackButton=${widget.hasBackButton}, '
+        'routeName=${StudentAttendanceTabbedView.routeName}');
   }
 
   void _onTabChanged() {

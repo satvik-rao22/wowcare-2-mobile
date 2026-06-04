@@ -60,7 +60,7 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
     required String pin,
     required String schoolCode,
   }) async {
-    final url = '${ApiConstants.attendanceBaseUrl}/api/v1/kiosk/verify-pin';
+    final url = '${ApiConstants.attendanceBaseUrl}/kiosk/verify-pin';
 
     try {
       final response = await _client.post<Map<String, dynamic>>(

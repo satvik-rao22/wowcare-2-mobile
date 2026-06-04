@@ -41,6 +41,7 @@ class FcmTokenRegistrationService {
     try {
       final deviceId = await _resolveDeviceId();
       final deviceInfo = await getDeviceInfo();
+      AppLogger.d('[FCM] Starting token registration: user=${context.userCode}, org=${context.organizationCode}, school=${context.schoolCode}');
       await _remote.register(
         FcmRegisterRequestModel(
           userCode: context.userCode,
@@ -53,9 +54,9 @@ class FcmTokenRegistrationService {
           deviceInfo: deviceInfo,
         ),
       );
-      AppLogger.d('[FCM] Token registered with backend for ${context.userCode}');
+      AppLogger.d('[FCM] Token registered successfully with backend for ${context.userCode}');
     } catch (e) {
-      AppLogger.d('[FCM] Token registration failed (non-fatal): $e');
+      AppLogger.w('[FCM] Token registration failed (non-fatal, will not break login): $e');
     }
   }
 

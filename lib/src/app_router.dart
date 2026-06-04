@@ -179,6 +179,11 @@ String? consumePendingNotificationDeepLink() {
 final GoRouter appRouter = GoRouter(
   navigatorKey: CoreUtils.rootNavigatorKey,
   initialLocation: AppRoutes.splash,
+  redirect: (context, state) {
+    // Log navigation events for debugging
+    debugPrint('[GoRouter] Navigating to: ${state.uri.path} (name: ${state.name})');
+    return null;
+  },
   routes: [
     GoRoute(
       path: AppRoutes.splash,

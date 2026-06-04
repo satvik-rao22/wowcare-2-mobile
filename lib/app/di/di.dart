@@ -66,6 +66,7 @@ import '../../domain/features/scheduling/usecases/publish_staff_shifts_usecase.d
 import '../../domain/features/auth/repositories/auth_repository.dart';
 import '../../domain/features/auth/usecases/login_usecase.dart';
 import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
+import '../../domain/features/auth/usecases/fetch_kiosk_user_details_usecase.dart';
 import '../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -487,6 +488,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Use cases
   serviceLocator.registerFactory<LoginUseCase>(
     () => LoginUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<FetchKioskUserDetailsUseCase>(
+    () => FetchKioskUserDetailsUseCase(remoteDataSource: serviceLocator()),
   );
   serviceLocator.registerFactory<ForgotPasswordUseCase>(
     () => ForgotPasswordUseCase(serviceLocator()),
@@ -1054,6 +1058,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       loginUseCase: serviceLocator(),
       localDataSource: serviceLocator(),
       remoteDataSource: serviceLocator(),
+      fetchKioskUserDetailsUseCase: serviceLocator(),
       registerDeviceFcmToken: serviceLocator(),
       unregisterDeviceFcmToken: serviceLocator(),
     ),
