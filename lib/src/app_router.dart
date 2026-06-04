@@ -54,10 +54,10 @@ import 'package:wowcare/presentation/features/user-profile/view/user_profile_scr
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
-import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
-import 'package:wowcare/presentation/features/kiosk/view/kiosk_staff_sign_form.dart';
+import 'package:wowcare/presentation/features/kiosk/view/kiosk_staff_sign_screen_v2.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
 /// existing call sites that read those constants keep working.
@@ -272,8 +272,9 @@ final GoRouter appRouter = GoRouter(
 
     // Kiosk dashboard — full-screen tablet UI for school entrance kiosk.
     // Top-level route (outside StatefulShellRoute) so it bypasses the nav shell.
+    // REFACTORED: Using Pure Bloc Architecture (no Provider package)
     // MultiBlocProvider wraps all kiosk routes to provide both cubits to all child routes.
-    // This prevents ProviderNotFoundException when navigating between kiosk screens.
+    // This ensures BlocListener can find KioskAttendanceCubitV2 throughout the session.
     GoRoute(
       path: KioskDashboardScreen.routeName,
       builder: (context, state) => MultiBlocProvider(
@@ -281,21 +282,20 @@ final GoRouter appRouter = GoRouter(
           BlocProvider<KioskDashboardCubit>(
             create: (_) => serviceLocator<KioskDashboardCubit>(),
           ),
-          BlocProvider<KioskAttendanceCubit>(
-            create: (_) => serviceLocator<KioskAttendanceCubit>(),
+          // REFACTORED: Using KioskAttendanceCubitV2 (Clean Architecture)
+          BlocProvider<KioskAttendanceCubitV2>(
+            create: (_) => serviceLocator<KioskAttendanceCubitV2>(),
           ),
         ],
         child: const KioskDashboardScreen(),
       ),
       routes: [
         // Kiosk staff sign-in/out form
-        // KioskAttendanceCubit is provided by parent MultiBlocProvider
+        // REFACTORED: Using new KioskStaffSignScreenV2 with pure Bloc architecture
+        // BlocListener<KioskAttendanceCubitV2> can access cubit from parent MultiBlocProvider
         GoRoute(
           path: 'staff-sign',
-          pageBuilder: (context, state) => _fastPage(
-            state,
-            const KioskStaffSignForm(),
-          ),
+          builder: (context, state) => const KioskStaffSignScreenV2(),
         ),
 
         // Student attendance routes

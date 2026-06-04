@@ -116,6 +116,12 @@ import '../../data/features/kiosk/datasources/kiosk_remote_datasource.dart';
 import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
+// REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
+import '../../domain/features/kiosk/repositories/kiosk_attendance_repository.dart';
+import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
+import '../../domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
+import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
 import '../../presentation/features/scheduling/cubit/edit_shift_cubit.dart';
@@ -1458,7 +1464,27 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => KioskRepositoryImpl(serviceLocator()),
   );
 
-  // Domain layer
+  // === REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE ===
+
+  // Data layer - Remote datasources
+  serviceLocator.registerSingleton<KioskRemoteDataSource>(
+    KioskRemoteDataSourceImpl(serviceLocator<Dio>()),
+  );
+
+  // Data layer - Repository implementations
+  serviceLocator.registerSingleton<KioskAttendanceRepository>(
+    KioskAttendanceRepositoryImpl(serviceLocator<KioskRemoteDataSource>()),
+  );
+
+  // Domain layer - Use cases
+  serviceLocator.registerFactory<SignInStaffUseCase>(
+    () => SignInStaffUseCase(serviceLocator<KioskAttendanceRepository>()),
+  );
+  serviceLocator.registerFactory<SignOutStaffUseCase>(
+    () => SignOutStaffUseCase(serviceLocator<KioskAttendanceRepository>()),
+  );
+
+  // Legacy domain layer (still used for kiosk QR and PIN)
   serviceLocator.registerFactory<GetActiveKioskQrUseCase>(
     () => GetActiveKioskQrUseCase(serviceLocator()),
   );
@@ -1466,7 +1492,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => VerifyKioskPinUseCase(serviceLocator()),
   );
 
-  // Presentation layer
+  // Presentation layer - Cubits
   serviceLocator.registerFactory<KioskDashboardCubit>(
     () => KioskDashboardCubit(
       getActiveKioskQrUseCase: serviceLocator(),
@@ -1474,6 +1500,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
+
+  // REFACTORED: KioskAttendanceCubitV2 using Clean Architecture
+  serviceLocator.registerFactory<KioskAttendanceCubitV2>(
+    () => KioskAttendanceCubitV2(
+      signInStaffUseCase: serviceLocator<SignInStaffUseCase>(),
+      signOutStaffUseCase: serviceLocator<SignOutStaffUseCase>(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+
+  // Legacy cubit (kept for backwards compatibility if needed)
   serviceLocator.registerFactory<KioskAttendanceCubit>(
     () => KioskAttendanceCubit(
       attendanceRepository: serviceLocator(),
