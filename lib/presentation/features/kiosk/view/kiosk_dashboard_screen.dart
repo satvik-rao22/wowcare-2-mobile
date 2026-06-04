@@ -100,37 +100,48 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
         }
       },
       child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          leading: const Padding(
-            padding: EdgeInsets.only(left: 8.0),
-            child: CircleAvatar(
-              radius: 20,
-              backgroundImage: AssetImage('assets/images/WowCarePNG.png'),
+        appBar: PreferredSize(
+          preferredSize: const Size.fromHeight(kToolbarHeight + 1),
+          child: Container(
+            color: Colors.white,
+            child: SafeArea(
+              bottom: false,
+              child: Row(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.only(left: 16.0),
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundImage: AssetImage('assets/images/WowCarePNG.png'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Text(
+                      'WOWW Kiosk',
+                      style: TextStyle(
+                        color: AppColors.primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.exit_to_app, color: AppColors.primaryColor),
+                    onPressed: () {
+                      AppLogger.d('[Kiosk] Logout button pressed');
+                      // Logout and redirect to sign-in
+                      GoRouter.of(context).go('/sign-in');
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
-          title: const Text(
-            'WOWW',
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.exit_to_app, color: AppColors.primaryColor),
-              onPressed: () {
-                // Logout and redirect to sign-in
-                GoRouter.of(context).go('/sign-in');
-              },
-            ),
-          ],
-          bottom: const PreferredSize(
-            preferredSize: Size.fromHeight(1),
-            child: Divider(height: 1, thickness: 1, color: AppColors.themeColor),
-          ),
+        ),
+        bottomSheet: Container(
+          color: AppColors.themeColor,
+          height: 1,
         ),
         body: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
           builder: (context, state) {

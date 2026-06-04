@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
+import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_scaffold.dart';
 
 /// REFACTORED Kiosk Staff Sign-In Screen using Pure Bloc Architecture.
 ///
@@ -93,32 +94,11 @@ class _KioskStaffSignScreenV2State extends State<KioskStaffSignScreenV2> {
           });
         }
 
-        return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.white,
-          elevation: 0,
-          scrolledUnderElevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
-            onPressed: _isSubmitting
-                ? null
-                : () {
-                    context.read<KioskAttendanceCubitV2>().reset();
-                    GoRouter.of(context).go('/kiosk');
-                  },
-          ),
-          title: const Text(
-            'Staff Sign In/Out',
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          bottom: const PreferredSize(
-            preferredSize: Size.fromHeight(1),
-            child: Divider(height: 1, thickness: 1, color: AppColors.themeColor),
-          ),
-        ),
+        return KioskScaffold(
+        title: 'Staff Sign In/Out',
+        onBackPressed: () {
+          context.read<KioskAttendanceCubitV2>().reset();
+        },
         body: Container(
           decoration: BoxDecoration(
             gradient: AppColors.buildScaffoldGradient(),
