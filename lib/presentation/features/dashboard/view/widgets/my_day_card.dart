@@ -114,7 +114,13 @@ class _MyDayCardState extends State<MyDayCard> {
   /// e.g. _getDayName(3) → "Wednesday"
   static String _getDayName(int weekday) {
     const names = [
-      'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
     ];
     if (weekday < 1 || weekday > 7) return '';
     return names[weekday - 1];
@@ -160,11 +166,27 @@ class _MyDayCardState extends State<MyDayCard> {
         bs.breakEndTime.minute != 0;
   }
 
-  /// Builds the break-time display string (no day tag).
+  /// Builds the break-time display string with day and time.
   static String _formatBreakDisplay(StaffProfileBreakSchedule? bs) {
-    if (!_breakIsSet(bs)) return 'N/A';
-    return '${_formatStaffTime(bs!.breakStartTime)} - '
+    if (!_breakIsSet(bs)) return '--:--';
+    final dayLabel = _formatDayOfWeek(bs!.dayOfWeek);
+    return '$dayLabel: ${_formatStaffTime(bs.breakStartTime)} - '
         '${_formatStaffTime(bs.breakEndTime)}';
+  }
+
+  /// Formats day of week string (e.g., "MONDAY" → "Mon").
+  static String _formatDayOfWeek(String dayOfWeek) {
+    final day = dayOfWeek.trim().toUpperCase();
+    return switch (day) {
+      'MONDAY' => 'Mon',
+      'TUESDAY' => 'Tue',
+      'WEDNESDAY' => 'Wed',
+      'THURSDAY' => 'Thu',
+      'FRIDAY' => 'Fri',
+      'SATURDAY' => 'Sat',
+      'SUNDAY' => 'Sun',
+      _ => day.substring(0, 3),
+    };
   }
 
   /// Pads a 24h time string to `HH:mm:ss` for `DateTime.parse`.
@@ -277,7 +299,8 @@ class _MyDayCardState extends State<MyDayCard> {
   Future<void> _loadStaffIdentity() async {
     final storage = serviceLocator<StorageService>();
     final code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
-    final name = (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final name = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
     final designation =
         (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
     if (!mounted) return;
@@ -315,7 +338,9 @@ class _MyDayCardState extends State<MyDayCard> {
             id: 0,
             name: _staffDisplayName.isNotEmpty ? _staffDisplayName : '—',
             primaryRoomId: 0,
-            designation: _staffDesignation.isNotEmpty ? _staffDesignation : 'Staff',
+            designation: _staffDesignation.isNotEmpty
+                ? _staffDesignation
+                : 'Staff',
             staffCode: _staffCode,
           ),
         ),
@@ -335,11 +360,7 @@ class _MyDayCardState extends State<MyDayCard> {
       return;
     }
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => StaffMarkAbsentForm(
-          staff: staff,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
     );
     if (mounted) {
       unawaited(_loadStaffIdentity());
@@ -436,38 +457,46 @@ class _MyDayCardState extends State<MyDayCard> {
     // Prefer cubit-resolved schedule; fall back to direct allWorkSchedules scan
     // so abbreviated day names ("TUE") that the cubit's exact match may miss
     // are still found.
-    final todayWs = staffSchedule ??
+    final todayWs =
+        staffSchedule ??
         _resolveWorkScheduleForDay(now.weekday, allWorkSchedules);
-    final todayBs = breakSchedule ??
+    final todayBs =
+        breakSchedule ??
         _resolveBreakScheduleForDay(now.weekday, allBreakSchedules);
 
     // ── Case 1 & 2: staff's personal schedule for today ───────────────────────
     if (todayWs != null) {
       final startDt = DateTime(
-        now.year, now.month, now.day,
-        todayWs.workStartTime.hour, todayWs.workStartTime.minute,
+        now.year,
+        now.month,
+        now.day,
+        todayWs.workStartTime.hour,
+        todayWs.workStartTime.minute,
         todayWs.workStartTime.second,
       );
       final endDt = DateTime(
-        now.year, now.month, now.day,
-        todayWs.workEndTime.hour, todayWs.workEndTime.minute,
+        now.year,
+        now.month,
+        now.day,
+        todayWs.workEndTime.hour,
+        todayWs.workEndTime.minute,
         todayWs.workEndTime.second,
       );
-      final abbr         = _dayAbbr(todayWs.dayOfWeek);
+      final abbr = _dayAbbr(todayWs.dayOfWeek);
       final displayStart = _formatStaffTime(todayWs.workStartTime);
-      final displayEnd   = _formatStaffTime(todayWs.workEndTime);
+      final displayEnd = _formatStaffTime(todayWs.workEndTime);
       final displayBreak = _formatBreakDisplay(todayBs);
 
       if (now.isBefore(startDt)) {
         // Shift hasn't started yet — count down to start.
         setState(() {
           _isTodayShift = true;
-          _nextDayName  = '';
-          _hasShifts    = true;
-          _workTime     = '$displayStart - $displayEnd ($abbr)';
-          _breakTime    = displayBreak;
-          _duration     = startDt.difference(now);
-          _statusText   = 'Your shift starts in';
+          _nextDayName = '';
+          _hasShifts = true;
+          _workTime = '$displayStart - $displayEnd ($abbr)';
+          _breakTime = displayBreak;
+          _duration = startDt.difference(now);
+          _statusText = 'Your shift starts in';
         });
         return;
       }
@@ -475,12 +504,12 @@ class _MyDayCardState extends State<MyDayCard> {
         // Shift is active — count down to end.
         setState(() {
           _isTodayShift = true;
-          _nextDayName  = '';
-          _hasShifts    = true;
-          _workTime     = '$displayStart - $displayEnd ($abbr)';
-          _breakTime    = displayBreak;
-          _duration     = endDt.difference(now);
-          _statusText   = 'Your shift ends in';
+          _nextDayName = '';
+          _hasShifts = true;
+          _workTime = '$displayStart - $displayEnd ($abbr)';
+          _breakTime = displayBreak;
+          _duration = endDt.difference(now);
+          _statusText = 'Your shift ends in';
         });
         return;
       }
@@ -490,17 +519,29 @@ class _MyDayCardState extends State<MyDayCard> {
     else if (schedule != null) {
       final dateStr =
           '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final start24  = _normalize24h(schedule.startTime);
-      final end24    = _normalize24h(schedule.endTime);
-      final startDt  = DateTime.tryParse('$dateStr $start24');
-      final endDt    = DateTime.tryParse('$dateStr $end24');
-      final sParts   = start24.split(':');
-      final eParts   = end24.split(':');
-      final abbr     = ['MON','TUE','WED','THU','FRI','SAT','SUN'][now.weekday - 1];
+      final start24 = _normalize24h(schedule.startTime);
+      final end24 = _normalize24h(schedule.endTime);
+      final startDt = DateTime.tryParse('$dateStr $start24');
+      final endDt = DateTime.tryParse('$dateStr $end24');
+      final sParts = start24.split(':');
+      final eParts = end24.split(':');
+      final abbr = [
+        'MON',
+        'TUE',
+        'WED',
+        'THU',
+        'FRI',
+        'SAT',
+        'SUN',
+      ][now.weekday - 1];
       final displayStart = _fmtHM(
-          int.tryParse(sParts[0]) ?? 0, int.tryParse(sParts[1]) ?? 0);
+        int.tryParse(sParts[0]) ?? 0,
+        int.tryParse(sParts[1]) ?? 0,
+      );
       final displayEnd = _fmtHM(
-          int.tryParse(eParts[0]) ?? 0, int.tryParse(eParts[1]) ?? 0);
+        int.tryParse(eParts[0]) ?? 0,
+        int.tryParse(eParts[1]) ?? 0,
+      );
 
       String displayBreak;
       if (_breakIsSet(todayBs)) {
@@ -508,10 +549,12 @@ class _MyDayCardState extends State<MyDayCard> {
       } else {
         final hd = schedule.halfDay;
         if (hd != null && hd.contains(':')) {
-          final hd24    = _normalize24h(hd);
+          final hd24 = _normalize24h(hd);
           final hdParts = hd24.split(':');
-          displayBreak  = _fmtHM(
-              int.tryParse(hdParts[0]) ?? 0, int.tryParse(hdParts[1]) ?? 0);
+          displayBreak = _fmtHM(
+            int.tryParse(hdParts[0]) ?? 0,
+            int.tryParse(hdParts[1]) ?? 0,
+          );
         } else {
           displayBreak = (hd == null || hd.isEmpty) ? 'N/A' : hd;
         }
@@ -521,24 +564,24 @@ class _MyDayCardState extends State<MyDayCard> {
         if (now.isBefore(startDt)) {
           setState(() {
             _isTodayShift = true;
-            _nextDayName  = '';
-            _hasShifts    = true;
-            _workTime     = '$displayStart - $displayEnd ($abbr)';
-            _breakTime    = displayBreak;
-            _duration     = startDt.difference(now);
-            _statusText   = 'Your shift starts in';
+            _nextDayName = '';
+            _hasShifts = true;
+            _workTime = '$displayStart - $displayEnd ($abbr)';
+            _breakTime = displayBreak;
+            _duration = startDt.difference(now);
+            _statusText = 'Your shift starts in';
           });
           return;
         }
         if (now.isBefore(endDt)) {
           setState(() {
             _isTodayShift = true;
-            _nextDayName  = '';
-            _hasShifts    = true;
-            _workTime     = '$displayStart - $displayEnd ($abbr)';
-            _breakTime    = displayBreak;
-            _duration     = endDt.difference(now);
-            _statusText   = 'Your shift ends in';
+            _nextDayName = '';
+            _hasShifts = true;
+            _workTime = '$displayStart - $displayEnd ($abbr)';
+            _breakTime = displayBreak;
+            _duration = endDt.difference(now);
+            _statusText = 'Your shift ends in';
           });
           return;
         }
@@ -566,12 +609,12 @@ class _MyDayCardState extends State<MyDayCard> {
     if (allWork.isEmpty) {
       setState(() {
         _isTodayShift = true;
-        _nextDayName  = '';
-        _hasShifts    = false;
-        _statusText   = 'School Closed';
-        _workTime     = '--:--';
-        _breakTime    = '--:--';
-        _duration     = Duration.zero;
+        _nextDayName = '';
+        _hasShifts = false;
+        _statusText = 'School Closed';
+        _workTime = '--:--';
+        _breakTime = '--:--';
+        _duration = Duration.zero;
       });
       return;
     }
@@ -582,7 +625,8 @@ class _MyDayCardState extends State<MyDayCard> {
     for (final ws in allWork) {
       final wd = _kDayToWeekday[ws.dayOfWeek.trim().toUpperCase()];
       if (wd == null) continue;
-      final isSet = ws.workStartTime.hour != 0 ||
+      final isSet =
+          ws.workStartTime.hour != 0 ||
           ws.workStartTime.minute != 0 ||
           ws.workEndTime.hour != 0 ||
           ws.workEndTime.minute != 0;
@@ -593,12 +637,12 @@ class _MyDayCardState extends State<MyDayCard> {
     if (workByWd.isEmpty) {
       setState(() {
         _isTodayShift = true;
-        _nextDayName  = '';
-        _hasShifts    = false;
-        _statusText   = 'School Closed';
-        _workTime     = '--:--';
-        _breakTime    = '--:--';
-        _duration     = Duration.zero;
+        _nextDayName = '';
+        _hasShifts = false;
+        _statusText = 'School Closed';
+        _workTime = '--:--';
+        _breakTime = '--:--';
+        _duration = Duration.zero;
       });
       return;
     }
@@ -617,22 +661,27 @@ class _MyDayCardState extends State<MyDayCard> {
       if (ws == null) continue;
 
       final startDt = DateTime(
-        candidate.year, candidate.month, candidate.day,
-        ws.workStartTime.hour, ws.workStartTime.minute, ws.workStartTime.second,
+        candidate.year,
+        candidate.month,
+        candidate.day,
+        ws.workStartTime.hour,
+        ws.workStartTime.minute,
+        ws.workStartTime.second,
       );
-      final abbr    = _dayAbbr(ws.dayOfWeek);
+      final abbr = _dayAbbr(ws.dayOfWeek);
       final dayName = _getDayName(candidate.weekday); // e.g. "Wednesday"
-      final bs      = breakByWd[candidate.weekday];   // null-safe
+      final bs = breakByWd[candidate.weekday]; // null-safe
 
       setState(() {
         _isTodayShift = false;
-        _nextDayName  = dayName;
-        _hasShifts    = true;
-        _workTime     = '${_formatStaffTime(ws.workStartTime)} - '
+        _nextDayName = dayName;
+        _hasShifts = true;
+        _workTime =
+            '${_formatStaffTime(ws.workStartTime)} - '
             '${_formatStaffTime(ws.workEndTime)} ($abbr)';
-        _breakTime    = _formatBreakDisplay(bs);
-        _duration     = startDt.difference(schoolNow);
-        _statusText   = 'Your next shift starts in';
+        _breakTime = _formatBreakDisplay(bs);
+        _duration = startDt.difference(schoolNow);
+        _statusText = 'Your next shift starts in';
       });
       return;
     }
@@ -640,12 +689,12 @@ class _MyDayCardState extends State<MyDayCard> {
     // Unreachable with a valid weekly schedule, but guard anyway.
     setState(() {
       _isTodayShift = true;
-      _nextDayName  = '';
-      _hasShifts    = false;
-      _statusText   = 'No upcoming shifts';
-      _workTime     = '--:--';
-      _breakTime    = '--:--';
-      _duration     = Duration.zero;
+      _nextDayName = '';
+      _hasShifts = false;
+      _statusText = 'No upcoming shifts';
+      _workTime = '--:--';
+      _breakTime = '--:--';
+      _duration = Duration.zero;
     });
   }
 
@@ -950,7 +999,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                 ),
                               ),
                           child: Text(
-                            'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : 'N/A'}',
+                            'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : '--'}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 17,
@@ -970,7 +1019,8 @@ class _MyDayCardState extends State<MyDayCard> {
                       builder: (context, geofenceState) {
                         final roleProvider = context.watch<RoleCubit>();
                         final bool isStaff = roleProvider.isStaff;
-                        final bool isWithinGeofence = geofenceState.isWithinGeofence;
+                        final bool isWithinGeofence =
+                            geofenceState.isWithinGeofence;
                         final bool enabled = !isStaff || isWithinGeofence;
                         return Column(
                           children: [
@@ -984,7 +1034,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                     child: _isSignedIn
                                         ? OutlinedButton.icon(
                                             // Disabled while identity is loading or staffCode missing.
-                                            onPressed: (!_staffIdentityLoaded ||
+                                            onPressed:
+                                                (!_staffIdentityLoaded ||
                                                     _staffCode.isEmpty)
                                                 ? null
                                                 : _openTransferForSelf,
@@ -993,10 +1044,12 @@ class _MyDayCardState extends State<MyDayCard> {
                                                 ? const SizedBox(
                                                     width: 14,
                                                     height: 14,
-                                                    child: CircularProgressIndicator(
-                                                      strokeWidth: 1.5,
-                                                      color: AppColors.themeColor,
-                                                    ),
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 1.5,
+                                                          color: AppColors
+                                                              .themeColor,
+                                                        ),
                                                   )
                                                 : const SizedBox.shrink(),
                                             label: const Text(
@@ -1004,17 +1057,18 @@ class _MyDayCardState extends State<MyDayCard> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             style: OutlinedButton.styleFrom(
-                                              foregroundColor: AppColors.themeColor,
+                                              foregroundColor:
+                                                  AppColors.themeColor,
                                               side: const BorderSide(
                                                 color: AppColors.themeColor,
                                               ),
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 14,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 14,
+                                                  ),
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(
-                                                  14,
-                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                               textStyle: const TextStyle(
                                                 fontSize: 16,
@@ -1023,7 +1077,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                             ),
                                           )
                                         : OutlinedButton.icon(
-                                            onPressed: (!_staffIdentityLoaded ||
+                                            onPressed:
+                                                (!_staffIdentityLoaded ||
                                                     _staffCode.isEmpty)
                                                 ? null
                                                 : _openMarkAbsentForSelf,
@@ -1032,10 +1087,12 @@ class _MyDayCardState extends State<MyDayCard> {
                                                 ? const SizedBox(
                                                     width: 14,
                                                     height: 14,
-                                                    child: CircularProgressIndicator(
-                                                      strokeWidth: 1.5,
-                                                      color: AppColors.themeColor,
-                                                    ),
+                                                    child:
+                                                        CircularProgressIndicator(
+                                                          strokeWidth: 1.5,
+                                                          color: AppColors
+                                                              .themeColor,
+                                                        ),
                                                   )
                                                 : const SizedBox.shrink(),
                                             label: const Text(
@@ -1043,17 +1100,18 @@ class _MyDayCardState extends State<MyDayCard> {
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             style: OutlinedButton.styleFrom(
-                                              foregroundColor: AppColors.themeColor,
+                                              foregroundColor:
+                                                  AppColors.themeColor,
                                               side: const BorderSide(
                                                 color: AppColors.themeColor,
                                               ),
-                                              padding: const EdgeInsets.symmetric(
-                                                vertical: 14,
-                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 14,
+                                                  ),
                                               shape: RoundedRectangleBorder(
-                                                borderRadius: BorderRadius.circular(
-                                                  14,
-                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(14),
                                               ),
                                               textStyle: const TextStyle(
                                                 fontSize: 16,
@@ -1079,7 +1137,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                             Icons.location_on_outlined,
                                             size: 18,
                                             color: enabled
-                                                ? AppColors.billingBackgroundColor
+                                                ? AppColors
+                                                      .billingBackgroundColor
                                                 : Colors.grey[600],
                                           ),
                                           const SizedBox(width: 8),
@@ -1093,7 +1152,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                                 fontSize: 16,
                                                 fontWeight: FontWeight.w600,
                                                 color: enabled
-                                                    ? AppColors.billingBackgroundColor
+                                                    ? AppColors
+                                                          .billingBackgroundColor
                                                     : Colors.grey[600],
                                               ),
                                             ),

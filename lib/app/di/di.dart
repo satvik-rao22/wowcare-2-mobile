@@ -109,6 +109,12 @@ import '../../presentation/features/dashboard/cubit/staff_dashboard_coordinator_
 import '../../presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
 import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
+import '../../domain/features/kiosk/repositories/kiosk_repository.dart';
+import '../../domain/features/kiosk/usecases/get_active_kiosk_qr_usecase.dart';
+import '../../domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
+import '../../data/features/kiosk/datasources/kiosk_remote_datasource.dart';
+import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
 import '../../presentation/features/scheduling/cubit/edit_shift_cubit.dart';
@@ -1441,4 +1447,30 @@ Future<void> configureDependencies({String? baseUrl}) async {
     // Native plugin might not be loaded yet - will retry when geofence cubit initializes
     AppLogger.d('Warning: Notification service initialization deferred: $e');
   }
+
+  // ===== KIOSK FEATURE =====
+  // Data layer
+  serviceLocator.registerLazySingleton<KioskRemoteDataSource>(
+    () => KioskRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<KioskRepository>(
+    () => KioskRepositoryImpl(serviceLocator()),
+  );
+
+  // Domain layer
+  serviceLocator.registerFactory<GetActiveKioskQrUseCase>(
+    () => GetActiveKioskQrUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<VerifyKioskPinUseCase>(
+    () => VerifyKioskPinUseCase(serviceLocator()),
+  );
+
+  // Presentation layer
+  serviceLocator.registerFactory<KioskDashboardCubit>(
+    () => KioskDashboardCubit(
+      getActiveKioskQrUseCase: serviceLocator(),
+      verifyKioskPinUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
 }

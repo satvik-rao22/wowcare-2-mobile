@@ -1,0 +1,346 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+
+/// Kiosk staff sign-in/out form - simple confirmation screen after PIN verification.
+/// Shows staff details and asks for confirmation to sign in or out.
+class KioskStaffSignForm extends StatefulWidget {
+  const KioskStaffSignForm({super.key});
+
+  @override
+  State<KioskStaffSignForm> createState() => _KioskStaffSignFormState();
+}
+
+class _KioskStaffSignFormState extends State<KioskStaffSignForm> {
+  bool _isSubmitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = GoRouterState.of(context);
+    final extras = state.extra as Map<String, dynamic>? ?? {};
+
+    final staffCode = extras['staffCode'] as String? ?? '';
+    final staffName = extras['staffName'] as String? ?? 'Unknown Staff';
+    final classroomName = extras['classroomName'] as String? ?? 'No Classroom';
+
+    if (staffCode.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Sign In/Out'),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => GoRouter.of(context).go('/kiosk'),
+          ),
+        ),
+        body: const Center(
+          child: Text('No staff data provided'),
+        ),
+      );
+    }
+    final currentStatus = extras['staffStatus'] as String? ?? 'SIGNED_OUT';
+    final designation = extras['designation'] as String? ?? 'Staff';
+
+    final isSignedIn = currentStatus.toUpperCase() == 'SIGNED_IN';
+    final actionText = isSignedIn ? 'Sign Out' : 'Sign In';
+    final actionSubtext =
+        isSignedIn ? 'Mark yourself as signed out' : 'Mark yourself as signed in';
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
+          onPressed: () => GoRouter.of(context).go('/kiosk'),
+        ),
+        title: const Text(
+          'Staff Sign In/Out',
+          style: TextStyle(
+            color: AppColors.primaryColor,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        bottom: const PreferredSize(
+          preferredSize: Size.fromHeight(1),
+          child: Divider(height: 1, thickness: 1, color: AppColors.themeColor),
+        ),
+      ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: AppColors.buildScaffoldGradient(),
+        ),
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Staff card
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.08),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Staff Information',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      _buildInfoRow('Name', staffName),
+                      const SizedBox(height: 16),
+                      _buildInfoRow('Staff Code', staffCode),
+                      const SizedBox(height: 16),
+                      _buildInfoRow('Designation', designation),
+                      const SizedBox(height: 16),
+                      _buildInfoRow('Classroom', classroomName),
+                      const SizedBox(height: 16),
+                      _buildStatusRow(
+                        'Current Status',
+                        isSignedIn ? 'SIGNED IN' : 'SIGNED OUT',
+                        isSignedIn,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
+
+                // Action section
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      actionText,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      actionSubtext,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 40),
+
+                // Action buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          gradient: AppColors.buildSecondaryGradient(),
+                        ),
+                        padding: const EdgeInsets.all(1),
+                        child: TextButton(
+                          onPressed: _isSubmitting
+                              ? null
+                              : () => GoRouter.of(context).go('/kiosk'),
+                          style: TextButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: ShaderMask(
+                            shaderCallback: (Rect bounds) =>
+                                AppColors.buildSecondaryGradient()
+                                    .createShader(bounds),
+                            blendMode: BlendMode.srcIn,
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 16 * (-3 / 100),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          gradient: AppColors.buildSecondaryGradient(),
+                        ),
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shadowColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: _isSubmitting
+                              ? null
+                              : () => _handleSignConfirmation(
+                                    context,
+                                    staffCode,
+                                    staffName,
+                                    isSignedIn,
+                                  ),
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor:
+                                        AlwaysStoppedAnimation<Color>(Colors.white),
+                                  ),
+                                )
+                              : Text(
+                                  actionText,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 16 * (-3 / 100),
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Colors.black,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatusRow(String label, String status, bool isSignedIn) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 14,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSignedIn
+                ? Colors.green.withValues(alpha: 0.1)
+                : Colors.orange.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            status,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isSignedIn ? Colors.green : Colors.orange,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _handleSignConfirmation(
+    BuildContext context,
+    String staffCode,
+    String staffName,
+    bool isCurrentlySignedIn,
+  ) async {
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      // Simulate API call (replace with actual API call in production)
+      await Future.delayed(const Duration(seconds: 1));
+
+      if (!mounted) return;
+
+      final action = isCurrentlySignedIn ? 'signed out' : 'signed in';
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: '$staffName has been $action successfully',
+        isSuccess: true,
+      );
+
+      // Return to kiosk dashboard after 1 second
+      await Future.delayed(const Duration(seconds: 1));
+      if (mounted) {
+        GoRouter.of(context).go('/kiosk');
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to process sign ${isCurrentlySignedIn ? 'out' : 'in'}',
+        isError: true,
+      );
+
+      setState(() {
+        _isSubmitting = false;
+      });
+    }
+  }
+}

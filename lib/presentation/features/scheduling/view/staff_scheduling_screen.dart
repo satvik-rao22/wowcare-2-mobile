@@ -17,7 +17,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';

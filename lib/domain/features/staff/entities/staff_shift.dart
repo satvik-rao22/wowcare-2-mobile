@@ -23,8 +23,12 @@ class StaffShiftDaySummary extends Equatable {
   );
 
   @override
-  List<Object?> get props =>
-      [availableHours, scheduledHours, unscheduledHours, blocks];
+  List<Object?> get props => [
+    availableHours,
+    scheduledHours,
+    unscheduledHours,
+    blocks,
+  ];
 }
 
 class StaffShiftTimelineBlock extends Equatable {

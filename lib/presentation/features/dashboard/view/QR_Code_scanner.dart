@@ -46,6 +46,9 @@ class _QrScanViewState extends State<_QrScanView>
   late final AnimationController _scanAnim;
   late final Animation<double> _scanLine;
 
+  // Stream subscription for QR scanning
+  StreamSubscription<Barcode>? _scanSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -302,14 +305,25 @@ class _QrScanViewState extends State<_QrScanView>
   }
 
   void _onQRViewCreated(QRViewController controller) {
-    setState(() => _controller = controller);
+    setState(() {
+      _controller = controller;
+      // Reset state when QRView is created/recreated
+      _result = null;
+      _hasNavigated = false;
+    });
 
-    controller.scannedDataStream.listen((scanData) async {
+    // Reset cubit state
+    context.read<QrValidationCubit>().reset();
+
+    // Cancel previous subscription if exists
+    _scanSubscription?.cancel();
+
+    _scanSubscription = controller.scannedDataStream.listen((scanData) async {
       final raw = scanData.code?.trim();
       if (_result != null || raw == null || raw.isEmpty) return;
 
       setState(() => _result = scanData);
-      await controller.pauseCamera();
+      unawaited(controller.pauseCamera());
 
       final token = _extractToken(raw);
       if (token == null) {
@@ -357,6 +371,7 @@ class _QrScanViewState extends State<_QrScanView>
   @override
   void dispose() {
     _scanAnim.dispose();
+    _scanSubscription?.cancel();
     super.dispose();
   }
 }

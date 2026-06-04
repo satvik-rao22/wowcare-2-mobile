@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/data/features/auth/models/login_response_model.dart' show RoleModel;
 
 /// True for parent/guardian API personas (not staff/teachers).
 bool roleStringIsGuardianPersona(String role) {
@@ -88,4 +89,40 @@ bool shouldSkipStaffCodeResolutionForContext({
   } catch (_) {
     return false;
   }
+}
+
+/// True when any role in the login response is a kiosk persona.
+///
+/// Kiosk users should skip all post-login APIs (context, staff lookup, profile, PIN)
+/// and redirect directly to `/kiosk`.
+/// Accepts either RoleModel objects or raw Map objects.
+/// Uses EXACT matching to avoid false positives with roles like STAFF_KIOSK.
+bool loginResponseIsKioskUser(List<dynamic> roles) {
+  try {
+    for (final role in roles) {
+      String roleStr = '';
+
+      // Handle RoleModel objects (from LoginResponseModel.roles)
+      if (role is RoleModel) {
+        roleStr = role.role;
+      }
+      // Handle raw Map objects (from JSON)
+      else if (role is Map) {
+        roleStr = (role['role'] ?? '').toString();
+      }
+      // Skip anything else
+      else {
+        continue;
+      }
+
+      final upperRole = roleStr.toUpperCase().trim();
+      // Exact match only — not .contains() to avoid matching STAFF_KIOSK or similar
+      if (upperRole == 'KIOSK') {
+        return true;
+      }
+    }
+  } catch (e) {
+    // Log error for debugging
+  }
+  return false;
 }
