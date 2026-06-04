@@ -733,4 +733,14 @@ void main() {
       coordinator.close();
     });
   });
+
+  group('ParentChildCubit Tests', () {
+    test('forceRefresh increments refreshNonce and emits new state', () {
+      final cubit = ParentChildCubit();
+      expect(cubit.state.refreshNonce, 0);
+      cubit.forceRefresh();
+      expect(cubit.state.refreshNonce, 1);
+      cubit.close();
+    });
+  });
 }

@@ -33,6 +33,7 @@ class StudentSelectionSignOutForm extends StatefulWidget {
     this.isQrScan = false,
     this.qrToken = '',
     this.preSelectedStudentCode,
+    this.allowedStudentCodes,
   });
 
   final bool isQrScan;
@@ -40,6 +41,9 @@ class StudentSelectionSignOutForm extends StatefulWidget {
 
   /// When set (GPS flow), this student is pre-selected after the list loads.
   final String? preSelectedStudentCode;
+
+  /// List of student codes that are allowed to be shown/selected.
+  final List<String>? allowedStudentCodes;
 
   @override
   State<StudentSelectionSignOutForm> createState() =>
@@ -245,6 +249,18 @@ class _StudentSelectionSignOutFormState
                 i.studentCode,
                 allowUpper,
               ),
+            )
+            .toList();
+      }
+
+      if (widget.allowedStudentCodes != null) {
+        final allowedUpper = widget.allowedStudentCodes!
+            .map((c) => c.trim().toUpperCase())
+            .toSet();
+        items = items
+            .where(
+              (i) => i.studentCode.trim().isNotEmpty &&
+                  allowedUpper.contains(i.studentCode.trim().toUpperCase()),
             )
             .toList();
       }
