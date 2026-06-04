@@ -6,6 +6,7 @@ import io.flutter.embedding.android.FlutterFragmentActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodChannel
+import com.wiseowl.wowcareapp.security.SecurityMethodChannel
 
 // Manual plugin registration that tolerates one plugin's native-init crash.
 //
@@ -80,6 +81,21 @@ class MainActivity : FlutterFragmentActivity() {
                     result.notImplemented()
                 }
             }
+
+        // Setup security method channel for screenshot prevention
+        val securityChannel = SecurityMethodChannel()
+        securityChannel.setupMethodChannel(
+            flutterEngine,
+            onScreenshotPreventRequested = {
+                window?.let { securityChannel.preventScreenshots(it) }
+            },
+            onScreenshotAllowRequested = {
+                window?.let { securityChannel.allowScreenshots(it) }
+            },
+            onCheckScreenshotStatus = {
+                window?.let { securityChannel.isScreenshotPrevented(it) } ?: false
+            }
+        )
     }
 
     /// Returns the FCM `data` payload of the notification that launched the app
