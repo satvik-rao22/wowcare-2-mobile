@@ -54,6 +54,7 @@ import 'package:wowcare/presentation/features/user-profile/view/user_profile_scr
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_staff_sign_form.dart';
@@ -284,7 +285,10 @@ final GoRouter appRouter = GoRouter(
           path: 'staff-sign',
           pageBuilder: (context, state) => _fastPage(
             state,
-            const KioskStaffSignForm(),
+            BlocProvider<KioskAttendanceCubit>(
+              create: (_) => serviceLocator<KioskAttendanceCubit>(),
+              child: const KioskStaffSignForm(),
+            ),
           ),
         ),
 

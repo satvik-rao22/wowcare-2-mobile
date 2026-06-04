@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 
 /// Kiosk staff sign-in/out form - simple confirmation screen after PIN verification.
@@ -344,11 +345,18 @@ class _KioskStaffSignFormState extends State<KioskStaffSignForm> {
     });
 
     try {
+      AppLogger.d(
+        '[KioskStaffSign] _handleSignConfirmation: staffCode=$staffCode, '
+        'action=${isCurrentlySignedIn ? 'SIGN_OUT' : 'SIGN_IN'}',
+      );
+
       // Call Kiosk Attendance Cubit
       final cubit = context.read<KioskAttendanceCubit>();
+      AppLogger.d('[KioskStaffSign] Cubit obtained successfully');
 
       if (isCurrentlySignedIn) {
         // Sign out: Uses ONLY /api/v1/staff-attendance-records/sign-out
+        AppLogger.d('[KioskStaffSign] Calling signOutStaff()...');
         await cubit.signOutStaff(
           staffCode: staffCode,
           latitude: 0,
@@ -357,6 +365,7 @@ class _KioskStaffSignFormState extends State<KioskStaffSignForm> {
         );
       } else {
         // Sign in: Uses ONLY /api/v1/staff-attendance-records/sign-in/self
+        AppLogger.d('[KioskStaffSign] Calling signInStaff()...');
         await cubit.signInStaff(
           staffCode: staffCode,
           latitude: 0,
@@ -367,6 +376,7 @@ class _KioskStaffSignFormState extends State<KioskStaffSignForm> {
     } catch (e) {
       if (!mounted) return;
 
+      AppLogger.e('[KioskStaffSign] Error: $e');
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to process sign ${isCurrentlySignedIn ? 'out' : 'in'}',
