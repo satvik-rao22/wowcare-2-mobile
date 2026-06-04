@@ -1,263 +1,103 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
-import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/data/features/kiosk/models/kiosk_attendance_model.dart';
+import 'package:wowcare/data/features/kiosk/models/kiosk_qr_model.dart';
+import 'package:wowcare/data/features/kiosk/models/kiosk_pin_result_model.dart';
 
-/// Remote data source for kiosk attendance operations.
-/// Handles all API communication for kiosk features.
+/// Remote data source for LEGACY kiosk QR and PIN features.
+///
+/// This datasource handles:
+/// - QR code retrieval for the kiosk dashboard
+/// - PIN verification for staff/guardian authentication
+///
+/// NOTE: For the NEW refactored attendance API integration, see KioskAttendanceRemoteDataSource.
 abstract class KioskRemoteDataSource {
-  Future<KioskStaffAttendanceModel> signInStaff({
-    required String staffCode,
-    required String timeZone,
-    required double latitude,
-    required double longitude,
-    required bool withinGeofence,
-  });
+  /// Fetch the active QR code for a given school from the attendance API.
+  /// Uses: GET /api/v1/schools/{schoolCode}/attendance-settings/qr-code/active
+  Future<KioskQrModel> getActiveQrCode({required String schoolCode});
 
-  Future<KioskStaffAttendanceModel> signOutStaff({
-    required String staffCode,
-    required String timeZone,
-    required double latitude,
-    required double longitude,
-    required bool withinGeofence,
-  });
-
-  Future<KioskAttendanceStatusModel> getStaffAttendanceStatus({
-    required List<String> staffCodes,
-  });
-
-  Future<List<KioskStudentAttendanceModel>> signInStudents({
-    required List<String> studentCodes,
-    required String guardianCode,
-    required String timeZone,
-    required double latitude,
-    required double longitude,
-    required bool withinGeofence,
-  });
-
-  Future<List<KioskStudentAttendanceModel>> signOutStudents({
-    required List<String> studentCodes,
-    required String guardianCode,
-    required String timeZone,
-    required double latitude,
-    required double longitude,
-    required bool withinGeofence,
+  /// Verify a 4-digit PIN and get guardian/staff details and student status.
+  /// Uses: POST /api/v1/attendance/kiosk/verify-pin
+  /// Body: {"pin": int}
+  /// School code is passed via X-School-Code header.
+  Future<KioskPinResultModel> verifyPin({
+    required String pin,
+    required String schoolCode,
   });
 }
 
-/// Implementation of kiosk remote data source.
-/// Uses Dio for HTTP communication with the backend.
 class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
-  KioskRemoteDataSourceImpl(this._client);
+  const KioskRemoteDataSourceImpl(this._client);
 
   final Dio _client;
 
   @override
-  Future<KioskStaffAttendanceModel> signInStaff({
-    required String staffCode,
-    required String timeZone,
-    required double latitude,
-    required double longitude,
-    required bool withinGeofence,
-  }) async {
+  Future<KioskQrModel> getActiveQrCode({required String schoolCode}) async {
+    final url =
+        '${ApiConstants.attendanceBaseUrl}/schools/$schoolCode/attendance-settings/qr-code/active';
+
     try {
-      AppLogger.d(
-        '[Kiosk] STEP 1: Calling sign-in API: staffCode=$staffCode',
-      );
-
-      final payload = {
-        'staffCode': staffCode,
-        'method': 'GPS',
-        'latitude': latitude,
-        'longitude': longitude,
-        'withinGeofence': withinGeofence,
-        'timeZone': timeZone,
-        'occurredAt': DateTime.now().toIso8601String(),
-        'isExpectedToday': true,
-      };
-
-      final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/staff-attendance-records/sign-in/self',
-        data: payload,
+      final response = await _client.get<Map<String, dynamic>>(
+        url,
+        options: Options(headers: {'Accept': 'application/json'}),
       );
 
       if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Failed to sign in: ${response.statusCode}');
+        throw Exception('Failed to fetch QR code: ${response.statusCode}');
       }
 
-      final data = response.data?['data'] as Map<String, dynamic>? ?? {};
-      AppLogger.d('[Kiosk] STEP 1 SUCCESS: API response=$data');
+      // Handle nested response with 'data' field
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw Exception('Invalid response format');
+      }
 
-      return KioskStaffAttendanceModel.fromJson(data);
+      final qrData = data['data'] as Map<String, dynamic>?;
+      if (qrData == null) {
+        throw Exception('No QR data in response');
+      }
+
+      return KioskQrModel.fromJson(qrData);
     } catch (e) {
-      AppLogger.e('[Kiosk] STEP 1 FAILED: $e');
       rethrow;
     }
   }
 
   @override
-  Future<KioskStaffAttendanceModel> signOutStaff({
-    required String staffCode,
-    required String timeZone,
-    required double latitude,
-    required double longitude,
-    required bool withinGeofence,
+  Future<KioskPinResultModel> verifyPin({
+    required String pin,
+    required String schoolCode,
   }) async {
+    final url = '${ApiConstants.attendanceBaseUrl}/kiosk/verify-pin';
+
     try {
-      AppLogger.d(
-        '[Kiosk] STEP 1: Calling sign-out API: staffCode=$staffCode',
-      );
-
-      final payload = {
-        'staffCode': staffCode,
-        'method': 'GPS',
-        'latitude': latitude,
-        'longitude': longitude,
-        'withinGeofence': withinGeofence,
-        'timeZone': timeZone,
-        'occurredAt': DateTime.now().toIso8601String(),
-        'isExpectedToday': true,
-      };
-
       final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/staff-attendance-records/sign-out',
-        data: payload,
+        url,
+        data: {'pin': pin},
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
       );
 
       if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Failed to sign out: ${response.statusCode}');
+        throw Exception('Failed to verify PIN: ${response.statusCode}');
       }
 
-      final data = response.data?['data'] as Map<String, dynamic>? ?? {};
-      AppLogger.d('[Kiosk] STEP 1 SUCCESS: API response=$data');
-
-      return KioskStaffAttendanceModel.fromJson(data);
-    } catch (e) {
-      AppLogger.e('[Kiosk] STEP 1 FAILED: $e');
-      rethrow;
-    }
-  }
-
-  @override
-  Future<KioskAttendanceStatusModel> getStaffAttendanceStatus({
-    required List<String> staffCodes,
-  }) async {
-    try {
-      AppLogger.d(
-        '[Kiosk] STEP 2: Calling status API: staffCodes=$staffCodes',
-      );
-
-      final payload = {
-        'staffCodes': staffCodes,
-        'allowedClassroomCodes': <String>[],
-      };
-
-      final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/staff-attendance/sign-in/status',
-        data: payload,
-      );
-
-      if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Failed to get status: ${response.statusCode}');
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw Exception('Invalid response format');
       }
 
-      AppLogger.d('[Kiosk] STEP 2 SUCCESS: API response=${response.data}');
-
-      return KioskAttendanceStatusModel.fromJson(response.data!);
-    } catch (e) {
-      AppLogger.e('[Kiosk] STEP 2 FAILED: $e');
-      rethrow;
-    }
-  }
-
-  @override
-  Future<List<KioskStudentAttendanceModel>> signInStudents({
-    required List<String> studentCodes,
-    required String guardianCode,
-    required String timeZone,
-    required double latitude,
-    required double longitude,
-    required bool withinGeofence,
-  }) async {
-    try {
-      AppLogger.d(
-        '[Kiosk] Student sign-in: studentCodes=${studentCodes.length}, guardianCode=$guardianCode',
-      );
-
-      final payload = {
-        'studentCodes': studentCodes,
-        'guardianCode': guardianCode,
-        'method': 'GPS',
-        'latitude': latitude,
-        'longitude': longitude,
-        'withinGeofence': withinGeofence,
-        'timeZone': timeZone,
-        'allowedClassroomCodes': <String>[],
-      };
-
-      final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/student-attendance-records/parent-sign-in',
-        data: payload,
-      );
-
-      if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Failed to sign in students: ${response.statusCode}');
+      // Handle nested response with 'data' field
+      final pinData = data['data'] as Map<String, dynamic>?;
+      if (pinData == null) {
+        throw Exception('No PIN verification data in response');
       }
 
-      final data = response.data?['data'] as List<dynamic>? ?? [];
-      AppLogger.d('[Kiosk] Student sign-in SUCCESS');
-
-      return data
-          .map((item) => KioskStudentAttendanceModel.fromJson(item))
-          .toList();
+      return KioskPinResultModel.fromJson(pinData);
     } catch (e) {
-      AppLogger.e('[Kiosk] Student sign-in FAILED: $e');
-      rethrow;
-    }
-  }
-
-  @override
-  Future<List<KioskStudentAttendanceModel>> signOutStudents({
-    required List<String> studentCodes,
-    required String guardianCode,
-    required String timeZone,
-    required double latitude,
-    required double longitude,
-    required bool withinGeofence,
-  }) async {
-    try {
-      AppLogger.d(
-        '[Kiosk] Student sign-out: studentCodes=${studentCodes.length}, guardianCode=$guardianCode',
-      );
-
-      final payload = {
-        'studentCodes': studentCodes,
-        'guardianCode': guardianCode,
-        'method': 'GPS',
-        'latitude': latitude,
-        'longitude': longitude,
-        'withinGeofence': withinGeofence,
-        'timeZone': timeZone,
-        'allowedClassroomCodes': <String>[],
-      };
-
-      final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/student-attendance-records/parent-sign-out',
-        data: payload,
-      );
-
-      if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Failed to sign out students: ${response.statusCode}');
-      }
-
-      final data = response.data?['data'] as List<dynamic>? ?? [];
-      AppLogger.d('[Kiosk] Student sign-out SUCCESS');
-
-      return data
-          .map((item) => KioskStudentAttendanceModel.fromJson(item))
-          .toList();
-    } catch (e) {
-      AppLogger.e('[Kiosk] Student sign-out FAILED: $e');
       rethrow;
     }
   }

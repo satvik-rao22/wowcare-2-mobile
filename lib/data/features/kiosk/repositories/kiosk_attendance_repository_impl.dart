@@ -1,4 +1,4 @@
-import 'package:wowcare/data/features/kiosk/datasources/kiosk_remote_datasource.dart';
+import 'package:wowcare/data/features/kiosk/datasources/kiosk_attendance_remote_datasource.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_attendance_entity.dart';
 import 'package:wowcare/domain/features/kiosk/repositories/kiosk_attendance_repository.dart';
 
@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/kiosk/repositories/kiosk_attendance_repo
 class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
   KioskAttendanceRepositoryImpl(this._remoteDataSource);
 
-  final KioskRemoteDataSource _remoteDataSource;
+  final KioskAttendanceRemoteDataSource _remoteDataSource;
 
   @override
   Future<KioskAttendanceStatusEntity> signInStaff({

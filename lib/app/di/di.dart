@@ -112,8 +112,10 @@ import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart'
 import '../../domain/features/kiosk/repositories/kiosk_repository.dart';
 import '../../domain/features/kiosk/usecases/get_active_kiosk_qr_usecase.dart';
 import '../../domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
-import '../../data/features/kiosk/datasources/kiosk_remote_datasource.dart';
+import '../../data/features/kiosk/datasources/kiosk_remote_datasource.dart'; // For QR/PIN features
 import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
+// REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
+import '../../data/features/kiosk/datasources/kiosk_attendance_remote_datasource.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
@@ -1467,13 +1469,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // === REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE ===
 
   // Data layer - Remote datasources
-  serviceLocator.registerSingleton<KioskRemoteDataSource>(
-    KioskRemoteDataSourceImpl(serviceLocator<Dio>()),
+  serviceLocator.registerSingleton<KioskAttendanceRemoteDataSource>(
+    KioskAttendanceRemoteDataSourceImpl(serviceLocator<Dio>()),
   );
 
   // Data layer - Repository implementations
   serviceLocator.registerSingleton<KioskAttendanceRepository>(
-    KioskAttendanceRepositoryImpl(serviceLocator<KioskRemoteDataSource>()),
+    KioskAttendanceRepositoryImpl(serviceLocator<KioskAttendanceRemoteDataSource>()),
   );
 
   // Domain layer - Use cases
