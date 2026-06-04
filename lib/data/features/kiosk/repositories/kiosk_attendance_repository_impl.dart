@@ -11,15 +11,16 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
   final KioskAttendanceRemoteDataSource _remoteDataSource;
 
   @override
-  Future<KioskAttendanceStatusEntity> signInStaff({
+  Future<KioskStaffAttendanceEntity> signInStaff({
     required String staffCode,
     required String timeZone,
     required double latitude,
     required double longitude,
     required bool withinGeofence,
   }) async {
-    // STEP 1: Call sign-in API
-    await _remoteDataSource.signInStaff(
+    // Call sign-in API directly with verified kiosk staffCode
+    // Do NOT call dashboard attendance APIs (staff lookup, form listing, status checks)
+    final model = await _remoteDataSource.signInStaff(
       staffCode: staffCode,
       timeZone: timeZone,
       latitude: latitude,
@@ -27,25 +28,22 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
       withinGeofence: withinGeofence,
     );
 
-    // STEP 2: Get updated status
-    final statusModel = await _remoteDataSource.getStaffAttendanceStatus(
-      staffCodes: [staffCode],
-    );
-
-    // Convert to domain entity
-    return statusModel.toEntity();
+    // Convert model to entity and return
+    // No additional API calls needed
+    return model.toEntity();
   }
 
   @override
-  Future<KioskAttendanceStatusEntity> signOutStaff({
+  Future<KioskStaffAttendanceEntity> signOutStaff({
     required String staffCode,
     required String timeZone,
     required double latitude,
     required double longitude,
     required bool withinGeofence,
   }) async {
-    // STEP 1: Call sign-out API
-    await _remoteDataSource.signOutStaff(
+    // Call sign-out API directly with verified kiosk staffCode
+    // Do NOT call dashboard attendance APIs
+    final model = await _remoteDataSource.signOutStaff(
       staffCode: staffCode,
       timeZone: timeZone,
       latitude: latitude,
@@ -53,13 +51,9 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
       withinGeofence: withinGeofence,
     );
 
-    // STEP 2: Get updated status
-    final statusModel = await _remoteDataSource.getStaffAttendanceStatus(
-      staffCodes: [staffCode],
-    );
-
-    // Convert to domain entity
-    return statusModel.toEntity();
+    // Convert model to entity and return
+    // No additional API calls needed
+    return model.toEntity();
   }
 
   @override

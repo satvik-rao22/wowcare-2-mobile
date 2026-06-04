@@ -7,7 +7,7 @@ class SignOutStaffUseCase {
 
   final KioskAttendanceRepository _repository;
 
-  Future<KioskAttendanceStatusEntity> call({
+  Future<KioskStaffAttendanceEntity> call({
     required String staffCode,
     required String timeZone,
     required double latitude,

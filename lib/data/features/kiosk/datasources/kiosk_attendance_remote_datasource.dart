@@ -68,7 +68,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
 
       final payload = {
         'staffCode': staffCode,
-        'method': 'GPS',
+        'method': 'KIOSK',
         'latitude': latitude,
         'longitude': longitude,
         'withinGeofence': withinGeofence,
@@ -111,7 +111,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
 
       final payload = {
         'staffCode': staffCode,
-        'method': 'GPS',
+        'method': 'KIOSK',
         'latitude': latitude,
         'longitude': longitude,
         'withinGeofence': withinGeofence,
@@ -188,7 +188,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       final payload = {
         'studentCodes': studentCodes,
         'guardianCode': guardianCode,
-        'method': 'GPS',
+        'method': 'KIOSK',
         'latitude': latitude,
         'longitude': longitude,
         'withinGeofence': withinGeofence,
@@ -234,7 +234,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       final payload = {
         'studentCodes': studentCodes,
         'guardianCode': guardianCode,
-        'method': 'GPS',
+        'method': 'KIOSK',
         'latitude': latitude,
         'longitude': longitude,
         'withinGeofence': withinGeofence,

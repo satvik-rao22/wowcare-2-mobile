@@ -5,9 +5,10 @@ import 'package:wowcare/domain/features/kiosk/entities/kiosk_attendance_entity.d
 /// No implementation details or API specifics here.
 abstract class KioskAttendanceRepository {
   /// Sign in a staff member via kiosk.
-  /// Calls: POST /api/v1/staff-attendance-records/sign-in/self
-  /// Then: POST /api/v1/attendance/staff-attendance/sign-in/status
-  Future<KioskAttendanceStatusEntity> signInStaff({
+  /// Calls ONLY: POST /api/v1/staff-attendance-records/sign-in/self
+  /// Returns staffCode and attendance status from sign-in response directly.
+  /// Does NOT call dashboard APIs (staff lookup, form listing, status checks).
+  Future<KioskStaffAttendanceEntity> signInStaff({
     required String staffCode,
     required String timeZone,
     required double latitude,
@@ -16,9 +17,9 @@ abstract class KioskAttendanceRepository {
   });
 
   /// Sign out a staff member via kiosk.
-  /// Calls: POST /api/v1/staff-attendance-records/sign-out
-  /// Then: POST /api/v1/attendance/staff-attendance/sign-in/status
-  Future<KioskAttendanceStatusEntity> signOutStaff({
+  /// Calls ONLY: POST /api/v1/staff-attendance-records/sign-out
+  /// Does NOT call dashboard attendance APIs.
+  Future<KioskStaffAttendanceEntity> signOutStaff({
     required String staffCode,
     required String timeZone,
     required double latitude,
