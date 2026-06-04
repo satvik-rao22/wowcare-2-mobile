@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 
 /// Kiosk staff sign-in/out form - simple confirmation screen after PIN verification.
 /// Shows staff details and asks for confirmation to sign in or out.
@@ -46,108 +48,137 @@ class _KioskStaffSignFormState extends State<KioskStaffSignForm> {
     final actionSubtext =
         isSignedIn ? 'Mark yourself as signed out' : 'Mark yourself as signed in';
 
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
-          onPressed: () => GoRouter.of(context).go('/kiosk'),
-        ),
-        title: const Text(
-          'Staff Sign In/Out',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontWeight: FontWeight.w600,
+    return BlocListener<KioskAttendanceCubit, KioskAttendanceState>(
+      listener: (context, state) {
+        if (state is KioskAttendanceSuccess) {
+          // Show success message
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message,
+            isSuccess: true,
+          );
+
+          // Return to kiosk dashboard after 1 second
+          Future.delayed(const Duration(seconds: 1), () {
+            if (mounted) {
+              GoRouter.of(context).go('/kiosk');
+            }
+          });
+        } else if (state is KioskAttendanceError) {
+          // Show error message
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message,
+            isError: true,
+          );
+
+          setState(() {
+            _isSubmitting = false;
+          });
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.primaryColor),
+            onPressed: () => GoRouter.of(context).go('/kiosk'),
+          ),
+          title: const Text(
+            'Staff Sign In/Out',
+            style: TextStyle(
+              color: AppColors.primaryColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(height: 1, thickness: 1, color: AppColors.themeColor),
           ),
         ),
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, thickness: 1, color: AppColors.themeColor),
-        ),
-      ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: AppColors.buildScaffoldGradient(),
-        ),
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Staff card
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
+        body: Container(
+          decoration: BoxDecoration(
+            gradient: AppColors.buildScaffoldGradient(),
+          ),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 16.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Staff card
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.08),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Staff Information',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        _buildInfoRow('Name', staffName),
+                        const SizedBox(height: 16),
+                        _buildInfoRow('Staff Code', staffCode),
+                        const SizedBox(height: 16),
+                        _buildInfoRow('Designation', designation),
+                        const SizedBox(height: 16),
+                        _buildInfoRow('Classroom', classroomName),
+                        const SizedBox(height: 16),
+                        _buildStatusRow(
+                          'Current Status',
+                          isSignedIn ? 'SIGNED IN' : 'SIGNED OUT',
+                          isSignedIn,
+                        ),
+                      ],
+                    ),
                   ),
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 40),
+
+                  // Action section
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      const Text(
-                        'Staff Information',
-                        style: TextStyle(
-                          fontSize: 16,
+                      Text(
+                        actionText,
+                        style: const TextStyle(
+                          fontSize: 24,
                           fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      _buildInfoRow('Name', staffName),
-                      const SizedBox(height: 16),
-                      _buildInfoRow('Staff Code', staffCode),
-                      const SizedBox(height: 16),
-                      _buildInfoRow('Designation', designation),
-                      const SizedBox(height: 16),
-                      _buildInfoRow('Classroom', classroomName),
-                      const SizedBox(height: 16),
-                      _buildStatusRow(
-                        'Current Status',
-                        isSignedIn ? 'SIGNED IN' : 'SIGNED OUT',
-                        isSignedIn,
+                      const SizedBox(height: 8),
+                      Text(
+                        actionSubtext,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 40),
+                  const SizedBox(height: 40),
 
-                // Action section
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text(
-                      actionText,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      actionSubtext,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 40),
-
-                // Action buttons
-                Row(
+                  // Action buttons
+                  Row(
                   children: [
                     Expanded(
                       child: Container(
@@ -238,6 +269,7 @@ class _KioskStaffSignFormState extends State<KioskStaffSignForm> {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -312,22 +344,25 @@ class _KioskStaffSignFormState extends State<KioskStaffSignForm> {
     });
 
     try {
-      // Simulate API call (replace with actual API call in production)
-      await Future.delayed(const Duration(seconds: 1));
+      // Call Kiosk Attendance Cubit
+      final cubit = context.read<KioskAttendanceCubit>();
 
-      if (!mounted) return;
-
-      final action = isCurrentlySignedIn ? 'signed out' : 'signed in';
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: '$staffName has been $action successfully',
-        isSuccess: true,
-      );
-
-      // Return to kiosk dashboard after 1 second
-      await Future.delayed(const Duration(seconds: 1));
-      if (mounted) {
-        GoRouter.of(context).go('/kiosk');
+      if (isCurrentlySignedIn) {
+        // Sign out: Uses ONLY /api/v1/staff-attendance-records/sign-out
+        await cubit.signOutStaff(
+          staffCode: staffCode,
+          latitude: 0,
+          longitude: 0,
+          withinGeofence: true,
+        );
+      } else {
+        // Sign in: Uses ONLY /api/v1/staff-attendance-records/sign-in/self
+        await cubit.signInStaff(
+          staffCode: staffCode,
+          latitude: 0,
+          longitude: 0,
+          withinGeofence: true,
+        );
       }
     } catch (e) {
       if (!mounted) return;

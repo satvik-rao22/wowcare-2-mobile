@@ -115,6 +115,7 @@ import '../../domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
 import '../../data/features/kiosk/datasources/kiosk_remote_datasource.dart';
 import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
 import '../../presentation/features/scheduling/cubit/edit_shift_cubit.dart';
@@ -1471,6 +1472,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getActiveKioskQrUseCase: serviceLocator(),
       verifyKioskPinUseCase: serviceLocator(),
       storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<KioskAttendanceCubit>(
+    () => KioskAttendanceCubit(
+      attendanceRepository: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
     ),
   );
 }
