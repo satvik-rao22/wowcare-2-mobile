@@ -24,14 +24,16 @@ class KioskAttendanceSuccess extends KioskAttendanceState {
     required this.message,
     required this.action,
     required this.role,
+    this.status,
   });
 
   final String message;
   final String action; // 'SIGN_IN' or 'SIGN_OUT'
   final String role; // 'STAFF' or 'GUARDIAN'
+  final String? status; // e.g., 'SIGNED_IN' from status API
 
   @override
-  List<Object?> get props => [message, action, role];
+  List<Object?> get props => [message, action, role, status];
 }
 
 /// Error occurred during sign-in/sign-out

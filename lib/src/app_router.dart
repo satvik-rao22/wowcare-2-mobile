@@ -272,23 +272,29 @@ final GoRouter appRouter = GoRouter(
 
     // Kiosk dashboard — full-screen tablet UI for school entrance kiosk.
     // Top-level route (outside StatefulShellRoute) so it bypasses the nav shell.
-    // BlocProvider wraps the screen so KioskDashboardCubit is available before build().
+    // MultiBlocProvider wraps all kiosk routes to provide both cubits to all child routes.
+    // This prevents ProviderNotFoundException when navigating between kiosk screens.
     GoRoute(
       path: KioskDashboardScreen.routeName,
-      builder: (context, state) => BlocProvider<KioskDashboardCubit>(
-        create: (_) => serviceLocator<KioskDashboardCubit>(),
+      builder: (context, state) => MultiBlocProvider(
+        providers: [
+          BlocProvider<KioskDashboardCubit>(
+            create: (_) => serviceLocator<KioskDashboardCubit>(),
+          ),
+          BlocProvider<KioskAttendanceCubit>(
+            create: (_) => serviceLocator<KioskAttendanceCubit>(),
+          ),
+        ],
         child: const KioskDashboardScreen(),
       ),
       routes: [
         // Kiosk staff sign-in/out form
+        // KioskAttendanceCubit is provided by parent MultiBlocProvider
         GoRoute(
           path: 'staff-sign',
           pageBuilder: (context, state) => _fastPage(
             state,
-            BlocProvider<KioskAttendanceCubit>(
-              create: (_) => serviceLocator<KioskAttendanceCubit>(),
-              child: const KioskStaffSignForm(),
-            ),
+            const KioskStaffSignForm(),
           ),
         ),
 

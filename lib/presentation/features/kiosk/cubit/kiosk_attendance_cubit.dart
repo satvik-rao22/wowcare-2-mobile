@@ -13,8 +13,8 @@ part 'kiosk_attendance_state.dart';
 /// Cubit for handling kiosk user sign-in/sign-out (both staff and students).
 ///
 /// For KIOSK USERS ONLY:
-/// - Staff: Uses ONLY `/api/v1/staff-attendance-records/sign-in/self`
-/// - Students: Uses ONLY `/api/v1/student-attendance-records/parent-sign-in`
+/// - Staff: Uses `/api/v1/staff-attendance-records/sign-in/self` then `/api/v1/attendance/staff-attendance/sign-in/status`
+/// - Students: Uses `/api/v1/student-attendance-records/parent-sign-in`
 class KioskAttendanceCubit extends Cubit<KioskAttendanceState> {
   KioskAttendanceCubit({
     required AttendanceRepository attendanceRepository,
@@ -30,7 +30,9 @@ class KioskAttendanceCubit extends Cubit<KioskAttendanceState> {
   final ApiClient _apiClient;
 
   /// Sign in staff member (KIOSK ONLY).
-  /// Uses: POST /api/v1/staff-attendance-records/sign-in/self
+  /// Step 1: POST /api/v1/staff-attendance-records/sign-in/self
+  /// Step 2: POST /api/v1/attendance/staff-attendance/sign-in/status (fetch status)
+  /// Step 3: Emit success with updated status
   Future<void> signInStaff({
     required String staffCode,
     double latitude = 0,
@@ -53,7 +55,7 @@ class KioskAttendanceCubit extends Cubit<KioskAttendanceState> {
         schoolTimeZone,
       );
 
-      // Build payload for staff sign-in
+      // STEP 1: Submit staff sign-in
       final payload = <String, dynamic>{
         'staffCode': staffCode,
         'method': 'GPS',
@@ -62,30 +64,52 @@ class KioskAttendanceCubit extends Cubit<KioskAttendanceState> {
         'withinGeofence': withinGeofence,
         'timeZone': schoolTimeZone,
         'occurredAt': now.toIso8601String(),
-        'isExpectedToday': false,
+        'isExpectedToday': true,
       };
 
       AppLogger.d(
-        '[KioskAttendance] Staff sign-in initiated: '
+        '[KioskAttendance] STEP 1: Staff sign-in initiated: '
         'staffCode=$staffCode, endpoint=/staff-attendance-records/sign-in/self, '
-        'timezone=$schoolTimeZone, occurredAt=${now.toIso8601String()}',
+        'timezone=$schoolTimeZone',
       );
 
-      // Submit staff sign-in (isSelf=true)
-      final result = await _attendanceRepository.submitStaffSignIn(
+      final signInResult = await _attendanceRepository.submitStaffSignIn(
         payload: payload,
-        isSelf: true, // CRITICAL: Use self endpoint for kiosk
+        isSelf: true,
       );
 
       AppLogger.d(
-        '[KioskAttendance] Staff sign-in SUCCESS: '
-        'staffCode=$staffCode, message=${result.message}',
+        '[KioskAttendance] STEP 1 SUCCESS: '
+        'staffCode=$staffCode, message=${signInResult.message}',
       );
 
+      // STEP 2: Fetch updated sign-in status
+      AppLogger.d(
+        '[KioskAttendance] STEP 2: Fetching staff sign-in status: staffCode=$staffCode',
+      );
+
+      final statusMap = await _attendanceRepository.getStaffTodaySignInStatusMap(
+        [staffCode],
+      );
+
+      AppLogger.d(
+        '[KioskAttendance] STEP 2 SUCCESS: Status map=$statusMap',
+      );
+
+      final finalStatus = statusMap[staffCode] ?? 'SIGNED_IN';
+
+      AppLogger.d(
+        '[KioskAttendance] COMPLETE: '
+        'staffCode=$staffCode, action=SIGN_IN, status=$finalStatus, '
+        'providerAvailable=true, navigatingTo=/kiosk/staff-sign',
+      );
+
+      // STEP 3: Emit success
       emit(KioskAttendanceSuccess(
-        message: result.message ?? 'Signed in successfully',
+        message: signInResult.message ?? 'Signed in successfully',
         action: 'SIGN_IN',
         role: 'STAFF',
+        status: finalStatus,
       ));
     } catch (e) {
       AppLogger.e('[KioskAttendance] Staff sign-in FAILED: staffCode=$staffCode, error=$e');
