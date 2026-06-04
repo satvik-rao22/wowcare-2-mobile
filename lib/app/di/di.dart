@@ -111,6 +111,7 @@ import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 import '../../domain/features/kiosk/repositories/kiosk_repository.dart';
 import '../../domain/features/kiosk/usecases/get_active_kiosk_qr_usecase.dart';
+import '../../domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
 import '../../data/features/kiosk/datasources/kiosk_remote_datasource.dart';
 import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
@@ -1460,11 +1461,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetActiveKioskQrUseCase>(
     () => GetActiveKioskQrUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<VerifyKioskPinUseCase>(
+    () => VerifyKioskPinUseCase(serviceLocator()),
+  );
 
   // Presentation layer
   serviceLocator.registerFactory<KioskDashboardCubit>(
     () => KioskDashboardCubit(
       getActiveKioskQrUseCase: serviceLocator(),
+      verifyKioskPinUseCase: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

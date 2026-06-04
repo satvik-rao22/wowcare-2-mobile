@@ -1,11 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:go_router/go_router.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 
 /// Kiosk dashboard screen - full-screen tablet UI for school entrance kiosk.
@@ -58,34 +60,17 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   }
 
   void _validateKioskPin() {
-    if (pin.length == maxPinLength) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      debugPrint('PIN IS $pin');
-      // TODO: Implement PIN validation via API
-      // For now, just reset after a short delay
-      unawaited(Future.delayed(const Duration(seconds: 1), () {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          _resetPin();
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'PIN validation in progress',
-          );
-        }
-      }));
-    } else {
-      _resetPin();
+    if (pin.length != maxPinLength) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter a ${maxPinLength}-digit PIN',
         isError: true,
       );
+      return;
     }
+
+    // Call cubit to submit PIN via API
+    unawaited(context.read<KioskDashboardCubit>().submitPin(pin));
   }
 
   void _resetPin() {
@@ -97,59 +82,66 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final bool isTablet = isIpad();
-
-    return BlocProvider<KioskDashboardCubit>(
-      create: (_) => serviceLocator<KioskDashboardCubit>(),
-      child: _buildScaffold(isTablet),
-    );
+    return _buildScaffold(isTablet);
   }
 
   Widget _buildScaffold(bool isTablet) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 8.0),
-          child: CircleAvatar(
-            radius: 20,
-            backgroundImage: AssetImage('assets/images/WowCarePNG.png'),
-          ),
-        ),
-        title: const Text(
-          'WowCare Kiosk',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.exit_to_app, color: AppColors.primaryColor),
-            onPressed: () {
-              // TODO: Implement logout
-            },
-          ),
-        ],
-        bottom: const PreferredSize(
-          preferredSize: Size.fromHeight(1),
-          child: Divider(
-            height: 1,
-            thickness: 1,
-            color: AppColors.themeColor,
-          ),
-        ),
-      ),
-      body: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
-        builder: (context, state) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: AppColors.buildScaffoldGradient(),
-            ),
-            child: _buildContent(context, state, isTablet),
+    return BlocListener<KioskDashboardCubit, KioskDashboardState>(
+      listener: (context, state) {
+        if (state is KioskDashboardPinSuccess) {
+          _handlePinSuccess(context, state.pinResult);
+        } else if (state is KioskDashboardError) {
+          _resetPin();
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message,
+            isError: true,
           );
-        },
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          leading: const Padding(
+            padding: EdgeInsets.only(left: 8.0),
+            child: CircleAvatar(
+              radius: 20,
+              backgroundImage: AssetImage('assets/images/WowCarePNG.png'),
+            ),
+          ),
+          title: const Text(
+            'WOWW',
+            style: TextStyle(
+              color: AppColors.primaryColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.exit_to_app, color: AppColors.primaryColor),
+              onPressed: () {
+                // Logout and redirect to sign-in
+                GoRouter.of(context).go('/sign-in');
+              },
+            ),
+          ],
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(height: 1, thickness: 1, color: AppColors.themeColor),
+          ),
+        ),
+        body: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
+          builder: (context, state) {
+            return Container(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildScaffoldGradient(),
+              ),
+              child: _buildContent(context, state, isTablet),
+            );
+          },
+        ),
       ),
     );
   }
@@ -159,94 +151,30 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     KioskDashboardState state,
     bool isTablet,
   ) {
-    if (state is KioskDashboardLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (state is KioskDashboardError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
-            const SizedBox(height: 24),
-            Text(
-              state.message,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 18, color: Colors.red),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: () {
-                context.read<KioskDashboardCubit>().loadQrCode();
-              },
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (state is KioskDashboardQrLoaded) {
-      return Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
-            child: isTablet
-                ? _buildTabletLayout(state)
-                : _buildPhoneLayout(state),
-          ),
-        ),
-      );
-    }
-
-    return const Center(
-      child: Text('Loading...'),
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 16.0),
+        child: isTablet
+            ? _buildTabletLayoutAlwaysVisible(state)
+            : _buildPhoneLayoutAlwaysVisible(state),
+      ),
     );
   }
 
-  Widget _buildPhoneLayout(KioskDashboardQrLoaded state) {
+  // Phone layout — QR on top (with loading/error), PIN pad always visible below
+  Widget _buildPhoneLayoutAlwaysVisible(KioskDashboardState state) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(
-          state.schoolName,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor,
-          ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'Scan the QR Code',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        const SizedBox(height: 20),
-        if (isAndroid())
-          Container(
-            height: MediaQuery.of(context).size.height / 3,
-            width: MediaQuery.of(context).size.width * 0.75,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.black, width: 2),
-            ),
-            child: _buildQrImage(state.qrCode.qrPayload),
-          ),
+        // QR Section (top)
+        _buildQrSection(state),
         const SizedBox(height: 30),
+
+        // PIN Entry Section (always visible)
         const Text(
           'Enter your Sign-In/out PIN',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 20),
         _buildPinDots(),
@@ -258,54 +186,15 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     );
   }
 
-  Widget _buildTabletLayout(KioskDashboardQrLoaded state) {
-    final isLandscape =
-        MediaQuery.of(context).orientation == Orientation.landscape;
-    final qrSize = isLandscape
-        ? MediaQuery.of(context).size.height / 3
-        : MediaQuery.of(context).size.width * 0.3;
-
+  // Tablet layout — QR on left, PIN pad on right, always visible
+  Widget _buildTabletLayoutAlwaysVisible(KioskDashboardState state) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Left side - QR Code and title
-        Expanded(
-          flex: 1,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Text(
-                state.schoolName,
-                style: const TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'Scan the QR Code',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                height: qrSize,
-                width: qrSize,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.black, width: 2),
-                ),
-                child: _buildQrImage(state.qrCode.qrPayload),
-              ),
-            ],
-          ),
-        ),
+        // Left side — QR Code section
+        Expanded(flex: 1, child: _buildQrSection(state)),
 
-        // Right side - PIN entry
+        // Right side — PIN entry (always visible)
         Expanded(
           flex: 1,
           child: Column(
@@ -314,10 +203,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
             children: [
               const Text(
                 'Enter your Sign-In/out PIN',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
               ),
               const SizedBox(height: 20),
               _buildPinDots(),
@@ -332,25 +218,139 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     );
   }
 
-  Widget _buildQrImage(String qrPayload) {
-    try {
-      // Try to decode as base64
-      if (qrPayload.isNotEmpty) {
-        final bytes = base64Decode(qrPayload);
-        return Image.memory(bytes, fit: BoxFit.cover);
-      }
-    } catch (_) {
-      // Not base64, might be already decoded
+  // QR Section — shows loading/error states, or QR when loaded
+  Widget _buildQrSection(KioskDashboardState state) {
+    if (state is KioskDashboardLoading) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          const CircularProgressIndicator(),
+          const SizedBox(height: 16),
+          const Text('Loading QR Code...', style: TextStyle(fontSize: 16)),
+          const SizedBox(height: 40),
+        ],
+      );
     }
 
-    return const Center(
-      child: Text(
-        'QR Code Not Available',
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
-        ),
+    if (state is KioskDashboardError) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 40),
+          Container(
+            height: 250,
+            width: 250,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.black, width: 2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: _buildQrUnavailable('QR not generated'),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            state.message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+          const SizedBox(height: 40),
+        ],
+      );
+    }
+
+    if (state is KioskDashboardQrLoaded) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            state.schoolName,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Scan the QR Code',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            height: 250,
+            width: 250,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.black, width: 2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: _buildQrImage(state.qrCode.qrPayload),
+          ),
+        ],
+      );
+    }
+
+    return const SizedBox.shrink();
+  }
+
+  Widget _buildQrImage(String qrPayload) {
+    try {
+      // Validate payload is not empty
+      if (qrPayload.trim().isEmpty) {
+        AppLogger.d('[Kiosk] QR payload is empty');
+        return _buildQrUnavailable('QR Code data is empty');
+      }
+
+      AppLogger.d('[Kiosk] Rendering QR code from payload: ${qrPayload.length} chars');
+
+      // Use qr_flutter to generate QR code from the payload string
+      return QrImageView(
+        data: qrPayload,
+        version: QrVersions.auto,
+        size: 220,
+        gapless: false,
+        errorCorrectionLevel: QrErrorCorrectLevel.H,
+        errorStateBuilder: (context, error) {
+          AppLogger.d('[Kiosk] QR generation failed: $error');
+          return _buildQrUnavailable('Failed to generate QR');
+        },
+      );
+    } catch (e) {
+      AppLogger.d('[Kiosk] Unexpected QR error: $e');
+      return _buildQrUnavailable('Failed to load QR code');
+    }
+  }
+
+  Widget _buildQrUnavailable(String reason) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            reason,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.black,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 16),
+          IconButton(
+            onPressed: () {
+              // ignore: unawaited_futures
+              context.read<KioskDashboardCubit>().loadQrCode();
+            },
+            icon: const Icon(Icons.refresh, size: 32, color: Colors.grey),
+          ),
+        ],
       ),
     );
   }
@@ -447,9 +447,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.grey[200],
           foregroundColor: Colors.black,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),
         child: Center(
@@ -548,5 +546,122 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
         ),
       ],
     );
+  }
+
+  void _handlePinSuccess(BuildContext context, KioskPinResultEntity result) {
+    _resetPin();
+
+    if (result.isStaff) {
+      _routeStaffAttendance(context, result);
+    } else if (result.isGuardian) {
+      _routeGuardianStudentAttendance(context, result);
+    }
+  }
+
+  void _routeStaffAttendance(BuildContext context, KioskPinResultEntity result) {
+    final staffCode = result.staffCode ?? '';
+    final staffName = result.staffName ?? 'Staff';
+
+    if (staffCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Staff code not found',
+        isError: true,
+      );
+      return;
+    }
+
+    // Route to unified kiosk staff sign-in/out form
+    GoRouter.of(context).go('/kiosk/staff-sign', extra: {
+      'staffCode': staffCode,
+      'staffName': staffName,
+      'staffStatus': result.staffStatus,
+      'classroomCode': result.classroomCode,
+      'classroomName': result.classroomName,
+      'designation': result.designation,
+    });
+  }
+
+  void _routeGuardianStudentAttendance(
+    BuildContext context,
+    KioskPinResultEntity result,
+  ) {
+    final signedIn = result.signedInStudents;
+    final signedOut = result.signedOutStudents;
+    final guardianCode = result.guardianCode ?? '';
+    final guardianName = result.guardianName ?? 'Guardian';
+
+    if (guardianCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Guardian code not found',
+        isError: true,
+      );
+      return;
+    }
+
+    if (result.students.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'No students found',
+        isError: true,
+      );
+      return;
+    }
+
+    // Route based on sign-in/out status
+    if (signedIn.isNotEmpty && signedOut.isNotEmpty) {
+      // Mixed status — show sign-in/out selection
+      GoRouter.of(context).go('/kiosk/student-sign-in-out', extra: {
+        'guardianCode': guardianCode,
+        'guardianName': guardianName,
+        'signedInStudents': signedIn
+            .map((s) => {
+              'studentCode': s.studentCode,
+              'fullName': s.fullName,
+              'classroomCode': s.classroomCode,
+              'classroomName': s.classroomName,
+              'status': s.status,
+            })
+            .toList(),
+        'signedOutStudents': signedOut
+            .map((s) => {
+              'studentCode': s.studentCode,
+              'fullName': s.fullName,
+              'classroomCode': s.classroomCode,
+              'classroomName': s.classroomName,
+              'status': s.status,
+            })
+            .toList(),
+      });
+    } else if (signedOut.isNotEmpty) {
+      // Only signed-out students — go to sign-in
+      GoRouter.of(context).go('/kiosk/student-sign-in', extra: {
+        'guardianCode': guardianCode,
+        'guardianName': guardianName,
+        'students': signedOut
+            .map((s) => {
+              'studentCode': s.studentCode,
+              'fullName': s.fullName,
+              'classroomCode': s.classroomCode,
+              'classroomName': s.classroomName,
+            })
+            .toList(),
+      });
+    } else if (signedIn.isNotEmpty) {
+      // Only signed-in students — go to sign-out
+      GoRouter.of(context).go('/kiosk/student-sign-out', extra: {
+        'guardianCode': guardianCode,
+        'guardianName': guardianName,
+        'students': signedIn
+            .map((s) => {
+              'studentCode': s.studentCode,
+              'fullName': s.fullName,
+              'classroomCode': s.classroomCode,
+              'classroomName': s.classroomName,
+            })
+            .toList(),
+      });
+    }
   }
 }

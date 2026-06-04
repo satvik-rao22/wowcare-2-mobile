@@ -24,6 +24,14 @@ class KioskDashboardQrLoaded extends KioskDashboardState {
   final KioskQrEntity qrCode;
   final String schoolName;
 
+  KioskDashboardQrLoaded copyWith({
+    KioskQrEntity? qrCode,
+    String? schoolName,
+  }) => KioskDashboardQrLoaded(
+    qrCode: qrCode ?? this.qrCode,
+    schoolName: schoolName ?? this.schoolName,
+  );
+
   @override
   List<Object?> get props => [qrCode, schoolName];
 }
@@ -33,6 +41,22 @@ class KioskDashboardError extends KioskDashboardState {
 
   final String message;
 
+  KioskDashboardError copyWith({String? message}) =>
+      KioskDashboardError(message ?? this.message);
+
   @override
   List<Object?> get props => [message];
+}
+
+class KioskDashboardPinValidating extends KioskDashboardState {
+  const KioskDashboardPinValidating();
+}
+
+class KioskDashboardPinSuccess extends KioskDashboardState {
+  const KioskDashboardPinSuccess(this.pinResult);
+
+  final KioskPinResultEntity pinResult;
+
+  @override
+  List<Object?> get props => [pinResult];
 }

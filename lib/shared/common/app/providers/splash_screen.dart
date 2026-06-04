@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -81,6 +83,27 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
     _navigateToHome();
   }
 
+  /// Check if stored roles JSON contains exact KIOSK role (not STAFF_KIOSK, etc.)
+  bool _isKioskFromStoredRoles(String rolesJson) {
+    if (rolesJson.trim().isEmpty) return false;
+    try {
+      final decoded = jsonDecode(rolesJson);
+      if (decoded is List) {
+        for (final role in decoded) {
+          if (role is Map) {
+            final roleStr = (role['role'] ?? '').toString().toUpperCase().trim();
+            if (roleStr == 'KIOSK') {
+              return true;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      AppLogger.d('[Splash] Error parsing roles JSON: $e');
+    }
+    return false;
+  }
+
   Future<void> _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
@@ -147,8 +170,11 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
     if (hasCachedLogin) {
       // Fast kiosk check from stored roles — no API needed.
       final storedRoles = await storage.getString(StorageKeys.roles) ?? '';
-      if (storedRoles.toUpperCase().contains('KIOSK')) {
+      final isKiosk = _isKioskFromStoredRoles(storedRoles);
+      AppLogger.d('[Splash] Cached login - isKiosk=$isKiosk');
+      if (isKiosk) {
         if (!mounted) return;
+        AppLogger.d('[Splash] Kiosk user detected - redirecting to /kiosk');
         context.go('/kiosk');
         return;
       }

@@ -13,6 +13,7 @@ import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_clas
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 
 part 'my_shifts_state.dart';
 
@@ -37,7 +38,11 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
 
   Future<void> load({DateTime? date, bool forceRefresh = false}) async {
     final targetDate = date ?? state.selectedDate ?? DateTime.now();
-    final normalizedDate = DateTime(targetDate.year, targetDate.month, targetDate.day);
+    final normalizedDate = DateTime(
+      targetDate.year,
+      targetDate.month,
+      targetDate.day,
+    );
 
     final startOfWeek = _startOfWeek(normalizedDate);
     final endOfWeek = startOfWeek.add(const Duration(days: 6));
@@ -94,7 +99,15 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
           .where((s) => _sameDay(s.shiftDate, normalizedDate))
           .toList(growable: false);
 
-      final totals = _extractTotals(shifts);
+      // Calculate totals from today's shifts only (not the entire week)
+      final totals = _extractTotals(todays);
+
+      // DEBUG: Log the extracted totals
+      AppLogger.d('[MyShiftsCubit] Today has ${todays.length} shifts');
+      for (var (i, shift) in todays.indexed) {
+        AppLogger.d('[MyShiftsCubit] Shift $i: avail=${shift.availableHours}, sched=${shift.scheduledHours}, unsched=${shift.unscheduledHours}');
+      }
+      AppLogger.d('[MyShiftsCubit] Extracted Totals: avail=${totals.availableHours}, sched=${totals.scheduledHours}, unsched=${totals.unscheduledHours}');
 
       final displayName =
           (await _storage.getString(StorageKeys.displayName) ?? '').trim();
@@ -102,10 +115,15 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
           (await _storage.getString(StorageKeys.staffDesignation) ?? '').trim();
       if (rawDesignation.isEmpty && staffCode.isNotEmpty) {
         try {
-          final profile = await _staffRepository.getStaffProfile(staffCode: staffCode);
+          final profile = await _staffRepository.getStaffProfile(
+            staffCode: staffCode,
+          );
           rawDesignation = profile.designation.trim();
           if (rawDesignation.isNotEmpty) {
-            await _storage.saveString(StorageKeys.staffDesignation, rawDesignation);
+            await _storage.saveString(
+              StorageKeys.staffDesignation,
+              rawDesignation,
+            );
           }
         } catch (_) {}
       }
@@ -116,24 +134,48 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
         classroomNames: classroomNames,
       );
 
-      emit(
-        state.copyWith(
-          status: shifts.isEmpty ? _Status.empty : _Status.loaded,
-          staffCode: staffCode,
-          staffName: displayName,
-          designation: designation,
-          classroomLabel: classroomLabel,
-          shifts: shifts,
-          todayShifts: todays,
-          availableHours: totals.availableHours,
-          scheduledHours: totals.scheduledHours,
-          unscheduledHours: totals.unscheduledHours,
-          weekFrom: startOfWeek,
-          weekTo: endOfWeek,
-          selectedDate: normalizedDate,
-          classroomNames: classroomNames,
-        ),
+      // ── Fetch school hours for the selected day ────────────────────────────
+      String schoolStartTime = '';
+      String schoolEndTime = '';
+      try {
+        final schoolDays =
+            await _staffRepository.getSchoolRegularSchedules(
+          schoolCode: schoolCode,
+        );
+        final resolver = SchoolHoursResolver.fromDays(schoolDays);
+        final hoursForDay = resolver.hoursFor(normalizedDate);
+        if (hoursForDay != null) {
+          schoolStartTime = hoursForDay.startTime;
+          schoolEndTime = hoursForDay.endTime;
+        }
+      } catch (e) {
+        // Non-fatal — if API fails, schoolStartTime/schoolEndTime remain empty
+        AppLogger.d('[MyShiftsCubit] Failed to load school hours: $e');
+      }
+
+      final newState = state.copyWith(
+        status: shifts.isEmpty ? _Status.empty : _Status.loaded,
+        staffCode: staffCode,
+        staffName: displayName,
+        designation: designation,
+        classroomLabel: classroomLabel,
+        shifts: shifts,
+        todayShifts: todays,
+        availableHours: totals.availableHours,
+        scheduledHours: totals.scheduledHours,
+        unscheduledHours: totals.unscheduledHours,
+        weekFrom: startOfWeek,
+        weekTo: endOfWeek,
+        selectedDate: normalizedDate,
+        classroomNames: classroomNames,
+        schoolStartTime: schoolStartTime,
+        schoolEndTime: schoolEndTime,
       );
+
+      // DEBUG: Log the state before emitting
+      AppLogger.d('[MyShiftsCubit] State to emit: avail=${newState.availableHours}, sched=${newState.scheduledHours}, unsched=${newState.unscheduledHours}');
+
+      emit(newState);
     } catch (e) {
       final message = ApiErrorHandler.extractErrorMessage(e);
       AppLogger.d('[MyShiftsCubit] load failed: $message');
@@ -168,10 +210,8 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
       0,
       (p, s) => s.scheduledHours > p ? s.scheduledHours : p,
     );
-    final maxUnscheduled = shifts.fold<int>(
-      0,
-      (p, s) => s.unscheduledHours > p ? s.unscheduledHours : p,
-    );
+    // Calculate unscheduled as the difference to ensure consistency
+    final maxUnscheduled = (maxAvailable - maxScheduled).clamp(0, 9999);
     return (
       availableHours: maxAvailable,
       scheduledHours: maxScheduled,
@@ -201,10 +241,14 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     final upper = raw.trim().toUpperCase();
     if (upper == 'FULL_TIME') return 'Full-Time';
     if (upper == 'PART_TIME') return 'Part-Time';
-    return upper.split(RegExp(r'[_\s]+')).map((w) {
-      if (w.isEmpty) return '';
-      return w[0].toUpperCase() + w.substring(1).toLowerCase();
-    }).where((w) => w.isNotEmpty).join(' ');
+    return upper
+        .split(RegExp(r'[_\s]+'))
+        .map((w) {
+          if (w.isEmpty) return '';
+          return w[0].toUpperCase() + w.substring(1).toLowerCase();
+        })
+        .where((w) => w.isNotEmpty)
+        .join(' ');
   }
 
   /// Formats a shift block time for the existing card widgets
@@ -213,4 +257,5 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     final dt = DateTime(2000, 1, 1, time.hour, time.minute);
     return DateFormat('hh:mm:ss a').format(dt);
   }
+
 }

@@ -96,6 +96,7 @@ bool shouldSkipStaffCodeResolutionForContext({
 /// Kiosk users should skip all post-login APIs (context, staff lookup, profile, PIN)
 /// and redirect directly to `/kiosk`.
 /// Accepts either RoleModel objects or raw Map objects.
+/// Uses EXACT matching to avoid false positives with roles like STAFF_KIOSK.
 bool loginResponseIsKioskUser(List<dynamic> roles) {
   try {
     for (final role in roles) {
@@ -114,8 +115,9 @@ bool loginResponseIsKioskUser(List<dynamic> roles) {
         continue;
       }
 
-      final upperRole = roleStr.toUpperCase();
-      if (upperRole.contains('KIOSK')) {
+      final upperRole = roleStr.toUpperCase().trim();
+      // Exact match only — not .contains() to avoid matching STAFF_KIOSK or similar
+      if (upperRole == 'KIOSK') {
         return true;
       }
     }

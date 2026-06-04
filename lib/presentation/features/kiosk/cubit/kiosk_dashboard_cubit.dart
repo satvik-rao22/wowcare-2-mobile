@@ -1,21 +1,27 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_qr_entity.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/get_active_kiosk_qr_usecase.dart';
+import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
 
 part 'kiosk_dashboard_state.dart';
 
 class KioskDashboardCubit extends Cubit<KioskDashboardState> {
   KioskDashboardCubit({
     required GetActiveKioskQrUseCase getActiveKioskQrUseCase,
+    required VerifyKioskPinUseCase verifyKioskPinUseCase,
     required StorageService storageService,
   })  : _getActiveKioskQr = getActiveKioskQrUseCase,
+        _verifyKioskPin = verifyKioskPinUseCase,
         _storage = storageService,
         super(const KioskDashboardInitial());
 
   final GetActiveKioskQrUseCase _getActiveKioskQr;
+  final VerifyKioskPinUseCase _verifyKioskPin;
   final StorageService _storage;
 
   /// Load the active QR code for the kiosk using the school code from storage.
@@ -47,8 +53,8 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     } catch (e) {
       if (isClosed) return;
 
-      final errorMessage = _extractErrorMessage(e);
-      emit(KioskDashboardError(errorMessage));
+      AppLogger.e('[Kiosk] Error loading QR code: $e');
+      emit(const KioskDashboardError('Unable to load QR code. Please try again.'));
     }
   }
 
@@ -77,10 +83,35 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     }
   }
 
-  String _extractErrorMessage(dynamic error) {
-    if (error is Exception) {
-      return error.toString().replaceAll('Exception: ', '');
+  /// Submit PIN for verification
+  Future<KioskPinResultEntity?> submitPin(String pin) async {
+    if (pin.isEmpty || pin.length != 4) {
+      return null;
     }
-    return 'Failed to load QR code. Please try again.';
+
+    emit(const KioskDashboardPinValidating());
+
+    try {
+      final schoolCode = await _storage.getString(StorageKeys.schoolCode);
+
+      if (schoolCode == null || schoolCode.isEmpty) {
+        emit(const KioskDashboardError('School code not found. Please login again.'));
+        return null;
+      }
+
+      final result = await _verifyKioskPin(pin: pin, schoolCode: schoolCode);
+
+      if (isClosed) return result;
+
+      // Emit success state with the result
+      emit(KioskDashboardPinSuccess(result));
+      return result;
+    } catch (e) {
+      if (isClosed) return null;
+
+      AppLogger.e('[Kiosk] Error verifying PIN: $e');
+      emit(const KioskDashboardError('Invalid PIN. Please try again.'));
+      return null;
+    }
   }
 }

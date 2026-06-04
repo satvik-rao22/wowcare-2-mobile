@@ -54,7 +54,9 @@ import 'package:wowcare/presentation/features/user-profile/view/user_profile_scr
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/view/kiosk_staff_sign_form.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
 /// existing call sites that read those constants keep working.
@@ -264,9 +266,72 @@ final GoRouter appRouter = GoRouter(
 
     // Kiosk dashboard — full-screen tablet UI for school entrance kiosk.
     // Top-level route (outside StatefulShellRoute) so it bypasses the nav shell.
+    // BlocProvider wraps the screen so KioskDashboardCubit is available before build().
     GoRoute(
       path: KioskDashboardScreen.routeName,
-      builder: (context, state) => const KioskDashboardScreen(),
+      builder: (context, state) => BlocProvider<KioskDashboardCubit>(
+        create: (_) => serviceLocator<KioskDashboardCubit>(),
+        child: const KioskDashboardScreen(),
+      ),
+      routes: [
+        // Kiosk staff sign-in/out form
+        GoRoute(
+          path: 'staff-sign',
+          pageBuilder: (context, state) => _fastPage(
+            state,
+            const KioskStaffSignForm(),
+          ),
+        ),
+
+        // Student attendance routes
+        GoRoute(
+          path: 'student-sign-in',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return _fastPage(
+              state,
+              StudentSelectionSignInForm(
+                allowedStudentCodes: (extra['students'] as List?)
+                    ?.map((s) => (s as Map)['studentCode'] as String)
+                    .toList(),
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: 'student-sign-out',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return _fastPage(
+              state,
+              StudentSelectionSignOutForm(
+                allowedStudentCodes: (extra['students'] as List?)
+                    ?.map((s) => (s as Map)['studentCode'] as String)
+                    .toList(),
+              ),
+            );
+          },
+        ),
+        GoRoute(
+          path: 'student-sign-in-out',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final signedInCodes = (extra['signedInStudents'] as List?)
+                ?.map((s) => (s as Map)['studentCode'] as String)
+                .toList() ?? [];
+            final signedOutCodes = (extra['signedOutStudents'] as List?)
+                ?.map((s) => (s as Map)['studentCode'] as String)
+                .toList() ?? [];
+            return _fastPage(
+              state,
+              StudentSignInOutSelectionScreen(
+                signedInCodes: signedInCodes,
+                signedOutCodes: signedOutCodes,
+              ),
+            );
+          },
+        ),
+      ],
     ),
 
     StatefulShellRoute.indexedStack(

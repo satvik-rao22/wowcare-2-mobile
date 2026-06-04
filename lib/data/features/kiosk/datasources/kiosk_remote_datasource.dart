@@ -1,11 +1,21 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/data/features/kiosk/models/kiosk_qr_model.dart';
+import 'package:wowcare/data/features/kiosk/models/kiosk_pin_result_model.dart';
 
 abstract class KioskRemoteDataSource {
   /// Fetch the active QR code for a given school from the attendance API.
-  /// Uses: GET /api/v1/attendance/schools/{schoolCode}/attendance-settings/qr-code/active
+  /// Uses: GET /api/v1/schools/{schoolCode}/attendance-settings/qr-code/active
   Future<KioskQrModel> getActiveQrCode({required String schoolCode});
+
+  /// Verify a 4-digit PIN and get guardian/staff details and student status.
+  /// Uses: POST /api/v1/attendance/kiosk/verify-pin
+  /// Body: {"pin": int}
+  /// School code is passed via X-School-Code header.
+  Future<KioskPinResultModel> verifyPin({
+    required String pin,
+    required String schoolCode,
+  });
 }
 
 class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
@@ -16,16 +26,12 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
   @override
   Future<KioskQrModel> getActiveQrCode({required String schoolCode}) async {
     final url =
-        '${ApiConstants.attendanceBaseUrl}/api/v1/attendance/schools/$schoolCode/attendance-settings/qr-code/active';
+        '${ApiConstants.attendanceBaseUrl}/schools/$schoolCode/attendance-settings/qr-code/active';
 
     try {
       final response = await _client.get<Map<String, dynamic>>(
         url,
-        options: Options(
-          headers: {
-            'Accept': 'application/json',
-          },
-        ),
+        options: Options(headers: {'Accept': 'application/json'}),
       );
 
       if (response.statusCode != 200 || response.data == null) {
@@ -44,6 +50,46 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
       }
 
       return KioskQrModel.fromJson(qrData);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  @override
+  Future<KioskPinResultModel> verifyPin({
+    required String pin,
+    required String schoolCode,
+  }) async {
+    final url = '${ApiConstants.attendanceBaseUrl}/api/v1/kiosk/verify-pin';
+
+    try {
+      final response = await _client.post<Map<String, dynamic>>(
+        url,
+        data: {'pin': pin},
+        options: Options(
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+          },
+        ),
+      );
+
+      if (response.statusCode != 200 || response.data == null) {
+        throw Exception('Failed to verify PIN: ${response.statusCode}');
+      }
+
+      final data = response.data;
+      if (data is! Map<String, dynamic>) {
+        throw Exception('Invalid response format');
+      }
+
+      // Handle nested response with 'data' field
+      final pinData = data['data'] as Map<String, dynamic>?;
+      if (pinData == null) {
+        throw Exception('No PIN verification data in response');
+      }
+
+      return KioskPinResultModel.fromJson(pinData);
     } catch (e) {
       rethrow;
     }
