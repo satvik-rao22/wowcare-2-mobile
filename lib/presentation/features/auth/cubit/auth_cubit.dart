@@ -7,7 +7,6 @@ import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
 import 'package:wowcare/domain/features/auth/usecases/login_usecase.dart';
-import 'package:wowcare/domain/features/auth/usecases/fetch_kiosk_user_details_usecase.dart';
 import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import 'package:wowcare/domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -30,13 +29,11 @@ class AuthCubit extends Cubit<AuthState> {
     required LoginUseCase loginUseCase,
     required AuthLocalDataSource localDataSource,
     required AuthRemoteDataSource remoteDataSource,
-    required FetchKioskUserDetailsUseCase fetchKioskUserDetailsUseCase,
     required RegisterDeviceFcmTokenUseCase registerDeviceFcmToken,
     required UnregisterDeviceFcmTokenUseCase unregisterDeviceFcmToken,
   }) : _loginUseCase = loginUseCase,
        _localDataSource = localDataSource,
        _remoteDataSource = remoteDataSource,
-       _fetchKioskUserDetails = fetchKioskUserDetailsUseCase,
        _registerDeviceFcmToken = registerDeviceFcmToken,
        _unregisterDeviceFcmToken = unregisterDeviceFcmToken,
        super(const AuthInitial());
@@ -44,7 +41,6 @@ class AuthCubit extends Cubit<AuthState> {
   final LoginUseCase _loginUseCase;
   final AuthLocalDataSource _localDataSource;
   final AuthRemoteDataSource _remoteDataSource;
-  final FetchKioskUserDetailsUseCase _fetchKioskUserDetails;
   final RegisterDeviceFcmTokenUseCase _registerDeviceFcmToken;
   final UnregisterDeviceFcmTokenUseCase _unregisterDeviceFcmToken;
 
@@ -223,36 +219,52 @@ class AuthCubit extends Cubit<AuthState> {
               // Fetch proper school name and org name from /api/v1/users/details
               String schoolName = schoolCode; // fallback to code
               String orgName = orgCode; // fallback to code
-              String kioskRole = 'KIOSK'; // fallback role
-              List<Map<String, dynamic>> permissions = [];
+              String roleFromApi = 'KIOSK'; // fallback role
+              int permissionCount = 0;
 
               try {
-                final userDetails = await _fetchKioskUserDetails(
+                AppLogger.d('[Kiosk] Fetching user details from /api/v1/users/details with token');
+
+                // Call the API directly
+                final userDetailsList = await _remoteDataSource.getUserDetails(
                   accessToken: response.accessToken,
                 );
-                if (userDetails != null && userDetails.data.isNotEmpty) {
-                  final userDetail = userDetails.data.first;
-                  orgName = userDetail.organizationName.isNotEmpty
-                      ? userDetail.organizationName
-                      : orgCode;
+
+                if (userDetailsList.isNotEmpty) {
+                  final userDetailData = userDetailsList.first;
+
+                  // Extract organization name
+                  if (userDetailData['organizationName'] != null) {
+                    final extractedOrgName = (userDetailData['organizationName'] as String?)?.trim() ?? '';
+                    if (extractedOrgName.isNotEmpty) {
+                      orgName = extractedOrgName;
+                    }
+                  }
 
                   // Find matching school in user's schools list
-                  for (final school in userDetail.schools) {
-                    if (school.schoolCode == schoolCode) {
-                      schoolName = school.schoolName.isNotEmpty
-                          ? school.schoolName
-                          : schoolCode;
-                      kioskRole = school.role.isNotEmpty
-                          ? school.role.toUpperCase()
-                          : 'KIOSK';
-                      permissions = school.permissions
-                          .map((p) => {
-                                'module': p.module,
-                                'read': p.read,
-                                'write': p.write,
-                              })
-                          .toList();
-                      break;
+                  final schools = userDetailData['schools'] as List<dynamic>? ?? [];
+                  for (final schoolData in schools) {
+                    if (schoolData is Map<String, dynamic>) {
+                      final code = (schoolData['schoolCode'] as String?)?.trim() ?? '';
+                      if (code == schoolCode) {
+                        // Extract school name
+                        final name = (schoolData['schoolName'] as String?)?.trim() ?? '';
+                        if (name.isNotEmpty) {
+                          schoolName = name;
+                        }
+
+                        // Extract role
+                        final role = (schoolData['role'] as String?)?.trim() ?? '';
+                        if (role.isNotEmpty) {
+                          roleFromApi = role.toUpperCase();
+                        }
+
+                        // Extract permissions
+                        final perms = schoolData['permissions'] as List<dynamic>? ?? [];
+                        permissionCount = perms.length;
+
+                        break;
+                      }
                     }
                   }
 
@@ -261,8 +273,8 @@ class AuthCubit extends Cubit<AuthState> {
                     'schoolName=$schoolName, '
                     'schoolCode=$schoolCode, '
                     'organizationName=$orgName, '
-                    'role=$kioskRole, '
-                    'permissions=${permissions.length}',
+                    'role=$roleFromApi, '
+                    'permissions=$permissionCount',
                   );
                 }
               } catch (e) {
@@ -278,7 +290,7 @@ class AuthCubit extends Cubit<AuthState> {
 
               AppLogger.d(
                 '[AUTH] Kiosk login: org=$orgCode (name=$orgName), '
-                'school=$schoolCode (name=$schoolName), role=$kioskRole',
+                'school=$schoolCode (name=$schoolName), role=$roleFromApi',
               );
             }
           } catch (e) {
