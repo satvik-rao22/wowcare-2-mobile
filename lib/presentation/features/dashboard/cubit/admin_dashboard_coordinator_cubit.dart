@@ -157,6 +157,9 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
   Future<void> refresh() async {
     emit(state.copyWith(status: DashboardStatus.refreshing));
 
+    // Re-validate GPS position immediately on refresh
+    unawaited(geofenceCubit.refreshSettings());
+
     final schoolCode = await _resolveSchoolCode();
     if (schoolCode != null && schoolCode.isNotEmpty) {
       await Future.wait([

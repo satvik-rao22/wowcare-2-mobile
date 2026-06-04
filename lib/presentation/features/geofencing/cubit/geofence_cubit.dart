@@ -325,6 +325,11 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           }),
         );
       }
+
+      // ── iOS: sync authoritative inside/outside from native on cold start ──
+      if (Platform.isIOS) {
+        unawaited(_syncFromNativeGeofenceStatusIOS());
+      }
     } catch (e, st) {
       debugPrint('╔══════════════════════════════════════════════════╗');
       debugPrint('║  GEOFENCE INIT ERROR                             ║');
@@ -547,6 +552,37 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       }
     } catch (e) {
       AppLogger.d('[GeofenceCubit] Native status sync failed: $e');
+    }
+  }
+
+  Future<void> _syncFromNativeGeofenceStatusIOS() async {
+    try {
+      final raw = await _nativeGeofenceChannel.invokeMethod<dynamic>(
+        'getGeofenceStatus',
+      );
+      final map = raw is Map ? raw : null;
+      if (map == null || isClosed) return;
+      final isInside = map['isInside'] == true;
+
+      // Don't downgrade GPS-confirmed withinRange with a native default=false.
+      if (!isInside && state.status == GeofenceCubitStatus.withinRange) {
+        AppLogger.d(
+          '[GeofenceCubit] iOS native sync skipped — GPS already confirmed withinRange',
+        );
+        return;
+      }
+
+      final syncedStatus = isInside
+          ? GeofenceCubitStatus.withinRange
+          : GeofenceCubitStatus.outsideRange;
+      AppLogger.d(
+        '[GeofenceCubit] iOS native sync — isInside=$isInside → $syncedStatus',
+      );
+      if (state.status != syncedStatus) {
+        emit(state.copyWith(status: syncedStatus));
+      }
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] iOS native status sync failed: $e');
     }
   }
 

@@ -362,7 +362,10 @@ class _MyDayCardState extends State<MyDayCard> {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
     );
-    if (mounted) unawaited(_loadStaffIdentity());
+    if (mounted) {
+      unawaited(_loadStaffIdentity());
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+    }
   }
 
   StaffEntity? _buildSelfStaffEntity() {
@@ -392,7 +395,10 @@ class _MyDayCardState extends State<MyDayCard> {
         builder: (_) => StaffSignInForm(staff: staff, forceSelf: true),
       ),
     );
-    if (mounted) unawaited(_loadStaffIdentity());
+    if (mounted) {
+      unawaited(_loadStaffIdentity());
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+    }
   }
 
   Future<void> _openSignOutForm() async {
@@ -409,7 +415,10 @@ class _MyDayCardState extends State<MyDayCard> {
     await Navigator.of(
       context,
     ).push(MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)));
-    if (mounted) unawaited(_loadStaffIdentity());
+    if (mounted) {
+      unawaited(_loadStaffIdentity());
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+    }
   }
 
   // ---------------------------------------------------------------------------

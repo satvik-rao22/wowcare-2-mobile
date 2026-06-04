@@ -35,6 +35,8 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       switch call.method {
       case "updateSchoolLocation":
         self.handleUpdateSchoolLocation(call: call, result: result)
+      case "getGeofenceStatus":
+        self.handleGetGeofenceStatus(result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -86,6 +88,16 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     )
 
     result(true)
+  }
+
+  private func handleGetGeofenceStatus(result: FlutterResult) {
+    let defaults = UserDefaults.standard
+    let lastInside = defaults.bool(forKey: prefsLastInsideKey)
+    let gpsEnabled = defaults.object(forKey: prefsGpsEnabledKey) as? Bool ?? true
+    result([
+      "isInside": lastInside,
+      "gpsSignInEnabled": gpsEnabled,
+    ])
   }
 
   private func requestPermissionsIfNeeded() {
