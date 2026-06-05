@@ -23,6 +23,7 @@ import 'package:wowcare/presentation/features/notifications/routing/notification
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/src/app_router.dart';
+import 'package:wowcare/core/util/active_school_switcher.dart';
 import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 
 // Avoid silencing `forgot_password_screen.dart`/`sign_in_screen.dart` analyzer
@@ -217,9 +218,13 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
       final pendingFromMain = consumePendingNotificationDeepLink();
       String? launchDeepLink = pendingFromMain;
       launchDeepLink ??= await _resolveLaunchDeepLink();
+      // Org/school the killed-state notification targets (multi-school user).
+      // Applied only on the paths that actually use launchDeepLink, below.
+      final pendingOrgSchool = consumePendingNotificationOrgSchool();
       AppLogger.d(
         '[Splash] killed-state deep-link: pendingFromMain="$pendingFromMain" '
-        'resolved="$launchDeepLink" redirectUrl="$redirectUrl"',
+        'resolved="$launchDeepLink" redirectUrl="$redirectUrl" '
+        'orgSchool=$pendingOrgSchool',
       );
       if (!mounted) return;
 
@@ -254,6 +259,10 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
           return;
         }
         if (url.contains('dashboard') || url.contains('select-app')) {
+          if (launchDeepLink != null) {
+            await _switchSchoolForLaunch(pendingOrgSchool);
+            if (!mounted) return;
+          }
           context.go(launchDeepLink ?? DashboardScreen.routeName);
           return;
         }
@@ -261,12 +270,34 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
       // No redirectUrl: default to dashboard — unless a notification cold-launched
       // the app, in which case route to its deep-link instead of home.
+      if (launchDeepLink != null) {
+        await _switchSchoolForLaunch(pendingOrgSchool);
+        if (!mounted) return;
+      }
       context.go(launchDeepLink ?? DashboardScreen.routeName);
     } else {
       // No cached login: go to sign-in. Drop any pending deep-link so it can't
       // leak into a later authenticated session.
       consumePendingNotificationDeepLink();
       context.go(SignInScreen.routeName);
+    }
+  }
+
+  /// Switches the active org/school to the killed-state notification's target
+  /// (multi-school user) before routing to its deep-link, so the destination
+  /// loads the notified school's data. No-op when [orgSchool] is null/empty or
+  /// already current.
+  Future<void> _switchSchoolForLaunch(Map<String, String>? orgSchool) async {
+    if (orgSchool == null) return;
+    if (!mounted) return;
+    try {
+      await switchActiveSchoolIfNeeded(
+        context: context,
+        organizationCode: orgSchool['organizationCode'],
+        schoolCode: orgSchool['schoolCode'],
+      );
+    } catch (e) {
+      AppLogger.d('[Splash] launch school-switch failed (non-fatal): $e');
     }
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/notification_payload.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../../../../domain/features/notifications/repositories/push_notification_repository.dart';
 import '../../../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
@@ -81,12 +82,26 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
       // notification redirects exactly like a background-tray tap (otherwise a
       // foreground tap does nothing and the user stays put).
       _onMessageSub = _repository.onMessage.listen((message) {
-        AppLogger.d('[FCM] Foreground: ${message.title} | ${message.data}');
+        AppLogger.d('[FCM] ════════ Foreground notification received ════════');
+        AppLogger.d('[FCM] title : ${message.title}');
+        AppLogger.d('[FCM] body  : ${message.body}');
+        AppLogger.d('[FCM] data  : ${message.data}');
+        AppLogger.d('[FCM] ═══════════════════════════════════════════════════');
         final destination = NotificationRouteResolver.resolve(message);
+        // Encode the target org/school into the payload so a tap on this local
+        // notification (now, or after a kill/relaunch) can switch school before
+        // routing — the plain location alone would lose that context.
+        final payload = destination == null
+            ? null
+            : encodeNotificationPayload(
+                location: destination.location,
+                organizationCode: message.organizationCode,
+                schoolCode: message.schoolCode,
+              );
         _localNotifications.showCustomNotification(
           title: message.title ?? 'School Alert',
           body: message.body ?? 'You have a new notification',
-          payload: destination?.location,
+          payload: payload,
         );
       });
 
