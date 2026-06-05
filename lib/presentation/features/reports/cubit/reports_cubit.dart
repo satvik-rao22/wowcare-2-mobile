@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'dart:async';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -83,10 +84,14 @@ class ReportsCubit extends Cubit<ReportsState> {
         isGenerating: false,
         generationError: failure.message,
       )),
-      (report) => emit(state.copyWith(
-        isGenerating: false,
-        generatedReport: report,
-      )),
+      (report) {
+        emit(state.copyWith(
+          isGenerating: false,
+          generatedReport: report,
+        ));
+        // Refresh recent reports after successful generation
+        unawaited(loadRecentReports());
+      },
     );
   }
 

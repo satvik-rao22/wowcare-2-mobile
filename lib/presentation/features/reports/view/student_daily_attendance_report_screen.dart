@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
@@ -28,6 +29,7 @@ class _StudentDailyAttendanceReportScreenState
   late final ValueNotifier<DateTime> _date;
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
 
   @override
   void initState() {
@@ -39,6 +41,7 @@ class _StudentDailyAttendanceReportScreenState
   void dispose() {
     _date.dispose();
     _selectedClassrooms.dispose();
+    _format.dispose();
     super.dispose();
   }
 
@@ -55,21 +58,40 @@ class _StudentDailyAttendanceReportScreenState
     );
 
     cubit.generateReport(params);
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return BlocSelector<ReportsCubit, ReportsState, bool>(
-      selector: (state) => state.isGenerating,
-      builder: (context, isGenerating) {
-        return ReportFormLayout(
-          title: 'Student Daily Attendance',
-          onGenerate: isGenerating ? null : _onGenerate,
-          isLoading: isGenerating,
-          child: Column(
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
+      },
+      child: BlocSelector<ReportsCubit, ReportsState, bool>(
+        selector: (state) => state.isGenerating,
+        builder: (context, isGenerating) {
+          return ReportFormLayout(
+            title: 'Student Daily Attendance',
+            onGenerate: isGenerating ? null : _onGenerate,
+            isLoading: isGenerating,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const ReportFieldLabel(label: 'Date'),
@@ -96,10 +118,19 @@ class _StudentDailyAttendanceReportScreenState
               const ReportDefaultNote(
                 text: 'Note: All Classrooms will be selected by Default.',
               ),
+              SizedBox(height: responsive.verticalSpacing),
+              ValueListenableBuilder<String>(
+                valueListenable: _format,
+                builder: (_, format, __) => ReportFormatSelector(
+                  selectedFormat: format,
+                  onFormatChanged: (value) => _format.value = value,
+                ),
+              ),
             ],
-          ),
-        );
-      },
+            ),
+          );
+        },
+      ),
     );
   }
 }

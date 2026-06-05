@@ -27,10 +27,12 @@ class _StudentEmergencyContactReportScreenState
     extends State<StudentEmergencyContactReportScreen> {
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
 
   @override
   void dispose() {
     _selectedClassrooms.dispose();
+    _format.dispose();
     super.dispose();
   }
 
@@ -54,19 +56,38 @@ class _StudentEmergencyContactReportScreenState
       classroomCodes: _selectedClassrooms.value,
     );
     cubit.generateReport(params);
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocSelector<ReportsCubit, ReportsState, bool>(
-      selector: (state) => state.isGenerating,
-      builder: (context, isGenerating) {
-        return ReportFormLayout(
-          title: 'Student Emergency Contact List',
-          onGenerate: (_isFormValid && !isGenerating) ? _onGenerate : null,
-          isLoading: isGenerating,
-          child: Column(
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
+      },
+      child: BlocSelector<ReportsCubit, ReportsState, bool>(
+        selector: (state) => state.isGenerating,
+        builder: (context, isGenerating) {
+          return ReportFormLayout(
+            title: 'Student Emergency Contact List',
+            onGenerate: (_isFormValid && !isGenerating) ? _onGenerate : null,
+            isLoading: isGenerating,
+            child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ValueListenableBuilder<List<String>>(
@@ -82,10 +103,19 @@ class _StudentEmergencyContactReportScreenState
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',
           ),
-        ],
+          SizedBox(height: ResponsiveHelper(context).verticalSpacing),
+          ValueListenableBuilder<String>(
+            valueListenable: _format,
+            builder: (_, format, __) => ReportFormatSelector(
+              selectedFormat: format,
+              onFormatChanged: (value) => _format.value = value,
+            ),
           ),
-        );
-      },
+        ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

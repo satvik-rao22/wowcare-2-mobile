@@ -29,6 +29,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
   late final ValueNotifier<DateTime> _toDate;
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
+  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
 
   @override
   void initState() {
@@ -43,6 +44,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     _fromDate.dispose();
     _toDate.dispose();
     _selectedClassrooms.dispose();
+    _format.dispose();
     super.dispose();
   }
 
@@ -67,17 +69,36 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     );
 
     cubit.generateReport(params);
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Absent Report',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
+      },
+      child: ReportFormLayout(
+        title: 'Absent Report',
+        onGenerate: _onGenerate,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ReportFieldLabel(label: 'From'),
@@ -115,7 +136,16 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',
           ),
+          SizedBox(height: responsive.verticalSpacing),
+          ValueListenableBuilder<String>(
+            valueListenable: _format,
+            builder: (_, format, __) => ReportFormatSelector(
+              selectedFormat: format,
+              onFormatChanged: (value) => _format.value = value,
+            ),
+          ),
         ],
+        ),
       ),
     );
   }

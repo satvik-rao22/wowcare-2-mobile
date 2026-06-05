@@ -55,6 +55,7 @@ class _StudentImmunizationReportScreenState
   List<String> _selectedClassrooms = <String>[];
   List<String> _selectedTags = <String>[];
   bool _showParentInfo = false;
+  String _format = 'PDF';
 
   void _onGenerate() {
     final cubit = context.read<ReportsCubit>();
@@ -75,17 +76,35 @@ class _StudentImmunizationReportScreenState
       includeParentEmail: _showParentInfo,
       classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
       tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
+      format: _format,
     );
     cubit.generateReport(params);
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   /// Map UI vaccine selection to backend vaccine codes.
   List<String> _mapVaccineToCode(String vaccine) {
     const vaccineMap = {
-      'All Vaccines': ['DTaP', 'Polio', 'MMR', 'Varicella', 'Hepatitis_B',
-                       'Hepatitis_A', 'Hib', 'Pneumococcal', 'Rotavirus',
-                       'Influenza', 'COVID19'],
+      'All Vaccines': [
+        'DTaP',
+        'Polio',
+        'MMR',
+        'Varicella',
+        'Hepatitis_B',
+        'Hepatitis_A',
+        'Hib',
+        'Pneumococcal',
+        'Rotavirus',
+        'Influenza',
+        'COVID19',
+      ],
       'DTaP': ['DTaP'],
       'Polio (IPV)': ['Polio'],
       'MMR': ['MMR'],
@@ -117,90 +136,109 @@ class _StudentImmunizationReportScreenState
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
-        fontSize: r.labelFontSize,
-        fontFamily: 'Manrope',
-        fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
-      );
+    fontSize: r.labelFontSize,
+    fontFamily: 'Manrope',
+    fontWeight: FontWeight.w400,
+    color: const Color(0xff573353),
+  );
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return BlocSelector<ReportsCubit, ReportsState, bool>(
-      selector: (state) => state.isGenerating,
-      builder: (context, isGenerating) {
-        return ReportFormLayout(
-          title: 'School Immunization Report',
-          onGenerate: isGenerating ? null : _onGenerate,
-          isLoading: isGenerating,
-          child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CustomDropdown(
-            label: 'Vaccines',
-            hintText: 'Select',
-            items: _vaccineOptions,
-            selectedItem: _vaccine,
-            labelStyle: _labelStyle(responsive),
-            showAsterisk: true,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            prependHintAsSelectableItem: false,
-            onSelect: (val) {
-              if (val == null) return;
-              setState(() => _vaccine = val);
-            },
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
-            label: 'Status',
-            hintText: 'Select',
-            items: _statusOptions,
-            selectedItem: _status,
-            labelStyle: _labelStyle(responsive),
-            showAsterisk: true,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            prependHintAsSelectableItem: false,
-            onSelect: (val) {
-              if (val == null) return;
-              setState(() => _status = val);
-            },
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
-          ),
-          const ReportDefaultNote(
-            text: 'Note: All Classrooms will be selected by Default.',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Tag',
-            hintText: 'Select Tag',
-            items: widget.tags,
-            selectedItems: _selectedTags,
-            onChanged: (s) => setState(() => _selectedTags = s),
-          ),
-          const ReportDefaultNote(
-            text: 'Note: All Tags will be selected by Default.',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: CustomCheckbox(
-              value: _showParentInfo,
-              label: 'Show Parent name and emails',
-              onChanged: (v) => setState(() => _showParentInfo = v ?? false),
-            ),
-          ),
-        ],
-          ),
-        );
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
       },
+      child: BlocSelector<ReportsCubit, ReportsState, bool>(
+        selector: (state) => state.isGenerating,
+        builder: (context, isGenerating) {
+          return ReportFormLayout(
+            title: 'School Immunization Report',
+            onGenerate: isGenerating ? null : _onGenerate,
+            isLoading: isGenerating,
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CustomDropdown(
+                label: 'Vaccines',
+                hintText: 'Select',
+                items: _vaccineOptions,
+                selectedItem: _vaccine,
+                labelStyle: _labelStyle(responsive),
+                showAsterisk: true,
+                labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                prependHintAsSelectableItem: false,
+                onSelect: (val) {
+                  if (val == null) return;
+                  setState(() => _vaccine = val);
+                },
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              CustomDropdown(
+                label: 'Status',
+                hintText: 'Select',
+                items: _statusOptions,
+                selectedItem: _status,
+                labelStyle: _labelStyle(responsive),
+                showAsterisk: true,
+                labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                prependHintAsSelectableItem: false,
+                onSelect: (val) {
+                  if (val == null) return;
+                  setState(() => _status = val);
+                },
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              CustomMultiSelectDropdown(
+                label: 'Classroom',
+                hintText: 'Select Classroom',
+                items: widget.classrooms,
+                selectedItems: _selectedClassrooms,
+                onChanged: (s) => setState(() => _selectedClassrooms = s),
+              ),
+              const ReportDefaultNote(
+                text: 'Note: All Classrooms will be selected by Default.',
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              CustomMultiSelectDropdown(
+                label: 'Tag',
+                hintText: 'Select Tag',
+                items: widget.tags,
+                selectedItems: _selectedTags,
+                onChanged: (s) => setState(() => _selectedTags = s),
+              ),
+              const ReportDefaultNote(
+                text: 'Note: All Tags will be selected by Default.',
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: CustomCheckbox(
+                  value: _showParentInfo,
+                  label: 'Show Parent name and emails',
+                  onChanged: (v) =>
+                      setState(() => _showParentInfo = v ?? false),
+                ),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              ReportFormatSelector(
+                selectedFormat: _format,
+                onFormatChanged: (value) => setState(() => _format = value),
+              ),
+            ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

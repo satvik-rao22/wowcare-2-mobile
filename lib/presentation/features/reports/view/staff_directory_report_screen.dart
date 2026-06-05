@@ -11,10 +11,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StaffDirectoryReportScreen extends StatefulWidget {
-  const StaffDirectoryReportScreen({
-    super.key,
-    required this.classrooms,
-  });
+  const StaffDirectoryReportScreen({super.key, required this.classrooms});
 
   static const String routeName = '/reports/staff/directory';
 
@@ -58,6 +55,7 @@ class _StaffDirectoryReportScreenState
   late Set<String> _selectedStaffFields;
   String _status = 'Active Staff';
   List<String> _selectedClassrooms = <String>[];
+  String _format = 'PDF';
 
   @override
   void initState() {
@@ -65,8 +63,7 @@ class _StaffDirectoryReportScreenState
     _selectedStaffFields = _defaultStaffFields.toSet();
   }
 
-  bool get _selectAll =>
-      _selectedStaffFields.length == _staffFields.length;
+  bool get _selectAll => _selectedStaffFields.length == _staffFields.length;
 
   void _toggleSelectAll(bool checked) {
     setState(() {
@@ -106,85 +103,113 @@ class _StaffDirectoryReportScreenState
       staffFieldsSelected: _selectedStaffFields,
       statusFilter: _status,
       classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
+      format: _format,
     );
     cubit.generateReport(params);
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
-        fontSize: r.labelFontSize,
-        fontFamily: 'Manrope',
-        fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
-      );
+    fontSize: r.labelFontSize,
+    fontFamily: 'Manrope',
+    fontWeight: FontWeight.w400,
+    color: const Color(0xff573353),
+  );
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return BlocSelector<ReportsCubit, ReportsState, bool>(
-      selector: (state) => state.isGenerating,
-      builder: (context, isGenerating) {
-        return ReportFormLayout(
-          title: 'Staff Details',
-          onGenerate: (_selectedStaffFields.isNotEmpty && !isGenerating) ? _onGenerate : null,
-          isLoading: isGenerating,
-          child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Choose the below fields and generate a report',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: responsive.labelFontSize,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
-            ),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          const _SectionLabel(label: 'FIELDS'),
-          const SizedBox(height: 8),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: CustomCheckbox(
-              value: _selectAll,
-              label: 'Select All',
-              onChanged: (v) => _toggleSelectAll(v ?? false),
-            ),
-          ),
-          const SizedBox(height: 8),
-          _CheckboxGrid(
-            items: _staffFields,
-            selected: _selectedStaffFields,
-            onChanged: _toggleField,
-          ),
-          const Divider(height: 32),
-          CustomDropdown(
-            label: 'Status',
-            hintText: 'Select',
-            items: _statusOptions,
-            selectedItem: _status,
-            labelStyle: _labelStyle(responsive),
-            showAsterisk: true,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            prependHintAsSelectableItem: false,
-            onSelect: (val) => setState(() => _status = val ?? _status),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
-          ),
-          const ReportDefaultNote(
-            text: 'Note: All Classrooms will be selected by Default.',
-          ),
-        ],
-          ),
-        );
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
       },
+      child: BlocSelector<ReportsCubit, ReportsState, bool>(
+        selector: (state) => state.isGenerating,
+        builder: (context, isGenerating) {
+          return ReportFormLayout(
+            title: 'Staff Details',
+            onGenerate: (_selectedStaffFields.isNotEmpty && !isGenerating)
+                ? _onGenerate
+                : null,
+            isLoading: isGenerating,
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose the below fields and generate a report',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.labelFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xff573353),
+                ),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              const _SectionLabel(label: 'FIELDS'),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: CustomCheckbox(
+                  value: _selectAll,
+                  label: 'Select All',
+                  onChanged: (v) => _toggleSelectAll(v ?? false),
+                ),
+              ),
+              const SizedBox(height: 8),
+              _CheckboxGrid(
+                items: _staffFields,
+                selected: _selectedStaffFields,
+                onChanged: _toggleField,
+              ),
+              const Divider(height: 32),
+              CustomDropdown(
+                label: 'Status',
+                hintText: 'Select',
+                items: _statusOptions,
+                selectedItem: _status,
+                labelStyle: _labelStyle(responsive),
+                showAsterisk: true,
+                labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                prependHintAsSelectableItem: false,
+                onSelect: (val) => setState(() => _status = val ?? _status),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              CustomMultiSelectDropdown(
+                label: 'Classroom',
+                hintText: 'Select Classroom',
+                items: widget.classrooms,
+                selectedItems: _selectedClassrooms,
+                onChanged: (s) => setState(() => _selectedClassrooms = s),
+              ),
+              const ReportDefaultNote(
+                text: 'Note: All Classrooms will be selected by Default.',
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              ReportFormatSelector(
+                selectedFormat: _format,
+                onFormatChanged: (value) => setState(() => _format = value),
+              ),
+            ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -35,6 +37,7 @@ class _BillingTransactionReportScreenState
   late DateTime _endDate;
   String _transactionType = 'All Transactions';
   List<String> _selectedTransactionTypes = <String>[];
+  String _format = 'PDF';
 
   bool get _isCustom => _transactionType == 'Custom';
 
@@ -63,22 +66,36 @@ class _BillingTransactionReportScreenState
       );
       return;
     }
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Transaction Report…',
-      isSuccess: true,
-    );
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Transaction Report',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
+      },
+      child: ReportFormLayout(
+        title: 'Transaction Report',
+        onGenerate: _onGenerate,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ReportFieldLabel(label: 'Start Date'),
@@ -133,7 +150,13 @@ class _BillingTransactionReportScreenState
                   setState(() => _selectedTransactionTypes = s),
             ),
           ],
+          SizedBox(height: responsive.verticalSpacing),
+          ReportFormatSelector(
+            selectedFormat: _format,
+            onFormatChanged: (value) => setState(() => _format = value),
+          ),
         ],
+        ),
       ),
     );
   }

@@ -423,3 +423,47 @@ class ReportDefaultNote extends StatelessWidget {
   }
 }
 
+/// Report format selector dropdown (PDF/XLSX)
+class ReportFormatSelector extends StatelessWidget {
+  const ReportFormatSelector({
+    super.key,
+    required this.selectedFormat,
+    required this.onFormatChanged,
+  });
+
+  final String selectedFormat;
+  final ValueChanged<String> onFormatChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
+    return DropdownButtonFormField<String>(
+      initialValue: selectedFormat,
+      decoration: InputDecoration(
+        labelText: 'Export Format *',
+        filled: true,
+        fillColor: AppColors.fieldBackgroundColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        labelStyle: TextStyle(
+          fontSize: responsive.labelFontSize,
+          fontFamily: 'Manrope',
+          fontWeight: FontWeight.w400,
+          color: const Color(0xff573353),
+        ),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'PDF', child: Text('PDF')),
+        DropdownMenuItem(value: 'XLSX', child: Text('XLSX')),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          onFormatChanged(value);
+        }
+      },
+    );
+  }
+}
+

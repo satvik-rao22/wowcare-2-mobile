@@ -7,6 +7,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     required this.reportType,
     required this.startDate,
     this.endDate,
+    this.format = 'PDF',
     this.classroomCodes,
     this.studentCodes,
     this.staffCodes,
@@ -14,8 +15,15 @@ class ReportRequestParams extends Equatable implements ReportParams {
     this.search,
   });
 
+  @override
   final ReportType reportType;
+
+  @override
   final DateTime startDate;
+
+  @override
+  final String format;
+
   final DateTime? endDate;
   final List<String>? classroomCodes;
   final List<String>? studentCodes;
@@ -27,6 +35,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     ReportType? reportType,
     DateTime? startDate,
     DateTime? endDate,
+    String? format,
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? staffCodes,
@@ -37,6 +46,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
       reportType: reportType ?? this.reportType,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      format: format ?? this.format,
       classroomCodes: classroomCodes ?? this.classroomCodes,
       studentCodes: studentCodes ?? this.studentCodes,
       staffCodes: staffCodes ?? this.staffCodes,
@@ -51,6 +61,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
       'reportType': reportType.backendValue,
       'startDate': startDate.toIso8601String().split('T')[0],
       if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
+      'format': format,
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
         'classroomCodes': classroomCodes,
       if (studentCodes != null && studentCodes!.isNotEmpty)
@@ -85,6 +96,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     reportType,
     startDate,
     endDate,
+    format,
     classroomCodes,
     studentCodes,
     staffCodes,

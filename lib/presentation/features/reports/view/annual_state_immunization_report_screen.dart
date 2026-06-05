@@ -18,6 +18,7 @@ class _AnnualStateImmunizationReportScreenState
     extends State<AnnualStateImmunizationReportScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
+  String _format = 'PDF';
 
   @override
   void initState() {
@@ -36,12 +37,14 @@ class _AnnualStateImmunizationReportScreenState
       );
       return;
     }
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Annual State Immunization Report…',
-      isSuccess: true,
-    );
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   @override
@@ -68,6 +71,11 @@ class _AnnualStateImmunizationReportScreenState
             fetchInitialTime: false,
             initialDate: _endDate,
             onDateSelected: (d) => setState(() => _endDate = d),
+          ),
+          SizedBox(height: responsive.verticalSpacing),
+          ReportFormatSelector(
+            selectedFormat: _format,
+            onFormatChanged: (value) => setState(() => _format = value),
           ),
         ],
       ),

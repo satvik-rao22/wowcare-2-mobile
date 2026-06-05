@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -29,6 +31,7 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
   String _frequency = 'Monthly';
   late DateTime _periodMonth;
   String? _selectedClassroom;
+  String _format = 'PDF';
 
   @override
   void initState() {
@@ -38,12 +41,14 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
   }
 
   void _onGenerate() {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Billing Plan report…',
-      isSuccess: true,
-    );
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
@@ -57,10 +62,22 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Billing Plan',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
+      },
+      child: ReportFormLayout(
+        title: 'Billing Plan',
+        onGenerate: _onGenerate,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -112,7 +129,13 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',
           ),
+          SizedBox(height: responsive.verticalSpacing),
+          ReportFormatSelector(
+            selectedFormat: _format,
+            onFormatChanged: (value) => setState(() => _format = value),
+          ),
         ],
+        ),
       ),
     );
   }

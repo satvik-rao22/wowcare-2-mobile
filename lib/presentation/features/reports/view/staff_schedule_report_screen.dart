@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -25,6 +27,7 @@ class _StaffScheduleReportScreenState
   late DateTime _startDate;
   late DateTime _endDate;
   List<String> _selectedClassrooms = <String>[];
+  String _format = 'PDF';
 
   @override
   void initState() {
@@ -47,10 +50,22 @@ class _StaffScheduleReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Staff Scheduling',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
+      },
+      child: ReportFormLayout(
+        title: 'Staff Scheduling',
+        onGenerate: _onGenerate,
+        child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ReportFieldLabel(label: 'Start Date'),
@@ -79,7 +94,13 @@ class _StaffScheduleReportScreenState
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',
           ),
+          SizedBox(height: responsive.verticalSpacing),
+          ReportFormatSelector(
+            selectedFormat: _format,
+            onFormatChanged: (value) => setState(() => _format = value),
+          ),
         ],
+        ),
       ),
     );
   }

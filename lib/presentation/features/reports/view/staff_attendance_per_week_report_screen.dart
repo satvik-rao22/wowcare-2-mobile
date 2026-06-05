@@ -38,6 +38,7 @@ class _StaffAttendancePerWeekReportScreenState
   late DateTime _periodMonth;
   String? _selectedStaff;
   List<String> _selectedClassrooms = <String>[];
+  String _format = 'PDF';
 
   @override
   void initState() {
@@ -56,7 +57,14 @@ class _StaffAttendancePerWeekReportScreenState
       classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
     );
     cubit.generateReport(params);
-    Navigator.pop(context);
+    if (mounted) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Report generated successfully',
+        isError: false,
+      );
+      Navigator.pop(context);
+    }
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
@@ -70,14 +78,26 @@ class _StaffAttendancePerWeekReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return BlocSelector<ReportsCubit, ReportsState, bool>(
-      selector: (state) => state.isGenerating,
-      builder: (context, isGenerating) {
-        return ReportFormLayout(
-          title: 'Attendance Per Staff',
-          onGenerate: isGenerating ? null : _onGenerate,
-          isLoading: isGenerating,
-          child: Column(
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generationError != current.generationError,
+      listener: (context, state) {
+        if (state.generationError != null && state.generationError!.isNotEmpty) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generationError!,
+            isError: true,
+          );
+        }
+      },
+      child: BlocSelector<ReportsCubit, ReportsState, bool>(
+        selector: (state) => state.isGenerating,
+        builder: (context, isGenerating) {
+          return ReportFormLayout(
+            title: 'Attendance Per Staff',
+            onGenerate: isGenerating ? null : _onGenerate,
+            isLoading: isGenerating,
+            child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -137,10 +157,16 @@ class _StaffAttendancePerWeekReportScreenState
           const ReportDefaultNote(
             text: 'Note: All Classrooms will be selected by Default.',
           ),
-        ],
+          SizedBox(height: responsive.verticalSpacing),
+          ReportFormatSelector(
+            selectedFormat: _format,
+            onFormatChanged: (value) => setState(() => _format = value),
           ),
-        );
-      },
+        ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

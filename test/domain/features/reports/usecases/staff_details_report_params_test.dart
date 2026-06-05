@@ -17,6 +17,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       expect(params.reportType, ReportType.staffDetails);
@@ -34,6 +35,7 @@ void main() {
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
         classroomCodes: classrooms,
+        format: 'PDF',
       );
 
       expect(params.classroomCodes, classrooms);
@@ -46,6 +48,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: const {'Name', 'Email ID'},
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -64,6 +67,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: 'Active Staff',
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -78,6 +82,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: 'Inactive Staff',
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -92,6 +97,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: 'All Staff',
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -106,6 +112,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -121,6 +128,7 @@ void main() {
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
         classroomCodes: classrooms,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -149,6 +157,7 @@ void main() {
           'Is Active',
         },
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -175,6 +184,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: const {'Name', 'Email ID'},
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final identifier = params.toCacheIdentifier();
@@ -191,6 +201,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final params2 = StaffDetailsReportParams(
@@ -199,6 +210,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       expect(params1, params2);
@@ -211,6 +223,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: const {'Name', 'Email ID'},
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final params2 = StaffDetailsReportParams(
@@ -219,6 +232,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: const {'Name'},
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       expect(params1, isNot(params2));
@@ -231,6 +245,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
