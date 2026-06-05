@@ -1,4 +1,7 @@
+import 'package:wowcare/core/util/active_school_switcher.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/notification_payload.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
@@ -132,13 +135,37 @@ class GeofenceNotificationService {
     // Foreground push notifications carry their deep-link location as the
     // payload (set by PushNotificationCubit). Route to it on tap so foreground
     // taps behave like background-tray taps instead of doing nothing.
-    final payload = response.payload?.trim();
-    if (payload != null && payload.isNotEmpty) {
-      try {
-        appRouter.go(payload);
-      } catch (e) {
-        AppLogger.d('[FCM] Foreground tap route failed for "$payload": $e');
-      }
+    final raw = response.payload?.trim();
+    if (raw == null || raw.isEmpty) return;
+    final decoded = decodeNotificationPayload(raw);
+    final ctx = CoreUtils.rootNavigatorKey.currentContext;
+    // If the notification targets a different school the user belongs to, switch
+    // the active org/school BEFORE routing (mirrors the background-tap path).
+    if (ctx != null &&
+        (decoded.organizationCode ?? '').isNotEmpty &&
+        (decoded.schoolCode ?? '').isNotEmpty) {
+      () async {
+        try {
+          await switchActiveSchoolIfNeeded(
+            context: ctx,
+            organizationCode: decoded.organizationCode,
+            schoolCode: decoded.schoolCode,
+          );
+        } catch (e) {
+          AppLogger.d('[FCM] Foreground tap school-switch failed: $e');
+        }
+        try {
+          appRouter.go(decoded.location);
+        } catch (e) {
+          AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
+        }
+      }();
+      return;
+    }
+    try {
+      appRouter.go(decoded.location);
+    } catch (e) {
+      AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
     }
   }
 }

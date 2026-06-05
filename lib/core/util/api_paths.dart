@@ -393,10 +393,15 @@ class ApiPaths {
   static const String studentClassroomAssignStudent =
       '/api/v1/student-classroom/assign-student';
   static const String studentDocuments = '/api/v1/student-documents';
+  // `student-documents` is its own top-level route on the student MS; the extra
+  // `student/` prefix is the UAT gateway segment (re-inserted by UAT), so writing
+  // it here 404s in LOCAL ("No static resource"). Keep direct-MS form.
   static const String studentDocumentExpiryCount =
-      '/api/v1/student/student-documents/expiry-count';
+      '/api/v1/student-documents/expiry-count';
+  // Direct-MS form (controller root `/api/v1/student`); UAT re-inserts the
+  // gateway segment. The doubled `student/student` form 404s in LOCAL.
   static String studentPhysicalCheckupCount(String schoolCode) =>
-      '/api/v1/student/student/physical-checkup-count/$schoolCode';
+      '/api/v1/student/physical-checkup-count/$schoolCode';
   static String studentProfile(String code) => '$studentList/$code';
   static String studentProfileUpdate(String code) =>
       '$studentList/$code/profile';
@@ -409,9 +414,11 @@ class ApiPaths {
   static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
 
-  /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`
+  /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`.
+  /// Direct-MS form here (`/api/v1/student/{code}/siblings`); UAT re-inserts the
+  /// gateway `student` segment — the doubled form 404s in LOCAL.
   static String studentSiblings(String code) =>
-      '$studentList/student/$code/siblings';
+      '$studentList/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
 
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
@@ -587,7 +594,12 @@ class ApiPaths {
 
   /// `GET /api/v1/classroom/classroom?schoolCode=&page=&size=&status=&type=&sort=`
   /// Paginated classroom list with ratio and capacity data.
-  static const String classroomPaginated = '/api/v1/classroom/classroom';
+  ///
+  /// Direct-MS form: the classroom controller root is `/api/v1/classroom`. The
+  /// UAT gateway segment (`…/classroom/classroom`) is re-inserted by
+  /// [ApiPathsUat._ensureUatMicroserviceSegment]; writing the doubled form here
+  /// breaks LOCAL (the MS is hit directly by port and has no `/classroom/classroom`).
+  static const String classroomPaginated = '/api/v1/classroom';
 
   /// `GET /api/v1/attendance/student-attendance/expected/summary/card/by-classrooms`
   static const String studentAttendanceExpectedSummaryCardByClassrooms =
@@ -597,11 +609,16 @@ class ApiPaths {
   static const String staffAttendanceExpectedSummaryCardByClassrooms =
       '/api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms';
   
+  // `schools` is its own top-level route on the organization/school MS; the
+  // `organization/` prefix is the UAT gateway segment (re-inserted by UAT), so
+  // the doubled form 404s in LOCAL ("No static resource"). Direct-MS form here.
   static String schoolCapacityAge(String schoolCode) =>
-      '/api/v1/organization/schools/$schoolCode/capacity-age';
+      '/api/v1/schools/$schoolCode/capacity-age';
 
-  static const String classroomCount = '/api/v1/classroom/classroom/count';
-  static const String classroomSchoolFte = '/api/v1/classroom/classroom/school-fte';
+  // Direct-MS form (controller root `/api/v1/classroom`); UAT re-inserts the
+  // gateway segment. The doubled form 404s in LOCAL (hit by port directly).
+  static const String classroomCount = '/api/v1/classroom/count';
+  static const String classroomSchoolFte = '/api/v1/classroom/school-fte';
   static String classroomByCode(String code) => '/api/v1/classroom/$code';
   static const String classroomLogoAssetCodes =
       '/api/v1/classroom/classroom-logo/asset-codes';

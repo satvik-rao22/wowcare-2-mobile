@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/src/app_router.dart';
 
+import '../../../../core/util/active_school_switcher.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../cubit/push_notification_cubit.dart';
@@ -51,11 +52,21 @@ class _NotificationNavigatorState extends State<NotificationNavigator> {
     );
   }
 
-  void _route(PushNotification message) {
+  Future<void> _route(PushNotification message) async {
     final destination = NotificationRouteResolver.resolve(message);
     if (destination == null) {
       AppLogger.d('[FCM] No route mapped for action: ${message.action}');
       return;
+    }
+    // If the notification targets a different school the user belongs to, switch
+    // the active org/school (and reset role/caches) BEFORE redirecting, so the
+    // destination screen loads the notified school's data — not the current one.
+    if (mounted) {
+      await switchActiveSchoolIfNeeded(
+        context: context,
+        organizationCode: message.organizationCode,
+        schoolCode: message.schoolCode,
+      );
     }
     // URL changes (incl. the `highlightCode` query param) → go_router rebuilds
     // the branch, so the destination screen can scroll-to / flash the target.

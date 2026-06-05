@@ -176,6 +176,18 @@ String? consumePendingNotificationDeepLink() {
   return value;
 }
 
+/// Org/school of the killed-state notification (when it targets a school other
+/// than the last-used one). Captured alongside [pendingNotificationDeepLink] in
+/// main() and consumed by the splash, which switches the active school before
+/// routing to the deep-link. `{organizationCode, schoolCode}` or null.
+Map<String, String>? pendingNotificationOrgSchool;
+
+Map<String, String>? consumePendingNotificationOrgSchool() {
+  final value = pendingNotificationOrgSchool;
+  pendingNotificationOrgSchool = null;
+  return value;
+}
+
 final GoRouter appRouter = GoRouter(
   navigatorKey: CoreUtils.rootNavigatorKey,
   initialLocation: AppRoutes.splash,

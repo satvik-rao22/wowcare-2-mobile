@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/notification_payload.dart';
 import 'dart:io';
 
 import 'package:firebase_analytics/firebase_analytics.dart';
@@ -217,6 +218,24 @@ Future<void> main() async {
       AppLogger.d(
         '[main] stashed pendingNotificationDeepLink=$pendingNotificationDeepLink',
       );
+      // Capture the target org/school so the splash can switch the active school
+      // (multi-school user) before performing this deep-link redirect.
+      final launchOrg = (launchData['organizationCode'] ??
+              launchData['orgCode'] ??
+              launchData['organization_code'] ??
+              '')
+          .trim();
+      final launchSchool =
+          (launchData['schoolCode'] ?? launchData['school_code'] ?? '').trim();
+      if (launchOrg.isNotEmpty && launchSchool.isNotEmpty) {
+        pendingNotificationOrgSchool = {
+          'organizationCode': launchOrg,
+          'schoolCode': launchSchool,
+        };
+        AppLogger.d(
+          '[main] stashed pendingNotificationOrgSchool=$pendingNotificationOrgSchool',
+        );
+      }
     }
 
     // Killed-state tap of a LOCAL notification: when an FCM message arrives
@@ -235,9 +254,20 @@ Future<void> main() async {
       if (launchDetails?.didNotificationLaunchApp == true &&
           payload != null &&
           payload.isNotEmpty) {
-        pendingNotificationDeepLink = payload;
+        // Payload may carry the target org/school (foreground-shown local notif);
+        // split it out so the splash can switch school before redirecting.
+        final decoded = decodeNotificationPayload(payload);
+        pendingNotificationDeepLink = decoded.location;
+        if ((decoded.organizationCode ?? '').isNotEmpty &&
+            (decoded.schoolCode ?? '').isNotEmpty) {
+          pendingNotificationOrgSchool = {
+            'organizationCode': decoded.organizationCode!,
+            'schoolCode': decoded.schoolCode!,
+          };
+        }
         AppLogger.d(
-          '[main] stashed (local notif) pendingNotificationDeepLink=$pendingNotificationDeepLink',
+          '[main] stashed (local notif) pendingNotificationDeepLink=$pendingNotificationDeepLink '
+          'orgSchool=$pendingNotificationOrgSchool',
         );
       }
     }
