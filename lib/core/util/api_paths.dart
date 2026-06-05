@@ -15,6 +15,7 @@ import 'api_paths_uat.dart';
 //
 //   // Users
 //   static const String userRoot = '/api/v1/users';
+
 //   static String userEmailChange(String userCode) =>
 //       '$userRoot/$userCode/email-change';
 //
@@ -608,10 +609,7 @@ class ApiPaths {
   /// `GET /api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms`
   static const String staffAttendanceExpectedSummaryCardByClassrooms =
       '/api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms';
-  
-  // `schools` is its own top-level route on the organization/school MS; the
-  // `organization/` prefix is the UAT gateway segment (re-inserted by UAT), so
-  // the doubled form 404s in LOCAL ("No static resource"). Direct-MS form here.
+
   static String schoolCapacityAge(String schoolCode) =>
       '/api/v1/schools/$schoolCode/capacity-age';
 
@@ -745,7 +743,8 @@ class ApiPaths {
       '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
 
   // —— Notification service (FCM + delivery logs) ——
-  static const String notificationFcmRegister = '/api/v1/notification/fcm/register';
+  static const String notificationFcmRegister =
+      '/api/v1/notification/fcm/register';
   static String notificationFcmToken(String fcmToken) =>
       '/api/v1/notification/fcm/token/${Uri.encodeComponent(fcmToken.trim())}';
   static String notificationFcmUser(String userCode) =>

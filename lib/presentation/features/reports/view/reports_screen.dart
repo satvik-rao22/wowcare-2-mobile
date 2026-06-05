@@ -39,6 +39,7 @@ class _ReportsScreenState extends State<ReportsScreen>
     with SingleTickerProviderStateMixin {
   void _openStudentReportForm(BuildContext context, String name) {
     final reports = context.read<ReportsCubit>().state;
+    final cubit = context.read<ReportsCubit>();
     Widget? screen;
     switch (name) {
       case 'Student Daily Attendance':
@@ -83,12 +84,18 @@ class _ReportsScreenState extends State<ReportsScreen>
     }
 
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => screen!),
+      MaterialPageRoute<void>(
+        builder: (_) => BlocProvider<ReportsCubit>.value(
+          value: cubit,
+          child: screen!,
+        ),
+      ),
     );
   }
 
   void _openStaffReportForm(BuildContext context, String name) {
     final reports = context.read<ReportsCubit>().state;
+    final cubit = context.read<ReportsCubit>();
     Widget? screen;
     switch (name) {
       case 'Attendance Per Staff':
@@ -114,11 +121,17 @@ class _ReportsScreenState extends State<ReportsScreen>
     }
 
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => screen!),
+      MaterialPageRoute<void>(
+        builder: (_) => BlocProvider<ReportsCubit>.value(
+          value: cubit,
+          child: screen!,
+        ),
+      ),
     );
   }
 
   void _openComplianceReportForm(BuildContext context, String name) {
+    final cubit = context.read<ReportsCubit>();
     Widget? screen;
     switch (name) {
       case 'Annual State Immunization Report':
@@ -134,12 +147,18 @@ class _ReportsScreenState extends State<ReportsScreen>
     }
 
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => screen!),
+      MaterialPageRoute<void>(
+        builder: (_) => BlocProvider<ReportsCubit>.value(
+          value: cubit,
+          child: screen!,
+        ),
+      ),
     );
   }
 
   void _openBillingReportForm(BuildContext context, String name) {
     final reports = context.read<ReportsCubit>().state;
+    final cubit = context.read<ReportsCubit>();
     Widget? screen;
     switch (name) {
       case 'Transaction Report':
@@ -156,7 +175,12 @@ class _ReportsScreenState extends State<ReportsScreen>
     }
 
     Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => screen!),
+      MaterialPageRoute<void>(
+        builder: (_) => BlocProvider<ReportsCubit>.value(
+          value: cubit,
+          child: screen!,
+        ),
+      ),
     );
   }
 

@@ -42,6 +42,21 @@ class ApiConstantsUat {
   static String qrCodeValidateEndpoint(String schoolCode) =>
       '$attendanceBaseUrl/schools/$schoolCode/attendance-settings/qr-code/validate';
 
+  /// Builds the full QR code active endpoint URL for a given school (UAT).
+  ///
+  /// UAT gateway routes through the attendance microservice segment, so the
+  /// path starts directly from `/schools/` after the attendance base:
+  /// `$host/api/v1/attendance/schools/{code}/attendance-settings/qr-code/active`
+  static String qrCodeActiveEndpoint(String schoolCode) =>
+      '$attendanceBaseUrl/schools/$schoolCode/attendance-settings/qr-code/active';
+
+  /// Kiosk PIN verification endpoint for UAT.
+  ///
+  /// UAT gateway routes through the attendance microservice segment:
+  /// `$host/api/v1/attendance/kiosk/verify-pin`
+  static const String kioskVerifyPinEndpoint =
+      '$attendanceBaseUrl/kiosk/verify-pin';
+
   /// Activity APIs are on the shared UAT host.
   static const String activityBaseUrl = _host;
 

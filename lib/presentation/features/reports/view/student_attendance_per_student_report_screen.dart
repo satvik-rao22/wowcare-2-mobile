@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/core_utils.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -43,11 +46,15 @@ class _StudentAttendancePerStudentReportScreenState
   }
 
   void _onGenerate() {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Attendance per Student report…',
-      isSuccess: true,
+    final cubit = context.read<ReportsCubit>();
+    final params = ReportRequestParams(
+      reportType: ReportType.studentAttendancePerStudent,
+      startDate: _periodDate,
+      endDate: _periodDate.add(Duration(days: _frequency == 'Daily' ? 0 : _frequency == 'Weekly' ? 6 : 30)),
+      studentCodes: _selectedStudent != null ? [_selectedStudent!] : null,
+      classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
     );
+    cubit.generateReport(params);
     Navigator.pop(context);
   }
 
@@ -62,10 +69,14 @@ class _StudentAttendancePerStudentReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Attendance per Student',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocSelector<ReportsCubit, ReportsState, bool>(
+      selector: (state) => state.isGenerating,
+      builder: (context, isGenerating) {
+        return ReportFormLayout(
+          title: 'Attendance per Student',
+          onGenerate: isGenerating ? null : _onGenerate,
+          isLoading: isGenerating,
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -126,7 +137,9 @@ class _StudentAttendancePerStudentReportScreenState
             text: 'Note: All Classrooms will be selected by Default.',
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

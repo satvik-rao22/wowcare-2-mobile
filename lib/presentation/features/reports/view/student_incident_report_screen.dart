@@ -35,20 +35,12 @@ class _StudentIncidentReportScreenState
   }
 
   void _onGenerate() {
-    if (_endDate.isBefore(_startDate)) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'End date cannot be before Start date',
-        isError: true,
-      );
-      return;
-    }
+    const message = 'School Incident Report is currently unavailable because backend support is not implemented.';
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Generating School Incident Report…',
-      isSuccess: true,
+      message: message,
+      isError: true,
     );
-    Navigator.pop(context);
   }
 
   @override
@@ -57,7 +49,7 @@ class _StudentIncidentReportScreenState
 
     return ReportFormLayout(
       title: 'School Incident Report',
-      onGenerate: _onGenerate,
+      onGenerate: _onGenerate,  // Disabled in _onGenerate; shows unavailable message
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

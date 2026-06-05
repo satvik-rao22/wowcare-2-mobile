@@ -10,6 +10,12 @@ bool roleStringIsGuardianPersona(String role) {
       u.contains('PARENT');
 }
 
+/// True for kiosk personas (not staff/teachers/guardians).
+bool roleStringIsKioskPersona(String role) {
+  final u = role.toUpperCase().trim();
+  return u == 'KIOSK';
+}
+
 /// True when [rolesJson] is the login roles payload and includes a parent/guardian role.
 ///
 /// Handles the common `[{"role":"GUARDIAN",...}]` shape (not matched by naive
@@ -67,8 +73,10 @@ Iterable<Map<String, String>> matchingRolesForOrgSchool(
 
 /// Whether to skip `GET /staff/code` for this org/school context.
 ///
-/// When every role tied to the context is guardian/parent-only, the user has
-/// no staff record and the staff lookup returns 404.
+/// When every role tied to the context is guardian/parent-only OR kiosk-only,
+/// the user has no staff record and the staff lookup returns 404.
+/// Kiosk users are specifically excluded from staff code resolution because
+/// they are not mapped in the staff system — they authenticate via PIN.
 bool shouldSkipStaffCodeResolutionForContext({
   required String rolesJson,
   required String organizationCode,
@@ -82,6 +90,14 @@ bool shouldSkipStaffCodeResolutionForContext({
         matchingRolesForOrgSchool(decoded, organizationCode, schoolCode)
             .toList();
     if (matching.isEmpty) return false;
+
+    // Check if any role is kiosk — if so, skip staff code resolution entirely
+    final hasKiosk = matching.any(
+      (m) => roleStringIsKioskPersona(m['role'] ?? ''),
+    );
+    if (hasKiosk) return true;
+
+    // If no kiosk role, skip only if all roles are guardian/parent
     final hasNonGuardian = matching.any(
       (m) => !roleStringIsGuardianPersona(m['role'] ?? ''),
     );

@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 
 class StudentEmergencyContactReportScreen extends StatefulWidget {
@@ -29,21 +34,39 @@ class _StudentEmergencyContactReportScreenState
     super.dispose();
   }
 
+  bool get _isFormValid => _selectedClassrooms.value.isNotEmpty;
+
   void _onGenerate() {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Student Emergency Contact List…',
-      isSuccess: true,
+    if (!_isFormValid) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one classroom',
+        isError: true,
+      );
+      return;
+    }
+
+    final cubit = context.read<ReportsCubit>();
+    final params = ReportRequestParams(
+      reportType: ReportType.emergencyContacts,
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+      classroomCodes: _selectedClassrooms.value,
     );
+    cubit.generateReport(params);
     Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ReportFormLayout(
-      title: 'Student Emergency Contact List',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocSelector<ReportsCubit, ReportsState, bool>(
+      selector: (state) => state.isGenerating,
+      builder: (context, isGenerating) {
+        return ReportFormLayout(
+          title: 'Student Emergency Contact List',
+          onGenerate: (_isFormValid && !isGenerating) ? _onGenerate : null,
+          isLoading: isGenerating,
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ValueListenableBuilder<List<String>>(
@@ -60,7 +83,9 @@ class _StudentEmergencyContactReportScreenState
             text: 'Note: All Classrooms will be selected by Default.',
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }
