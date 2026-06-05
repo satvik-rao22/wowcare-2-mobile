@@ -80,6 +80,24 @@ class ApiConstants {
       ? ApiConstantsUat.qrCodeValidateEndpoint(schoolCode)
       : '$attendanceBaseUrl/api/v1/schools/$schoolCode/attendance-settings/qr-code/validate';
 
+  /// Builds the full QR code active endpoint URL for [schoolCode].
+  ///
+  /// UAT and local devtunnel have different path structures:
+  /// - UAT: `{host}/api/v1/attendance/schools/{code}/attendance-settings/qr-code/active`
+  /// - Local: `{attendance-base}/api/v1/schools/{code}/attendance-settings/qr-code/active`
+  static String qrCodeActiveEndpoint(String schoolCode) => isUat
+      ? ApiConstantsUat.qrCodeActiveEndpoint(schoolCode)
+      : '$attendanceBaseUrl/api/v1/schools/$schoolCode/attendance-settings/qr-code/active';
+
+  /// Builds the full kiosk PIN verification endpoint.
+  ///
+  /// UAT and local devtunnel have different path structures:
+  /// - UAT: `{host}/api/v1/attendance/kiosk/verify-pin`
+  /// - Local: `{attendance-base}/api/v1/kiosk/verify-pin`
+  static String get kioskVerifyPinEndpoint => isUat
+      ? ApiConstantsUat.kioskVerifyPinEndpoint
+      : '$attendanceBaseUrl/api/v1/kiosk/verify-pin';
+
   /// Activity base (LOCAL devtunnel) or UAT base host.
   static String get activityBaseUrl => isUat
       ? ApiConstantsUat.activityBaseUrl

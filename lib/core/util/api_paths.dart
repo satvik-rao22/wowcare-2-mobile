@@ -15,6 +15,7 @@ import 'api_paths_uat.dart';
 //
 //   // Users
 //   static const String userRoot = '/api/v1/users';
+
 //   static String userEmailChange(String userCode) =>
 //       '$userRoot/$userCode/email-change';
 //
@@ -596,12 +597,13 @@ class ApiPaths {
   /// `GET /api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms`
   static const String staffAttendanceExpectedSummaryCardByClassrooms =
       '/api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms';
-  
+
   static String schoolCapacityAge(String schoolCode) =>
       '/api/v1/organization/schools/$schoolCode/capacity-age';
 
   static const String classroomCount = '/api/v1/classroom/classroom/count';
-  static const String classroomSchoolFte = '/api/v1/classroom/classroom/school-fte';
+  static const String classroomSchoolFte =
+      '/api/v1/classroom/classroom/school-fte';
   static String classroomByCode(String code) => '/api/v1/classroom/$code';
   static const String classroomLogoAssetCodes =
       '/api/v1/classroom/classroom-logo/asset-codes';
@@ -728,7 +730,8 @@ class ApiPaths {
       '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
 
   // —— Notification service (FCM + delivery logs) ——
-  static const String notificationFcmRegister = '/api/v1/notification/fcm/register';
+  static const String notificationFcmRegister =
+      '/api/v1/notification/fcm/register';
   static String notificationFcmToken(String fcmToken) =>
       '/api/v1/notification/fcm/token/${Uri.encodeComponent(fcmToken.trim())}';
   static String notificationFcmUser(String userCode) =>

@@ -10,11 +10,13 @@ class StaffFormLayout extends StatelessWidget {
     required this.title,
     required this.child,
     required this.bottomBar,
+    this.isKiosk = false,
   });
 
   final String title;
   final Widget child;
   final Widget bottomBar;
+  final bool isKiosk;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +24,7 @@ class StaffFormLayout extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: const CustomAppBar(hasBackButton: true),
+      appBar: CustomAppBar(hasBackButton: true, isKiosk: isKiosk),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),

@@ -17,6 +17,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) async {
     // Call sign-in API directly with verified kiosk staffCode
     // Do NOT call dashboard attendance APIs (staff lookup, form listing, status checks)
@@ -26,6 +27,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
       latitude: latitude,
       longitude: longitude,
       withinGeofence: withinGeofence,
+      pin: pin,
     );
 
     // Convert model to entity and return
@@ -40,6 +42,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) async {
     // Call sign-out API directly with verified kiosk staffCode
     // Do NOT call dashboard attendance APIs
@@ -49,20 +52,11 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
       latitude: latitude,
       longitude: longitude,
       withinGeofence: withinGeofence,
+      pin: pin,
     );
 
     // Convert model to entity and return
     // No additional API calls needed
-    return model.toEntity();
-  }
-
-  @override
-  Future<KioskAttendanceStatusEntity> getStaffAttendanceStatus({
-    required List<String> staffCodes,
-  }) async {
-    final model = await _remoteDataSource.getStaffAttendanceStatus(
-      staffCodes: staffCodes,
-    );
     return model.toEntity();
   }
 
@@ -74,6 +68,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) async {
     final models = await _remoteDataSource.signInStudents(
       studentCodes: studentCodes,
@@ -82,6 +77,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
       latitude: latitude,
       longitude: longitude,
       withinGeofence: withinGeofence,
+      pin: pin,
     );
     return models.map((m) => m.toEntity()).toList();
   }
@@ -94,6 +90,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) async {
     final models = await _remoteDataSource.signOutStudents(
       studentCodes: studentCodes,
@@ -102,6 +99,7 @@ class KioskAttendanceRepositoryImpl implements KioskAttendanceRepository {
       latitude: latitude,
       longitude: longitude,
       withinGeofence: withinGeofence,
+      pin: pin,
     );
     return models.map((m) => m.toEntity()).toList();
   }

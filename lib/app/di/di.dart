@@ -78,6 +78,13 @@ import '../../presentation/features/billing/cubit/parent_billing_cubit.dart';
 import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
 import '../../presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
 import '../../presentation/features/reports/cubit/reports_cubit.dart';
+import '../../data/features/reports/datasources/reports_remote_datasource.dart';
+import '../../data/features/reports/datasources/reports_remote_datasource_impl.dart';
+import '../../data/features/reports/repositories/reports_repository_impl.dart';
+import '../../domain/features/reports/repositories/reports_repository.dart';
+import '../../domain/features/reports/usecases/generate_report_usecase.dart';
+import '../../domain/features/reports/usecases/get_recent_reports_usecase.dart';
+import '../../domain/features/reports/usecases/get_student_tags_usecase.dart';
 import '../../presentation/features/user-profile/view_model/edit_user_profile_cubit.dart';
 import '../../presentation/features/user-profile/view_model/user_profile_cubit.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
@@ -124,6 +131,7 @@ import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
 import '../../domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
 import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
+import '../../presentation/features/kiosk/utils/kiosk_access_control.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
 import '../../presentation/features/scheduling/cubit/edit_shift_cubit.dart';
@@ -314,6 +322,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(serviceLocator()),
+  );
+  // Kiosk Access Control - must be registered early since other cubits depend on it
+  serviceLocator.registerLazySingleton<KioskAccessControl>(
+    () => KioskAccessControl(serviceLocator<StorageService>()),
   );
   // Biometric-gated secure store for the "Remember me" password (Keychain /
   // EncryptedSharedPreferences) — never the plaintext SharedPreferences.
@@ -512,10 +524,40 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ParentBillingCubit>(
     () => ParentBillingCubit(),
   );
+
+  // Reports - Data Layer
+  serviceLocator.registerLazySingleton<ReportsRemoteDataSource>(
+    () => ReportsRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
+  serviceLocator.registerLazySingleton<ReportsRepository>(
+    () => ReportsRepositoryImpl(
+      serviceLocator<ReportsRemoteDataSource>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+
+  // Reports - Domain Layer (Use Cases)
+  serviceLocator.registerFactory<GenerateReportUseCase>(
+    () => GenerateReportUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<GetRecentReportsUseCase>(
+    () => GetRecentReportsUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<GetStudentTagsUseCase>(
+    () => GetStudentTagsUseCase(serviceLocator()),
+  );
+
+  // Reports - Presentation Layer (Cubit)
   serviceLocator.registerFactory<ReportsCubit>(
     () => ReportsCubit(
       storageService: serviceLocator(),
       getTagNamesForSchoolUseCase: serviceLocator(),
+      generateReportUseCase: serviceLocator(),
+      getRecentReportsUseCase: serviceLocator(),
+      getStudentTagsUseCase: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<EditUserProfileCubit>(

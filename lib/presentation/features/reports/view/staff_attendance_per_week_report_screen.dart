@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -43,11 +47,15 @@ class _StaffAttendancePerWeekReportScreenState
   }
 
   void _onGenerate() {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Attendance Per Staff report…',
-      isSuccess: true,
+    final cubit = context.read<ReportsCubit>();
+    final params = ReportRequestParams(
+      reportType: ReportType.staffAttendancePerStaff,
+      startDate: _periodMonth,
+      endDate: _periodMonth.add(const Duration(days: 30)),
+      staffCodes: _selectedStaff != null ? [_selectedStaff!] : null,
+      classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
     );
+    cubit.generateReport(params);
     Navigator.pop(context);
   }
 
@@ -62,10 +70,14 @@ class _StaffAttendancePerWeekReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Attendance Per Staff',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocSelector<ReportsCubit, ReportsState, bool>(
+      selector: (state) => state.isGenerating,
+      builder: (context, isGenerating) {
+        return ReportFormLayout(
+          title: 'Attendance Per Staff',
+          onGenerate: isGenerating ? null : _onGenerate,
+          isLoading: isGenerating,
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -126,7 +138,9 @@ class _StaffAttendancePerWeekReportScreenState
             text: 'Note: All Classrooms will be selected by Default.',
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

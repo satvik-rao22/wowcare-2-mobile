@@ -34,6 +34,9 @@ class StudentSelectionSignOutForm extends StatefulWidget {
     this.qrToken = '',
     this.preSelectedStudentCode,
     this.allowedStudentCodes,
+    this.isKiosk = false,
+    this.guardianCode,
+    this.pin,
   });
 
   final bool isQrScan;
@@ -44,6 +47,15 @@ class StudentSelectionSignOutForm extends StatefulWidget {
 
   /// List of student codes that are allowed to be shown/selected.
   final List<String>? allowedStudentCodes;
+
+  /// True when called from kiosk flow (guardian persona).
+  final bool isKiosk;
+
+  /// Guardian code from kiosk PIN verification.
+  final String? guardianCode;
+
+  /// PIN from kiosk access. Passed to StudentSignOutForm for API payload.
+  final String? pin;
 
   @override
   State<StudentSelectionSignOutForm> createState() =>
@@ -353,6 +365,9 @@ class _StudentSelectionSignOutFormState
           students: selectedStudents.toList(),
           isQrScan: widget.isQrScan,
           qrToken: widget.qrToken,
+          isKiosk: widget.isKiosk,
+          guardianCode: widget.guardianCode,
+          pin: widget.pin,
         ),
       ),
     );
@@ -365,6 +380,7 @@ class _StudentSelectionSignOutFormState
     final safeAreaBottom = mediaQuery.padding.bottom;
 
     return StaffFormLayout(
+      isKiosk: widget.isKiosk,
       title: 'Sign-Out',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

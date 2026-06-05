@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 
 /// Kiosk dashboard screen - full-screen tablet UI for school entrance kiosk.
 /// Displays live QR code and PIN entry pad for attendance marking.
@@ -24,7 +26,6 @@ class KioskDashboardScreen extends StatefulWidget {
 class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   String pin = '';
   final int maxPinLength = 4;
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -112,7 +113,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
                     padding: EdgeInsets.only(left: 16.0),
                     child: CircleAvatar(
                       radius: 20,
-                      backgroundImage: AssetImage('assets/images/WowCarePNG.png'),
+                      backgroundImage: AssetImage(
+                        'assets/images/WowCarePNG.png',
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -127,11 +130,18 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(Icons.exit_to_app, color: AppColors.primaryColor),
-                    onPressed: () {
+                    icon: const Icon(
+                      Icons.exit_to_app,
+                      color: AppColors.primaryColor,
+                    ),
+                    onPressed: () async {
                       AppLogger.d('[Kiosk] Logout button pressed');
-                      // Logout and redirect to sign-in
-                      GoRouter.of(context).go('/sign-in');
+                      // Deactivate kiosk mode before navigating
+                      await serviceLocator<KioskAccessControl>()
+                          .deactivateKioskMode();
+                      if (mounted) {
+                        GoRouter.of(context).go('/sign-in');
+                      }
                     },
                   ),
                 ],
@@ -139,10 +149,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
             ),
           ),
         ),
-        bottomSheet: Container(
-          color: AppColors.themeColor,
-          height: 1,
-        ),
+        bottomSheet: Container(color: AppColors.themeColor, height: 1),
         body: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
           builder: (context, state) {
             return Container(
@@ -192,7 +199,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
         const SizedBox(height: 30),
         _buildKeypad(),
         const SizedBox(height: 30),
-        _buildActionButtons(),
+        _buildActionButtons(state),
       ],
     );
   }
@@ -221,7 +228,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
               const SizedBox(height: 30),
               _buildKeypad(),
               const SizedBox(height: 30),
-              _buildActionButtons(),
+              _buildActionButtons(state),
             ],
           ),
         ),
@@ -308,6 +315,45 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
       );
     }
 
+    // PinValidating state: Keep QR visible while validating PIN
+    if (state is KioskDashboardPinValidating) {
+      if (state.qrCode != null && state.schoolName != null) {
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              state.schoolName!,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primaryColor,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Scan the QR Code',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 250,
+              width: 250,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border.all(color: Colors.black, width: 2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.all(12),
+              child: _buildQrImage(state.qrCode!.qrPayload),
+            ),
+          ],
+        );
+      }
+      return const SizedBox.shrink();
+    }
+
     return const SizedBox.shrink();
   }
 
@@ -319,7 +365,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
         return _buildQrUnavailable('QR Code data is empty');
       }
 
-      AppLogger.d('[Kiosk] Rendering QR code from payload: ${qrPayload.length} chars');
+      AppLogger.d(
+        '[Kiosk] Rendering QR code from payload: ${qrPayload.length} chars',
+      );
 
       // Use qr_flutter to generate QR code from the payload string
       return QrImageView(
@@ -472,7 +520,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     );
   }
 
-  Widget _buildActionButtons() {
+  Widget _buildActionButtons(KioskDashboardState state) {
+    final isValidating = state is KioskDashboardPinValidating;
+
     return Row(
       children: [
         Expanded(
@@ -484,7 +534,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
             ),
             padding: const EdgeInsets.all(1),
             child: TextButton(
-              onPressed: () {
+              onPressed: isValidating ? null : () {
                 _resetPin();
                 CoreUtils.showTopSnackBar(
                   context: context,
@@ -531,10 +581,10 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed: () {
+              onPressed: isValidating ? null : () {
                 _validateKioskPin();
               },
-              child: _isLoading
+              child: isValidating
                   ? const SizedBox(
                       height: 20,
                       width: 20,
@@ -560,27 +610,32 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   }
 
   void _handlePinSuccess(BuildContext context, KioskPinResultEntity result) {
-    _resetPin();
+    final currentPin = pin; // Save pin before reset
 
     AppLogger.d(
       '[Kiosk] PIN verification success: persona=${result.persona}, '
-      'isStaff=${result.isStaff}, isGuardian=${result.isGuardian}',
+      'isStaff=${result.isStaff}, isGuardian=${result.isGuardian}, pin=$currentPin (length=${currentPin.length})',
     );
 
     if (result.isStaff) {
       AppLogger.d('[Kiosk] Routing to staff attendance flow');
-      _routeStaffAttendance(context, result);
+      _routeStaffAttendance(context, result, currentPin);
     } else if (result.isGuardian) {
       AppLogger.d('[Kiosk] Routing to guardian/student attendance flow');
-      _routeGuardianStudentAttendance(context, result);
+      _routeGuardianStudentAttendance(context, result, currentPin);
     }
+
+    _resetPin();
   }
 
-  void _routeStaffAttendance(BuildContext context, KioskPinResultEntity result) {
+  void _routeStaffAttendance(
+    BuildContext context,
+    KioskPinResultEntity result,
+    String currentPin,
+  ) {
     final staffCode = result.staffCode ?? '';
-    final staffName = result.staffName ?? 'Staff';
 
-    AppLogger.d('[Kiosk] _routeStaffAttendance: staffCode=$staffCode, staffName=$staffName');
+    AppLogger.d('[KIOSK] Persona=STAFF, StaffCode=$staffCode');
 
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -591,21 +646,27 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
       return;
     }
 
-    // Route to unified kiosk staff sign-in/out form
-    AppLogger.d('[Kiosk] NavigatingTo=/kiosk/staff-sign');
-    GoRouter.of(context).go('/kiosk/staff-sign', extra: {
-      'staffCode': staffCode,
-      'staffName': staffName,
-      'staffStatus': result.staffStatus,
-      'classroomCode': result.classroomCode,
-      'classroomName': result.classroomName,
-      'designation': result.designation,
-    });
+    AppLogger.d(
+      '[KIOSK] Persona=STAFF, StaffCode=$staffCode, StaffName=${result.staffName}, Routing to /dashboard/staff-sign-in-form, PinIncluded=${currentPin.isNotEmpty}',
+    );
+
+    GoRouter.of(context).go(
+      '/dashboard/staff-sign-in-form',
+      extra: {
+        'isKiosk': true,
+        'staffCode': staffCode,
+        'staffName': result.staffName ?? 'Unknown Staff',
+        'classroomName': result.classroomName ?? 'No Classroom',
+        'designation': result.designation ?? 'Staff',
+        'pin': currentPin,
+      },
+    );
   }
 
   void _routeGuardianStudentAttendance(
     BuildContext context,
     KioskPinResultEntity result,
+    String currentPin,
   ) {
     final signedIn = result.signedInStudents;
     final signedOut = result.signedOutStudents;
@@ -638,59 +699,88 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     // Route based on sign-in/out status
     if (signedIn.isNotEmpty && signedOut.isNotEmpty) {
       // Mixed status — show sign-in/out selection
-      AppLogger.d('[Kiosk] CallingStudentSignInOutApi=true, route=/kiosk/student-sign-in-out');
-      GoRouter.of(context).go('/kiosk/student-sign-in-out', extra: {
-        'guardianCode': guardianCode,
-        'guardianName': guardianName,
-        'signedInStudents': signedIn
-            .map((s) => {
-              'studentCode': s.studentCode,
-              'fullName': s.fullName,
-              'classroomCode': s.classroomCode,
-              'classroomName': s.classroomName,
-              'status': s.status,
-            })
-            .toList(),
-        'signedOutStudents': signedOut
-            .map((s) => {
-              'studentCode': s.studentCode,
-              'fullName': s.fullName,
-              'classroomCode': s.classroomCode,
-              'classroomName': s.classroomName,
-              'status': s.status,
-            })
-            .toList(),
-      });
+      AppLogger.d(
+        '[KIOSK] Persona=GUARDIAN, NavigatingTo=/kiosk/student-sign-in-out, guardianCode=$guardianCode, pin=${currentPin.isNotEmpty}',
+      );
+      GoRouter.of(context).go(
+        '/kiosk/staff-sign-out-form',
+        extra: {
+          'isKiosk': true,
+          'guardianCode': guardianCode,
+          'guardianName': guardianName,
+          'signedInStudents': signedIn
+              .map(
+                (s) => {
+                  'studentCode': s.studentCode,
+                  'fullName': s.fullName,
+                  'classroomCode': s.classroomCode,
+                  'classroomName': s.classroomName,
+                  'status': s.status,
+                },
+              )
+              .toList(),
+          'signedOutStudents': signedOut
+              .map(
+                (s) => {
+                  'studentCode': s.studentCode,
+                  'fullName': s.fullName,
+                  'classroomCode': s.classroomCode,
+                  'classroomName': s.classroomName,
+                  'status': s.status,
+                },
+              )
+              .toList(),
+          'pin': currentPin,
+        },
+      );
     } else if (signedOut.isNotEmpty) {
       // Only signed-out students — go to sign-in
-      AppLogger.d('[Kiosk] CallingStudentSignInApi=true, route=/kiosk/student-sign-in');
-      GoRouter.of(context).go('/kiosk/student-sign-in', extra: {
-        'guardianCode': guardianCode,
-        'guardianName': guardianName,
-        'students': signedOut
-            .map((s) => {
-              'studentCode': s.studentCode,
-              'fullName': s.fullName,
-              'classroomCode': s.classroomCode,
-              'classroomName': s.classroomName,
-            })
-            .toList(),
-      });
+      AppLogger.d(
+        '[Kiosk] CallingStudentSignInApi=true, route=/kiosk/student-sign-in, currentPin=$currentPin (length=${currentPin.length})',
+      );
+      GoRouter.of(context).go(
+        '/kiosk/student-sign-in',
+        extra: {
+          'isKiosk': true,
+          'guardianCode': guardianCode,
+          'guardianName': guardianName,
+          'students': signedOut
+              .map(
+                (s) => {
+                  'studentCode': s.studentCode,
+                  'fullName': s.fullName,
+                  'classroomCode': s.classroomCode,
+                  'classroomName': s.classroomName,
+                },
+              )
+              .toList(),
+          'pin': currentPin,
+        },
+      );
     } else if (signedIn.isNotEmpty) {
       // Only signed-in students — go to sign-out
-      AppLogger.d('[Kiosk] CallingStudentSignOutApi=true, route=/kiosk/student-sign-out');
-      GoRouter.of(context).go('/kiosk/student-sign-out', extra: {
-        'guardianCode': guardianCode,
-        'guardianName': guardianName,
-        'students': signedIn
-            .map((s) => {
-              'studentCode': s.studentCode,
-              'fullName': s.fullName,
-              'classroomCode': s.classroomCode,
-              'classroomName': s.classroomName,
-            })
-            .toList(),
-      });
+      AppLogger.d(
+        '[Kiosk] CallingStudentSignOutApi=true, route=/kiosk/student-sign-out',
+      );
+      GoRouter.of(context).go(
+        '/kiosk/student-sign-out',
+        extra: {
+          'isKiosk': true,
+          'guardianCode': guardianCode,
+          'guardianName': guardianName,
+          'students': signedIn
+              .map(
+                (s) => {
+                  'studentCode': s.studentCode,
+                  'fullName': s.fullName,
+                  'classroomCode': s.classroomCode,
+                  'classroomName': s.classroomName,
+                },
+              )
+              .toList(),
+          'pin': currentPin,
+        },
+      );
     }
   }
 }

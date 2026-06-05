@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -51,11 +55,18 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
       );
       return;
     }
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Absent Report…',
-      isSuccess: true,
+
+    final cubit = context.read<ReportsCubit>();
+    final params = ReportRequestParams(
+      reportType: ReportType.studentAbsent,
+      startDate: _fromDate.value,
+      endDate: _toDate.value,
+      classroomCodes: _selectedClassrooms.value.isEmpty
+          ? null
+          : _selectedClassrooms.value,
     );
+
+    cubit.generateReport(params);
     Navigator.pop(context);
   }
 

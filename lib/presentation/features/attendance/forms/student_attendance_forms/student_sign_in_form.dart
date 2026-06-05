@@ -20,6 +20,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
@@ -77,6 +78,9 @@ class StudentSignInForm extends StatefulWidget {
     this.popOnSuccess = false,
     this.isQrScan = false,
     this.qrToken = '',
+    this.isKiosk = false,
+    this.guardianCode,
+    this.pin,
   });
 
   final VoidCallback refreshCallback;
@@ -94,6 +98,17 @@ class StudentSignInForm extends StatefulWidget {
   /// QR token from the scanned code (only set when isQrScan=true).
   /// Included in the API payload when method=QR.
   final String qrToken;
+
+  /// True when called from kiosk flow (guardian persona).
+  /// When true, skips staff code resolution.
+  final bool isKiosk;
+
+  /// Guardian code from kiosk PIN verification.
+  /// Only set when isKiosk=true.
+  final String? guardianCode;
+
+  /// PIN from kiosk access. Included in API payload for kiosk sign-in.
+  final String? pin;
 
   static const String routeName = '/student-sign-in-form';
 
@@ -605,25 +620,37 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         );
         return;
       }
-      final staffCode = await _resolveStaffCode();
-      if (!mounted) return;
-      if (staffCode.isEmpty) {
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('Unable to resolve staffCode. Please re-login.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
+      // For kiosk flow (guardian), skip staff code resolution
+      if (!widget.isKiosk) {
+        final staffCode = await _resolveStaffCode();
+        if (!mounted) return;
+        if (staffCode.isEmpty) {
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: const SnackBar(
+              content: Text('Unable to resolve staffCode. Please re-login.'),
+              backgroundColor: AppColors.warningColor,
+            ),
+          );
+          return;
+        }
+        payload.addAll(<String, dynamic>{
+          'attendanceDate': attendanceDate,
+          'staffCode': staffCode,
+          'classroomCode': defaultClassroomCode,
+          'classroomCodeByStudentCode': classroomCodeByStudentCode,
+          'occurredAt': occurredAt.toUtc().toIso8601String(),
+        });
+      } else {
+        // KIOSK MODE: Use guardian code directly, no staff code needed
+        AppLogger.d('[KIOSK] Building kiosk payload: pin=${widget.pin}, guardianCode=${widget.guardianCode}');
+        payload['method'] = 'KIOSK';
+        payload.addAll(<String, dynamic>{
+          'guardianCode': widget.guardianCode,
+          'pin': widget.pin,
+          'isExpected': true,
+        });
       }
-      payload.addAll(<String, dynamic>{
-        'attendanceDate': attendanceDate,
-        'staffCode': staffCode,
-        'classroomCode': defaultClassroomCode,
-        'classroomCodeByStudentCode': classroomCodeByStudentCode,
-        'occurredAt': occurredAt.toUtc().toIso8601String(),
-      });
     }
 
     setState(() {
@@ -744,6 +771,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
     return StaffFormLayout(
       title: 'Sign-In',
+      isKiosk: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

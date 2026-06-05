@@ -13,6 +13,7 @@ abstract class KioskAttendanceRemoteDataSource {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   });
 
   Future<KioskStaffAttendanceModel> signOutStaff({
@@ -21,10 +22,7 @@ abstract class KioskAttendanceRemoteDataSource {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
-  });
-
-  Future<KioskAttendanceStatusModel> getStaffAttendanceStatus({
-    required List<String> staffCodes,
+    String? pin,
   });
 
   Future<List<KioskStudentAttendanceModel>> signInStudents({
@@ -34,6 +32,7 @@ abstract class KioskAttendanceRemoteDataSource {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   });
 
   Future<List<KioskStudentAttendanceModel>> signOutStudents({
@@ -43,6 +42,7 @@ abstract class KioskAttendanceRemoteDataSource {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   });
 }
 
@@ -60,25 +60,25 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) async {
     try {
       AppLogger.d(
-        '[Kiosk] STEP 1: Calling sign-in API: staffCode=$staffCode',
+        '[KIOSK] CallingStaffSignInApi=true, staffCode=$staffCode, Method=KIOSK, PinIncluded=${pin?.isNotEmpty ?? false}',
       );
 
       final payload = {
         'staffCode': staffCode,
         'method': 'KIOSK',
+        if (pin != null) 'pin': pin,
         'latitude': latitude,
         'longitude': longitude,
         'withinGeofence': withinGeofence,
         'timeZone': timeZone,
-        'occurredAt': DateTime.now().toIso8601String(),
-        'isExpectedToday': true,
       };
 
       final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/staff-attendance-records/sign-in/self',
+        '${ApiConstants.attendanceBaseUrl}/api/v1/attendance/staff-attendance-records/sign-in',
         data: payload,
       );
 
@@ -86,12 +86,18 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
         throw Exception('Failed to sign in: ${response.statusCode}');
       }
 
-      final data = response.data?['data'] as Map<String, dynamic>? ?? {};
-      AppLogger.d('[Kiosk] STEP 1 SUCCESS: API response=$data');
+      final responseData = response.data as Map<String, dynamic>;
+      final data = responseData['data'] is List
+          ? (responseData['data'] as List).isNotEmpty
+              ? (responseData['data'] as List)[0] as Map<String, dynamic>
+              : <String, dynamic>{}
+          : responseData['data'] as Map<String, dynamic>? ?? {};
+
+      AppLogger.d('[KIOSK] AttendanceSuccess=true, staffCode=$staffCode');
 
       return KioskStaffAttendanceModel.fromJson(data);
     } catch (e) {
-      AppLogger.e('[Kiosk] STEP 1 FAILED: $e');
+      AppLogger.e('[KIOSK] AttendanceSuccess=false, error=$e');
       rethrow;
     }
   }
@@ -103,25 +109,25 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) async {
     try {
       AppLogger.d(
-        '[Kiosk] STEP 1: Calling sign-out API: staffCode=$staffCode',
+        '[KIOSK] CallingStaffSignOutApi=true, staffCode=$staffCode, Method=KIOSK, PinIncluded=${pin?.isNotEmpty ?? false}',
       );
 
       final payload = {
         'staffCode': staffCode,
         'method': 'KIOSK',
+        if (pin != null) 'pin': pin,
         'latitude': latitude,
         'longitude': longitude,
         'withinGeofence': withinGeofence,
         'timeZone': timeZone,
-        'occurredAt': DateTime.now().toIso8601String(),
-        'isExpectedToday': true,
       };
 
       final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/staff-attendance-records/sign-out',
+        '${ApiConstants.attendanceBaseUrl}/api/v1/attendance/staff-attendance-records/sign-out',
         data: payload,
       );
 
@@ -129,44 +135,18 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
         throw Exception('Failed to sign out: ${response.statusCode}');
       }
 
-      final data = response.data?['data'] as Map<String, dynamic>? ?? {};
-      AppLogger.d('[Kiosk] STEP 1 SUCCESS: API response=$data');
+      final responseData = response.data as Map<String, dynamic>;
+      final data = responseData['data'] is List
+          ? (responseData['data'] as List).isNotEmpty
+              ? (responseData['data'] as List)[0] as Map<String, dynamic>
+              : <String, dynamic>{}
+          : responseData['data'] as Map<String, dynamic>? ?? {};
+
+      AppLogger.d('[KIOSK] AttendanceSuccess=true, staffCode=$staffCode');
 
       return KioskStaffAttendanceModel.fromJson(data);
     } catch (e) {
-      AppLogger.e('[Kiosk] STEP 1 FAILED: $e');
-      rethrow;
-    }
-  }
-
-  @override
-  Future<KioskAttendanceStatusModel> getStaffAttendanceStatus({
-    required List<String> staffCodes,
-  }) async {
-    try {
-      AppLogger.d(
-        '[Kiosk] STEP 2: Calling status API: staffCodes=$staffCodes',
-      );
-
-      final payload = {
-        'staffCodes': staffCodes,
-        'allowedClassroomCodes': <String>[],
-      };
-
-      final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/staff-attendance/sign-in/status',
-        data: payload,
-      );
-
-      if (response.statusCode != 200 || response.data == null) {
-        throw Exception('Failed to get status: ${response.statusCode}');
-      }
-
-      AppLogger.d('[Kiosk] STEP 2 SUCCESS: API response=${response.data}');
-
-      return KioskAttendanceStatusModel.fromJson(response.data!);
-    } catch (e) {
-      AppLogger.e('[Kiosk] STEP 2 FAILED: $e');
+      AppLogger.e('[KIOSK] AttendanceSuccess=false, error=$e');
       rethrow;
     }
   }
@@ -179,16 +159,18 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) async {
     try {
       AppLogger.d(
-        '[Kiosk] Student sign-in: studentCodes=${studentCodes.length}, guardianCode=$guardianCode',
+        '[KIOSK] Student sign-in: studentCodes=${studentCodes.length}, guardianCode=$guardianCode, method=KIOSK, pinIncluded=${pin?.isNotEmpty ?? false}',
       );
 
       final payload = {
         'studentCodes': studentCodes,
         'guardianCode': guardianCode,
         'method': 'KIOSK',
+        if (pin != null) 'pin': pin,
         'latitude': latitude,
         'longitude': longitude,
         'withinGeofence': withinGeofence,
@@ -197,7 +179,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       };
 
       final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/student-attendance-records/parent-sign-in',
+        '${ApiConstants.attendanceBaseUrl}/student-attendance-records/sign-in',
         data: payload,
       );
 
@@ -225,16 +207,18 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) async {
     try {
       AppLogger.d(
-        '[Kiosk] Student sign-out: studentCodes=${studentCodes.length}, guardianCode=$guardianCode',
+        '[KIOSK] Student sign-out: studentCodes=${studentCodes.length}, guardianCode=$guardianCode, method=KIOSK, pinIncluded=${pin?.isNotEmpty ?? false}',
       );
 
       final payload = {
         'studentCodes': studentCodes,
         'guardianCode': guardianCode,
         'method': 'KIOSK',
+        if (pin != null) 'pin': pin,
         'latitude': latitude,
         'longitude': longitude,
         'withinGeofence': withinGeofence,
@@ -243,7 +227,7 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
       };
 
       final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/student-attendance-records/parent-sign-out',
+        '${ApiConstants.attendanceBaseUrl}/student-attendance-records/sign-out',
         data: payload,
       );
 

@@ -137,13 +137,16 @@ class _MyDayCardState extends State<MyDayCard> {
         continue;
 
       // Reject if EITHER start OR end time is completely unset (0:00)
-      final startTimeSet = ws.workStartTime.hour != 0 || ws.workStartTime.minute != 0;
+      final startTimeSet =
+          ws.workStartTime.hour != 0 || ws.workStartTime.minute != 0;
       final endTimeSet = ws.workEndTime.hour != 0 || ws.workEndTime.minute != 0;
 
       if (!startTimeSet || !endTimeSet) {
-        debugPrint('[MyDayCard._resolveWorkScheduleForDay] Skipping ${ws.dayOfWeek}: '
-            'start=${ws.workStartTime.hour}:${ws.workStartTime.minute}, '
-            'end=${ws.workEndTime.hour}:${ws.workEndTime.minute} (unset)');
+        debugPrint(
+          '[MyDayCard._resolveWorkScheduleForDay] Skipping ${ws.dayOfWeek}: '
+          'start=${ws.workStartTime.hour}:${ws.workStartTime.minute}, '
+          'end=${ws.workEndTime.hour}:${ws.workEndTime.minute} (unset)',
+        );
         continue;
       }
 
@@ -455,14 +458,17 @@ class _MyDayCardState extends State<MyDayCard> {
     final todayWeekday = now.weekday; // 1 = Monday, 7 = Sunday
     final todayDateKey = _getDayName(todayWeekday); // "Monday", "Tuesday", etc.
 
-    debugPrint('[MyDayCard] Computing countdown: '
-        'schoolTimezone=$schoolTimeZone, '
-        'currentSchoolTime=${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour}:${now.minute}, '
-        'today=$todayDateKey, '
-        'allScheduleCount=${allWorkSchedules.length}');
+    // debugPrint('[MyDayCard] Computing countdown: '
+    //     'schoolTimezone=$schoolTimeZone, '
+    //     'currentSchoolTime=${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour}:${now.minute}, '
+    //     'today=$todayDateKey, '
+    //     'allScheduleCount=${allWorkSchedules.length}');
 
     // Find today's staff schedule (ONLY from staff schedules, not school schedule)
-    final todaySchedule = _resolveWorkScheduleForDay(todayWeekday, allWorkSchedules);
+    final todaySchedule = _resolveWorkScheduleForDay(
+      todayWeekday,
+      allWorkSchedules,
+    );
 
     // ── Case 1: Today has a staff schedule ──────────────────────────────────────
     if (todaySchedule != null) {
@@ -470,14 +476,28 @@ class _MyDayCardState extends State<MyDayCard> {
       final endTime = todaySchedule.workEndTime;
 
       // Build today's schedule times using school timezone's date
-      final startDt = DateTime(now.year, now.month, now.day,
-          startTime.hour, startTime.minute, startTime.second);
-      final endDt = DateTime(now.year, now.month, now.day,
-          endTime.hour, endTime.minute, endTime.second);
+      final startDt = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        startTime.hour,
+        startTime.minute,
+        startTime.second,
+      );
+      final endDt = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        endTime.hour,
+        endTime.minute,
+        endTime.second,
+      );
 
-      debugPrint('[MyDayCard] Today ($todayDateKey) has staff schedule: '
-          '${startTime.hour}:${startTime.minute} - '
-          '${endTime.hour}:${endTime.minute}');
+      // debugPrint(
+      //   '[MyDayCard] Today ($todayDateKey) has staff schedule: '
+      //   '${startTime.hour}:${startTime.minute} - '
+      //   '${endTime.hour}:${endTime.minute}',
+      // );
 
       // If shift hasn't started yet
       if (now.isBefore(startDt)) {
@@ -489,7 +509,8 @@ class _MyDayCardState extends State<MyDayCard> {
           workEnd: _formatStaffTime(endTime),
           dayAbbr: _dayAbbr(todaySchedule.dayOfWeek),
           breakTime: _formatBreakDisplay(
-              _resolveBreakScheduleForDay(todayWeekday, allBreakSchedules)),
+            _resolveBreakScheduleForDay(todayWeekday, allBreakSchedules),
+          ),
           statusText: 'Your shift starts in',
         );
         return;
@@ -505,19 +526,29 @@ class _MyDayCardState extends State<MyDayCard> {
           workEnd: _formatStaffTime(endTime),
           dayAbbr: _dayAbbr(todaySchedule.dayOfWeek),
           breakTime: _formatBreakDisplay(
-              _resolveBreakScheduleForDay(todayWeekday, allBreakSchedules)),
+            _resolveBreakScheduleForDay(todayWeekday, allBreakSchedules),
+          ),
           statusText: 'Your shift ends in',
         );
         return;
       }
 
-      debugPrint('[MyDayCard] Today ($todayDateKey) schedule already passed. Finding next schedule...');
+      // debugPrint(
+      //   '[MyDayCard] Today ($todayDateKey) schedule already passed. Finding next schedule...',
+      // );
     } else {
-      debugPrint('[MyDayCard] Today ($todayDateKey) has no staff schedule. Finding next schedule...');
+      // debugPrint(
+      //   '[MyDayCard] Today ($todayDateKey) has no staff schedule. Finding next schedule...',
+      // );
     }
 
     // ── Case 2: Find nearest upcoming schedule (ONLY from staff schedules) ──────
-    _applyNextStaffShift(now, todayWeekday, allWorkSchedules, allBreakSchedules);
+    _applyNextStaffShift(
+      now,
+      todayWeekday,
+      allWorkSchedules,
+      allBreakSchedules,
+    );
   }
 
   /// Helper to set countdown state with all display values.
@@ -613,11 +644,19 @@ class _MyDayCardState extends State<MyDayCard> {
       if (schedule == null) continue;
 
       final startTime = schedule.workStartTime;
-      final startDt = DateTime(futureDate.year, futureDate.month, futureDate.day,
-          startTime.hour, startTime.minute, startTime.second);
+      final startDt = DateTime(
+        futureDate.year,
+        futureDate.month,
+        futureDate.day,
+        startTime.hour,
+        startTime.minute,
+        startTime.second,
+      );
 
-      debugPrint('[MyDayCard] Next schedule found: '
-          '${_getDayName(futureWeekday)} ${startTime.hour}:${startTime.minute}');
+      // debugPrint(
+      //   '[MyDayCard] Next schedule found: '
+      //   '${_getDayName(futureWeekday)} ${startTime.hour}:${startTime.minute}',
+      // );
 
       _setCountdownState(
         isTodayShift: false,

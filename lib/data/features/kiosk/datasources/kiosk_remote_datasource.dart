@@ -32,8 +32,7 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
 
   @override
   Future<KioskQrModel> getActiveQrCode({required String schoolCode}) async {
-    final url =
-        '${ApiConstants.attendanceBaseUrl}/schools/$schoolCode/attendance-settings/qr-code/active';
+    final url = ApiConstants.qrCodeActiveEndpoint(schoolCode);
 
     try {
       final response = await _client.get<Map<String, dynamic>>(
@@ -67,7 +66,7 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
     required String pin,
     required String schoolCode,
   }) async {
-    final url = '${ApiConstants.attendanceBaseUrl}/kiosk/verify-pin';
+    final url = ApiConstants.kioskVerifyPinEndpoint;
 
     try {
       final response = await _client.post<Map<String, dynamic>>(

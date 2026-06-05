@@ -20,6 +20,7 @@ class SignInStaffUseCase {
     required double latitude,
     required double longitude,
     required bool withinGeofence,
+    String? pin,
   }) {
     return _repository.signInStaff(
       staffCode: staffCode,
@@ -27,6 +28,7 @@ class SignInStaffUseCase {
       latitude: latitude,
       longitude: longitude,
       withinGeofence: withinGeofence,
+      pin: pin,
     );
   }
 }

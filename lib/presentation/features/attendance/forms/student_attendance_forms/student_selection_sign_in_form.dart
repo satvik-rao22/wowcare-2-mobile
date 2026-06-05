@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
@@ -34,6 +35,9 @@ class StudentSelectionSignInForm extends StatefulWidget {
     this.qrToken = '',
     this.preSelectedStudentCode,
     this.allowedStudentCodes,
+    this.isKiosk = false,
+    this.guardianCode,
+    this.pin,
   });
 
   /// True when opened after a QR code scan. Passed down to [StudentSignInForm]
@@ -49,6 +53,15 @@ class StudentSelectionSignInForm extends StatefulWidget {
 
   /// List of student codes that are allowed to be shown/selected.
   final List<String>? allowedStudentCodes;
+
+  /// True when called from kiosk flow (guardian persona).
+  final bool isKiosk;
+
+  /// Guardian code from kiosk PIN verification.
+  final String? guardianCode;
+
+  /// PIN from kiosk access. Passed to StudentSignInForm for API payload.
+  final String? pin;
 
   @override
   State<StudentSelectionSignInForm> createState() =>
@@ -94,6 +107,7 @@ class _StudentSelectionSignInFormState
   @override
   void initState() {
     super.initState();
+    AppLogger.d('[Kiosk] StudentSelectionSignInForm initState: pin=${widget.pin}, isKiosk=${widget.isKiosk}, guardianCode=${widget.guardianCode}');
     _restrictToGuardianChildren = context.read<RoleCubit>().isParent;
     _getStudentSignInFormListUseCase =
         serviceLocator<GetStudentSignInFormListUseCase>();
@@ -384,6 +398,9 @@ class _StudentSelectionSignInFormState
           refreshCallback: refreshCallback,
           isQrScan: widget.isQrScan,
           qrToken: widget.qrToken,
+          isKiosk: widget.isKiosk,
+          guardianCode: widget.guardianCode,
+          pin: widget.pin,
         ),
       ),
     );
@@ -396,6 +413,7 @@ class _StudentSelectionSignInFormState
     final safeAreaBottom = mediaQuery.padding.bottom;
 
     return StaffFormLayout(
+      isKiosk: widget.isKiosk,
       title: 'Sign-In',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
