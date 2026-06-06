@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../app/theme/colors.dart';
 
 /// Isolated QR code section with RepaintBoundary optimization.
 /// Prevents QR widget from rebuilding when parent state changes.
@@ -18,9 +21,7 @@ class KioskQrSectionWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return RepaintBoundary(
-      child: _buildQrSectionContent(context),
-    );
+    return RepaintBoundary(child: _buildQrSectionContent(context));
   }
 
   Widget _buildQrSectionContent(BuildContext context) {
@@ -45,17 +46,34 @@ class KioskQrSectionWidget extends StatelessWidget {
           pinValidatingState.qrCode!.qrPayload,
         );
       }
-      return const SizedBox.shrink();
+      // Show school name even if QR isn't ready yet
+      return _buildLoadingState();
     }
 
-    return const SizedBox.shrink();
+    // NEVER return SizedBox.shrink - always show QR area with loading state
+    // This handles KioskDashboardInitial and KioskDashboardPinSuccess states
+    AppLogger.d('[Kiosk] Unhandled state (${state.runtimeType}) - showing loading state');
+    return _buildLoadingState();
   }
 
   Widget _buildLoadingState() {
+    // Ensure school name is NEVER blank - use fallback if empty
+    final displayName = schoolName.trim().isNotEmpty ? schoolName : 'School';
+    AppLogger.d('[Kiosk] Loading state - displaying school name: $displayName');
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        Text(
+          displayName,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w500,
+            color: Colors.white70,
+          ),
+          textAlign: TextAlign.center,
+        ),
         const SizedBox(height: 40),
         const CircularProgressIndicator(),
         const SizedBox(height: 16),
@@ -66,11 +84,29 @@ class KioskQrSectionWidget extends StatelessWidget {
   }
 
   Widget _buildErrorState(KioskDashboardError errorState) {
+    // Ensure school name is NEVER blank - use fallback if empty
+    final displayName = schoolName.trim().isNotEmpty ? schoolName : 'School';
+    AppLogger.d('[Kiosk] Error state - displaying school name: $displayName');
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        const SizedBox(height: 40),
+        Text(
+          displayName,
+          style: const TextStyle(
+            fontSize: 28,
+            fontWeight: FontWeight.w500,
+            color: AppColors.primaryColor,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 10),
+        const Text(
+          'Scan the QR Code',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
+        ),
+        const SizedBox(height: 20),
         Container(
           height: 250,
           width: 250,
@@ -80,7 +116,7 @@ class KioskQrSectionWidget extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.all(12),
-          child: _buildQrUnavailable('QR not generated', null),
+          child: _buildQrUnavailable('Unable to load QR code', null),
         ),
         const SizedBox(height: 20),
         Text(
@@ -101,16 +137,20 @@ class KioskQrSectionWidget extends StatelessWidget {
   }
 
   Widget _buildQrWithSchoolName(String schoolNameText, String qrPayload) {
+    // Ensure school name is NEVER blank - use fallback if empty
+    final displayName = schoolNameText.trim().isNotEmpty ? schoolNameText : 'School';
+    AppLogger.d('[Kiosk] QR loaded - displaying school name: $displayName');
+
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          schoolNameText,
+          displayName,
           style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w500,
-            color: Colors.white70,
+            color: AppColors.primaryColor,
           ),
           textAlign: TextAlign.center,
         ),
@@ -138,8 +178,8 @@ class KioskQrSectionWidget extends StatelessWidget {
   Widget _buildQrImage(String qrPayload) {
     try {
       if (qrPayload.trim().isEmpty) {
-        AppLogger.d('[Kiosk] QR payload is empty');
-        return _buildQrUnavailable('QR Code data is empty', null);
+        AppLogger.w('[Kiosk] QR payload is empty');
+        return _buildQrUnavailable('QR not generated yet', null);
       }
 
       AppLogger.d(
@@ -154,14 +194,14 @@ class KioskQrSectionWidget extends StatelessWidget {
           gapless: false,
           errorCorrectionLevel: QrErrorCorrectLevel.H,
           errorStateBuilder: (context, error) {
-            AppLogger.d('[Kiosk] QR generation failed: $error');
+            AppLogger.w('[Kiosk] QR generation failed: $error');
             return _buildQrUnavailable('Failed to generate QR', null);
           },
         ),
       );
     } catch (e) {
       AppLogger.e('[Kiosk] Unexpected QR error: $e');
-      return _buildQrUnavailable('Failed to load QR code', null);
+      return _buildQrUnavailable('Unable to load QR code', null);
     }
   }
 
@@ -183,8 +223,9 @@ class KioskQrSectionWidget extends StatelessWidget {
           if (context != null)
             IconButton(
               onPressed: () {
-                // ignore: unawaited_futures
-                BlocProvider.of<KioskDashboardCubit>(context).loadQrCode();
+                unawaited(
+                  BlocProvider.of<KioskDashboardCubit>(context).loadQrCode(),
+                );
               },
               icon: const Icon(Icons.refresh, size: 32, color: Colors.grey),
             ),

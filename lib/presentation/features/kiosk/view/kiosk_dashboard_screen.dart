@@ -29,16 +29,68 @@ class KioskDashboardScreen extends StatefulWidget {
   State<KioskDashboardScreen> createState() => _KioskDashboardScreenState();
 }
 
-class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
+class _KioskDashboardScreenState extends State<KioskDashboardScreen>
+    with WidgetsBindingObserver {
   final int maxPinLength = 4;
   String _currentPin = '';
+  String _cachedSchoolName = 'School'; // Cache to preserve school name during QR reload
+  bool _isRefreshingQr = false; // Prevent duplicate refresh calls
 
   @override
   void initState() {
     super.initState();
+    AppLogger.d('[KIOSK] Dashboard opened');
+    // Add observer for app lifecycle
+    WidgetsBinding.instance.addObserver(this);
+
+    // Initial QR load on screen open
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(context.read<KioskDashboardCubit>().loadQrCode());
+      AppLogger.d('[KIOSK] Dashboard refresh requested (initState)');
+      _loadQrCode();
     });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Refresh QR when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      AppLogger.d('[KIOSK] Dashboard resumed');
+      _loadQrCode();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Reload QR whenever screen is re-entered (e.g., after PIN flow)
+    AppLogger.d('[KIOSK] Dashboard resumed (didChangeDependencies)');
+    // Use a small delay to avoid multiple rapid calls
+    if (!_isRefreshingQr) {
+      _isRefreshingQr = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AppLogger.d('[KIOSK] Refreshing school info');
+        _loadQrCode();
+        _isRefreshingQr = false;
+      });
+    }
+  }
+
+  void _loadQrCode() {
+    AppLogger.d('[KIOSK] Refreshing QR');
+    unawaited(context.read<KioskDashboardCubit>().loadQrCode());
+  }
+
+  /// Refresh dashboard data (school info, QR, kiosk settings)
+  Future<void> _refreshDashboard() async {
+    AppLogger.d('[KIOSK] Refresh requested (pull-to-refresh)');
+    await context.read<KioskDashboardCubit>().loadQrCode();
+  }
+
+  @override
+  void dispose() {
+    // Remove observer
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   bool isIpad() {
@@ -91,7 +143,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'WOWW Kiosk',
+                      'WowCare Child Attendance Kiosk',
                       style: TextStyle(
                         color: AppColors.primaryColor,
                         fontWeight: FontWeight.w600,
@@ -99,35 +151,38 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.exit_to_app,
-                      color: AppColors.primaryColor,
-                    ),
-                    onPressed: () async {
-                      AppLogger.d('[Kiosk] Logout button pressed');
-                      await serviceLocator<KioskAccessControl>()
-                          .deactivateKioskMode();
-                      if (mounted) {
-                        GoRouter.of(context).go('/sign-in');
-                      }
-                    },
-                  ),
+                  // IconButton(
+                  //   icon: const Icon(
+                  //     Icons.exit_to_app,
+                  //     color: AppColors.primaryColor,
+                  //   ),
+                  //   onPressed: () async {
+                  //     AppLogger.d('[Kiosk] Logout button pressed');
+                  //     await serviceLocator<KioskAccessControl>()
+                  //         .deactivateKioskMode();
+                  //     if (mounted) {
+                  //       GoRouter.of(context).go('/sign-in');
+                  //     }
+                  //   },
+                  // ),
                 ],
               ),
             ),
           ),
         ),
         bottomSheet: Container(color: AppColors.themeColor, height: 1),
-        body: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
-          builder: (context, state) {
-            return Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: _buildContent(context, state, isTablet),
-            );
-          },
+        body: RefreshIndicator(
+          onRefresh: _refreshDashboard,
+          child: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
+            builder: (context, state) {
+              return Container(
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildScaffoldGradient(),
+                ),
+                child: _buildContent(context, state, isTablet),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -193,31 +248,70 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   }
 
   String _getSchoolName(KioskDashboardState state) {
+    // Always return school name, even during loading/error states
+    // Cache the actual school name to preserve it during QR reloads
+
     if (state is KioskDashboardQrLoaded) {
+      _cachedSchoolName = state.schoolName;
+      AppLogger.d('[Kiosk] Cached school name: ${state.schoolName}');
       return state.schoolName;
     }
+
     if (state is KioskDashboardPinValidating && state.schoolName != null) {
+      _cachedSchoolName = state.schoolName!;
       return state.schoolName!;
     }
-    return '';
+
+    // During loading/error, use cached school name (NOT generic 'School')
+    if (state is KioskDashboardLoading) {
+      AppLogger.d('[Kiosk] Loading state - using cached school name: $_cachedSchoolName');
+      return _cachedSchoolName; // Return CACHED value, not 'School'
+    }
+
+    if (state is KioskDashboardError) {
+      AppLogger.d('[Kiosk] Error state - using cached school name: $_cachedSchoolName');
+      return _cachedSchoolName; // Return CACHED value, not 'School'
+    }
+
+    return _cachedSchoolName;
   }
 
   void _handlePinSuccess(BuildContext context, KioskPinResultEntity result) {
     AppLogger.d(
-      '[Kiosk] PIN verification success: persona=${result.persona}, '
+      '[Kiosk] PIN verification success: persona=${result.persona.name}, '
       'isStaff=${result.isStaff}, isGuardian=${result.isGuardian}',
     );
 
+    // KIOSK persona: session is invalid/expired, immediately logout and redirect
+    if (result.persona == KioskPersona.kiosk) {
+      AppLogger.w(
+        '[Kiosk] KIOSK persona detected - clearing session and redirecting to sign-in',
+      );
+      unawaited(_handleKioskPersona(context));
+      return;
+    }
+
+    // STAFF persona: route to staff attendance flow
     if (result.isStaff) {
       AppLogger.d('[Kiosk] Routing to staff attendance flow');
       _routeStaffAttendance(context, result, _currentPin);
-    } else if (result.isGuardian) {
+      return;
+    }
+
+    // GUARDIAN persona: route to guardian/student attendance flow
+    if (result.isGuardian) {
       AppLogger.d('[Kiosk] Routing to guardian/student attendance flow');
       _routeGuardianStudentAttendance(context, result, _currentPin);
-    } else if (result.persona.toString().contains('pickup')) {
-      AppLogger.d('[Kiosk] Routing to pickup/student attendance flow (same as guardian)');
-      _routeGuardianStudentAttendance(context, result, _currentPin);
+      return;
     }
+
+    // UNKNOWN persona: should not occur, but log and do nothing
+    AppLogger.e('[Kiosk] Unknown persona detected: ${result.persona.name}');
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Invalid PIN response. Please try again.',
+      isError: true,
+    );
   }
 
   void _routeStaffAttendance(
@@ -228,7 +322,8 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     final staffCode = result.staffCode ?? '';
     final status = (result.staffStatus ?? 'SIGNED_OUT').toUpperCase();
 
-    AppLogger.d('[KIOSK] Persona=STAFF, StaffCode=$staffCode, Status=$status');
+    AppLogger.d('[KIOSK] Attendance action completed (Staff)');
+    AppLogger.d('[KIOSK] Triggering dashboard refresh');
 
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -269,6 +364,8 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     final signedOut = result.signedOutStudents;
     final guardianCode = result.guardianCode ?? '';
 
+    AppLogger.d('[KIOSK] Attendance action completed (Student)');
+    AppLogger.d('[KIOSK] Triggering dashboard refresh');
     AppLogger.d(
       '[Kiosk] _routeGuardianStudentAttendance: guardianCode=$guardianCode, '
       'signedInStudents=${signedIn.length}, signedOutStudents=${signedOut.length}',
@@ -319,5 +416,20 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
         'signedOutCodes': signedOut.map((s) => s.studentCode).toList(),
       },
     );
+  }
+
+  /// Handle KIOSK persona: immediately logout and redirect to sign-in
+  Future<void> _handleKioskPersona(BuildContext context) async {
+    try {
+      AppLogger.d('[Kiosk] Clearing kiosk session for KIOSK persona');
+      await serviceLocator<KioskAccessControl>().deactivateKioskMode();
+    } catch (e) {
+      AppLogger.w('[Kiosk] Error deactivating kiosk mode: $e');
+    }
+
+    if (mounted) {
+      AppLogger.d('[Kiosk] Redirecting to /sign-in after KIOSK persona');
+      GoRouter.of(context).go('/sign-in');
+    }
   }
 }

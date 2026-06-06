@@ -10,8 +10,6 @@ import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.d
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_qr_section_widget.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
-import 'package:wowcare/app/di/di.dart';
 
 /// OPTIMIZED: Kiosk dashboard screen with isolated rendering.
 ///
@@ -89,7 +87,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'WOWW Kiosk',
+                      'WowCare Child Attendance Kiosk',
                       style: TextStyle(
                         color: AppColors.primaryColor,
                         fontWeight: FontWeight.w600,
@@ -97,20 +95,20 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.exit_to_app,
-                      color: AppColors.primaryColor,
-                    ),
-                    onPressed: () async {
-                      AppLogger.d('[Kiosk] Logout button pressed');
-                      await serviceLocator<KioskAccessControl>()
-                          .deactivateKioskMode();
-                      if (mounted) {
-                        GoRouter.of(context).go('/sign-in');
-                      }
-                    },
-                  ),
+                  // IconButton(
+                  //   icon: const Icon(
+                  //     Icons.exit_to_app,
+                  //     color: AppColors.primaryColor,
+                  //   ),
+                  //   onPressed: () async {
+                  //     AppLogger.d('[Kiosk] Logout button pressed');
+                  //     await serviceLocator<KioskAccessControl>()
+                  //         .deactivateKioskMode();
+                  //     if (mounted) {
+                  //       GoRouter.of(context).go('/sign-in');
+                  //     }
+                  //   },
+                  // ),
                 ],
               ),
             ),

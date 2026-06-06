@@ -1,6 +1,11 @@
 import 'package:equatable/equatable.dart';
 
-enum KioskPersona { guardian, staff, unknown }
+enum KioskPersona {
+  guardian,
+  staff,
+  kiosk,
+  unknown,
+}
 
 class KioskStudent extends Equatable {
   const KioskStudent({
