@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
+import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -26,7 +27,7 @@ class _StudentIncidentReportScreenState
     extends State<StudentIncidentReportScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
-  String? _selectedStudent;
+  List<String> _selectedStudents = <String>[];
   String _format = 'PDF';
 
   @override
@@ -84,20 +85,18 @@ class _StudentIncidentReportScreenState
             onDateSelected: (d) => setState(() => _endDate = d),
           ),
           SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
+          MultiSelectFilterField<String>(
             label: 'Student',
-            hintText: 'Select Student',
+            hintText: 'Select Students',
             items: widget.students,
-            selectedItem: _selectedStudent,
-            labelStyle: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
-            ),
-            showAsterisk: false,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            onSelect: (val) => setState(() => _selectedStudent = val),
+            selectedItems: _selectedStudents,
+            onChanged: (s) => setState(() => _selectedStudents = s),
+            itemToString: (item) => item,
+            singularLabel: 'Student',
+            pluralLabel: 'Students',
+            showSelectAll: true,
+            enableSearch: true,
+            searchHintText: 'Search Students',
           ),
           const ReportDefaultNote(
             text: 'Note: All Students will be selected by Default.',

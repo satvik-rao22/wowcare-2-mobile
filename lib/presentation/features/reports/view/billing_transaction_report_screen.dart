@@ -70,7 +70,7 @@ class _BillingTransactionReportScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Report generated successfully',
-        isError: false,
+        isSuccess: true,
       );
       Navigator.pop(context);
     }
@@ -84,7 +84,8 @@ class _BillingTransactionReportScreenState
       listenWhen: (previous, current) =>
           previous.generationError != current.generationError,
       listener: (context, state) {
-        if (state.generationError != null && state.generationError!.isNotEmpty) {
+        if (state.generationError != null &&
+            state.generationError!.isNotEmpty) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generationError!,
@@ -96,66 +97,65 @@ class _BillingTransactionReportScreenState
         title: 'Transaction Report',
         onGenerate: _onGenerate,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const ReportFieldLabel(label: 'Start Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _startDate,
-            onDateSelected: (d) => setState(() => _startDate = d),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          const ReportFieldLabel(label: 'End Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _endDate,
-            onDateSelected: (d) => setState(() => _endDate = d),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
-            label: 'Transactions',
-            hintText: 'Select',
-            items: _transactionOptions,
-            selectedItem: _transactionType,
-            labelStyle: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ReportFieldLabel(label: 'Start Date'),
+            CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: _startDate,
+              onDateSelected: (d) => setState(() => _startDate = d),
             ),
-            showAsterisk: true,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            prependHintAsSelectableItem: false,
-            onSelect: (val) {
-              if (val == null) return;
-              setState(() {
-                _transactionType = val;
-                if (!_isCustom) {
-                  _selectedTransactionTypes = <String>[];
-                }
-              });
-            },
-          ),
-          if (_isCustom) ...[
             SizedBox(height: responsive.verticalSpacing),
-            CustomMultiSelectDropdown(
-              label: 'Transaction Type',
-              hintText: 'Select Transactions Types',
-              items: _transactionTypeOptions,
-              selectedItems: _selectedTransactionTypes,
-              showSelectAll: true,
-              onChanged: (s) =>
-                  setState(() => _selectedTransactionTypes = s),
+            const ReportFieldLabel(label: 'End Date'),
+            CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: _endDate,
+              onDateSelected: (d) => setState(() => _endDate = d),
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            CustomDropdown(
+              label: 'Transactions',
+              hintText: 'Select',
+              items: _transactionOptions,
+              selectedItem: _transactionType,
+              labelStyle: TextStyle(
+                fontSize: responsive.labelFontSize,
+                fontFamily: 'Manrope',
+                fontWeight: FontWeight.w400,
+                color: const Color(0xff573353),
+              ),
+              showAsterisk: true,
+              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+              prependHintAsSelectableItem: false,
+              onSelect: (val) {
+                if (val == null) return;
+                setState(() {
+                  _transactionType = val;
+                  if (!_isCustom) {
+                    _selectedTransactionTypes = <String>[];
+                  }
+                });
+              },
+            ),
+            if (_isCustom) ...[
+              SizedBox(height: responsive.verticalSpacing),
+              CustomMultiSelectDropdown(
+                label: 'Transaction Type',
+                hintText: 'Select Transactions Types',
+                items: _transactionTypeOptions,
+                selectedItems: _selectedTransactionTypes,
+                showSelectAll: true,
+                onChanged: (s) => setState(() => _selectedTransactionTypes = s),
+              ),
+            ],
+            SizedBox(height: responsive.verticalSpacing),
+            ReportFormatSelector(
+              selectedFormat: _format,
+              onFormatChanged: (value) => setState(() => _format = value),
             ),
           ],
-          SizedBox(height: responsive.verticalSpacing),
-          ReportFormatSelector(
-            selectedFormat: _format,
-            onFormatChanged: (value) => setState(() => _format = value),
-          ),
-        ],
         ),
       ),
     );

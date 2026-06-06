@@ -3,56 +3,150 @@ import 'package:wowcare/core/util/logger_service.dart';
 
 /// Kiosk access control utility.
 /// Manages kiosk session state and access control.
+/// Uses in-memory cache for fast redirect checks + storage for persistence.
 class KioskAccessControl {
   static const String _kioskModeKey = 'kiosk_mode_active';
   static const String _kioskPersonaKey = 'kiosk_user_persona';
+
+  // IN-MEMORY CACHE: Fast, synchronous, atomic checks (no async I/O during navigation)
+  static bool _kioskModeCached = false;
+  static String? _kioskPersonaCached;
 
   final StorageService _storage;
 
   KioskAccessControl(this._storage);
 
-  /// Mark user as kiosk user when PIN verification succeeds
+  /// Mark user as kiosk user when PIN verification succeeds.
+  /// Updates both storage (persistence) and in-memory cache (fast path).
   Future<void> setKioskModeActive(String persona) async {
     await _storage.saveString(_kioskModeKey, 'true');
     await _storage.saveString(_kioskPersonaKey, persona);
-    AppLogger.d('[KioskAccess] Kiosk mode activated: persona=$persona');
+
+    // UPDATE CACHE IMMEDIATELY (synchronous)
+    _kioskModeCached = true;
+    _kioskPersonaCached = persona;
+
+    AppLogger.d('[KioskAccess] Kiosk mode activated: persona=$persona (cache updated)');
   }
 
-  /// Check if kiosk mode is active
+  /// Check if kiosk mode is active (uses cache for speed in GoRouter redirect).
+  /// Returns cached value immediately on hot path; only reads storage on first check
+  /// or after app restart (cache miss).
   Future<bool> isKioskModeActive() async {
-    final mode = await _storage.getString(_kioskModeKey);
-    return mode == 'true';
+    // FAST PATH: Return cached value (eliminates async I/O during navigation)
+    if (_kioskModeCached) {
+      AppLogger.d('[KioskAccess] isKioskModeActive() → cache hit: true');
+      return true;
+    }
+
+    // SLOW PATH: Load from storage on first check (app startup)
+    try {
+      final mode = await _storage.getString(_kioskModeKey);
+      _kioskModeCached = mode == 'true';
+      AppLogger.d('[KioskAccess] isKioskModeActive() → storage read: $_kioskModeCached');
+      return _kioskModeCached;
+    } catch (e) {
+      AppLogger.e('[KioskAccess] Error reading kiosk mode from storage: $e');
+      return false;
+    }
   }
 
-  /// Get current kiosk persona (STAFF or GUARDIAN)
+  /// Get current kiosk persona (STAFF or GUARDIAN).
+  /// Uses cache when available; only reads storage on cache miss.
   Future<String?> getKioskPersona() async {
-    return await _storage.getString(_kioskPersonaKey);
+    if (_kioskPersonaCached != null) {
+      AppLogger.d('[KioskAccess] getKioskPersona() → cache hit: $_kioskPersonaCached');
+      return _kioskPersonaCached;
+    }
+
+    try {
+      final persona = await _storage.getString(_kioskPersonaKey);
+      _kioskPersonaCached = persona;
+      AppLogger.d('[KioskAccess] getKioskPersona() → storage read: $persona');
+      return persona;
+    } catch (e) {
+      AppLogger.e('[KioskAccess] Error reading kiosk persona from storage: $e');
+      return null;
+    }
   }
 
-  /// Deactivate kiosk mode (logout)
+  /// Deactivate kiosk mode (logout).
+  /// Clears both storage and in-memory cache.
   Future<void> deactivateKioskMode() async {
     await _storage.remove(_kioskModeKey);
     await _storage.remove(_kioskPersonaKey);
-    AppLogger.d('[KioskAccess] Kiosk mode deactivated');
+
+    // CLEAR CACHE IMMEDIATELY
+    _kioskModeCached = false;
+    _kioskPersonaCached = null;
+
+    AppLogger.d('[KioskAccess] Kiosk mode deactivated (cache cleared)');
+  }
+
+  /// SYNCHRONOUS kiosk mode check for GoRouter redirect (no async I/O).
+  /// Used by GoRouter.redirect() to avoid race conditions.
+  /// Returns the cached value without any storage reads.
+  static bool isKioskModeActiveDirect() {
+    AppLogger.d('[KioskAccess] isKioskModeActiveDirect() → $_kioskModeCached');
+    return _kioskModeCached;
   }
 
   /// Check if given route is allowed for kiosk users
   static bool isRouteAllowedForKiosk(String route) {
-    // Allowed kiosk routes only
+    // Check if route is explicitly blocked for kiosk users
+    if (_isBlockedForKiosk(route)) {
+      return false;
+    }
+
+    // Allowed kiosk routes: kiosk-specific paths + attendance/sign-in/sign-out forms
     const allowedRoutes = [
       '/kiosk',
-      '/kiosk/student-sign-in',
-      '/kiosk/student-sign-out',
-      '/kiosk/student-sign-in-out',
-      '/kiosk/staff-sign-in',
-      '/kiosk/staff-sign-out',
+      '/kiosk/',
+      // ===== STAFF ROUTES =====
       '/staff-sign-in-form',
       '/staff-sign-out-form',
       '/dashboard/staff-sign-in-form',
       '/dashboard/staff-sign-out-form',
+      // ===== UNIFIED GUARDIAN/STUDENT ROUTE (NEW) =====
+      '/kiosk/student-sign-in-and-sign-out',
+      // ===== LEGACY GUARDIAN/STUDENT ROUTES =====
+      '/dashboard/student-selection-sign-in-form',
+      '/dashboard/student-selection-sign-out-form',
+      '/dashboard/student-sign-in-out-selection',
+      '/dashboard/student-attendance-profile',
     ];
 
-    return allowedRoutes.any((allowed) => route.startsWith(allowed));
+    // Check if route matches any allowed pattern
+    bool isAllowed = allowedRoutes.any((allowed) => route.startsWith(allowed));
+    return isAllowed;
+  }
+
+  static bool _isBlockedForKiosk(String route) {
+    // Explicitly blocked dashboard areas (but allow attendance-related sub-routes)
+    const blockedPatterns = [
+      '/dashboard/staff',
+      '/dashboard/students',
+      '/dashboard/classroom',
+      '/dashboard/attendance/marks',
+      '/dashboard/attendance/roster',
+      '/dashboard/attendance/daily',
+      '/dashboard/activity',
+      '/dashboard/billing',
+      '/dashboard/parent-newsletter',
+      '/dashboard/notifications',
+      '/dashboard/settings',
+      '/dashboard/profile',
+      '/attendance',
+      '/communication',
+      '/notifications',
+    ];
+
+    for (final pattern in blockedPatterns) {
+      if (route.startsWith(pattern)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /// Routes that are BLOCKED for kiosk users

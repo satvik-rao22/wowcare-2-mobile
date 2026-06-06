@@ -57,6 +57,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 
@@ -200,30 +201,40 @@ final GoRouter appRouter = GoRouter(
     );
 
     // CRITICAL SECURITY: Check if user is in kiosk mode and block non-kiosk routes
-    bool isKioskMode = false;
-    try {
-      isKioskMode = await serviceLocator<KioskAccessControl>()
-          .isKioskModeActive();
-    } catch (e) {
-      // If KioskAccessControl is not registered, try to create it on demand
+    // Use synchronous cache check to avoid race conditions from multiple redirect() calls
+    bool isKioskMode = KioskAccessControl.isKioskModeActiveDirect();
+
+    // Fallback: If cache is empty, try async storage check (app startup cold load)
+    if (!isKioskMode) {
       try {
-        AppLogger.w(
-          '[KioskAccess] KioskAccessControl not in DI, creating on demand',
-        );
-        final kioskAccess = KioskAccessControl(
-          serviceLocator<StorageService>(),
-        );
-        isKioskMode = await kioskAccess.isKioskModeActive();
-      } catch (e2) {
-        AppLogger.e('[KioskAccess] Error checking kiosk mode: $e2');
+        isKioskMode = await serviceLocator<KioskAccessControl>()
+            .isKioskModeActive();
+      } catch (e) {
+        // If KioskAccessControl is not registered, try to create it on demand
+        try {
+          AppLogger.w(
+            '[KioskAccess] KioskAccessControl not in DI, creating on demand',
+          );
+          final kioskAccess = KioskAccessControl(
+            serviceLocator<StorageService>(),
+          );
+          isKioskMode = await kioskAccess.isKioskModeActive();
+        } catch (e2) {
+          AppLogger.e('[KioskAccess] Error checking kiosk mode: $e2');
+        }
       }
     }
 
     if (isKioskMode) {
       final currentRoute = state.uri.path;
+      final allowed = KioskAccessControl.isRouteAllowedForKiosk(currentRoute);
+
+      AppLogger.d(
+        '[KioskAccess] Route check: path=$currentRoute, allowed=$allowed',
+      );
 
       // Allow kiosk routes only
-      if (!KioskAccessControl.isRouteAllowedForKiosk(currentRoute)) {
+      if (!allowed) {
         AppLogger.w(
           '[KioskAccess] Blocking access to $currentRoute - kiosk user, redirecting to /kiosk',
         );
@@ -392,6 +403,40 @@ final GoRouter appRouter = GoRouter(
               signedOutCodes: signedOutCodes,
               guardianCode: guardianCode,
               pin: pin,
+            );
+          },
+        ),
+
+        // UNIFIED KIOSK SIGN-IN/SIGN-OUT PAGE
+        // Consolidates student selection, sign-in, and sign-out flows
+        // Stays within /kiosk context (no navigation to /dashboard)
+        GoRoute(
+          path: 'student-sign-in-and-sign-out',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final signedInCodes =
+                (extra['signedInCodes'] as List?)?.cast<String>() ?? [];
+            final signedOutCodes =
+                (extra['signedOutCodes'] as List?)?.cast<String>() ?? [];
+            final guardianCode = extra['guardianCode'] as String?;
+            final pin = extra['pin'] as String?;
+            final action = extra['action'] as String? ?? 'selection';
+
+            AppLogger.d(
+              '[Kiosk] Routing to unified student-sign-in-and-sign-out: '
+              'action=$action, signedIn=${signedInCodes.length}, '
+              'signedOut=${signedOutCodes.length}',
+            );
+
+            return _fastPage(
+              state,
+              KioskStudentSignInAndSignOutPage(
+                signedInCodes: signedInCodes,
+                signedOutCodes: signedOutCodes,
+                guardianCode: guardianCode ?? '',
+                pin: pin ?? '',
+                action: action,
+              ),
             );
           },
         ),
@@ -856,11 +901,17 @@ final GoRouter appRouter = GoRouter(
                     final extra = state.extra as Map<String, dynamic>?;
                     final allowed =
                         extra?['allowedStudentCodes'] as List<String>?;
+                    final isKiosk = extra?['isKiosk'] as bool? ?? false;
+                    final guardianCode = extra?['guardianCode'] as String?;
+                    final pin = extra?['pin'] as String?;
                     return _fastPage(
                       state,
                       StudentSelectionSignInForm(
                         preSelectedStudentCode: code.isNotEmpty ? code : null,
                         allowedStudentCodes: allowed,
+                        isKiosk: isKiosk,
+                        guardianCode: guardianCode,
+                        pin: pin,
                       ),
                     );
                   },
@@ -873,11 +924,17 @@ final GoRouter appRouter = GoRouter(
                     final extra = state.extra as Map<String, dynamic>?;
                     final allowed =
                         extra?['allowedStudentCodes'] as List<String>?;
+                    final isKiosk = extra?['isKiosk'] as bool? ?? false;
+                    final guardianCode = extra?['guardianCode'] as String?;
+                    final pin = extra?['pin'] as String?;
                     return _fastPage(
                       state,
                       StudentSelectionSignOutForm(
                         preSelectedStudentCode: code.isNotEmpty ? code : null,
                         allowedStudentCodes: allowed,
+                        isKiosk: isKiosk,
+                        guardianCode: guardianCode,
+                        pin: pin,
                       ),
                     );
                   },
@@ -890,11 +947,15 @@ final GoRouter appRouter = GoRouter(
                         extra?['signedInCodes'] as List<String>? ?? [];
                     final signedOutCodes =
                         extra?['signedOutCodes'] as List<String>? ?? [];
+                    final guardianCode = extra?['guardianCode'] as String?;
+                    final pin = extra?['pin'] as String?;
                     return _fastPage(
                       state,
                       StudentSignInOutSelectionScreen(
                         signedInCodes: signedInCodes,
                         signedOutCodes: signedOutCodes,
+                        guardianCode: guardianCode,
+                        pin: pin,
                       ),
                     );
                   },

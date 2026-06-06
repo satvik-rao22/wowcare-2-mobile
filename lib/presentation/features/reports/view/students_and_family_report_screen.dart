@@ -145,7 +145,7 @@ class _StudentsAndFamilyReportScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Report generated successfully',
-        isError: false,
+        isSuccess: true,
       );
       Navigator.pop(context);
     }
@@ -166,7 +166,8 @@ class _StudentsAndFamilyReportScreenState
       listenWhen: (previous, current) =>
           previous.generationError != current.generationError,
       listener: (context, state) {
-        if (state.generationError != null && state.generationError!.isNotEmpty) {
+        if (state.generationError != null &&
+            state.generationError!.isNotEmpty) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generationError!,
@@ -182,109 +183,109 @@ class _StudentsAndFamilyReportScreenState
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Choose the below fields and generate a report',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.labelFontSize,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xff573353),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Choose the below fields and generate a report',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.labelFontSize,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xff573353),
+                  ),
                 ),
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              const _SectionLabel(label: 'FIELDS'),
-              const SizedBox(height: 8),
-              ValueListenableBuilder<Set<String>>(
-                valueListenable: _selectedStudentFields,
-                builder: (_, studentFields, __) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: CustomCheckbox(
-                        value: studentFields.length == _studentFields.length,
-                        label: 'Select All',
-                        onChanged: (v) => _toggleSelectAll(v ?? false),
+                SizedBox(height: responsive.verticalSpacing),
+                const _SectionLabel(label: 'FIELDS'),
+                const SizedBox(height: 8),
+                ValueListenableBuilder<Set<String>>(
+                  valueListenable: _selectedStudentFields,
+                  builder: (_, studentFields, __) => Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: CustomCheckbox(
+                          value: studentFields.length == _studentFields.length,
+                          label: 'Select All',
+                          onChanged: (v) => _toggleSelectAll(v ?? false),
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    _CheckboxGrid(
-                      items: _studentFields,
-                      selected: studentFields,
-                      onChanged: _toggleStudentField,
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      _CheckboxGrid(
+                        items: _studentFields,
+                        selected: studentFields,
+                        onChanged: _toggleStudentField,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              const _SectionLabel(
-                label: 'PARENT/GUARDIAN & AUTHORIZED PICKUP INFO',
-              ),
-              const SizedBox(height: 8),
-              ValueListenableBuilder<Set<String>>(
-                valueListenable: _selectedParentFields,
-                builder: (_, parentFields, __) => _CheckboxGrid(
-                  items: _parentFields,
-                  selected: parentFields,
-                  onChanged: _toggleParentField,
+                SizedBox(height: responsive.verticalSpacing),
+                const _SectionLabel(
+                  label: 'PARENT/GUARDIAN & AUTHORIZED PICKUP INFO',
                 ),
-              ),
-              const Divider(height: 32),
-              ValueListenableBuilder<List<String>>(
-                valueListenable: _selectedClassrooms,
-                builder: (_, selected, __) => CustomMultiSelectDropdown(
-                  label: 'Classroom',
-                  hintText: 'Select Classroom',
-                  items: widget.classrooms,
-                  selectedItems: selected,
-                  onChanged: (s) => _selectedClassrooms.value = s,
+                const SizedBox(height: 8),
+                ValueListenableBuilder<Set<String>>(
+                  valueListenable: _selectedParentFields,
+                  builder: (_, parentFields, __) => _CheckboxGrid(
+                    items: _parentFields,
+                    selected: parentFields,
+                    onChanged: _toggleParentField,
+                  ),
                 ),
-              ),
-              const ReportDefaultNote(
-                text: 'Note: All Classrooms will be selected by Default.',
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              ValueListenableBuilder<List<String>>(
-                valueListenable: _selectedTags,
-                builder: (_, selected, __) => CustomMultiSelectDropdown(
-                  label: 'Tag',
-                  hintText: 'Select Tag',
-                  items: widget.tags,
-                  selectedItems: selected,
-                  onChanged: (s) => _selectedTags.value = s,
+                const Divider(height: 32),
+                ValueListenableBuilder<List<String>>(
+                  valueListenable: _selectedClassrooms,
+                  builder: (_, selected, __) => CustomMultiSelectDropdown(
+                    label: 'Classroom',
+                    hintText: 'Select Classroom',
+                    items: widget.classrooms,
+                    selectedItems: selected,
+                    onChanged: (s) => _selectedClassrooms.value = s,
+                  ),
                 ),
-              ),
-              const ReportDefaultNote(
-                text: 'Note: All Tags will be selected by Default.',
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              ValueListenableBuilder<String>(
-                valueListenable: _status,
-                builder: (_, status, __) => CustomDropdown(
-                  label: 'Status',
-                  hintText: 'Select',
-                  items: _statusOptions,
-                  selectedItem: status,
-                  labelStyle: _labelStyle(responsive),
-                  showAsterisk: true,
-                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  prependHintAsSelectableItem: false,
-                  onSelect: (val) => _status.value = val ?? _status.value,
+                const ReportDefaultNote(
+                  text: 'Note: All Classrooms will be selected by Default.',
                 ),
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              ValueListenableBuilder<String>(
-                valueListenable: _format,
-                builder: (_, format, __) => ReportFormatSelector(
-                  selectedFormat: format,
-                  onFormatChanged: (value) => _format.value = value,
+                SizedBox(height: responsive.verticalSpacing),
+                ValueListenableBuilder<List<String>>(
+                  valueListenable: _selectedTags,
+                  builder: (_, selected, __) => CustomMultiSelectDropdown(
+                    label: 'Tag',
+                    hintText: 'Select Tag',
+                    items: widget.tags,
+                    selectedItems: selected,
+                    onChanged: (s) => _selectedTags.value = s,
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
+                const ReportDefaultNote(
+                  text: 'Note: All Tags will be selected by Default.',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                ValueListenableBuilder<String>(
+                  valueListenable: _status,
+                  builder: (_, status, __) => CustomDropdown(
+                    label: 'Status',
+                    hintText: 'Select',
+                    items: _statusOptions,
+                    selectedItem: status,
+                    labelStyle: _labelStyle(responsive),
+                    showAsterisk: true,
+                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                    prependHintAsSelectableItem: false,
+                    onSelect: (val) => _status.value = val ?? _status.value,
+                  ),
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                ValueListenableBuilder<String>(
+                  valueListenable: _format,
+                  builder: (_, format, __) => ReportFormatSelector(
+                    selectedFormat: format,
+                    onFormatChanged: (value) => _format.value = value,
+                  ),
+                ),
+              ],
+            ),
+          );
         },
       ),
     );

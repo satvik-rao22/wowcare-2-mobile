@@ -7,7 +7,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 class AnnualStateImmunizationReportScreen extends StatefulWidget {
   const AnnualStateImmunizationReportScreen({super.key});
 
-  static const String routeName = '/reports/compliance/annual-state-immunization';
+  static const String routeName =
+      '/reports/compliance/annual-state-immunization';
 
   @override
   State<AnnualStateImmunizationReportScreen> createState() =>
@@ -41,7 +42,7 @@ class _AnnualStateImmunizationReportScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Report generated successfully',
-        isError: false,
+        isSuccess: true,
       );
       Navigator.pop(context);
     }

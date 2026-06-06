@@ -5,6 +5,7 @@ import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
+import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -36,7 +37,7 @@ class _StudentAttendancePerStudentReportScreenState
 
   String _frequency = 'Monthly';
   late DateTime _periodDate;
-  String? _selectedStudent;
+  List<String> _selectedStudents = <String>[];
   List<String> _selectedClassrooms = <String>[];
   String _format = 'PDF';
 
@@ -52,8 +53,16 @@ class _StudentAttendancePerStudentReportScreenState
     final params = ReportRequestParams(
       reportType: ReportType.studentAttendancePerStudent,
       startDate: _periodDate,
-      endDate: _periodDate.add(Duration(days: _frequency == 'Daily' ? 0 : _frequency == 'Weekly' ? 6 : 30)),
-      studentCodes: _selectedStudent != null ? [_selectedStudent!] : null,
+      endDate: _periodDate.add(
+        Duration(
+          days: _frequency == 'Daily'
+              ? 0
+              : _frequency == 'Weekly'
+              ? 6
+              : 30,
+        ),
+      ),
+      studentCodes: _selectedStudents.isEmpty ? null : _selectedStudents,
       classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
     );
     cubit.generateReport(params);
@@ -61,18 +70,18 @@ class _StudentAttendancePerStudentReportScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Report generated successfully',
-        isError: false,
+        isSuccess: true,
       );
       Navigator.pop(context);
     }
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
-        fontSize: r.labelFontSize,
-        fontFamily: 'Manrope',
-        fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
-      );
+    fontSize: r.labelFontSize,
+    fontFamily: 'Manrope',
+    fontWeight: FontWeight.w400,
+    color: const Color(0xff573353),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +91,8 @@ class _StudentAttendancePerStudentReportScreenState
       listenWhen: (previous, current) =>
           previous.generationError != current.generationError,
       listener: (context, state) {
-        if (state.generationError != null && state.generationError!.isNotEmpty) {
+        if (state.generationError != null &&
+            state.generationError!.isNotEmpty) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generationError!,
@@ -98,71 +108,74 @@ class _StudentAttendancePerStudentReportScreenState
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: CustomDropdown(
-                  label: 'Frequency',
-                  hintText: 'Select',
-                  items: _frequencyOptions,
-                  selectedItem: _frequency,
-                  labelStyle: _labelStyle(responsive),
-                  showAsterisk: true,
-                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  prependHintAsSelectableItem: false,
-                  onSelect: (val) {
-                    if (val == null) return;
-                    setState(() => _frequency = val);
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const ReportFieldLabel(label: 'Period'),
-                    ReportMonthYearField(
-                      initialMonth: _periodDate,
-                      onMonthSelected: (d) =>
-                          setState(() => _periodDate = d),
+                    Expanded(
+                      child: CustomDropdown(
+                        label: 'Frequency',
+                        hintText: 'Select',
+                        items: _frequencyOptions,
+                        selectedItem: _frequency,
+                        labelStyle: _labelStyle(responsive),
+                        showAsterisk: true,
+                        labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                        prependHintAsSelectableItem: false,
+                        onSelect: (val) {
+                          if (val == null) return;
+                          setState(() => _frequency = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const ReportFieldLabel(label: 'Period'),
+                          ReportMonthYearField(
+                            initialMonth: _periodDate,
+                            onMonthSelected: (d) =>
+                                setState(() => _periodDate = d),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
-            label: 'Student',
-            hintText: 'Select Student',
-            items: widget.students,
-            selectedItem: _selectedStudent,
-            labelStyle: _labelStyle(responsive),
-            showAsterisk: false,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            onSelect: (val) => setState(() => _selectedStudent = val),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
-          ),
-          const ReportDefaultNote(
-            text: 'Note: All Classrooms will be selected by Default.',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          ReportFormatSelector(
-            selectedFormat: _format,
-            onFormatChanged: (value) => setState(() => _format = value),
-          ),
-        ],
+                SizedBox(height: responsive.verticalSpacing),
+                MultiSelectFilterField<String>(
+                  label: 'Student',
+                  hintText: 'Select Students',
+                  items: widget.students,
+                  selectedItems: _selectedStudents,
+                  onChanged: (s) => setState(() => _selectedStudents = s),
+                  itemToString: (item) => item,
+                  singularLabel: 'Student',
+                  pluralLabel: 'Students',
+                  showSelectAll: true,
+                  enableSearch: true,
+                  searchHintText: 'Search Students',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                CustomMultiSelectDropdown(
+                  label: 'Classroom',
+                  hintText: 'Select Classroom',
+                  items: widget.classrooms,
+                  selectedItems: _selectedClassrooms,
+                  onChanged: (s) => setState(() => _selectedClassrooms = s),
+                ),
+                const ReportDefaultNote(
+                  text: 'Note: All Classrooms will be selected by Default.',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                ReportFormatSelector(
+                  selectedFormat: _format,
+                  onFormatChanged: (value) => setState(() => _format = value),
+                ),
+              ],
             ),
           );
         },

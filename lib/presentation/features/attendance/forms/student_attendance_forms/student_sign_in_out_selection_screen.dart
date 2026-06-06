@@ -22,29 +22,19 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
   final String? guardianCode;
   final String? pin;
 
-  Future<bool> _isKioskMode() async {
-    try {
-      return await serviceLocator<KioskAccessControl>().isKioskModeActive();
-    } catch (e) {
-      try {
-        return await KioskAccessControl(serviceLocator()).isKioskModeActive();
-      } catch (_) {
-        return false;
-      }
-    }
+  bool _isKioskMode() {
+    // Use synchronous cache check to avoid interference with navigation state
+    return KioskAccessControl.isKioskModeActiveDirect();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<bool>(
-      future: _isKioskMode(),
-      builder: (context, snapshot) {
-        final isKiosk = snapshot.data ?? false;
-        return StaffFormLayout(
-          title: 'Sign In / Sign Out',
-          isKiosk: isKiosk,
-          bottomBar: const SizedBox.shrink(),
-          child: Center(
+    final isKiosk = _isKioskMode();
+    return StaffFormLayout(
+      title: 'Sign In / Sign Out',
+      isKiosk: isKiosk,
+      bottomBar: const SizedBox.shrink(),
+      child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -80,15 +70,15 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                 // Route based on mode
                 if (isKiosk) {
                   AppLogger.d(
-                    '[KIOSK] Routing to kiosk student-sign-in: guardianCode=$guardianCode, pin=${pin?.isNotEmpty ?? false}',
+                    '[KIOSK] Routing to dashboard student-selection-sign-in-form: guardianCode=$guardianCode, pin=${pin?.isNotEmpty ?? false}',
                   );
                   context.go(
-                    '/kiosk/student-sign-in',
+                    '/dashboard/student-selection-sign-in-form',
                     extra: <String, dynamic>{
-                      'students': signedOutCodes.map((code) => {'studentCode': code}).toList(),
                       'isKiosk': true,
                       'guardianCode': guardianCode,
                       'pin': pin,
+                      'allowedStudentCodes': signedOutCodes,
                     },
                   );
                 } else {
@@ -124,15 +114,15 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                 // Route based on mode
                 if (isKiosk) {
                   AppLogger.d(
-                    '[KIOSK] Routing to kiosk student-sign-out: guardianCode=$guardianCode, pin=${pin?.isNotEmpty ?? false}',
+                    '[KIOSK] Routing to dashboard student-selection-sign-out-form: guardianCode=$guardianCode, pin=${pin?.isNotEmpty ?? false}',
                   );
                   context.go(
-                    '/kiosk/student-sign-out',
+                    '/dashboard/student-selection-sign-out-form',
                     extra: <String, dynamic>{
-                      'students': signedInCodes.map((code) => {'studentCode': code}).toList(),
                       'isKiosk': true,
                       'guardianCode': guardianCode,
                       'pin': pin,
+                      'allowedStudentCodes': signedInCodes,
                     },
                   );
                 } else {
@@ -149,8 +139,6 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
           ],
         ),
       ),
-        );
-      },
     );
   }
 }

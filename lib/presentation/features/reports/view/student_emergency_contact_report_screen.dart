@@ -60,7 +60,7 @@ class _StudentEmergencyContactReportScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Report generated successfully',
-        isError: false,
+        isSuccess: true,
       );
       Navigator.pop(context);
     }
@@ -72,7 +72,8 @@ class _StudentEmergencyContactReportScreenState
       listenWhen: (previous, current) =>
           previous.generationError != current.generationError,
       listener: (context, state) {
-        if (state.generationError != null && state.generationError!.isNotEmpty) {
+        if (state.generationError != null &&
+            state.generationError!.isNotEmpty) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generationError!,
@@ -88,30 +89,30 @@ class _StudentEmergencyContactReportScreenState
             onGenerate: (_isFormValid && !isGenerating) ? _onGenerate : null,
             isLoading: isGenerating,
             child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ValueListenableBuilder<List<String>>(
-            valueListenable: _selectedClassrooms,
-            builder: (_, selected, __) => CustomMultiSelectDropdown(
-              label: 'Classroom',
-              hintText: 'Select Classroom',
-              items: widget.classrooms,
-              selectedItems: selected,
-              onChanged: (s) => _selectedClassrooms.value = s,
-            ),
-          ),
-          const ReportDefaultNote(
-            text: 'Note: All Classrooms will be selected by Default.',
-          ),
-          SizedBox(height: ResponsiveHelper(context).verticalSpacing),
-          ValueListenableBuilder<String>(
-            valueListenable: _format,
-            builder: (_, format, __) => ReportFormatSelector(
-              selectedFormat: format,
-              onFormatChanged: (value) => _format.value = value,
-            ),
-          ),
-        ],
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ValueListenableBuilder<List<String>>(
+                  valueListenable: _selectedClassrooms,
+                  builder: (_, selected, __) => CustomMultiSelectDropdown(
+                    label: 'Classroom',
+                    hintText: 'Select Classroom',
+                    items: widget.classrooms,
+                    selectedItems: selected,
+                    onChanged: (s) => _selectedClassrooms.value = s,
+                  ),
+                ),
+                const ReportDefaultNote(
+                  text: 'Note: All Classrooms will be selected by Default.',
+                ),
+                SizedBox(height: ResponsiveHelper(context).verticalSpacing),
+                ValueListenableBuilder<String>(
+                  valueListenable: _format,
+                  builder: (_, format, __) => ReportFormatSelector(
+                    selectedFormat: format,
+                    onFormatChanged: (value) => _format.value = value,
+                  ),
+                ),
+              ],
             ),
           );
         },

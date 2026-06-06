@@ -427,7 +427,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
     try {
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStudentSignOut(payload: payload, isParent: isParent);
+          .submitStudentSignOut(payload: payload, isParent: isParent || widget.isKiosk);
       final success = result.success;
       final message = result.message;
 

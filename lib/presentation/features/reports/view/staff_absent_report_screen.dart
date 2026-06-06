@@ -10,10 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StaffAbsentReportScreen extends StatefulWidget {
-  const StaffAbsentReportScreen({
-    super.key,
-    required this.classrooms,
-  });
+  const StaffAbsentReportScreen({super.key, required this.classrooms});
 
   static const String routeName = '/reports/staff/absent';
 
@@ -73,7 +70,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Report generated successfully',
-        isError: false,
+        isSuccess: true,
       );
       Navigator.pop(context);
     }
@@ -87,7 +84,8 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       listenWhen: (previous, current) =>
           previous.generationError != current.generationError,
       listener: (context, state) {
-        if (state.generationError != null && state.generationError!.isNotEmpty) {
+        if (state.generationError != null &&
+            state.generationError!.isNotEmpty) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generationError!,
@@ -103,52 +101,52 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const ReportFieldLabel(label: 'From'),
-              ValueListenableBuilder<DateTime>(
-                valueListenable: _fromDate,
-                builder: (_, date, __) => CustomDateTimeField(
-                  hasLabel: false,
-                  fetchInitialTime: false,
-                  initialDate: date,
-                  onDateSelected: (d) => _fromDate.value = d,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const ReportFieldLabel(label: 'From'),
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: _fromDate,
+                  builder: (_, date, __) => CustomDateTimeField(
+                    hasLabel: false,
+                    fetchInitialTime: false,
+                    initialDate: date,
+                    onDateSelected: (d) => _fromDate.value = d,
+                  ),
                 ),
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              const ReportFieldLabel(label: 'To'),
-              ValueListenableBuilder<DateTime>(
-                valueListenable: _toDate,
-                builder: (_, date, __) => CustomDateTimeField(
-                  hasLabel: false,
-                  fetchInitialTime: false,
-                  initialDate: date,
-                  onDateSelected: (d) => _toDate.value = d,
+                SizedBox(height: responsive.verticalSpacing),
+                const ReportFieldLabel(label: 'To'),
+                ValueListenableBuilder<DateTime>(
+                  valueListenable: _toDate,
+                  builder: (_, date, __) => CustomDateTimeField(
+                    hasLabel: false,
+                    fetchInitialTime: false,
+                    initialDate: date,
+                    onDateSelected: (d) => _toDate.value = d,
+                  ),
                 ),
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              ValueListenableBuilder<List<String>>(
-                valueListenable: _selectedClassrooms,
-                builder: (_, selected, __) => CustomMultiSelectDropdown(
-                  label: 'Classroom',
-                  hintText: 'Select Classroom',
-                  items: widget.classrooms,
-                  selectedItems: selected,
-                  onChanged: (s) => _selectedClassrooms.value = s,
+                SizedBox(height: responsive.verticalSpacing),
+                ValueListenableBuilder<List<String>>(
+                  valueListenable: _selectedClassrooms,
+                  builder: (_, selected, __) => CustomMultiSelectDropdown(
+                    label: 'Classroom',
+                    hintText: 'Select Classroom',
+                    items: widget.classrooms,
+                    selectedItems: selected,
+                    onChanged: (s) => _selectedClassrooms.value = s,
+                  ),
                 ),
-              ),
-              const ReportDefaultNote(
-                text: 'Note: All Classrooms will be selected by Default.',
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              ValueListenableBuilder<String>(
-                valueListenable: _format,
-                builder: (_, format, __) => ReportFormatSelector(
-                  selectedFormat: format,
-                  onFormatChanged: (value) => _format.value = value,
+                const ReportDefaultNote(
+                  text: 'Note: All Classrooms will be selected by Default.',
                 ),
-              ),
-            ],
+                SizedBox(height: responsive.verticalSpacing),
+                ValueListenableBuilder<String>(
+                  valueListenable: _format,
+                  builder: (_, format, __) => ReportFormatSelector(
+                    selectedFormat: format,
+                    onFormatChanged: (value) => _format.value = value,
+                  ),
+                ),
+              ],
             ),
           );
         },

@@ -320,6 +320,12 @@ class _StudentSelectionSignInFormState
         if (match != null) selectedStudents.add(match);
       }
 
+      // Kiosk/unified flow: auto-select all students on first load (matching sign-out behavior)
+      if (!_preSelectionApplied && widget.allowedStudentCodes != null) {
+        _preSelectionApplied = true;
+        selectedStudents.addAll(students);
+      }
+
       setState(() {
         _allStudents = students;
         _filteredStudents = List.from(students);

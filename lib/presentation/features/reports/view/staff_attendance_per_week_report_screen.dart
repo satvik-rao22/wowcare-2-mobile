@@ -5,6 +5,7 @@ import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
+import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -36,7 +37,7 @@ class _StaffAttendancePerWeekReportScreenState
 
   String _frequency = 'Monthly';
   late DateTime _periodMonth;
-  String? _selectedStaff;
+  List<String> _selectedStaff = <String>[];
   List<String> _selectedClassrooms = <String>[];
   String _format = 'PDF';
 
@@ -53,7 +54,7 @@ class _StaffAttendancePerWeekReportScreenState
       reportType: ReportType.staffAttendancePerStaff,
       startDate: _periodMonth,
       endDate: _periodMonth.add(const Duration(days: 30)),
-      staffCodes: _selectedStaff != null ? [_selectedStaff!] : null,
+      staffCodes: _selectedStaff.isEmpty ? null : _selectedStaff,
       classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
     );
     cubit.generateReport(params);
@@ -61,18 +62,18 @@ class _StaffAttendancePerWeekReportScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Report generated successfully',
-        isError: false,
+        isSuccess: true,
       );
       Navigator.pop(context);
     }
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
-        fontSize: r.labelFontSize,
-        fontFamily: 'Manrope',
-        fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
-      );
+    fontSize: r.labelFontSize,
+    fontFamily: 'Manrope',
+    fontWeight: FontWeight.w400,
+    color: const Color(0xff573353),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +83,8 @@ class _StaffAttendancePerWeekReportScreenState
       listenWhen: (previous, current) =>
           previous.generationError != current.generationError,
       listener: (context, state) {
-        if (state.generationError != null && state.generationError!.isNotEmpty) {
+        if (state.generationError != null &&
+            state.generationError!.isNotEmpty) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generationError!,
@@ -98,71 +100,74 @@ class _StaffAttendancePerWeekReportScreenState
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: CustomDropdown(
-                  label: 'Frequency',
-                  hintText: 'Select',
-                  items: _frequencyOptions,
-                  selectedItem: _frequency,
-                  labelStyle: _labelStyle(responsive),
-                  showAsterisk: true,
-                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  prependHintAsSelectableItem: false,
-                  onSelect: (val) {
-                    if (val == null) return;
-                    setState(() => _frequency = val);
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const ReportFieldLabel(label: 'Period'),
-                    ReportMonthYearField(
-                      initialMonth: _periodMonth,
-                      onMonthSelected: (d) =>
-                          setState(() => _periodMonth = d),
+                    Expanded(
+                      child: CustomDropdown(
+                        label: 'Frequency',
+                        hintText: 'Select',
+                        items: _frequencyOptions,
+                        selectedItem: _frequency,
+                        labelStyle: _labelStyle(responsive),
+                        showAsterisk: true,
+                        labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                        prependHintAsSelectableItem: false,
+                        onSelect: (val) {
+                          if (val == null) return;
+                          setState(() => _frequency = val);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const ReportFieldLabel(label: 'Period'),
+                          ReportMonthYearField(
+                            initialMonth: _periodMonth,
+                            onMonthSelected: (d) =>
+                                setState(() => _periodMonth = d),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
-            label: 'Staff',
-            hintText: 'Select Staff',
-            items: widget.staff,
-            selectedItem: _selectedStaff,
-            labelStyle: _labelStyle(responsive),
-            showAsterisk: false,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            onSelect: (val) => setState(() => _selectedStaff = val),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
-          ),
-          const ReportDefaultNote(
-            text: 'Note: All Classrooms will be selected by Default.',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          ReportFormatSelector(
-            selectedFormat: _format,
-            onFormatChanged: (value) => setState(() => _format = value),
-          ),
-        ],
+                SizedBox(height: responsive.verticalSpacing),
+                MultiSelectFilterField<String>(
+                  label: 'Staff',
+                  hintText: 'Select Staff Members',
+                  items: widget.staff,
+                  selectedItems: _selectedStaff,
+                  onChanged: (s) => setState(() => _selectedStaff = s),
+                  itemToString: (item) => item,
+                  singularLabel: 'Staff Member',
+                  pluralLabel: 'Staff Members',
+                  showSelectAll: true,
+                  enableSearch: true,
+                  searchHintText: 'Search Staff',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                CustomMultiSelectDropdown(
+                  label: 'Classroom',
+                  hintText: 'Select Classroom',
+                  items: widget.classrooms,
+                  selectedItems: _selectedClassrooms,
+                  onChanged: (s) => setState(() => _selectedClassrooms = s),
+                ),
+                const ReportDefaultNote(
+                  text: 'Note: All Classrooms will be selected by Default.',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                ReportFormatSelector(
+                  selectedFormat: _format,
+                  onFormatChanged: (value) => setState(() => _format = value),
+                ),
+              ],
             ),
           );
         },

@@ -643,8 +643,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         });
       } else {
         // KIOSK MODE: Use guardian code directly, no staff code needed
-        AppLogger.d('[KIOSK] Building kiosk payload: pin=${widget.pin}, guardianCode=${widget.guardianCode}');
-        payload['method'] = 'KIOSK';
+        AppLogger.d(
+          '[KIOSK] Building kiosk payload: pin=${widget.pin}, guardianCode=${widget.guardianCode}',
+        );
+        payload['method'] = 'PIN';
         payload.addAll(<String, dynamic>{
           'guardianCode': widget.guardianCode,
           'pin': widget.pin,
@@ -670,7 +672,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       }
 
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStudentSignIn(payload: payload, isParent: isParent);
+          .submitStudentSignIn(
+            payload: payload,
+            isParent: isParent || widget.isKiosk,
+          );
       final success = result.success;
       final message = result.message;
 
@@ -721,9 +726,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       // GPS parent sign-in disabled: show a warning and close the form so the
       // parent returns to the dashboard where the button will now be disabled.
-      final isGpsParentDisabled = errorMessage
-          .toLowerCase()
-          .contains('gps parent sign-in is disabled');
+      final isGpsParentDisabled = errorMessage.toLowerCase().contains(
+        'gps parent sign-in is disabled',
+      );
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: SnackBar(
@@ -749,7 +754,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
   @override
   Widget build(BuildContext context) {
-    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+      context,
+    )) {
       return const Scaffold(
         body: Center(
           child: Padding(
@@ -757,7 +764,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),

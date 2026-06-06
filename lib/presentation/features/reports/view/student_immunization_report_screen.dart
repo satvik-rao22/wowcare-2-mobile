@@ -83,7 +83,7 @@ class _StudentImmunizationReportScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Report generated successfully',
-        isError: false,
+        isSuccess: true,
       );
       Navigator.pop(context);
     }
@@ -150,7 +150,8 @@ class _StudentImmunizationReportScreenState
       listenWhen: (previous, current) =>
           previous.generationError != current.generationError,
       listener: (context, state) {
-        if (state.generationError != null && state.generationError!.isNotEmpty) {
+        if (state.generationError != null &&
+            state.generationError!.isNotEmpty) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generationError!,
@@ -166,75 +167,75 @@ class _StudentImmunizationReportScreenState
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CustomDropdown(
-                label: 'Vaccines',
-                hintText: 'Select',
-                items: _vaccineOptions,
-                selectedItem: _vaccine,
-                labelStyle: _labelStyle(responsive),
-                showAsterisk: true,
-                labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                prependHintAsSelectableItem: false,
-                onSelect: (val) {
-                  if (val == null) return;
-                  setState(() => _vaccine = val);
-                },
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              CustomDropdown(
-                label: 'Status',
-                hintText: 'Select',
-                items: _statusOptions,
-                selectedItem: _status,
-                labelStyle: _labelStyle(responsive),
-                showAsterisk: true,
-                labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                prependHintAsSelectableItem: false,
-                onSelect: (val) {
-                  if (val == null) return;
-                  setState(() => _status = val);
-                },
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              CustomMultiSelectDropdown(
-                label: 'Classroom',
-                hintText: 'Select Classroom',
-                items: widget.classrooms,
-                selectedItems: _selectedClassrooms,
-                onChanged: (s) => setState(() => _selectedClassrooms = s),
-              ),
-              const ReportDefaultNote(
-                text: 'Note: All Classrooms will be selected by Default.',
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              CustomMultiSelectDropdown(
-                label: 'Tag',
-                hintText: 'Select Tag',
-                items: widget.tags,
-                selectedItems: _selectedTags,
-                onChanged: (s) => setState(() => _selectedTags = s),
-              ),
-              const ReportDefaultNote(
-                text: 'Note: All Tags will be selected by Default.',
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: CustomCheckbox(
-                  value: _showParentInfo,
-                  label: 'Show Parent name and emails',
-                  onChanged: (v) =>
-                      setState(() => _showParentInfo = v ?? false),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CustomDropdown(
+                  label: 'Vaccines',
+                  hintText: 'Select',
+                  items: _vaccineOptions,
+                  selectedItem: _vaccine,
+                  labelStyle: _labelStyle(responsive),
+                  showAsterisk: true,
+                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                  prependHintAsSelectableItem: false,
+                  onSelect: (val) {
+                    if (val == null) return;
+                    setState(() => _vaccine = val);
+                  },
                 ),
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              ReportFormatSelector(
-                selectedFormat: _format,
-                onFormatChanged: (value) => setState(() => _format = value),
-              ),
-            ],
+                SizedBox(height: responsive.verticalSpacing),
+                CustomDropdown(
+                  label: 'Status',
+                  hintText: 'Select',
+                  items: _statusOptions,
+                  selectedItem: _status,
+                  labelStyle: _labelStyle(responsive),
+                  showAsterisk: true,
+                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                  prependHintAsSelectableItem: false,
+                  onSelect: (val) {
+                    if (val == null) return;
+                    setState(() => _status = val);
+                  },
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                CustomMultiSelectDropdown(
+                  label: 'Classroom',
+                  hintText: 'Select Classroom',
+                  items: widget.classrooms,
+                  selectedItems: _selectedClassrooms,
+                  onChanged: (s) => setState(() => _selectedClassrooms = s),
+                ),
+                const ReportDefaultNote(
+                  text: 'Note: All Classrooms will be selected by Default.',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                CustomMultiSelectDropdown(
+                  label: 'Tag',
+                  hintText: 'Select Tag',
+                  items: widget.tags,
+                  selectedItems: _selectedTags,
+                  onChanged: (s) => setState(() => _selectedTags = s),
+                ),
+                const ReportDefaultNote(
+                  text: 'Note: All Tags will be selected by Default.',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: CustomCheckbox(
+                    value: _showParentInfo,
+                    label: 'Show Parent name and emails',
+                    onChanged: (v) =>
+                        setState(() => _showParentInfo = v ?? false),
+                  ),
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                ReportFormatSelector(
+                  selectedFormat: _format,
+                  onFormatChanged: (value) => setState(() => _format = value),
+                ),
+              ],
             ),
           );
         },

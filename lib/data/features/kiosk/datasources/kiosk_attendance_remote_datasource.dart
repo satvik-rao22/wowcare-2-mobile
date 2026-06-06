@@ -175,11 +175,10 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
         'longitude': longitude,
         'withinGeofence': withinGeofence,
         'timeZone': timeZone,
-        'allowedClassroomCodes': <String>[],
       };
 
       final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/student-attendance-records/sign-in',
+        '${ApiConstants.attendanceBaseUrl}/api/v1/student-attendance-records/parent-sign-in?guardianCode=$guardianCode',
         data: payload,
       );
 
@@ -223,11 +222,10 @@ class KioskAttendanceRemoteDataSourceImpl implements KioskAttendanceRemoteDataSo
         'longitude': longitude,
         'withinGeofence': withinGeofence,
         'timeZone': timeZone,
-        'allowedClassroomCodes': <String>[],
       };
 
       final response = await _client.post<Map<String, dynamic>>(
-        '${ApiConstants.attendanceBaseUrl}/student-attendance-records/sign-out',
+        '${ApiConstants.attendanceBaseUrl}/api/v1/student-attendance-records/parent-sign-out?guardianCode=$guardianCode',
         data: payload,
       );
 
