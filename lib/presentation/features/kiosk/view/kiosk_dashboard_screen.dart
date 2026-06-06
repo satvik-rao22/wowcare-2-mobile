@@ -214,6 +214,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     } else if (result.isGuardian) {
       AppLogger.d('[Kiosk] Routing to guardian/student attendance flow');
       _routeGuardianStudentAttendance(context, result, _currentPin);
+    } else if (result.persona.toString().contains('pickup')) {
+      AppLogger.d('[Kiosk] Routing to pickup/student attendance flow (same as guardian)');
+      _routeGuardianStudentAttendance(context, result, _currentPin);
     }
   }
 
