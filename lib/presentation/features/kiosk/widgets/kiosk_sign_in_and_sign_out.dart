@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart';
-import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_out_selection_screen.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
+
+import '../../../../app/theme/colors.dart';
 
 /// Unified kiosk page for guardian student sign-in/sign-out flows.
 ///
@@ -74,27 +75,6 @@ class _KioskStudentSignInAndSignOutPageState
     context.go('/kiosk');
   }
 
-  /// Handle successful sign-in/sign-out completion
-  void _handleSuccess(String message) {
-    if (!mounted) return;
-
-    AppLogger.d('[Kiosk] Sign-in/out completed: $message');
-
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: message.isNotEmpty ? message : 'Attendance recorded successfully',
-      isError: false,
-    );
-
-    // Return to kiosk dashboard after brief delay to show success message
-    Future.delayed(const Duration(milliseconds: 1500), () {
-      if (mounted) {
-        AppLogger.d('[Kiosk] Returning to kiosk dashboard after success');
-        context.go('/kiosk');
-      }
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -122,69 +102,135 @@ class _KioskStudentSignInAndSignOutPageState
   /// Selection screen: Show when students have mixed sign-in/sign-out states
   /// Allows guardian to choose whether to sign in or sign out
   Widget _buildSelectionScreen() {
-    return StudentSignInOutSelectionScreen(
-      signedInCodes: widget.signedInCodes,
-      signedOutCodes: widget.signedOutCodes,
+    return StaffFormLayout(
+      title: 'Sign In / Sign Out',
+      isKiosk: true,
+      bottomBar: const SizedBox.shrink(),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Select an action for your children attendance today.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  AppLogger.d('[Kiosk] Sign In button tapped');
+                  setState(() {
+                    _currentAction = 'sign-in';
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: AppColors.primaryGradientColors,
+                    ),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: Text(
+                        'Sign In',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () {
+                  AppLogger.d('[Kiosk] Sign Out button tapped');
+                  setState(() {
+                    _currentAction = 'sign-out';
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Ink(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: AppColors.primaryGradientColors,
+                    ),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: Text(
+                        'Sign Out',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Sign-in screen: Show when all eligible students are signed out
+  /// Routes to selection screen to allow selecting which students to sign in
+  Widget _buildSignInScreen() {
+    return StudentSelectionSignInForm(
+      allowedStudentCodes: widget.signedOutCodes,
+      isKiosk: true,
       guardianCode: widget.guardianCode,
       pin: widget.pin,
     );
   }
 
-  /// Sign-in screen: Show when all eligible students are signed out
-  /// Allows selecting which students to sign in
-  Widget _buildSignInScreen() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign In Students'),
-        automaticallyImplyLeading: false,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          const Divider(height: 1),
-          Expanded(
-            child: StudentSignInForm(
-              // Pass empty list - form will load students from API based on codes
-              students: const [],
-              // On success, show message and return to kiosk
-              refreshCallback: () => _handleSuccess('Students signed in successfully'),
-              popOnSuccess: false,
-              isKiosk: true,
-              guardianCode: widget.guardianCode,
-              pin: widget.pin,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   /// Sign-out screen: Show when all eligible students are signed in
-  /// Allows selecting which students to sign out
+  /// Routes to selection screen to allow selecting which students to sign out
   Widget _buildSignOutScreen() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign Out Students'),
-        automaticallyImplyLeading: false,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          const Divider(height: 1),
-          Expanded(
-            child: StudentSignOutForm(
-              // Pass empty list - form will load students from API based on codes
-              students: const [],
-              // On success, show message and return to kiosk
-              refreshCallback: () => _handleSuccess('Students signed out successfully'),
-              popOnSuccess: false,
-              isKiosk: true,
-              guardianCode: widget.guardianCode,
-              pin: widget.pin,
-            ),
-          ),
-        ],
-      ),
+    return StudentSelectionSignOutForm(
+      allowedStudentCodes: widget.signedInCodes,
+      isKiosk: true,
+      guardianCode: widget.guardianCode,
+      pin: widget.pin,
     );
   }
 }

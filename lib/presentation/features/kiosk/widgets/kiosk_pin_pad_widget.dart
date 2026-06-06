@@ -77,6 +77,8 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       listener: (context, state) {
         if (state is KioskDashboardError) {
           _reset();
+        } else if (state is KioskDashboardPinSuccess) {
+          _reset();
         }
       },
       child: SingleChildScrollView(

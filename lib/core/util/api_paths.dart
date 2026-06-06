@@ -577,6 +577,8 @@ class ApiPaths {
       '/api/v1/staff-attendance-records/sign-in/self';
   static const String staffAttendanceRecordsSignOut =
       '/api/v1/staff-attendance-records/sign-out';
+  static const String staffAttendanceRecordsSignOutSelf =
+      '/api/v1/staff-attendance-records/sign-out/self';
   static const String staffAttendanceRecordsTransfer =
       '/api/v1/staff-attendance-records/transfer';
 

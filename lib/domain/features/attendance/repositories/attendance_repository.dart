@@ -367,8 +367,10 @@ abstract class AttendanceRepository {
   });
 
   /// Submits a staff sign-out.
+  /// Set [isSelf] to true to use the self sign-out endpoint.
   Future<AttendanceActionResult> submitStaffSignOut({
     required Map<String, dynamic> payload,
+    bool isSelf = false,
   });
 
   /// Submits a staff classroom transfer.

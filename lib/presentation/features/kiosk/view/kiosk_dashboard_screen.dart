@@ -31,6 +31,7 @@ class KioskDashboardScreen extends StatefulWidget {
 
 class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
   final int maxPinLength = 4;
+  String _currentPin = '';
 
   @override
   void initState() {
@@ -46,6 +47,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
 
   void _onPinSubmit(String pin) {
     AppLogger.d('[Kiosk] PIN submitted: length=${pin.length}');
+    _currentPin = pin;
     unawaited(context.read<KioskDashboardCubit>().submitPin(pin));
   }
 
@@ -208,10 +210,10 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
 
     if (result.isStaff) {
       AppLogger.d('[Kiosk] Routing to staff attendance flow');
-      _routeStaffAttendance(context, result, '');
+      _routeStaffAttendance(context, result, _currentPin);
     } else if (result.isGuardian) {
       AppLogger.d('[Kiosk] Routing to guardian/student attendance flow');
-      _routeGuardianStudentAttendance(context, result, '');
+      _routeGuardianStudentAttendance(context, result, _currentPin);
     }
   }
 
@@ -235,8 +237,8 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
     }
 
     final route = status == 'SIGNED_IN'
-        ? '/dashboard/staff-sign-out-form'
-        : '/dashboard/staff-sign-in-form';
+        ? '/kiosk/staff-sign-out'
+        : '/kiosk/staff-sign-in';
 
     AppLogger.d(
       '[KIOSK] Persona=STAFF, StaffCode=$staffCode, Status=$status, Routing to $route',

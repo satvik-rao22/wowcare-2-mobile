@@ -416,7 +416,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         });
       } else {
         // KIOSK MODE: Use guardian code directly, no staff code needed
-        payload['method'] = 'KIOSK';
+        payload['method'] = 'PIN';
         payload.addAll(<String, dynamic>{
           'guardianCode': widget.guardianCode,
           'pin': widget.pin,
@@ -448,6 +448,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         if (widget.popOnSuccess) {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
+        } else if (widget.isKiosk) {
+          context.go('/kiosk');
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {

@@ -70,15 +70,17 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                 // Route based on mode
                 if (isKiosk) {
                   AppLogger.d(
-                    '[KIOSK] Routing to dashboard student-selection-sign-in-form: guardianCode=$guardianCode, pin=${pin?.isNotEmpty ?? false}',
+                    '[KIOSK] Routing to kiosk student sign-in action: guardianCode=$guardianCode, pin=${pin?.isNotEmpty ?? false}',
                   );
                   context.go(
-                    '/dashboard/student-selection-sign-in-form',
+                    '/kiosk/student-sign-in-and-sign-out',
                     extra: <String, dynamic>{
                       'isKiosk': true,
                       'guardianCode': guardianCode,
                       'pin': pin,
-                      'allowedStudentCodes': signedOutCodes,
+                      'action': 'sign-in',
+                      'signedInCodes': const [],
+                      'signedOutCodes': signedOutCodes,
                     },
                   );
                 } else {
@@ -114,15 +116,17 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                 // Route based on mode
                 if (isKiosk) {
                   AppLogger.d(
-                    '[KIOSK] Routing to dashboard student-selection-sign-out-form: guardianCode=$guardianCode, pin=${pin?.isNotEmpty ?? false}',
+                    '[KIOSK] Routing to kiosk student sign-out action: guardianCode=$guardianCode, pin=${pin?.isNotEmpty ?? false}',
                   );
                   context.go(
-                    '/dashboard/student-selection-sign-out-form',
+                    '/kiosk/student-sign-in-and-sign-out',
                     extra: <String, dynamic>{
                       'isKiosk': true,
                       'guardianCode': guardianCode,
                       'pin': pin,
-                      'allowedStudentCodes': signedInCodes,
+                      'action': 'sign-out',
+                      'signedInCodes': signedInCodes,
+                      'signedOutCodes': const [],
                     },
                   );
                 } else {

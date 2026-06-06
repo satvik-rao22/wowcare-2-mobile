@@ -440,6 +440,48 @@ final GoRouter appRouter = GoRouter(
             );
           },
         ),
+        // KIOSK STAFF SIGN-IN FORM
+        GoRoute(
+          path: 'staff-sign-in',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final isKiosk = extra['isKiosk'] as bool? ?? false;
+            final staffCode = extra['staffCode'] as String?;
+            final staffName = extra['staffName'] as String?;
+            final pin = extra['pin'] as String?;
+            AppLogger.d('[Kiosk] Routing to staff-sign-in: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}');
+            return _fastPage(
+              state,
+              StaffSignInForm(
+                isKiosk: isKiosk,
+                staffCode: staffCode,
+                staffName: staffName,
+                pin: pin,
+              ),
+            );
+          },
+        ),
+        // KIOSK STAFF SIGN-OUT FORM
+        GoRoute(
+          path: 'staff-sign-out',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final isKiosk = extra['isKiosk'] as bool? ?? false;
+            final staffCode = extra['staffCode'] as String?;
+            final staffName = extra['staffName'] as String?;
+            final pin = extra['pin'] as String?;
+            AppLogger.d('[Kiosk] Routing to staff-sign-out: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}');
+            return _fastPage(
+              state,
+              StaffSignOutForm(
+                isKiosk: isKiosk,
+                staffCode: staffCode,
+                staffName: staffName,
+                pin: pin,
+              ),
+            );
+          },
+        ),
       ],
     ),
 

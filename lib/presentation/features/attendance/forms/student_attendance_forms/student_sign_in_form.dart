@@ -700,6 +700,8 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
           } else {
             Navigator.of(context).pop();
           }
+        } else if (widget.isKiosk) {
+          context.go('/kiosk');
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {

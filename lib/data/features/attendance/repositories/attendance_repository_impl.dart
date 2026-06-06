@@ -1571,10 +1571,15 @@ class AttendanceRepositoryImpl
   @override
   Future<AttendanceActionResult> submitStaffSignOut({
     required Map<String, dynamic> payload,
+    bool isSelf = false,
   }) async {
     final body = Map<String, dynamic>.from(payload);
-    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
-    final data = await _remoteDataSource.postStaffSignOut(body: body);
+    // The self sign-out endpoint does not accept allowedClassroomCodes — only
+    // the admin bulk endpoint uses that field for classroom-scoped authorization.
+    if (!isSelf) {
+      await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    }
+    final data = await _remoteDataSource.postStaffSignOut(body: body, isSelf: isSelf);
     return _attendanceActionResult(
       data,
       defaultMessage: 'Signed-Out successfully',
