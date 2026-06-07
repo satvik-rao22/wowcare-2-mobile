@@ -49,7 +49,16 @@ class KioskDashboardError extends KioskDashboardState {
 }
 
 class KioskDashboardPinValidating extends KioskDashboardState {
-  const KioskDashboardPinValidating();
+  const KioskDashboardPinValidating({
+    this.qrCode,
+    this.schoolName,
+  });
+
+  final KioskQrEntity? qrCode;
+  final String? schoolName;
+
+  @override
+  List<Object?> get props => [qrCode, schoolName];
 }
 
 class KioskDashboardPinSuccess extends KioskDashboardState {

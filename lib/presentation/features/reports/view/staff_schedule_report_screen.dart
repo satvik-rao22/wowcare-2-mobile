@@ -35,20 +35,12 @@ class _StaffScheduleReportScreenState
   }
 
   void _onGenerate() {
-    if (_endDate.isBefore(_startDate)) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'End date cannot be before Start date',
-        isError: true,
-      );
-      return;
-    }
+    const message = 'Staff Scheduling report is currently unavailable because backend endpoint does not exist.';
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Generating Staff Scheduling report…',
-      isSuccess: true,
+      message: message,
+      isError: true,
     );
-    Navigator.pop(context);
   }
 
   @override

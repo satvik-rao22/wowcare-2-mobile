@@ -99,7 +99,6 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final qp = <String, String>{
       'school': schoolCode,
       'status': 'ACTIVE',
-      // Backend expects `sortBy<Field>=<dir>` (not Spring-style `sort=field,dir`).
       'sortByName': 'asc',
     };
     final overrideType = (typeOverride ?? '').trim();
@@ -108,11 +107,10 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     } else if (onlyTypeClassroom) {
       qp['type'] = 'CLASSROOM';
     }
-    // Build query manually to keep the order/encoding consistent.
     final query = qp.entries
         .map(
           (e) =>
-              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value).replaceAll('%2C', ',')}',
+              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}',
         )
         .join('&');
     final uri = Uri.parse(
@@ -235,8 +233,7 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
         )
         .join('&');
     final rawUrl = ApiPaths.url(ApiPaths.classroomPaginated);
-    // Backend expects `sortByName=asc` (not Spring-style `sort=name,asc`).
-    final uri = Uri.parse(rawUrl).replace(query: '$query&sortByName=asc');
+    final uri = Uri.parse(rawUrl).replace(query: '$query&sort=name%2Casc');
 
     final response = await _client.getUri<dynamic>(uri);
     if (response.data is! Map<String, dynamic>) {

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -7,6 +8,7 @@ import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.d
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_qr_entity.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/get_active_kiosk_qr_usecase.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
+import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 
 part 'kiosk_dashboard_state.dart';
 
@@ -89,7 +91,16 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       return null;
     }
 
-    emit(const KioskDashboardPinValidating());
+    // Emit validating state while keeping current QR data visible
+    final currentState = state;
+    if (currentState is KioskDashboardQrLoaded) {
+      emit(KioskDashboardPinValidating(
+        qrCode: currentState.qrCode,
+        schoolName: currentState.schoolName,
+      ));
+    } else {
+      emit(const KioskDashboardPinValidating());
+    }
 
     try {
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);
@@ -102,6 +113,18 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       final result = await _verifyKioskPin(pin: pin, schoolCode: schoolCode);
 
       if (isClosed) return result;
+
+      // CRITICAL: Mark user as kiosk user - this enables the route guard
+      try {
+        await serviceLocator<KioskAccessControl>().setKioskModeActive(result.persona.name);
+        AppLogger.d('[Kiosk] Kiosk mode activated: persona=${result.persona.name}');
+      } catch (e) {
+        // Fallback: Create KioskAccessControl on demand if not registered
+        AppLogger.w('[Kiosk] KioskAccessControl not registered in DI, creating on demand: $e');
+        final kioskAccess = KioskAccessControl(serviceLocator<StorageService>());
+        await kioskAccess.setKioskModeActive(result.persona.name);
+        AppLogger.d('[Kiosk] Kiosk mode activated (fallback): persona=${result.persona.name}');
+      }
 
       // Emit success state with the result
       emit(KioskDashboardPinSuccess(result));

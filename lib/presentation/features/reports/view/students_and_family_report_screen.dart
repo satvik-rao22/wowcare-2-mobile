@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/students_and_family_report_params.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -117,11 +121,21 @@ class _StudentsAndFamilyReportScreenState
       );
       return;
     }
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Students and Family report…',
-      isSuccess: true,
+
+    final cubit = context.read<ReportsCubit>();
+    final params = StudentsAndFamilyReportParams(
+      reportType: ReportType.studentsAndFamily,
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+      studentFieldsSelected: _selectedStudentFields.value,
+      parentFieldsSelected: _selectedParentFields.value,
+      statusFilter: _status.value,
+      classroomCodes: _selectedClassrooms.value.isEmpty
+          ? null
+          : _selectedClassrooms.value,
+      tagCodes: _selectedTags.value.isEmpty ? null : _selectedTags.value,
     );
+    cubit.generateReport(params);
     Navigator.pop(context);
   }
 
@@ -136,10 +150,14 @@ class _StudentsAndFamilyReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Students and Family',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocSelector<ReportsCubit, ReportsState, bool>(
+      selector: (state) => state.isGenerating,
+      builder: (context, isGenerating) {
+        return ReportFormLayout(
+          title: 'Students and Family',
+          onGenerate: isGenerating ? null : _onGenerate,
+          isLoading: isGenerating,
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -231,7 +249,9 @@ class _StudentsAndFamilyReportScreenState
             ),
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

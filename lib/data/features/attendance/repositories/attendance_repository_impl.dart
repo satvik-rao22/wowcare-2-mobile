@@ -1496,7 +1496,11 @@ class AttendanceRepositoryImpl
         body['guardianCode'] = g;
       }
     }
-    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    // Skip classroom codes for kiosk mode
+    final method = (body['method'] ?? '').toString().trim();
+    if (method != 'KIOSK') {
+      await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    }
     final data = await _remoteDataSource.postStudentSignIn(
       body: body,
       queryParameters: queryParameters,
@@ -1520,7 +1524,11 @@ class AttendanceRepositoryImpl
         body['guardianCode'] = g;
       }
     }
-    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    // Skip classroom codes for kiosk mode
+    final method = (body['method'] ?? '').toString().trim();
+    if (method != 'KIOSK') {
+      await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    }
     final data = await _remoteDataSource.postStudentSignOut(
       body: body,
       queryParameters: queryParameters,

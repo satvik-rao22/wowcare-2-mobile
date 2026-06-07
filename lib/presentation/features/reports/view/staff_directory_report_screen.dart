@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/staff_details_report_params.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -93,11 +97,17 @@ class _StaffDirectoryReportScreenState
       );
       return;
     }
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Staff Details report…',
-      isSuccess: true,
+
+    final cubit = context.read<ReportsCubit>();
+    final params = StaffDetailsReportParams(
+      reportType: ReportType.staffDetails,
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+      staffFieldsSelected: _selectedStaffFields,
+      statusFilter: _status,
+      classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
     );
+    cubit.generateReport(params);
     Navigator.pop(context);
   }
 
@@ -112,10 +122,14 @@ class _StaffDirectoryReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Staff Details',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocSelector<ReportsCubit, ReportsState, bool>(
+      selector: (state) => state.isGenerating,
+      builder: (context, isGenerating) {
+        return ReportFormLayout(
+          title: 'Staff Details',
+          onGenerate: (_selectedStaffFields.isNotEmpty && !isGenerating) ? _onGenerate : null,
+          isLoading: isGenerating,
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -168,7 +182,9 @@ class _StaffDirectoryReportScreenState
             text: 'Note: All Classrooms will be selected by Default.',
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

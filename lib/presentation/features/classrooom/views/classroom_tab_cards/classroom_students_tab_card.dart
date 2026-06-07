@@ -194,7 +194,18 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   /// the user selects the same student the attendance gate computes against
   /// stale data and "Sign In" stays disabled after a successful Sign Out
   /// (and vice versa). Wiping the room's cache here forces a fresh fetch.
+  void _dismissSelectionPanel() {
+    if (!mounted) return;
+    setState(() {
+      isSelectAllChecked = false;
+      studentSelections.updateAll((key, val) => false);
+      _showActivitiesPanel = false;
+      _currentPanel = StudentPanelType.none;
+    });
+  }
+
   void _refreshAfterAttendanceAction() {
+    _dismissSelectionPanel();
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};
@@ -208,6 +219,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   /// so drop the roster + attendance + nap-start caches and refetch the list.
   void _refreshAfterActivityRecorded() {
     if (!mounted) return;
+    _dismissSelectionPanel();
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};

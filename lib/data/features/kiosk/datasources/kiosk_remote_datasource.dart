@@ -3,6 +3,13 @@ import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/data/features/kiosk/models/kiosk_qr_model.dart';
 import 'package:wowcare/data/features/kiosk/models/kiosk_pin_result_model.dart';
 
+/// Remote data source for LEGACY kiosk QR and PIN features.
+///
+/// This datasource handles:
+/// - QR code retrieval for the kiosk dashboard
+/// - PIN verification for staff/guardian authentication
+///
+/// NOTE: For the NEW refactored attendance API integration, see KioskAttendanceRemoteDataSource.
 abstract class KioskRemoteDataSource {
   /// Fetch the active QR code for a given school from the attendance API.
   /// Uses: GET /api/v1/schools/{schoolCode}/attendance-settings/qr-code/active
@@ -25,8 +32,7 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
 
   @override
   Future<KioskQrModel> getActiveQrCode({required String schoolCode}) async {
-    final url =
-        '${ApiConstants.attendanceBaseUrl}/schools/$schoolCode/attendance-settings/qr-code/active';
+    final url = ApiConstants.qrCodeActiveEndpoint(schoolCode);
 
     try {
       final response = await _client.get<Map<String, dynamic>>(
@@ -60,7 +66,7 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
     required String pin,
     required String schoolCode,
   }) async {
-    final url = '${ApiConstants.attendanceBaseUrl}/api/v1/kiosk/verify-pin';
+    final url = ApiConstants.kioskVerifyPinEndpoint;
 
     try {
       final response = await _client.post<Map<String, dynamic>>(

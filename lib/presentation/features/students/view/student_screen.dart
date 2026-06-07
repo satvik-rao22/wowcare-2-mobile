@@ -1298,6 +1298,18 @@ class _StudentScreenState extends State<StudentScreen> {
                         students: students,
                         actionName: 'mark_absent',
                       ),
+                      onActivityRecorded: () {
+                        setState(() {
+                          for (int i = 0; i < _selectedDemo.length; i++) {
+                            _selectedDemo[i] = false;
+                          }
+                          _selectAll = false;
+                          _showActivitiesPanel = false;
+                          _currentPanel = StudentPanelType.none;
+                        });
+                        _refreshAttendanceStatusForSelection(students);
+                        context.read<StudentCubit>().refresh();
+                      },
                       ),
                     ],
                   ),

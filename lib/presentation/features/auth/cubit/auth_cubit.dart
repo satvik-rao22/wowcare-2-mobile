@@ -45,6 +45,7 @@ class AuthCubit extends Cubit<AuthState> {
   final UnregisterDeviceFcmTokenUseCase _unregisterDeviceFcmToken;
 
   /// Mark login as completed only after org + school selection is done.
+  /// FCM registration is non-blocking and errors don't interrupt login completion.
   Future<void> completeLogin({
     required String selectedOrgCode,
     required String selectedSchoolName,
@@ -59,20 +60,39 @@ class AuthCubit extends Cubit<AuthState> {
       schoolName: selectedSchoolName,
       schoolCode: selectedSchoolCode,
     );
-    await _registerDeviceFcmTokenIfSessionReady();
+
+    // FCM registration is non-blocking when login is completed
+    try {
+      AppLogger.d('[AUTH] Login completed — registering FCM token');
+      await _registerDeviceFcmTokenIfSessionReady();
+    } catch (e) {
+      // Non-fatal: FCM failures should not block login completion
+      AppLogger.w('[AUTH] FCM registration failed during completeLogin (non-fatal): $e');
+    }
   }
 
   Future<void> _registerDeviceFcmTokenIfSessionReady() async {
-    final loginCompleted =
-        await serviceLocator<StorageService>().getBool(
-          StorageKeys.loginCompleted,
-        ) ??
-        false;
-    if (!loginCompleted) return;
-    await _registerDeviceFcmToken();
+    try {
+      final loginCompleted =
+          await serviceLocator<StorageService>().getBool(
+            StorageKeys.loginCompleted,
+          ) ??
+          false;
+      if (!loginCompleted) {
+        AppLogger.d('[AUTH-FCM] Session not ready (loginCompleted=false) — skipping registration');
+        return;
+      }
+
+      AppLogger.d('[AUTH-FCM] Session ready — registering FCM token');
+      await _registerDeviceFcmToken();
+    } catch (e) {
+      // Non-fatal: FCM registration errors should not interrupt auth flow
+      AppLogger.w('[AUTH-FCM] FCM registration encountered error (non-fatal): $e');
+    }
   }
 
   /// Set selected org/school (e.g. when switching organisation from Dashboard).
+  /// FCM registration is non-blocking and errors are logged but don't interrupt the flow.
   Future<void> setSelectedOrgAndSchool({
     required String organizationCode,
     required String schoolCode,
@@ -83,7 +103,15 @@ class AuthCubit extends Cubit<AuthState> {
       schoolCode: schoolCode,
       schoolName: schoolName,
     );
-    await _registerDeviceFcmToken();
+
+    // FCM registration is non-blocking when org/school changes
+    try {
+      AppLogger.d('[AUTH] Org/school changed — re-registering FCM token');
+      await _registerDeviceFcmToken();
+    } catch (e) {
+      // Non-fatal: FCM failures should not block org/school selection
+      AppLogger.w('[AUTH] FCM re-registration failed (non-fatal): $e');
+    }
   }
 
   /// Updates backend login-context (last org/school) via PATCH. Call when user
@@ -131,13 +159,20 @@ class AuthCubit extends Cubit<AuthState> {
             redirectUrl: null,
           ),
         );
-        // FCM init may have run before splash restored org/school — register now.
-        await _registerDeviceFcmTokenIfSessionReady();
+        // FCM init may have run before splash restored org/school — register now (non-blocking).
+        try {
+          AppLogger.d('[AUTH] App initialized with cached session — registering FCM token');
+          await _registerDeviceFcmTokenIfSessionReady();
+        } catch (e) {
+          // Non-fatal: FCM failures should not prevent app initialization
+          AppLogger.w('[AUTH] FCM registration during init failed (non-fatal): $e');
+        }
       } else {
         emit(const AuthInitial());
       }
     } catch (e) {
       // Silently fall back to initial state if anything goes wrong.
+      AppLogger.w('[AUTH] Initialize failed, falling back to initial state: $e');
       emit(const AuthInitial());
     }
   }
@@ -181,16 +216,85 @@ class AuthCubit extends Cubit<AuthState> {
             final schoolCode = (kioskRole.schoolCode ?? '').trim();
             final orgCode = (kioskRole.organizationCode ?? '').trim();
             if (schoolCode.isNotEmpty && orgCode.isNotEmpty) {
-              // For kiosk users, store school code and default to code as name
-              // (school name will be resolved from QR API if available)
+              // Fetch proper school name and org name from /api/v1/users/details
+              String schoolName = schoolCode; // fallback to code
+              String orgName = orgCode; // fallback to code
+              String roleFromApi = 'KIOSK'; // fallback role
+              int permissionCount = 0;
+
+              try {
+                AppLogger.d('[Kiosk] Fetching user details from /api/v1/users/details with token');
+
+                // Call the API directly
+                final userDetailsList = await _remoteDataSource.getUserDetails(
+                  accessToken: response.accessToken,
+                );
+
+                if (userDetailsList.isNotEmpty) {
+                  final userDetailData = userDetailsList.first;
+
+                  // Extract organization name
+                  if (userDetailData['organizationName'] != null) {
+                    final extractedOrgName = (userDetailData['organizationName'] as String?)?.trim() ?? '';
+                    if (extractedOrgName.isNotEmpty) {
+                      orgName = extractedOrgName;
+                    }
+                  }
+
+                  // Find matching school in user's schools list
+                  final schools = userDetailData['schools'] as List<dynamic>? ?? [];
+                  for (final schoolData in schools) {
+                    if (schoolData is Map<String, dynamic>) {
+                      final code = (schoolData['schoolCode'] as String?)?.trim() ?? '';
+                      if (code == schoolCode) {
+                        // Extract school name
+                        final name = (schoolData['schoolName'] as String?)?.trim() ?? '';
+                        if (name.isNotEmpty) {
+                          schoolName = name;
+                        }
+
+                        // Extract role
+                        final role = (schoolData['role'] as String?)?.trim() ?? '';
+                        if (role.isNotEmpty) {
+                          roleFromApi = role.toUpperCase();
+                        }
+
+                        // Extract permissions
+                        final perms = schoolData['permissions'] as List<dynamic>? ?? [];
+                        permissionCount = perms.length;
+
+                        break;
+                      }
+                    }
+                  }
+
+                  AppLogger.d(
+                    '[Kiosk] Fetched user details: '
+                    'schoolName=$schoolName, '
+                    'schoolCode=$schoolCode, '
+                    'organizationName=$orgName, '
+                    'role=$roleFromApi, '
+                    'permissions=$permissionCount',
+                  );
+                }
+              } catch (e) {
+                AppLogger.w('[Kiosk] Error fetching user details: $e. Using fallback values.');
+              }
+
+              // Store proper school name and org name
               await _localDataSource.setSelectedOrgAndSchool(
                 organizationCode: orgCode,
                 schoolCode: schoolCode,
-                schoolName: schoolCode, // Use code as fallback display name
+                schoolName: schoolName,
               );
-              AppLogger.d('[AUTH] Kiosk login: org=$orgCode, school=$schoolCode');
+
+              AppLogger.d(
+                '[AUTH] Kiosk login: org=$orgCode (name=$orgName), '
+                'school=$schoolCode (name=$schoolName), role=$roleFromApi',
+              );
             }
-          } catch (_) {
+          } catch (e) {
+            AppLogger.w('[AUTH] Error processing kiosk login: $e');
             // Non-fatal: if storing fails, kiosk dashboard will handle missing schoolCode
           }
 
@@ -423,7 +527,12 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         // FCM init runs at app start (before login) — register once session exists.
-        await _registerDeviceFcmTokenIfSessionReady();
+        // Non-blocking: FCM registration failures must NOT break the login flow.
+        try {
+          await _registerDeviceFcmTokenIfSessionReady();
+        } catch (e) {
+          AppLogger.w('[AUTH] FCM registration failed after login (non-fatal): $e');
+        }
       },
     );
   }

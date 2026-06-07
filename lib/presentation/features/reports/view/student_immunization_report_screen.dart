@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/school_immunization_report_params.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -53,12 +57,63 @@ class _StudentImmunizationReportScreenState
   bool _showParentInfo = false;
 
   void _onGenerate() {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating School Immunization Report…',
-      isSuccess: true,
+    final cubit = context.read<ReportsCubit>();
+
+    // Map vaccine selection to backend codes
+    final vaccineCodes = _mapVaccineToCode(_vaccine);
+
+    // Map status selection to backend codes
+    final statusFilters = _mapStatusToCode(_status);
+
+    final params = SchoolImmunizationReportParams(
+      reportType: ReportType.immunization,
+      startDate: DateTime.now(),
+      endDate: DateTime.now(),
+      vaccineCodes: vaccineCodes,
+      statusFilters: statusFilters,
+      includeParentName: _showParentInfo,
+      includeParentEmail: _showParentInfo,
+      classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
+      tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
     );
+    cubit.generateReport(params);
     Navigator.pop(context);
+  }
+
+  /// Map UI vaccine selection to backend vaccine codes.
+  List<String> _mapVaccineToCode(String vaccine) {
+    const vaccineMap = {
+      'All Vaccines': ['DTaP', 'Polio', 'MMR', 'Varicella', 'Hepatitis_B',
+                       'Hepatitis_A', 'Hib', 'Pneumococcal', 'Rotavirus',
+                       'Influenza', 'COVID19'],
+      'DTaP': ['DTaP'],
+      'Polio (IPV)': ['Polio'],
+      'MMR': ['MMR'],
+      'Varicella': ['Varicella'],
+      'Hepatitis B': ['Hepatitis_B'],
+      'Hepatitis A': ['Hepatitis_A'],
+      'Hib': ['Hib'],
+      'Pneumococcal (PCV)': ['Pneumococcal'],
+      'Rotavirus': ['Rotavirus'],
+      'Influenza': ['Influenza'],
+      'COVID-19': ['COVID19'],
+    };
+
+    return vaccineMap[vaccine] ?? ['DTaP'];
+  }
+
+  /// Map UI status selection to backend status codes.
+  List<String> _mapStatusToCode(String status) {
+    switch (status) {
+      case 'Active':
+        return ['ACTIVE'];
+      case 'Upcoming':
+        return ['UPCOMING'];
+      case 'Inactive':
+        return ['INACTIVE'];
+      default:
+        return ['ACTIVE'];
+    }
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
@@ -72,10 +127,14 @@ class _StudentImmunizationReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'School Immunization Report',
-      onGenerate: _onGenerate,
-      child: Column(
+    return BlocSelector<ReportsCubit, ReportsState, bool>(
+      selector: (state) => state.isGenerating,
+      builder: (context, isGenerating) {
+        return ReportFormLayout(
+          title: 'School Immunization Report',
+          onGenerate: isGenerating ? null : _onGenerate,
+          isLoading: isGenerating,
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CustomDropdown(
@@ -139,7 +198,9 @@ class _StudentImmunizationReportScreenState
             ),
           ),
         ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

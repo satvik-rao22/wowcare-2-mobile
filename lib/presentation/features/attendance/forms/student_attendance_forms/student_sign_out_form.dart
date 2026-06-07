@@ -69,6 +69,9 @@ class StudentSignOutForm extends StatefulWidget {
     this.popOnSuccess = false,
     this.isQrScan = false,
     this.qrToken = '',
+    this.isKiosk = false,
+    this.guardianCode,
+    this.pin,
     super.key,
   });
 
@@ -86,6 +89,17 @@ class StudentSignOutForm extends StatefulWidget {
   /// QR token from the scanned code (only set when isQrScan=true).
   /// Included in the API payload when method=QR.
   final String qrToken;
+
+  /// True when called from kiosk flow (guardian persona).
+  /// When true, skips staff code resolution.
+  final bool isKiosk;
+
+  /// Guardian code from kiosk PIN verification.
+  /// Only set when isKiosk=true.
+  final String? guardianCode;
+
+  /// PIN from kiosk access. Included in API payload for kiosk sign-out.
+  final String? pin;
 
   static const String routeName = '/student-sign-out-form';
 
@@ -379,25 +393,36 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         );
         return;
       }
-      final staffCode = await _resolveStaffCode();
-      if (!mounted) return;
-      if (staffCode.isEmpty) {
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('Unable to resolve staffCode. Please re-login.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
+      // For kiosk flow (guardian), skip staff code resolution
+      if (!widget.isKiosk) {
+        final staffCode = await _resolveStaffCode();
+        if (!mounted) return;
+        if (staffCode.isEmpty) {
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: const SnackBar(
+              content: Text('Unable to resolve staffCode. Please re-login.'),
+              backgroundColor: AppColors.warningColor,
+            ),
+          );
+          return;
+        }
+        payload.addAll(<String, dynamic>{
+          'attendanceDate': attendanceDate,
+          'staffCode': staffCode,
+          'classroomCode': defaultClassroomCode,
+          'classroomCodeByStudentCode': classroomCodeByStudentCode,
+          'occurredAt': occurredAt.toUtc().toIso8601String(),
+        });
+      } else {
+        // KIOSK MODE: Use guardian code directly, no staff code needed
+        payload['method'] = 'KIOSK';
+        payload.addAll(<String, dynamic>{
+          'guardianCode': widget.guardianCode,
+          'pin': widget.pin,
+          'isExpected': true,
+        });
       }
-      payload.addAll(<String, dynamic>{
-        'attendanceDate': attendanceDate,
-        'staffCode': staffCode,
-        'classroomCode': defaultClassroomCode,
-        'classroomCodeByStudentCode': classroomCodeByStudentCode,
-        'occurredAt': occurredAt.toUtc().toIso8601String(),
-      });
     }
 
     try {
@@ -485,6 +510,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     }
 
     return StaffFormLayout(
+      isKiosk: widget.isKiosk,
       title: 'Sign-Out',
       child: SingleChildScrollView(
         child: Column(
