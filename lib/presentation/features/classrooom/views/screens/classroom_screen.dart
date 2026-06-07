@@ -55,6 +55,9 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   // Whether [widget.initialClassroomCode] has already been honored, so a manual
   // dropdown change afterwards isn't overridden on the next rebuild.
   bool _appliedInitialClassroom = false;
+  bool _defaultClassroomPrefsResolved = false;
+  String? _staffPrimaryClassroomCode;
+  bool _defaultClassroomApplied = false;
 
   @override
   void initState() {
@@ -70,6 +73,65 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     });
 
     _resolveStaffPersonaRestrictions();
+    _resolveDefaultClassroomPrefs();
+  }
+
+  Future<void> _resolveDefaultClassroomPrefs() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final primary = await resolveStaffPrimaryClassroomCode(storage: storage);
+      if (!mounted) return;
+      setState(() {
+        _staffPrimaryClassroomCode = primary;
+        _defaultClassroomPrefsResolved = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _defaultClassroomPrefsResolved = true);
+    }
+  }
+
+  Classroom? _pickDefaultClassroom(List<Classroom> classrooms) {
+    if (classrooms.isEmpty) return null;
+
+    final targetCode = widget.initialClassroomCode?.trim();
+    if (!_appliedInitialClassroom &&
+        targetCode != null &&
+        targetCode.isNotEmpty) {
+      for (final c in classrooms) {
+        if (c.code.trim() == targetCode) {
+          _appliedInitialClassroom = true;
+          return c;
+        }
+      }
+      return classrooms.first;
+    }
+
+    final primaryCode = (_staffPrimaryClassroomCode ?? '').trim();
+    if (primaryCode.isNotEmpty) {
+      for (final c in classrooms) {
+        if (c.code.trim() == primaryCode) return c;
+      }
+    }
+
+    // Admin (and staff fallback): first classroom sorted alphabetically by name.
+    return classrooms.first;
+  }
+
+  void _applyDefaultClassroomSelection(List<Classroom> classrooms) {
+    if (_defaultClassroomApplied || !_defaultClassroomPrefsResolved) return;
+    if (classrooms.isEmpty) return;
+
+    final picked = _pickDefaultClassroom(classrooms);
+    if (picked == null) return;
+
+    _defaultClassroomApplied = true;
+    if (selectedRoom?.code == picked.code) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => selectedRoom = picked);
+    });
   }
 
   Future<void> _resolveStaffPersonaRestrictions() async {
@@ -91,7 +153,10 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     // (go_router rebuilds the branch with a new code) — re-apply on next build.
     if (oldWidget.initialClassroomCode != widget.initialClassroomCode &&
         widget.initialClassroomCode != null) {
-      setState(() => _appliedInitialClassroom = false);
+      setState(() {
+        _appliedInitialClassroom = false;
+        _defaultClassroomApplied = false;
+      });
     }
   }
 
@@ -202,29 +267,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
         builder: (context, state) {
           final classrooms = state.classrooms;
           if (classrooms.isNotEmpty) {
-            final targetCode = widget.initialClassroomCode;
-            if (!_appliedInitialClassroom &&
-                targetCode != null &&
-                targetCode.isNotEmpty) {
-              // Try to honor the notification's classroom code.
-              Classroom? match;
-              for (final c in classrooms) {
-                if (c.code == targetCode) {
-                  match = c;
-                  break;
-                }
-              }
-              if (match != null) {
-                selectedRoom = match;
-                _appliedInitialClassroom = true;
-              } else {
-                // Not in the loaded list yet; fall back to first for now and
-                // retry on subsequent builds as more classrooms load.
-                selectedRoom ??= classrooms.first;
-              }
-            } else {
-              selectedRoom ??= classrooms.first;
-            }
+            _applyDefaultClassroomSelection(classrooms);
           }
 
           final isInitialLoading = state.isLoading && classrooms.isEmpty;
