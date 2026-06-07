@@ -42,6 +42,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as absent_form;
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
@@ -744,6 +745,14 @@ class _StudentScreenState extends State<StudentScreen> {
     return selected;
   }
 
+  /// True when at least one selected student is inactive. Attendance and
+  /// Activities cannot be performed on inactive students, so both actions are
+  /// disabled for the whole selection when this is true.
+  bool _hasInactiveSelected(List<Student> students) {
+    return _getSelectedStudents(students)
+        .any((s) => s.status.trim().toUpperCase() != 'ACTIVE');
+  }
+
   String _resolveClassroomCodeForStudent(
     Student student, {
     required Map<String, String> classroomCodeByName,
@@ -1165,6 +1174,8 @@ class _StudentScreenState extends State<StudentScreen> {
         _scheduleClassroomDetailFetchesIfNeeded(students, classroomNameByCode);
         final bool anySelected = _selectedDemo.any((e) => e);
         final int selectedCount = _selectedDemo.where((e) => e).length;
+        // Attendance + Activities are not allowed on inactive students.
+        final bool hasInactiveSelected = _hasInactiveSelected(students);
 
         // Update selection list when students list changes
         if (_selectedDemo.length != students.length) {
@@ -1201,6 +1212,10 @@ class _StudentScreenState extends State<StudentScreen> {
                               : null,
                       attendanceAvailability:
                           _attendanceAvailabilityForSelection(students),
+                      attendanceEnabled: !hasInactiveSelected,
+                      attendanceDisabledHint: hasInactiveSelected
+                          ? 'You cannot mark attendance for inactive student.'
+                          : null,
                       onAttendanceTap: (){
                         setState(() {
                           final open = _currentPanel == StudentPanelType.attendance;
@@ -1208,7 +1223,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           _showActivitiesPanel = false;
                         });
                       },
-                      onActivitiesTap: _canShowActivitiesButton(selectedCount, students) ? () {
+                      onActivitiesTap: (_canShowActivitiesButton(selectedCount, students) && !hasInactiveSelected) ? () {
                         setState(() {
                           _showActivitiesPanel = !_showActivitiesPanel;
                           _currentPanel = _showActivitiesPanel ? StudentPanelType.activities : StudentPanelType.none;
@@ -1261,7 +1276,10 @@ class _StudentScreenState extends State<StudentScreen> {
                         _refreshAttendanceStatusForSelection(students);
                       },
                       isProfileEnabled: selectedCount == 1,
-                      activitiesEnabled: _canShowActivitiesButton(selectedCount, students),
+                      activitiesEnabled: _canShowActivitiesButton(selectedCount, students) && !hasInactiveSelected,
+                      activitiesDisabledHint: hasInactiveSelected
+                          ? 'You cannot record activities for inactive student.'
+                          : null,
                       showAttendanceActions: _currentPanel == StudentPanelType.attendance,
                       isAttendanceActionLoading: _isAttendanceActionLoading,
                       onSignInTap: () => _openAttendanceActionFlow(
@@ -1680,18 +1698,17 @@ class _StudentScreenState extends State<StudentScreen> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // const CustomChip(
-                                //   label: 'Active',
-                                //   labelStyle: TextStyle(
-                                //     color: AppColors.secondaryColor,
-                                //     fontSize: 13,
-                                //     fontWeight: FontWeight.w500,
-                                //   ),
-                                //   color: Color.fromRGBO(177, 175, 233, 0.3),
-                                // ),
-                                CustomClearAllChip(
-                                  onTap: null,
+                                // Status chip matches the staff screen: a light
+                                // lavender pill (display-only) showing the active
+                                // status filter, next to the gradient Clear All.
+                                CustomChip(
                                   label: _statusChipLabel(),
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.secondaryColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  color: const Color.fromRGBO(177, 175, 233, 0.3),
                                 ),
                                 const SizedBox(width: 8),
                                 CustomClearAllChip(onTap: () => _clearAllFilters()),
