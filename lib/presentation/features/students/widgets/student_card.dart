@@ -139,7 +139,7 @@ class _StudentCardState extends State<StudentCard> {
     return ordered;
   }
 
-  String _formatBirthDate(String raw) {
+  String _formatDate(String raw) {
     if (raw.isEmpty) return '-';
 
     try {
@@ -163,6 +163,10 @@ class _StudentCardState extends State<StudentCard> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final tags = widget.tags;
+    // Upcoming students get the same actions as active ones (Deactivate + Edit),
+    // not the inactive set (Reactivate + Delete + Edit).
+    final bool showActiveActions =
+        widget.isActive || widget.status.trim().toUpperCase() == 'UPCOMING';
     String _toEnumDay(String shortDay) {
       switch (shortDay) {
         case 'Mon':
@@ -302,7 +306,7 @@ class _StudentCardState extends State<StudentCard> {
                         color: Color(0xFFE9ECEF),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -536,7 +540,7 @@ class _StudentCardState extends State<StudentCard> {
                                   ),
                                 ),
                                 Text(
-                                  _formatBirthDate(widget.birthDate),
+                                  _formatDate(widget.birthDate),
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -563,7 +567,7 @@ class _StudentCardState extends State<StudentCard> {
                                   ),
                                 ),
                                 Text(
-                                  widget.movementDate,
+                                  _formatDate(widget.movementDate),
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -590,7 +594,7 @@ class _StudentCardState extends State<StudentCard> {
                                           builder: (ctx) {
                                             return DeleteConfirmationBottomSheet(
                                               name: widget.name,
-                                              type: widget.isActive
+                                              type: showActiveActions
                                                   ? 'student_deactivate'
                                                   : 'student_reactivate',
                                               onDelete: () {
@@ -616,7 +620,7 @@ class _StudentCardState extends State<StudentCard> {
                                         padding: EdgeInsets.zero,
                                       ),
                                       child: Text(
-                                        widget.isActive
+                                        showActiveActions
                                             ? 'Deactivate'
                                             : 'Reactivate',
                                         style: const TextStyle(
@@ -630,7 +634,7 @@ class _StudentCardState extends State<StudentCard> {
                                     ),
                                   ),
                                 ),
-                                if (!widget.isActive) ...[
+                                if (!showActiveActions) ...[
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: SizedBox(
