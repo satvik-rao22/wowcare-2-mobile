@@ -1,9 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -43,11 +40,6 @@ class _AnnualStateImmunizationReportScreenState
       return;
     }
     if (mounted) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Report generated successfully',
-        isSuccess: true,
-      );
       Navigator.of(context).pop(true);
     }
   }
@@ -78,9 +70,11 @@ class _AnnualStateImmunizationReportScreenState
             onDateSelected: (d) => setState(() => _endDate = d),
           ),
           SizedBox(height: responsive.verticalSpacing),
+          const ReportFieldLabel(label: 'Export Format'),
           ReportFormatSelector(
             selectedFormat: _format,
             onFormatChanged: (value) => setState(() => _format = value),
+            showLabel: false,
           ),
         ],
       ),

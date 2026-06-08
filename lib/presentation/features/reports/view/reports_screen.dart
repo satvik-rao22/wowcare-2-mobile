@@ -746,18 +746,7 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
       listenWhen: (previous, current) =>
           previous.generatedReportsState != current.generatedReportsState,
       listener: (context, state) {
-        // Show success snackbar when reports loaded
-        if (state.generatedReportsState ==
-                GeneratedReportsLoadingState.loaded &&
-            state.generatedReportsError == null) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Reports loaded successfully',
-            isSuccess: true,
-          );
-        }
-
-        // Show error snackbar when loading fails
+        // Show error snackbar when loading fails (only show errors, not success)
         if (state.generatedReportsState == GeneratedReportsLoadingState.error &&
             state.generatedReportsError != null) {
           CoreUtils.showTopSnackBar(

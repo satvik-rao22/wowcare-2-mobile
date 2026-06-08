@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
@@ -59,38 +60,72 @@ class _StudentEmergencyContactReportScreenState
       classroomCodes: _selectedClassrooms.value,
     );
     cubit.generateReport(params);
-    if (mounted) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Report generated successfully',
-        isSuccess: true,
-      );
-      Navigator.of(context).pop(true);
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<ReportsCubit, ReportsState>(
-      listenWhen: (previous, current) =>
-          previous.generationError != current.generationError,
-      listener: (context, state) {
-        if (state.generationError != null &&
-            state.generationError!.isNotEmpty) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.generationError!,
-            isError: true,
-          );
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationError != current.generationError,
+          listener: (context, state) {
+            if (state.generationError != null &&
+                state.generationError!.isNotEmpty) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.generationError!,
+                isError: true,
+              );
+            }
+          },
+        ),
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) {
+            final changed = previous.generationSuccess != current.generationSuccess;
+            AppLogger.d('[LISTENER-WHEN] generationSuccess changed: $changed (prev=${previous.generationSuccess}, curr=${current.generationSuccess})');
+            return changed;
+          },
+          listener: (context, state) {
+            AppLogger.d('[LISTENER-EXEC] generationSuccess=${state.generationSuccess}, generatedReport=${state.generatedReport != null}');
+            if (state.generationSuccess != null &&
+                state.generationSuccess!.isNotEmpty &&
+                state.generatedReport != null) {
+              AppLogger.d('[LISTENER-SHOW-SNACKBAR] About to show snackbar');
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Report generated successfully',
+                isSuccess: true,
+              );
+
+              if (mounted) {
+                AppLogger.d('[LISTENER-NAVIGATE] Adding postFrameCallback for navigation');
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) {
+                    AppLogger.d('[LISTENER-NAVIGATE-SKIP] Widget not mounted');
+                    return;
+                  }
+
+                  AppLogger.d('[LISTENER-NAVIGATE-EXEC] Executing navigation');
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
+              }
+            } else {
+              AppLogger.d('[LISTENER-SKIP] Condition not met for snackbar/nav');
+            }
+          },
+        ),
+      ],
       child: BlocSelector<ReportsCubit, ReportsState, bool>(
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
           return ReportFormLayout(
             title: 'Student Emergency Contact List',
-            onGenerate: (_isFormValid && !isGenerating) ? _onGenerate : null,
+            onGenerate: _onGenerate,
             isLoading: isGenerating,
+            showButton: true,
+
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -102,18 +137,20 @@ class _StudentEmergencyContactReportScreenState
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
                   text: 'Note: All Classrooms will be selected by Default.',
                 ),
                 SizedBox(height: ResponsiveHelper(context).verticalSpacing),
+                const ReportFieldLabel(label: 'Export Format'),
                 ValueListenableBuilder<String>(
                   valueListenable: _format,
                   builder: (_, format, __) => ReportFormatSelector(
                     selectedFormat: format,
                     onFormatChanged: (value) => _format.value = value,
+                    showLabel: false,
                   ),
                 ),
               ],

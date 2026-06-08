@@ -429,9 +429,14 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       final result = await serviceLocator<AttendanceRepository>()
           .submitStudentSignOut(payload: payload, isParent: isParent || widget.isKiosk);
       final success = result.success;
-      final message = result.message;
+      var message = result.message;
 
       if (!mounted) return;
+
+      // Normalize success messages for better UX
+      if (success && (message.toLowerCase().contains('sign out') || message.toLowerCase().contains('sign-out') || message.toLowerCase().contains('signed out'))) {
+        message = 'Sign out successfully';
+      }
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,

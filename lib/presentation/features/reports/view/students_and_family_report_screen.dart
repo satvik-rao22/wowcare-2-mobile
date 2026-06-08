@@ -144,14 +144,6 @@ class _StudentsAndFamilyReportScreenState
       format: _format.value,
     );
     cubit.generateReport(params);
-    if (mounted) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Report generated successfully',
-        isSuccess: true,
-      );
-      Navigator.of(context).pop(true);
-    }
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
@@ -165,19 +157,47 @@ class _StudentsAndFamilyReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return BlocListener<ReportsCubit, ReportsState>(
-      listenWhen: (previous, current) =>
-          previous.generationError != current.generationError,
-      listener: (context, state) {
-        if (state.generationError != null &&
-            state.generationError!.isNotEmpty) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.generationError!,
-            isError: true,
-          );
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationError != current.generationError,
+          listener: (context, state) {
+            if (state.generationError != null &&
+                state.generationError!.isNotEmpty) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.generationError!,
+                isError: true,
+              );
+            }
+          },
+        ),
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationSuccess != current.generationSuccess,
+          listener: (context, state) {
+            if (state.generationSuccess != null &&
+                state.generationSuccess!.isNotEmpty &&
+                state.generatedReport != null) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Report generated successfully',
+                isSuccess: true,
+              );
+
+              if (mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
+              }
+            }
+          },
+        ),
+      ],
       child: BlocSelector<ReportsCubit, ReportsState, bool>(
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
@@ -281,11 +301,13 @@ class _StudentsAndFamilyReportScreenState
                   ),
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                const ReportFieldLabel(label: 'Export Format'),
                 ValueListenableBuilder<String>(
                   valueListenable: _format,
                   builder: (_, format, __) => ReportFormatSelector(
                     selectedFormat: format,
                     onFormatChanged: (value) => _format.value = value,
+                    showLabel: false,
                   ),
                 ),
               ],

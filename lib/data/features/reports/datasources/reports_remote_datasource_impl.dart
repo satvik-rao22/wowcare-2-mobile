@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/storage_keys.dart' as storage_keys;
 import '../models/report_response_model.dart';
@@ -25,22 +26,23 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     if (reportType.startsWith('STUDENT_')) {
       // Student attendance reports
-      endpoint = '/api/v1/attendance/student-attendance/reports/generate';
+      endpoint = ApiPaths.studentAttendanceReportsGenerate;
     } else if (reportType.startsWith('STAFF_')) {
       if (reportType == 'STAFF_DETAILS') {
         // Staff directory
-        endpoint = '/api/v1/staff/staff/reports/generate';
+        endpoint = ApiPaths.staffReportsGenerate;
       } else {
         // Staff attendance reports
-        endpoint = '/api/v1/attendance/staff-attendance/reports/generate';
+        endpoint = ApiPaths.staffAttendanceReportsGenerate;
       }
     } else if (reportType == 'STUDENTS_AND_FAMILY' ||
-        reportType == 'EMERGENCY_CONTACTS') {
+        reportType == 'EMERGENCY_CONTACTS' ||
+        reportType == 'STUDENT_INCIDENT') {
       // Student management reports
-      endpoint = '/api/v1/student/student/reports/generate';
+      endpoint = ApiPaths.studentManagementReportsGenerate;
     } else if (reportType == 'IMMUNIZATION') {
       // Immunization report
-      endpoint = '/api/v1/student/settings/immunization/report';
+      endpoint = ApiPaths.studentImmunizationReport;
     } else {
       throw ArgumentError('Unknown report type: $reportType');
     }
@@ -60,7 +62,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
   Future<List<RecentReportModel>> getRecentStudentAttendanceReports() async {
     final schoolCode =
         await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = '/api/v1/attendance/student-attendance/reports/recent';
+    final endpoint = ApiPaths.studentAttendanceReportsRecent;
     AppLogger.d('[REPORTS] Student Attendance API: Loading with schoolCode=$schoolCode');
 
     try {
@@ -106,7 +108,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
   Future<List<RecentReportModel>> getRecentStaffAttendanceReports() async {
     final schoolCode =
         await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = '/api/v1/attendance/staff-attendance/reports/recent';
+    final endpoint = ApiPaths.staffAttendanceReportsRecent;
     AppLogger.d('[REPORTS] Staff Attendance API: Loading with schoolCode=$schoolCode');
 
     try {
@@ -152,7 +154,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
   Future<List<RecentReportModel>> getRecentStaffReports() async {
     final schoolCode =
         await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = '/api/v1/staff/staff/reports/recent';
+    final endpoint = ApiPaths.staffReportsRecent;
     AppLogger.d('[REPORTS] Staff Reports API: Loading with schoolCode=$schoolCode');
 
     try {
@@ -198,7 +200,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
   Future<List<RecentReportModel>> getRecentStudentManagementReports() async {
     final schoolCode =
         await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = '/api/v1/student/student/reports/recent';
+    final endpoint = ApiPaths.studentManagementReportsRecent;
     AppLogger.d('[REPORTS] Student Management API: Loading with schoolCode=$schoolCode');
 
     try {
@@ -243,7 +245,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
   @override
   Future<List<String>> getStudentTags() async {
     final response = await _dio.get<Map<String, dynamic>>(
-      '/api/v1/student/tags',
+      ApiPaths.studentTags,
     );
 
     final data = response.data ?? {};
@@ -257,7 +259,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     AppLogger.d('Resolving asset code to get download URL: $assetCode');
 
     final response = await _dio.post<Map<String, dynamic>>(
-      '/api/v1/document/media-assets/resolve',
+      ApiPaths.documentMediaAssetsResolve,
       data: {
         'assetCodes': [assetCode],
       },

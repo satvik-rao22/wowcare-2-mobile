@@ -136,29 +136,20 @@ class _StaffAttendancePerWeekReportScreenState
             if (state.generationSuccess != null &&
                 state.generationSuccess!.isNotEmpty &&
                 state.generatedReport != null) {
-              AppLogger.i('[REPORT_GENERATION_SUCCESS] Generated: ${state.generatedReport!.fileName} (ID: ${state.generatedReport!.reportId})');
               CoreUtils.showTopSnackBar(
                 context: context,
                 message: 'Report generated successfully',
                 isSuccess: true,
               );
 
-              // Close this dialog/screen
               if (mounted) {
-                Navigator.of(context).pop(true);
-              }
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
 
-              // Navigate to Reports screen with tab index 0 (Generated tab)
-              if (mounted) {
-                AppLogger.d('[STAFF-ATTENDANCE-WEEKLY] Navigating to Generated Reports tab');
-                context.go('/dashboard/reports?tab=0');
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
               }
-
-              // Refresh the recent reports list silently in background
-              AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] Triggering silent background refresh');
-              unawaited(
-                context.read<ReportsCubit>().loadRecentReports(isRefresh: true),
-              );
             }
           },
         ),
@@ -235,9 +226,11 @@ class _StaffAttendancePerWeekReportScreenState
                   text: 'Note: All Classrooms will be selected by Default.',
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                const ReportFieldLabel(label: 'Export Format'),
                 ReportFormatSelector(
                   selectedFormat: _format,
                   onFormatChanged: (value) => setState(() => _format = value),
+                  showLabel: false,
                 ),
               ],
             ),

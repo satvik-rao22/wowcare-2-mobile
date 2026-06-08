@@ -6,7 +6,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -91,11 +91,17 @@ class _StudentDailyAttendanceReportScreenState
                 state.generationSuccess!.isNotEmpty) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: state.generationSuccess!,
+                message: 'Report generated successfully',
                 isSuccess: true,
               );
+
               if (mounted) {
-                Navigator.of(context).pop(true);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
               }
             }
           },
@@ -137,11 +143,13 @@ class _StudentDailyAttendanceReportScreenState
                   text: 'Note: All Classrooms will be selected by Default.',
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                const ReportFieldLabel(label: 'Export Format'),
                 ValueListenableBuilder<String>(
                   valueListenable: _format,
                   builder: (_, format, __) => ReportFormatSelector(
                     selectedFormat: format,
                     onFormatChanged: (value) => _format.value = value,
+                    showLabel: false,
                   ),
                 ),
               ],

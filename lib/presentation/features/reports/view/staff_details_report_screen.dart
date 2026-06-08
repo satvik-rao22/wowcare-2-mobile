@@ -127,51 +127,47 @@ class _StaffDirectoryReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return BlocListener<ReportsCubit, ReportsState>(
-      listenWhen: (previous, current) =>
-          previous.generationError != current.generationError ||
-          previous.generationSuccess != current.generationSuccess,
-      listener: (context, state) {
-        // Handle error
-        if (state.generationError != null &&
-            state.generationError!.isNotEmpty) {
-          AppLogger.e('[REPORT_GENERATION_ERROR] ${state.generationError}');
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.generationError!,
-            isError: true,
-          );
-        }
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationError != current.generationError,
+          listener: (context, state) {
+            if (state.generationError != null &&
+                state.generationError!.isNotEmpty) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.generationError!,
+                isError: true,
+              );
+            }
+          },
+        ),
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationSuccess != current.generationSuccess,
+          listener: (context, state) {
+            if (state.generationSuccess != null &&
+                state.generationSuccess!.isNotEmpty &&
+                state.generatedReport != null) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Report generated successfully',
+                isSuccess: true,
+              );
 
-        // Handle success - navigate to Generated Reports and refresh list
-        if (state.generationSuccess != null &&
-            state.generationSuccess!.isNotEmpty &&
-            state.generatedReport != null) {
-          AppLogger.i('[REPORT_GENERATION_SUCCESS] Generated: ${state.generatedReport!.fileName} (ID: ${state.generatedReport!.reportId})');
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Report generated successfully',
-            isSuccess: true,
-          );
+              if (mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
 
-          // Close this dialog/screen
-          if (mounted) {
-            Navigator.of(context).pop(true);
-          }
-
-          // Navigate to Reports screen with tab index 0 (Generated tab)
-          if (mounted) {
-            AppLogger.d('[STAFF-DETAILS] Navigating to Generated Reports tab');
-            context.go('/dashboard/reports?tab=0');
-          }
-
-          // Refresh the recent reports list silently in background
-          AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] Triggering silent background refresh');
-          unawaited(
-            context.read<ReportsCubit>().loadRecentReports(isRefresh: true),
-          );
-        }
-      },
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
+              }
+            }
+          },
+        ),
+      ],
       child: BlocSelector<ReportsCubit, ReportsState, bool>(
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
@@ -235,9 +231,11 @@ class _StaffDirectoryReportScreenState
                   text: 'Note: All Classrooms will be selected by Default.',
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                const ReportFieldLabel(label: 'Export Format'),
                 ReportFormatSelector(
                   selectedFormat: _format,
                   onFormatChanged: (value) => setState(() => _format = value),
+                  showLabel: false,
                 ),
               ],
             ),

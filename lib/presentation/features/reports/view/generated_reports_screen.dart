@@ -387,6 +387,15 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
             state.generatedReport != null) {
           AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] New report generated, refreshing list silently');
           _loadData(isRefresh: true);
+
+          // Clear the success signal so future generations trigger this listener again
+          unawaited(
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                context.read<ReportsCubit>().clearGeneratedReport();
+              }
+            }),
+          );
         }
 
         // Show error snackbar when loading fails

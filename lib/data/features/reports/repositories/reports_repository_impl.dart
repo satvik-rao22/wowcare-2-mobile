@@ -97,17 +97,13 @@ class ReportsRepositoryImpl implements ReportsRepository {
     final allReports = results.expand((x) => x).toList();
     AppLogger.d('[REPORTS] Total Merged Reports Count: ${allReports.length}');
 
-    // Deduplicate by reportId (keep last occurrence)
-    final unique = <String, ReportMetadataEntity>{};
-    for (final report in allReports) {
-      final entity = _mapRecentModelToEntity(report);
-      unique[entity.reportId] = entity;
-    }
-
-    AppLogger.d('[REPORTS] After dedup: ${unique.length}');
+    // Convert all models to entities (no deduplication - show every generated report)
+    final entities = allReports
+        .map((report) => _mapRecentModelToEntity(report))
+        .toList();
 
     // Sort by date descending (most recent first)
-    final sorted = unique.values.toList()
+    final sorted = entities
       ..sort((a, b) => b.generatedAt.compareTo(a.generatedAt));
 
     AppLogger.d('[REPORTS] Final List Length: ${sorted.length}');

@@ -98,7 +98,24 @@ class ReportsCubit extends Cubit<ReportsState> {
 
     AppLogger.d('[REPORTS-CUBIT] generateReport() entered: ${params.reportType.backendValue}');
     AppLogger.d('[REPORTS-CUBIT] Setting isGenerating=true, clearing previous errors/success');
-    emit(state.copyWith(isGenerating: true, generationError: null, generationSuccess: null));
+    // CRITICAL: Must create new state with explicit null values, not copyWith(null)
+    // because copyWith treats null as "don't change this field"
+    emit(ReportsState(
+      classroomNames: state.classroomNames,
+      studentNames: state.studentNames,
+      staffNames: state.staffNames,
+      tagNames: state.tagNames,
+      classroomNameToCode: state.classroomNameToCode,
+      staffNameToCode: state.staffNameToCode,
+      generatedReport: null,
+      recentReports: state.recentReports,
+      dynamicTagNames: state.dynamicTagNames,
+      isGenerating: true,
+      generationError: null,
+      generationSuccess: null,
+      generatedReportsState: state.generatedReportsState,
+      generatedReportsError: state.generatedReportsError,
+    ));
 
     AppLogger.d('[REPORTS-CUBIT] Calling usecase for fresh API call');
     final result = await _generateReportUseCase(params);
@@ -118,7 +135,7 @@ class ReportsCubit extends Cubit<ReportsState> {
         emit(state.copyWith(
           isGenerating: false,
           generatedReport: report,
-          generationSuccess: 'Report generated successfully',
+          generationSuccess: 'generated', // Non-UI signal: just marks generation success
           generationError: null,
         ));
         AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] Triggering silent background refresh');
@@ -203,10 +220,26 @@ class ReportsCubit extends Cubit<ReportsState> {
     );
   }
 
-  /// Clear the generated report from state.
+  /// Clear the generated report and success signal from state.
   void clearGeneratedReport() {
     if (isClosed) return;
-    emit(state.copyWith(generatedReport: null, generationError: null));
+    // CRITICAL: Must create new state with explicit null values, not copyWith(null)
+    emit(ReportsState(
+      classroomNames: state.classroomNames,
+      studentNames: state.studentNames,
+      staffNames: state.staffNames,
+      tagNames: state.tagNames,
+      classroomNameToCode: state.classroomNameToCode,
+      staffNameToCode: state.staffNameToCode,
+      generatedReport: null,
+      recentReports: state.recentReports,
+      dynamicTagNames: state.dynamicTagNames,
+      isGenerating: state.isGenerating,
+      generationError: null,
+      generationSuccess: null,
+      generatedReportsState: state.generatedReportsState,
+      generatedReportsError: state.generatedReportsError,
+    ));
   }
 
   /// Download a report file by asset code.

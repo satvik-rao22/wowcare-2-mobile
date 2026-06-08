@@ -3,6 +3,9 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
@@ -43,13 +46,33 @@ class _StudentIncidentReportScreenState
   }
 
   void _onGenerate() {
-    const message = 'School Incident Report is currently unavailable because backend support is not implemented.';
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: message,
-      isError: true,
+    AppLogger.d('[INCIDENT-UI] Generate button tapped');
+
+    if (_toDate.isBefore(_startDate)) {
+      AppLogger.w('[INCIDENT-UI] Generation blocked: To date before From date');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'End date cannot be before Start date',
+        isError: true,
+      );
+      return;
+    }
+
+    AppLogger.d('[INCIDENT-UI] Creating report params');
+    final cubit = context.read<ReportsCubit>();
+    final params = ReportRequestParams(
+      reportType: ReportType.studentIncident,
+      startDate: _startDate,
+      endDate: _endDate,
+      studentCodes: _selectedStudents.isEmpty ? null : _selectedStudents,
+      format: _format,
     );
+
+    AppLogger.d('[INCIDENT-UI] Calling cubit.generateReport()');
+    unawaited(cubit.generateReport(params));
   }
+
+  DateTime get _toDate => _endDate;
 
   @override
   Widget build(BuildContext context) {
@@ -79,61 +102,75 @@ class _StudentIncidentReportScreenState
                 state.generationSuccess!.isNotEmpty) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: state.generationSuccess!,
+                message: 'Report generated successfully',
                 isSuccess: true,
               );
+
               if (mounted) {
-                Navigator.of(context).pop(true);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
               }
             }
           },
         ),
       ],
-      child: ReportFormLayout(
-        title: 'School Incident Report',
-        onGenerate: _onGenerate,
-        child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const ReportFieldLabel(label: 'Start Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _startDate,
-            onDateSelected: (d) => setState(() => _startDate = d),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          const ReportFieldLabel(label: 'End Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _endDate,
-            onDateSelected: (d) => setState(() => _endDate = d),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          MultiSelectFilterField<String>(
-            label: 'Student',
-            hintText: 'Select Students',
-            items: widget.students,
-            selectedItems: _selectedStudents,
-            onChanged: (s) => setState(() => _selectedStudents = s),
-            itemToString: (item) => item,
-            singularLabel: 'Student',
-            pluralLabel: 'Students',
-            showSelectAll: true,
-            enableSearch: true,
-            searchHintText: 'Search Students',
-          ),
-          const ReportDefaultNote(
-            text: 'Note: All Students will be selected by Default.',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          ReportFormatSelector(
-            selectedFormat: _format,
-            onFormatChanged: (value) => setState(() => _format = value),
-          ),
-        ],
-        ),
+      child: BlocSelector<ReportsCubit, ReportsState, bool>(
+        selector: (state) => state.isGenerating,
+        builder: (context, isGenerating) {
+          return ReportFormLayout(
+            title: 'School Incident Report',
+            onGenerate: isGenerating ? null : _onGenerate,
+            isLoading: isGenerating,
+            child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const ReportFieldLabel(label: 'Start Date'),
+              CustomDateTimeField(
+                hasLabel: false,
+                fetchInitialTime: false,
+                initialDate: _startDate,
+                onDateSelected: (d) => setState(() => _startDate = d),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              const ReportFieldLabel(label: 'End Date'),
+              CustomDateTimeField(
+                hasLabel: false,
+                fetchInitialTime: false,
+                initialDate: _endDate,
+                onDateSelected: (d) => setState(() => _endDate = d),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              MultiSelectFilterField<String>(
+                label: 'Student',
+                hintText: 'Select Students',
+                items: widget.students,
+                selectedItems: _selectedStudents,
+                onChanged: (s) => setState(() => _selectedStudents = s),
+                itemToString: (item) => item,
+                singularLabel: 'Student',
+                pluralLabel: 'Students',
+                showSelectAll: true,
+                enableSearch: true,
+                searchHintText: 'Search Students',
+              ),
+              const ReportDefaultNote(
+                text: 'Note: All Students will be selected by Default.',
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              const ReportFieldLabel(label: 'Export Format'),
+              ReportFormatSelector(
+                selectedFormat: _format,
+                onFormatChanged: (value) => setState(() => _format = value),
+                showLabel: false,
+              ),
+            ],
+            ),
+          );
+        },
       ),
     );
   }

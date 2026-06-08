@@ -61,6 +61,7 @@ class ApiPathsUat {
       'staff-absence-records',
       'staff-attendance-records',
       'schools', // GPS sign-in settings: /api/v1/attendance/schools/{code}/attendance-settings
+      'kiosk', // Kiosk PIN verification: /api/v1/kiosk/verify-pin
     },
     ApiMicroservices.classroom: {
       'classroom',
@@ -146,6 +147,7 @@ class ApiPathsUat {
       case 'staff-attendance':
       case 'staff-absence-records':
       case 'staff-attendance-records':
+      case 'kiosk':
         return ApiMicroservices.attendance;
       case 'classroom':
       case 'individual-movements':

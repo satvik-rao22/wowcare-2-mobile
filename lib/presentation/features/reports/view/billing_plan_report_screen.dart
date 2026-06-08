@@ -44,11 +44,6 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
 
   void _onGenerate() {
     if (mounted) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Report generated successfully',
-        isSuccess: true,
-      );
       Navigator.of(context).pop(true);
     }
   }
@@ -64,19 +59,47 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return BlocListener<ReportsCubit, ReportsState>(
-      listenWhen: (previous, current) =>
-          previous.generationError != current.generationError,
-      listener: (context, state) {
-        if (state.generationError != null &&
-            state.generationError!.isNotEmpty) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.generationError!,
-            isError: true,
-          );
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationError != current.generationError,
+          listener: (context, state) {
+            if (state.generationError != null &&
+                state.generationError!.isNotEmpty) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.generationError!,
+                isError: true,
+              );
+            }
+          },
+        ),
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationSuccess != current.generationSuccess,
+          listener: (context, state) {
+            if (state.generationSuccess != null &&
+                state.generationSuccess!.isNotEmpty &&
+                state.generatedReport != null) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Report generated successfully',
+                isSuccess: true,
+              );
+
+              if (mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
+              }
+            }
+          },
+        ),
+      ],
       child: ReportFormLayout(
         title: 'Billing Plan',
         onGenerate: _onGenerate,
@@ -135,9 +158,11 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
               defaultNote: 'Note: All Classrooms will be selected by Default.',
             ),
             SizedBox(height: responsive.verticalSpacing),
+            const ReportFieldLabel(label: 'Export Format'),
             ReportFormatSelector(
               selectedFormat: _format,
               onFormatChanged: (value) => setState(() => _format = value),
+              showLabel: false,
             ),
           ],
         ),

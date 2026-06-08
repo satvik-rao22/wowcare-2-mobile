@@ -78,11 +78,17 @@ class _StaffScheduleReportScreenState
                 state.generationSuccess!.isNotEmpty) {
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: state.generationSuccess!,
+                message: 'Report generated successfully',
                 isSuccess: true,
               );
+
               if (mounted) {
-                Navigator.of(context).pop(true);
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
               }
             }
           },
@@ -122,9 +128,11 @@ class _StaffScheduleReportScreenState
             text: 'Note: All Classrooms will be selected by Default.',
           ),
           SizedBox(height: responsive.verticalSpacing),
+          const ReportFieldLabel(label: 'Export Format'),
           ReportFormatSelector(
             selectedFormat: _format,
             onFormatChanged: (value) => setState(() => _format = value),
+            showLabel: false,
           ),
         ],
         ),
