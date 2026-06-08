@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -44,7 +48,7 @@ class _AnnualStateImmunizationReportScreenState
         message: 'Report generated successfully',
         isSuccess: true,
       );
-      Navigator.pop(context);
+      Navigator.of(context).pop(true);
     }
   }
 

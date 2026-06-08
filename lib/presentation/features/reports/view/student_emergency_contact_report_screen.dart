@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -62,7 +65,7 @@ class _StudentEmergencyContactReportScreenState
         message: 'Report generated successfully',
         isSuccess: true,
       );
-      Navigator.pop(context);
+      Navigator.of(context).pop(true);
     }
   }
 
@@ -99,6 +102,7 @@ class _StudentEmergencyContactReportScreenState
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
+                  showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(

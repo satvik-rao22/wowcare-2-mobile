@@ -1,5 +1,6 @@
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
+import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/reports/entities/report_entity.dart';
 import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
@@ -18,23 +19,11 @@ class ReportsRepositoryImpl implements ReportsRepository {
   final CacheManager _cacheManager;
   final StorageService _storageService;
 
-  // Cache duration: 30 minutes for generated reports
-  static const Duration _generatedReportCacheDuration = Duration(minutes: 30);
-
   // Cache duration: 30 minutes for recent reports
   static const Duration _recentReportsCacheDuration = Duration(minutes: 30);
 
   // Cache duration: 30 minutes for tags
   static const Duration _tagsCacheDuration = Duration(minutes: 30);
-
-  /// Build cache key for generated reports following standard pattern.
-  static String _buildGeneratedReportCacheKey(ReportParams params) {
-    return CacheManager.buildCacheKey(
-      feature: 'reports',
-      resource: 'generated',
-      identifier: params.toCacheIdentifier(),
-    );
-  }
 
   /// Build cache key for recent reports by type.
   static String _buildRecentReportsCacheKey(String reportSourceType) {
@@ -56,20 +45,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
   @override
   Future<ReportEntity> generateReport(ReportParams params) async {
-    final cacheKey = _buildGeneratedReportCacheKey(params);
+    AppLogger.d('[REPORTS-REPO] generateReport called: ${params.reportType.backendValue}');
 
-    // Check cache first (30-minute validity)
-    final cachedPayload = await _cacheManager.loadCache(
-      cacheKey,
-      validFor: _generatedReportCacheDuration,
-    );
-
-    if (cachedPayload != null) {
-      final model = ReportResponseModel.fromJson(cachedPayload);
-      return _mapResponseModelToEntity(model);
-    }
-
-    // Fetch from API
+    // Build request body with required fields
     var requestBody = params.toRequestBody();
 
     // Add required fields from storage to all report payloads
@@ -81,29 +59,43 @@ class ReportsRepositoryImpl implements ReportsRepository {
     requestBody['organizationCode'] = organizationCode;
     requestBody['generatedBy'] = userCode;
 
+    AppLogger.d('[REPORTS-REPO] Calling remote datasource for fresh API call');
+
+    // Always make fresh API call - no caching of generated reports
     final response = await _remoteDataSource.generateReport(
       reportType: params.reportType.backendValue,
       requestBody: requestBody,
     );
 
-    // Cache result
-    await _cacheManager.saveCache(cacheKey, response.toJson());
+    AppLogger.i('[REPORTS-REPO] API response received: ID=${response.reportId}, File=${response.fileName}');
 
     return _mapResponseModelToEntity(response);
   }
 
   @override
   Future<List<ReportMetadataEntity>> getRecentReports() async {
-    // Fetch from all 4 sources in parallel
-    final results = await Future.wait<List<RecentReportModel>>([
-      _getRecentWithCache('student_attendance'),
-      _getRecentWithCache('staff_attendance'),
-      _getRecentWithCache('staff'),
-      _getRecentWithCache('student_management'),
-    ]);
+    AppLogger.d('[REPORTS] Repository: Starting getRecentReports()');
+
+    // Fetch from all 4 sources in parallel with eagerError: false
+    // so that if some fail, we still get results from successful ones
+    final results = await Future.wait<List<RecentReportModel>>(
+      [
+        _getRecentWithCache('student_attendance'),
+        _getRecentWithCache('staff_attendance'),
+        _getRecentWithCache('staff'),
+        _getRecentWithCache('student_management'),
+      ],
+      eagerError: false,
+    );
+
+    AppLogger.d('[REPORTS] Student Attendance Reports Count: ${results[0].length}');
+    AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${results[1].length}');
+    AppLogger.d('[REPORTS] Staff Reports Count: ${results[2].length}');
+    AppLogger.d('[REPORTS] Student Management Reports Count: ${results[3].length}');
 
     // Flatten all results
     final allReports = results.expand((x) => x).toList();
+    AppLogger.d('[REPORTS] Total Merged Reports Count: ${allReports.length}');
 
     // Deduplicate by reportId (keep last occurrence)
     final unique = <String, ReportMetadataEntity>{};
@@ -112,9 +104,16 @@ class ReportsRepositoryImpl implements ReportsRepository {
       unique[entity.reportId] = entity;
     }
 
+    AppLogger.d('[REPORTS] After dedup: ${unique.length}');
+
     // Sort by date descending (most recent first)
     final sorted = unique.values.toList()
       ..sort((a, b) => b.generatedAt.compareTo(a.generatedAt));
+
+    AppLogger.d('[REPORTS] Final List Length: ${sorted.length}');
+    for (final report in sorted.take(5)) {
+      AppLogger.d('[REPORTS]   - ${report.fileName} (${report.generatedAt})');
+    }
 
     return sorted;
   }
@@ -190,5 +189,17 @@ class ReportsRepositoryImpl implements ReportsRepository {
   /// Map RecentReportModel to ReportMetadataEntity.
   ReportMetadataEntity _mapRecentModelToEntity(RecentReportModel model) {
     return model.toEntity();
+  }
+
+  @override
+  Future<String> getReportDownloadUrl(String assetCode) async {
+    AppLogger.d('Getting download URL for asset: $assetCode');
+    return _remoteDataSource.getReportDownloadUrl(assetCode);
+  }
+
+  @override
+  Future<List<int>> downloadReportFile(String downloadUrl) async {
+    AppLogger.d('Downloading report file');
+    return _remoteDataSource.downloadReportFile(downloadUrl);
   }
 }

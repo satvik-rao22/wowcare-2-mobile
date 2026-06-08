@@ -33,7 +33,8 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     with WidgetsBindingObserver {
   final int maxPinLength = 4;
   String _currentPin = '';
-  String _cachedSchoolName = 'School'; // Cache to preserve school name during QR reload
+  String _cachedSchoolName =
+      'School'; // Cache to preserve school name during QR reload
   bool _isRefreshingQr = false; // Prevent duplicate refresh calls
 
   @override
@@ -125,51 +126,57 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
       child: Scaffold(
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(kToolbarHeight + 1),
-          child: Container(
-            color: Colors.white,
-            child: SafeArea(
-              bottom: false,
-              child: Row(
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.only(left: 16.0),
-                    child: CircleAvatar(
-                      radius: 20,
-                      backgroundImage: AssetImage(
-                        'assets/images/WowCarePNG.png',
+          child: Column(
+            children: [
+              Container(
+                color: Colors.white,
+                child: SafeArea(
+                  bottom: false,
+                  child: Row(
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(left: 16.0),
+                        child: CircleAvatar(
+                          radius: 20,
+                          backgroundImage: AssetImage(
+                            'assets/images/WowCarePNG.png',
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'WowCare Child Attendance Kiosk',
-                      style: TextStyle(
-                        color: AppColors.primaryColor,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 18,
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'WowCare Child Attendance Kiosk',
+                          style: TextStyle(
+                            color: AppColors.primaryColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                          ),
+                        ),
                       ),
-                    ),
+                      // IconButton(
+                      //   icon: const Icon(
+                      //     Icons.exit_to_app,
+                      //     color: AppColors.primaryColor,
+                      //   ),
+                      //   onPressed: () async {
+                      //     AppLogger.d('[Kiosk] Logout button pressed');
+                      //     await serviceLocator<KioskAccessControl>()
+                      //         .deactivateKioskMode();
+                      //     if (mounted) {
+                      //       GoRouter.of(context).go('/sign-in');
+                      //     }
+                      //   },
+                      // ),
+                    ],
                   ),
-                  // IconButton(
-                  //   icon: const Icon(
-                  //     Icons.exit_to_app,
-                  //     color: AppColors.primaryColor,
-                  //   ),
-                  //   onPressed: () async {
-                  //     AppLogger.d('[Kiosk] Logout button pressed');
-                  //     await serviceLocator<KioskAccessControl>()
-                  //         .deactivateKioskMode();
-                  //     if (mounted) {
-                  //       GoRouter.of(context).go('/sign-in');
-                  //     }
-                  //   },
-                  // ),
-                ],
+                ),
               ),
-            ),
+              Divider(height: 1, color: AppColors.themeColor),
+            ],
           ),
         ),
+
         bottomSheet: Container(color: AppColors.themeColor, height: 1),
         body: RefreshIndicator(
           onRefresh: _refreshDashboard,
@@ -264,12 +271,16 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
     // During loading/error, use cached school name (NOT generic 'School')
     if (state is KioskDashboardLoading) {
-      AppLogger.d('[Kiosk] Loading state - using cached school name: $_cachedSchoolName');
+      AppLogger.d(
+        '[Kiosk] Loading state - using cached school name: $_cachedSchoolName',
+      );
       return _cachedSchoolName; // Return CACHED value, not 'School'
     }
 
     if (state is KioskDashboardError) {
-      AppLogger.d('[Kiosk] Error state - using cached school name: $_cachedSchoolName');
+      AppLogger.d(
+        '[Kiosk] Error state - using cached school name: $_cachedSchoolName',
+      );
       return _cachedSchoolName; // Return CACHED value, not 'School'
     }
 

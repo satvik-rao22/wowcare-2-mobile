@@ -24,3 +24,7 @@ class CacheFailure extends Failure {
 class ValidationFailure extends Failure {
   const ValidationFailure([super.message]);
 }
+
+class FileDownloadFailure extends Failure {
+  const FileDownloadFailure([super.message]);
+}

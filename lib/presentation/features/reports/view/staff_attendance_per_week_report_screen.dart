@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
@@ -49,23 +52,53 @@ class _StaffAttendancePerWeekReportScreenState
   }
 
   void _onGenerate() {
+    AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Generate button tapped');
+
+    if (!_validateInputs()) {
+      AppLogger.w('[STAFF-ATTENDANCE-WEEKLY-UI] Generation blocked by validation');
+      return;
+    }
+
+    AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Creating report params');
     final cubit = context.read<ReportsCubit>();
+    final reportsState = cubit.state;
+
+    // Convert staff names to codes
+    final staffCodes = _selectedStaff.isNotEmpty
+        ? _selectedStaff
+            .map((name) => reportsState.staffNameToCode[name] ?? name)
+            .toList()
+        : null;
+
+    // Convert classroom names to codes
+    final classroomCodes = _selectedClassrooms.isNotEmpty
+        ? _selectedClassrooms
+            .map((name) => reportsState.classroomNameToCode[name] ?? name)
+            .toList()
+        : null;
+
     final params = ReportRequestParams(
       reportType: ReportType.staffAttendancePerStaff,
       startDate: _periodMonth,
       endDate: _periodMonth.add(const Duration(days: 30)),
-      staffCodes: _selectedStaff.isEmpty ? null : _selectedStaff,
-      classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
+      staffCodes: staffCodes,
+      classroomCodes: classroomCodes,
+      format: _format,
     );
+    AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);
-    if (mounted) {
+  }
+
+  bool _validateInputs() {
+    if (_selectedStaff.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Report generated successfully',
-        isSuccess: true,
+        message: 'Please select at least one staff member',
+        isError: true,
       );
-      Navigator.pop(context);
+      return false;
     }
+    return true;
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
@@ -79,19 +112,57 @@ class _StaffAttendancePerWeekReportScreenState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return BlocListener<ReportsCubit, ReportsState>(
-      listenWhen: (previous, current) =>
-          previous.generationError != current.generationError,
-      listener: (context, state) {
-        if (state.generationError != null &&
-            state.generationError!.isNotEmpty) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.generationError!,
-            isError: true,
-          );
-        }
-      },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationError != current.generationError,
+          listener: (context, state) {
+            if (state.generationError != null &&
+                state.generationError!.isNotEmpty) {
+              AppLogger.e('[REPORT_GENERATION_ERROR] ${state.generationError}');
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.generationError!,
+                isError: true,
+              );
+            }
+          },
+        ),
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationSuccess != current.generationSuccess,
+          listener: (context, state) {
+            if (state.generationSuccess != null &&
+                state.generationSuccess!.isNotEmpty &&
+                state.generatedReport != null) {
+              AppLogger.i('[REPORT_GENERATION_SUCCESS] Generated: ${state.generatedReport!.fileName} (ID: ${state.generatedReport!.reportId})');
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Report generated successfully',
+                isSuccess: true,
+              );
+
+              // Close this dialog/screen
+              if (mounted) {
+                Navigator.of(context).pop(true);
+              }
+
+              // Navigate to Reports screen with tab index 0 (Generated tab)
+              if (mounted) {
+                AppLogger.d('[STAFF-ATTENDANCE-WEEKLY] Navigating to Generated Reports tab');
+                context.go('/dashboard/reports?tab=0');
+              }
+
+              // Refresh the recent reports list silently in background
+              AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] Triggering silent background refresh');
+              unawaited(
+                context.read<ReportsCubit>().loadRecentReports(isRefresh: true),
+              );
+            }
+          },
+        ),
+      ],
       child: BlocSelector<ReportsCubit, ReportsState, bool>(
         selector: (state) => state.isGenerating,
         builder: (context, isGenerating) {
@@ -158,6 +229,7 @@ class _StaffAttendancePerWeekReportScreenState
                   items: widget.classrooms,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
+                  showSelectAll: true,
                 ),
                 const ReportDefaultNote(
                   text: 'Note: All Classrooms will be selected by Default.',

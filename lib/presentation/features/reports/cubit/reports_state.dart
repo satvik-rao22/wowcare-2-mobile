@@ -1,18 +1,29 @@
 part of 'reports_cubit.dart';
 
+enum GeneratedReportsLoadingState {
+  initial,
+  loading,
+  refreshing,
+  loaded,
+  error,
+}
+
 class ReportsState extends Equatable {
   const ReportsState({
     required this.classroomNames,
     required this.studentNames,
     required this.staffNames,
     required this.tagNames,
+    this.classroomNameToCode = const <String, String>{},
+    this.staffNameToCode = const <String, String>{},
     this.generatedReport,
-    this.recentReports = const <dynamic>[],
+    this.recentReports = const <ReportMetadataEntity>[],
     this.dynamicTagNames = const <String>[],
     this.isGenerating = false,
-    this.isLoadingRecent = false,
     this.generationError,
-    this.recentError,
+    this.generationSuccess,
+    this.generatedReportsState = GeneratedReportsLoadingState.initial,
+    this.generatedReportsError,
   });
 
   const ReportsState.initial()
@@ -20,51 +31,71 @@ class ReportsState extends Equatable {
         studentNames = const <String>[],
         staffNames = const <String>[],
         tagNames = const <String>[],
+        classroomNameToCode = const <String, String>{},
+        staffNameToCode = const <String, String>{},
         generatedReport = null,
-        recentReports = const <dynamic>[],
+        recentReports = const <ReportMetadataEntity>[],
         dynamicTagNames = const <String>[],
         isGenerating = false,
-        isLoadingRecent = false,
         generationError = null,
-        recentError = null;
+        generationSuccess = null,
+        generatedReportsState = GeneratedReportsLoadingState.initial,
+        generatedReportsError = null;
 
   final List<String> classroomNames;
   final List<String> studentNames;
   final List<String> staffNames;
   final List<String> tagNames;
+  final Map<String, String> classroomNameToCode;
+  final Map<String, String> staffNameToCode;
   final dynamic generatedReport;
-  final List<dynamic> recentReports;
+  final List<ReportMetadataEntity> recentReports;
   final List<String> dynamicTagNames;
   final bool isGenerating;
-  final bool isLoadingRecent;
   final String? generationError;
-  final String? recentError;
+  final String? generationSuccess;
+  final GeneratedReportsLoadingState generatedReportsState;
+  final String? generatedReportsError;
+
+  /// Backwards compatibility: returns true if loading or refreshing
+  bool get isLoadingRecent =>
+      generatedReportsState == GeneratedReportsLoadingState.loading ||
+      generatedReportsState == GeneratedReportsLoadingState.initial;
+
+  /// Backwards compatibility: returns error message
+  String? get recentError => generatedReportsError;
 
   ReportsState copyWith({
     List<String>? classroomNames,
     List<String>? studentNames,
     List<String>? staffNames,
     List<String>? tagNames,
+    Map<String, String>? classroomNameToCode,
+    Map<String, String>? staffNameToCode,
     dynamic generatedReport,
-    List<dynamic>? recentReports,
+    List<ReportMetadataEntity>? recentReports,
     List<String>? dynamicTagNames,
     bool? isGenerating,
-    bool? isLoadingRecent,
     String? generationError,
-    String? recentError,
+    String? generationSuccess,
+    GeneratedReportsLoadingState? generatedReportsState,
+    String? generatedReportsError,
   }) {
     return ReportsState(
       classroomNames: classroomNames ?? this.classroomNames,
       studentNames: studentNames ?? this.studentNames,
       staffNames: staffNames ?? this.staffNames,
       tagNames: tagNames ?? this.tagNames,
+      classroomNameToCode: classroomNameToCode ?? this.classroomNameToCode,
+      staffNameToCode: staffNameToCode ?? this.staffNameToCode,
       generatedReport: generatedReport ?? this.generatedReport,
       recentReports: recentReports ?? this.recentReports,
       dynamicTagNames: dynamicTagNames ?? this.dynamicTagNames,
       isGenerating: isGenerating ?? this.isGenerating,
-      isLoadingRecent: isLoadingRecent ?? this.isLoadingRecent,
       generationError: generationError ?? this.generationError,
-      recentError: recentError ?? this.recentError,
+      generationSuccess: generationSuccess ?? this.generationSuccess,
+      generatedReportsState: generatedReportsState ?? this.generatedReportsState,
+      generatedReportsError: generatedReportsError ?? this.generatedReportsError,
     );
   }
 
@@ -74,12 +105,15 @@ class ReportsState extends Equatable {
         studentNames,
         staffNames,
         tagNames,
+        classroomNameToCode,
+        staffNameToCode,
         generatedReport,
         recentReports,
         dynamicTagNames,
         isGenerating,
-        isLoadingRecent,
         generationError,
-        recentError,
+        generationSuccess,
+        generatedReportsState,
+        generatedReportsError,
       ];
 }

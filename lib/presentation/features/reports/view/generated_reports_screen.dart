@@ -381,25 +381,12 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
           previous.generatedReportsState != current.generatedReportsState ||
           previous.generationSuccess != current.generationSuccess,
       listener: (context, state) {
-        AppLogger.d('[REPORTS-UI] State changed: ${state.generatedReportsState}');
-
         // Auto-refresh reports when a new report is generated
         if (state.generationSuccess != null &&
             state.generationSuccess!.isNotEmpty &&
             state.generatedReport != null) {
-          AppLogger.d('[REPORTS-UI] New report generated, refreshing list');
+          AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] New report generated, refreshing list silently');
           _loadData(isRefresh: true);
-        }
-
-        // Show success snackbar when reports loaded successfully
-        if (state.generatedReportsState == GeneratedReportsLoadingState.loaded &&
-            state.generatedReportsError == null) {
-          AppLogger.d('[REPORTS-UI] Reports loaded successfully - ${state.recentReports.length} reports');
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Showing ${state.recentReports.length} reports',
-            isSuccess: true,
-          );
         }
 
         // Show error snackbar when loading fails

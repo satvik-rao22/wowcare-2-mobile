@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/school_immunization_report_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -85,7 +88,7 @@ class _StudentImmunizationReportScreenState
         message: 'Report generated successfully',
         isSuccess: true,
       );
-      Navigator.pop(context);
+      Navigator.of(context).pop(true);
     }
   }
 
@@ -205,6 +208,7 @@ class _StudentImmunizationReportScreenState
                   items: widget.classrooms,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
+                  showSelectAll: true,
                 ),
                 const ReportDefaultNote(
                   text: 'Note: All Classrooms will be selected by Default.',
@@ -216,6 +220,7 @@ class _StudentImmunizationReportScreenState
                   items: widget.tags,
                   selectedItems: _selectedTags,
                   onChanged: (s) => setState(() => _selectedTags = s),
+                  showSelectAll: true,
                 ),
                 const ReportDefaultNote(
                   text: 'Note: All Tags will be selected by Default.',

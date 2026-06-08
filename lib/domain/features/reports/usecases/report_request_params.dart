@@ -57,19 +57,43 @@ class ReportRequestParams extends Equatable implements ReportParams {
 
   /// Convert params to request body format for API.
   Map<String, dynamic> toRequestBody() {
-    return {
+    final Map<String, dynamic> body = {
       'reportType': reportType.backendValue,
       'startDate': startDate.toIso8601String().split('T')[0],
       if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
       'format': format,
-      if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'classroomCodes': classroomCodes,
-      if (studentCodes != null && studentCodes!.isNotEmpty)
-        'studentCodes': studentCodes,
-      if (staffCodes != null && staffCodes!.isNotEmpty) 'staffCodes': staffCodes,
-      if (tagCodes != null && tagCodes!.isNotEmpty) 'tagCodes': tagCodes,
-      if (search != null && search!.trim().isNotEmpty) 'search': search!.trim(),
     };
+
+    // Map field names based on report type for API compatibility
+    if (reportType == ReportType.studentAbsent ||
+        reportType == ReportType.studentAttendancePerStudent ||
+        reportType == ReportType.staffAttendancePerStaff) {
+      // These reports use roomCodes instead of classroomCodes
+      if (classroomCodes != null && classroomCodes!.isNotEmpty) {
+        body['roomCodes'] = classroomCodes;
+      }
+    } else {
+      // Other reports use classroomCodes
+      if (classroomCodes != null && classroomCodes!.isNotEmpty) {
+        body['classroomCodes'] = classroomCodes;
+      }
+    }
+
+    // Add optional fields
+    if (studentCodes != null && studentCodes!.isNotEmpty) {
+      body['studentCodes'] = studentCodes;
+    }
+    if (staffCodes != null && staffCodes!.isNotEmpty) {
+      body['staffCodes'] = staffCodes;
+    }
+    if (tagCodes != null && tagCodes!.isNotEmpty) {
+      body['tagCodes'] = tagCodes;
+    }
+    if (search != null && search!.trim().isNotEmpty) {
+      body['search'] = search!.trim();
+    }
+
+    return body;
   }
 
   /// Build cache identifier from params.

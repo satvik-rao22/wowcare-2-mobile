@@ -88,44 +88,46 @@ class KioskQrSectionWidget extends StatelessWidget {
     final displayName = schoolName.trim().isNotEmpty ? schoolName : 'School';
     AppLogger.d('[Kiosk] Error state - displaying school name: $displayName');
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          displayName,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor,
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            displayName,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'Scan the QR Code',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 20),
-        Container(
-          height: 250,
-          width: 250,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.black, width: 2),
-            borderRadius: BorderRadius.circular(8),
+          const SizedBox(height: 10),
+          const Text(
+            'Scan the QR Code',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
-          padding: const EdgeInsets.all(12),
-          child: _buildQrUnavailable('Unable to load QR code', null),
-        ),
-        const SizedBox(height: 20),
-        Text(
-          errorState.message,
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 14, color: Colors.grey),
-        ),
-        const SizedBox(height: 40),
-      ],
+          const SizedBox(height: 20),
+          Container(
+            height: 250,
+            width: 250,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.black, width: 2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: _buildQrUnavailable('Unable to load QR code', null),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            errorState.message,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+          const SizedBox(height: 40),
+        ],
+      ),
     );
   }
 
@@ -141,37 +143,39 @@ class KioskQrSectionWidget extends StatelessWidget {
     final displayName = schoolNameText.trim().isNotEmpty ? schoolNameText : 'School';
     AppLogger.d('[Kiosk] QR loaded - displaying school name: $displayName');
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          displayName,
-          style: const TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor,
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            displayName,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
+            textAlign: TextAlign.center,
           ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 10),
-        const Text(
-          'Scan the QR Code',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-        ),
-        const SizedBox(height: 20),
-        Container(
-          height: 250,
-          width: 250,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: Colors.black, width: 2),
-            borderRadius: BorderRadius.circular(8),
+          const SizedBox(height: 10),
+          const Text(
+            'Scan the QR Code',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
           ),
-          padding: const EdgeInsets.all(12),
-          child: _buildQrImage(qrPayload),
-        ),
-      ],
+          const SizedBox(height: 20),
+          Container(
+            height: 250,
+            width: 250,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.black, width: 2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: _buildQrImage(qrPayload),
+          ),
+        ],
+      ),
     );
   }
 

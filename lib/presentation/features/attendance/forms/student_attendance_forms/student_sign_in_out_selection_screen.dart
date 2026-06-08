@@ -39,23 +39,24 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Select an action for your children attendance today.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 15,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 32),
+            // const Text(
+            //   'Select an action for your children attendance today.',
+            //   textAlign: TextAlign.center,
+            //   style: TextStyle(
+            //     fontSize: 15,
+            //     color: Colors.grey,
+            //     fontWeight: FontWeight.w500,
+            //   ),
+            // ),
+            // const SizedBox(height: 32),
             CustomConfirmButton(
               label: 'Sign In',
               onPressed: () async {
                 // Check if we're in kiosk mode
                 bool isKiosk = false;
                 try {
-                  isKiosk = await serviceLocator<KioskAccessControl>().isKioskModeActive();
+                  isKiosk = await serviceLocator<KioskAccessControl>()
+                      .isKioskModeActive();
                 } catch (e) {
                   // Fallback: try to create on demand
                   try {
@@ -63,7 +64,9 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                       serviceLocator(),
                     ).isKioskModeActive();
                   } catch (e2) {
-                    AppLogger.d('[Attendance] Not in kiosk mode, using normal flow');
+                    AppLogger.d(
+                      '[Attendance] Not in kiosk mode, using normal flow',
+                    );
                   }
                 }
 
@@ -84,7 +87,9 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                     },
                   );
                 } else {
-                  AppLogger.d('[Attendance] Routing to dashboard student-selection-sign-in-form');
+                  AppLogger.d(
+                    '[Attendance] Routing to dashboard student-selection-sign-in-form',
+                  );
                   context.go(
                     '/dashboard/student-selection-sign-in-form',
                     extra: <String, dynamic>{
@@ -101,7 +106,8 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                 // Check if we're in kiosk mode
                 bool isKiosk = false;
                 try {
-                  isKiosk = await serviceLocator<KioskAccessControl>().isKioskModeActive();
+                  isKiosk = await serviceLocator<KioskAccessControl>()
+                      .isKioskModeActive();
                 } catch (e) {
                   // Fallback: try to create on demand
                   try {
@@ -109,7 +115,9 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                       serviceLocator(),
                     ).isKioskModeActive();
                   } catch (e2) {
-                    AppLogger.d('[Attendance] Not in kiosk mode, using normal flow');
+                    AppLogger.d(
+                      '[Attendance] Not in kiosk mode, using normal flow',
+                    );
                   }
                 }
 
@@ -130,7 +138,9 @@ class StudentSignInOutSelectionScreen extends StatelessWidget {
                     },
                   );
                 } else {
-                  AppLogger.d('[Attendance] Routing to dashboard student-selection-sign-out-form');
+                  AppLogger.d(
+                    '[Attendance] Routing to dashboard student-selection-sign-out-form',
+                  );
                   context.go(
                     '/dashboard/student-selection-sign-out-form',
                     extra: <String, dynamic>{

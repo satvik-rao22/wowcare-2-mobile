@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -45,7 +49,7 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
         message: 'Report generated successfully',
         isSuccess: true,
       );
-      Navigator.pop(context);
+      Navigator.of(context).pop(true);
     }
   }
 
@@ -121,10 +125,11 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
               items: widget.classrooms,
               selectedItems: _selectedClassrooms,
               onChanged: (c) => setState(() => _selectedClassrooms = c),
+              showSelectAll: true,
               itemToString: (item) => item,
               singularLabel: 'Classroom',
               pluralLabel: 'Classrooms',
-              showSelectAll: true,
+              // showSelectAll: true,
               enableSearch: true,
               searchHintText: 'Search Classrooms',
               defaultNote: 'Note: All Classrooms will be selected by Default.',

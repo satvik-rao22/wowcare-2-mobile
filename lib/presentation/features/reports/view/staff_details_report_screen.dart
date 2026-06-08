@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/staff_details_report_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
@@ -88,7 +89,10 @@ class _StaffDirectoryReportScreenState
   }
 
   void _onGenerate() {
+    AppLogger.d('[STAFF-DETAILS-UI] Generate button tapped');
+
     if (_selectedStaffFields.isEmpty) {
+      AppLogger.w('[STAFF-DETAILS-UI] Generation blocked: no fields selected');
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select at least one field',
@@ -97,6 +101,7 @@ class _StaffDirectoryReportScreenState
       return;
     }
 
+    AppLogger.d('[STAFF-DETAILS-UI] Creating report params with ${_selectedStaffFields.length} fields');
     final cubit = context.read<ReportsCubit>();
     final params = StaffDetailsReportParams(
       reportType: ReportType.staffDetails,
@@ -107,6 +112,7 @@ class _StaffDirectoryReportScreenState
       classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
       format: _format,
     );
+    AppLogger.d('[STAFF-DETAILS-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);
   }
 
@@ -129,6 +135,7 @@ class _StaffDirectoryReportScreenState
         // Handle error
         if (state.generationError != null &&
             state.generationError!.isNotEmpty) {
+          AppLogger.e('[REPORT_GENERATION_ERROR] ${state.generationError}');
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generationError!,
@@ -140,6 +147,7 @@ class _StaffDirectoryReportScreenState
         if (state.generationSuccess != null &&
             state.generationSuccess!.isNotEmpty &&
             state.generatedReport != null) {
+          AppLogger.i('[REPORT_GENERATION_SUCCESS] Generated: ${state.generatedReport!.fileName} (ID: ${state.generatedReport!.reportId})');
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Report generated successfully',
@@ -153,10 +161,12 @@ class _StaffDirectoryReportScreenState
 
           // Navigate to Reports screen with tab index 0 (Generated tab)
           if (mounted) {
+            AppLogger.d('[STAFF-DETAILS] Navigating to Generated Reports tab');
             context.go('/dashboard/reports?tab=0');
           }
 
-          // Refresh the recent reports list
+          // Refresh the recent reports list silently in background
+          AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] Triggering silent background refresh');
           unawaited(
             context.read<ReportsCubit>().loadRecentReports(isRefresh: true),
           );

@@ -24,7 +24,46 @@ class StaffFormLayout extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: CustomAppBar(hasBackButton: true, isKiosk: isKiosk),
+      appBar: isKiosk
+          ? PreferredSize(
+              preferredSize: const Size.fromHeight(kToolbarHeight + 1),
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.white,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Row(
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(left: 16.0),
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundImage: AssetImage(
+                                'assets/images/WowCarePNG.png',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'WowCare Child Attendance Kiosk',
+                              style: TextStyle(
+                                color: Color(0xff573353),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Divider(height: 1, color: Colors.grey[300]),
+                ],
+              ),
+            )
+          : CustomAppBar(hasBackButton: true, isKiosk: isKiosk),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),

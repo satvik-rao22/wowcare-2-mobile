@@ -14,4 +14,10 @@ abstract class ReportsRepository {
   /// Get student tags for dynamic filtering.
   /// Uses cache-first strategy with 30-minute expiration.
   Future<List<String>> getStudentTags();
+
+  /// Get download URL for a report by asset code.
+  Future<String> getReportDownloadUrl(String assetCode);
+
+  /// Download a report file from URL.
+  Future<List<int>> downloadReportFile(String downloadUrl);
 }

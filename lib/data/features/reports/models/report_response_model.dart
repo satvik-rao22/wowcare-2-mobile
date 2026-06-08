@@ -9,6 +9,7 @@ class ReportResponseModel extends Equatable {
     required this.generatedAt,
     this.assetCode,
     this.fileName,
+    this.message,
   });
 
   final String reportId;
@@ -16,14 +17,20 @@ class ReportResponseModel extends Equatable {
   final String generatedAt;
   final String? assetCode;
   final String? fileName;
+  final String? message;
 
   factory ReportResponseModel.fromJson(Map<String, dynamic> json) {
+    // Handle wrapped response format: {success, message, data: {reportId, ...}, timestamp, error}
+    final dataObject = json['data'] as Map<String, dynamic>?;
+    final reportData = dataObject ?? json;
+
     return ReportResponseModel(
-      reportId: json['reportId'] as String? ?? '',
-      reportType: json['reportType'] as String? ?? '',
-      generatedAt: json['generatedAt'] as String? ?? '',
-      assetCode: json['assetCode'] as String?,
-      fileName: json['fileName'] as String?,
+      reportId: reportData['reportId'] as String? ?? '',
+      reportType: reportData['reportType'] as String? ?? '',
+      generatedAt: reportData['generatedAt'] as String? ?? '',
+      assetCode: reportData['assetCode'] as String?,
+      fileName: reportData['fileName'] as String?,
+      message: json['message'] as String?,
     );
   }
 
@@ -34,6 +41,7 @@ class ReportResponseModel extends Equatable {
       'generatedAt': generatedAt,
       if (assetCode != null) 'assetCode': assetCode,
       if (fileName != null) 'fileName': fileName,
+      if (message != null) 'message': message,
     };
   }
 
@@ -58,5 +66,5 @@ class ReportResponseModel extends Equatable {
   }
 
   @override
-  List<Object?> get props => [reportId, reportType, generatedAt, assetCode, fileName];
+  List<Object?> get props => [reportId, reportType, generatedAt, assetCode, fileName, message];
 }
