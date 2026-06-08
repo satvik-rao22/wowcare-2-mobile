@@ -33,6 +33,8 @@ class StudentActionPanel extends StatefulWidget {
     this.onProfileTap,
     this.onClearSelections,
     this.isProfileEnabled = false,
+    this.attendanceEnabled = true,
+    this.attendanceDisabledHint,
     this.activitiesEnabled = true,
     this.activitiesDisabledHint,
     this.showAttendanceActions = false,
@@ -60,6 +62,13 @@ class StudentActionPanel extends StatefulWidget {
   final VoidCallback? onProfileTap;
   final VoidCallback? onClearSelections;
   final bool isProfileEnabled;
+
+  /// Whether the Attendance button is tappable. Disabled (greyed) when the
+  /// selection contains an inactive student.
+  final bool attendanceEnabled;
+
+  /// Message shown (tooltip + snackbar) when Attendance is tapped while disabled.
+  final String? attendanceDisabledHint;
   final bool activitiesEnabled;
 
   /// Tooltip when Activities is greyed out (e.g. not all students signed in today).
@@ -421,6 +430,11 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                         widget.onAttendanceTap?.call();
                       },
                       isSelected: _currentPanel == StudentPanelType.attendance,
+                      isEnabled: widget.attendanceEnabled,
+                      disabledTooltip: widget.attendanceEnabled
+                          ? ''
+                          : (widget.attendanceDisabledHint ??
+                                'You cannot mark attendance for inactive student.'),
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(

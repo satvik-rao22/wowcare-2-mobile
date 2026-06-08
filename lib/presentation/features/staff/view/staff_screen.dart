@@ -613,6 +613,14 @@ class _StaffScreenState extends State<StaffScreen> {
           ),
         );
       }
+      if (!mounted) return;
+      setState(() {
+        _selectAll = false;
+        _selectedStaffCodes.clear();
+        _currentPanel = StaffPanelType.none;
+      });
+      _refreshAttendanceStatusForSelection();
+      await context.read<StaffCubit>().refresh();
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(

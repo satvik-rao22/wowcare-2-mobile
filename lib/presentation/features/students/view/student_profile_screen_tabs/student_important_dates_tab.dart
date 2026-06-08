@@ -11,7 +11,7 @@ import 'package:wowcare/domain/features/student/usecases/get_student_important_d
 import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
@@ -236,12 +236,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     ),
                     const SizedBox(height: 16),
                     if (_isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: PrimaryCircularLoader(size: 32),
-                        ),
-                      )
+                      const StudentImportantDatesShimmer()
                     else if (_errorMessage != null)
                       Padding(
                         padding: const EdgeInsets.all(16),

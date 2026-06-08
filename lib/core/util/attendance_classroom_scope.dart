@@ -128,6 +128,36 @@ Future<List<String>> resolveAttendanceAllowedClassroomCodes({
   }
 }
 
+/// Primary classroom code for scoped staff personas (teacher/staff), or null
+/// for admin/parent personas.
+Future<String?> resolveStaffPrimaryClassroomCode({
+  required StorageService storage,
+}) async {
+  final shouldScope = await isAttendanceScopedStaffPersona(storage: storage);
+  if (!shouldScope) return null;
+
+  try {
+    final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+    if (staffCode.isEmpty) return null;
+
+    final repo = serviceLocator<StaffRepository>();
+    final profile = await repo.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+    final primary = profile.primaryClassroomCode.trim();
+    if (primary.isNotEmpty) return primary;
+
+    final allowed = profile.allowedClassroomCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    return allowed.isNotEmpty ? allowed.first : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Returns true when logged-in persona is a non-admin staff user, for whom
 /// classroom lists should be scoped to `allowedClassroomCodes`.
 Future<bool> isAttendanceScopedStaffPersona({

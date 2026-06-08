@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/students/view/add_document_screen.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_documents_list_cubit.dart';
@@ -400,10 +401,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                           ),
                           const SizedBox(height: 16),
                           if (state.isLoading && documents.isEmpty)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(vertical: 12),
-                              child: PrimaryCircularLoader(),
-                            )
+                            const StudentDocumentsListShimmer()
                           else if (documents.isEmpty)
                             Text(
                               _showExpired

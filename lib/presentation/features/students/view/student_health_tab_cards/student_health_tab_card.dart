@@ -7,7 +7,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -86,8 +86,8 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: Center(child: PrimaryCircularLoader()),
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: StudentHealthCardShimmer(),
               );
             }
 
