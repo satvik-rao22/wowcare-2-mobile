@@ -6,7 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../student_profile_tab_cards/student_family_tab_card.dart';
@@ -273,8 +273,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
                       children: const [
-                        SizedBox(height: 80),
-                        Center(child: PrimaryCircularLoader()),
+                        StudentProfileInfoShimmer(),
                       ],
                     ),
                   );

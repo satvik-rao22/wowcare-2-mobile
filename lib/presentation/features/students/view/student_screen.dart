@@ -49,7 +49,7 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_permiss
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -1784,10 +1784,7 @@ class _StudentScreenState extends State<StudentScreen> {
                   const SizedBox(height: 16),
                   // Student list from API
                   if (state.isLoading && students.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Center(child: PrimaryCircularLoader()),
-                    )
+                    const StudentListShimmer()
                   else if (state.errorMessage != null && students.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(32.0),

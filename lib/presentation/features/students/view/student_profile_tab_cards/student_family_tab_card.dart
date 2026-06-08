@@ -14,7 +14,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
@@ -309,10 +309,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                 future: _guardiansFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
-                    );
+                    return const StudentDetailCardsShimmer();
                   }
 
                   if (snapshot.hasError) {

@@ -9,7 +9,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
@@ -141,13 +141,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                 future: _pickupsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(
-                        size: 28,
-                        strokeWidth: 2.5,
-                      ),
-                    );
+                    return const StudentDetailCardsShimmer();
                   }
 
                   if (snapshot.hasError) {
