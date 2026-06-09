@@ -146,7 +146,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
                       const SizedBox(width: 12),
                       const Expanded(
                         child: Text(
-                          'WowCare Child Attendance Kiosk',
+                          'WowCare',
                           style: TextStyle(
                             color: AppColors.primaryColor,
                             fontWeight: FontWeight.w600,
@@ -371,17 +371,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     KioskPinResultEntity result,
     String currentPin,
   ) {
-    final signedIn = result.signedInStudents;
-    final signedOut = result.signedOutStudents;
     final guardianCode = result.guardianCode ?? '';
 
-    AppLogger.d('[KIOSK] Attendance action completed (Student)');
-    AppLogger.d('[KIOSK] Triggering dashboard refresh');
-    AppLogger.d(
-      '[Kiosk] _routeGuardianStudentAttendance: guardianCode=$guardianCode, '
-      'signedInStudents=${signedIn.length}, signedOutStudents=${signedOut.length}',
-    );
-
+    // Validation
     if (guardianCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -400,31 +392,87 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
       return;
     }
 
-    // Determine which action to show based on student sign-in/out states
-    String action = 'selection'; // Default: show selection screen
-    if (signedIn.isNotEmpty && signedOut.isEmpty) {
-      // Only signed-in students: can only sign out
-      action = 'sign-out';
-    } else if (signedOut.isNotEmpty && signedIn.isEmpty) {
-      // Only signed-out students: can only sign in
-      action = 'sign-in';
+    // STEP 1: Filter only eligible students (expected == true)
+    final eligibleStudents = result.students
+        .where((student) => student.expected == true)
+        .toList();
+
+    if (eligibleStudents.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'No eligible students for today',
+        isError: true,
+      );
+      return;
     }
-    // else: Both signed-in and signed-out: show selection screen (action='selection')
 
-    AppLogger.d(
-      '[KIOSK] Persona=GUARDIAN, routing to unified page with action=$action',
-    );
+    // STEP 2: Count signed in and signed out using ONLY eligible students
+    int signedInCount = 0;
+    int signedOutCount = 0;
+    final signedInStudents = <String>[];
+    final signedOutStudents = <String>[];
 
-    // NEW: Navigate to unified kiosk page (stays within /kiosk context)
-    GoRouter.of(context).go(
+    for (final student in eligibleStudents) {
+      final isSignedIn = student.status.toUpperCase() == 'SIGNED_IN';
+
+      if (isSignedIn) {
+        signedInCount++;
+        signedInStudents.add(student.studentCode);
+      } else {
+        signedOutCount++;
+        signedOutStudents.add(student.studentCode);
+      }
+    }
+
+    AppLogger.d('[KIOSK] Student Status Count: signedIn=$signedInCount, signedOut=$signedOutCount');
+    AppLogger.d('[KIOSK] Signed In Students: $signedInStudents');
+    AppLogger.d('[KIOSK] Signed Out Students: $signedOutStudents');
+
+    // DECISION 1: ALL STUDENTS ARE SIGNED IN
+    if (signedInCount > 0 && signedOutCount == 0) {
+      AppLogger.d('[KIOSK] ✓ ALL STUDENTS SIGNED IN - NAVIGATE TO SIGN-OUT PAGE');
+      context.go(
+        '/kiosk/student-sign-out',
+        extra: {
+          'isKiosk': true,
+          'students': signedInStudents
+              .map((code) => {'studentCode': code})
+              .toList(),
+          'guardianCode': guardianCode,
+          'pin': currentPin,
+        },
+      );
+      return;
+    }
+
+    // DECISION 2: ALL STUDENTS ARE SIGNED OUT
+    if (signedOutCount > 0 && signedInCount == 0) {
+      AppLogger.d('[KIOSK] ✓ ALL STUDENTS SIGNED OUT - NAVIGATE TO SIGN-IN PAGE');
+      context.go(
+        '/kiosk/student-sign-in-and-sign-out',
+        extra: {
+          'isKiosk': true,
+          'guardianCode': guardianCode,
+          'pin': currentPin,
+          'action': 'sign-in',
+          'signedInCodes': [],
+          'signedOutCodes': signedOutStudents,
+        },
+      );
+      return;
+    }
+
+    // DECISION 3: MIXED STATUS
+    AppLogger.d('[KIOSK] ✓ MIXED STATUS - NAVIGATE TO SELECTION PAGE');
+    context.go(
       '/kiosk/student-sign-in-and-sign-out',
       extra: {
         'isKiosk': true,
         'guardianCode': guardianCode,
         'pin': currentPin,
-        'action': action,
-        'signedInCodes': signedIn.map((s) => s.studentCode).toList(),
-        'signedOutCodes': signedOut.map((s) => s.studentCode).toList(),
+        'action': 'selection',
+        'signedInCodes': signedInStudents,
+        'signedOutCodes': signedOutStudents,
       },
     );
   }

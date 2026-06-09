@@ -1001,8 +1001,8 @@ class _MyDayCardState extends State<MyDayCard> {
                         final bool isAdmin = roleProvider.isAdmin;
                         final bool isWithinGeofence =
                             geofenceState.isWithinGeofence;
-                        // Sign button enabled for all roles, but geofence check only for staff
-                        final bool signButtonEnabled = !isStaff || isWithinGeofence;
+                        // Sign button enabled only for staff (and within geofence); disabled for admin
+                        final bool signButtonEnabled = !isAdmin && (!isStaff || isWithinGeofence);
                         // Show sign button for admin and staff
                         final bool showSignButton = isStaff || isAdmin;
 
@@ -1015,8 +1015,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                 ),
                                 child: Row(
                                   children: [
-                                    // Transfer button only for staff when signed in
-                                    if (isStaff && _isSignedIn)
+                                    // Transfer button only for staff (not admin) when signed in
+                                    if (isStaff && !isAdmin && _isSignedIn)
                                       Expanded(
                                         child: OutlinedButton.icon(
                                           // Disabled while identity is loading or staffCode missing

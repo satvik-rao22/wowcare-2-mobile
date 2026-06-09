@@ -87,7 +87,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen> {
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'WowCare Child Attendance Kiosk',
+                      'WowCare',
                       style: TextStyle(
                         color: AppColors.primaryColor,
                         fontWeight: FontWeight.w600,
