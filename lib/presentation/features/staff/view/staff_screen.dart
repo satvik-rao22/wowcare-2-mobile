@@ -17,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/post_add_staff_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
@@ -631,6 +632,49 @@ class _StaffScreenState extends State<StaffScreen> {
     }
   }
 
+  Future<void> _openEditProfileDetailsFromPostAdd(
+    Map<String, dynamic> args,
+  ) async {
+    List<String>? listArg(String key) {
+      final raw = args[key];
+      if (raw is List) return List<String>.from(raw);
+      return null;
+    }
+
+    Map<String, String>? mapArg(String key) {
+      final raw = args[key];
+      if (raw is Map) {
+        return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
+      }
+      return null;
+    }
+
+    final staffCode = ((args['staffCode'] as String?)?.trim().isNotEmpty == true
+            ? (args['staffCode'] as String).trim()
+            : (args['userCode'] as String?)?.trim()) ??
+        '';
+    if (staffCode.isEmpty) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileDetailsScreen(
+          staffCode: staffCode,
+          initialFirstName: args['initialFirstName'] as String?,
+          initialLastName: args['initialLastName'] as String?,
+          initialEmail: args['initialEmail'] as String?,
+          initialStatus: args['initialStatus'] as String?,
+          initialDesignation: args['initialDesignation'] as String?,
+          initialAllowedClassrooms: listArg('initialAllowedClassrooms'),
+          initialPrimaryClassroom: args['initialPrimaryClassroom'] as String?,
+          initialPhoneNumber: args['initialPhoneNumber'] as String?,
+          initialClassroomNames: listArg('initialClassroomNames'),
+          initialClassroomCodeByName: mapArg('initialClassroomCodeByName'),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
@@ -759,15 +803,11 @@ class _StaffScreenState extends State<StaffScreen> {
                                         onLater: () => Navigator.of(ctx).pop(),
                                         onYes: () {
                                           Navigator.of(ctx).pop();
-                                          Navigator.of(context)
-                                              .pushNamed(
-                                                '/edit-profile-details-screen',
-                                                arguments: editArgs,
-                                              )
-                                              .then((_) {
-                                                if (mounted)
-                                                  staffCubit.refresh();
-                                              });
+                                          _openEditProfileDetailsFromPostAdd(
+                                            editArgs,
+                                          ).then((_) {
+                                            if (mounted) staffCubit.refresh();
+                                          });
                                         },
                                       ),
                                     );
@@ -1543,14 +1583,6 @@ class _StaffScreenState extends State<StaffScreen> {
                             : StaffPanelType.attendance;
                       });
                     },
-                    onActivitiesTap: () {
-                      setState(() {
-                        _currentPanel =
-                            _currentPanel == StaffPanelType.activities
-                            ? StaffPanelType.none
-                            : StaffPanelType.activities;
-                      });
-                    },
                     onMessageTap: () {},
                     onProfileTap: selectedCount == 1
                         ? () {
@@ -1605,7 +1637,7 @@ class _StaffScreenState extends State<StaffScreen> {
                       _refreshAttendanceStatusForSelection();
                     },
                     isProfileEnabled: selectedCount == 1,
-                    activitiesEnabled: selectedCount > 0,
+                    activitiesEnabled: false,
                     ),
                   ),
                 ),
