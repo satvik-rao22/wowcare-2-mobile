@@ -420,8 +420,7 @@ class ApiPaths {
   /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`.
   /// Direct-MS form here (`/api/v1/student/{code}/siblings`); UAT re-inserts the
   /// gateway `student` segment — the doubled form 404s in LOCAL.
-  static String studentSiblings(String code) =>
-      '$studentList/$code/siblings';
+  static String studentSiblings(String code) => '$studentList/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
 
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.

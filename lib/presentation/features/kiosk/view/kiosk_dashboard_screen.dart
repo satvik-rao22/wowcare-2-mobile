@@ -392,27 +392,13 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
       return;
     }
 
-    // STEP 1: Filter only eligible students (expected == true)
-    final eligibleStudents = result.students
-        .where((student) => student.expected == true)
-        .toList();
-
-    if (eligibleStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'No eligible students for today',
-        isError: true,
-      );
-      return;
-    }
-
-    // STEP 2: Count signed in and signed out using ONLY eligible students
+    // Count signed in and signed out for all students (including expected=false)
     int signedInCount = 0;
     int signedOutCount = 0;
     final signedInStudents = <String>[];
     final signedOutStudents = <String>[];
 
-    for (final student in eligibleStudents) {
+    for (final student in result.students) {
       final isSignedIn = student.status.toUpperCase() == 'SIGNED_IN';
 
       if (isSignedIn) {
