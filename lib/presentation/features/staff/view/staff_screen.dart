@@ -1521,6 +1521,28 @@ class _StaffScreenState extends State<StaffScreen> {
                                               );
                                             }
                                           },
+                                          onDeleteAction: () async {
+                                            try {
+                                              final message = await staffCubit
+                                                  .deleteStaff(staff.code);
+                                              if (!mounted) return;
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message: message,
+                                                isSuccess: true,
+                                              );
+                                              // Close the bottom sheet after success if it's open.
+                                              Navigator.of(context).maybePop();
+                                            } catch (e) {
+                                              if (!mounted) return;
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message: ApiErrorHandler
+                                                    .extractErrorMessage(e),
+                                                isError: true,
+                                              );
+                                            }
+                                          },
                                           isSelected: isSelected,
                                           onSelected: (checked) {
                                             setState(() {

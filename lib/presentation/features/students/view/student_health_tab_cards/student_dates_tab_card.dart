@@ -39,7 +39,9 @@ class StudentDatesTabCard extends StatefulWidget {
 class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   late Future<List<StudentPhysicalExam>> _physicalExamFuture;
   bool _hasShownErrorSnackBar = false;
-  final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
+  /// Display format for the checkup-date field in the add/edit dialog,
+  /// e.g. "Jun 02, 2027". The API payload is built from the raw DateTime.
+  final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
   bool _disableAddPhysicalExam = false;
 
   @override
@@ -216,9 +218,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           children: [
                             Expanded(
                               child: _DialogField(
-                                label: 'Physical Checkup Date *',
+                                label: 'Physical Checkup Date',
+                                isRequired: true,
                                 value: selectedDate != null
-                                    ? _apiFormatter.format(selectedDate!)
+                                    ? _displayFormatter.format(selectedDate!)
                                     : '',
                                 suffix: SvgPicture.asset(
                                   MediaRes.calender_icon,
@@ -249,7 +252,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: _DialogDropdown(
-                                label: 'Status *',
+                                label: 'Status',
+                                isRequired: true,
                                 value: statusUi,
                                 options: const [
                                   'Due',
@@ -268,9 +272,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         Column(
                           children: [
                             _DialogField(
-                              label: 'Physical Checkup Date *',
+                              label: 'Physical Checkup Date',
+                              isRequired: true,
                               value: selectedDate != null
-                                  ? _apiFormatter.format(selectedDate!)
+                                  ? _displayFormatter.format(selectedDate!)
                                   : '',
                               suffix: SvgPicture.asset(
                                 MediaRes.calender_icon,
@@ -299,7 +304,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             ),
                             const SizedBox(height: 16),
                             _DialogDropdown(
-                              label: 'Status *',
+                              label: 'Status',
+                              isRequired: true,
                               value: statusUi,
                               options: const [
                                 'Due',
@@ -390,7 +396,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canMutateStudent =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
 
     return CustomRefreshIndicator(
       onRefresh: _reloadPhysicalExams,
@@ -704,25 +710,37 @@ class _DialogField extends StatelessWidget {
     required this.value,
     required this.suffix,
     required this.onTap,
+    this.isRequired = false,
   });
 
   final String label;
   final String value;
   final Widget suffix;
   final VoidCallback onTap;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        Text.rich(
+          TextSpan(
+            text: label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
+            children: [
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -765,25 +783,37 @@ class _DialogDropdown extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.isRequired = false,
   });
 
   final String label;
   final String value;
   final List<String> options;
   final ValueChanged<String> onChanged;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        Text.rich(
+          TextSpan(
+            text: label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
+            children: [
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),

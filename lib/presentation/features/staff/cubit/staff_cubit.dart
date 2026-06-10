@@ -363,6 +363,34 @@ class StaffCubit extends Cubit<StaffState> {
     return message;
   }
 
+  /// Permanently deletes a (deactivated) staff member via the school-user
+  /// delete API and refreshes the list. Returns the success message from the
+  /// backend. Errors are rethrown for the UI to handle.
+  Future<String> deleteStaff(String staffCode) async {
+    // Resolve userCode, organizationCode, schoolCode and role from the profile.
+    final profile = await _repository.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+
+    final staffTypeUpper = profile.staffType.toUpperCase().trim();
+    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+        ? 'SCHOOL_ADMIN'
+        : 'STAFF';
+
+    final message = await _repository.deleteSchoolUser(
+      userCode: profile.userCode,
+      organizationCode: profile.organizationCode,
+      schoolCode: profile.schoolCode.trim(),
+      role: role,
+    );
+
+    // Refresh the list so UI and cache reflect the deletion.
+    await refreshWithCacheReset();
+
+    return message;
+  }
+
   /// Performs a lightweight search that only calls the staff list API (no count
   /// refresh or automatic second-page preloading). Intended for rapid typing.
   Future<void> searchStaff(String query) async {

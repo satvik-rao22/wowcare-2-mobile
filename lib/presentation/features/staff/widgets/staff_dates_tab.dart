@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/staff/usecases/get_important_dates_useca
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -362,7 +362,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                               child: _DialogField(
                                 label: 'Physical Checkup Date *',
                                 value: selectedDate != null
-                                    ? _apiFormatter.format(selectedDate!)
+                                    ? _displayFormatter.format(selectedDate!)
                                     : '',
                                 suffix: SvgPicture.asset(
                                   MediaRes.calender_icon,
@@ -477,7 +477,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                             _DialogField(
                               label: 'Physical Checkup Date *',
                               value: selectedDate != null
-                                  ? _apiFormatter.format(selectedDate!)
+                                  ? _displayFormatter.format(selectedDate!)
                                   : '',
                               suffix: SvgPicture.asset(
                                 MediaRes.calender_icon,
@@ -653,6 +653,16 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                                     ? 'SCHEDULED'
                                                     : 'DUE';
 
+                                        // Preserve any existing completed date
+                                        // (the read-only "Completed" card) when
+                                        // this edit isn't itself marking the
+                                        // checkup completed — otherwise the
+                                        // backend nulls it and that card vanishes.
+                                        final existingCompleted =
+                                            (_getEntryByType('PHYSICAL_CHECKUP')
+                                                        ?['completedDate'] ??
+                                                    '')
+                                                .trim();
                                         final payload =
                                             <String, String>{
                                           'importantDateType':
@@ -660,7 +670,9 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                           'dueDate': dueIso,
                                           'status': statusApi,
                                           if (statusApi == 'COMPLETED')
-                                            'completedDate': dueIso,
+                                            'completedDate': dueIso
+                                          else if (existingCompleted.isNotEmpty)
+                                            'completedDate': existingCompleted,
                                         };
 
                                         setLocalState(() => isSaving = true);
@@ -796,12 +808,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                 ),
                 const SizedBox(height: 16),
                 if (_isLoading)
-                  const Center(
-                    child: PrimaryCircularLoader(
-                      size: 24,
-                      strokeWidth: 2,
-                    ),
-                  )
+                  const StaffDatesShimmer()
                 else if (_errorMessage != null)
                   Text(
                     _errorMessage!,

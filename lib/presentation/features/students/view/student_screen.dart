@@ -570,6 +570,10 @@ class _StudentScreenState extends State<StudentScreen> {
           final trimmed = value.trim();
           if (trimmed.isEmpty) return null;
           if (validCodes.contains(trimmed)) return trimmed;
+          // Accept a raw classroom code even before ClassroomCubit has loaded
+          // (e.g. deep-linked from the classroom info screen) so the filter
+          // applies automatically instead of waiting for the classroom list.
+          if (trimmed.toUpperCase().startsWith('CLS_')) return trimmed;
           return nameToCode[trimmed]?.trim();
         })
         .whereType<String>()

@@ -13,6 +13,7 @@ class ProfileInfoCard extends StatelessWidget {
     this.outerPadding = const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
     this.innerPadding = const EdgeInsets.all(16),
     this.showHeaderEdit = true,
+    this.borderRadius = _defaultBorderRadius,
   });
 
   final String title;
@@ -23,7 +24,11 @@ class ProfileInfoCard extends StatelessWidget {
   final EdgeInsets innerPadding;
   final bool showHeaderEdit;
 
-  static const BorderRadius _borderRadius = BorderRadius.vertical(
+  /// Card corner radius. Override to square the top when the card sits flush
+  /// under a tab bar so it reads as one continuous surface.
+  final BorderRadius borderRadius;
+
+  static const BorderRadius _defaultBorderRadius = BorderRadius.vertical(
     top: Radius.circular(12),
     bottom: Radius.circular(16),
   );
@@ -46,7 +51,7 @@ class ProfileInfoCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: AppColors.themeColor),
-          borderRadius: _borderRadius,
+          borderRadius: borderRadius,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

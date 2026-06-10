@@ -9,7 +9,9 @@ import 'package:wowcare/domain/features/activity/entities/activity_setting.dart'
 import 'package:wowcare/domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 enum StudentPanelType { attendance, activities, none }
@@ -626,8 +628,34 @@ class _StudentSidePanel extends StatelessWidget {
   final String Function(String activityKey, String activityName)
   disabledActivityMessage;
 
-  static const String _validationTooltip =
-      'You must sign yourself in before managing student attendance.';
+  /// Per-action message explaining why an attendance action is disabled —
+  /// mirrors the attendance pop-up. Empty string means "no tooltip".
+  ///
+  /// Precedence: a STAFF persona that hasn't completed their own sign-in
+  /// (no permission to manage student attendance) sees the self-sign-in
+  /// message on every action; otherwise the message is status-based.
+  String _attendanceDisabledReason(
+    BuildContext context, {
+    required String action,
+    required bool actionEnabled,
+  }) {
+    if (isLoading || actionEnabled) return '';
+    if (!AttendancePermissionService
+        .hasPermissionToManageStudentAttendance(context)) {
+      return AttendancePermissionService.staffSelfSignInRequiredMessage;
+    }
+    switch (action) {
+      case 'Sign-In':
+        return 'Sign-In can only be done for Students/Staff not signed in.';
+      case 'Sign-Out':
+        return 'Sign-Out can only be done for Students/Staff already signed in.';
+      case 'Transfer':
+        return 'Transfer can only be done for Students/Staff already signed in.';
+      case 'Absent':
+        return 'Absent can only be done for Students/Staff not yet signed in.';
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -648,7 +676,7 @@ class _StudentSidePanel extends StatelessWidget {
             ),
           ],
         ),
-        child: _buildAttendanceColumn(),
+        child: _buildAttendanceColumn(context),
       );
     }
     return Material(
@@ -667,10 +695,9 @@ class _StudentSidePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildAttendanceColumn() {
+  Widget _buildAttendanceColumn(BuildContext context) {
     final a = availability;
     bool enabled(bool allowed) => !isLoading && allowed;
-    final disabledTip = isLoading ? '' : _validationTooltip;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -680,7 +707,11 @@ class _StudentSidePanel extends StatelessWidget {
           label: 'Sign-In',
           onTap: enabled(a.signInEnabled) ? onSignInTap : null,
           isEnabled: enabled(a.signInEnabled),
-          disabledTooltip: disabledTip,
+          disabledTooltip: _attendanceDisabledReason(
+            context,
+            action: 'Sign-In',
+            actionEnabled: enabled(a.signInEnabled),
+          ),
         ),
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
@@ -688,7 +719,11 @@ class _StudentSidePanel extends StatelessWidget {
           label: 'Sign-Out',
           onTap: enabled(a.signOutEnabled) ? onSignOutTap : null,
           isEnabled: enabled(a.signOutEnabled),
-          disabledTooltip: disabledTip,
+          disabledTooltip: _attendanceDisabledReason(
+            context,
+            action: 'Sign-Out',
+            actionEnabled: enabled(a.signOutEnabled),
+          ),
         ),
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
@@ -696,7 +731,11 @@ class _StudentSidePanel extends StatelessWidget {
           label: 'Transfer',
           onTap: enabled(a.transferEnabled) ? onTransferTap : null,
           isEnabled: enabled(a.transferEnabled),
-          disabledTooltip: disabledTip,
+          disabledTooltip: _attendanceDisabledReason(
+            context,
+            action: 'Transfer',
+            actionEnabled: enabled(a.transferEnabled),
+          ),
         ),
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
@@ -704,7 +743,11 @@ class _StudentSidePanel extends StatelessWidget {
           label: 'Absent',
           onTap: enabled(a.absentEnabled) ? onMarkAbsentTap : null,
           isEnabled: enabled(a.absentEnabled),
-          disabledTooltip: disabledTip,
+          disabledTooltip: _attendanceDisabledReason(
+            context,
+            action: 'Absent',
+            actionEnabled: enabled(a.absentEnabled),
+          ),
         ),
       ],
     );
@@ -788,12 +831,8 @@ class _StudentAttendanceActionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double opacity = isEnabled ? 1.0 : 0.45;
-    return Tooltip(
+    return AppTooltip(
       message: !isEnabled ? disabledTooltip : '',
-      preferBelow: false,
-      triggerMode: TooltipTriggerMode.tap,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      showDuration: const Duration(seconds: 5),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Opacity(
@@ -848,9 +887,8 @@ class _ActivityPngItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final opacity = disabled ? 0.45 : 1.0;
-    return Tooltip(
+    return AppTooltip(
       message: disabled && tooltip.isNotEmpty ? tooltip : '',
-      triggerMode: TooltipTriggerMode.tap,
       child: InkWell(
         onTap: disabled || busy ? null : onTap,
         borderRadius: BorderRadius.circular(8),
@@ -943,12 +981,8 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double opacity = isEnabled ? 1.0 : 0.5;
-    return Tooltip(
+    return AppTooltip(
       message: !isEnabled ? disabledTooltip : '',
-      preferBelow: false,
-      triggerMode: TooltipTriggerMode.tap,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      showDuration: const Duration(seconds: 5),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Opacity(
