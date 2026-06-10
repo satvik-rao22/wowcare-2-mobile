@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/add_document_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
@@ -233,7 +234,11 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
           BlocBuilder<StaffDocumentsListCubit, StaffDocumentsListState>(
             builder: (context, state) {
               if (state.isLoading && state.documents.isEmpty) {
-                return const Center(child: PrimaryCircularLoader());
+                return const SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(horizontal: 6, vertical: 16),
+                  physics: AlwaysScrollableScrollPhysics(),
+                  child: StaffDocumentsListShimmer(),
+                );
               }
 
               final query = _searchController.text.trim().toLowerCase();

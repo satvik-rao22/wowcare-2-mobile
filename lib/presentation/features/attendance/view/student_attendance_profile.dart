@@ -18,7 +18,6 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -919,17 +918,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final current = student;
     if (current == null) return;
 
+    // Disabled actions are already non-tappable in the pop-up and explain
+    // themselves via the per-action tooltip, so just no-op here instead of
+    // showing a generic snackbar.
     if ((actionLabel == 'Sign-in' && !_canSignIn) ||
         (actionLabel == 'Sign-Out' && !_canSignOut) ||
         (actionLabel == 'Transfer' && !_canTransfer) ||
         (actionLabel == 'Absent' && !_canMarkAbsent)) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('Please Sign in First'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
       return;
     }
 
@@ -1123,6 +1118,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         if (!_canTransfer) 'Transfer',
         if (!_canMarkAbsent) 'Absent',
       },
+      disabledReasons: _isTodayStatusLoading
+          ? const <String, String>{}
+          : studentAttendanceDisabledReasons(_todayGate),
       onActionTap: _handleStudentAction,
     );
   }

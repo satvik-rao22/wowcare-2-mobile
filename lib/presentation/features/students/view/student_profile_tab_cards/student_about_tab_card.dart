@@ -23,6 +23,7 @@ import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../edit_student_profile_details_screen.dart';
 import '../add_student_step3_screen.dart';
+import '../student_tags_edit_sheet.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -231,11 +232,32 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     }
   }
 
+  /// Staff-only tags editor (bottom sheet). Staff can't open the full profile
+  /// editor, but may manage tags from here.
+  void _openTagsEditSheet() {
+    final code =
+        (widget.studentCode ?? widget.studentProfile?.code ?? '').trim();
+    if (code.isEmpty) return;
+    showStudentTagsEditSheet(
+      context: context,
+      studentCode: code,
+      schoolCode: widget.studentProfile?.schoolCode,
+      initialTagNames: widget.tags,
+      onSaved: () async {
+        await widget.onRefresh?.call();
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
+    // Staff persona (teachers/floaters) may edit only tags here — not the full
+    // profile or schedule. Admins keep full profile edit.
+    final isStaffPersona = role.isStaff;
+    final canEditProfile = canStudentWrite && !isStaffPersona;
 
     return CustomRefreshIndicator(
       onRefresh: () async {
@@ -245,7 +267,9 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         title: 'Profile Information',
         scrollController: widget.scrollController,
         onEdit: widget.studentProfile != null && canStudentWrite
-            ? () {
+            ? (isStaffPersona
+                ? _openTagsEditSheet
+                : () {
         final profile = widget.studentProfile!;
         
         // Map status from API format (ACTIVE) to display format (Active)
@@ -375,7 +399,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
             await widget.onRefresh?.call();
           }
         });
-      }
+      })
             : null,
       children: [
         ProfileField(
@@ -530,7 +554,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               : '-',
         ),
 
-        if (canStudentWrite)
+        if (canEditProfile)
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () async {

@@ -101,7 +101,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
 
   Future<void> _openEdit(BuildContext context) async {
     final role = context.read<RoleCubit>();
-    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student) ||
+        role.isStaff) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
@@ -126,7 +127,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
-    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return Stack(

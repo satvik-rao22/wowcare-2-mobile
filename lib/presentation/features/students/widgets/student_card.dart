@@ -159,7 +159,10 @@ class _StudentCardState extends State<StudentCard> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
-    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
+    // Staff persona (teachers/floaters) can't deactivate/reactivate or edit a
+    // student from the card — those actions are admin-only.
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final tags = widget.tags;

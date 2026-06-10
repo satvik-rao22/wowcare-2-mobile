@@ -39,7 +39,9 @@ class StudentDatesTabCard extends StatefulWidget {
 class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   late Future<List<StudentPhysicalExam>> _physicalExamFuture;
   bool _hasShownErrorSnackBar = false;
-  final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
+  /// Display format for the checkup-date field in the add/edit dialog,
+  /// e.g. "Jun 02, 2027". The API payload is built from the raw DateTime.
+  final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
   bool _disableAddPhysicalExam = false;
 
   @override
@@ -218,7 +220,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               child: _DialogField(
                                 label: 'Physical Checkup Date *',
                                 value: selectedDate != null
-                                    ? _apiFormatter.format(selectedDate!)
+                                    ? _displayFormatter.format(selectedDate!)
                                     : '',
                                 suffix: SvgPicture.asset(
                                   MediaRes.calender_icon,
@@ -270,7 +272,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             _DialogField(
                               label: 'Physical Checkup Date *',
                               value: selectedDate != null
-                                  ? _apiFormatter.format(selectedDate!)
+                                  ? _displayFormatter.format(selectedDate!)
                                   : '',
                               suffix: SvgPicture.asset(
                                 MediaRes.calender_icon,
@@ -390,7 +392,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canMutateStudent =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
 
     return CustomRefreshIndicator(
       onRefresh: _reloadPhysicalExams,

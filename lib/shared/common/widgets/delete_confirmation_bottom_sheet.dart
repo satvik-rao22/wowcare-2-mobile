@@ -91,6 +91,8 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to deactivate this Staff -\n"${widget.name}" ?'
         : widget.type == 'staff_reactivate'
         ? 'Do you want to reactivate this Staff -\n"${widget.name}" ?'
+        : widget.type == 'staff_delete'
+        ? 'Do you want to delete this Staff -\n"${widget.name}" ?'
         : widget.type == 'student_deactivate'
         ? 'Do you want to deactivate this Student -\n"${widget.name}" ?'
         : widget.type == 'student_reactivate'

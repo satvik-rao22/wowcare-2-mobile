@@ -90,7 +90,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
