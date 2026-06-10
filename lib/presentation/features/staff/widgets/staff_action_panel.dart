@@ -72,6 +72,7 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
   }
 
   void _toggleActivitiesPanel() {
+    if (!widget.activitiesEnabled) return;
     setState(() {
       _current = _current == StaffPanelType.activities
           ? StaffPanelType.none
@@ -80,12 +81,18 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
     widget.onActivitiesTap?.call();
   }
 
+  bool get _showActivitiesPanel =>
+      widget.activitiesEnabled && _current == StaffPanelType.activities;
+
+  bool get _showExpandedPanel =>
+      _current == StaffPanelType.attendance || _showActivitiesPanel;
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_current != StaffPanelType.none)
+        if (_showExpandedPanel)
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: _current == StaffPanelType.attendance
@@ -128,13 +135,15 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                       onTap: _toggleAttendancePanel,
                       isSelected: _current == StaffPanelType.attendance,
                     ),
-                    const SizedBox(height: 20),
-                    _ActionButton(
-                      svgPath: MediaRes.activity_panel_icon,
-                      label: 'Activities',
-                      onTap: _toggleActivitiesPanel,
-                      isSelected: _current == StaffPanelType.activities,
-                    ),
+                    if (widget.activitiesEnabled) ...[
+                      const SizedBox(height: 20),
+                      _ActionButton(
+                        svgPath: MediaRes.activity_panel_icon,
+                        label: 'Activities',
+                        onTap: _toggleActivitiesPanel,
+                        isSelected: _current == StaffPanelType.activities,
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     _ActionButton(
                       svgPath: MediaRes.message_panel_icon,

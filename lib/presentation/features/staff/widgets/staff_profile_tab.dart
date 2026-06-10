@@ -14,6 +14,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -484,6 +485,15 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                       _Field(
                         label: 'Designation',
                         value: _formatEnumLabel(profile.designation),
+                      ),
+                      const SizedBox(height: 16),
+                      _Field(
+                        label: 'Role',
+                        value: profile.staffType.trim().isEmpty
+                            ? '-'
+                            : StringUtils.staffTypeToDisplayRole(
+                                profile.staffType,
+                              ),
                       ),
                       const SizedBox(height: 16),
                       _Field(
