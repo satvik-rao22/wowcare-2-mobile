@@ -270,6 +270,23 @@ import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 // Communication v2.1 — Phase 1B
+import '../../domain/features/communication/usecases/get_conversations_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_conversation_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
+import '../../domain/features/communication/usecases/create_conversation_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_conversations_for_student_usecase.dart';
+import '../../domain/features/communication/usecases/get_conversations_for_classroom_usecase.dart';
+import '../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
+import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import '../../domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import '../../domain/features/communication/usecases/get_messages_entity_usecase.dart';
+import '../../domain/features/communication/usecases/send_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/edit_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/delete_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/search_messages_usecase.dart';
+import '../../domain/features/communication/usecases/add_reaction_entity_usecase.dart';
+import '../../domain/features/communication/usecases/remove_reaction_usecase.dart';
+import '../../domain/features/communication/usecases/sync_pending_operations_usecase.dart';
 import '../../data/features/communication/datasources/conversation_entity_remote_data_source.dart';
 import '../../data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import '../../data/features/communication/datasources/message_entity_remote_data_source.dart';
@@ -1038,6 +1055,62 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ClearConversationsCacheUseCase>(
     () => ClearConversationsCacheUseCase(serviceLocator()),
   );
+
+  // ===== COMMUNICATION V2.1 — USE CASES (Phase 1C) =====
+  // ConversationEntityRepository use cases
+  serviceLocator.registerFactory<GetConversationsEntityUseCase>(
+    () => GetConversationsEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetConversationEntityUseCase>(
+    () => GetConversationEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedConversationsEntityUseCase>(
+    () => GetCachedConversationsEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateConversationEntityUseCase>(
+    () => CreateConversationEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetConversationsForStudentUseCase>(
+    () => GetConversationsForStudentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetConversationsForClassroomUseCase>(
+    () => GetConversationsForClassroomUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<TogglePrivateModeUseCase>(
+    () => TogglePrivateModeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkConversationReadUseCase>(
+    () => MarkConversationReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetUnreadAggregatesUseCase>(
+    () => GetUnreadAggregatesUseCase(serviceLocator()),
+  );
+  // MessageEntityRepository use cases
+  serviceLocator.registerFactory<GetMessagesEntityUseCase>(
+    () => GetMessagesEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SendMessageEntityUseCase>(
+    () => SendMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<EditMessageEntityUseCase>(
+    () => EditMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteMessageEntityUseCase>(
+    () => DeleteMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SearchMessagesUseCase>(
+    () => SearchMessagesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddReactionEntityUseCase>(
+    () => AddReactionEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RemoveReactionUseCase>(
+    () => RemoveReactionUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SyncPendingOperationsUseCase>(
+    () => SyncPendingOperationsUseCase(serviceLocator()),
+  );
+
   serviceLocator.registerFactory<GetStaffShiftsUseCase>(
     () => GetStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );

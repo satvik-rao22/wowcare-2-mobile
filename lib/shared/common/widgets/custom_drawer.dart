@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
+import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
@@ -19,15 +20,12 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
 import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
-import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
@@ -707,6 +705,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final showStaffMessagingDrawer = roleProvider.canReadModule(
       AppAccessModules.staffMessaging,
     );
+    // Admin Chat: visible to admins/directors and parents; hidden for staff/teachers.
+    final showAdminChatDrawer = !isStaff;
     final canViewBilling = roleProvider.canAccessAny([
       AppAccessModules.transaction,
       AppAccessModules.invoices,
@@ -822,7 +822,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             },
                           ),
                         if (showParentMessagingDrawer ||
-                            showParentNewsletterDrawer)
+                            showParentNewsletterDrawer ||
+                            showAdminChatDrawer)
                           _CustomExpansionTile(
                             title: 'Communication',
                             icon: MediaRes.communicationIcon,
@@ -845,6 +846,23 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     context.go(MessagingScreen.routeName);
                                   },
                                 ),
+                              if (showAdminChatDrawer)
+                                DrawerListTile(
+                                  title: 'Admin Chat',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.parentMessaging,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(
+                                      AdminChatScreen.routeName,
+                                    );
+                                  },
+                                ),
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
                                   title: 'Newsletter',
@@ -857,7 +875,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(ParentNewsletterScreen.routeName);
+                                    context.go(
+                                      ParentNewsletterScreen.routeName,
+                                    );
                                   },
                                 ),
                             ],
@@ -1052,7 +1072,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           ),
                         if (showStaffMessagingDrawer ||
                             showParentMessagingDrawer ||
-                            showParentNewsletterDrawer)
+                            showParentNewsletterDrawer ||
+                            showAdminChatDrawer)
                           _CustomExpansionTile(
                             title: 'Communication',
                             icon: MediaRes.communicationIcon,
@@ -1086,6 +1107,21 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   onTap: () {
                                     Navigator.pop(context);
                                     context.go(MessagingScreen.routeName);
+                                  },
+                                ),
+                              if (showAdminChatDrawer)
+                                DrawerListTile(
+                                  title: 'Admin Chat',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.parentMessaging,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(AdminChatScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)
@@ -1323,10 +1359,7 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                   widget.icon,
                   colorFilter: widget.preserveIconColors
                       ? null
-                      : ColorFilter.mode(
-                          _getIconColor(),
-                          BlendMode.srcIn,
-                        ),
+                      : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
                 ),
                 iconColor: AppColors.themeColor,
                 collapsedIconColor: Colors.white,

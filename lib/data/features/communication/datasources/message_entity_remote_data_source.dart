@@ -44,7 +44,6 @@ class MessageEntityRemoteDataSourceImpl
 
   MessageEntityRemoteDataSourceImpl({required this.apiClient});
 
-  static const String _base = ApiPaths.messagingMessages;
   String get _baseUrl => ApiConstants.communicationBaseUrl;
   String _url(String path) => ApiPaths.urlWithBase(path, _baseUrl);
 
@@ -57,9 +56,10 @@ class MessageEntityRemoteDataSourceImpl
     final cursor = beforeMessageCode != null
         ? '&beforeMessageCode=$beforeMessageCode'
         : '';
-    final endpoint = _url(
-      '$_base/conversation/$conversationCode?page=0&size=$size&sort=createdAt,desc$cursor',
-    );
+    final path =
+        '${ApiPaths.messagingMessages}/conversation/$conversationCode'
+        '?page=0&size=$size&sort=createdAt,desc$cursor';
+    final endpoint = _url(path);
 
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load messages');
@@ -78,14 +78,15 @@ class MessageEntityRemoteDataSourceImpl
     bool isPrivate = false,
     String? threadParentCode,
   }) async {
-    final endpoint = _url(_base);
+    final endpoint = _url(ApiPaths.messagingMessages);
     final body = <String, dynamic>{
       'conversationCode': conversationCode,
       'type': 'TEXT',
       'content': text,
       if (attachmentCodes.isNotEmpty) 'attachmentCodes': attachmentCodes,
       if (isPrivate) 'isPrivate': true,
-      if (threadParentCode != null) 'replyToMessageCode': threadParentCode,
+      // Backend uses 'replyToMessageId' (confirmed from MessageModel.fromJson)
+      if (threadParentCode != null) 'replyToMessageId': threadParentCode,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);
@@ -101,7 +102,7 @@ class MessageEntityRemoteDataSourceImpl
     required String messageCode,
     required String newText,
   }) async {
-    final endpoint = _url('$_base/$messageCode');
+    final endpoint = _url(ApiPaths.messagingMessage(messageCode));
     final response = await apiClient.client.put(
       endpoint,
       data: {'content': newText},
@@ -115,7 +116,7 @@ class MessageEntityRemoteDataSourceImpl
 
   @override
   Future<void> deleteMessage(String messageCode) async {
-    final endpoint = _url('$_base/$messageCode');
+    final endpoint = _url(ApiPaths.messagingMessage(messageCode));
     await apiClient.client.delete(endpoint);
   }
 
@@ -124,7 +125,7 @@ class MessageEntityRemoteDataSourceImpl
     required String messageCode,
     required String emoji,
   }) async {
-    final endpoint = _url('$_base/$messageCode/reactions');
+    final endpoint = _url(ApiPaths.messagingMessageReactions(messageCode));
     await apiClient.client.post(endpoint, data: {'emoji': emoji});
   }
 
@@ -133,13 +134,13 @@ class MessageEntityRemoteDataSourceImpl
     required String messageCode,
     required String emoji,
   }) async {
-    final endpoint = _url('$_base/$messageCode/reactions/$emoji');
+    final endpoint = _url(ApiPaths.messagingMessageReaction(messageCode, emoji));
     await apiClient.client.delete(endpoint);
   }
 
   @override
   Future<void> markMessageRead(String messageCode) async {
-    final endpoint = _url('$_base/$messageCode/read');
+    final endpoint = _url(ApiPaths.messagingMessageRead(messageCode));
     await apiClient.client.post(endpoint);
   }
 

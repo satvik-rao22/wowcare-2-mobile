@@ -24,13 +24,13 @@ class CreateConversationRequest {
   });
 
   Map<String, dynamic> toJson() {
+    // organizationCode and schoolCode are sent via AuthInterceptor headers
+    // (X-Organization-Code, X-School-Code) — do not duplicate in the body.
     final json = <String, dynamic>{
       'title': title,
       'type': type,
       'description': description,
       'initialMessage': initialMessage,
-      'organizationCode': organizationCode,
-      'schoolCode': schoolCode,
       'avatarUrl': avatarUrl,
     };
 
@@ -40,7 +40,7 @@ class CreateConversationRequest {
       json['participants'] = participantUserCodes
           .map((code) => {
                 'userCode': code,
-                'participantType': code.startsWith('STF_') ? 'STAFF' : 'STUDENT',
+                'role': code.startsWith('STF_') ? 'STAFF' : 'PARENT',
               })
           .toList();
     }
