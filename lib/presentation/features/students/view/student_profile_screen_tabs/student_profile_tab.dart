@@ -212,7 +212,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     return Column(
         children: [
           Transform.translate(
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 0),
             child: TabBar(
               controller: _tabController,
               dividerHeight: 0,

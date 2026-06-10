@@ -265,6 +265,11 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       },
       child: ProfileInfoCard(
         title: 'Profile Information',
+        // Full width, sitting directly below the tab bar (no overlap, no gap).
+        outerPadding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
+        // Square top so the card reads as one continuous surface with the tabs
+        // (rounded top would bump/overlap the tab borders).
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
         scrollController: widget.scrollController,
         onEdit: widget.studentProfile != null && canStudentWrite
             ? (isStaffPersona

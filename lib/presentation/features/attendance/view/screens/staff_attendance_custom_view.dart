@@ -558,42 +558,41 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                   fontSize: responsive.isTablet ? 18 : 16,
                 ),
                 SizedBox(width: responsive.horizontalSpacing / 2),
+                // Header matches staff_card.dart: name (left) + classroom (right).
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      AppText.body(
-                        staffName,
-                        style: TextStyle(
-                          fontSize: responsive.labelFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryColor,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (attendance.designationName != null &&
-                          attendance.designationName!.isNotEmpty) ...[
-                        SizedBox(height: responsive.verticalSpacing / 4),
-                        AppText.small(
-                          attendance.designationName!,
+                      Flexible(
+                        child: Text(
+                          staffName,
                           style: TextStyle(
-                            fontSize: responsive.isTablet ? 14 : 12,
-                            color: AppColors.secondaryColor.withOpacity(0.6),
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          roomName,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                AppText.body(
-                  'Attended Days: $daysAttended',
-                  style: TextStyle(
-                    fontSize: responsive.isTablet ? 16 : 15,
-                    color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.end,
                 ),
               ],
             ),
@@ -603,14 +602,14 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
               SizedBox(height: responsive.verticalSpacing / 2),
               _buildDetailRow(
                 responsive,
-                'Classroom',
-                roomName,
+                'Attended Time',
+                totalHours,
               ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(
                 responsive,
-                'Attended Time',
-                totalHours,
+                'Attended Days',
+                daysAttended,
               ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
@@ -662,21 +661,28 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
       children: [
         Expanded(
           flex: responsive.isTablet ? 2 : 1,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 14 : 12,
-              color: AppColors.secondaryColor.withOpacity(0.6),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
             ),
           ),
         ),
         SizedBox(width: responsive.horizontalSpacing / 2),
         Expanded(
           flex: responsive.isTablet ? 3 : 2,
-          child: AppText.value(
+          child: Text(
             value,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 16 : 14,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xff573353),
+              height: 19 / 14,
             ),
             textAlign: TextAlign.end,
             maxLines: 3,

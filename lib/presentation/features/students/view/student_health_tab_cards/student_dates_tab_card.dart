@@ -218,7 +218,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           children: [
                             Expanded(
                               child: _DialogField(
-                                label: 'Physical Checkup Date *',
+                                label: 'Physical Checkup Date',
+                                isRequired: true,
                                 value: selectedDate != null
                                     ? _displayFormatter.format(selectedDate!)
                                     : '',
@@ -251,7 +252,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: _DialogDropdown(
-                                label: 'Status *',
+                                label: 'Status',
+                                isRequired: true,
                                 value: statusUi,
                                 options: const [
                                   'Due',
@@ -270,7 +272,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         Column(
                           children: [
                             _DialogField(
-                              label: 'Physical Checkup Date *',
+                              label: 'Physical Checkup Date',
+                              isRequired: true,
                               value: selectedDate != null
                                   ? _displayFormatter.format(selectedDate!)
                                   : '',
@@ -301,7 +304,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             ),
                             const SizedBox(height: 16),
                             _DialogDropdown(
-                              label: 'Status *',
+                              label: 'Status',
+                              isRequired: true,
                               value: statusUi,
                               options: const [
                                 'Due',
@@ -706,25 +710,37 @@ class _DialogField extends StatelessWidget {
     required this.value,
     required this.suffix,
     required this.onTap,
+    this.isRequired = false,
   });
 
   final String label;
   final String value;
   final Widget suffix;
   final VoidCallback onTap;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        Text.rich(
+          TextSpan(
+            text: label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
+            children: [
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -767,25 +783,37 @@ class _DialogDropdown extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.isRequired = false,
   });
 
   final String label;
   final String value;
   final List<String> options;
   final ValueChanged<String> onChanged;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        Text.rich(
+          TextSpan(
+            text: label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
+            children: [
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),

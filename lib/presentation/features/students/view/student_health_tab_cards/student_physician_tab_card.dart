@@ -243,10 +243,17 @@ class _PhysicianCard extends StatelessWidget{
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
+        // Match the Family/Pickup cards: themeColor outline, square top-left.
+        decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+          border: Border.fromBorderSide(
+            BorderSide(color: AppColors.themeColor, width: 1),
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -415,6 +422,7 @@ class _PhysicianCard extends StatelessWidget{
                   CustomButtonLayout(
                     confirmButtonLabel: 'Edit',
                     cancelButtonLabel: 'Delete',
+                    gradientCancelLabel: true,
                     onPressedConfirm: () async {
                       final result = await Navigator.of(context).push<bool>(
                         MaterialPageRoute(

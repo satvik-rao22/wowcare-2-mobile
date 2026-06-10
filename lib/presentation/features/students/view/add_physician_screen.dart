@@ -47,7 +47,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _addressController = TextEditingController();
-  final TextEditingController _notesController = TextEditingController();
 
   bool _isSubmitting = false;
 
@@ -59,7 +58,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     _emailController.text = widget.initialEmail ?? '';
     _phoneController.text = _formatPhoneNumber(widget.initialPhoneNumber ?? '');
     _addressController.text = widget.initialAddress ?? '';
-    _notesController.text = widget.initialNotes ?? '';
   }
 
   String _formatPhoneNumber(String raw) {
@@ -81,7 +79,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
-    _notesController.dispose();
     super.dispose();
   }
 
@@ -91,7 +88,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     final email = _emailController.text.trim();
     final phone = _phoneController.text.trim();
     final address = _addressController.text.trim();
-    final notes = _notesController.text.trim();
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -143,7 +139,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
           email: email,
           phoneNumber: digits,
           address: address,
-          notes: notes.isNotEmpty ? notes : null,
+          notes: null,
           specialty: null,
         );
       } else {
@@ -155,7 +151,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
           email: email,
           phoneNumber: digits,
           address: address,
-          notes: notes.isNotEmpty ? notes : null,
+          notes: null,
           specialty: null,
         );
       }
@@ -299,8 +295,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                           textCapitalization: TextCapitalization.sentences,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildNotesField(),
-                        SizedBox(height: responsive.verticalSpacing),
                       ],
                     ),
                   ),
@@ -339,6 +333,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             showCancelButton: true,
             isForm: false,
             isLoading: _isSubmitting,
+            gradientCancelLabel: true,
           ),
         ),
       ),
@@ -417,53 +412,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
     );
   }
 
-  Widget _buildNotesField() {
-    final responsive = ResponsiveHelper(context);
-    final labelStyle = TextStyle(
-      fontSize: responsive.labelFontSize,
-      fontFamily: 'Manrope',
-      fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Notes',
-          style: labelStyle,
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        Container(
-          constraints: BoxConstraints(
-            minHeight: responsive.inputFieldHeight * 2,
-            maxHeight: responsive.inputFieldHeight * 4,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(
-              responsive.isTablet ? 12.0 : 8.0,
-            ),
-          ),
-          child: TextField(
-            controller: _notesController,
-            maxLines: 4,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: InputDecoration(
-              hintText: 'Add notes...',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: responsive.isTablet ? 16.0 : 12.0,
-                vertical: responsive.isTablet ? 16.0 : 12.0,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 class PhoneNumberFormatter extends TextInputFormatter {

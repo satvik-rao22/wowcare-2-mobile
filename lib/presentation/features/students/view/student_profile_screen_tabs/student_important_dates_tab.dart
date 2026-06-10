@@ -201,10 +201,17 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
+                // Match the Family/Pickup cards: themeColor outline, square top-left.
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: AppColors.cardBorderColor, width: 1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                  border: Border.fromBorderSide(
+                    BorderSide(color: AppColors.themeColor, width: 1),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

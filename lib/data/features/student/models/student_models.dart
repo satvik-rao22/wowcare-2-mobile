@@ -619,7 +619,9 @@ class StudentProfileModel extends Equatable {
       dob: data['dob'] as String?,
       notes: data['notes'] as String?,
       profilePhotoUrl: data['profilePhotoUrl'] as String?,
-      fte: data['fte'] as String?,
+      // `fte` arrives as a number (e.g. 1.0) from the API but is stored as a
+      // string here; coerce rather than cast so a double/int doesn't crash.
+      fte: data['fte']?.toString(),
       gender: data['gender'] as String?,
       legalCustodians: data['legalCustodians'] as List<dynamic>? ?? const [],
       subsidy: data['subsidy'] as bool? ?? false,

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -157,17 +159,22 @@ class _EditStudentPhysicalExamScreenState
         : 'Select Date';
 
     return StaffFormLayout(
-      title: 'Edit Physical Exam',
+      title: 'Add Physical Examination',
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const Text(
-            'Physical Checkup Date *',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+          const Text.rich(
+            TextSpan(
+              text: 'Physical Checkup Date',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                color: Color(0xff573353),
+              ),
+              children: [
+                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              ],
             ),
           ),
           const SizedBox(height: 6),
@@ -191,10 +198,13 @@ class _EditStudentPhysicalExamScreenState
                       fontFamily: 'Manrope',
                     ),
                   ),
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: AppColors.primaryColor,
+                  SvgPicture.asset(
+                    MediaRes.calender_icon,
+                    height: 20,
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.primaryColor,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ],
               ),
