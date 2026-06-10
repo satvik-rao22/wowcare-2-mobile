@@ -20,6 +20,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       expect(params.reportType, ReportType.immunization);
@@ -42,6 +43,7 @@ void main() {
         includeParentEmail: false,
         classroomCodes: classrooms,
         tagCodes: tags,
+        format: 'PDF',
       );
 
       expect(params.classroomCodes, classrooms);
@@ -57,6 +59,7 @@ void main() {
         statusFilters: const ['ACTIVE', 'UPCOMING'],
         includeParentName: true,
         includeParentEmail: false,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -75,6 +78,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: false,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -92,6 +96,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -111,6 +116,7 @@ void main() {
         includeParentEmail: true,
         classroomCodes: classrooms,
         tagCodes: tags,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -128,6 +134,7 @@ void main() {
         statusFilters: const ['ACTIVE'],
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final identifier = params.toCacheIdentifier();
@@ -146,6 +153,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final params2 = SchoolImmunizationReportParams(
@@ -156,6 +164,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       expect(params1, params2);
@@ -170,6 +179,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final params2 = SchoolImmunizationReportParams(
@@ -180,6 +190,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: false,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       expect(params1, isNot(params2));
@@ -194,6 +205,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -210,6 +222,7 @@ void main() {
         statusFilters: const ['ACTIVE', 'UPCOMING', 'INACTIVE'],
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -227,6 +240,7 @@ void main() {
         statusFilters: const ['ACTIVE'],
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -243,6 +257,7 @@ void main() {
         statusFilters: const ['UPCOMING'],
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -259,6 +274,7 @@ void main() {
         statusFilters: const ['INACTIVE'],
         includeParentName: true,
         includeParentEmail: true,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();

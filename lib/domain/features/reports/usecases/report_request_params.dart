@@ -7,6 +7,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     required this.reportType,
     required this.startDate,
     this.endDate,
+    this.format = 'PDF',
     this.classroomCodes,
     this.studentCodes,
     this.staffCodes,
@@ -14,8 +15,15 @@ class ReportRequestParams extends Equatable implements ReportParams {
     this.search,
   });
 
+  @override
   final ReportType reportType;
+
+  @override
   final DateTime startDate;
+
+  @override
+  final String format;
+
   final DateTime? endDate;
   final List<String>? classroomCodes;
   final List<String>? studentCodes;
@@ -27,6 +35,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     ReportType? reportType,
     DateTime? startDate,
     DateTime? endDate,
+    String? format,
     List<String>? classroomCodes,
     List<String>? studentCodes,
     List<String>? staffCodes,
@@ -37,6 +46,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
       reportType: reportType ?? this.reportType,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
+      format: format ?? this.format,
       classroomCodes: classroomCodes ?? this.classroomCodes,
       studentCodes: studentCodes ?? this.studentCodes,
       staffCodes: staffCodes ?? this.staffCodes,
@@ -47,18 +57,43 @@ class ReportRequestParams extends Equatable implements ReportParams {
 
   /// Convert params to request body format for API.
   Map<String, dynamic> toRequestBody() {
-    return {
+    final Map<String, dynamic> body = {
       'reportType': reportType.backendValue,
       'startDate': startDate.toIso8601String().split('T')[0],
       if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
-      if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'classroomCodes': classroomCodes,
-      if (studentCodes != null && studentCodes!.isNotEmpty)
-        'studentCodes': studentCodes,
-      if (staffCodes != null && staffCodes!.isNotEmpty) 'staffCodes': staffCodes,
-      if (tagCodes != null && tagCodes!.isNotEmpty) 'tagCodes': tagCodes,
-      if (search != null && search!.trim().isNotEmpty) 'search': search!.trim(),
+      'format': format,
     };
+
+    // Map field names based on report type for API compatibility
+    if (reportType == ReportType.studentAbsent ||
+        reportType == ReportType.studentAttendancePerStudent ||
+        reportType == ReportType.staffAttendancePerStaff) {
+      // These reports use roomCodes instead of classroomCodes
+      if (classroomCodes != null && classroomCodes!.isNotEmpty) {
+        body['roomCodes'] = classroomCodes;
+      }
+    } else {
+      // Other reports use classroomCodes
+      if (classroomCodes != null && classroomCodes!.isNotEmpty) {
+        body['classroomCodes'] = classroomCodes;
+      }
+    }
+
+    // Add optional fields
+    if (studentCodes != null && studentCodes!.isNotEmpty) {
+      body['studentCodes'] = studentCodes;
+    }
+    if (staffCodes != null && staffCodes!.isNotEmpty) {
+      body['staffCodes'] = staffCodes;
+    }
+    if (tagCodes != null && tagCodes!.isNotEmpty) {
+      body['tagCodes'] = tagCodes;
+    }
+    if (search != null && search!.trim().isNotEmpty) {
+      body['search'] = search!.trim();
+    }
+
+    return body;
   }
 
   /// Build cache identifier from params.
@@ -85,6 +120,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     reportType,
     startDate,
     endDate,
+    format,
     classroomCodes,
     studentCodes,
     staffCodes,

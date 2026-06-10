@@ -12,9 +12,10 @@ enum ReportType {
   // Staff Management (1 type - staffSchedule unavailable)
   staffDetails('STAFF_DETAILS'),
 
-  // Student Management (2 types)
+  // Student Management (3 types)
   studentsAndFamily('STUDENTS_AND_FAMILY'),
   emergencyContacts('EMERGENCY_CONTACTS'),
+  studentIncident('STUDENT_INCIDENT'),
 
   // Immunization (1 type)
   immunization('IMMUNIZATION');

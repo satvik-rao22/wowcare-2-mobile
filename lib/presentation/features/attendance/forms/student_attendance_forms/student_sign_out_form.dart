@@ -416,7 +416,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         });
       } else {
         // KIOSK MODE: Use guardian code directly, no staff code needed
-        payload['method'] = 'KIOSK';
+        payload['method'] = 'PIN';
         payload.addAll(<String, dynamic>{
           'guardianCode': widget.guardianCode,
           'pin': widget.pin,
@@ -427,11 +427,16 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
     try {
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStudentSignOut(payload: payload, isParent: isParent);
+          .submitStudentSignOut(payload: payload, isParent: isParent || widget.isKiosk);
       final success = result.success;
-      final message = result.message;
+      var message = result.message;
 
       if (!mounted) return;
+
+      // Normalize success messages for better UX
+      if (success && (message.toLowerCase().contains('sign out') || message.toLowerCase().contains('sign-out') || message.toLowerCase().contains('signed out'))) {
+        message = 'Sign out successfully';
+      }
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -448,6 +453,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         if (widget.popOnSuccess) {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
+        } else if (widget.isKiosk) {
+          context.go('/kiosk');
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {

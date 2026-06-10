@@ -12,6 +12,9 @@ abstract class ReportParams extends Equatable {
   /// Start date for the report period.
   DateTime get startDate;
 
+  /// Export format for the report (PDF or XLSX).
+  String get format;
+
   /// Convert this parameter instance to API request body format.
   ///
   /// Returns a Map<String, dynamic> with keys/values matching the

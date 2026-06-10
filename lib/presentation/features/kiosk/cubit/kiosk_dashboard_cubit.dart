@@ -27,8 +27,10 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
   final StorageService _storage;
 
   /// Load the active QR code for the kiosk using the school code from storage.
-  /// This bypasses dashboard context and directly fetches the live QR.
+  /// This bypasses dashboard context and directly fetches the LIVE QR.
+  /// Called on every kiosk screen entry to ensure fresh QR code.
   Future<void> loadQrCode() async {
+    AppLogger.d('[Kiosk] 🔄 Refreshing QR code - fetching FRESH QR from API');
     emit(const KioskDashboardLoading());
 
     try {
@@ -37,17 +39,26 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       final schoolName = await _storage.getString(StorageKeys.selectedSchoolName);
 
       if (schoolCode == null || schoolCode.isEmpty) {
+        AppLogger.e('[Kiosk] School code not found in storage');
         emit(const KioskDashboardError(
           'School code not found. Please login again.',
         ));
         return;
       }
 
-      // Fetch live QR code directly from the attendance API
+      AppLogger.d(
+        '[Kiosk] 📲 Fetching FRESH QR code from API for schoolCode=$schoolCode',
+      );
+
+      // Fetch LIVE QR code directly from the attendance API
+      // This ALWAYS fetches fresh QR, never cached
       final qrCode = await _getActiveKioskQr(schoolCode: schoolCode);
 
       if (isClosed) return;
 
+      AppLogger.d(
+        '[Kiosk] ✅ QR code loaded successfully: ${qrCode.qrPayload.length} chars (FRESH)',
+      );
       emit(KioskDashboardQrLoaded(
         qrCode: qrCode,
         schoolName: schoolName ?? 'School',
@@ -55,17 +66,21 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     } catch (e) {
       if (isClosed) return;
 
-      AppLogger.e('[Kiosk] Error loading QR code: $e');
-      emit(const KioskDashboardError('Unable to load QR code. Please try again.'));
+      AppLogger.e('[Kiosk] ❌ QR load failed: $e');
+      emit(const KioskDashboardError(
+        'Unable to load QR code. Please try again.',
+      ));
     }
   }
 
   /// Refresh the QR code (for expiration handling)
   Future<void> refreshQrCode() async {
+    AppLogger.d('[Kiosk] Refreshing QR code (expiration check)');
     try {
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);
 
       if (schoolCode == null || schoolCode.isEmpty) {
+        AppLogger.w('[Kiosk] Cannot refresh QR - school code not found');
         return;
       }
 
@@ -75,13 +90,14 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
 
       final schoolName = await _storage.getString(StorageKeys.selectedSchoolName);
 
+      AppLogger.d('[Kiosk] QR refresh successful');
       emit(KioskDashboardQrLoaded(
         qrCode: qrCode,
         schoolName: schoolName ?? 'School',
       ));
     } catch (e) {
       if (isClosed) return;
-      // Don't emit error state on refresh failure, just log it
+      AppLogger.w('[Kiosk] QR refresh failed (non-fatal): $e');
     }
   }
 
@@ -113,6 +129,8 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       final result = await _verifyKioskPin(pin: pin, schoolCode: schoolCode);
 
       if (isClosed) return result;
+
+      AppLogger.d('[Kiosk] PIN verified: persona=${result.persona.name}');
 
       // CRITICAL: Mark user as kiosk user - this enables the route guard
       try {

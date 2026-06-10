@@ -354,8 +354,10 @@ abstract class AttendanceRemoteDataSource {
   });
 
   /// Posts a staff sign-out request.
+  /// Set [isSelf] to true to use the self sign-out endpoint.
   Future<Map<String, dynamic>?> postStaffSignOut({
     required Map<String, dynamic> body,
+    bool isSelf = false,
   });
 
   /// Posts a staff classroom transfer request.
@@ -1780,9 +1782,12 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, dynamic>?> postStaffSignOut({
     required Map<String, dynamic> body,
+    bool isSelf = false,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceRecordsSignOut,
+      isSelf
+          ? ApiPaths.staffAttendanceRecordsSignOutSelf
+          : ApiPaths.staffAttendanceRecordsSignOut,
       ApiConstants.attendanceBaseUrl,
     );
     final response = await _client.post<dynamic>(endpoint, data: body);

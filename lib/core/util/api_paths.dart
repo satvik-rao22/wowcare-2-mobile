@@ -232,6 +232,8 @@ class ApiPaths {
         return ApiMicroservices.communication;
       case 'notification':
         return ApiMicroservices.notification;
+      case 'kiosk':
+        return ApiMicroservices.attendance;
       default:
         return ApiMicroservices.user;
     }
@@ -418,8 +420,7 @@ class ApiPaths {
   /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`.
   /// Direct-MS form here (`/api/v1/student/{code}/siblings`); UAT re-inserts the
   /// gateway `student` segment — the doubled form 404s in LOCAL.
-  static String studentSiblings(String code) =>
-      '$studentList/$code/siblings';
+  static String studentSiblings(String code) => '$studentList/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
 
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
@@ -577,17 +578,65 @@ class ApiPaths {
       '/api/v1/staff-attendance-records/sign-in/self';
   static const String staffAttendanceRecordsSignOut =
       '/api/v1/staff-attendance-records/sign-out';
+  static const String staffAttendanceRecordsSignOutSelf =
+      '/api/v1/staff-attendance-records/sign-out/self';
   static const String staffAttendanceRecordsTransfer =
       '/api/v1/staff-attendance-records/transfer';
 
+  /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings/qr-code/validate
+  /// Validate QR code for a school's attendance settings.
   static String qrCodeValidate(String schoolCode) =>
-      '/api/v1/schools/$schoolCode/attendance-settings/qr-code/validate';
+      '/api/v1/attendance/schools/$schoolCode/attendance-settings/qr-code/validate';
+
+  /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings/qr-code/active
+  /// Get active QR code for a school's attendance settings.
+  static String qrCodeActive(String schoolCode) =>
+      '/api/v1/attendance/schools/$schoolCode/attendance-settings/qr-code/active';
 
   /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings
   /// Single source of truth for GPS sign-in toggle, geofence radius, and
   /// auto sign-out settings.
   static String attendanceSettings(String schoolCode) =>
       '/api/v1/attendance/schools/$schoolCode/attendance-settings';
+
+  // —— Kiosk (attendance MS) ——
+  /// POST /api/v1/kiosk/verify-pin — Verify PIN for guardian/staff access.
+  static const String kioskVerifyPin = '/api/v1/kiosk/verify-pin';
+
+  // —— Reports (multiple microservices) ——
+  /// POST /api/v1/student-attendance/reports/generate — Generate student attendance reports.
+  static const String studentAttendanceReportsGenerate =
+      '/api/v1/student-attendance/reports/generate';
+
+  /// GET /api/v1/student-attendance/reports/recent — Get recent student attendance reports.
+  static const String studentAttendanceReportsRecent =
+      '/api/v1/student-attendance/reports/recent';
+
+  /// POST /api/v1/staff-attendance/reports/generate — Generate staff attendance reports.
+  static const String staffAttendanceReportsGenerate =
+      '/api/v1/staff-attendance/reports/generate';
+
+  /// GET /api/v1/staff-attendance/reports/recent — Get recent staff attendance reports.
+  static const String staffAttendanceReportsRecent =
+      '/api/v1/staff-attendance/reports/recent';
+
+  /// POST /api/v1/staff/reports/generate — Generate staff directory reports (staff MS).
+  static const String staffReportsGenerate = '/api/v1/staff/reports/generate';
+
+  /// GET /api/v1/staff/reports/recent — Get recent staff directory reports (staff MS).
+  static const String staffReportsRecent = '/api/v1/staff/reports/recent';
+
+  /// POST /api/v1/student/reports/generate — Generate student management reports (student MS).
+  static const String studentManagementReportsGenerate =
+      '/api/v1/student/reports/generate';
+
+  /// GET /api/v1/student/reports/recent — Get recent student management reports (student MS).
+  static const String studentManagementReportsRecent =
+      '/api/v1/student/reports/recent';
+
+  /// POST /api/v1/student/settings/immunization/report — Generate immunization reports (student MS).
+  static const String studentImmunizationReport =
+      '/api/v1/student/settings/immunization/report';
 
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
@@ -726,6 +775,10 @@ class ApiPaths {
       ApiConstants.isUat
       ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
       : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
+
+  /// POST /api/v1/document/media-assets/resolve — Resolve media asset codes to download URLs.
+  static const String documentMediaAssetsResolve =
+      '/api/v1/document/media-assets/resolve';
 
   static const String messagingCreateMessage =
       '/api/v1/messaging/conversations';

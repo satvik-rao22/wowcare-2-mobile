@@ -13,6 +13,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
     required this.endDate,
     required this.staffFieldsSelected,
     required this.statusFilter,
+    required this.format,
     this.classroomCodes,
   });
 
@@ -29,6 +30,9 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
 
   /// Status filter value (e.g., 'Active Staff', 'Inactive Staff', 'All Staff')
   final String statusFilter;
+
+  @override
+  final String format;
 
   /// Optional classroom codes (empty = all classrooms)
   final List<String>? classroomCodes;
@@ -60,7 +64,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
         'classroomCodes': classroomCodes,
 
-      'format': 'PDF',
+      'format': format,
     };
   }
 
@@ -99,6 +103,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
     endDate,
     staffFieldsSelected,
     statusFilter,
+    format,
     classroomCodes,
   ];
 }

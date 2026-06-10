@@ -13,29 +13,8 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    let controller = window?.rootViewController as! FlutterViewController
-    let geofenceChannel = FlutterMethodChannel(
-      name: GeofencePlugin.methodChannelName,
-      binaryMessenger: controller.binaryMessenger
-    )
-    GeofencePlugin.initializeWithChannel(geofenceChannel)
-
-    // Expose a channel so Dart can read and clear a pending geofence tap action
-    // (set by userNotificationCenter below when a native geofence notification
-    // is tapped from the killed / background state).
-    FlutterMethodChannel(
-      name: "wowcare/geofence_tap",
-      binaryMessenger: controller.binaryMessenger
-    ).setMethodCallHandler { [weak self] call, result in
-      guard call.method == "getPendingAction" else {
-        result(FlutterMethodNotImplemented)
-        return
-      }
-      let action = UserDefaults.standard.string(forKey: AppDelegate.geofenceTapKey)
-      UserDefaults.standard.removeObject(forKey: AppDelegate.geofenceTapKey)
-      result(action)
-    }
-
+    // Note: window?.rootViewController is nil at this point in newer iOS versions
+    // Geofence and method channels are now set up in the FlutterImplicitEngineBridge
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 

@@ -53,11 +53,15 @@ class KioskPinResultModel extends KioskPinResultEntity {
 
   factory KioskPinResultModel.fromJson(Map<String, dynamic> json) {
     final personaStr = (json['persona'] as String? ?? '').toLowerCase();
+
+    // Defensive persona mapping: handle typos (KIOSK/KOISK), aliases (PICKUP), and standard values
     final persona = personaStr.contains('staff')
         ? KioskPersona.staff
-        : personaStr.contains('guardian')
+        : (personaStr.contains('guardian') || personaStr.contains('pickup'))
             ? KioskPersona.guardian
-            : KioskPersona.unknown;
+            : (personaStr.contains('kiosk') || personaStr.contains('koisk'))
+                ? KioskPersona.kiosk
+                : KioskPersona.unknown;
 
     final studentsList = <KioskStudentModel>[];
     final studentsJson = json['students'] as List?;

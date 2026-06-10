@@ -1,16 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'dart:async';
+import 'dart:typed_data';
+import 'dart:io';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
+import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/annual_state_immunization_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/billing_plan_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/billing_transaction_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/staff_absent_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/staff_attendance_per_week_report_screen.dart';
-import 'package:wowcare/presentation/features/reports/view/staff_directory_report_screen.dart';
+import 'package:wowcare/presentation/features/reports/view/staff_details_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/staff_schedule_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/student_absent_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/student_attendance_per_student_report_screen.dart';
@@ -83,13 +91,21 @@ class _ReportsScreenState extends State<ReportsScreen>
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BlocProvider<ReportsCubit>.value(
-          value: cubit,
-          child: screen!,
-        ),
-      ),
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<bool>(
+              builder: (_) => BlocProvider<ReportsCubit>.value(
+                value: cubit,
+                child: screen!,
+              ),
+            ),
+          )
+          .then((success) {
+            if (success == true && mounted) {
+              DefaultTabController.of(context).animateTo(0);
+            }
+          }),
     );
   }
 
@@ -120,13 +136,21 @@ class _ReportsScreenState extends State<ReportsScreen>
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BlocProvider<ReportsCubit>.value(
-          value: cubit,
-          child: screen!,
-        ),
-      ),
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<bool>(
+              builder: (_) => BlocProvider<ReportsCubit>.value(
+                value: cubit,
+                child: screen!,
+              ),
+            ),
+          )
+          .then((success) {
+            if (success == true && mounted) {
+              DefaultTabController.of(context).animateTo(0);
+            }
+          }),
     );
   }
 
@@ -146,13 +170,21 @@ class _ReportsScreenState extends State<ReportsScreen>
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BlocProvider<ReportsCubit>.value(
-          value: cubit,
-          child: screen!,
-        ),
-      ),
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<bool>(
+              builder: (_) => BlocProvider<ReportsCubit>.value(
+                value: cubit,
+                child: screen!,
+              ),
+            ),
+          )
+          .then((success) {
+            if (success == true && mounted) {
+              DefaultTabController.of(context).animateTo(0);
+            }
+          }),
     );
   }
 
@@ -174,13 +206,21 @@ class _ReportsScreenState extends State<ReportsScreen>
       return;
     }
 
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => BlocProvider<ReportsCubit>.value(
-          value: cubit,
-          child: screen!,
-        ),
-      ),
+    unawaited(
+      Navigator.of(context)
+          .push(
+            MaterialPageRoute<bool>(
+              builder: (_) => BlocProvider<ReportsCubit>.value(
+                value: cubit,
+                child: screen!,
+              ),
+            ),
+          )
+          .then((success) {
+            if (success == true && mounted) {
+              DefaultTabController.of(context).animateTo(0);
+            }
+          }),
     );
   }
 
@@ -190,35 +230,6 @@ class _ReportsScreenState extends State<ReportsScreen>
     'Staff',
     'Compliance',
     'Billing',
-  ];
-
-  static final List<GeneratedReportItem> _generatedReports =
-      <GeneratedReportItem>[
-    GeneratedReportItem(
-      fileName: 'Annual State Immunization Report 01-22-2026.xlsx',
-      generatedAt: DateTime(2026, 1, 22, 11, 14),
-      type: GeneratedReportFileType.xlsx,
-    ),
-    GeneratedReportItem(
-      fileName: 'Student Daily Attendance 01-22-2026.xlsx',
-      generatedAt: DateTime(2026, 1, 22, 11, 3),
-      type: GeneratedReportFileType.xlsx,
-    ),
-    GeneratedReportItem(
-      fileName: 'Annual State Immunization Report 01-13-2026.pdf',
-      generatedAt: DateTime(2026, 1, 13, 9, 21),
-      type: GeneratedReportFileType.pdf,
-    ),
-    GeneratedReportItem(
-      fileName: 'Billing plan 01-12-2026.xlsx',
-      generatedAt: DateTime(2026, 1, 12, 12, 23),
-      type: GeneratedReportFileType.xlsx,
-    ),
-    GeneratedReportItem(
-      fileName: 'Annual State Immunization Report 01-08-2026.xlsx',
-      generatedAt: DateTime(2026, 1, 8, 10, 5),
-      type: GeneratedReportFileType.xlsx,
-    ),
   ];
 
   static const List<ReportItem> _studentReports = <ReportItem>[
@@ -292,6 +303,30 @@ class _ReportsScreenState extends State<ReportsScreen>
   ];
 
   @override
+  void initState() {
+    super.initState();
+    // Load recent reports when screen initializes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<ReportsCubit>().loadRecentReports();
+
+        // Handle tab navigation from query parameter
+        final tabIndex = int.tryParse(
+          GoRouterState.of(context).uri.queryParameters['tab'] ?? '0',
+        ) ?? 0;
+
+        if (tabIndex >= 0 && tabIndex < _tabs.length) {
+          try {
+            DefaultTabController.of(context).animateTo(tabIndex);
+          } catch (_) {
+            // DefaultTabController might not be available yet
+          }
+        }
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
@@ -300,8 +335,9 @@ class _ReportsScreenState extends State<ReportsScreen>
     return MultiBlocProvider(
       providers: [
         BlocProvider<ClassroomCubit>(
-          create: (_) => serviceLocator<ClassroomCubit>()
-            ..loadActiveClassrooms(onlyTypeClassroom: true),
+          create: (_) =>
+              serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(onlyTypeClassroom: true),
         ),
         BlocProvider<StudentCubit>(
           create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
@@ -318,210 +354,235 @@ class _ReportsScreenState extends State<ReportsScreen>
           BlocListener<ClassroomCubit, ClassroomState>(
             listenWhen: (prev, curr) => prev.classrooms != curr.classrooms,
             listener: (context, state) {
+              final nameToCodeMap = <String, String>{};
+              for (final classroom in state.classrooms) {
+                nameToCodeMap[classroom.name] = classroom.code;
+              }
               context.read<ReportsCubit>().setClassroomNames(
-                    state.classrooms.map((c) => c.name).toList(growable: false),
-                  );
+                state.classrooms.map((c) => c.name).toList(growable: false),
+                nameToCodeMap: nameToCodeMap,
+              );
             },
           ),
           BlocListener<StudentCubit, StudentState>(
             listenWhen: (prev, curr) => prev.items != curr.items,
             listener: (context, state) {
               context.read<ReportsCubit>().setStudentNames(
-                    state.items
-                        .map((s) => s.fullName)
-                        .where((n) => n.isNotEmpty)
-                        .toList(growable: false),
-                  );
+                state.items
+                    .map((s) => s.fullName)
+                    .where((n) => n.isNotEmpty)
+                    .toList(growable: false),
+              );
             },
           ),
           BlocListener<StaffCubit, StaffState>(
             listenWhen: (prev, curr) => prev.items != curr.items,
             listener: (context, state) {
+              final nameToCodeMap = <String, String>{};
+              final staffNames = <String>[];
+              for (final staff in state.items) {
+                if (staff.name.isNotEmpty) {
+                  staffNames.add(staff.name);
+                  nameToCodeMap[staff.name] = staff.code;
+                }
+              }
               context.read<ReportsCubit>().setStaffNames(
-                    state.items
-                        .map((s) => s.name)
-                        .where((n) => n.isNotEmpty)
-                        .toList(growable: false),
-                  );
+                staffNames,
+                nameToCodeMap: nameToCodeMap,
+              );
+            },
+          ),
+          BlocListener<ReportsCubit, ReportsState>(
+            listenWhen: (prev, curr) =>
+                prev.generationSuccess != curr.generationSuccess,
+            listener: (context, state) {
+              if (state.generationSuccess != null) {
+                context.read<ReportsCubit>().loadRecentReports();
+              }
             },
           ),
         ],
         child: GlobalScaffold(
-      body: DefaultTabController(
-        length: _tabs.length,
-        child: Builder(
-          builder: (context) {
-            final TabController controller = DefaultTabController.of(context);
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
-                    child: Padding(
-                      padding: contentPadding,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Reports',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              fontSize: titleFontSize,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xff573353),
-                              height: titleLineHeight,
+          body: DefaultTabController(
+            length: _tabs.length,
+            child: Builder(
+              builder: (context) {
+                final TabController controller = DefaultTabController.of(
+                  context,
+                );
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header and TabBar
+                    SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
+                      child: Padding(
+                        padding: contentPadding,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Reports',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: titleFontSize,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xff573353),
+                                height: titleLineHeight,
+                              ),
+                              textAlign: TextAlign.left,
                             ),
-                            textAlign: TextAlign.left,
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  tooltip: 'Scroll tabs',
-                                  padding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 26,
-                                    height: 32,
-                                  ),
-                                  splashRadius: 14,
-                                  icon: const Icon(
-                                    Icons.chevron_left,
-                                    color: Color(0xff573353),
-                                    size: 25,
-                                  ),
-                                  onPressed: () {
-                                    final int current = controller.index;
-                                    if (current > 0) {
-                                      controller.animateTo(current - 1);
-                                    }
-                                  },
-                                ),
-                                Expanded(
-                                  child: TabBar(
-                                    isScrollable: true,
+                            const SizedBox(height: 12),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Scroll tabs',
                                     padding: EdgeInsets.zero,
-                                    labelPadding: EdgeInsets.zero,
-                                    tabAlignment: TabAlignment.start,
-                                    labelColor: AppColors.themeColor,
-                                    unselectedLabelColor:
-                                        const Color(0xff573353),
-                                    dividerColor: Colors.transparent,
-                                    indicatorSize: TabBarIndicatorSize.label,
-                                    indicator: UnderlineTabIndicator(
-                                      borderSide: BorderSide(
-                                        color: AppColors.themeColor,
-                                        width: 2,
-                                      ),
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 26,
+                                      height: 32,
                                     ),
-                                    tabs: List<Widget>.generate(
-                                      _tabs.length,
-                                      (int index) => Padding(
-                                        padding: EdgeInsets.fromLTRB(
-                                          index == 0 ? 4 : 12,
-                                          6,
-                                          12,
-                                          6,
+                                    splashRadius: 14,
+                                    icon: const Icon(
+                                      Icons.chevron_left,
+                                      color: Color(0xff573353),
+                                      size: 25,
+                                    ),
+                                    onPressed: () {
+                                      final int current = controller.index;
+                                      if (current > 0) {
+                                        controller.animateTo(current - 1);
+                                      }
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: TabBar(
+                                      isScrollable: true,
+                                      padding: EdgeInsets.zero,
+                                      labelPadding: EdgeInsets.zero,
+                                      tabAlignment: TabAlignment.start,
+                                      labelColor: AppColors.themeColor,
+                                      unselectedLabelColor: const Color(
+                                        0xff573353,
+                                      ),
+                                      dividerColor: Colors.transparent,
+                                      indicatorSize: TabBarIndicatorSize.label,
+                                      indicator: UnderlineTabIndicator(
+                                        borderSide: BorderSide(
+                                          color: AppColors.themeColor,
+                                          width: 2,
                                         ),
-                                        child: Text(
-                                          _tabs[index],
-                                          style: const TextStyle(
-                                            fontFamily: 'Manrope',
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
+                                      ),
+                                      tabs: List<Widget>.generate(
+                                        _tabs.length,
+                                        (int index) => Padding(
+                                          padding: EdgeInsets.fromLTRB(
+                                            index == 0 ? 4 : 12,
+                                            6,
+                                            12,
+                                            6,
+                                          ),
+                                          child: Text(
+                                            _tabs[index],
+                                            style: const TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                IconButton(
-                                  tooltip: 'Scroll tabs',
-                                  padding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  constraints: const BoxConstraints.tightFor(
-                                    width: 26,
-                                    height: 32,
+                                  IconButton(
+                                    tooltip: 'Scroll tabs',
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 26,
+                                      height: 32,
+                                    ),
+                                    splashRadius: 14,
+                                    icon: const Icon(
+                                      Icons.chevron_right,
+                                      color: Color(0xff573353),
+                                      size: 25,
+                                    ),
+                                    onPressed: () {
+                                      final int current = controller.index;
+                                      if (current < _tabs.length - 1) {
+                                        controller.animateTo(current + 1);
+                                      }
+                                    },
                                   ),
-                                  splashRadius: 14,
-                                  icon: const Icon(
-                                    Icons.chevron_right,
-                                    color: Color(0xff573353),
-                                    size: 25,
-                                  ),
-                                  onPressed: () {
-                                    final int current = controller.index;
-                                    if (current < _tabs.length - 1) {
-                                      controller.animateTo(current + 1);
-                                    }
-                                  },
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          AnimatedBuilder(
-                            animation: controller,
-                            builder: (context, _) {
-                              final int current = controller.index;
-                              if (current == 0) {
-                                return GeneratedReportsList(
-                                  items: _generatedReports,
-                                  onView: (item) =>
-                                      _showComingSoon(context, 'View'),
-                                  onDownload: (item) =>
-                                      _showComingSoon(context, 'Download'),
-                                );
-                              }
-                              final formats = current == 3
-                                  ? const <ReportExportFormat>[
-                                      ReportExportFormat.pdf,
-                                      ReportExportFormat.excel,
-                                    ]
-                                  : const <ReportExportFormat>[
-                                      ReportExportFormat.excel,
-                                    ];
-                              return _ReportsList(
-                                reports: _reportsFor(current),
-                                formats: formats,
-                                onGenerate: (item, _) {
-                                  if (current == 1) {
-                                    _openStudentReportForm(context, item.name);
-                                  } else if (current == 2) {
-                                    _openStaffReportForm(context, item.name);
-                                  } else if (current == 3) {
-                                    _openComplianceReportForm(
-                                        context, item.name);
-                                  } else if (current == 4) {
-                                    _openBillingReportForm(context, item.name);
-                                  } else {
-                                    _showComingSoon(context, 'Generate');
-                                  }
-                                },
-                              );
-                            },
-                          ),
-                          SizedBox(
-                            height: MediaQuery.of(context).padding.bottom + 12,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
-      showCustomNavigationBar: true,
+                    const SizedBox(height: 12),
+                    // Tab Content - Swipeable
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: contentPadding.left,
+                          vertical: contentPadding.top,
+                        ),
+                        child: TabBarView(
+                          physics: const BouncingScrollPhysics(),
+                          children: [
+                            // Tab 0: Generated Reports
+                            _GeneratedReportsTab(context: context),
+                            // Tab 1: Student Reports
+                            _ReportsTab(
+                              tabIndex: 1,
+                              reports: _studentReports,
+                              formats: const [ReportExportFormat.excel],
+                              onGenerate: _openStudentReportForm,
+                            ),
+                            // Tab 2: Staff Reports
+                            _ReportsTab(
+                              tabIndex: 2,
+                              reports: _staffReports,
+                              formats: const [ReportExportFormat.excel],
+                              onGenerate: _openStaffReportForm,
+                            ),
+                            // Tab 3: Compliance Reports
+                            _ReportsTab(
+                              tabIndex: 3,
+                              reports: _complianceReports,
+                              formats: const [
+                                ReportExportFormat.pdf,
+                                ReportExportFormat.excel,
+                              ],
+                              onGenerate: _openComplianceReportForm,
+                            ),
+                            // Tab 4: Billing Reports
+                            _ReportsTab(
+                              tabIndex: 4,
+                              reports: _billingReports,
+                              formats: const [ReportExportFormat.excel],
+                              onGenerate: _openBillingReportForm,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          showCustomNavigationBar: true,
         ),
       ),
     );
@@ -548,6 +609,355 @@ class _ReportsScreenState extends State<ReportsScreen>
       context: context,
       message: '$action — coming soon',
       isWarning: true,
+    );
+  }
+
+  Future<bool> _requestStoragePermission() async {
+    if (Platform.isAndroid) {
+      final androidInfo = await DeviceInfoPlugin().androidInfo;
+      final sdkInt = androidInfo.version.sdkInt;
+
+      if (sdkInt >= 33) {
+        // Android 13+: Request specific file permissions
+        final status = await Permission.photos.request();
+        return status.isGranted;
+      } else {
+        // Android 12 and below: Request storage permission
+        final status = await Permission.storage.request();
+        return status.isGranted;
+      }
+    }
+    // iOS: No explicit permission needed for app documents
+    return true;
+  }
+
+  Future<void> _downloadAndViewReport(
+    BuildContext context,
+    String assetCode,
+    String fileName,
+  ) async {
+    // Request storage permission first
+    final hasPermission = await _requestStoragePermission();
+
+    if (!hasPermission) {
+      if (!mounted) return;
+
+      final shouldOpenSettings =
+          await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => AlertDialog(
+              title: const Text('Storage Permission Required'),
+              content: const Text(
+                'To download and save PDF and Excel files, this app needs storage permission.\n\n'
+                'Please grant storage permission in the next screen.',
+              ),
+              actions: [
+                TextButton(
+                  child: const Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(false),
+                ),
+                TextButton(
+                  child: const Text('Open Settings'),
+                  onPressed: () => Navigator.of(context).pop(true),
+                ),
+              ],
+            ),
+          ) ??
+          false;
+
+      if (shouldOpenSettings) {
+        await openAppSettings();
+      }
+      return;
+    }
+
+    if (!mounted) return;
+
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Downloading report...',
+      isSuccess: true,
+    );
+
+    final fileData = await context.read<ReportsCubit>().downloadReport(
+      assetCode,
+    );
+
+    if (!mounted) return;
+
+    if (fileData == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to download report',
+        isError: true,
+      );
+      return;
+    }
+
+    // Determine file type
+    final fileType = fileName.toLowerCase().endsWith('.pdf') ? 'pdf' : 'xlsx';
+
+    if (!mounted) return;
+
+    // Navigate to the viewer screen and navigate to it
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportFileViewerScreen(
+          fileData: Uint8List.fromList(fileData),
+          fileName: fileName,
+          fileType: fileType,
+        ),
+      ),
+    );
+  }
+}
+
+class _GeneratedReportsTab extends StatefulWidget {
+  const _GeneratedReportsTab({required this.context});
+
+  final BuildContext context;
+
+  @override
+  State<_GeneratedReportsTab> createState() => _GeneratedReportsTabState();
+}
+
+class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Always load reports when tab is displayed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<ReportsCubit>().loadRecentReports();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    return BlocListener<ReportsCubit, ReportsState>(
+      listenWhen: (previous, current) =>
+          previous.generatedReportsState != current.generatedReportsState,
+      listener: (context, state) {
+        // Show error snackbar when loading fails (only show errors, not success)
+        if (state.generatedReportsState == GeneratedReportsLoadingState.error &&
+            state.generatedReportsError != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.generatedReportsError ?? 'Failed to load reports',
+            isError: true,
+          );
+        }
+      },
+      child:
+          BlocSelector<
+            ReportsCubit,
+            ReportsState,
+            ({
+              List<ReportMetadataEntity> reports,
+              GeneratedReportsLoadingState state,
+              String? error,
+            })
+          >(
+            selector: (state) => (
+              reports: state.recentReports,
+              state: state.generatedReportsState,
+              error: state.generatedReportsError,
+            ),
+            builder: (context, data) {
+              // Initial or loading state - show spinner (NO shimmer)
+              if (data.state == GeneratedReportsLoadingState.initial ||
+                  data.state == GeneratedReportsLoadingState.loading) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(32),
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
+
+              // Error state - show error with retry button
+              if (data.state == GeneratedReportsLoadingState.error) {
+                return _buildErrorState(data.error);
+              }
+
+              // Empty state - show no reports message
+              if (data.reports.isEmpty) {
+                return _buildEmptyState();
+              }
+
+              // Loaded with data or refreshing - show data with optional progress
+              return Stack(
+                children: [
+                  _buildReportsList(data.reports),
+                  if (data.state == GeneratedReportsLoadingState.refreshing)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      child: LinearProgressIndicator(
+                        minHeight: 2,
+                        backgroundColor: Colors.transparent,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+    );
+  }
+
+  Widget _buildErrorState(String? error) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 16),
+              Text(
+                'Failed to load reports',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                error ?? 'Unknown error',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () {
+                  context.read<ReportsCubit>().loadRecentReports();
+                },
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.description_outlined,
+                size: 48,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No reports generated yet',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Generate your first report to see it here',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReportsList(List<ReportMetadataEntity> reports) {
+    return RefreshIndicator(
+      onRefresh: () {
+        return context.read<ReportsCubit>().loadRecentReports(isRefresh: true);
+      },
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          GeneratedReportsList(
+            items: reports.map((report) {
+              final fileName = report.fileName ?? 'Unknown';
+              final ext = fileName.split('.').last.toLowerCase();
+              return GeneratedReportItem(
+                fileName: fileName,
+                generatedAt: report.generatedAt,
+                type: ext == 'xlsx'
+                    ? GeneratedReportFileType.xlsx
+                    : GeneratedReportFileType.pdf,
+                assetCode: report.assetCode,
+              );
+            }).toList(),
+            onView: (item) => context
+                .findAncestorStateOfType<_ReportsScreenState>()
+                ?._showComingSoon(context, 'View'),
+            onDownload: (assetCode) async {
+              if (assetCode != null) {
+                await context
+                    .findAncestorStateOfType<_ReportsScreenState>()
+                    ?._downloadAndViewReport(
+                      context,
+                      assetCode,
+                      reports
+                              .firstWhere(
+                                (r) => r.assetCode == assetCode,
+                                orElse: () => reports.first,
+                              )
+                              .fileName ??
+                          'report.pdf',
+                    );
+              }
+            },
+          ),
+          // Add padding to allow pull-to-refresh on short lists
+          const SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReportsTab extends StatelessWidget {
+  const _ReportsTab({
+    required this.tabIndex,
+    required this.reports,
+    required this.formats,
+    required this.onGenerate,
+  });
+
+  final int tabIndex;
+  final List<ReportItem> reports;
+  final List<ReportExportFormat> formats;
+  final void Function(BuildContext context, String name) onGenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: _ReportsList(
+        reports: reports,
+        formats: formats,
+        onGenerate: (item, _) {
+          onGenerate(context, item.name);
+        },
+      ),
     );
   }
 }

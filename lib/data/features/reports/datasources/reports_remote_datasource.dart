@@ -40,4 +40,12 @@ abstract class ReportsRemoteDataSource {
   /// Get student tags for filtering.
   /// GET `/api/v1/student/tags`
   Future<List<String>> getStudentTags();
+
+  /// Resolve asset code to get download URL.
+  /// POST `/api/v1/document/media-assets/resolve`
+  Future<String> getReportDownloadUrl(String assetCode);
+
+  /// Download a report file from URL.
+  /// GET request to the download URL
+  Future<List<int>> downloadReportFile(String downloadUrl);
 }

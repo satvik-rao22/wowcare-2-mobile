@@ -14,6 +14,7 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
     required this.studentFieldsSelected,
     required this.parentFieldsSelected,
     required this.statusFilter,
+    required this.format,
     this.classroomCodes,
     this.tagCodes,
   });
@@ -34,6 +35,9 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
 
   /// Status filter value (e.g., 'Active', 'Inactive', 'Upcoming')
   final String statusFilter;
+
+  @override
+  final String format;
 
   /// Optional classroom codes (empty = all classrooms)
   final List<String>? classroomCodes;
@@ -88,7 +92,7 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
         'tagCodes': tagCodes,
 
       'statusFilter': statusFilter,
-      'format': 'PDF',
+      'format': format,
     };
   }
 
@@ -117,6 +121,7 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
     studentFieldsSelected,
     parentFieldsSelected,
     statusFilter,
+    format,
     classroomCodes,
     tagCodes,
   ];

@@ -134,9 +134,9 @@
 //   }
 // }
 
-
 import 'api_constants_uat.dart';
- 
+import 'api_paths.dart';
+
 /// Logical id for [ApiConstants.baseUrlForMicroservice] (not a path segment).
 /// Host is chosen from the first resource segment after `/api/v1/` via [ApiPaths.microserviceKeyFromPath].
 abstract final class ApiMicroservices {
@@ -156,106 +156,96 @@ abstract final class ApiMicroservices {
 
 class ApiConstants {
   ApiConstants._();
- 
+
   /// Build-time environment selector.
   /// Set with: `--dart-define=ENVIRONMENT=UAT` (otherwise defaults to LOCAL).
   static const String _environment = String.fromEnvironment(
     'ENVIRONMENT',
     defaultValue: 'LOCAL',
   );
- 
+
   static bool get isUat => _environment.toUpperCase() == 'UAT';
- 
+
   static String get baseUrl1 => isUat
       ? ApiConstantsUat.classroomBaseUrl
       : 'https://qs176zl8-8089.inc1.devtunnels.ms';
- 
+
   /// Tunnel sets (prefix before `-PORT.inc1.devtunnels.ms`)
   static const String preshtiaTunnelId = 'qs176zl8';
   static const String sairamTunnelId = 'wnmrl4rn';
- 
+
   /// Active LOCAL tunnel set.
-  static const String _localTunnelId = preshtiaTunnelId;
- 
+  static const String _localTunnelId = sairamTunnelId;
+
   /// User MS (LOCAL devtunnel) or UAT base host.
   static String get baseUrl => isUat
       ? ApiConstantsUat.baseUrl
       : 'https://$_localTunnelId-8086.inc1.devtunnels.ms';
- 
+
   /// Student MS (LOCAL devtunnel) or UAT base host.
   static String get studentBaseUrl => isUat
       ? ApiConstantsUat.studentBaseUrl
       : 'https://$_localTunnelId-8085.inc1.devtunnels.ms';
- 
+
   /// Classroom MS (LOCAL devtunnel) or UAT base host.
   static String get classroomBaseUrl => isUat
       ? ApiConstantsUat.classroomBaseUrl
       : 'https://$_localTunnelId-8082.inc1.devtunnels.ms';
- 
+
   /// Staff MS (LOCAL devtunnel) or UAT base host.
   static String get staffBaseUrl => isUat
       ? ApiConstantsUat.staffBaseUrl
       : 'https://$_localTunnelId-8083.inc1.devtunnels.ms';
- 
+
   /// School / organization MS (LOCAL devtunnel) or UAT base host.
   static String get schoolMs => isUat
       ? ApiConstantsUat.schoolMs
       : 'https://$_localTunnelId-8081.inc1.devtunnels.ms';
- 
+
   /// Attendance base (LOCAL devtunnel) or UAT base host.
   static String get attendanceBaseUrl => isUat
       ? ApiConstantsUat.attendanceBaseUrl
-      : 'https://$_localTunnelId-8090.inc1.devtunnels.ms/attendance';
+      : 'https://$_localTunnelId-8083.inc1.devtunnels.ms/attendance';
 
   /// Builds the full QR code validation URL for [schoolCode].
   ///
-  /// UAT and local devtunnel have different path structures:
-  /// - UAT: `{host}/api/v1/attendance/schools/{code}/attendance-settings/qr-code/validate`
-  /// - Local: `{attendance-base}/api/v1/schools/{code}/attendance-settings/qr-code/validate`
-  static String qrCodeValidateEndpoint(String schoolCode) => isUat
-      ? ApiConstantsUat.qrCodeValidateEndpoint(schoolCode)
-      : '$attendanceBaseUrl/api/v1/schools/$schoolCode/attendance-settings/qr-code/validate';
+  /// Routes through the centralized ApiPaths which handles both LOCAL and UAT
+  /// microservice routing automatically.
+  static String qrCodeValidateEndpoint(String schoolCode) =>
+      ApiPaths.url(ApiPaths.qrCodeValidate(schoolCode));
 
   /// Builds the full QR code active endpoint URL for [schoolCode].
   ///
-  /// UAT and local devtunnel have different path structures:
-  /// - UAT: `{host}/api/v1/attendance/schools/{code}/attendance-settings/qr-code/active`
-  /// - Local: `{attendance-base}/api/v1/schools/{code}/attendance-settings/qr-code/active`
-  static String qrCodeActiveEndpoint(String schoolCode) => isUat
-      ? ApiConstantsUat.qrCodeActiveEndpoint(schoolCode)
-      : '$attendanceBaseUrl/api/v1/schools/$schoolCode/attendance-settings/qr-code/active';
+  /// Routes through the centralized ApiPaths which handles both LOCAL and UAT
+  /// microservice routing automatically.
+  static String qrCodeActiveEndpoint(String schoolCode) =>
+      ApiPaths.url(ApiPaths.qrCodeActive(schoolCode));
 
   /// Builds the full kiosk PIN verification endpoint.
-  ///
-  /// UAT and local devtunnel have different path structures:
-  /// - UAT: `{host}/api/v1/attendance/kiosk/verify-pin`
-  /// - Local: `{attendance-base}/api/v1/kiosk/verify-pin`
-  static String get kioskVerifyPinEndpoint => isUat
-      ? ApiConstantsUat.kioskVerifyPinEndpoint
-      : '$attendanceBaseUrl/api/v1/kiosk/verify-pin';
+  static String get kioskVerifyPinEndpoint =>
+      ApiPaths.url(ApiPaths.kioskVerifyPin);
 
   /// Activity base (LOCAL devtunnel) or UAT base host.
   static String get activityBaseUrl => isUat
       ? ApiConstantsUat.activityBaseUrl
       : 'https://$_localTunnelId-8084.inc1.devtunnels.ms/wowcare-activity-ms';
- 
+
   /// Document MS base (LOCAL devtunnel) or UAT base host.
   ///
   /// Root UAT constants may not define a dedicated document host; in that case we
   /// default to the main base URL.
- 
+
   static String get documentMsBaseUrl => isUat
       ? ApiConstantsUat.documentMsBaseUrl
       : 'https://fitten-vallie-forthrightly.ngrok-free.dev/document-ms';
- 
+
   static String get communicationBaseUrl => isUat
       ? ApiConstantsUat.communicationBaseUrl
       : 'https://qs176zl8-8089.inc1.devtunnels.ms';
 
   /// Newsletter MS (LOCAL devtunnel) or UAT base host.
-  static String get newsLatterBaseUrl => isUat
-      ? ApiConstantsUat.newsLatterBaseUrl
-      : communicationBaseUrl;
+  static String get newsLatterBaseUrl =>
+      isUat ? ApiConstantsUat.newsLatterBaseUrl : communicationBaseUrl;
 
   /// Notification MS (FCM register + delivery logs).
   static String get notificationBaseUrl => isUat

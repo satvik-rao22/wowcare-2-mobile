@@ -15,6 +15,7 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
     required this.statusFilters,
     required this.includeParentName,
     required this.includeParentEmail,
+    required this.format,
     this.classroomCodes,
     this.tagCodes,
   });
@@ -39,6 +40,9 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
   /// Whether to include parent email in the report
   final bool includeParentEmail;
 
+  @override
+  final String format;
+
   /// Optional classroom codes (empty = all classrooms)
   final List<String>? classroomCodes;
 
@@ -59,7 +63,7 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
         'classrooms': classroomCodes,
       if (tagCodes != null && tagCodes!.isNotEmpty)
         'tags': tagCodes,
-      'format': 'PDF',
+      'format': format,
     };
   }
 
@@ -90,6 +94,7 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
     statusFilters,
     includeParentName,
     includeParentEmail,
+    format,
     classroomCodes,
     tagCodes,
   ];

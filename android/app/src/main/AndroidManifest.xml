@@ -15,7 +15,6 @@
         android:maxSdkVersion="29" />
     <application
         android:label="wowcare"
-        android:requestLegacyExternalStorage="true"
         android:name="${applicationName}"
         android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"

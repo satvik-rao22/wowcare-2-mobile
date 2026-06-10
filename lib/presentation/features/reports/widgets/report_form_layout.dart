@@ -16,6 +16,7 @@ class ReportFormLayout extends StatelessWidget {
     required this.onGenerate,
     this.isLoading = false,
     this.generateLabel = 'Generate Report',
+    this.showButton = true,
   });
 
   final String title;
@@ -23,6 +24,7 @@ class ReportFormLayout extends StatelessWidget {
   final VoidCallback? onGenerate;
   final bool isLoading;
   final String generateLabel;
+  final bool showButton;
 
   @override
   Widget build(BuildContext context) {
@@ -105,35 +107,37 @@ class ReportFormLayout extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
+      bottomNavigationBar: !showButton
+          ? null
+          : Container(
+              padding: EdgeInsets.only(
+                bottom: safeAreaBottom,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
+                  ),
+                ],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                ),
+              ),
+              child: CustomButtonLayout(
+                confirmButtonLabel: generateLabel,
+                onPressedConfirm: onGenerate,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: isLoading,
+              ),
             ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: generateLabel,
-          onPressedConfirm: onGenerate,
-          showCancelButton: false,
-          isForm: false,
-          isLoading: isLoading,
-        ),
-      ),
     );
   }
 }
@@ -419,6 +423,58 @@ class ReportDefaultNote extends StatelessWidget {
           color: Color(0xff4F46E5),
         ),
       ),
+    );
+  }
+}
+
+/// Report format selector dropdown (PDF/XLSX)
+class ReportFormatSelector extends StatelessWidget {
+  const ReportFormatSelector({
+    super.key,
+    required this.selectedFormat,
+    required this.onFormatChanged,
+    this.showLabel = true,
+  });
+
+  final String selectedFormat;
+  final ValueChanged<String> onFormatChanged;
+  final bool showLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
+    return DropdownButtonFormField<String>(
+      initialValue: selectedFormat,
+      decoration: InputDecoration(
+        labelText: showLabel ? 'Export Format *' : null,
+        filled: true,
+        fillColor: AppColors.fieldBackgroundColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        labelStyle: TextStyle(
+          fontSize: responsive.labelFontSize,
+          fontFamily: 'Manrope',
+          fontWeight: FontWeight.w400,
+          color: const Color(0xff573353),
+        ),
+        hintText: !showLabel ? 'Select Format' : null,
+        hintStyle: TextStyle(
+          fontSize: responsive.labelFontSize,
+          fontFamily: 'Manrope',
+          color: const Color(0xff573353).withValues(alpha: 0.5),
+        ),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'PDF', child: Text('PDF')),
+        DropdownMenuItem(value: 'XLSX', child: Text('XLSX')),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          onFormatChanged(value);
+        }
+      },
     );
   }
 }

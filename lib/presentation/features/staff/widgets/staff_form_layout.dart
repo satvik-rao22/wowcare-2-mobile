@@ -24,7 +24,46 @@ class StaffFormLayout extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: CustomAppBar(hasBackButton: true, isKiosk: isKiosk),
+      appBar: isKiosk
+          ? PreferredSize(
+              preferredSize: const Size.fromHeight(kToolbarHeight + 1),
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.white,
+                    child: SafeArea(
+                      bottom: false,
+                      child: Row(
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(left: 16.0),
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundImage: AssetImage(
+                                'assets/images/WowCarePNG.png',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'WowCare',
+                              style: TextStyle(
+                                color: Color(0xff573353),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Divider(height: 1, color: Colors.grey[300]),
+                ],
+              ),
+            )
+          : CustomAppBar(hasBackButton: true, isKiosk: isKiosk),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
@@ -69,15 +108,11 @@ class StaffFormLayout extends StatelessWidget {
                     margin: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
                     ),
-                    padding: EdgeInsets.all(
-                      responsive.isTablet ? 32.0 : 16.0,
-                    ),
+                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.all(
-                        Radius.circular(
-                          responsive.isTablet ? 40.0 : 24.0,
-                        ),
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -100,5 +135,3 @@ class StaffFormLayout extends StatelessWidget {
     );
   }
 }
-
-

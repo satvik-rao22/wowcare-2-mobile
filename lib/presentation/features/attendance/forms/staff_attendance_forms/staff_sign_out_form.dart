@@ -407,6 +407,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     final bool isQrSignOut = widget.qrToken.isNotEmpty;
     final String signOutMethod = isQrSignOut ? 'QR' : 'GPS';
 
+    // QR scan is always self sign-out — the person holding the phone is signing
+    // themselves out. Kiosk is always self sign-out (staff member via PIN).
+    // Admin bulk sign-out only happens via GPS flow where the admin selects other staff.
+    final bool isSelfSignOut = !isStaffAdmin || isQrSignOut || widget.isKiosk;
+
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
       'staffCode': staffCode,
@@ -429,11 +434,16 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
     try {
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignOut(payload: payload);
+          .submitStaffSignOut(payload: payload, isSelf: isSelfSignOut);
       final success = result.success;
-      final message = result.message;
+      var message = result.message;
 
       if (!mounted) return;
+
+      // Normalize success messages for better UX
+      if (success && (message.toLowerCase().contains('sign out') || message.toLowerCase().contains('sign-out') || message.toLowerCase().contains('signed out'))) {
+        message = 'Sign out successfully';
+      }
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,

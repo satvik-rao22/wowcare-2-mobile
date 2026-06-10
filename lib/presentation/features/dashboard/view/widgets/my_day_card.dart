@@ -998,172 +998,187 @@ class _MyDayCardState extends State<MyDayCard> {
                       builder: (context, geofenceState) {
                         final roleProvider = context.watch<RoleCubit>();
                         final bool isStaff = roleProvider.isStaff;
+                        final bool isAdmin = roleProvider.isAdmin;
                         final bool isWithinGeofence =
                             geofenceState.isWithinGeofence;
-                        final bool enabled = !isStaff || isWithinGeofence;
+                        // Sign button enabled only for staff (and within geofence); disabled for admin
+                        final bool signButtonEnabled = !isAdmin && (!isStaff || isWithinGeofence);
+                        // Show sign button for admin and staff
+                        final bool showSignButton = isStaff || isAdmin;
+
                         return Column(
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24.0,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _isSignedIn
-                                        ? OutlinedButton.icon(
-                                            // Disabled while identity is loading or staffCode missing.
-                                            onPressed:
-                                                (!_staffIdentityLoaded ||
-                                                    _staffCode.isEmpty)
-                                                ? null
-                                                : _openTransferForSelf,
+                            if (showSignButton)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24.0,
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Transfer button only for staff (not admin) when signed in
+                                    if (isStaff && !isAdmin && _isSignedIn)
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          // Disabled while identity is loading or staffCode missing
+                                          onPressed:
+                                              (!_staffIdentityLoaded ||
+                                                  _staffCode.isEmpty)
+                                                  ? null
+                                                  : _openTransferForSelf,
 
-                                            icon: !_staffIdentityLoaded
-                                                ? const SizedBox(
-                                                    width: 14,
-                                                    height: 14,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          strokeWidth: 1.5,
-                                                          color: AppColors
-                                                              .themeColor,
-                                                        ),
-                                                  )
-                                                : const SizedBox.shrink(),
-                                            label: const Text(
-                                              'Transfer',
-                                              overflow: TextOverflow.ellipsis,
+                                          icon: !_staffIdentityLoaded
+                                              ? const SizedBox(
+                                                  width: 14,
+                                                  height: 14,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 1.5,
+                                                        color: AppColors
+                                                            .themeColor,
+                                                      ),
+                                                )
+                                              : const SizedBox.shrink(),
+                                          label: const Text(
+                                            'Transfer',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor:
+                                                AppColors.themeColor,
+                                            side: const BorderSide(
+                                              color: AppColors.themeColor,
                                             ),
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor:
-                                                  AppColors.themeColor,
-                                              side: const BorderSide(
-                                                color: AppColors.themeColor,
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 14,
-                                                  ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                              ),
-                                              textStyle: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                  vertical: 14,
+                                                ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
                                             ),
-                                          )
-                                        : OutlinedButton.icon(
-                                            onPressed:
-                                                (!_staffIdentityLoaded ||
-                                                    _staffCode.isEmpty)
-                                                ? null
-                                                : _openMarkAbsentForSelf,
+                                            textStyle: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    // Mark absent button only for staff when not signed in
+                                    else if (isStaff && !_isSignedIn)
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          onPressed:
+                                              (!_staffIdentityLoaded ||
+                                                  _staffCode.isEmpty)
+                                                  ? null
+                                                  : _openMarkAbsentForSelf,
 
-                                            icon: !_staffIdentityLoaded
-                                                ? const SizedBox(
-                                                    width: 14,
-                                                    height: 14,
-                                                    child:
-                                                        CircularProgressIndicator(
-                                                          strokeWidth: 1.5,
-                                                          color: AppColors
-                                                              .themeColor,
-                                                        ),
-                                                  )
-                                                : const SizedBox.shrink(),
-                                            label: const Text(
-                                              'Mark Absent',
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                            style: OutlinedButton.styleFrom(
-                                              foregroundColor:
-                                                  AppColors.themeColor,
-                                              side: const BorderSide(
-                                                color: AppColors.themeColor,
-                                              ),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    vertical: 14,
-                                                  ),
-                                              shape: RoundedRectangleBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(14),
-                                              ),
-                                              textStyle: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
+                                          icon: !_staffIdentityLoaded
+                                              ? const SizedBox(
+                                                  width: 14,
+                                                  height: 14,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 1.5,
+                                                        color: AppColors
+                                                            .themeColor,
+                                                      ),
+                                                )
+                                              : const SizedBox.shrink(),
+                                          label: const Text(
+                                            'Mark Absent',
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: CustomButtonLayout(
-                                      isForm: false,
-                                      showCancelButton: false,
-                                      confirmButtonLabel: _isSignedIn
-                                          ? 'Sign-Out'
-                                          : 'Sign-In',
-                                      confirmButtonChild: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.location_on_outlined,
-                                            size: 18,
-                                            color: enabled
-                                                ? AppColors
-                                                      .billingBackgroundColor
-                                                : Colors.grey[600],
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Flexible(
-                                            child: Text(
-                                              _isSignedIn
-                                                  ? 'Sign-Out'
-                                                  : 'Sign-In',
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: enabled
-                                                    ? AppColors
-                                                          .billingBackgroundColor
-                                                    : Colors.grey[600],
-                                              ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor:
+                                                AppColors.themeColor,
+                                            side: const BorderSide(
+                                              color: AppColors.themeColor,
+                                            ),
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                  vertical: 14,
+                                                ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                        ],
+                                        ),
                                       ),
-                                      onPressedConfirm: enabled
-                                          ? () {
-                                              if (_isSignedIn) {
-                                                unawaited(_openSignOutForm());
-                                              } else {
-                                                unawaited(_openSignInForm());
+                                    if (isStaff) const SizedBox(width: 12),
+                                    Expanded(
+                                      child: CustomButtonLayout(
+                                        isForm: false,
+                                        showCancelButton: false,
+                                        confirmButtonLabel: _isSignedIn
+                                            ? 'Sign-Out'
+                                            : 'Sign-In',
+                                        confirmButtonChild: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.location_on_outlined,
+                                              size: 18,
+                                              color: signButtonEnabled
+                                                  ? AppColors
+                                                        .billingBackgroundColor
+                                                  : Colors.grey[600],
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                _isSignedIn
+                                                    ? 'Sign-Out'
+                                                    : 'Sign-In',
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: signButtonEnabled
+                                                      ? AppColors
+                                                            .billingBackgroundColor
+                                                      : Colors.grey[600],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        onPressedConfirm: signButtonEnabled
+                                            ? () {
+                                                if (_isSignedIn) {
+                                                  unawaited(_openSignOutForm());
+                                                } else {
+                                                  unawaited(_openSignInForm());
+                                                }
                                               }
-                                            }
-                                          : null,
-                                      disabledConfirmTooltip:
-                                          'You are not within  geofencing Range',
-                                      onDisabledConfirmTap: () {
-                                        CoreUtils.showTopSnackBar(
-                                          isWarning: true,
-                                          message:
-                                              'You are not within geofencing Range',
-                                          context: context,
-                                        );
-                                      },
+                                            : null,
+                                        disabledConfirmTooltip: isStaff
+                                            ? 'You are not within geofencing Range'
+                                            : null,
+                                        onDisabledConfirmTap: isStaff
+                                            ? () {
+                                                CoreUtils.showTopSnackBar(
+                                                  isWarning: true,
+                                                  message:
+                                                      'You are not within geofencing Range',
+                                                  context: context,
+                                                );
+                                              }
+                                            : null,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            _buildGeofenceStatusLabel(context, geofenceState),
+                            if (isStaff)
+                              _buildGeofenceStatusLabel(context, geofenceState),
                           ],
                         );
                       },

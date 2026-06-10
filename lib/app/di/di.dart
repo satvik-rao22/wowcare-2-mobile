@@ -85,6 +85,7 @@ import '../../domain/features/reports/repositories/reports_repository.dart';
 import '../../domain/features/reports/usecases/generate_report_usecase.dart';
 import '../../domain/features/reports/usecases/get_recent_reports_usecase.dart';
 import '../../domain/features/reports/usecases/get_student_tags_usecase.dart';
+import '../../domain/features/reports/usecases/download_report_usecase.dart';
 import '../../presentation/features/user-profile/view_model/edit_user_profile_cubit.dart';
 import '../../presentation/features/user-profile/view_model/user_profile_cubit.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
@@ -268,6 +269,15 @@ import '../../domain/features/communication/usecases/edit_message_usecase.dart';
 import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
+// Communication v2.1 — Phase 1B
+import '../../data/features/communication/datasources/conversation_entity_remote_data_source.dart';
+import '../../data/features/communication/datasources/conversation_entity_local_data_source.dart';
+import '../../data/features/communication/datasources/message_entity_remote_data_source.dart';
+import '../../data/features/communication/datasources/message_entity_local_data_source.dart';
+import '../../data/features/communication/repositories/conversation_entity_repository_impl.dart';
+import '../../data/features/communication/repositories/message_entity_repository_impl.dart';
+import '../../domain/features/communication/repositories/conversation_entity_repository.dart';
+import '../../domain/features/communication/repositories/message_entity_repository.dart';
 
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
 import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
@@ -297,6 +307,8 @@ import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../presentation/features/geofencing/cubit/geofence_cubit.dart';
 import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
+import '../../data/services/file_download_service.dart';
+import '../../data/features/reports/repositories/file_download_repository.dart';
 
 
 final GetIt serviceLocator = GetIt.instance;
@@ -485,6 +497,48 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
+  // ===== COMMUNICATION V2.1 — DATA SOURCES (Phase 1B) =====
+  serviceLocator.registerLazySingleton<ConversationEntityRemoteDataSource>(
+    () => ConversationEntityRemoteDataSourceImpl(
+      apiClient: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<ConversationEntityLocalDataSource>(
+    () => ConversationEntityLocalDataSourceImpl(
+      cacheService: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<MessageEntityRemoteDataSource>(
+    () => MessageEntityRemoteDataSourceImpl(
+      apiClient: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<MessageEntityLocalDataSource>(
+    () => MessageEntityLocalDataSourceImpl(
+      cacheService: serviceLocator(),
+    ),
+  );
+
+  // ===== COMMUNICATION V2.1 — REPOSITORIES (Phase 1B) =====
+  serviceLocator.registerLazySingleton<ConversationEntityRepository>(
+    () => ConversationEntityRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      localDataSource: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<MessageEntityRepository>(
+    () => MessageEntityRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      localDataSource: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
   serviceLocator.registerLazySingleton<NewsletterRepository>(
     () => NewsletterRepositoryImpl(
       serviceLocator<NewsletterRemoteDataSource>(),
@@ -527,7 +581,19 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // Reports - Data Layer
   serviceLocator.registerLazySingleton<ReportsRemoteDataSource>(
-    () => ReportsRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () => ReportsRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+      serviceLocator<StorageService>(),
+    ),
+  );
+
+  // File Download Service
+  serviceLocator.registerLazySingleton<FileDownloadService>(
+    () => FileDownloadService(),
+  );
+
+  serviceLocator.registerLazySingleton<FileDownloadRepository>(
+    () => FileDownloadRepository(serviceLocator<FileDownloadService>()),
   );
 
   serviceLocator.registerLazySingleton<ReportsRepository>(
@@ -550,6 +616,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => GetStudentTagsUseCase(serviceLocator()),
   );
 
+  serviceLocator.registerFactory<DownloadReportUseCase>(
+    () => DownloadReportUseCase(serviceLocator()),
+  );
+
   // Reports - Presentation Layer (Cubit)
   serviceLocator.registerFactory<ReportsCubit>(
     () => ReportsCubit(
@@ -558,6 +628,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       generateReportUseCase: serviceLocator(),
       getRecentReportsUseCase: serviceLocator(),
       getStudentTagsUseCase: serviceLocator(),
+      downloadReportUseCase: serviceLocator(),
+      fileDownloadRepository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<EditUserProfileCubit>(

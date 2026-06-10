@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource_impl.dart';
 
 class FakeDio extends Fake implements Dio {
@@ -58,13 +59,17 @@ class FakeDio extends Fake implements Dio {
   }
 }
 
+class FakeStorageService extends Fake implements StorageService {}
+
 void main() {
   late FakeDio fakeDio;
+  late FakeStorageService fakeStorageService;
   late ReportsRemoteDataSourceImpl dataSource;
 
   setUp(() {
     fakeDio = FakeDio();
-    dataSource = ReportsRemoteDataSourceImpl(fakeDio);
+    fakeStorageService = FakeStorageService();
+    dataSource = ReportsRemoteDataSourceImpl(fakeDio, fakeStorageService);
   });
 
   group('ReportsRemoteDataSourceImpl', () {

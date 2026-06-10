@@ -20,6 +20,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       expect(params.reportType, ReportType.studentsAndFamily);
@@ -40,6 +41,7 @@ void main() {
         statusFilter: statusFilter,
         classroomCodes: classrooms,
         tagCodes: tags,
+        format: 'PDF',
       );
 
       expect(params.classroomCodes, classrooms);
@@ -54,6 +56,7 @@ void main() {
         studentFieldsSelected: const {'Full Name', 'DOB'},
         parentFieldsSelected: const {'First name'},
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -74,6 +77,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -92,6 +96,7 @@ void main() {
         statusFilter: statusFilter,
         classroomCodes: classrooms,
         tagCodes: tags,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -108,6 +113,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: 'Inactive',
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
@@ -123,6 +129,7 @@ void main() {
         studentFieldsSelected: const {'Full Name', 'DOB'},
         parentFieldsSelected: const {'First name'},
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final identifier = params.toCacheIdentifier();
@@ -141,6 +148,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final params2 = StudentsAndFamilyReportParams(
@@ -150,6 +158,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       expect(params1, params2);
@@ -163,6 +172,7 @@ void main() {
         studentFieldsSelected: const {'Full Name', 'DOB'},
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final params2 = StudentsAndFamilyReportParams(
@@ -172,6 +182,7 @@ void main() {
         studentFieldsSelected: const {'Full Name'},
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       expect(params1, isNot(params2));
@@ -185,6 +196,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        format: 'PDF',
       );
 
       final body = params.toRequestBody();
