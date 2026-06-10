@@ -780,9 +780,42 @@ class ApiPaths {
   static const String documentMediaAssetsResolve =
       '/api/v1/document/media-assets/resolve';
 
-  static const String messagingCreateMessage =
+  // ─── Messaging / Communication microservice (port 8087) ──────────────────
+  static const String messagingConversations =
       '/api/v1/messaging/conversations';
+
+  /// Kept for backward compatibility — existing screens use this name.
+  static const String messagingCreateMessage = messagingConversations;
+
   static const String messagingMessages = '/api/v1/messaging/messages';
+
+  // Conversation sub-resources
+  static String messagingConversation(String code) =>
+      '$messagingConversations/$code';
+  static String messagingConversationsByType(String type) =>
+      '$messagingConversations/type/$type';
+  static String messagingConversationsByStudent(String studentCode) =>
+      '$messagingConversations/student/$studentCode';
+  static String messagingConversationsByClassroom(String classroomCode) =>
+      '$messagingConversations/classroom/$classroomCode';
+  static String messagingConversationParticipants(String code) =>
+      '$messagingConversations/$code/participants';
+  static String messagingConversationPrivateMode(String code) =>
+      '$messagingConversations/$code/private-mode';
+  static String messagingConversationMarkRead(String code) =>
+      '$messagingConversations/$code/mark-read';
+
+  // Message sub-resources
+  static String messagingMessage(String code) => '$messagingMessages/$code';
+  static String messagingMessageReactions(String code) =>
+      '$messagingMessages/$code/reactions';
+  static String messagingMessageReaction(String code, String emoji) =>
+      '$messagingMessages/$code/reactions/${Uri.encodeComponent(emoji)}';
+  static String messagingMessageRead(String code) =>
+      '$messagingMessages/$code/read';
+
+  // Unread
+  static const String messagingUnreadCounts = '/api/v1/messaging/unread/counts';
   // static String studentnewsLatter = 'api/v1/newsletters/student/';
   static String studentNewslettersByStudentCode(String studentCode) =>
       '/api/v1/newsletters/student/${Uri.encodeComponent(studentCode.trim())}';

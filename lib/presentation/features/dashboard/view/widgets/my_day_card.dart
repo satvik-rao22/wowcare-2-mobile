@@ -1001,10 +1001,13 @@ class _MyDayCardState extends State<MyDayCard> {
                         final bool isAdmin = roleProvider.isAdmin;
                         final bool isWithinGeofence =
                             geofenceState.isWithinGeofence;
-                        // Sign button enabled only for staff (and within geofence); disabled for admin
-                        final bool signButtonEnabled = !isAdmin && (!isStaff || isWithinGeofence);
-                        // Show sign button for admin and staff
+                        // Both staff and admin: button enabled only when within geofence.
+                        final bool signButtonEnabled =
+                            (isStaff || isAdmin) && isWithinGeofence;
+                        // Show attendance buttons for both staff and admin
                         final bool showSignButton = isStaff || isAdmin;
+                        // Show Transfer/Mark-Absent for staff and admin equally.
+                        final bool showSecondaryButtons = isStaff || isAdmin;
 
                         return Column(
                           children: [
@@ -1015,17 +1018,15 @@ class _MyDayCardState extends State<MyDayCard> {
                                 ),
                                 child: Row(
                                   children: [
-                                    // Transfer button only for staff (not admin) when signed in
-                                    if (isStaff && !isAdmin && _isSignedIn)
+                                    // Transfer (signed-in) or Mark Absent (not signed-in)
+                                    if (showSecondaryButtons && _isSignedIn)
                                       Expanded(
                                         child: OutlinedButton.icon(
-                                          // Disabled while identity is loading or staffCode missing
                                           onPressed:
                                               (!_staffIdentityLoaded ||
                                                   _staffCode.isEmpty)
                                                   ? null
                                                   : _openTransferForSelf,
-
                                           icon: !_staffIdentityLoaded
                                               ? const SizedBox(
                                                   width: 14,
@@ -1063,8 +1064,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                           ),
                                         ),
                                       )
-                                    // Mark absent button only for staff when not signed in
-                                    else if (isStaff && !_isSignedIn)
+                                    else if (showSecondaryButtons &&
+                                        !_isSignedIn)
                                       Expanded(
                                         child: OutlinedButton.icon(
                                           onPressed:
@@ -1072,7 +1073,6 @@ class _MyDayCardState extends State<MyDayCard> {
                                                   _staffCode.isEmpty)
                                                   ? null
                                                   : _openMarkAbsentForSelf,
-
                                           icon: !_staffIdentityLoaded
                                               ? const SizedBox(
                                                   width: 14,
@@ -1110,7 +1110,8 @@ class _MyDayCardState extends State<MyDayCard> {
                                           ),
                                         ),
                                       ),
-                                    if (isStaff) const SizedBox(width: 12),
+                                    if (showSecondaryButtons)
+                                      const SizedBox(width: 12),
                                     Expanded(
                                       child: CustomButtonLayout(
                                         isForm: false,
@@ -1159,25 +1160,22 @@ class _MyDayCardState extends State<MyDayCard> {
                                                 }
                                               }
                                             : null,
-                                        disabledConfirmTooltip: isStaff
-                                            ? 'You are not within geofencing Range'
-                                            : null,
-                                        onDisabledConfirmTap: isStaff
-                                            ? () {
-                                                CoreUtils.showTopSnackBar(
-                                                  isWarning: true,
-                                                  message:
-                                                      'You are not within geofencing Range',
-                                                  context: context,
-                                                );
-                                              }
-                                            : null,
+                                        disabledConfirmTooltip:
+                                            'You are not within geofencing Range',
+                                        onDisabledConfirmTap: () {
+                                          CoreUtils.showTopSnackBar(
+                                            isWarning: true,
+                                            message:
+                                                'You are not within geofencing Range',
+                                            context: context,
+                                          );
+                                        },
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            if (isStaff)
+                            if (isStaff || isAdmin)
                               _buildGeofenceStatusLabel(context, geofenceState),
                           ],
                         );
@@ -1202,7 +1200,7 @@ class _MyDayCardState extends State<MyDayCard> {
 
   Widget _buildGeofenceStatusLabel(BuildContext context, GeofenceState state) {
     final roleProvider = context.read<RoleCubit>();
-    if (!roleProvider.isStaff) {
+    if (!roleProvider.isStaff && !roleProvider.isAdmin) {
       return const SizedBox.shrink();
     }
 

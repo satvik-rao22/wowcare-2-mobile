@@ -222,11 +222,11 @@ class BulkMessagingCompositionCubit
             participants: [
               {
                 'userCode': actualSenderCode,
-                'participantType': 'STAFF',
+                'role': 'STAFF',
               },
               {
                 'userCode': recipientCode,
-                'participantType': 'STAFF',
+                'role': 'STAFF',
               }
             ],
             attachments: attachmentPayloads,
@@ -315,11 +315,11 @@ class BulkMessagingCompositionCubit
             if (actualSenderCode.isNotEmpty)
               {
                 'userCode': actualSenderCode,
-                'participantType': 'STAFF',
+                'role': 'STAFF',
               },
             ...recipientCodes.map((code) => {
                   'userCode': code,
-                  'participantType': code.startsWith('STF_') ? 'STAFF' : 'STUDENT',
+                  'role': code.startsWith('STF_') ? 'STAFF' : 'PARENT',
                 }),
           ],
           attachments: attachmentPayloads,

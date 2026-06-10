@@ -60,26 +60,47 @@ class MessageEntityDto {
   final String schoolCode;
 
   factory MessageEntityDto.fromJson(Map<String, dynamic> json) {
+    // Backend uses 'content' for message text, 'createdAt' for sent time,
+    // 'replyToMessageId' for thread parent, and accepts both 'senderCode'
+    // and 'senderUserCode' — confirmed from existing MessageModel.fromJson.
+    final senderCode = (json['senderUserCode'] as String? ??
+            json['senderCode'] as String? ??
+            '')
+        .trim();
+
     return MessageEntityDto(
       id: json['id']?.toString() ?? '',
       code: json['code'] as String? ?? '',
-      conversationCode: json['conversationCode'] as String? ?? '',
-      senderCode: json['senderCode'] as String? ?? '',
+      conversationCode: json['conversationCode'] as String? ??
+          json['conversation_code'] as String? ??
+          '',
+      senderCode: senderCode,
       senderName: json['senderName'] as String? ?? '',
       senderRole: json['senderRole'] as String? ?? 'PARENT',
       senderAvatarUrl: json['senderAvatarUrl'] as String?,
-      text: json['text'] as String? ?? '',
-      messageType: json['messageType'] as String? ?? 'TEXT',
+      // Backend field is 'content', not 'text'
+      text: json['content'] as String? ?? json['text'] as String? ?? '',
+      messageType: json['messageType'] as String? ?? json['type'] as String? ?? 'TEXT',
       status: json['status'] as String? ?? 'SENT',
       isPrivate: json['isPrivate'] as bool? ?? false,
-      isEdited: json['isEdited'] as bool? ?? false,
-      isDeleted: json['isDeleted'] as bool? ?? false,
+      isEdited: json['isEdited'] as bool? ?? json['edited'] as bool? ?? false,
+      isDeleted: json['isDeleted'] as bool? ?? json['deleted'] as bool? ?? false,
       deletedPlaceholder: json['deletedPlaceholder'] as String?,
-      sentAt: DateTime.parse(json['sentAt'] as String? ?? DateTime.now().toIso8601String()),
-      editedAt: json['editedAt'] != null ? DateTime.parse(json['editedAt'] as String) : null,
-      deletedAt: json['deletedAt'] != null ? DateTime.parse(json['deletedAt'] as String) : null,
+      // Backend field is 'createdAt', not 'sentAt'
+      sentAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : json['sentAt'] != null
+              ? DateTime.parse(json['sentAt'] as String)
+              : DateTime.now(),
+      editedAt: json['editedAt'] != null
+          ? DateTime.parse(json['editedAt'] as String)
+          : null,
+      deletedAt: json['deletedAt'] != null
+          ? DateTime.parse(json['deletedAt'] as String)
+          : null,
       attachments: (json['attachments'] as List<dynamic>?)
-              ?.map((e) => AttachmentEntityDto.fromJson(e as Map<String, dynamic>))
+              ?.map(
+                  (e) => AttachmentEntityDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
       reactions: (json['reactions'] as List<dynamic>?)
@@ -87,10 +108,14 @@ class MessageEntityDto {
               .toList() ??
           [],
       readReceipts: (json['readReceipts'] as List<dynamic>?)
-              ?.map((e) => ReadReceiptEntityDto.fromJson(e as Map<String, dynamic>))
+              ?.map((e) =>
+                  ReadReceiptEntityDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      threadParentCode: json['threadParentCode'] as String?,
+      // Backend field is 'replyToMessageId', not 'threadParentCode'
+      threadParentCode: json['replyToMessageId']?.toString().isNotEmpty == true
+          ? json['replyToMessageId'].toString()
+          : json['threadParentCode'] as String?,
       threadParentSenderCode: json['threadParentSenderCode'] as String?,
       threadParentSenderName: json['threadParentSenderName'] as String?,
       threadParentText: json['threadParentText'] as String?,
@@ -107,25 +132,24 @@ class MessageEntityDto {
         'senderName': senderName,
         'senderRole': senderRole,
         if (senderAvatarUrl != null) 'senderAvatarUrl': senderAvatarUrl,
-        'text': text,
-        'messageType': messageType,
+        'content': text,           // Backend uses 'content', not 'text'
+        'type': messageType,       // Backend uses 'type' for send, not 'messageType'
         'status': status,
         'isPrivate': isPrivate,
         'isEdited': isEdited,
         'isDeleted': isDeleted,
         if (deletedPlaceholder != null) 'deletedPlaceholder': deletedPlaceholder,
-        'sentAt': sentAt.toIso8601String(),
+        'createdAt': sentAt.toIso8601String(),   // Backend uses 'createdAt'
         if (editedAt != null) 'editedAt': editedAt!.toIso8601String(),
         if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
         'attachments': attachments.map((e) => e.toJson()).toList(),
         'reactions': reactions.map((e) => e.toJson()).toList(),
         'readReceipts': readReceipts.map((e) => e.toJson()).toList(),
-        if (threadParentCode != null) 'threadParentCode': threadParentCode,
+        // Backend uses 'replyToMessageId', not 'threadParentCode'
+        if (threadParentCode != null) 'replyToMessageId': threadParentCode,
         if (threadParentSenderCode != null) 'threadParentSenderCode': threadParentSenderCode,
         if (threadParentSenderName != null) 'threadParentSenderName': threadParentSenderName,
         if (threadParentText != null) 'threadParentText': threadParentText,
-        'organizationCode': organizationCode,
-        'schoolCode': schoolCode,
       };
 
   MessageEntity toEntity() {

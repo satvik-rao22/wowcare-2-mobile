@@ -55,9 +55,6 @@ class ConversationEntityRemoteDataSourceImpl
 
   ConversationEntityRemoteDataSourceImpl({required this.apiClient});
 
-  // Base path — same microservice as existing communication datasource
-  static const String _base = ApiPaths.messagingCreateMessage;
-
   String get _baseUrl => ApiConstants.communicationBaseUrl;
 
   String _url(String path) => ApiPaths.urlWithBase(path, _baseUrl);
@@ -69,9 +66,10 @@ class ConversationEntityRemoteDataSourceImpl
     int page = 0,
     int size = 20,
   }) async {
-    final typePath =
-        type != null ? '/type/${type.toApiString()}' : '';
-    final endpoint = _url('$_base$typePath?status=$status&page=$page&size=$size');
+    final path = type != null
+        ? ApiPaths.messagingConversationsByType(type.toApiString())
+        : ApiPaths.messagingConversations;
+    final endpoint = _url('$path?status=$status&page=$page&size=$size');
 
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversations');
@@ -86,7 +84,7 @@ class ConversationEntityRemoteDataSourceImpl
   Future<ConversationEntityDto> getConversation(
     String conversationCode,
   ) async {
-    final endpoint = _url('$_base/$conversationCode');
+    final endpoint = _url(ApiPaths.messagingConversation(conversationCode));
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversation');
 
@@ -99,7 +97,7 @@ class ConversationEntityRemoteDataSourceImpl
   Future<List<ConversationEntityDto>> getConversationsForStudent(
     String studentCode,
   ) async {
-    final endpoint = _url('$_base/student/$studentCode');
+    final endpoint = _url(ApiPaths.messagingConversationsByStudent(studentCode));
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversations for student');
 
@@ -113,7 +111,8 @@ class ConversationEntityRemoteDataSourceImpl
   Future<List<ConversationEntityDto>> getConversationsForClassroom(
     String classroomCode,
   ) async {
-    final endpoint = _url('$_base/classroom/$classroomCode');
+    final endpoint =
+        _url(ApiPaths.messagingConversationsByClassroom(classroomCode));
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversations for classroom');
 
@@ -130,7 +129,7 @@ class ConversationEntityRemoteDataSourceImpl
     String? classroomCode,
     List<String>? participantCodes,
   }) async {
-    final endpoint = _url(_base);
+    final endpoint = _url(ApiPaths.messagingConversations);
     final body = <String, dynamic>{
       'type': type,
       'studentCode': studentCode,
@@ -151,7 +150,8 @@ class ConversationEntityRemoteDataSourceImpl
     required String conversationCode,
     required List<String> userCodes,
   }) async {
-    final endpoint = _url('$_base/$conversationCode/participants');
+    final endpoint =
+        _url(ApiPaths.messagingConversationParticipants(conversationCode));
     final response = await apiClient.client.post(
       endpoint,
       data: {'userCodes': userCodes},
@@ -169,7 +169,8 @@ class ConversationEntityRemoteDataSourceImpl
     required String conversationCode,
     required List<String> userCodes,
   }) async {
-    final endpoint = _url('$_base/$conversationCode/participants');
+    final endpoint =
+        _url(ApiPaths.messagingConversationParticipants(conversationCode));
     await apiClient.client.delete(
       endpoint,
       data: {'userCodes': userCodes},
@@ -181,7 +182,8 @@ class ConversationEntityRemoteDataSourceImpl
     required String conversationCode,
     required bool enable,
   }) async {
-    final endpoint = _url('$_base/$conversationCode/private-mode');
+    final endpoint =
+        _url(ApiPaths.messagingConversationPrivateMode(conversationCode));
     await apiClient.client.patch(
       endpoint,
       data: {'activate': enable},
@@ -190,13 +192,14 @@ class ConversationEntityRemoteDataSourceImpl
 
   @override
   Future<void> markConversationRead(String conversationCode) async {
-    final endpoint = _url('$_base/$conversationCode/mark-read');
+    final endpoint =
+        _url(ApiPaths.messagingConversationMarkRead(conversationCode));
     await apiClient.client.post(endpoint);
   }
 
   @override
   Future<Map<String, int>> getUnreadAggregates() async {
-    final endpoint = _url('/api/v1/messaging/unread/counts');
+    final endpoint = _url(ApiPaths.messagingUnreadCounts);
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load unread counts');
 
