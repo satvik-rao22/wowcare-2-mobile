@@ -29,6 +29,10 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
+import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
+import 'package:wowcare/presentation/features/events/view/events_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
@@ -415,6 +419,70 @@ final GoRouter appRouter = GoRouter(
                       ),
                     ),
                   ),
+                ),
+                // Events: list/calendar plus detail and form drill-downs.
+                // All three share the singleton EventsCubit so RSVPs and
+                // edits made on the detail/form screens reflect on the
+                // calendar without a refetch.
+                GoRoute(
+                  path: 'events',
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<EventsCubit>.value(
+                      value: serviceLocator<EventsCubit>()..load(silent: true),
+                      child: const EventsScreen(),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: 'events/detail',
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<EventsCubit>.value(
+                        value: serviceLocator<EventsCubit>(),
+                        child: EventDetailScreen(
+                          eventCode: args?['eventCode'] as String? ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'events/form',
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    final initialDate = DateTime.tryParse(
+                      args?['initialDate'] as String? ?? '',
+                    );
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<EventsCubit>.value(
+                            value: serviceLocator<EventsCubit>(),
+                          ),
+                          BlocProvider<ClassroomCubit>(
+                            create: (_) => serviceLocator<ClassroomCubit>()
+                              ..loadActiveClassrooms(onlyTypeClassroom: false),
+                          ),
+                          BlocProvider<StaffCubit>(
+                            create: (_) =>
+                                serviceLocator<StaffCubit>()..loadInitial(),
+                          ),
+                          BlocProvider<StudentCubit>(
+                            create: (_) =>
+                                serviceLocator<StudentCubit>()..loadInitial(),
+                          ),
+                        ],
+                        child: EventFormScreen(
+                          eventCode: args?['eventCode'] as String?,
+                          initialDate: initialDate,
+                        ),
+                      ),
+                    );
+                  },
                 ),
                 GoRoute(
                   path: 'future-availability',

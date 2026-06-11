@@ -122,10 +122,6 @@
 //   }
 // }
 
-
-
-
-
 import 'api_constants_uat.dart';
 
 /// Logical id for [ApiConstants.baseUrlForMicroservice] (not a path segment).
@@ -151,7 +147,7 @@ class ApiConstants {
   /// Set with: `--dart-define=ENVIRONMENT=UAT` (otherwise defaults to LOCAL).
   static const String _environment = String.fromEnvironment(
     'ENVIRONMENT',
-    defaultValue: 'LOCAL',
+    defaultValue: 'UAT',
   );
 
   static bool get isUat => _environment.toUpperCase() == 'UAT';
@@ -252,8 +248,6 @@ class ApiConstants {
     }
   }
 }
-
-
 
 // import 'api_constants_uat.dart';
 

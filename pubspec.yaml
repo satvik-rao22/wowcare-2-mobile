@@ -126,6 +126,7 @@ flutter:
     - assets/images/icons/
     - assets/icons/
     - assets/languages/
+    - assets/data/events/
     - assets/forte_checkout.html
   fonts:
     - family: MervaleScript

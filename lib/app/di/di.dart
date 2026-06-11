@@ -34,6 +34,19 @@ import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
 import '../../data/features/student/datasources/student_remote_datasource.dart';
 import '../../data/features/student/repositories/student_repository_impl.dart';
+import '../../data/features/events/datasources/event_local_datasource.dart';
+import '../../data/features/events/datasources/event_seed_datasource.dart';
+import '../../data/features/events/repositories/event_repository_impl.dart';
+import '../../domain/features/events/repositories/event_repository.dart';
+import '../../domain/features/events/usecases/create_event_usecase.dart';
+import '../../domain/features/events/usecases/delete_event_usecase.dart';
+import '../../domain/features/events/usecases/delete_holiday_usecase.dart';
+import '../../domain/features/events/usecases/get_events_usecase.dart';
+import '../../domain/features/events/usecases/get_holidays_usecase.dart';
+import '../../domain/features/events/usecases/save_holiday_usecase.dart';
+import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
+import '../../domain/features/events/usecases/update_event_usecase.dart';
+import '../../presentation/features/events/cubit/events_cubit.dart';
 import '../../data/features/attendance/datasources/attendance_remote_datasource.dart';
 import '../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../data/features/availability/datasources/availability_remote_datasource.dart';
@@ -364,6 +377,61 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffShiftRepositoryImpl(
       serviceLocator<StaffShiftRemoteDataSource>(),
       serviceLocator<CacheManager>(),
+    ),
+  );
+
+  // Events (local-first: Isar persistence seeded from bundled mock JSON
+  // until the events backend is available).
+  serviceLocator.registerLazySingleton<EventLocalDataSource>(
+    () => EventLocalDataSourceImpl(serviceLocator<CacheService>()),
+  );
+  serviceLocator.registerLazySingleton<EventSeedDataSource>(
+    () => EventSeedDataSourceImpl(),
+  );
+  serviceLocator.registerLazySingleton<EventRepository>(
+    () => EventRepositoryImpl(
+      serviceLocator<EventLocalDataSource>(),
+      serviceLocator<EventSeedDataSource>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetEventsUseCase>(
+    () => GetEventsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateEventUseCase>(
+    () => CreateEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateEventUseCase>(
+    () => UpdateEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteEventUseCase>(
+    () => DeleteEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RespondToEventUseCase>(
+    () => RespondToEventUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetHolidaysUseCase>(
+    () => GetHolidaysUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveHolidayUseCase>(
+    () => SaveHolidayUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteHolidayUseCase>(
+    () => DeleteHolidayUseCase(serviceLocator()),
+  );
+  // Singleton so the events list, detail and form screens (separate routes)
+  // share one state and edits/RSVPs reflect everywhere without refetching.
+  serviceLocator.registerLazySingleton<EventsCubit>(
+    () => EventsCubit(
+      serviceLocator<GetEventsUseCase>(),
+      serviceLocator<CreateEventUseCase>(),
+      serviceLocator<UpdateEventUseCase>(),
+      serviceLocator<DeleteEventUseCase>(),
+      serviceLocator<RespondToEventUseCase>(),
+      serviceLocator<GetHolidaysUseCase>(),
+      serviceLocator<SaveHolidayUseCase>(),
+      serviceLocator<DeleteHolidayUseCase>(),
+      serviceLocator<StorageService>(),
     ),
   );
 

@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+import 'package:wowcare/presentation/features/events/view/events_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -821,6 +822,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               }
                             },
                           ),
+                        _CustomExpansionTile(
+                          title: 'Events',
+                          icon: MediaRes.calenderClockIcon,
+                          isCurrentRoute:
+                              _currentRoute == EventsScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != EventsScreen.routeName) {
+                              context.go(EventsScreen.routeName);
+                            }
+                          },
+                        ),
                         if (showParentMessagingDrawer ||
                             showParentNewsletterDrawer)
                           _CustomExpansionTile(
@@ -1050,6 +1063,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               }
                             },
                           ),
+                        _CustomExpansionTile(
+                          title: 'Events',
+                          icon: MediaRes.calenderClockIcon,
+                          isCurrentRoute:
+                              _currentRoute == EventsScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != EventsScreen.routeName) {
+                              context.go(EventsScreen.routeName);
+                            }
+                          },
+                        ),
                         if (showStaffMessagingDrawer ||
                             showParentMessagingDrawer ||
                             showParentNewsletterDrawer)
