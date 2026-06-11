@@ -26,6 +26,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -473,7 +474,8 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
             },
           );
         } else {
-          context.go(StudentAttendanceTabbedView.routeName);
+          redirectToAttendanceDaily(
+              context, StudentAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {

@@ -637,8 +637,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               ((fileIndex - 1) + (percent / 100)) / totalFiles;
           final overallPercent =
               (overallFraction * 100).clamp(0, 100).round();
-          final displayPercent = overallPercent >= 100 ? 99 : overallPercent;
-          setState(() => _uploadProgressPercent = displayPercent);
+          setState(() => _uploadProgressPercent = overallPercent);
         },
       );
       await _uploadService.completeAssetUpload(

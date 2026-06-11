@@ -1,7 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:dio/dio.dart';
+import 'package:gal/gal.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -16,6 +22,7 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_documents_list_c
 import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
 class StaffDocumentsTab extends StatefulWidget {
@@ -37,6 +44,7 @@ class StaffDocumentsTab extends StatefulWidget {
 
 class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
   bool _showExpired = false;
+  bool _isDownloadingDoc = false;
 
   /// Notification deep-link target document row.
   final GlobalKey _highlightRowKey = GlobalKey();
@@ -194,34 +202,110 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
   }
 
   Future<void> _handleDownload(BuildContext context, StaffDocument doc) async {
-    if (doc.documentUrl.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Document URL not available',
-        isError: true,
-      );
-      return;
+    if (_isDownloadingDoc) return;
+
+    // `documentUrl` from the API is just a file name (e.g. "photo.webp"), not a
+    // link — resolve the downloadable URL from the asset code.
+    String url = '';
+    final assetCode = (doc.assetCode ?? '').trim();
+    final rawUrl = doc.documentUrl.trim();
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      url = rawUrl;
     }
 
+    setState(() => _isDownloadingDoc = true);
     try {
-      final uri = Uri.parse(doc.documentUrl);
+      if (url.isEmpty && assetCode.isNotEmpty) {
+        url = (await serviceLocator<ImageUploadService>()
+                .getMediaAssetUrlByCode(assetCode: assetCode))
+            .trim();
+      }
+      if (!mounted) return;
+      if (url.isEmpty || Uri.tryParse(url) == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Document link not available',
+          isError: true,
+        );
+        return;
+      }
+
+      final mime = doc.mimeType.toLowerCase();
+      final isVideo = mime.startsWith('video/');
+      final isImage = mime.startsWith('image/');
+
+      // Images/videos save to the device gallery (same as the photo activity).
+      if (isImage || isVideo) {
+        if (!await Gal.hasAccess(toAlbum: true)) {
+          await Gal.requestAccess(toAlbum: true);
+        }
+        if (!await Gal.hasAccess(toAlbum: true)) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                'Photos permission is required to save the document to your gallery.',
+            isWarning: true,
+          );
+          return;
+        }
+
+        final tempDir = await getTemporaryDirectory();
+        var ext = p.extension(Uri.parse(url).path).trim().toLowerCase();
+        if (ext.isEmpty) ext = isVideo ? '.mp4' : '.jpg';
+        final stamp = DateTime.now().millisecondsSinceEpoch;
+        final base = doc.documentName.trim().isNotEmpty
+            ? doc.documentName.trim()
+            : 'wowcare_document_$stamp';
+        final safeBase = base.replaceAll(RegExp(r'[^A-Za-z0-9._-]'), '_');
+        final outPath = p.join(tempDir.path, '$safeBase$ext');
+
+        await Dio().download(url, outPath);
+        if (isVideo) {
+          await Gal.putVideo(outPath);
+        } else {
+          await Gal.putImage(outPath);
+        }
+        try {
+          await File(outPath).delete();
+        } catch (_) {}
+
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Saved to your gallery.',
+          isSuccess: true,
+        );
+        return;
+      }
+
+      // Non-media documents (PDF, etc.) can't go to the gallery — open them.
+      final uri = Uri.parse(url);
       if (await canLaunchUrl(uri)) {
         await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } else {
-        if (!mounted) return;
+      } else if (mounted) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Could not open document',
           isError: true,
         );
       }
+    } on GalException catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: e.type.message,
+        isError: true,
+      );
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Error downloading document: ${e.toString()}',
+        message: 'Failed to download document: ${e.toString()}',
         isError: true,
       );
+    } finally {
+      if (mounted) setState(() => _isDownloadingDoc = false);
     }
   }
 

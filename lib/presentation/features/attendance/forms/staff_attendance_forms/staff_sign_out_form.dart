@@ -24,6 +24,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
@@ -463,15 +464,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
             context.go('/kiosk');
           }
         } else {
-          if (isStaffAdmin) {
-            context.go(StaffAttendanceTabbedView.routeName);
-          } else {
-            if (context.canPop()) {
-              context.pop();
-            } else {
-              Navigator.of(context).pop();
-            }
-          }
+          redirectToAttendanceDaily(
+              context, StaffAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {

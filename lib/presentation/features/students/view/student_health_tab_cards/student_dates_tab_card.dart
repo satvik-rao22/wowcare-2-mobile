@@ -337,6 +337,40 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                         _ => 'DUE',
                                       };
 
+                                // Validate the date against the chosen status on
+                                // the client so we can show a friendly warning
+                                // instead of the raw backend error. Today is
+                                // always allowed for every status.
+                                final now = DateTime.now();
+                                final today =
+                                    DateTime(now.year, now.month, now.day);
+                                final picked = DateTime(
+                                  selectedDate!.year,
+                                  selectedDate!.month,
+                                  selectedDate!.day,
+                                );
+                                if (statusApi == 'COMPLETED' &&
+                                    picked.isAfter(today)) {
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        'Completed date cannot be a future date. Please select today or a past date.',
+                                    isWarning: true,
+                                  );
+                                  return;
+                                }
+                                if ((statusApi == 'SCHEDULED' ||
+                                        statusApi == 'DUE') &&
+                                    picked.isBefore(today)) {
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        '$statusUi date cannot be a past date. Please select today or a future date.',
+                                    isWarning: true,
+                                  );
+                                  return;
+                                }
+
                                 setLocalState(() => isSaving = true);
                                 try {
                                   final repo = serviceLocator<StudentRepository>();
@@ -518,7 +552,6 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                       _PhysicalExamCard(
                         status: _prettyStatus(e.status),
                         checkupDate: _formatExamDate(e.examDate),
-                        notes: (e.notes ?? '').trim(),
                         showMore:
                             canMutateStudent && !_isCompletedStatus(e.status),
                         onMore: !canMutateStudent || _isCompletedStatus(e.status)
@@ -548,12 +581,10 @@ class _PhysicalExamCard extends StatelessWidget {
     required this.status,
     required this.checkupDate,
     required this.onMore,
-    this.notes,
     this.showMore = true,
   });
   final String status;
   final String checkupDate;
-  final String? notes;
   final bool showMore;
   final VoidCallback? onMore;
 
@@ -565,8 +596,8 @@ class _PhysicalExamCard extends StatelessWidget {
     if (upper == 'OVERDUE') return const Color(0xFFC62828);
     // Due — yellow (design reference)
     if (upper == 'DUE') return const Color(0xFFEABA00);
-    // Scheduled — deeper purple on lavender
-    if (upper == 'SCHEDULED') return const Color(0xFF6A1B9A);
+    // Scheduled — blue on light blue
+    if (upper == 'SCHEDULED') return const Color(0xFF3B82F6);
     return AppColors.primaryColor.withOpacity(0.85);
   }
 
@@ -575,7 +606,7 @@ class _PhysicalExamCard extends StatelessWidget {
     if (upper == 'COMPLETED') return const Color(0xFFE8F5E9);
     if (upper == 'OVERDUE') return const Color(0xFFFFEBEE);
     if (upper == 'DUE') return const Color(0xFFFFF8E1);
-    if (upper == 'SCHEDULED') return const Color(0xFFF3E5F5);
+    if (upper == 'SCHEDULED') return const Color(0xFFE8F1FE);
     return const Color(0xFFF3F4FB);
   }
 
@@ -647,20 +678,6 @@ class _PhysicalExamCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  if (notes != null && notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        notes!,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primaryColor.withOpacity(0.65),
-                        ),
-                      ),
-                    ),
-                  ],
                 ],
               ),
         ),

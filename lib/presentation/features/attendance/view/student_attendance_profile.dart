@@ -912,8 +912,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       !_isTodayStatusLoading &&
       _todayGate.canSignOut &&
       AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
-  bool get _canTransfer => !_isTodayStatusLoading && _todayGate.canTransfer;
-  bool get _canMarkAbsent => !_isTodayStatusLoading && _todayGate.canMarkAbsent;
+  bool get _canTransfer =>
+      !_isTodayStatusLoading &&
+      _todayGate.canTransfer &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+  bool get _canMarkAbsent =>
+      !_isTodayStatusLoading &&
+      _todayGate.canMarkAbsent &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
 
   Future<Map<String, String>> _loadClassroomNameToCodeMap() async {
     try {
@@ -1037,10 +1043,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
+    // Use the exact dates the user picked. Snapping to start/end of month
+    // here made every range collapse to the whole month, so a same-day
+    // (10 Jun → 10 Jun) or any custom range never filtered.
     final effectiveEnd = endDate ?? startDate;
     setState(() {
-      _startDate = _startOfMonth(startDate);
-      _endDate = _endOfMonth(effectiveEnd);
+      _startDate = startDate;
+      _endDate = effectiveEnd;
     });
     _loadData();
   }

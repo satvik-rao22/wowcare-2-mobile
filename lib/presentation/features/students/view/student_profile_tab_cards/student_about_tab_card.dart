@@ -491,8 +491,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         Builder(
           builder: (context) {
             final names = (widget.sibling['name'] as List?)?.cast<String>() ?? const <String>[];
-            final relations = (widget.sibling['relation'] as List?)?.cast<String>() ?? const <String>[];
-            final statuses = (widget.sibling['status'] as List?)?.cast<String>() ?? const <String>[];
 
             if (names.isEmpty) {
               return ProfileField(
@@ -509,18 +507,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: List.generate(names.length, (index) {
                   final name = names[index];
-                  final relation = index < relations.length ? relations[index] : 'Sibling';
-                  final rawStatus = index < statuses.length ? statuses[index] : '';
-                  final statusLower = rawStatus.toString().toLowerCase();
-
-                  Color? statusColor;
-                  if (statusLower == 'upcoming') {
-                    statusColor = const Color.fromARGB(255, 253, 205, 22);
-                  } else if (statusLower == 'active' || statusLower == 'signedin') {
-                    statusColor = const Color.fromRGBO(0, 177, 21, 1);
-                  } else if (statusLower == 'inactive' || statusLower == 'isabsent') {
-                    statusColor = const Color.fromRGBO(200, 32, 32, 1);
-                  }
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -530,11 +516,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                           fileUuid: '',
                           name: name,
                           size: 45,
-                          statusColor: statusColor,
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          '$name ($relation)',
+                          name,
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 16,

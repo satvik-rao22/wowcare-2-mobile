@@ -501,7 +501,13 @@ class StudentGuardianModel extends Equatable {
 
   factory StudentGuardianModel.fromJson(Map<String, dynamic> json) {
     return StudentGuardianModel(
-      guardianCode: json['guardianCode'] as String? ?? '',
+      // The per-student guardian endpoint returns the code under `code`, while
+      // some other guardian endpoints use `guardianCode`. Accept either so the
+      // edit/delete flows always have a non-empty code to work with.
+      guardianCode:
+          (json['guardianCode'] as String?)?.trim().isNotEmpty == true
+              ? (json['guardianCode'] as String)
+              : (json['code'] as String? ?? ''),
       userCode: json['userCode'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',

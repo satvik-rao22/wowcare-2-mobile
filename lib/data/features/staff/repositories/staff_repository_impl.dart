@@ -512,6 +512,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             documentUrl: m.documentUrl,
             documentSizeKb: m.documentSizeKb,
             mimeType: m.mimeType,
+            assetCode: m.assetCode,
             expiryDate: m.expiryDate.isEmpty ? null : m.expiryDate,
             documentNotes: m.documentNotes,
             expired: m.expired,

@@ -100,28 +100,53 @@ class _EditStudentPhysicalExamScreenState
       return;
     }
 
+    // Map display status text back to API enum values.
+    String apiStatus;
+    switch ((_status ?? '').toUpperCase()) {
+      case 'COMPLETED':
+        apiStatus = 'COMPLETED';
+        break;
+      case 'SCHEDULED':
+        apiStatus = 'SCHEDULED';
+        break;
+      case 'DUE':
+        apiStatus = 'DUE';
+        break;
+      case 'OVERDUE':
+        apiStatus = 'OVERDUE';
+        break;
+      default:
+        apiStatus = 'DUE';
+    }
+
+    // Validate the date against the chosen status on the client so we can show a
+    // friendly warning instead of the raw backend error. Today is always allowed.
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final picked = DateTime(_examDate!.year, _examDate!.month, _examDate!.day);
+    if (apiStatus == 'COMPLETED' && picked.isAfter(today)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Completed date cannot be a future date. Please select today or a past date.',
+        isWarning: true,
+      );
+      return;
+    }
+    if ((apiStatus == 'SCHEDULED' || apiStatus == 'DUE') &&
+        picked.isBefore(today)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            '$_status date cannot be a past date. Please select today or a future date.',
+        isWarning: true,
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final repo = serviceLocator<StudentRepository>();
-
-      // Map display status text back to API enum values.
-      String apiStatus;
-      switch ((_status ?? '').toUpperCase()) {
-        case 'COMPLETED':
-          apiStatus = 'COMPLETED';
-          break;
-        case 'SCHEDULED':
-          apiStatus = 'SCHEDULED';
-          break;
-        case 'DUE':
-          apiStatus = 'DUE';
-          break;
-        case 'OVERDUE':
-          apiStatus = 'OVERDUE';
-          break;
-        default:
-          apiStatus = 'DUE';
-      }
 
       await repo.addStudentPhysicalExam(
         studentCode: widget.studentCode,
