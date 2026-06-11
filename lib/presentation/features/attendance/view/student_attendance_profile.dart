@@ -302,6 +302,7 @@ class StudentAttendanceProfile extends StatefulWidget {
     this.isPresentToday = false,
     this.profileStatus = 'A',
     this.syncWithParentChildSelection = false,
+    this.initialShowAbsentDays = false,
   });
 
   final int studentId;
@@ -317,6 +318,9 @@ class StudentAttendanceProfile extends StatefulWidget {
 
   /// When true (e.g. parent drawer / popup), reloads when the global child dropdown changes.
   final bool syncWithParentChildSelection;
+
+  /// When true, opens the profile with the absent-days list visible (e.g. Absent tab).
+  final bool initialShowAbsentDays;
 
   @override
   State<StudentAttendanceProfile> createState() =>
@@ -502,6 +506,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   @override
   void initState() {
     super.initState();
+    showAbsentDays = widget.initialShowAbsentDays;
     _activeStudentCode = widget.studentCode.trim();
     final now = DateTime.now();
     _startDate = _startOfMonth(now);

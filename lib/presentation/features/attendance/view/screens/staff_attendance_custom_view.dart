@@ -75,6 +75,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
   }
 
   Future<void> _loadClassroomData() async {
+    final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
       onlyTypeClassroom: false,
@@ -85,6 +86,9 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
+      if (hadClassroomSelection) {
+        _loadAttendanceData(reset: true);
+      }
       return;
     }
 
@@ -99,6 +103,9 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
       _isClassroomDataReady = !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+    if (hadClassroomSelection && _isClassroomDataReady) {
+      _loadAttendanceData(reset: true);
+    }
   }
 
   @override
@@ -178,11 +185,19 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
-    final codes = _selectedClassroomNames
-        .map((n) => nameToCode[n])
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toList();
+    final knownCodes = {
+      for (final c in _classroomCubit.state.classrooms) c.code.trim(),
+    };
+    final codes = <String>[];
+    for (final selected in _selectedClassroomNames) {
+      final trimmed = selected.trim();
+      final fromName = nameToCode[selected]?.trim();
+      if (fromName != null && fromName.isNotEmpty) {
+        codes.add(fromName);
+      } else if (knownCodes.contains(trimmed)) {
+        codes.add(trimmed);
+      }
+    }
     return codes.isEmpty ? null : codes;
   }
 
@@ -218,29 +233,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
   }
 
   List<_CustomStaffAttendanceRow> _getFilteredAttendance() {
-    var filtered = _attendanceList;
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((attendance) {
-        return attendance.staffName.toLowerCase().contains(query) ||
-            attendance.roomName.toLowerCase().contains(query);
-      }).toList();
-    }
-
-    // Apply classroom filter
-    if (_selectedClassroomNames.isNotEmpty) {
-      filtered = filtered.where((attendance) {
-        final display = _classroomDisplay(
-          classroomCode: attendance.classroomCode,
-          classroomName: attendance.classroomName,
-        );
-        return _selectedClassroomNames.contains(display);
-      }).toList();
-    }
-
-    return filtered;
+    // Classroom and search filters are applied server-side via classroomCodes/search.
+    return _attendanceList;
   }
 
   String? _formatDesignation(String? raw) {
@@ -553,6 +547,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                 // Profile photo
                 DocumentImageWidget(
                   fileUuid: attendance.staffPhotoUuid,
+                  staffCode: attendance.id,
                   name: staffName,
                   size: avatarSize,
                   fontSize: responsive.isTablet ? 18 : 16,

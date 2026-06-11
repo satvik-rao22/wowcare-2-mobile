@@ -100,6 +100,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   }
 
   Future<void> _loadClassroomData() async {
+    final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
       // Transfers / historical attendance can reference non-CLASSROOM locations.
@@ -113,6 +114,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
+      if (hadClassroomSelection) {
+        _loadAttendanceData(reset: true);
+      }
       return;
     }
 
@@ -128,6 +132,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       _isClassroomDataReady = !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+    if (hadClassroomSelection && _isClassroomDataReady) {
+      _loadAttendanceData(reset: true);
+    }
   }
 
   @override
@@ -294,11 +301,19 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
-    final codes = _selectedClassroomNames
-        .map((n) => nameToCode[n])
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toList();
+    final knownCodes = {
+      for (final c in _classroomCubit.state.classrooms) c.code.trim(),
+    };
+    final codes = <String>[];
+    for (final selected in _selectedClassroomNames) {
+      final trimmed = selected.trim();
+      final fromName = nameToCode[selected]?.trim();
+      if (fromName != null && fromName.isNotEmpty) {
+        codes.add(fromName);
+      } else if (knownCodes.contains(trimmed)) {
+        codes.add(trimmed);
+      }
+    }
     return codes.isEmpty ? null : codes;
   }
 
@@ -332,33 +347,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   List<_CustomAttendanceRow> _getFilteredAttendance(
     List<StudentAttendanceCustomItem> items,
   ) {
-    final q = _searchQuery.trim().toLowerCase();
-
-    final filtered = <_CustomAttendanceRow>[];
-
-    for (final entry in items.asMap().entries) {
-      final index = entry.key;
-      final item = entry.value;
-
-      final matchesSearch =
-          q.isEmpty || item.studentName.toLowerCase().contains(q);
-
-      final classroomDisplay = _classroomDisplay(
-        classroomCode: item.classroomCode,
-        classroomName: item.classroomName,
-      );
-      final matchesClassroom =
-          _selectedClassroomNames.isEmpty ||
-              _selectedClassroomNames.contains(classroomDisplay);
-
-      if (matchesSearch && matchesClassroom) {
-        filtered.add(
-          _mapEntityToRow(item, index),
-        );
-      }
-    }
-
-    return filtered;
+    // Classroom and search filters are applied server-side via classroomCodes/search.
+    return items
+        .asMap()
+        .entries
+        .map((entry) => _mapEntityToRow(entry.value, entry.key))
+        .toList();
   }
 
   _CustomAttendanceRow _mapEntityToRow(
@@ -731,6 +725,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                   children: [
                     DocumentImageWidget(
                       fileUuid: attendance.studentPhotoUuid,
+                      studentCode: attendance.studentCode.isNotEmpty
+                          ? attendance.studentCode
+                          : attendance.id,
                       size: avatarSize,
                       name: studentName,
                       fontSize: responsive.isTablet ? 18 : 16,

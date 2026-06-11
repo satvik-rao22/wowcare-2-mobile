@@ -286,6 +286,7 @@ class StaffAttendanceProfile extends StatefulWidget {
     this.isExpectedToday = true,
     this.isPresentToday = false,
     this.profileStatus = 'A',
+    this.initialShowAbsentDays = false,
   });
 
   final String staffCode;
@@ -299,6 +300,9 @@ class StaffAttendanceProfile extends StatefulWidget {
   final bool isExpectedToday;
   final bool isPresentToday;
   final String profileStatus;
+
+  /// When true, opens the profile with the absent-days list visible (e.g. Absent tab).
+  final bool initialShowAbsentDays;
 
   @override
   State<StaffAttendanceProfile> createState() => _StaffAttendanceProfileState();
@@ -436,6 +440,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   @override
   void initState() {
     super.initState();
+    showAbsentDays = widget.initialShowAbsentDays;
     final now = DateTime.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);

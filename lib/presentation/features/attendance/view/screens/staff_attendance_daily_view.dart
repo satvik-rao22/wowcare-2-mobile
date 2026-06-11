@@ -1244,6 +1244,7 @@ class _StaffAttendanceDailyViewScreenState
                   isExpectedToday: staff.expectedToday,
                   isPresentToday: false,
                   profileStatus: 'A',
+                  initialShowAbsentDays: true,
                 ),
               ),
             ).then((_) {

@@ -1095,6 +1095,7 @@ class _StudentAttendanceDailyViewScreenState
                                                 student.expectedToday,
                                             isPresentToday: false,
                                             profileStatus: 'A',
+                                            initialShowAbsentDays: true,
                                           ),
                                     ),
                                   ).then((_) {

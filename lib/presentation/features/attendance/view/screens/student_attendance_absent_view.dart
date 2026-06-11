@@ -149,6 +149,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   Future<void> _loadClassroomData() async {
+    final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
       onlyTypeClassroom: true,
@@ -159,6 +160,9 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
+      if (hadClassroomSelection) {
+        _loadAbsentStudents(reset: true);
+      }
       return;
     }
 
@@ -173,6 +177,9 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       _isClassroomDataReady = !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+    if (hadClassroomSelection && _isClassroomDataReady) {
+      _loadAbsentStudents(reset: true);
+    }
   }
 
   Future<void> _loadTagData() async {
@@ -302,11 +309,19 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
-    final codes = _selectedClassroomNames
-        .map((n) => nameToCode[n])
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toList();
+    final knownCodes = {
+      for (final c in _classroomCubit.state.classrooms) c.code.trim(),
+    };
+    final codes = <String>[];
+    for (final selected in _selectedClassroomNames) {
+      final trimmed = selected.trim();
+      final fromName = nameToCode[selected]?.trim();
+      if (fromName != null && fromName.isNotEmpty) {
+        codes.add(fromName);
+      } else if (knownCodes.contains(trimmed)) {
+        codes.add(trimmed);
+      }
+    }
     return codes.isEmpty ? null : codes;
   }
 
@@ -870,6 +885,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                 // Profile photo
                 DocumentImageWidget(
                   fileUuid: student.photoUuid ?? '',
+                  studentCode: student.id,
                   size: avatarSize,
                   name: student.name,
                   fontSize: responsive.isTablet ? 18 : 16,
@@ -990,6 +1006,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                                   isExpectedToday: true,
                                   isPresentToday: false,
                                   profileStatus: 'A',
+                                  initialShowAbsentDays: true,
                                 ),
                               ),
                             );
