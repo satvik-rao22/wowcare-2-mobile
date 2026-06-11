@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -9,6 +10,8 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 typedef StudentAttendanceActionTap = void Function(String actionLabel);
 
@@ -42,6 +45,16 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<GeofenceCubit, GeofenceState>(
+      builder: (context, _) {
+        return BlocBuilder<RoleCubit, RoleState>(
+          builder: (context, _) => _buildButton(context),
+        );
+      },
+    );
+  }
+
+  Widget _buildButton(BuildContext context) {
     // Check permission using the shared service
     final isStudentAttendanceAllowed =
         AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
@@ -178,6 +191,12 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
   }
 
   void _navigateToForm(BuildContext context, String label) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+      context,
+    )) {
+      return;
+    }
+
     Widget? form;
     
     switch (label) {
