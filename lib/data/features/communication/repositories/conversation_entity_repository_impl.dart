@@ -177,11 +177,15 @@ class ConversationEntityRepositoryImpl
     List<String>? participantCodes,
   }) async {
     try {
+      final org = await _orgCode;
+      final school = await _schoolCode;
       final dto = await _remote.createConversation(
         type: type.toApiString(),
         studentCode: studentCode,
         classroomCode: classroomCode,
         participantCodes: participantCodes,
+        organizationCode: org,
+        schoolCode: school,
       );
       final entity = dto.toEntity();
       await _local.saveConversation(entity);

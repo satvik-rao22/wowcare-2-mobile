@@ -15,7 +15,7 @@ class CreateConversationCubit extends Cubit<CreateConversationState> {
     required String organizationCode,
     required String schoolCode,
     required List<String> participantUserCodes,
-    String type = 'DIRECT',
+    String type = 'STAFF_DIRECT',
     required String description,
     required String avatarUrl,
   }) async {
@@ -51,7 +51,7 @@ class CreateConversationCubit extends Cubit<CreateConversationState> {
     required String organizationCode,
     required String schoolCode,
     required List<String> participantUserCodes,
-    String type = 'DIRECT',
+    String type = 'STAFF_DIRECT',
     required String description,
     required String avatarUrl,
   }) async {

@@ -26,8 +26,13 @@ class ApiConstantsUat {
   // ─── UAT gateway host ──────────────────────────────────────────────────────
   // Single gateway for all microservices in UAT.
   // Update this when the UAT hostname changes.
-  static const String _host = 'https://uat-wowcare.childcarewow.app';
-  // static const String _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms/';
+  // static const String _host = 'https://uat-wowcare.childcarewow.app';
+  static const String _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms';
+
+  // Communication / Messaging MS runs on a dedicated port (8087).
+  // Must be updated alongside _host when the tunnel ID changes.
+  static const String _communicationHost =
+      'https://4hn0k1dg-8070.inc1.devtunnels.ms';
 
   // ─── Per-service base URLs ─────────────────────────────────────────────────
   static const String baseUrl = _host;
@@ -36,11 +41,11 @@ class ApiConstantsUat {
   static const String classroomBaseUrl = _host;
   static const String schoolMs = _host;
   static const String activityBaseUrl = _host;
-  static const String newsLatterBaseUrl = _host;
   static const String notificationBaseUrl = _host;
   static const String attendanceBaseUrl = _host;
   static const String documentMsBaseUrl = _host;
-  static const String communicationBaseUrl = _host;
+  static const String communicationBaseUrl = _communicationHost;
+  static const String newsLatterBaseUrl = _communicationHost;
 
   // ─── Microservice router ───────────────────────────────────────────────────
 

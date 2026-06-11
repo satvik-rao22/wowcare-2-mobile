@@ -780,42 +780,59 @@ class ApiPaths {
   static const String documentMediaAssetsResolve =
       '/api/v1/document/media-assets/resolve';
 
-  // ─── Messaging / Communication microservice (port 8087) ──────────────────
-  static const String messagingConversations =
-      '/api/v1/messaging/conversations';
+  // ─── Messaging / Communication microservice ──────────────────────────────
+  // Base resource roots (new backend — no /messaging/ prefix).
+  static const String conversations = '/api/v1/conversations';
+  static const String messages = '/api/v1/messages';
 
-  /// Kept for backward compatibility — existing screens use this name.
-  static const String messagingCreateMessage = messagingConversations;
+  // Keep old names as aliases so call sites that haven't been migrated yet
+  // still compile — they now resolve to the correct paths.
+  static const String messagingConversations = conversations;
+  static const String messagingCreateMessage = conversations;
+  static const String messagingMessages = messages;
 
-  static const String messagingMessages = '/api/v1/messaging/messages';
-
-  // Conversation sub-resources
+  // ── Conversation sub-resources ────────────────────────────────────────────
   static String messagingConversation(String code) =>
-      '$messagingConversations/$code';
+      '$conversations/$code';
   static String messagingConversationsByType(String type) =>
-      '$messagingConversations/type/$type';
+      '$conversations/type/$type';
   static String messagingConversationsByStudent(String studentCode) =>
-      '$messagingConversations/student/$studentCode';
+      '$conversations/student/$studentCode';
   static String messagingConversationsByClassroom(String classroomCode) =>
-      '$messagingConversations/classroom/$classroomCode';
+      '$conversations/classroom/$classroomCode';
   static String messagingConversationParticipants(String code) =>
-      '$messagingConversations/$code/participants';
+      '$conversations/$code/participants';
+  // DELETE /api/v1/conversations/{code}/participants/{userCode}
+  static String conversationParticipant(String code, String userCode) =>
+      '$conversations/$code/participants/$userCode';
   static String messagingConversationPrivateMode(String code) =>
-      '$messagingConversations/$code/private-mode';
+      '$conversations/$code/private-mode';
+  // Mark-read moved to messages controller:
+  // POST /api/v1/messages/conversation/{code}/receipts/read-all
   static String messagingConversationMarkRead(String code) =>
-      '$messagingConversations/$code/mark-read';
+      '$messages/conversation/$code/receipts/read-all';
 
-  // Message sub-resources
-  static String messagingMessage(String code) => '$messagingMessages/$code';
+  // ── Message sub-resources ─────────────────────────────────────────────────
+  static String messagingMessage(String code) => '$messages/$code';
   static String messagingMessageReactions(String code) =>
-      '$messagingMessages/$code/reactions';
+      '$messages/$code/reactions';
   static String messagingMessageReaction(String code, String emoji) =>
-      '$messagingMessages/$code/reactions/${Uri.encodeComponent(emoji)}';
+      '$messages/$code/reactions/${Uri.encodeComponent(emoji)}';
+  // Per new contract: POST /api/v1/messages/{code}/receipts/read
   static String messagingMessageRead(String code) =>
-      '$messagingMessages/$code/read';
+      '$messages/$code/receipts/read';
+  // GET messages for a conversation
+  static String messagesForConversation(String conversationCode) =>
+      '$messages/conversation/$conversationCode';
 
-  // Unread
-  static const String messagingUnreadCounts = '/api/v1/messaging/unread/counts';
+  // ── Unread ────────────────────────────────────────────────────────────────
+  // GET /api/v1/messages/unread-summary  (replaces /messaging/unread/counts)
+  static const String messagingUnreadCounts = '$messages/unread-summary';
+  static const String messagesUnreadSummary = '$messages/unread-summary';
+  static const String messagesUnreadPerConversation =
+      '$messages/unread-per-conversation';
+  static String messagesConversationUnreadCount(String conversationCode) =>
+      '$messages/conversation/$conversationCode/unread-count';
   // static String studentnewsLatter = 'api/v1/newsletters/student/';
   static String studentNewslettersByStudentCode(String studentCode) =>
       '/api/v1/newsletters/student/${Uri.encodeComponent(studentCode.trim())}';

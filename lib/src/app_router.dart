@@ -31,10 +31,9 @@ import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
-import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_screen.dart';
+import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
@@ -79,7 +78,7 @@ class AppRoutes {
   static const String classroom = ClassroomScreen.routeName;
   static const String activityFeed = ActivityFeedScreen.routeName;
   static const String messaging = MessagingScreen.routeName;
-  static const String adminChat = AdminChatScreen.routeName;
+  static const String adminChat = AdminChatHostScreen.routeName;
   static const String parentBilling = ParentBillingScreen.routeName;
 }
 
@@ -452,7 +451,9 @@ final GoRouter appRouter = GoRouter(
             final staffCode = extra['staffCode'] as String?;
             final staffName = extra['staffName'] as String?;
             final pin = extra['pin'] as String?;
-            AppLogger.d('[Kiosk] Routing to staff-sign-in: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}');
+            AppLogger.d(
+              '[Kiosk] Routing to staff-sign-in: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}',
+            );
             return _fastPage(
               state,
               StaffSignInForm(
@@ -473,7 +474,9 @@ final GoRouter appRouter = GoRouter(
             final staffCode = extra['staffCode'] as String?;
             final staffName = extra['staffName'] as String?;
             final pin = extra['pin'] as String?;
-            AppLogger.d('[Kiosk] Routing to staff-sign-out: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}');
+            AppLogger.d(
+              '[Kiosk] Routing to staff-sign-out: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}',
+            );
             return _fastPage(
               state,
               StaffSignOutForm(
@@ -498,7 +501,9 @@ final GoRouter appRouter = GoRouter(
         final staffCode = extra['staffCode'] as String?;
         final staffName = extra['staffName'] as String?;
         final pin = extra['pin'] as String?;
-        AppLogger.d('[Router] StaffSignInForm: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}');
+        AppLogger.d(
+          '[Router] StaffSignInForm: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}',
+        );
         return _fastPage(
           state,
           StaffSignInForm(
@@ -1070,12 +1075,7 @@ final GoRouter appRouter = GoRouter(
             ),
             GoRoute(
               path: AppRoutes.adminChat,
-              builder: (context, state) => BlocProvider<CommunicationCubit>(
-                create: (_) => serviceLocator<CommunicationCubit>(),
-                child: const MessagingScreen(
-                  userPersona: UserPersona.admin,
-                ),
-              ),
+              builder: (context, state) => const AdminChatHostScreen(),
             ),
           ],
         ),

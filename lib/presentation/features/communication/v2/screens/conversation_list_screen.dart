@@ -11,6 +11,7 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
+import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -80,8 +81,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    final threshold =
-        _scrollController.position.maxScrollExtent - 200;
+    final threshold = _scrollController.position.maxScrollExtent - 200;
     if (_scrollController.offset >= threshold) {
       unawaited(context.read<ConversationListCubit>().loadNextPage());
     }
@@ -107,153 +107,135 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     return BlocProvider<ConversationListCubit>.value(
       value: _cubit,
       child: BlocBuilder<ConversationListCubit, ConversationListState>(
-      builder: (context, state) {
-        final title = widget.title ?? _typeLabel(state.conversationType);
+        builder: (context, state) {
+          final title = widget.title ?? _typeLabel(state.conversationType);
 
-        return Scaffold(
-          backgroundColor: Colors.white,
-          appBar: AppBar(
-            backgroundColor: Colors.white,
-            elevation: 0,
-            title: CustomTextWidget(
-              text: title,
-              fontWeight: FontWeight.w700,
-              fontSize: 20,
-              fontColor: AppColors.primaryColor,
-            ),
-            actions: [
-              if (widget.onCreateTap != null)
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  color: AppColors.primaryColor,
-                  onPressed: widget.onCreateTap,
-                  tooltip: 'New conversation',
-                ),
-            ],
-          ),
-          body: RefreshIndicator(
-            color: AppColors.primaryColor,
-            onRefresh: () =>
-                context.read<ConversationListCubit>().refresh(),
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                // ── Search + Unread toggle ────────────────────────────────
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                    child: Column(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: const Color(0x33B1AFE9),
-                          ),
-                          child: CustomSearchBar(
-                            controller: _searchController,
-                            hintText: 'Search conversations',
-                            searchBarColor:
-                                const WidgetStatePropertyAll(Colors.transparent),
-                            borderColor: Colors.transparent,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Row(
-                              children: [
-                                Switch(
-                                  value: _showUnreadOnly,
-                                  activeThumbColor: AppColors.primaryColor,
-                                  onChanged: (v) =>
-                                      setState(() => _showUnreadOnly = v),
-                                ),
-                                const SizedBox(width: 4),
-                                const Text(
-                                  'Unread only',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF636E72),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            _TypeChip(type: state.conversationType),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
+          return GlobalScaffold(
+            hasBackButton: false,
 
-                const SliverToBoxAdapter(child: SizedBox(height: 8)),
-
-                // ── Error banner ─────────────────────────────────────────
-                if (state.errorMessage != null && state.hasConversations)
+            body: RefreshIndicator(
+              color: AppColors.primaryColor,
+              onRefresh: () => context.read<ConversationListCubit>().refresh(),
+              child: CustomScrollView(
+                controller: _scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                slivers: [
+                  // ── Search + Unread toggle ────────────────────────────────
                   SliverToBoxAdapter(
-                    child: _ErrorBanner(message: state.errorMessage!),
-                  ),
-
-                // ── Loading (first load, empty list) ─────────────────────
-                if (state.isLoading && !state.hasConversations)
-                  const MessagingShimmer(),
-
-                // ── Full-screen error (no cached data) ───────────────────
-                if (!state.isLoading &&
-                    state.errorMessage != null &&
-                    !state.hasConversations)
-                  SliverFillRemaining(
-                    child: _FullScreenError(
-                      message: state.errorMessage!,
-                      onRetry: () =>
-                          context.read<ConversationListCubit>().loadInitial(),
-                    ),
-                  ),
-
-                // ── List ─────────────────────────────────────────────────
-                if (state.hasConversations || state.isFromCache)
-                  _buildList(context, state),
-
-                // ── Empty state (no conversations and not loading) ────────
-                if (!state.isLoading &&
-                    !state.hasConversations &&
-                    state.errorMessage == null)
-                  SliverFillRemaining(
-                    child: _EmptyState(type: state.conversationType),
-                  ),
-
-                // ── Load-more indicator ───────────────────────────────────
-                if (state.isLoading && state.hasConversations)
-                  const SliverToBoxAdapter(
                     child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: 16),
-                      child: Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                      child: Column(
+                        children: [
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: const Color(0x33B1AFE9),
+                            ),
+                            child: CustomSearchBar(
+                              controller: _searchController,
+                              hintText: 'Search conversations',
+                              searchBarColor: const WidgetStatePropertyAll(
+                                Colors.transparent,
+                              ),
+                              borderColor: Colors.transparent,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Switch(
+                                    value: _showUnreadOnly,
+                                    activeThumbColor: AppColors.primaryColor,
+                                    onChanged: (v) =>
+                                        setState(() => _showUnreadOnly = v),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    'Unread only',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF636E72),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              _TypeChip(type: state.conversationType),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
-                const SliverToBoxAdapter(child: SizedBox(height: 80)),
-              ],
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
+
+                  // ── Error banner ─────────────────────────────────────────
+                  if (state.errorMessage != null && state.hasConversations)
+                    SliverToBoxAdapter(
+                      child: _ErrorBanner(message: state.errorMessage!),
+                    ),
+
+                  // ── Loading (first load, empty list) ─────────────────────
+                  if (state.isLoading && !state.hasConversations)
+                    const MessagingShimmer(),
+
+                  // ── Full-screen error (no cached data) ───────────────────
+                  if (!state.isLoading &&
+                      state.errorMessage != null &&
+                      !state.hasConversations)
+                    SliverFillRemaining(
+                      child: _FullScreenError(
+                        message: state.errorMessage!,
+                        onRetry: () =>
+                            context.read<ConversationListCubit>().loadInitial(),
+                      ),
+                    ),
+
+                  // ── List ─────────────────────────────────────────────────
+                  if (state.hasConversations || state.isFromCache)
+                    _buildList(context, state),
+
+                  // ── Empty state (no conversations and not loading) ────────
+                  if (!state.isLoading &&
+                      !state.hasConversations &&
+                      state.errorMessage == null)
+                    SliverFillRemaining(
+                      child: _EmptyState(type: state.conversationType),
+                    ),
+
+                  // ── Load-more indicator ───────────────────────────────────
+                  if (state.isLoading && state.hasConversations)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  const SliverToBoxAdapter(child: SizedBox(height: 80)),
+                ],
+              ),
             ),
-          ),
-          floatingActionButton: widget.onCreateTap != null
-              ? FloatingActionButton(
-                  onPressed: widget.onCreateTap,
-                  backgroundColor: AppColors.primaryColor,
-                  tooltip: 'New conversation',
-                  child: const Icon(Icons.edit_outlined, color: Colors.white),
-                )
-              : null,
-        );
-      },
-    ),
+            floatingActionButton: widget.onCreateTap != null
+                ? FloatingActionButton(
+                    onPressed: widget.onCreateTap,
+                    backgroundColor: AppColors.primaryColor,
+                    tooltip: 'New conversation',
+                    child: const Icon(Icons.edit_outlined, color: Colors.white),
+                  )
+                : null,
+          );
+        },
+      ),
     );
   }
 
@@ -299,10 +281,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
 // ─── Conversation tile ────────────────────────────────────────────────────────
 
 class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({
-    required this.conversation,
-    required this.onTap,
-  });
+  const _ConversationTile({required this.conversation, required this.onTap});
 
   final ConversationEntity conversation;
   final VoidCallback onTap;
@@ -321,8 +300,10 @@ class _ConversationTile extends StatelessWidget {
           ),
         ),
         child: ListTile(
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 12,
+          ),
           leading: Stack(
             children: [
               DocumentImageWidget(
@@ -450,8 +431,7 @@ class _ConversationTile extends StatelessWidget {
   String _formatTime(DateTime? dt) {
     if (dt == null) return '—';
     final tz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final local =
-        SchoolZoneDateTime.dateTimeFromInstantInSchool(dt, tz);
+    final local = SchoolZoneDateTime.dateTimeFromInstantInSchool(dt, tz);
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
       DateTime.now().toUtc(),
       tz,
@@ -466,14 +446,22 @@ class _ConversationTile extends StatelessWidget {
     if (diff == 0) return 'Today | $time';
     if (diff == 1) return 'Yesterday | $time';
     if (diff < 7) {
-      const days = [
-        'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun',
-      ];
+      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       return '${days[local.weekday - 1]} | $time';
     }
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${local.day} ${months[local.month - 1]} ${local.year} | $time';
   }
@@ -571,16 +559,16 @@ class _ErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.warning_amber_rounded,
-              size: 16, color: Color(0xFF856404)),
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 16,
+            color: Color(0xFF856404),
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(
-                fontSize: 12,
-                color: Color(0xFF856404),
-              ),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF856404)),
             ),
           ),
         ],
@@ -602,15 +590,16 @@ class _FullScreenError extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_rounded,
-                size: 56,
-                color: AppColors.primaryColor.withValues(alpha: 0.3)),
+            Icon(
+              Icons.cloud_off_rounded,
+              size: 56,
+              color: AppColors.primaryColor.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 16),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 14, color: Color(0xFF636E72)),
+              style: const TextStyle(fontSize: 14, color: Color(0xFF636E72)),
             ),
             const SizedBox(height: 20),
             OutlinedButton.icon(
@@ -620,7 +609,8 @@ class _FullScreenError extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primaryColor,
                 side: BorderSide(
-                    color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
+                ),
               ),
             ),
           ],

@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -38,7 +40,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   bool _showUnread = false;
   static const int _conversationPageSize = 50;
 
-  String get _conversationType => 'STAFF_DIRECT';
+  String get _conversationType =>
+      widget.isStaffMessaging ? 'STAFF_DIRECT' : 'ROOM_CHAT';
 
   @override
   bool get wantKeepAlive => true;
@@ -301,61 +304,27 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                 );
               }
 
+              // API already returns type-filtered conversations — no
+              // client-side participant-code filtering needed.
               List<Conversation> conversationsToDisplay = [];
 
               if (communicationState is CommunicationConversationsLoaded) {
                 final query = _searchController.text.trim().toLowerCase();
-                final staffState = context.read<StaffCubit>().state;
-                final studentState = context.read<StudentCubit>().state;
-
-                final staffCodes = staffState.items.map((s) => s.code).toSet();
-                final studentCodes = studentState.items
-                    .map((s) => s.code)
-                    .toSet();
 
                 conversationsToDisplay = communicationState
                     .getConversations(_conversationType)
                     .where((conv) {
-                      // Filter by search query
                       if (query.isNotEmpty &&
                           !conv.title.toLowerCase().contains(query)) {
                         return false;
                       }
-
-                      // Filter by unread
                       if (_showUnread && conv.unreadCount == 0) return false;
-
-                      // Filter by Staff vs Student/Parent
-                      // final otherParticipants = conv.participants.where(
-                      //   (p) => p.userCode != conv.createdBy,
-                      // );
-                      bool isStaffConv = false;
-                      bool isStudentConv = false;
-
-                      for (final p in conv.participants) {
-                        if (staffCodes.contains(p.userCode)) isStaffConv = true;
-                        if (studentCodes.contains(p.userCode))
-                          isStudentConv = true;
-                      }
-
-                      // If we can't determine by codes, fallback to title or other logic
-                      if (!isStaffConv && !isStudentConv) {
-                        // This might be a new conversation not yet in our cached staff/student lists
-                        // or a group. For now, we trust the tab flag.
-                      }
-
-                      if (widget.isStaffMessaging) {
-                        return isStaffConv ||
-                            (!isStudentConv); // Default to staff if ambiguous
-                      } else {
-                        return isStudentConv;
-                      }
+                      return true;
                     })
                     .toList();
               }
 
               if (conversationsToDisplay.isEmpty) {
-                // Show Directory Fallback if no conversations found
                 return _buildDirectoryFallback(context);
               }
 
@@ -391,14 +360,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 ),
                         ),
                       );
-                      Navigator.of(context).push(route).then((_) async {
+                      unawaited(Navigator.of(context).push(route).then((_) async {
                         if (mounted) {
-                          await context.read<CommunicationCubit>().refreshConversations(
-                            type: _conversationType,
-                            size: _conversationPageSize,
-                          );
+                          await context
+                              .read<CommunicationCubit>()
+                              .refreshConversations(
+                                type: _conversationType,
+                                size: _conversationPageSize,
+                              );
                         }
-                      });
+                      }));
                     },
                   );
                 }, childCount: conversationsToDisplay.length),
@@ -443,15 +414,15 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   organizationCode: '',
                   schoolCode: '',
                   status: 'ACTIVE',
-                  description: 'Start a new conversation',
+                  description: '',
                   avatarUrl: member.profileImage ?? '',
-                  createdAt: DateTime.now(),
+                  createdAt: DateTime.fromMillisecondsSinceEpoch(0),
                   createdBy: '',
-                  updatedAt: DateTime.now(),
+                  updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
                   updatedBy: '',
                   unreadCount: 0,
-                  participantCount: 1,
-                  lastMessagePreview: 'Tap to start chatting',
+                  participantCount: 0,
+                  lastMessagePreview: '',
                   participants: [],
                 ),
                 onTap: () async {
@@ -539,23 +510,23 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   id: 0,
                   code: student.code,
                   title: '${student.firstName} ${student.lastName}',
-                  type: 'GROUP',
+                  type: 'ROOM_CHAT',
                   organizationCode: '',
                   schoolCode: '',
                   status: 'ACTIVE',
-                  description: 'Parent Group Chat',
+                  description: '',
                   avatarUrl: student.profileImage ?? '',
-                  createdAt: DateTime.now(),
+                  createdAt: DateTime.fromMillisecondsSinceEpoch(0),
                   createdBy: '',
-                  updatedAt: DateTime.now(),
+                  updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
                   updatedBy: '',
                   unreadCount: 0,
-                  participantCount: 1,
-                  lastMessagePreview: 'Tap to start group chat',
+                  participantCount: 0,
+                  lastMessagePreview: '',
                   participants: [],
                 ),
                 onTap: () {
-                  Navigator.of(context)
+                  unawaited(Navigator.of(context)
                       .push(
                         MaterialPageRoute(
                           builder: (_) => BlocProvider<CommunicationCubit>(
@@ -582,7 +553,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                             size: _conversationPageSize,
                           );
                         }
-                      });
+                      }));
                 },
               );
             }, childCount: students.length),

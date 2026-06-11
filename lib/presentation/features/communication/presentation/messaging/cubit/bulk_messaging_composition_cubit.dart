@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mime/mime.dart';
-import 'package:path/path.dart' as path;
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
@@ -190,7 +188,6 @@ class BulkMessagingCompositionCubit
           (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
       final actualSenderCode = senderCode.isNotEmpty ? senderCode : senderUserCode;
 
-      final attachmentPayloads = await _buildAttachmentPayloads();
       if (isClosed) return;
       final messageText = state.messageText.trim();
 
@@ -215,21 +212,18 @@ class BulkMessagingCompositionCubit
             title: recipientName,
             type: 'STAFF_DIRECT',
             description: messageText,
-            initialMessage: messageText,
             organizationCode: orgCode,
             schoolCode: schoolCode,
-            participantUserCodes: [recipientCode],
             participants: [
               {
                 'userCode': actualSenderCode,
-                'role': 'STAFF',
+                'participantType': 'STAFF',
               },
               {
                 'userCode': recipientCode,
-                'role': 'STAFF',
+                'participantType': 'STAFF',
               }
             ],
-            attachments: attachmentPayloads,
           );
 
           final result = await _createConversationUseCase(request);
@@ -302,27 +296,23 @@ class BulkMessagingCompositionCubit
         }
 
         final request = CreateConversationRequest(
-          title:
-              'Bulk Message ${DateTime.now().toString().substring(0, 16)}', // Default title
-          type:
-              'GROUP', // Group chat might have a different type, but following user's structure
+          title: 'Bulk Message ${DateTime.now().toString().substring(0, 16)}',
+          type: 'ROOM_CHAT',
           description: messageText,
-          initialMessage: messageText,
           organizationCode: orgCode,
           schoolCode: schoolCode,
-          participantUserCodes: recipientCodes,
           participants: [
             if (actualSenderCode.isNotEmpty)
               {
                 'userCode': actualSenderCode,
-                'role': 'STAFF',
+                'participantType': 'STAFF',
               },
             ...recipientCodes.map((code) => {
                   'userCode': code,
-                  'role': code.startsWith('STF_') ? 'STAFF' : 'PARENT',
+                  'participantType':
+                      code.startsWith('STF_') ? 'STAFF' : 'GUARDIAN',
                 }),
           ],
-          attachments: attachmentPayloads,
         );
 
         final result = await _createConversationUseCase(request);
@@ -379,21 +369,4 @@ class BulkMessagingCompositionCubit
         .trim();
   }
 
-  Future<List<Map<String, dynamic>>> _buildAttachmentPayloads() async {
-    final payloads = <Map<String, dynamic>>[];
-    for (final attachment in state.attachments) {
-      final file = attachment.file;
-      final mimeType =
-          lookupMimeType(file.path) ??
-          (attachment.isImage ? 'image/*' : 'application/octet-stream');
-      payloads.add({
-        'name': path.basename(file.path),
-        'type': attachment.isImage ? 'image' : 'document',
-        'sizeBytes': await file.length(),
-        'mimeType': mimeType,
-        'localPath': file.path,
-      });
-    }
-    return payloads;
-  }
 }

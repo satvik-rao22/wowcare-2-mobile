@@ -27,6 +27,8 @@ abstract class ConversationEntityRemoteDataSource {
     required String studentCode,
     String? classroomCode,
     List<String>? participantCodes,
+    String organizationCode,
+    String schoolCode,
   });
 
   Future<List<ParticipantEntityDto>> addParticipants({
@@ -128,13 +130,19 @@ class ConversationEntityRemoteDataSourceImpl
     required String studentCode,
     String? classroomCode,
     List<String>? participantCodes,
+    String organizationCode = '',
+    String schoolCode = '',
   }) async {
-    final endpoint = _url(ApiPaths.messagingConversations);
+    final endpoint = _url(ApiPaths.conversations);
     final body = <String, dynamic>{
       'type': type,
-      'studentCode': studentCode,
-      if (classroomCode != null) 'classroomCode': classroomCode,
-      if (participantCodes != null) 'participantCodes': participantCodes,
+      if (organizationCode.isNotEmpty) 'organizationCode': organizationCode,
+      if (schoolCode.isNotEmpty) 'schoolCode': schoolCode,
+      if (studentCode.isNotEmpty) 'studentCode': studentCode,
+      if (classroomCode != null && classroomCode.isNotEmpty)
+        'classroomCode': classroomCode,
+      if (participantCodes != null && participantCodes.isNotEmpty)
+        'participantUserCodes': participantCodes,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);
@@ -169,12 +177,14 @@ class ConversationEntityRemoteDataSourceImpl
     required String conversationCode,
     required List<String> userCodes,
   }) async {
-    final endpoint =
-        _url(ApiPaths.messagingConversationParticipants(conversationCode));
-    await apiClient.client.delete(
-      endpoint,
-      data: {'userCodes': userCodes},
-    );
+    // New contract: DELETE /api/v1/conversations/{code}/participants/{userCode}
+    // One request per user code — loop through all.
+    for (final userCode in userCodes) {
+      final endpoint = _url(
+        ApiPaths.conversationParticipant(conversationCode, userCode),
+      );
+      await apiClient.client.delete(endpoint);
+    }
   }
 
   @override

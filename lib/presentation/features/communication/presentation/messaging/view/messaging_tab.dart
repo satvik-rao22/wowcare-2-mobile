@@ -186,7 +186,7 @@ class _MessagingTabState extends State<MessagingTab>
                       );
                       if (context.mounted) {
                         context.read<CommunicationCubit>().loadConversations(
-                          type: 'STAFF_DIRECT',
+                          type: 'ROOM_CHAT',
                           size: _conversationPageSize,
                         );
                       }

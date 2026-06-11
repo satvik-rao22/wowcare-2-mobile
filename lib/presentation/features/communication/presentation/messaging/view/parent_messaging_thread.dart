@@ -26,8 +26,6 @@ import '../widgets/message_bubble_widget.dart';
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({super.key, required this.parentInfo});
   final Map<String, dynamic> parentInfo;
-  final String currentSender =
-      'Eddie Barnes'; // later this can be taken from logged in user profile
 
   @override
   State<ParentMessagingThread> createState() => _ParentMessagingThreadState();
@@ -46,6 +44,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   Message? _quotedMessage = null;
   String? _quotedMessageId;
   List<ChatAttachment> _pendingAttachments = [];
+  String _currentSender = '';
 
   bool isPrivateModeEnabled(Map<String, dynamic> parentInfo) {
     final privateParents =
@@ -88,6 +87,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         final userCode = authState is AuthLoaded
             ? authState.loginResponse.userCode
             : null;
+        if (authState is AuthLoaded) {
+          setState(() {
+            _currentSender = authState.loginResponse.displayName.isNotEmpty
+                ? authState.loginResponse.displayName
+                : authState.loginResponse.userCode;
+          });
+        }
         context.read<CommunicationCubit>().loadMessages(
           widget.parentInfo['code'] as String,
           currentUserId: userCode,
@@ -153,7 +159,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     final authState = context.read<AuthCubit>().state;
     final senderName = authState is AuthLoaded
         ? authState.loginResponse.displayName
-        : widget.currentSender;
+        : _currentSender;
 
     context.read<CommunicationCubit>().sendMessage(
       widget.parentInfo['code'] as String,
@@ -397,22 +403,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  // void _onReactionAdded(Message message, String emoji) {
-  //   final tabIndex = _tabController.index;
-  //   final String activeTabKey;
-  //   if (_privateModeEnabled) {
-  //     activeTabKey =
-  //         tabIndex == 0 ? 'parent_group_parent1' : 'parent_group_parent2';
-  //   } else {
-  //     activeTabKey = 'parent_group_default';
-  //   }
-  //   context.read<CommunicationCubit>().addReaction(
-  //     activeTabKey,
-  //     message.id,
-  //     emoji,
-  //   );
-  // }
-
   void _showEditDialog(BuildContext context, Message message) {
     final TextEditingController editingController = TextEditingController(
       text: message.text,
@@ -521,7 +511,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         id: message.id,
                         code: message.code,
                         text: newText,
-                        senderName: widget.currentSender,
+                        senderName: _currentSender,
                         isSentByMe: message.isSentByMe,
                         time: message.time,
                         deliveredAt: message.deliveredAt,
@@ -652,12 +642,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                            final _schoolTz =
+                                                SchoolTimezoneResolver
+                                                    .lastKnownTimeZone;
+                                            final _currDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  message.time,
+                                                  _schoolTz,
+                                                );
+                                            final _prevDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  prevMessage.time,
+                                                  _schoolTz,
+                                                );
                                             showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
+                                                _currDate.year !=
+                                                    _prevDate.year ||
+                                                _currDate.month !=
+                                                    _prevDate.month ||
                                                 _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
@@ -747,12 +749,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                            final _schoolTz =
+                                                SchoolTimezoneResolver
+                                                    .lastKnownTimeZone;
+                                            final _currDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  message.time,
+                                                  _schoolTz,
+                                                );
+                                            final _prevDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  prevMessage.time,
+                                                  _schoolTz,
+                                                );
                                             showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
+                                                _currDate.year !=
+                                                    _prevDate.year ||
+                                                _currDate.month !=
+                                                    _prevDate.month ||
                                                 _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
@@ -849,12 +863,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                            final _schoolTz =
+                                                SchoolTimezoneResolver
+                                                    .lastKnownTimeZone;
+                                            final _currDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  message.time,
+                                                  _schoolTz,
+                                                );
+                                            final _prevDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  prevMessage.time,
+                                                  _schoolTz,
+                                                );
                                             showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
+                                                _currDate.year !=
+                                                    _prevDate.year ||
+                                                _currDate.month !=
+                                                    _prevDate.month ||
                                                 _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
@@ -1116,13 +1142,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                                final _schoolTz =
+                                                    SchoolTimezoneResolver
+                                                        .lastKnownTimeZone;
+                                                final _currDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      message.time,
+                                                      _schoolTz,
+                                                    );
+                                                final _prevDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      prevMessage.time,
+                                                      _schoolTz,
+                                                    );
                                                 showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
+                                                    _currDate.year !=
+                                                        _prevDate.year ||
+                                                    _currDate.month !=
+                                                        _prevDate.month ||
+                                                    _currDate.day !=
+                                                        _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1225,13 +1264,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                                final _schoolTz =
+                                                    SchoolTimezoneResolver
+                                                        .lastKnownTimeZone;
+                                                final _currDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      message.time,
+                                                      _schoolTz,
+                                                    );
+                                                final _prevDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      prevMessage.time,
+                                                      _schoolTz,
+                                                    );
                                                 showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
+                                                    _currDate.year !=
+                                                        _prevDate.year ||
+                                                    _currDate.month !=
+                                                        _prevDate.month ||
+                                                    _currDate.day !=
+                                                        _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1336,13 +1388,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                                final _schoolTz =
+                                                    SchoolTimezoneResolver
+                                                        .lastKnownTimeZone;
+                                                final _currDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      message.time,
+                                                      _schoolTz,
+                                                    );
+                                                final _prevDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      prevMessage.time,
+                                                      _schoolTz,
+                                                    );
                                                 showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
+                                                    _currDate.year !=
+                                                        _prevDate.year ||
+                                                    _currDate.month !=
+                                                        _prevDate.month ||
+                                                    _currDate.day !=
+                                                        _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1711,25 +1776,44 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
   Widget _buildDateChip(DateTime date) {
     final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final schoolDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(date, schoolTz);
-    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(DateTime.now().toUtc(), schoolTz);
+    final schoolDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      date,
+      schoolTz,
+    );
+    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      DateTime.now().toUtc(),
+      schoolTz,
+    );
 
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     String label;
     if (schoolDate.year == now.year &&
         schoolDate.month == now.month &&
         schoolDate.day == now.day) {
-      label = "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     } else if (schoolDate.year == now.year &&
         schoolDate.month == now.month &&
         schoolDate.day == now.day - 1) {
-      label = "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     } else {
-      label = "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     }
 
     return CustomTextWidget(
@@ -2032,9 +2116,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     return '$hour12$separator$minute $period';
   }
-  // String _formatTimeShort(DateTime dt) {
-  //   return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
-  // }
 
   String _formatFullTime(DateTime dt) {
     final now = DateTime.now();

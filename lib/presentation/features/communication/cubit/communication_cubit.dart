@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../domain/features/communication/entities/message.dart';
@@ -22,7 +21,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final EditMessageUseCase editMessageUseCase;
   final ClearMessagesCacheUseCase clearMessagesCacheUseCase;
   final ClearConversationsCacheUseCase clearConversationsCacheUseCase;
-  final List<Timer> _statusTimers = [];
 
   CommunicationCubit({
     required this.getMessagesUseCase,
@@ -258,81 +256,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             activeThreadId: threadId,
           ),
         );
-
-        // --- SIMULATION LOGIC (Moves from UI to Cubit) ---
-
-        // 1. Delivered Status Update after 2 seconds
-        _statusTimers.add(
-          Timer(const Duration(seconds: 2), () {
-            if (isClosed || state is! CommunicationLoaded) return;
-            final s = state as CommunicationLoaded;
-            final t = Map<String, List<Message>>.from(s.threads);
-            final ms = List<Message>.from(t[threadId] ?? []);
-            final i = ms.indexWhere((m) => m.id == sentMessage.id);
-
-            if (i != -1) {
-              ms[i] = Message(
-                id: sentMessage.id,
-                code: sentMessage.code,
-                text: sentMessage.text,
-                isSentByMe: true,
-                time: sentMessage.time,
-                deliveredAt: DateTime.now(),
-                readAt: sentMessage.readAt,
-                editedAt: sentMessage.editedAt,
-                attachments: sentMessage.attachments,
-                quotedMessageId: sentMessage.quotedMessageId,
-                senderName: sentMessage.senderName,
-                receivers: sentMessage.receivers,
-                reactions: sentMessage.reactions,
-              );
-              t[threadId] = ms;
-              emit(s.copyWith(threads: t));
-            }
-          }),
-        );
-
-        // 2. Read Status Update after 7 seconds
-        _statusTimers.add(
-          Timer(const Duration(seconds: 7), () {
-            if (isClosed || state is! CommunicationLoaded) return;
-            final s = state as CommunicationLoaded;
-            final t = Map<String, List<Message>>.from(s.threads);
-            final ms = List<Message>.from(t[threadId] ?? []);
-            final i = ms.indexWhere((m) => m.id == sentMessage.id);
-
-            if (i != -1) {
-              ms[i] = Message(
-                id: sentMessage.id,
-                code: sentMessage.code,
-                text: sentMessage.text,
-                isSentByMe: true,
-                time: sentMessage.time,
-                deliveredAt: ms[i].deliveredAt,
-                readAt: DateTime.now(),
-                editedAt: ms[i].editedAt,
-                attachments: sentMessage.attachments,
-                quotedMessageId: sentMessage.quotedMessageId,
-                senderName: sentMessage.senderName,
-                receivers: sentMessage.receivers,
-                reactions: sentMessage.reactions,
-              );
-              t[threadId] = ms;
-              emit(s.copyWith(threads: t));
-            }
-          }),
-        );
       },
     );
-  }
-
-  @override
-  Future<void> close() {
-    for (final timer in _statusTimers) {
-      timer.cancel();
-    }
-    _statusTimers.clear();
-    return super.close();
   }
 
   Future<void> addReaction(
