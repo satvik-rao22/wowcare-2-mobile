@@ -875,26 +875,42 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                   fontSize: responsive.isTablet ? 18 : 16,
                 ),
                 SizedBox(width: spacing),
+                // Header matches staff_card.dart: name (left) + classroom (right).
                 Expanded(
-                  child: AppText.body(
-                    student.name,
-                    style: TextStyle(
-                      fontSize: responsive.labelFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                SizedBox(width: spacing / 2),
-                Flexible(
-                  child: AppText.body(
-                    'Absent: ${student.absentDays} days',
-                    style: TextStyle(
-                      fontSize: responsive.isTablet ? 15 : 14,
-                      color: AppColors.primaryColor,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          student.name,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          student.roomName,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -904,6 +920,12 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
               Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
               _buildDetailRow(responsive, 'Classroom', student.roomName),
+              SizedBox(height: responsive.isTablet ? 8 : 6),
+              _buildDetailRow(
+                responsive,
+                'Absent Days',
+                '${student.absentDays} days',
+              ),
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(
                 responsive,
@@ -988,16 +1010,29 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       children: [
         Expanded(
           flex: responsive.isTablet ? 2 : 1,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(color: AppColors.secondaryColor.withOpacity(0.6)),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
           ),
         ),
         SizedBox(width: responsive.horizontalSpacing / 2),
         Expanded(
           flex: responsive.isTablet ? 3 : 2,
-          child: AppText.value(
+          child: Text(
             value,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xff573353),
+              height: 19 / 14,
+            ),
             textAlign: TextAlign.end,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,

@@ -454,11 +454,20 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                     code: doc.documentUuid,
                                     highlightCode: widget.highlightCode,
                                     child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.88),
-                                      borderRadius: BorderRadius.circular(14),
-                                      border: Border.all(
-                                        color: AppColors.primaryColor.withOpacity(0.2),
+                                    clipBehavior: Clip.antiAlias,
+                                    // Match the Family/Pickup cards: themeColor outline, square top-left.
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.only(
+                                        topRight: Radius.circular(8),
+                                        bottomLeft: Radius.circular(8),
+                                        bottomRight: Radius.circular(8),
+                                      ),
+                                      border: Border.fromBorderSide(
+                                        BorderSide(
+                                          color: AppColors.themeColor,
+                                          width: 1,
+                                        ),
                                       ),
                                     ),
                                     child: Theme(

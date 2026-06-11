@@ -84,7 +84,8 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+          // Space between the tab bar and the heading/+ row.
+          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
           child: Column(
             children: [
               Padding(
@@ -373,10 +374,17 @@ class _PickupCardState extends State<_PickupCard> {
         return IntrinsicHeight(
           child: Container(
             width: constraints.maxWidth,
-            decoration: BoxDecoration(
+            // Match the Health tab cards: themeColor outline, square top-left.
+            decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
+              borderRadius: BorderRadius.only(
+                topRight: Radius.circular(8),
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(8),
+              ),
+              border: Border.fromBorderSide(
+                BorderSide(color: AppColors.themeColor, width: 1),
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: Column(

@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 
 enum StaffPanelType { attendance, activities, none }
 
@@ -217,7 +218,21 @@ class _AttendanceOptionsPanel extends StatelessWidget {
   final VoidCallback? onAbsent;
   final StaffAttendanceActionAvailability availability;
 
-  static const String _disabledTooltip = 'Please Sign in First';
+  /// Per-action message explaining why an attendance action is disabled —
+  /// mirrors the attendance pop-up. Empty string means "no tooltip".
+  static String _disabledReason(String action) {
+    switch (action) {
+      case 'Sign-In':
+        return 'Sign-In can only be done for Students/Staff not signed in.';
+      case 'Sign-Out':
+        return 'Sign-Out can only be done for Students/Staff already signed in.';
+      case 'Transfer':
+        return 'Transfer can only be done for Students/Staff already signed in.';
+      case 'Absent':
+        return 'Absent can only be done for Students/Staff not yet signed in.';
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,7 +260,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
             label: 'Sign-In',
             onTap: availability.signInEnabled ? onSignIn : null,
             isEnabled: availability.signInEnabled,
-            disabledTooltip: _disabledTooltip,
+            disabledTooltip: _disabledReason('Sign-In'),
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
@@ -253,7 +268,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
             label: 'Sign-Out',
             onTap: availability.signOutEnabled ? onSignOut : null,
             isEnabled: availability.signOutEnabled,
-            disabledTooltip: _disabledTooltip,
+            disabledTooltip: _disabledReason('Sign-Out'),
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
@@ -261,7 +276,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
             label: 'Transfer',
             onTap: availability.transferEnabled ? onTransfer : null,
             isEnabled: availability.transferEnabled,
-            disabledTooltip: _disabledTooltip,
+            disabledTooltip: _disabledReason('Transfer'),
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
@@ -269,7 +284,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
             label: 'Absent',
             onTap: availability.absentEnabled ? onAbsent : null,
             isEnabled: availability.absentEnabled,
-            disabledTooltip: _disabledTooltip,
+            disabledTooltip: _disabledReason('Absent'),
           ),
         ],
       ),
@@ -346,12 +361,8 @@ class _AttendanceActionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double opacity = isEnabled ? 1.0 : 0.45;
-    return Tooltip(
+    return AppTooltip(
       message: !isEnabled ? disabledTooltip : '',
-      preferBelow: false,
-      triggerMode: TooltipTriggerMode.tap,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      showDuration: const Duration(seconds: 5),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Opacity(
@@ -407,12 +418,8 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double opacity = isEnabled ? 1.0 : 0.5;
-    return Tooltip(
+    return AppTooltip(
       message: !isEnabled ? disabledTooltip : '',
-      preferBelow: false,
-      triggerMode: TooltipTriggerMode.tap,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      showDuration: const Duration(seconds: 5),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Opacity(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 
 typedef StaffAttendanceActionTap = void Function(String actionLabel);
 
@@ -10,6 +11,11 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
   final VoidCallback refreshCallback;
   final StaffAttendanceActionTap? onActionTap;
   final Set<String> disabledActions;
+
+  /// Optional per-action tooltip messages explaining why an action is
+  /// disabled, keyed by action label ('Sign-in', 'Sign-Out', 'Transfer',
+  /// 'Absent'). Shown when the user taps a disabled action.
+  final Map<String, String> disabledReasons;
   final double? topPosition;
   final double? leftPosition;
   final double? rightPosition;
@@ -21,6 +27,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
     required this.refreshCallback,
     this.onActionTap,
     this.disabledActions = const <String>{},
+    this.disabledReasons = const <String, String>{},
     this.topPosition,
     this.leftPosition,
     this.rightPosition,
@@ -63,6 +70,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
             refreshCallback: refreshCallback,
             onActionTap: onActionTap,
             disabledActions: disabledActions,
+            disabledReasons: disabledReasons,
           ),
         );
       },
@@ -99,6 +107,11 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
   final VoidCallback refreshCallback;
   final StaffAttendanceActionTap? onActionTap;
   final Set<String> disabledActions;
+
+  /// Optional per-action tooltip messages explaining why an action is
+  /// disabled, keyed by action label ('Sign-in', 'Sign-Out', 'Transfer',
+  /// 'Absent'). Shown when the user taps a disabled action.
+  final Map<String, String> disabledReasons;
   final double? topPosition;
   final double? leftPosition;
   final double? rightPosition;
@@ -110,6 +123,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
     required this.refreshCallback,
     this.onActionTap,
     this.disabledActions = const <String>{},
+    this.disabledReasons = const <String, String>{},
     this.topPosition,
     this.leftPosition,
     this.rightPosition,
@@ -147,7 +161,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
 
   Widget _buildMenuItem(BuildContext context, String svgPath, String label) {
     final isDisabled = disabledActions.contains(label);
-    return InkWell(
+    final Widget item = InkWell(
       onTap: isDisabled
           ? null
           : () {
@@ -178,6 +192,13 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
         ],
       ),
     );
+
+    final reason = disabledReasons[label];
+    if (!isDisabled || reason == null || reason.isEmpty) {
+      return item;
+    }
+    // Disabled action: tapping the greyed-out item reveals why it is blocked.
+    return AppTooltip(message: reason, child: item);
   }
 }
 

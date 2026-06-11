@@ -101,7 +101,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
 
   Future<void> _openEdit(BuildContext context) async {
     final role = context.read<RoleCubit>();
-    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student) ||
+        role.isStaff) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
@@ -126,7 +127,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
-    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return Stack(
@@ -199,10 +201,17 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
+                // Match the Family/Pickup cards: themeColor outline, square top-left.
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: AppColors.cardBorderColor, width: 1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                  border: Border.fromBorderSide(
+                    BorderSide(color: AppColors.themeColor, width: 1),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

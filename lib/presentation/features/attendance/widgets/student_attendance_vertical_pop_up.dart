@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_mark_absent_form.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 
 typedef StudentAttendanceActionTap = void Function(String actionLabel);
@@ -16,6 +17,11 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
   final VoidCallback refreshCallback;
   final StudentAttendanceActionTap? onActionTap;
   final Set<String> disabledActions;
+
+  /// Optional per-action tooltip messages explaining why an action is
+  /// disabled, keyed by action label ('Sign-in', 'Sign-Out', 'Transfer',
+  /// 'Absent'). Shown when the user taps a disabled action.
+  final Map<String, String> disabledReasons;
   final double? topPosition;
   final double? leftPosition;
   final double? rightPosition;
@@ -27,6 +33,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     required this.refreshCallback,
     this.onActionTap,
     this.disabledActions = const <String>{},
+    this.disabledReasons = const <String, String>{},
     this.topPosition,
     this.leftPosition,
     this.rightPosition,
@@ -39,8 +46,15 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     final isStudentAttendanceAllowed =
         AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
     final activeDisabledActions = Set<String>.from(disabledActions);
+    final activeReasons = Map<String, String>.from(disabledReasons);
     if (!isStudentAttendanceAllowed) {
-      activeDisabledActions.addAll(const ['Sign-in', 'Sign-Out']);
+      // STAFF persona that has not completed self sign-in: block every action
+      // and explain why. This reason takes precedence over status-based ones.
+      for (final action in const ['Sign-in', 'Sign-Out', 'Transfer', 'Absent']) {
+        activeDisabledActions.add(action);
+        activeReasons[action] =
+            AttendancePermissionService.staffSelfSignInRequiredMessage;
+      }
     }
 
     // Use the shared GradientAddButton for consistent FAB styling.
@@ -51,13 +65,17 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     final bool isLargeTablet = screenWidth >= 900;
 
     return GradientAddButton(
-      onTap: () => _showActionMenu(context, activeDisabledActions),
+      onTap: () => _showActionMenu(context, activeDisabledActions, activeReasons),
       isTablet: isTablet,
       isLargeTablet: isLargeTablet,
     );
   }
 
-  void _showActionMenu(BuildContext context, Set<String> activeDisabledActions) {
+  void _showActionMenu(
+    BuildContext context,
+    Set<String> activeDisabledActions,
+    Map<String, String> activeReasons,
+  ) {
     final screenWidth = MediaQuery.of(context).size.width;
     final bool isTablet = screenWidth >= 600;
     final bool isLargeTablet = screenWidth >= 900;
@@ -97,13 +115,13 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in', activeDisabledActions),
+                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in', activeDisabledActions, activeReasons),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out', activeDisabledActions),
+                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out', activeDisabledActions, activeReasons),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.transfer, 'Transfer', activeDisabledActions),
+                  _buildMenuItem(context, MediaRes.transfer, 'Transfer', activeDisabledActions, activeReasons),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent', activeDisabledActions),
+                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent', activeDisabledActions, activeReasons),
                 ],
               ),
             ),
@@ -113,9 +131,9 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, String svgPath, String label, Set<String> activeDisabledActions) {
+  Widget _buildMenuItem(BuildContext context, String svgPath, String label, Set<String> activeDisabledActions, Map<String, String> activeReasons) {
     final isDisabled = activeDisabledActions.contains(label);
-    return InkWell(
+    final Widget item = InkWell(
       onTap: isDisabled
           ? null
           : () {
@@ -150,6 +168,13 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
         ],
       ),
     );
+
+    final reason = activeReasons[label];
+    if (!isDisabled || reason == null || reason.isEmpty) {
+      return item;
+    }
+    // Disabled action: tapping the greyed-out item reveals why it is blocked.
+    return AppTooltip(message: reason, child: item);
   }
 
   void _navigateToForm(BuildContext context, String label) {

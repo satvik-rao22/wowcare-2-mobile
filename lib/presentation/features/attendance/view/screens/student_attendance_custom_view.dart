@@ -647,6 +647,45 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     );
   }
 
+  /// Expanded-card detail row styled exactly like staff_card.dart:
+  /// label 13/w400 and value 14/w500, both Manrope in Color(0xff573353).
+  Widget _buildCustomDetailRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xff573353),
+              height: 19 / 14,
+            ),
+            textAlign: TextAlign.end,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCustomStudentCard(_CustomAttendanceRow attendance, int index) {
     final responsive = ResponsiveHelper(context);
     final bool isExpanded = _customExpandedStudentIndex == index;
@@ -699,24 +738,42 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                   ],
                 ),
                 const SizedBox(width: 14),
+                // Header matches staff_card.dart: name (left) + classroom (right).
                 Expanded(
-                  child: AppText.body(
-                    studentName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                AppText.body(
-                  'Attended Days : $daysAttended',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: AppColors.primaryColor,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          studentName,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          roomName,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -725,35 +782,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppText.small(
-                      'Classroom',
-                      style: TextStyle(color: AppColors.secondaryColor),
-                    ),
-                  ),
-                  Expanded(
-                    child: AppText.value(
-                      roomName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                    ),
-                  ),
-                ],
-              ),
+              _buildCustomDetailRow('Attended Days', daysAttended),
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  AppText.small(
-                    'Attended Time',
-                    style: TextStyle(color: AppColors.secondaryColor),
-                  ),
-                  const Spacer(),
-                  AppText.value(totalHours),
-                ],
-              ),
+              _buildCustomDetailRow('Attended Time', totalHours),
               SizedBox(height: responsive.verticalSpacing / 1.2),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),

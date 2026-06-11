@@ -92,6 +92,20 @@ abstract class StaffRepository {
     required Map<String, dynamic> fields,
   });
 
+  /// Updates a staff member's allowed classrooms via
+  /// `PATCH /api/v1/staff-classrooms/{staffCode}/allowed-classrooms`.
+  Future<String> updateStaffAllowedClassrooms({
+    required String staffCode,
+    required List<String> classroomCodes,
+  });
+
+  /// Updates a staff member's primary classroom via
+  /// `PATCH /api/v1/staff-classrooms/{staffCode}/primary-classroom`.
+  Future<String> updateStaffPrimaryClassroom({
+    required String staffCode,
+    required String classroomCode,
+  });
+
   /// Updates the *logged-in* staff member's basic profile + address via
   /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}`.
   ///
@@ -195,6 +209,14 @@ abstract class StaffRepository {
   });
 
   Future<String> deactivateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  });
+
+  /// Permanently deletes a school user via `DELETE /api/v1/school-users`.
+  Future<String> deleteSchoolUser({
     required String userCode,
     required String organizationCode,
     required String schoolCode,

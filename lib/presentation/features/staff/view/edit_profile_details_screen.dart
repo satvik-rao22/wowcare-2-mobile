@@ -572,6 +572,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           .map((name) => _classroomCodeByName[name] ?? name)
           .toList();
 
+      // Classrooms are updated via dedicated /staff-classrooms endpoints below;
+      // the /profile endpoint ignores them, so we don't send them here.
       final profilePayload = <String, dynamic>{
         'firstName': first,
         'lastName': last,
@@ -580,8 +582,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         'designation': designationApi,
         if (jobTagApi != null) 'jobTag': jobTagApi,
         if (birthDateApi != null) 'birthdate': birthDateApi,
-        'primaryClassroomCode': primaryClassroomCode,
-        'allowedClassroomCodes': allowedClassroomCodes,
       };
 
       // Map selected state/country display names back to codes for API.
@@ -636,6 +636,22 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         staffCode: widget.staffCode,
         fields: profilePayload,
       );
+
+      // Classrooms have dedicated endpoints (the /profile PATCH ignores them).
+      // Update allowed classrooms first so the primary is valid within the set,
+      // then update the primary classroom.
+      if (allowedClassroomCodes.isNotEmpty) {
+        await repository.updateStaffAllowedClassrooms(
+          staffCode: widget.staffCode,
+          classroomCodes: allowedClassroomCodes,
+        );
+      }
+      if (primaryClassroomCode != null && primaryClassroomCode.isNotEmpty) {
+        await repository.updateStaffPrimaryClassroom(
+          staffCode: widget.staffCode,
+          classroomCode: primaryClassroomCode,
+        );
+      }
 
       // Then update address via dedicated endpoint
       final addressMessage = await repository.updateStaffAddress(
@@ -998,7 +1014,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                         Stack(
                           children: [
                             Opacity(
-                              opacity: _isAdminSelected ? 0.7 : 1.0,
+                              opacity: 1.0,
                               child: CustomDropdown(
                                 label: "Primary Classroom",
                                 hintText: 'Select',
@@ -1006,7 +1022,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                     ? []
                                     : _selectedAllowedClassrooms,
                                 selectedItem: _selectedPrimaryClassroom,
-                                isEnabled: !_isAdminSelected,
+                                isEnabled: true,
                                 labelStyle: TextStyle(
                                   fontSize: responsive.labelFontSize,
                                   fontFamily: "Manrope",
@@ -1022,9 +1038,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                   fontFamily: 'Manrope',
                                   fontSize: responsive.inputFontSize,
                                   fontWeight: FontWeight.w600,
-                                  color: _isAdminSelected
-                                      ? Colors.grey.shade600
-                                      : const Color(0xff573353),
+                                  color: const Color(0xff573353),
                                   height: 19 / 14,
                                 ),
                                 popupItemTextStyle: TextStyle(
@@ -1039,10 +1053,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                   vertical:
                                       responsive.isTablet ? 16.0 : 12.0,
                                 ),
-                                onSelect: _isAdminSelected
-                                    ? null
-                                    : (val) =>
-                                        setState(() => _selectedPrimaryClassroom = val),
+                                onSelect: (val) =>
+                                    setState(() => _selectedPrimaryClassroom = val),
                               ),
                             ),
                             if (_selectedAllowedClassrooms.isEmpty && !_isAdminSelected)

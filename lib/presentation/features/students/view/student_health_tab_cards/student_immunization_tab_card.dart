@@ -375,7 +375,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canMutateStudent =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
 
     return CustomRefreshIndicator(
       onRefresh: () async {
