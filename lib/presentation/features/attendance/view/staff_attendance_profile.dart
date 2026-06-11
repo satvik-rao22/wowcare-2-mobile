@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -463,9 +465,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   /// without them (notification deep-link). No-op for normal navigation that
   /// already supplied [staffName].
   Future<void> _ensureHeaderIdentityLoaded() async {
-    if (widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-') {
-      return;
-    }
+    final hasName =
+        widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-';
+    final hasClassroom = (staff?.roomName ?? widget.roomName).trim().isNotEmpty;
+    // Skip the fetch only when both the name and the primary classroom name
+    // (shown in the header) are already available.
+    if (hasName && hasClassroom) return;
     final code = widget.staffCode.trim();
     if (code.isEmpty) return;
     try {
@@ -955,6 +960,18 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     );
   }
 
+  /// Cleans an enum-style designation from the API into a human label, e.g.
+  /// "ASSISTANT_TEACHER" -> "Assistant Teacher", "DIRECTOR" -> "Director".
+  String _formatDesignation(String? value) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return '-';
+    return raw
+        .split(RegExp(r'[_\s]+'))
+        .where((p) => p.isNotEmpty)
+        .map((p) => p[0].toUpperCase() + p.substring(1).toLowerCase())
+        .join(' ');
+  }
+
   Widget _buildStaffCard() {
     if (staff == null) return const SizedBox.shrink();
 
@@ -1004,17 +1021,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      if (currentStaff.designationName != null) ...[
+                      // Staff persona: show the primary classroom name.
+                      // Admin persona: show the designation, cleaned up
+                      // (e.g. ASSISTANT_TEACHER -> Assistant Teacher) instead
+                      // of the raw enum value from the API.
+                      if (context.read<RoleCubit>().isStaff)
                         AppText.body(
-                          currentStaff.designationName!,
+                          currentStaff.roomName,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        )
+                      else
+                        AppText.body(
+                          _formatDesignation(currentStaff.designationName),
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
-                        const SizedBox(height: 4),
-                      ],
-                      AppText.body(
-                        currentStaff.roomName,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
                     ],
                   ),
                 ),
