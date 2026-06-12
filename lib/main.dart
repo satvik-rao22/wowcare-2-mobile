@@ -53,8 +53,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
         message.data['body']?.toString() ?? 'You have a new notification';
     AppLogger.d('[FCM] Background data-only → showing local notif "$title"');
 
-    const channelId = 'push_background_channel';
-    const channelName = 'Background Notifications';
+    // Keep in sync with GeofenceNotificationService.pushChannelId / the
+    // AndroidManifest's default_notification_channel_id so every push uses one
+    // audible, high-importance channel.
+    const channelId = 'wowcare_alerts_v2';
+    const channelName = 'WowCare Notifications';
 
     final plugin = FlutterLocalNotificationsPlugin();
     await plugin.initialize(
@@ -72,6 +75,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
             channelId,
             channelName,
             importance: Importance.high,
+            enableVibration: true,
+            playSound: true,
           ),
         );
     await plugin.show(
@@ -169,9 +174,11 @@ Future<void> main() async {
           >()
           ?.createNotificationChannel(
             const AndroidNotificationChannel(
-              'push_background_channel',
-              'Background Notifications',
+              'wowcare_alerts_v2',
+              'WowCare Notifications',
               importance: Importance.high,
+              enableVibration: true,
+              playSound: true,
             ),
           );
     } catch (_) {
