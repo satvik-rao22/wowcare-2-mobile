@@ -20,11 +20,11 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
@@ -89,6 +89,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   String _searchQuery = '';
   Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
+  List<String>? _selectedClassroomCodes;
   List<String> _selectedTagNames = <String>[];
   List<String> _availableTagNames = <String>[];
   Map<String, String> _tagNameToCode = <String, String>{};
@@ -152,7 +153,8 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
-      onlyTypeClassroom: true,
+      // Match custom/daily: include all location types for reliable name→code mapping.
+      onlyTypeClassroom: false,
       applyAttendanceStaffScope: true,
     );
 
@@ -161,7 +163,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
-        _loadAbsentStudents(reset: true);
+        _syncClassroomFilterCodes();
+        if (_selectedClassroomCodes != null) {
+          _loadAbsentStudents(reset: true);
+        }
       }
       return;
     }
@@ -178,7 +183,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
           _classroomCubit.state.classrooms.isNotEmpty;
     });
     if (hadClassroomSelection && _isClassroomDataReady) {
-      _loadAbsentStudents(reset: true);
+      _syncClassroomFilterCodes();
+      if (_selectedClassroomCodes != null) {
+        _loadAbsentStudents(reset: true);
+      }
     }
   }
 
@@ -303,26 +311,27 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       _loadAbsentStudents(reset: true);
   }
 
-  List<String>? _resolveSelectedClassroomCodes() {
-    if (_selectedClassroomNames.isEmpty) return null;
-    if (_classroomCubit.state.classrooms.isEmpty) return null;
-    final nameToCode = <String, String>{
-      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-    };
-    final knownCodes = {
-      for (final c in _classroomCubit.state.classrooms) c.code.trim(),
-    };
-    final codes = <String>[];
-    for (final selected in _selectedClassroomNames) {
-      final trimmed = selected.trim();
-      final fromName = nameToCode[selected]?.trim();
-      if (fromName != null && fromName.isNotEmpty) {
-        codes.add(fromName);
-      } else if (knownCodes.contains(trimmed)) {
-        codes.add(trimmed);
-      }
+  void _syncClassroomFilterCodes() {
+    _selectedClassroomCodes = resolveClassroomNamesToCodes(
+      selectedNamesOrCodes: _selectedClassroomNames,
+      classrooms: _classroomCubit.state.classrooms,
+    );
+  }
+
+  List<String>? _effectiveClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) {
+      _selectedClassroomCodes = null;
+      return null;
     }
-    return codes.isEmpty ? null : codes;
+    _syncClassroomFilterCodes();
+    return _selectedClassroomCodes;
+  }
+
+  void _reloadIfPendingClassroomFilter() {
+    if (_selectedClassroomNames.isEmpty) return;
+    _syncClassroomFilterCodes();
+    if (_selectedClassroomCodes == null) return;
+    _loadAbsentStudents(reset: true);
   }
 
   List<String>? _resolveSelectedTagCodes() {
@@ -357,22 +366,31 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     if (!reset) {
       final from = _rangeStart ?? DateTime.now();
       final to = _rangeEnd ?? DateTime.now();
-      final classroomCodes = _resolveSelectedClassroomCodes();
+      final classroomCodes = _effectiveClassroomCodes();
+      final tagCodes = _resolveSelectedTagCodes();
       final trimmedSearch = _searchQuery.trim();
-      final cacheKey = _studentAttendanceAbsentCacheKey(
-        from,
-        to,
-        classroomCodes: classroomCodes,
-        search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
-      );
+      final hasActiveFilters =
+          (classroomCodes != null && classroomCodes.isNotEmpty) ||
+              (tagCodes != null && tagCodes.isNotEmpty) ||
+              trimmedSearch.isNotEmpty;
 
-      final cachedPayload = await _cacheManager.loadCache(cacheKey);
-      if (cachedPayload != null) {
-        _applyPagePayload(
-          cachedPayload,
-          reset: true,
+      if (!hasActiveFilters) {
+        final cacheKey = _studentAttendanceAbsentCacheKey(
+          from,
+          to,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
         );
-        return;
+
+        final cachedPayload = await _cacheManager.loadCache(cacheKey);
+        if (cachedPayload != null) {
+          _applyPagePayload(
+            cachedPayload,
+            reset: true,
+          );
+          return;
+        }
       }
     }
 
@@ -413,39 +431,32 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final classroomCodes = _resolveSelectedClassroomCodes();
+    final classroomCodes = _effectiveClassroomCodes();
+    if (_selectedClassroomNames.isNotEmpty && classroomCodes == null) {
+      setState(() {
+        _isInitialLoadingStudents = false;
+        _isLoadingStudents = false;
+        isLoading = false;
+      });
+      return;
+    }
+
     final tagCodes = _resolveSelectedTagCodes();
 
-    final queryParameters = <String, dynamic>{
-      'fromAbsenceDate': fromStr,
-      'toAbsenceDate': toStr,
-      'page': _studentsPage,
-      'size': _pageSize,
-      'sort': <String>['studentName,asc'],
-    };
-
-    if (classroomCodes != null && classroomCodes.isNotEmpty) {
-      queryParameters['classroomCodes'] = classroomCodes;
-    }
-    if (tagCodes != null && tagCodes.isNotEmpty) {
-      queryParameters['tagCodes'] = tagCodes;
-    }
-
     final trimmedSearch = _searchQuery.trim();
-    if (trimmedSearch.isNotEmpty) {
-      queryParameters['search'] = trimmedSearch;
-    }
-
-    final allowedClassroomCodes =
-        await resolveAttendanceAllowedClassroomCodes(
-      storage: serviceLocator<StorageService>(),
-    );
-    queryParameters['allowedClassroomCodes'] =
-        List<String>.from(allowedClassroomCodes);
 
     try {
       final data = await serviceLocator<AttendanceRepository>()
-          .fetchStudentAttendanceAbsentView(queryParameters: queryParameters);
+          .getStudentAttendanceAbsentView(
+        fromAbsenceDate: fromStr,
+        toAbsenceDate: toStr,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+        page: _studentsPage,
+        size: _pageSize,
+        sort: const <String>['studentName,asc'],
+      );
 
       if (!mounted) return;
 
@@ -469,6 +480,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
           from,
           to,
           classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
           search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
         );
         await _cacheManager.saveCache(cacheKey, root);
@@ -505,6 +517,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     DateTime from,
     DateTime to, {
     List<String>? classroomCodes,
+    List<String>? tagCodes,
     String? search,
   }) {
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
@@ -514,6 +527,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       parts.add('classrooms=${classroomCodes.join(',')}');
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      parts.add('tags=${tagCodes.join(',')}');
     }
 
     final searchKey = (search ?? '').trim().toLowerCase();
@@ -645,7 +662,12 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final contentPadding = ResponsiveSizing.contentPadding(context);
     final filtered = _absentStudents;
 
-    return CustomRefreshIndicator(
+    return BlocListener<ClassroomCubit, ClassroomState>(
+      bloc: _classroomCubit,
+      listenWhen: (previous, current) =>
+          previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
+      listener: (_, __) => _reloadIfPendingClassroomFilter(),
+      child: CustomRefreshIndicator(
       onRefresh: _handleRefresh,
       child: SingleChildScrollView(
         controller: _scrollController,
@@ -700,6 +722,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                               setState(() {
                                 _searchController.clear();
                                 _selectedClassroomNames = <String>[];
+                                _selectedClassroomCodes = null;
                                 _selectedTagNames = <String>[];
                                 // Reset to current month
                                 final now = DateTime.now();
@@ -731,10 +754,14 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                               items: items,
                               selectedItems: _selectedClassroomNames,
                               onChanged: (values) {
-                                if (isLoading) return;
                                 setState(() {
                                   _selectedClassroomNames = List<String>.from(values);
+                                  _syncClassroomFilterCodes();
                                 });
+                                if (_selectedClassroomNames.isNotEmpty &&
+                                    _selectedClassroomCodes == null) {
+                                  return;
+                                }
                                 _loadAbsentStudents(reset: true);
                               },
                             );
@@ -839,6 +866,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
           ],
         ),
       ),
+    ),
     );
   }
 

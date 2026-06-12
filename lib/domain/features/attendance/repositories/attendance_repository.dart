@@ -415,6 +415,18 @@ abstract class AttendanceRepository {
   Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
     required Map<String, dynamic> queryParameters,
   });
+
+  /// GET student absent view with classroom filter + allowed scope applied.
+  Future<Map<String, dynamic>?> getStudentAttendanceAbsentView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
