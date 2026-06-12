@@ -326,6 +326,23 @@ import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
 import '../../data/services/file_download_service.dart';
 import '../../data/features/reports/repositories/file_download_repository.dart';
+import '../../data/features/billing/datasources/ledger_remote_datasource.dart';
+import '../../data/features/billing/datasources/ledger_transaction_remote_datasource.dart';
+import '../../data/features/billing/repositories/ledger_repository_impl.dart';
+import '../../data/features/billing/repositories/ledger_transaction_repository_impl.dart';
+import '../../domain/features/billing/repositories/ledger_repository.dart';
+import '../../domain/features/billing/repositories/ledger_transaction_repository.dart';
+import '../../domain/features/billing/usecases/get_ledgers_usecase.dart';
+import '../../domain/features/billing/usecases/create_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/get_ledger_by_code_usecase.dart';
+import '../../domain/features/billing/usecases/delete_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/update_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/deactivate_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/reactivate_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/get_ledger_transactions_usecase.dart';
+import '../../domain/features/billing/usecases/add_ledger_transaction_usecase.dart';
+import '../../presentation/features/billing/cubit/general_ledger_cubit.dart';
+import '../../presentation/features/billing/cubit/ledger_detail_cubit.dart';
 
 
 final GetIt serviceLocator = GetIt.instance;
@@ -1706,6 +1723,67 @@ Future<void> configureDependencies({String? baseUrl}) async {
       attendanceRepository: serviceLocator(),
       storageService: serviceLocator(),
       apiClient: serviceLocator(),
+    ),
+  );
+
+  // ── Billing ───────────────────────────────────────────────────────────────
+  serviceLocator.registerLazySingleton<LedgerRemoteDataSource>(
+    () => LedgerRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<LedgerRepository>(
+    () => LedgerRepositoryImpl(serviceLocator<LedgerRemoteDataSource>()),
+  );
+  serviceLocator.registerLazySingleton<LedgerTransactionRemoteDataSource>(
+    () => LedgerTransactionRemoteDataSourceImpl(
+        serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<LedgerTransactionRepository>(
+    () => LedgerTransactionRepositoryImpl(
+        serviceLocator<LedgerTransactionRemoteDataSource>()),
+  );
+  serviceLocator.registerFactory<GetLedgersUseCase>(
+    () => GetLedgersUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<CreateLedgerUseCase>(
+    () => CreateLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<GetLedgerByCodeUseCase>(
+    () => GetLedgerByCodeUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<DeleteLedgerUseCase>(
+    () => DeleteLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<UpdateLedgerUseCase>(
+    () => UpdateLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<DeactivateLedgerUseCase>(
+    () => DeactivateLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<ReactivateLedgerUseCase>(
+    () => ReactivateLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<GetLedgerTransactionsUseCase>(
+    () => GetLedgerTransactionsUseCase(
+        serviceLocator<LedgerTransactionRepository>()),
+  );
+  serviceLocator.registerFactory<AddLedgerTransactionUseCase>(
+    () => AddLedgerTransactionUseCase(
+        serviceLocator<LedgerTransactionRepository>()),
+  );
+  serviceLocator.registerFactory<GeneralLedgerCubit>(
+    () => GeneralLedgerCubit(
+      getLedgersUseCase: serviceLocator<GetLedgersUseCase>(),
+      deleteLedgerUseCase: serviceLocator<DeleteLedgerUseCase>(),
+      deactivateLedgerUseCase: serviceLocator<DeactivateLedgerUseCase>(),
+      reactivateLedgerUseCase: serviceLocator<ReactivateLedgerUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<LedgerDetailCubit>(
+    () => LedgerDetailCubit(
+      getTransactionsUseCase: serviceLocator<GetLedgerTransactionsUseCase>(),
+      addTransactionUseCase: serviceLocator<AddLedgerTransactionUseCase>(),
+      getLedgerByCodeUseCase: serviceLocator<GetLedgerByCodeUseCase>(),
     ),
   );
 }

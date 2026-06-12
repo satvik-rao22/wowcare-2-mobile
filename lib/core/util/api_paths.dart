@@ -234,6 +234,9 @@ class ApiPaths {
         return ApiMicroservices.notification;
       case 'kiosk':
         return ApiMicroservices.attendance;
+      case 'ledgers':
+      case 'ledger-transactions':
+        return ApiMicroservices.billing;
       default:
         return ApiMicroservices.user;
     }
@@ -839,4 +842,19 @@ class ApiPaths {
       '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/click';
   static const String notificationLogsReadAll =
       '/api/v1/notification/logs/read-all';
+
+  // —— Billing MS ——
+  static const String ledgers = '/api/v1/ledgers';
+  static String ledgerByCode(String code) =>
+      '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}';
+  static String ledgerDeactivate(String code) =>
+      '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}/deactivate';
+  static String ledgerReactivate(String code) =>
+      '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}/reactivate';
+
+  static String ledgerEntries(String code) =>
+      '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}/entries';
+
+  // —— Ledger Transactions (Billing MS) ——
+  static const String ledgerTransactions = '/api/v1/ledger-transactions';
 }

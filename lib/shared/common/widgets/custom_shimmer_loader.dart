@@ -2257,6 +2257,59 @@ class StudentDocumentsListShimmer extends StatelessWidget {
 }
 
 // ============================================================================
+// Billing / General Ledger shimmers
+// ============================================================================
+
+/// Shimmer placeholder matching the collapsed [LedgerCard] layout:
+/// white bordered card (minHeight 60) with a header name line.
+class LedgerCardShimmer extends StatelessWidget {
+  const LedgerCardShimmer({super.key, this.margin});
+
+  final EdgeInsets? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.symmetric(vertical: 6),
+        constraints: const BoxConstraints(minHeight: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE9ECEF)),
+        ),
+        child: Center(
+          child: Container(
+            height: 14,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A column of [LedgerCardShimmer] rows used for the initial ledger list load.
+class LedgerListShimmer extends StatelessWidget {
+  const LedgerListShimmer({super.key, this.rowCount = 6});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(rowCount, (_) => const LedgerCardShimmer()),
+    );
+  }
+}
+
+// ============================================================================
 // Staff Profile screen shimmers
 //
 // Mirror the student shimmers: static card shells (background/border do not

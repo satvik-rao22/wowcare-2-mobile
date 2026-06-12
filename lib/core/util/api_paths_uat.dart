@@ -21,6 +21,8 @@ class ApiPathsUat {
     // UAT gateway uses singular `newsletter` (constant value is `newslatter`).
     'newsletter',
     // Communication
+    // Billing MS — UAT segment is `accounts`.
+    'accounts',
   };
 
   static const Map<String, Set<String>> _resourceRootsByMicroservice = {
@@ -77,6 +79,8 @@ class ApiPathsUat {
 
     // Newsletter MS — resource root is plural `newsletters`.
     ApiMicroservices.newsLatter: {'newsletters'},
+    // Billing MS — UAT segment `accounts`, resource roots.
+    ApiMicroservices.billing: {'ledgers', 'ledger-transactions'},
   };
 
   static String _uatSegmentForMicroservice(String microserviceKey) {
@@ -84,6 +88,8 @@ class ApiPathsUat {
     if (microserviceKey == ApiMicroservices.activity) return 'activities';
     // UAT gateway uses singular `newsletter` (constant value is `newslatter`).
     if (microserviceKey == ApiMicroservices.newsLatter) return 'newsletter';
+    // UAT gateway uses `accounts` for the billing microservice.
+    if (microserviceKey == ApiMicroservices.billing) return 'accounts';
     return microserviceKey;
   }
 
@@ -166,6 +172,10 @@ class ApiPathsUat {
         return ApiMicroservices.notification;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
+      case 'ledgers':
+      case 'accounts':
+      case 'ledger-transactions':
+        return ApiMicroservices.billing;
       case 'admin':
         // v2 activity moderation endpoints:
         // /api/v2/admin/activities/{cardGroupCode}/approve|reject

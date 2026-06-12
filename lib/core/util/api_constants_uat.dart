@@ -41,11 +41,14 @@ class ApiConstantsUat {
   static const String attendanceBaseUrl = _host;
   static const String documentMsBaseUrl = _host;
   static const String communicationBaseUrl = _host;
+  static const String billingBaseUrl = _host;
 
   // ─── Microservice router ───────────────────────────────────────────────────
 
   static String baseUrlForMicroservice(String microserviceKey) {
     switch (microserviceKey) {
+      case 'billing':
+        return billingBaseUrl;
       case ApiMicroservicesUat.user:
         return baseUrl;
       case ApiMicroservicesUat.organization:

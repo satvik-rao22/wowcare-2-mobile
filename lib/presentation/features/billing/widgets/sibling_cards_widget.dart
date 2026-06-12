@@ -33,7 +33,7 @@ class SiblingCardsWidget extends StatelessWidget {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: BorderSide(
-            color: AppColors.primaryColor.withValues(alpha: 0.1),
+            color: AppColors.cardBorderColor,
           ),
         ),
         child: Padding(
@@ -73,7 +73,7 @@ class SiblingCardsWidget extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: AppTextStyles.value.copyWith(
-                                color: AppColors.primaryColor,
+                                color: const Color(0xff573353),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -85,7 +85,7 @@ class SiblingCardsWidget extends StatelessWidget {
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTextStyles.value.copyWith(
                                   fontSize: 12,
-                                  color: AppColors.primaryColor.withValues(alpha: 0.8),
+                                  color: const Color(0xff573353),
                                 ),
                               ),
                           ],
@@ -116,7 +116,7 @@ class SiblingCardsWidget extends StatelessWidget {
                           'Current\nBalance',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.title.copyWith(
-                            color: AppColors.primaryColor.withValues(alpha: 0.8),
+                            color: const Color(0xff573353),
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),

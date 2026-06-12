@@ -139,6 +139,12 @@ class _DeleteConfirmationBottomSheetState
         ? (widget.name.isEmpty
               ? 'Do you want to delete this entire shift series?'
               : 'Do you want to delete the entire shift series for\n"${widget.name}" ?')
+        : widget.type == 'ledger_deactivate'
+        ? 'Do you want to deactivate this Ledger -\n"${widget.name}" ?'
+        : widget.type == 'ledger_reactivate'
+        ? 'Do you want to reactivate this Ledger -\n"${widget.name}" ?'
+        : widget.type == 'ledger_delete'
+        ? 'Do you want to delete this Ledger -\n"${widget.name}" ?'
         : '';
 
     String buttonText = widget.type == 'complete_purchase'
@@ -146,11 +152,15 @@ class _DeleteConfirmationBottomSheetState
         : widget.type == 'Activity'
         ? 'Delete'
         : (widget.type == 'staff_deactivate' ||
-              widget.type == 'student_deactivate')
+              widget.type == 'student_deactivate' ||
+              widget.type == 'ledger_deactivate')
         ? 'Deactivate'
         : (widget.type == 'staff_reactivate' ||
-              widget.type == 'student_reactivate')
+              widget.type == 'student_reactivate' ||
+              widget.type == 'ledger_reactivate')
         ? 'Reactivate'
+        : widget.type == 'ledger_delete'
+        ? 'Delete'
         : widget.type == 'order_purchase'
         ? 'Mark as Ordered'
         : widget.type == 'reject_request'

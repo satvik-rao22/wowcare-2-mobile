@@ -16,6 +16,7 @@ abstract final class ApiMicroservices {
   static const String communication = 'communication';
   static const String newsLatter = 'newslatter';
   static const String notification = 'notification';
+  static const String billing = 'billing';
 }
 
 class ApiConstants {
@@ -99,6 +100,11 @@ class ApiConstants {
       ? ApiConstantsUat.notificationBaseUrl
       : 'https://fitten-vallie-forthrightly.ngrok-free.dev';
 
+  /// Billing MS  (LOCAL: 8090 | UAT: gateway)
+  /// TODO: update LOCAL port if billing runs on a different port.
+  static String get billingBaseUrl =>
+      isUat ? ApiConstantsUat.billingBaseUrl : _local(8090);
+
   // ─── Endpoint helpers ──────────────────────────────────────────────────────
 
   static String qrCodeValidateEndpoint(String schoolCode) =>
@@ -138,6 +144,8 @@ class ApiConstants {
         return newsLatterBaseUrl;
       case ApiMicroservices.notification:
         return notificationBaseUrl;
+      case ApiMicroservices.billing:
+        return billingBaseUrl;
       default:
         return baseUrl;
     }

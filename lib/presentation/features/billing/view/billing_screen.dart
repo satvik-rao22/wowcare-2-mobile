@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/billing/widgets/general_ledger/cre
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 class BillingScreen extends StatefulWidget {
   const BillingScreen({super.key});
@@ -37,6 +38,8 @@ class _BillingScreenState extends State<BillingScreen>
   final ValueNotifier<LedgerAccountModel?> _ledgerCreationNotifier =
       ValueNotifier<LedgerAccountModel?>(null);
 
+  Future<void> Function()? _ledgerRefreshFn;
+
   @override
   void dispose() {
     _ledgerCreationNotifier.dispose();
@@ -59,8 +62,14 @@ class _BillingScreenState extends State<BillingScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: SingleChildScrollView(
-                    physics: const ClampingScrollPhysics(),
+                  child: CustomRefreshIndicator(
+                    onRefresh: () async {
+                      if (controller.index == 2) {
+                        await _ledgerRefreshFn?.call();
+                      }
+                    },
+                    child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
                       padding: contentPadding,
                       child: Column(
@@ -223,6 +232,9 @@ class _BillingScreenState extends State<BillingScreen>
                                 content = GeneralLedgerSection(
                                   ledgerCreationNotifier:
                                       _ledgerCreationNotifier,
+                                  onRegisterRefresh: (fn) {
+                                    _ledgerRefreshFn = fn;
+                                  },
                                 );
                               } else if (current == 3) {
                                 content = const SubsidiesSection();
@@ -249,6 +261,7 @@ class _BillingScreenState extends State<BillingScreen>
                         ],
                       ),
                     ),
+                  ),
                   ),
                 ),
               ],
