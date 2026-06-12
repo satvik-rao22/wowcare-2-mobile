@@ -8,6 +8,17 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 class GeofenceNotificationService {
   static const String _channelId = 'geofence_channel';
   static const String _channelName = 'School Sign-In Zone Alerts';
+
+  // Dedicated high-importance channel for ALL push notifications (any module),
+  // so every push plays the system notification tune + vibrates. A NEW channel
+  // id (not the legacy 'push_background_channel') guarantees a fresh, audible
+  // channel is created even on devices where an older silent channel exists —
+  // Android locks a channel's sound/importance at creation time, so re-using an
+  // old id would keep it silent. Keep this id in sync with main.dart and the
+  // AndroidManifest's `default_notification_channel_id`.
+  static const String pushChannelId = 'wowcare_alerts_v2';
+  static const String pushChannelName = 'WowCare Notifications';
+
   static const int _enteredId = 1001;
   static const int _exitedId = 1002;
 
@@ -40,20 +51,31 @@ class GeofenceNotificationService {
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
 
-      // Create Android notification channel for Android 8.0+
-      await _plugin
+      // Create Android notification channels for Android 8.0+.
+      final androidPlugin = _plugin
           .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin
-          >()
-          ?.createNotificationChannel(
-            const AndroidNotificationChannel(
-              _channelId,
-              _channelName,
-              importance: Importance.high,
-              enableVibration: true,
-              playSound: true,
-            ),
-          );
+          >();
+      // Geofence sign-in zone alerts.
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          importance: Importance.high,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
+      // Push notifications (all modules) — system sound + vibration.
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          pushChannelId,
+          pushChannelName,
+          importance: Importance.high,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
     } catch (e) {
       AppLogger.d('GeofenceNotificationService init failed: $e');
       // Continue without notifications - geofencing still works
@@ -86,6 +108,10 @@ class GeofenceNotificationService {
     body: body,
     isCritical: true,
     payload: payload,
+    // Route through the dedicated push channel so every module's notification
+    // plays the system tune.
+    channelId: pushChannelId,
+    channelName: pushChannelName,
   );
 
   Future<void> _show({
@@ -94,6 +120,8 @@ class GeofenceNotificationService {
     required String body,
     required bool isCritical,
     String? payload,
+    String channelId = _channelId,
+    String channelName = _channelName,
   }) async {
     // Ensure the plugin is initialized so the tap handler
     // (onDidReceiveNotificationResponse → _onNotificationTapped) is registered.
@@ -109,8 +137,8 @@ class GeofenceNotificationService {
         payload: payload,
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            _channelId,
-            _channelName,
+            channelId,
+            channelName,
             importance: isCritical
                 ? Importance.high
                 : Importance.defaultImportance,
