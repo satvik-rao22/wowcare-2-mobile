@@ -1,0 +1,540 @@
+import 'dart:io';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
+import 'package:flutter/material.dart';
+import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+
+/// WhatsApp-style composable chat input bar.
+///
+/// Features:
+///   • Emoji picker toggle (left of field)
+///   • Multi-line text field with attachment icon inside
+///   • Animated send / mic button (mic when empty, send when text present)
+///   • Quoted-message preview strip
+///   • Horizontal pending-attachment thumbnails
+///   • Fully keyboard-aware (no explicit viewInsets handling needed — wrap in
+///     a [Scaffold] with [resizeToAvoidBottomInset: true])
+///
+/// Usage:
+/// ```dart
+/// ChatInputBar(
+///   controller: _controller,
+///   isSending: state.isSending,
+///   onSend: _sendMessage,
+///   onAttachmentTap: _showAttachmentSheet,
+/// )
+/// ```
+class ChatInputBar extends StatefulWidget {
+  const ChatInputBar({
+    super.key,
+    required this.controller,
+    required this.onSend,
+    required this.onAttachmentTap,
+    this.isSending = false,
+    this.pendingAttachments = const [],
+    this.quotedMessage,
+    this.onCancelQuote,
+    this.onRemoveAttachment,
+    this.hintText = 'Type a message…',
+    this.maxLength = 2000,
+    this.showCharCounter = false,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onSend;
+  final VoidCallback onAttachmentTap;
+  final bool isSending;
+  final List<ChatAttachment> pendingAttachments;
+  final Message? quotedMessage;
+  final VoidCallback? onCancelQuote;
+  final void Function(int index)? onRemoveAttachment;
+  final String hintText;
+  final int maxLength;
+  final bool showCharCounter;
+
+  @override
+  State<ChatInputBar> createState() => _ChatInputBarState();
+}
+
+class _ChatInputBarState extends State<ChatInputBar> {
+  bool _emojiPickerVisible = false;
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onTextChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onTextChanged);
+    super.dispose();
+  }
+
+  void _onTextChanged() {
+    final hasText = widget.controller.text.trim().isNotEmpty;
+    if (hasText != _hasText) setState(() => _hasText = hasText);
+  }
+
+  void _toggleEmojiPicker() {
+    if (_emojiPickerVisible) {
+      FocusScope.of(context).requestFocus(FocusNode());
+    } else {
+      FocusScope.of(context).unfocus();
+    }
+    setState(() => _emojiPickerVisible = !_emojiPickerVisible);
+  }
+
+  void _onEmojiSelected(Category? _, Emoji emoji) {
+    final pos = widget.controller.selection.isValid
+        ? widget.controller.selection.baseOffset
+        : widget.controller.text.length;
+    final text = widget.controller.text;
+    widget.controller.value = widget.controller.value.copyWith(
+      text: text.substring(0, pos) + emoji.emoji + text.substring(pos),
+      selection: TextSelection.collapsed(offset: pos + emoji.emoji.length),
+    );
+  }
+
+  void _handleSend() {
+    if (widget.isSending) return;
+    widget.onSend();
+    if (_emojiPickerVisible) {
+      setState(() => _emojiPickerVisible = false);
+    }
+  }
+
+  // ── Build ─────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _QuotePreview(
+          message: widget.quotedMessage,
+          onCancel: widget.onCancelQuote,
+        ),
+        _AttachmentPreviewStrip(
+          attachments: widget.pendingAttachments,
+          onRemove: widget.onRemoveAttachment,
+        ),
+        _InputRow(
+          controller: widget.controller,
+          hintText: widget.hintText,
+          maxLength: widget.maxLength,
+          showCharCounter: widget.showCharCounter,
+          isSending: widget.isSending,
+          hasText: _hasText,
+          emojiVisible: _emojiPickerVisible,
+          onEmojiToggle: _toggleEmojiPicker,
+          onAttachmentTap: widget.onAttachmentTap,
+          onSend: _handleSend,
+        ),
+        if (_emojiPickerVisible)
+          SizedBox(
+            height: 280,
+            child: EmojiPicker(
+              onEmojiSelected: _onEmojiSelected,
+              config: Config(
+                checkPlatformCompatibility: true,
+                emojiViewConfig: EmojiViewConfig(
+                  backgroundColor: const Color(0xFFF4F6FB),
+                  emojiSizeMax: 28,
+                ),
+                categoryViewConfig: const CategoryViewConfig(
+                  backgroundColor: Colors.white,
+                  indicatorColor: AppColors.primaryColor,
+                  iconColorSelected: AppColors.primaryColor,
+                  recentTabBehavior: RecentTabBehavior.RECENT,
+                ),
+                bottomActionBarConfig: const BottomActionBarConfig(
+                  enabled: false,
+                ),
+                searchViewConfig: const SearchViewConfig(
+                  backgroundColor: Colors.white,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── Quote preview ──────────────────────────────────────────────────────────────
+
+class _QuotePreview extends StatelessWidget {
+  const _QuotePreview({this.message, this.onCancel});
+
+  final Message? message;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (message == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(color: AppColors.primaryColor, width: 3),
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    (message!.senderName?.isNotEmpty ?? false)
+                        ? message!.senderName!
+                        : 'You',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  CustomTextWidget(
+                    text: message!.text,
+                    fontSize: 13,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    fontColor: const Color(0xFF4A5568),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: const Color(0xFF94A3B8),
+            onPressed: onCancel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Attachment thumbnails ──────────────────────────────────────────────────────
+
+class _AttachmentPreviewStrip extends StatelessWidget {
+  const _AttachmentPreviewStrip({required this.attachments, this.onRemove});
+
+  final List<ChatAttachment> attachments;
+  final void Function(int)? onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    if (attachments.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 90,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+        itemCount: attachments.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (_, i) {
+          final att = attachments[i];
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: att.isImage
+                    ? Image.file(
+                        File(att.localPath!),
+                        width: 76,
+                        height: 76,
+                        fit: BoxFit.cover,
+                      )
+                    : Thumbnail(
+                        mimeType: att.mimeType,
+                        dataResolver: () => File(att.localPath!).readAsBytes(),
+                        widgetSize: 76,
+                        decoration: WidgetDecoration(
+                          backgroundColor: Colors.white,
+                          iconColor: AppColors.primaryColor,
+                          textColor: AppColors.primaryColor,
+                          wrapperBgColor: Colors.transparent,
+                          wrapperSize: 80,
+                        ),
+                      ),
+              ),
+              if (!att.isImage)
+                Positioned(
+                  bottom: 4,
+                  left: 4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 4,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      att.name.length > 12
+                          ? '${att.name.substring(0, 10)}…'
+                          : att.name,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              Positioned(
+                top: -4,
+                right: -4,
+                child: GestureDetector(
+                  onTap: () => onRemove?.call(i),
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade500,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: const Icon(
+                      Icons.close_rounded,
+                      size: 12,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Input row ──────────────────────────────────────────────────────────────────
+
+class _InputRow extends StatelessWidget {
+  const _InputRow({
+    required this.controller,
+    required this.hintText,
+    required this.maxLength,
+    required this.showCharCounter,
+    required this.isSending,
+    required this.hasText,
+    required this.emojiVisible,
+    required this.onEmojiToggle,
+    required this.onAttachmentTap,
+    required this.onSend,
+  });
+
+  final TextEditingController controller;
+  final String hintText;
+  final int maxLength;
+  final bool showCharCounter;
+  final bool isSending;
+  final bool hasText;
+  final bool emojiVisible;
+  final VoidCallback onEmojiToggle;
+  final VoidCallback onAttachmentTap;
+  final VoidCallback onSend;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // ── Emoji toggle ───────────────────────────────────────────
+          Tooltip(
+            message: 'Quick Reactions',
+            child: _CircleActionButton(
+              onTap: onEmojiToggle,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 200),
+                child: Icon(
+                  emojiVisible
+                      ? Icons.keyboard_rounded
+                      : Icons.emoji_emotions_outlined,
+                  key: ValueKey(emojiVisible),
+                  color: AppColors.primaryColor,
+                  size: 22,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // ── Text field pill ────────────────────────────────────────
+          Expanded(
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 48),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 6,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: controller,
+                      minLines: 1,
+                      maxLines: 6,
+                      maxLength: maxLength,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: Color(0xFF1E293B),
+                        fontFamily: 'Manrope',
+                      ),
+                      decoration: InputDecoration(
+                        hintText: hintText,
+                        hintStyle: const TextStyle(
+                          color: Color(0xFFB2BEC3),
+                          fontSize: 15,
+                          fontFamily: 'Manrope',
+                        ),
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        counterText: showCharCounter ? null : '',
+                      ),
+                    ),
+                  ),
+
+                  // Attachment icon inside pill
+                  Tooltip(
+                    message: 'Add Attachment',
+                    child: GestureDetector(
+                      onTap: onAttachmentTap,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(0, 0, 10, 10),
+                        child: Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.08,
+                            ),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.attach_file_rounded,
+                            color: AppColors.primaryColor,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+
+          // ── Send button (always visible, disabled when empty) ─────
+          Tooltip(
+            message: 'Send',
+            child: GestureDetector(
+              onTap: hasText && !isSending ? onSend : null,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  gradient: hasText ? AppColors.buildPrimaryGradient() : null,
+                  color: hasText
+                      ? null
+                      : AppColors.primaryColor.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  boxShadow: hasText
+                      ? [
+                          BoxShadow(
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.30,
+                            ),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: isSending
+                    ? const Padding(
+                        padding: EdgeInsets.all(13),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        Icons.send_rounded,
+                        color: hasText
+                            ? Colors.white
+                            : AppColors.primaryColor.withValues(alpha: 0.35),
+                        size: 22,
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Small helpers ──────────────────────────────────────────────────────────────
+
+class _CircleActionButton extends StatelessWidget {
+  const _CircleActionButton({required this.onTap, required this.child});
+
+  final VoidCallback onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: AppColors.primaryColor.withValues(alpha: 0.07),
+          shape: BoxShape.circle,
+        ),
+        child: child,
+      ),
+    );
+  }
+}

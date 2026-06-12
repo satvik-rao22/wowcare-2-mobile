@@ -8,6 +8,7 @@ class CustomSearchBar extends StatefulWidget {
     this.onChanged,
     this.searchBarColor,
     this.borderColor,
+    this.trailing,
     super.key,
   });
 
@@ -16,6 +17,7 @@ class CustomSearchBar extends StatefulWidget {
   final Function(String)? onChanged;
   final WidgetStateProperty<Color>? searchBarColor;
   final Color? borderColor;
+  final List<Widget>? trailing;
 
   @override
   State<CustomSearchBar> createState() => _CustomSearchBarState();
@@ -57,6 +59,7 @@ class _CustomSearchBarState extends State<CustomSearchBar> {
             color: AppColors.primaryColor,
           ),
         ),
+        trailing: widget.trailing,
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../domain/features/communication/entities/message.dart';
@@ -22,7 +21,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final EditMessageUseCase editMessageUseCase;
   final ClearMessagesCacheUseCase clearMessagesCacheUseCase;
   final ClearConversationsCacheUseCase clearConversationsCacheUseCase;
-  final List<Timer> _statusTimers = [];
 
   CommunicationCubit({
     required this.getMessagesUseCase,
@@ -65,12 +63,14 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         (_) => null, // Ignore cache errors
         (conversations) {
           if (conversations.isNotEmpty && !isClosed) {
-            emit(
-              CommunicationConversationsLoaded({
-                null: conversations,
-                if (type != null) type: conversations,
-              }),
-            );
+            // Merge into existing map so both tabs keep their own data.
+            final currentMap = state is CommunicationConversationsLoaded
+                ? (state as CommunicationConversationsLoaded).conversationsByType
+                : <String?, List<Conversation>>{};
+            final mergedMap = Map<String?, List<Conversation>>.from(currentMap);
+            mergedMap[null] = conversations;
+            if (type != null) mergedMap[type] = conversations;
+            emit(CommunicationConversationsLoaded(mergedMap));
           }
         },
       );
@@ -134,7 +134,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     // 1. Try Loading from Isar cache first for faster initial loading.
     //    Pass currentUserId so isSentByMe is re-derived from senderUserCode,
     //    preventing stale/null Isar booleans from flipping the bubble style.
-    final cacheResult = await getCachedMessagesUseCase(threadId, currentUserId: currentUserId);
+    final cacheResult = await getCachedMessagesUseCase(
+      threadId,
+      currentUserId: currentUserId,
+    );
     cacheResult.fold(
       (_) => null, // Ignore cache errors
       (cachedMessages) {
@@ -153,12 +156,16 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         state is CommunicationLoaded
         ? (state as CommunicationLoaded).threads
         : {};
-    if (!updatedThreads.containsKey(threadId) || updatedThreads[threadId]!.isEmpty) {
+    if (!updatedThreads.containsKey(threadId) ||
+        updatedThreads[threadId]!.isEmpty) {
       emit(CommunicationLoading());
     }
 
     // 3. Fetch latest data from remote in the background and update state/cache
-    final result = await getMessagesUseCase(threadId, currentUserId: currentUserId);
+    final result = await getMessagesUseCase(
+      threadId,
+      currentUserId: currentUserId,
+    );
     if (isClosed) return;
 
     result.fold(
@@ -168,7 +175,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             state is CommunicationLoaded
             ? (state as CommunicationLoaded).threads
             : {};
-        if (!finalThreads.containsKey(threadId) || finalThreads[threadId]!.isEmpty) {
+        if (!finalThreads.containsKey(threadId) ||
+            finalThreads[threadId]!.isEmpty) {
           emit(CommunicationError(failure.message ?? 'Unknown error'));
         }
       },
@@ -199,8 +207,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final currentState = state as CommunicationLoaded;
 
     final tempMessage = Message(
-      id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
-      code: '',
+      id: threadId, // message id
+      code: '$senderUserCode', // temp code for optimistic UI
       text: text,
       isSentByMe: true,
       senderUserCode: senderUserCode,
@@ -258,81 +266,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             activeThreadId: threadId,
           ),
         );
-
-        // --- SIMULATION LOGIC (Moves from UI to Cubit) ---
-
-        // 1. Delivered Status Update after 2 seconds
-        _statusTimers.add(
-          Timer(const Duration(seconds: 2), () {
-            if (isClosed || state is! CommunicationLoaded) return;
-            final s = state as CommunicationLoaded;
-            final t = Map<String, List<Message>>.from(s.threads);
-            final ms = List<Message>.from(t[threadId] ?? []);
-            final i = ms.indexWhere((m) => m.id == sentMessage.id);
-
-            if (i != -1) {
-              ms[i] = Message(
-                id: sentMessage.id,
-                code: sentMessage.code,
-                text: sentMessage.text,
-                isSentByMe: true,
-                time: sentMessage.time,
-                deliveredAt: DateTime.now(),
-                readAt: sentMessage.readAt,
-                editedAt: sentMessage.editedAt,
-                attachments: sentMessage.attachments,
-                quotedMessageId: sentMessage.quotedMessageId,
-                senderName: sentMessage.senderName,
-                receivers: sentMessage.receivers,
-                reactions: sentMessage.reactions,
-              );
-              t[threadId] = ms;
-              emit(s.copyWith(threads: t));
-            }
-          }),
-        );
-
-        // 2. Read Status Update after 7 seconds
-        _statusTimers.add(
-          Timer(const Duration(seconds: 7), () {
-            if (isClosed || state is! CommunicationLoaded) return;
-            final s = state as CommunicationLoaded;
-            final t = Map<String, List<Message>>.from(s.threads);
-            final ms = List<Message>.from(t[threadId] ?? []);
-            final i = ms.indexWhere((m) => m.id == sentMessage.id);
-
-            if (i != -1) {
-              ms[i] = Message(
-                id: sentMessage.id,
-                code: sentMessage.code,
-                text: sentMessage.text,
-                isSentByMe: true,
-                time: sentMessage.time,
-                deliveredAt: ms[i].deliveredAt,
-                readAt: DateTime.now(),
-                editedAt: ms[i].editedAt,
-                attachments: sentMessage.attachments,
-                quotedMessageId: sentMessage.quotedMessageId,
-                senderName: sentMessage.senderName,
-                receivers: sentMessage.receivers,
-                reactions: sentMessage.reactions,
-              );
-              t[threadId] = ms;
-              emit(s.copyWith(threads: t));
-            }
-          }),
-        );
       },
     );
-  }
-
-  @override
-  Future<void> close() {
-    for (final timer in _statusTimers) {
-      timer.cancel();
-    }
-    _statusTimers.clear();
-    return super.close();
   }
 
   Future<void> addReaction(

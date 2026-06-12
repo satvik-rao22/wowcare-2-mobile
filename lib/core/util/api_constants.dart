@@ -54,6 +54,8 @@ class ApiConstants {
   /// User / Auth MS  (LOCAL: 8086 | UAT: gateway)
   static String get baseUrl =>
       isUat ? ApiConstantsUat.baseUrl : _local(8086);
+  /// User / Auth MS  (LOCAL: 8090 | UAT: gateway)
+  static String get baseUrl => isUat ? ApiConstantsUat.baseUrl : _local(8090);
 
   /// Student MS  (LOCAL: 8085 | UAT: gateway)
   static String get studentBaseUrl =>
@@ -68,8 +70,7 @@ class ApiConstants {
       isUat ? ApiConstantsUat.staffBaseUrl : _local(8088);
 
   /// School / Organization MS  (LOCAL: 8081 | UAT: gateway)
-  static String get schoolMs =>
-      isUat ? ApiConstantsUat.schoolMs : _local(8081);
+  static String get schoolMs => isUat ? ApiConstantsUat.schoolMs : _local(8081);
 
   /// Attendance MS  (LOCAL: 8088/attendance | UAT: gateway)
   static String get attendanceBaseUrl => isUat
@@ -86,10 +87,9 @@ class ApiConstants {
       ? ApiConstantsUat.documentMsBaseUrl
       : 'https://fitten-vallie-forthrightly.ngrok-free.dev/document-ms';
 
-  /// Communication / Messaging MS  (LOCAL: 8087 | UAT: gateway)
-  static String get communicationBaseUrl => isUat
-      ? ApiConstantsUat.communicationBaseUrl
-      : _local(8087);
+  /// Communication / Messaging MS  (LOCAL: 8086 | UAT: 8086)
+  static String get communicationBaseUrl =>
+      isUat ? ApiConstantsUat.communicationBaseUrl : _local(8087);
 
   /// Newsletter MS — shares the communication host.
   static String get newsLatterBaseUrl =>

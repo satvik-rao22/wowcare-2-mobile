@@ -6,7 +6,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
-import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_screen.dart';
+import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
@@ -858,9 +858,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(
-                                      AdminChatScreen.routeName,
-                                    );
+                                    context.go(AdminChatHostScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)
@@ -1121,7 +1119,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(AdminChatScreen.routeName);
+                                    context.go(AdminChatHostScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)

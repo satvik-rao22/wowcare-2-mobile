@@ -1,7 +1,6 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/notification_payload.dart';
 import 'dart:io';
-
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -50,7 +49,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Show a local notification so the user always sees the alert.
   if (message.notification == null) {
     final title = message.data['title']?.toString() ?? 'WowCare';
-    final body = message.data['body']?.toString() ?? 'You have a new notification';
+    final body =
+        message.data['body']?.toString() ?? 'You have a new notification';
     AppLogger.d('[FCM] Background data-only → showing local notif "$title"');
 
     const channelId = 'push_background_channel';
@@ -165,7 +165,8 @@ Future<void> main() async {
     try {
       await FlutterLocalNotificationsPlugin()
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
+            AndroidFlutterLocalNotificationsPlugin
+          >()
           ?.createNotificationChannel(
             const AndroidNotificationChannel(
               'push_background_channel',
@@ -222,11 +223,12 @@ Future<void> main() async {
       );
       // Capture the target org/school so the splash can switch the active school
       // (multi-school user) before performing this deep-link redirect.
-      final launchOrg = (launchData['organizationCode'] ??
-              launchData['orgCode'] ??
-              launchData['organization_code'] ??
-              '')
-          .trim();
+      final launchOrg =
+          (launchData['organizationCode'] ??
+                  launchData['orgCode'] ??
+                  launchData['organization_code'] ??
+                  '')
+              .trim();
       final launchSchool =
           (launchData['schoolCode'] ?? launchData['school_code'] ?? '').trim();
       if (launchOrg.isNotEmpty && launchSchool.isNotEmpty) {
@@ -279,7 +281,8 @@ Future<void> main() async {
     // in UserDefaults; we read it here and resolve to /dashboard.
     if (pendingNotificationDeepLink == null) {
       final geofenceTapData = await _readIosGeofenceTap();
-      if (geofenceTapData != null && (geofenceTapData['action'] ?? '').isNotEmpty) {
+      if (geofenceTapData != null &&
+          (geofenceTapData['action'] ?? '').isNotEmpty) {
         final dest = NotificationRouteResolver.resolve(
           PushNotificationModel(
             title: null,
@@ -290,7 +293,9 @@ Future<void> main() async {
           ),
         );
         if (dest != null) pendingNotificationDeepLink = dest.location;
-        AppLogger.d('[main] stashed (iOS geofence tap) pendingNotificationDeepLink=$pendingNotificationDeepLink');
+        AppLogger.d(
+          '[main] stashed (iOS geofence tap) pendingNotificationDeepLink=$pendingNotificationDeepLink',
+        );
       }
     }
   } catch (e) {
