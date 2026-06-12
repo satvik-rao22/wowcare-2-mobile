@@ -687,7 +687,15 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           }
           if (isStaffAdmin) {
             context.go(StaffAttendanceTabbedView.routeName);
+          } else if (widget.qrToken.isNotEmpty) {
+            // QR flow: Dashboard → QrScanScreen → StaffSignInForm (two MaterialPageRoutes).
+            // Pop both to return to the Dashboard.
+            final nav = Navigator.of(context);
+            if (nav.canPop()) nav.pop(); // form → QrScanScreen
+            if (nav.canPop()) nav.pop(); // QrScanScreen → Dashboard
           } else {
+            // GPS / geofence flow: opened via context.go() or Navigator.push().
+            // A single pop returns to the Dashboard in both cases.
             if (context.canPop()) {
               context.pop();
             } else {

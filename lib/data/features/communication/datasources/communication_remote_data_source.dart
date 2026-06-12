@@ -40,15 +40,19 @@ class CommunicationRemoteDataSourceImpl
     String? currentUserId,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.messagingMessages}/conversation/$threadId?page=0&size=50&sort=createdAt,asc',
+      '${ApiPaths.messagingMessages}/conversation/$threadId?page=0&size=100&sort=createdAt,asc',
       ApiConstants.communicationBaseUrl,
     );
 
     final response = await apiClient.client.get(endpoint);
 
     if (response.data != null && response.data['success'] == true) {
-      final List<dynamic> messagesJson = response.data['data']['messages'];
-      return messagesJson
+      final dataMap = response.data['data'] as Map<String, dynamic>?;
+      final List<dynamic> messagesJson =
+          (dataMap?['messages'] as List<dynamic>?) ?? [];
+      // ignore: avoid_print
+      print('[Messages] conversation=$threadId received=${messagesJson.length}');
+      final messages = messagesJson
           .map(
             (json) => MessageModel.fromJson(
               json as Map<String, dynamic>,
@@ -56,6 +60,19 @@ class CommunicationRemoteDataSourceImpl
             ),
           )
           .toList();
+      // ignore: avoid_print
+      print('[Messages] mapped=${messages.length}');
+
+      // Mark all messages as read immediately after a successful fetch.
+      try {
+        final readEndpoint = ApiPaths.urlWithBase(
+          ApiPaths.messagingConversationMarkRead(threadId),
+          ApiConstants.communicationBaseUrl,
+        );
+        await apiClient.client.post(readEndpoint);
+      } catch (_) {}
+
+      return messages;
     } else {
       throw Exception(response.data?['message'] ?? 'Failed to load messages');
     }

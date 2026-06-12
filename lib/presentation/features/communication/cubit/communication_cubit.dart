@@ -63,12 +63,14 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         (_) => null, // Ignore cache errors
         (conversations) {
           if (conversations.isNotEmpty && !isClosed) {
-            emit(
-              CommunicationConversationsLoaded({
-                null: conversations,
-                if (type != null) type: conversations,
-              }),
-            );
+            // Merge into existing map so both tabs keep their own data.
+            final currentMap = state is CommunicationConversationsLoaded
+                ? (state as CommunicationConversationsLoaded).conversationsByType
+                : <String?, List<Conversation>>{};
+            final mergedMap = Map<String?, List<Conversation>>.from(currentMap);
+            mergedMap[null] = conversations;
+            if (type != null) mergedMap[type] = conversations;
+            emit(CommunicationConversationsLoaded(mergedMap));
           }
         },
       );
@@ -132,7 +134,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     // 1. Try Loading from Isar cache first for faster initial loading.
     //    Pass currentUserId so isSentByMe is re-derived from senderUserCode,
     //    preventing stale/null Isar booleans from flipping the bubble style.
-    final cacheResult = await getCachedMessagesUseCase(threadId, currentUserId: currentUserId);
+    final cacheResult = await getCachedMessagesUseCase(
+      threadId,
+      currentUserId: currentUserId,
+    );
     cacheResult.fold(
       (_) => null, // Ignore cache errors
       (cachedMessages) {
@@ -151,12 +156,16 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         state is CommunicationLoaded
         ? (state as CommunicationLoaded).threads
         : {};
-    if (!updatedThreads.containsKey(threadId) || updatedThreads[threadId]!.isEmpty) {
+    if (!updatedThreads.containsKey(threadId) ||
+        updatedThreads[threadId]!.isEmpty) {
       emit(CommunicationLoading());
     }
 
     // 3. Fetch latest data from remote in the background and update state/cache
-    final result = await getMessagesUseCase(threadId, currentUserId: currentUserId);
+    final result = await getMessagesUseCase(
+      threadId,
+      currentUserId: currentUserId,
+    );
     if (isClosed) return;
 
     result.fold(
@@ -166,7 +175,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             state is CommunicationLoaded
             ? (state as CommunicationLoaded).threads
             : {};
-        if (!finalThreads.containsKey(threadId) || finalThreads[threadId]!.isEmpty) {
+        if (!finalThreads.containsKey(threadId) ||
+            finalThreads[threadId]!.isEmpty) {
           emit(CommunicationError(failure.message ?? 'Unknown error'));
         }
       },
@@ -197,8 +207,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final currentState = state as CommunicationLoaded;
 
     final tempMessage = Message(
-      id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
-      code: '',
+      id: threadId, // message id
+      code: '$senderUserCode', // temp code for optimistic UI
       text: text,
       isSentByMe: true,
       senderUserCode: senderUserCode,

@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -25,6 +27,7 @@ class BulkMessagingCompositionState extends Equatable {
   final List<SelectedAttachment> attachments;
   final String messageText;
   final bool isStaff;
+  final String conversationType;
   final bool isLoading;
   final bool isSuccess;
   final String? errorMessage;
@@ -36,6 +39,7 @@ class BulkMessagingCompositionState extends Equatable {
     this.attachments = const [],
     this.messageText = '',
     this.isStaff = true,
+    this.conversationType = 'ROOM_CHAT',
     this.isLoading = false,
     this.isSuccess = false,
     this.errorMessage,
@@ -52,6 +56,7 @@ class BulkMessagingCompositionState extends Equatable {
     List<SelectedAttachment>? attachments,
     String? messageText,
     bool? isStaff,
+    String? conversationType,
     bool? isLoading,
     bool? isSuccess,
     String? errorMessage,
@@ -64,6 +69,7 @@ class BulkMessagingCompositionState extends Equatable {
       attachments: attachments ?? this.attachments,
       messageText: messageText ?? this.messageText,
       isStaff: isStaff ?? this.isStaff,
+      conversationType: conversationType ?? this.conversationType,
       isLoading: isLoading ?? this.isLoading,
       isSuccess: isSuccess ?? this.isSuccess,
       errorMessage: errorMessage, // Reset error if not provided
@@ -78,6 +84,7 @@ class BulkMessagingCompositionState extends Equatable {
     attachments,
     messageText,
     isStaff,
+    conversationType,
     isLoading,
     isSuccess,
     errorMessage,
@@ -97,12 +104,14 @@ class BulkMessagingCompositionCubit
     required CreateConversationUseCase createConversationUseCase,
     required SendMessageUseCase sendMessageUseCase,
     required StorageService storageService,
+    String conversationType = 'ROOM_CHAT',
   }) : _createConversationUseCase = createConversationUseCase,
        _sendMessageUseCase = sendMessageUseCase,
        _storageService = storageService,
        super(
          BulkMessagingCompositionState(
            isStaff: isStaff,
+           conversationType: conversationType,
            selectedRecipients: List<Map<String, dynamic>>.from(
              initialRecipients,
            ),
@@ -152,7 +161,7 @@ class BulkMessagingCompositionCubit
     );
   }
 
-  Future<void> sendMessages() async {
+  Future<void> sendMessages(BuildContext context) async {
     if (!state.canSend) return;
 
     emit(
@@ -186,7 +195,9 @@ class BulkMessagingCompositionCubit
           (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
       final senderUserCode =
           (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
-      final actualSenderCode = senderCode.isNotEmpty ? senderCode : senderUserCode;
+      final actualSenderCode = senderCode.isNotEmpty
+          ? senderCode
+          : senderUserCode;
 
       if (isClosed) return;
       final messageText = state.messageText.trim();
@@ -215,58 +226,53 @@ class BulkMessagingCompositionCubit
             organizationCode: orgCode,
             schoolCode: schoolCode,
             participants: [
-              {
-                'userCode': actualSenderCode,
-                'participantType': 'STAFF',
-              },
-              {
-                'userCode': recipientCode,
-                'participantType': 'STAFF',
-              }
+              {'userCode': actualSenderCode, 'participantType': 'STAFF'},
+              {'userCode': recipientCode, 'participantType': 'STAFF'},
             ],
           );
 
           final result = await _createConversationUseCase(request);
           if (isClosed) return;
 
-          await result.fold(
-            (_) async {},
-            (conversation) async {
-              successCount++;
-              // Backend ignores initialMessage field — send as a real message.
-              if (messageText.isNotEmpty) {
-                final msg = Message(
-                  id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
-                  code: '',
-                  text: messageText,
-                  isSentByMe: true,
-                  senderUserCode: senderUserCode.isNotEmpty ? senderUserCode : actualSenderCode,
-                  time: DateTime.now(),
-                );
-                await _sendMessageUseCase(conversation.code, msg);
-              }
-            },
-          );
+          await result.fold((_) async {}, (conversation) async {
+            successCount++;
+            // Backend ignores initialMessage field — send as a real message.
+            if (messageText.isNotEmpty) {
+              final msg = Message(
+                id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                code: '',
+                text: messageText,
+                isSentByMe: true,
+                senderUserCode: senderUserCode.isNotEmpty
+                    ? senderUserCode
+                    : actualSenderCode,
+                time: DateTime.now(),
+              );
+              await _sendMessageUseCase(conversation.code, msg);
+            }
+          });
           if (isClosed) return;
         }
 
         if (successCount == state.selectedRecipients.length) {
-          emit(
-            state.copyWith(
-              isLoading: false,
+          if (context.mounted) {
+            CoreUtils.showTopSnackBar(
+              context: context,
               isSuccess: true,
-              progressMessage: 'All messages sent successfully!',
-            ),
-          );
+              message: 'All messages sent successfully!',
+            );
+          }
+          emit(state.copyWith(isLoading: false, isSuccess: true));
         } else if (successCount > 0) {
-          emit(
-            state.copyWith(
-              isLoading: false,
+          if (context.mounted) {
+            CoreUtils.showTopSnackBar(
+              context: context,
               isSuccess: true,
-              progressMessage:
+              message:
                   'Sent $successCount of ${state.selectedRecipients.length} messages.',
-            ),
-          );
+            );
+          }
+          emit(state.copyWith(isLoading: false, isSuccess: true));
         } else {
           emit(
             state.copyWith(
@@ -296,22 +302,22 @@ class BulkMessagingCompositionCubit
         }
 
         final request = CreateConversationRequest(
-          title: 'Bulk Message ${DateTime.now().toString().substring(0, 16)}',
-          type: 'ROOM_CHAT',
+          title: (state.selectedRecipients.first['name'] as String? ?? '').trim(),
+          type: state.conversationType,
           description: messageText,
           organizationCode: orgCode,
           schoolCode: schoolCode,
           participants: [
             if (actualSenderCode.isNotEmpty)
-              {
-                'userCode': actualSenderCode,
-                'participantType': 'STAFF',
+              {'userCode': actualSenderCode, 'participantType': 'STAFF'},
+            ...recipientCodes.map(
+              (code) => {
+                'userCode': code,
+                'participantType': code.startsWith('STF_')
+                    ? 'STAFF'
+                    : 'GUARDIAN',
               },
-            ...recipientCodes.map((code) => {
-                  'userCode': code,
-                  'participantType':
-                      code.startsWith('STF_') ? 'STAFF' : 'GUARDIAN',
-                }),
+            ),
           ],
         );
 
@@ -333,18 +339,21 @@ class BulkMessagingCompositionCubit
                 code: '',
                 text: messageText,
                 isSentByMe: true,
-                senderUserCode: senderUserCode.isNotEmpty ? senderUserCode : actualSenderCode,
+                senderUserCode: senderUserCode.isNotEmpty
+                    ? senderUserCode
+                    : actualSenderCode,
                 time: DateTime.now(),
               );
               await _sendMessageUseCase(conversation.code, msg);
             }
-            emit(
-              state.copyWith(
-                isLoading: false,
+            if (context.mounted) {
+              CoreUtils.showTopSnackBar(
+                context: context,
                 isSuccess: true,
-                progressMessage: 'Group message sent successfully!',
-              ),
-            );
+                message: 'Group message sent successfully!',
+              );
+            }
+            emit(state.copyWith(isLoading: false, isSuccess: true));
           },
         );
       }
@@ -368,5 +377,4 @@ class BulkMessagingCompositionCubit
         .toString()
         .trim();
   }
-
 }

@@ -13,6 +13,9 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_attachment_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
 
 /// Full-screen conversation thread for v2 conversations (STAFF_DIRECT, ROOM_CHAT, ADMIN_CHAT).
 class ConversationThreadScreen extends StatefulWidget {
@@ -96,6 +99,53 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
     });
   }
 
+  // ── Participants dialog ────────────────────────────────────────────────────
+
+  List<ParticipantDisplayData> get _participantData =>
+      widget.conversation.participants.map((p) {
+        final roleStr = p.role.toApiString().toUpperCase();
+        // Normalise PARENT → GUARDIAN so the dialog groups correctly.
+        final normalised =
+            roleStr == 'PARENT' ? 'GUARDIAN' : roleStr;
+        return ParticipantDisplayData(
+          userCode: p.userCode,
+          displayName: p.userName.isNotEmpty ? p.userName : p.userCode,
+          role: normalised,
+        );
+      }).toList();
+
+  void _showParticipantsDialog() {
+    final studentName = widget.conversation.title;
+    ParticipantInfoDialog.show(
+      context,
+      participants: _participantData,
+      studentName: studentName,
+    );
+  }
+
+  // ── Attachment bottom sheet ────────────────────────────────────────────────
+
+  void _showAttachmentSheet() {
+    MessageAttachmentBottomSheet.show(
+      context,
+      onAttachmentsSelected: (_) {
+        // ConversationThreadScreen uses text-only send for now;
+        // attachment support can be wired when the send usecase supports it.
+      },
+      onEmojiSelected: (emoji) {
+        final pos = _inputController.selection.isValid
+            ? _inputController.selection.baseOffset
+            : _inputController.text.length;
+        final text = _inputController.text;
+        _inputController.value = _inputController.value.copyWith(
+          text: text.substring(0, pos) + emoji + text.substring(pos),
+          selection: TextSelection.collapsed(offset: pos + emoji.length),
+        );
+      },
+      onViewParticipants: _showParticipantsDialog,
+    );
+  }
+
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _senderCode.isEmpty) return;
@@ -131,6 +181,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
               fontSize: 18,
             ),
           ),
+          actions: [
+            Tooltip(
+              message: 'View Participants',
+              child: IconButton(
+                icon: Icon(Icons.info_outline_rounded,
+                    color: AppColors.primaryColor),
+                onPressed: _showParticipantsDialog,
+              ),
+            ),
+          ],
         ),
         body: BlocConsumer<ConversationThreadCubit, ConversationThreadState>(
           listener: (context, state) {
@@ -140,7 +200,27 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
             return Column(
               children: [
                 Expanded(child: _buildMessageList(state)),
-                _buildInputBar(state),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.06),
+                        blurRadius: 8,
+                        offset: const Offset(0, -2),
+                      ),
+                    ],
+                  ),
+                  child: SafeArea(
+                    top: false,
+                    child: ChatInputBar(
+                      controller: _inputController,
+                      isSending: state.isSending,
+                      onSend: () => unawaited(_sendMessage()),
+                      onAttachmentTap: _showAttachmentSheet,
+                    ),
+                  ),
+                ),
               ],
             );
           },
@@ -206,75 +286,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
     );
   }
 
-  Widget _buildInputBar(ConversationThreadState state) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, -2),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _inputController,
-                minLines: 1,
-                maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
-                decoration: InputDecoration(
-                  hintText: 'Type a message…',
-                  hintStyle: const TextStyle(color: Color(0xFFB2BEC3)),
-                  filled: true,
-                  fillColor: const Color(0xFFF4F6F8),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(24),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                onSubmitted: (_) => unawaited(_sendMessage()),
-              ),
-            ),
-            const SizedBox(width: 8),
-            GestureDetector(
-              onTap: state.isSending ? null : () => unawaited(_sendMessage()),
-              child: Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: state.isSending
-                      ? AppColors.primaryColor.withValues(alpha: 0.4)
-                      : AppColors.primaryColor,
-                  shape: BoxShape.circle,
-                ),
-                child: state.isSending
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded,
-                        color: Colors.white, size: 20),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ─── Message bubble ───────────────────────────────────────────────────────────

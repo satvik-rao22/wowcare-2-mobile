@@ -51,8 +51,7 @@ class ApiConstants {
   // ─── Service base URLs ─────────────────────────────────────────────────────
 
   /// User / Auth MS  (LOCAL: 8090 | UAT: gateway)
-  static String get baseUrl =>
-      isUat ? ApiConstantsUat.baseUrl : _local(8090);
+  static String get baseUrl => isUat ? ApiConstantsUat.baseUrl : _local(8090);
 
   /// Student MS  (LOCAL: 8085 | UAT: gateway)
   static String get studentBaseUrl =>
@@ -67,13 +66,11 @@ class ApiConstants {
       isUat ? ApiConstantsUat.staffBaseUrl : _local(8083);
 
   /// School / Organization MS  (LOCAL: 8081 | UAT: gateway)
-  static String get schoolMs =>
-      isUat ? ApiConstantsUat.schoolMs : _local(8081);
+  static String get schoolMs => isUat ? ApiConstantsUat.schoolMs : _local(8081);
 
   /// Attendance MS  (LOCAL: 8083/attendance | UAT: gateway)
-  static String get attendanceBaseUrl => isUat
-      ? ApiConstantsUat.attendanceBaseUrl
-      : _local(8083, 'attendance');
+  static String get attendanceBaseUrl =>
+      isUat ? ApiConstantsUat.attendanceBaseUrl : _local(8083, 'attendance');
 
   /// Activity MS  (LOCAL: 8084/wowcare-activity-ms | UAT: gateway)
   static String get activityBaseUrl => isUat
@@ -85,10 +82,9 @@ class ApiConstants {
       ? ApiConstantsUat.documentMsBaseUrl
       : 'https://fitten-vallie-forthrightly.ngrok-free.dev/document-ms';
 
-  /// Communication / Messaging MS  (LOCAL: 8087 | UAT: gateway)
-  static String get communicationBaseUrl => isUat
-      ? ApiConstantsUat.communicationBaseUrl
-      : _local(8087);
+  /// Communication / Messaging MS  (LOCAL: 8086 | UAT: 8086)
+  static String get communicationBaseUrl =>
+      isUat ? ApiConstantsUat.communicationBaseUrl : _local(8087);
 
   /// Newsletter MS — shares the communication host.
   static String get newsLatterBaseUrl =>

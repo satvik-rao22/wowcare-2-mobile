@@ -37,5 +37,15 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // Wire up the native geofence plugin so CLLocationManager region monitoring
+    // and Dart ↔ native method calls work on iOS.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "WowCareGeofence") {
+      let geofenceChannel = FlutterMethodChannel(
+        name: GeofencePlugin.methodChannelName,
+        binaryMessenger: registrar.messenger()
+      )
+      GeofencePlugin.initializeWithChannel(geofenceChannel)
+    }
   }
 }

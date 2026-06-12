@@ -10,8 +10,10 @@ import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/communication/cubit/create_conversation_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/create_conversation_state.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
@@ -24,6 +26,10 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../shared/common/widgets/gradient_add_button.dart';
+import '../../../classroom/cubit/classroom_cubit.dart';
+import '../../../staff/cubit/staff_cubit.dart';
+import '../../cubit/communication_cubit.dart';
+import '../../presentation/messaging/view/staff_or_student_selection_bulk_messaging.dart';
 
 /// Standalone full-page Admin Chat screen with GlobalScaffold.
 ///
@@ -291,9 +297,16 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => BlocProvider<CreateConversationCubit>(
-        create: (_) => serviceLocator<CreateConversationCubit>(),
-        child: _NewAdminChatSheet(
+      builder: (_) => MultiBlocProvider(
+        providers: [
+          BlocProvider<CreateConversationCubit>(
+            create: (_) => serviceLocator<CreateConversationCubit>(),
+          ),
+          BlocProvider<StudentCubit>(
+            create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
+          ),
+        ],
+        child: _AdminChatStudentSheet(
           onCreated: () {
             Navigator.of(context).pop();
             unawaited(_cubit.refresh());
@@ -360,13 +373,15 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
                                 color: _hasActiveFilters
-                                    ? AppColors.primaryColor
-                                        .withValues(alpha: 0.15)
+                                    ? AppColors.primaryColor.withValues(
+                                        alpha: 0.15,
+                                      )
                                     : const Color(0x33B1AFE9),
                                 border: Border.all(
                                   color: _hasActiveFilters
-                                      ? AppColors.primaryColor
-                                          .withValues(alpha: 0.5)
+                                      ? AppColors.primaryColor.withValues(
+                                          alpha: 0.5,
+                                        )
                                       : Colors.transparent,
                                 ),
                               ),
@@ -374,8 +389,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                                 Icons.tune_rounded,
                                 color: _hasActiveFilters
                                     ? AppColors.primaryColor
-                                    : AppColors.primaryColor
-                                        .withValues(alpha: 0.5),
+                                    : AppColors.primaryColor.withValues(
+                                        alpha: 0.5,
+                                      ),
                                 size: 22,
                               ),
                             ),
@@ -580,59 +596,30 @@ class _PageHeader extends StatelessWidget {
           // Compose FAB-style button in header row
           GradientAddButton(
             onTap: () async {
-              // if (isStaffTab) {
-              //   await Navigator.of(context).push(
-              //     MaterialPageRoute(
-              //       builder: (_) => MultiBlocProvider(
-              //         providers: [
-              //           BlocProvider(
-              //             create: (_) => serviceLocator<StaffCubit>(),
-              //           ),
-              //           BlocProvider(
-              //             create: (_) => serviceLocator<ClassroomCubit>(),
-              //           ),
-              //           BlocProvider(
-              //             create: (_) => serviceLocator<StudentCubit>(),
-              //           ),
-              //         ],
-              //         child: StaffOrStudentSelectionBulkMessaging(),
-              //       ),
-              //     ),
-              //   );
-              //   if (context.mounted) {
-              //     context.read<CommunicationCubit>().loadConversations(
-              //       type: 'STAFF_DIRECT',
-              //       size: _conversationPageSize,
-              //     );
-              //   }
-              // } else {
-              //   await Navigator.of(context).push(
-              //     MaterialPageRoute(
-              //       builder: (_) => MultiBlocProvider(
-              //         providers: [
-              //           BlocProvider(
-              //             create: (_) => serviceLocator<StaffCubit>(),
-              //           ),
-              //           BlocProvider(
-              //             create: (_) => serviceLocator<ClassroomCubit>(),
-              //           ),
-              //           BlocProvider(
-              //             create: (_) => serviceLocator<StudentCubit>(),
-              //           ),
-              //         ],
-              //         child: StaffOrStudentSelectionBulkMessaging(
-              //           isStaffSelection: false,
-              //         ),
-              //       ),
-              //     ),
-              //   );
-              //   if (context.mounted) {
-              //     context.read<CommunicationCubit>().loadConversations(
-              //       type: 'STAFF_DIRECT',
-              //       size: _conversationPageSize,
-              //     );
-              //   }
-              // }
+              await Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
+                      BlocProvider(
+                        create: (_) => serviceLocator<ClassroomCubit>(),
+                      ),
+                      BlocProvider(
+                        create: (_) => serviceLocator<StudentCubit>(),
+                      ),
+                    ],
+                    child: StaffOrStudentSelectionBulkMessaging(
+                      isStaffSelection: false,
+                    ),
+                  ),
+                ),
+              );
+              if (context.mounted) {
+                context.read<CommunicationCubit>().loadConversations(
+                  type: 'STAFF_DIRECT',
+                  size: 2000,
+                );
+              }
             },
           ),
         ],
@@ -861,12 +848,18 @@ class _NewAdminChatSheetState extends State<_NewAdminChatSheet> {
     final storage = serviceLocator<StorageService>();
     final orgCode = await storage.getString(StorageKeys.organizationCode) ?? '';
     final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+    final adminCode = await storage.getString(StorageKeys.userCode) ?? '';
 
     await context.read<CreateConversationCubit>().createConversation(
       title: _titleController.text.trim(),
       organizationCode: orgCode,
       schoolCode: schoolCode,
       participantUserCodes: const [],
+      participants: adminCode.isNotEmpty
+          ? [
+              {'userCode': adminCode, 'participantType': 'ADMIN'},
+            ]
+          : null,
       type: 'ADMIN_CHAT',
       description: _descController.text.trim(),
       avatarUrl: '',
@@ -1079,6 +1072,278 @@ class _NewAdminChatSheetState extends State<_NewAdminChatSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Admin Chat student-picker sheet ─────────────────────────────────────────
+/// Shows a searchable list of students. Tapping a student creates an
+/// ADMIN_CHAT conversation scoped to that student (admin as sole participant)
+/// and calls [onCreated] with the created [ConversationEntity].
+
+class _AdminChatStudentSheet extends StatefulWidget {
+  const _AdminChatStudentSheet({required this.onCreated});
+
+  final VoidCallback onCreated;
+
+  @override
+  State<_AdminChatStudentSheet> createState() => _AdminChatStudentSheetState();
+}
+
+class _AdminChatStudentSheetState extends State<_AdminChatStudentSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  bool _isCreating = false;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createChat(Student student) async {
+    if (_isCreating) return;
+    setState(() => _isCreating = true);
+
+    final storage = serviceLocator<StorageService>();
+    final orgCode = await storage.getString(StorageKeys.organizationCode) ?? '';
+    final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
+    final adminCode = await storage.getString(StorageKeys.userCode) ?? '';
+
+    if (!mounted) return;
+
+    await context.read<CreateConversationCubit>().createConversation(
+      title: '${student.firstName} ${student.lastName}'.trim(),
+      type: 'ADMIN_CHAT',
+      organizationCode: orgCode,
+      schoolCode: schoolCode,
+      studentCode: student.code,
+      participantUserCodes: const [],
+      participants: adminCode.isNotEmpty
+          ? [
+              {'userCode': adminCode, 'participantType': 'ADMIN'},
+            ]
+          : null,
+      description: '',
+      avatarUrl: student.profileImage ?? '',
+    );
+
+    if (!mounted) return;
+    setState(() => _isCreating = false);
+
+    final state = context.read<CreateConversationCubit>().state;
+    if (state is CreateConversationSuccess) {
+      widget.onCreated();
+    } else if (state is CreateConversationError) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(state.message),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      minChildSize: 0.5,
+      maxChildSize: 0.95,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              // ── Handle + header ─────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 16, 0),
+                child: Column(
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFDFE6E9),
+                          borderRadius: BorderRadius.circular(2),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: const Color(
+                              0xFF0984E3,
+                            ).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.admin_panel_settings_outlined,
+                            color: Color(0xFF0984E3),
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'New Admin Chat',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF2D3436),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          icon: const Icon(
+                            Icons.close_rounded,
+                            color: Color(0xFF636E72),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // ── Search ───────────────────────────────────────────
+                    Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: const Color(0x22B1AFE9),
+                      ),
+                      child: TextField(
+                        controller: _searchController,
+                        onChanged: (_) => setState(() {}),
+                        decoration: InputDecoration(
+                          hintText: 'Search students…',
+                          hintStyle: const TextStyle(
+                            color: Color(0xFFB2BEC3),
+                            fontSize: 14,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: Color(0xFFB2BEC3),
+                            size: 20,
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0xFFF1F3F5)),
+
+              // ── Student list ─────────────────────────────────────────────
+              Expanded(
+                child: BlocBuilder<StudentCubit, StudentState>(
+                  builder: (context, state) {
+                    if (state.isLoading && state.items.isEmpty) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final query = _searchController.text.trim().toLowerCase();
+                    final students = state.items.where((s) {
+                      if (query.isEmpty) return true;
+                      return s.fullName.toLowerCase().contains(query);
+                    }).toList();
+
+                    if (students.isEmpty) {
+                      return Center(
+                        child: Text(
+                          query.isEmpty
+                              ? 'No students found'
+                              : 'No results for "$query"',
+                          style: const TextStyle(
+                            color: Color(0xFF636E72),
+                            fontSize: 14,
+                          ),
+                        ),
+                      );
+                    }
+
+                    return ListView.separated(
+                      controller: scrollController,
+                      itemCount: students.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, color: Color(0xFFF1F3F5)),
+                      itemBuilder: (context, index) {
+                        final student = students[index];
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: AppColors.primaryColor.withValues(
+                              alpha: 0.12,
+                            ),
+                            backgroundImage:
+                                student.profileImage != null &&
+                                    student.profileImage!.isNotEmpty
+                                ? NetworkImage(student.profileImage!)
+                                : null,
+                            child:
+                                student.profileImage == null ||
+                                    student.profileImage!.isEmpty
+                                ? Text(
+                                    student.firstName.isNotEmpty
+                                        ? student.firstName[0].toUpperCase()
+                                        : '?',
+                                    style: TextStyle(
+                                      color: AppColors.primaryColor,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  )
+                                : null,
+                          ),
+                          title: Text(
+                            student.fullName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              color: Color(0xFF2D3436),
+                            ),
+                          ),
+                          subtitle: Text(
+                            student.code,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF636E72),
+                            ),
+                          ),
+                          trailing: _isCreating
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(
+                                  Icons.chat_bubble_outline_rounded,
+                                  color: Color(0xFF0984E3),
+                                  size: 20,
+                                ),
+                          onTap: _isCreating
+                              ? null
+                              : () => _createChat(student),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

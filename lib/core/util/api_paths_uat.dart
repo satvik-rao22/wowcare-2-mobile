@@ -203,8 +203,17 @@ class ApiPathsUat {
     // Special-case: document-ms endpoints are already namespaced differently.
     if (p.startsWith('/document-ms/')) return p;
 
-    // Special-case: communication/messaging endpoints do not use a microservice segment in UAT.
-    if (microserviceKeyFromPath(p) == ApiMicroservices.communication) return p;
+    // Communication/messaging endpoints in UAT are routed under /messaging/ prefix.
+    if (microserviceKeyFromPath(p) == ApiMicroservices.communication) {
+      if (p.startsWith('/api/v1/messaging/')) return p; // already prefixed
+      if (p.startsWith('/api/v1/conversations')) {
+        return p.replaceFirst('/api/v1/conversations', '/api/v1/messaging/conversations');
+      }
+      if (p.startsWith('/api/v1/messages')) {
+        return p.replaceFirst('/api/v1/messages', '/api/v1/messaging/messages');
+      }
+      return p;
+    }
 
     // Notification MS is rooted at `/api/v1/notification/...` on the gateway.
     if (p.startsWith('/api/v1/notification/')) return p;

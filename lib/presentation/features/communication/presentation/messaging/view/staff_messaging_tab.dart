@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-import 'package:wowcare/presentation/features/communication/cubit/create_conversation_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -325,7 +323,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
               }
 
               if (conversationsToDisplay.isEmpty) {
-                return _buildDirectoryFallback(context);
+                return _buildContactPicker(context);
               }
 
               return SliverList(
@@ -354,6 +352,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                     'parents': conversation.participants
                                         .map((p) => p.userName)
                                         .toList(),
+                                    'participants': conversation.participants,
                                     'staffList': [],
                                     'privateModeParents': [],
                                   },
@@ -381,186 +380,33 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     );
   }
 
-  Widget _buildDirectoryFallback(BuildContext context) {
-    if (widget.isStaffMessaging) {
-      return BlocBuilder<StaffCubit, StaffState>(
-        builder: (context, staffState) {
-          if (staffState.isLoading && staffState.items.isEmpty) {
-            return const SliverSelectionShimmerWrapper();
-          }
-
-          final query = _searchController.text.trim().toLowerCase();
-          final staff = staffState.items.where((s) {
-            if (query.isNotEmpty && !s.name.toLowerCase().contains(query))
-              return false;
-            return true;
-          }).toList();
-
-          if (staff.isEmpty) {
-            return const SliverFillRemaining(
-              child: Center(child: Text('No staff found')),
-            );
-          }
-
-          return SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final member = staff[index];
-              return MessagingListTile(
-                conversation: Conversation(
-                  id: 0,
-                  code: member.code,
-                  title: member.name,
-                  type: 'STAFF_DIRECT',
-                  organizationCode: '',
-                  schoolCode: '',
-                  status: 'ACTIVE',
-                  description: '',
-                  avatarUrl: member.profileImage ?? '',
-                  createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-                  createdBy: '',
-                  updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-                  updatedBy: '',
-                  unreadCount: 0,
-                  participantCount: 0,
-                  lastMessagePreview: '',
-                  participants: [],
-                ),
-                onTap: () async {
-                  final authState = context.read<AuthCubit>().state;
-                  if (authState is! AuthLoaded) return;
-
-                  final currentUserCode = authState.loginResponse.userCode;
-                  final firstRole = authState.loginResponse.roles.isNotEmpty
-                      ? authState.loginResponse.roles.first
-                      : null;
-                  final orgCode = firstRole?.organizationCode ?? '';
-                  final schoolCode = firstRole?.schoolCode ?? '';
-
-                  final cubit = serviceLocator<CreateConversationCubit>();
-
-                  final result = await cubit.createConversationAndReturn(
-                    title: member.name,
-                    type: 'STAFF_DIRECT',
-                    description: '',
-                    organizationCode: orgCode,
-                    schoolCode: schoolCode,
-                    participantUserCodes: [currentUserCode, member.code],
-                    avatarUrl: '',
-                  );
-
-                  if (!context.mounted) return;
-
-                  final conversationCode = result?.code ?? member.code;
-
-                  Navigator.of(context)
-                      .push(
-                        MaterialPageRoute(
-                          builder: (_) => BlocProvider<CommunicationCubit>(
-                            create: (context) =>
-                                serviceLocator<CommunicationCubit>(),
-                            child: StaffMessagingThread(
-                              staffInfo: {
-                                'name': member.name,
-                                'avatar': member.profileImage,
-                                'code': conversationCode,
-                              },
-                            ),
-                          ),
-                        ),
-                      )
-                      .then((_) async {
-                        if (mounted) {
-                          await context.read<CommunicationCubit>().refreshConversations(
-                            type: _conversationType,
-                            size: _conversationPageSize,
-                          );
-                        }
-                      });
-                },
-              );
-            }, childCount: staff.length),
-          );
-        },
-      );
-    } else {
-      return BlocBuilder<StudentCubit, StudentState>(
-        builder: (context, studentState) {
-          if (studentState.isLoading && studentState.items.isEmpty) {
-            return const SliverSelectionShimmerWrapper();
-          }
-
-          final query = _searchController.text.trim().toLowerCase();
-          final students = studentState.items.where((s) {
-            final fullName = '${s.firstName} ${s.lastName}'.toLowerCase();
-            if (query.isNotEmpty && !fullName.contains(query)) return false;
-            return true;
-          }).toList();
-
-          if (students.isEmpty) {
-            return const SliverFillRemaining(
-              child: Center(child: Text('No students found')),
-            );
-          }
-
-          return SliverList(
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final student = students[index];
-              return MessagingListTile(
-                conversation: Conversation(
-                  id: 0,
-                  code: student.code,
-                  title: '${student.firstName} ${student.lastName}',
-                  type: 'ROOM_CHAT',
-                  organizationCode: '',
-                  schoolCode: '',
-                  status: 'ACTIVE',
-                  description: '',
-                  avatarUrl: student.profileImage ?? '',
-                  createdAt: DateTime.fromMillisecondsSinceEpoch(0),
-                  createdBy: '',
-                  updatedAt: DateTime.fromMillisecondsSinceEpoch(0),
-                  updatedBy: '',
-                  unreadCount: 0,
-                  participantCount: 0,
-                  lastMessagePreview: '',
-                  participants: [],
-                ),
-                onTap: () {
-                  unawaited(Navigator.of(context)
-                      .push(
-                        MaterialPageRoute(
-                          builder: (_) => BlocProvider<CommunicationCubit>(
-                            create: (context) =>
-                                serviceLocator<CommunicationCubit>(),
-                            child: ParentMessagingThread(
-                              parentInfo: {
-                                'name':
-                                    '${student.firstName} ${student.lastName}',
-                                'avatar': student.profileImage,
-                                'code': student.code,
-                                'parents': [],
-                                'staffList': [],
-                                'privateModeParents': [],
-                              },
-                            ),
-                          ),
-                        ),
-                      )
-                      .then((_) async {
-                        if (mounted) {
-                          await context.read<CommunicationCubit>().refreshConversations(
-                            type: _conversationType,
-                            size: _conversationPageSize,
-                          );
-                        }
-                      }));
-                },
-              );
-            }, childCount: students.length),
-          );
-        },
-      );
-    }
+  Widget _buildContactPicker(BuildContext context) {
+    return SliverFillRemaining(
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline_rounded,
+              size: 56,
+              color: Colors.grey.withValues(alpha: 0.35),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              widget.isStaffMessaging
+                  ? 'No staff conversations yet'
+                  : 'No conversations yet',
+              style: const TextStyle(fontSize: 15, color: Colors.grey),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Use the + button to start one',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
