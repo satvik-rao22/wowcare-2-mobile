@@ -610,6 +610,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         return;
       }
       payload['guardianCode'] = guardianCode;
+      payload['pin'] = widget.pin ?? '';
     } else {
       if (defaultClassroomCode.isEmpty) {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -675,7 +676,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       final result = await serviceLocator<AttendanceRepository>()
           .submitStudentSignIn(
             payload: payload,
-            isParent: isParent || widget.isKiosk,
+            isParent: isParent || widget.isKiosk || widget.isQrScan,
           );
       final success = result.success;
       var message = result.message;

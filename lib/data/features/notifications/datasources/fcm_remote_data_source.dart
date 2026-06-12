@@ -1,4 +1,5 @@
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/push_notification_model.dart';
 
@@ -28,7 +29,20 @@ class FcmRemoteDataSourceImpl implements FcmRemoteDataSource {
   }
 
   @override
-  Future<String?> getToken() => _messaging.getToken();
+  Future<String?> getToken() async {
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      // On iOS, the APNS token must be registered before FCM can issue a token.
+      // Poll with a short delay so we don't throw the "apns-token-not-set" warning.
+      for (int attempt = 0; attempt < 5; attempt++) {
+        final apns = await _messaging.getAPNSToken();
+        if (apns != null) break;
+        await Future<void>.delayed(const Duration(seconds: 1));
+      }
+      // If APNS token still not available, return null silently (non-fatal).
+      if (await _messaging.getAPNSToken() == null) return null;
+    }
+    return _messaging.getToken();
+  }
 
   @override
   Stream<String> get onTokenRefresh => _messaging.onTokenRefresh;

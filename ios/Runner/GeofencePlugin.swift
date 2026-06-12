@@ -66,6 +66,7 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     defaults.set(longitude, forKey: prefsSchoolLonKey)
     defaults.set(radiusMeters, forKey: prefsSchoolRadiusKey)
     defaults.set(gpsEnabled, forKey: prefsGpsEnabledKey)
+    defaults.set(schoolCode, forKey: "geofence_school_code")
 
     requestPermissionsIfNeeded()
 
@@ -137,6 +138,29 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
 
   // MARK: CLLocationManagerDelegate
 
+  // Called on iOS 14+ when authorization status changes (e.g. user upgrades
+  // "When In Use" → "Always" in Settings). Re-start monitoring so region
+  // events fire correctly with the new permission level.
+  @available(iOS 14.0, *)
+  func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    if manager.authorizationStatus == .authorizedAlways ||
+       manager.authorizationStatus == .authorizedWhenInUse {
+      let defaults = UserDefaults.standard
+      let lat = defaults.double(forKey: prefsSchoolLatKey)
+      let lon = defaults.double(forKey: prefsSchoolLonKey)
+      let radius = defaults.double(forKey: prefsSchoolRadiusKey)
+      let schoolCode = defaults.string(forKey: "geofence_school_code") ?? "school"
+      if lat != 0.0 && lon != 0.0 {
+        startMonitoringRegion(
+          identifier: "wowcare_geofence_\(schoolCode)",
+          latitude: lat,
+          longitude: lon,
+          radiusMeters: radius > 0 ? radius : 250.0
+        )
+      }
+    }
+  }
+
   func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
     handleRegionEvent(isInside: true)
   }
@@ -161,11 +185,8 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     let gpsEnabled = defaults.object(forKey: prefsGpsEnabledKey) as? Bool ?? true
     if !gpsEnabled { return }
     let lastInside = defaults.bool(forKey: prefsLastInsideKey)
-    if lastInside == isInside {
-      // De-dup.
-      channel?.invokeMethod("geofenceStatusChanged", arguments: ["isInside": isInside])
-      return
-    }
+    // De-dup: state hasn't changed, nothing to do.
+    if lastInside == isInside { return }
 
     defaults.set(isInside, forKey: prefsLastInsideKey)
     channel?.invokeMethod("geofenceStatusChanged", arguments: ["isInside": isInside])

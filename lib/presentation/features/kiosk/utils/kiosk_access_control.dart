@@ -91,6 +91,16 @@ class KioskAccessControl {
     return _kioskModeCached;
   }
 
+  /// Synchronously clears the in-memory kiosk cache for non-kiosk logins.
+  /// Call this when a guardian/staff/admin logs in so stale kiosk state never
+  /// reaches the router. Storage is cleared by the async [deactivateKioskMode];
+  /// this covers the synchronous fast path used by GoRouter.
+  static void clearCacheForNonKioskLogin() {
+    _kioskModeCached = false;
+    _kioskPersonaCached = null;
+    AppLogger.d('[KioskAccess] Static cache force-cleared for non-kiosk login');
+  }
+
   /// Check if given route is allowed for kiosk users
   static bool isRouteAllowedForKiosk(String route) {
     // Check if route is explicitly blocked for kiosk users

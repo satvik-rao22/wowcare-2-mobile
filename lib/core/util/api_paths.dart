@@ -248,7 +248,29 @@ class ApiPaths {
     if (ApiConstants.isUat) return ApiPathsUat.url(path);
     final p = path.startsWith('/') ? path : '/$path';
     final ms = microserviceKeyFromPath(p);
-    return '${ApiConstants.baseUrlForMicroservice(ms)}$p';
+    final localPath = _stripLocalMsPrefix(p, ms);
+    return '${ApiConstants.baseUrlForMicroservice(ms)}$localPath';
+  }
+
+  /// For LOCAL devtunnel builds the base URL already encodes the microservice
+  /// context path (e.g. /attendance).  Strip the matching segment from the API
+  /// path so it isn't duplicated.
+  ///
+  /// Example:
+  ///   path = /api/v1/attendance/schools/{code}/…
+  ///   base = https://tunnel-8083.devtunnels.ms/attendance
+  ///   → strip "attendance/" from path → /api/v1/schools/{code}/…
+  ///   → full URL = https://tunnel-8083.devtunnels.ms/attendance/api/v1/schools/{code}/…
+  static String _stripLocalMsPrefix(String path, String ms) {
+    const _msPrefixMap = <String, String>{
+      ApiMicroservices.attendance: '/api/v1/attendance/',
+      ApiMicroservices.activity: '/api/v1/activity/',
+    };
+    final prefix = _msPrefixMap[ms];
+    if (prefix != null && path.startsWith(prefix)) {
+      return '/api/v1/${path.substring(prefix.length)}';
+    }
+    return path;
   }
 
   /// Same as [url]; the [baseUrl] argument is ignored (kept for call-site compatibility).
@@ -793,8 +815,7 @@ class ApiPaths {
   static const String messagingMessages = messages;
 
   // ── Conversation sub-resources ────────────────────────────────────────────
-  static String messagingConversation(String code) =>
-      '$conversations/$code';
+  static String messagingConversation(String code) => '$conversations/$code';
   static String messagingConversationsByType(String type) =>
       '$conversations/type/$type';
   static String messagingConversationsByStudent(String studentCode) =>

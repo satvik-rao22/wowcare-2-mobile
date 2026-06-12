@@ -31,6 +31,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 
 // Student entity for Sign-Out UI & API payload
 class StudentEntity {
@@ -315,6 +316,41 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       return;
     }
 
+    // QR pre-check: validate token with GUARDIAN_SIGN_OUT before calling write API
+    if (widget.isQrScan && widget.qrToken.isNotEmpty) {
+      try {
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
+        final result = await serviceLocator<ValidateQrCodeUseCase>()(
+          schoolCode: schoolCode,
+          qrToken: widget.qrToken,
+          useCase: QrAttendanceUseCase.guardianSignOut,
+        );
+        if (!mounted) return;
+        if (!result.valid) {
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: SnackBar(
+              content: Text(result.reason ?? 'QR code is not valid'),
+              backgroundColor: AppColors.warningColor,
+            ),
+          );
+          return;
+        }
+      } catch (_) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Failed to validate QR code'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+    }
+
     final classroomCodeByStudentCode = <String, String>{
       for (final s in currentStudents)
         if (s.studentCode.trim().isNotEmpty &&
@@ -383,6 +419,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         return;
       }
       payload['guardianCode'] = guardianCode;
+      payload['pin'] = widget.pin ?? '';
     } else {
       if (defaultClassroomCode.isEmpty) {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -428,14 +465,20 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
     try {
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStudentSignOut(payload: payload, isParent: isParent || widget.isKiosk);
+          .submitStudentSignOut(
+            payload: payload,
+            isParent: isParent || widget.isKiosk || widget.isQrScan,
+          );
       final success = result.success;
       var message = result.message;
 
       if (!mounted) return;
 
       // Normalize success messages for better UX
-      if (success && (message.toLowerCase().contains('sign out') || message.toLowerCase().contains('sign-out') || message.toLowerCase().contains('signed out'))) {
+      if (success &&
+          (message.toLowerCase().contains('sign out') ||
+              message.toLowerCase().contains('sign-out') ||
+              message.toLowerCase().contains('signed out'))) {
         message = 'Sign out successfully';
       }
 
@@ -475,7 +518,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           );
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -499,7 +544,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
   @override
   Widget build(BuildContext context) {
-    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+      context,
+    )) {
       return const Scaffold(
         body: Center(
           child: Padding(
@@ -507,7 +554,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
             child: Text(
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ),

@@ -496,8 +496,12 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     try {
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-          timeLimit: Duration(seconds: 5),
+          // LocationAccuracy.medium maps to kCLLocationAccuracyKilometer on iOS
+          // (≈1 km), which is too coarse to determine inside/outside reliably.
+          // LocationAccuracy.high maps to kCLLocationAccuracyHundredMeters (≈100 m)
+          // and resolves from WiFi/cell within seconds on both platforms.
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 8),
         ),
       );
     } catch (_) {

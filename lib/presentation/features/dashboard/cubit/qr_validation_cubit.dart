@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -84,31 +85,56 @@ class QrValidationCubit extends Cubit<QrValidationState> {
       QrAttendanceUseCase useCase;
       QrNavigationRoute route;
 
+      List<String> signedInCodes = [];
+      List<String> signedOutCodes = [];
+
       if (isGuardian) {
-        // For guardians: check if all children are signed in.
-        // If all signed in → sign-out. Otherwise → sign-in.
         if (guardianChildCodes.isNotEmpty) {
           try {
             final statusMap = await _getStudentSignInStatusMap(
               studentCodes: guardianChildCodes,
             );
-            final allSignedIn = guardianChildCodes.every(
-              (code) => statusMap[code]?.toUpperCase() == 'SIGNED_IN',
+
+            for (final code in guardianChildCodes) {
+              final isSignedIn =
+                  statusMap[code]?.toUpperCase() == 'SIGNED_IN';
+              if (isSignedIn) {
+                signedInCodes.add(code);
+              } else {
+                signedOutCodes.add(code);
+              }
+            }
+
+            final isMixed =
+                signedInCodes.isNotEmpty && signedOutCodes.isNotEmpty;
+
+            AppLogger.d(
+              '[QR ATTENDANCE]\n'
+              'Total Students: ${guardianChildCodes.length}\n'
+              'Signed In: ${signedInCodes.length}\n'
+              'Signed Out: ${signedOutCodes.length}\n'
+              'Navigate -> ${isMixed ? 'SignInOutSelection' : signedOutCodes.isEmpty ? 'SignOut' : 'SignIn'}',
             );
-            if (allSignedIn) {
+
+            if (isMixed) {
+              useCase = QrAttendanceUseCase.guardianSignIn;
+              route = QrNavigationRoute.guardianSignInOut;
+            } else if (signedOutCodes.isEmpty) {
+              // All signed in → sign out
               useCase = QrAttendanceUseCase.guardianSignOut;
               route = QrNavigationRoute.guardianSignOut;
             } else {
+              // All signed out → sign in
               useCase = QrAttendanceUseCase.guardianSignIn;
               route = QrNavigationRoute.guardianSignIn;
             }
           } catch (_) {
-            // If status check fails, default to sign-in.
+            AppLogger.d('[QR ATTENDANCE] Status check failed, defaulting to SignIn');
             useCase = QrAttendanceUseCase.guardianSignIn;
             route = QrNavigationRoute.guardianSignIn;
           }
         } else {
-          // No children codes provided; default to sign-in.
+          AppLogger.d('[QR ATTENDANCE] No child codes provided, defaulting to SignIn');
           useCase = QrAttendanceUseCase.guardianSignIn;
           route = QrNavigationRoute.guardianSignIn;
         }
@@ -130,7 +156,13 @@ class QrValidationCubit extends Cubit<QrValidationState> {
         useCase: useCase,
       );
 
-      if (!isClosed) emit(QrValidationSuccess(result, route: route, qrToken: qrToken));
+      if (!isClosed) emit(QrValidationSuccess(
+        result,
+        route: route,
+        qrToken: qrToken,
+        signedInCodes: signedInCodes,
+        signedOutCodes: signedOutCodes,
+      ));
     } catch (e) {
       if (!isClosed) {
         emit(QrValidationFailure(ApiErrorHandler.extractErrorMessage(e)));

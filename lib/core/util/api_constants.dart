@@ -52,8 +52,7 @@ class ApiConstants {
   // ─── Service base URLs ─────────────────────────────────────────────────────
 
   /// User / Auth MS  (LOCAL: 8086 | UAT: gateway)
-  static String get baseUrl =>
-      isUat ? ApiConstantsUat.baseUrl : _local(8086);
+  static String get baseUrl => isUat ? ApiConstantsUat.baseUrl : _local(8086);
 
   /// Student MS  (LOCAL: 8085 | UAT: gateway)
   static String get studentBaseUrl =>
@@ -70,10 +69,9 @@ class ApiConstants {
   /// School / Organization MS  (LOCAL: 8081 | UAT: gateway)
   static String get schoolMs => isUat ? ApiConstantsUat.schoolMs : _local(8081);
 
-  /// Attendance MS  (LOCAL: 8088/attendance | UAT: gateway)
-  static String get attendanceBaseUrl => isUat
-      ? ApiConstantsUat.attendanceBaseUrl
-      : _local(8088, 'attendance');
+  /// Attendance MS  (LOCAL: 8083/attendance | UAT: gateway)
+  static String get attendanceBaseUrl =>
+      isUat ? ApiConstantsUat.attendanceBaseUrl : _local(8083, 'attendance');
 
   /// Activity MS  (LOCAL: 8082/wowcare-activity-ms | UAT: gateway)
   static String get activityBaseUrl => isUat
