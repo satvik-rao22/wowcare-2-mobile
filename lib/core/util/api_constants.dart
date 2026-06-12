@@ -54,8 +54,6 @@ class ApiConstants {
   /// User / Auth MS  (LOCAL: 8086 | UAT: gateway)
   static String get baseUrl =>
       isUat ? ApiConstantsUat.baseUrl : _local(8086);
-  /// User / Auth MS  (LOCAL: 8090 | UAT: gateway)
-  static String get baseUrl => isUat ? ApiConstantsUat.baseUrl : _local(8090);
 
   /// Student MS  (LOCAL: 8085 | UAT: gateway)
   static String get studentBaseUrl =>
