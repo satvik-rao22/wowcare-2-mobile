@@ -111,6 +111,22 @@ abstract class StaffRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// Updates a staff member's allowed classrooms via
+  /// `PATCH /api/v1/staff-classrooms/{staffCode}/allowed-classrooms`.
+  /// Body: `{ "classroomCodes": ["CLS_...", ...] }`.
+  Future<String> updateStaffAllowedClassrooms({
+    required String staffCode,
+    required List<String> classroomCodes,
+  });
+
+  /// Updates a staff member's primary classroom via
+  /// `PATCH /api/v1/staff-classrooms/{staffCode}/primary-classroom`.
+  /// Body: `{ "classroomCode": "CLS_..." }`.
+  Future<String> updateStaffPrimaryClassroom({
+    required String staffCode,
+    required String classroomCode,
+  });
+
   /// Updates the *logged-in* staff member's basic profile + address via
   /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}`.
   ///
@@ -192,6 +208,16 @@ abstract class StaffRemoteDataSource {
 
   /// Activates a school user via `/api/v1/school-users/activate`.
   Future<String> activateSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  });
+
+  /// Permanently deletes a school user via `DELETE /api/v1/school-users`
+  /// (UAT: `/api/v1/user/school-users`) with userCode/organizationCode/
+  /// schoolCode/role query params.
+  Future<String> deleteSchoolUser({
     required String userCode,
     required String organizationCode,
     required String schoolCode,
@@ -640,6 +666,52 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   }
 
   @override
+  Future<String> updateStaffAllowedClassrooms({
+    required String staffCode,
+    required List<String> classroomCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAllowedClassroomsByStaffCodePath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'classroomCodes': classroomCodes},
+    );
+
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data['message']?.toString() ??
+          'Allowed classrooms updated successfully';
+    }
+    return 'Allowed classrooms updated successfully';
+  }
+
+  @override
+  Future<String> updateStaffPrimaryClassroom({
+    required String staffCode,
+    required String classroomCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffPrimaryClassroomByStaffCodePath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'classroomCode': classroomCode},
+    );
+
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data['message']?.toString() ??
+          'Primary classroom updated successfully';
+    }
+    return 'Primary classroom updated successfully';
+  }
+
+  @override
   Future<String> updateMyProfile({
     required String staffCode,
     required Map<String, dynamic> body,
@@ -910,6 +982,35 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'User activated successfully';
+  }
+
+  @override
+  Future<String> deleteSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.schoolUsers);
+
+    final response = await _client.delete<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'userCode': userCode,
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+        'role': role,
+      },
+    );
+
+    // A successful DELETE may return an empty body, a plain string, or a
+    // `{ "message": ... }` envelope — accept all and fall back to a default.
+    final data = response.data;
+    if (data is Map<String, dynamic>) {
+      return data['message']?.toString() ?? 'Staff deleted successfully';
+    }
+    final text = data?.toString().trim() ?? '';
+    return text.isEmpty ? 'Staff deleted successfully' : text;
   }
 
   @override

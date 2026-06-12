@@ -7,7 +7,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -297,7 +297,11 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
         child: BlocBuilder<StaffProfileCubit, StaffProfileState>(
           builder: (context, state) {
             if (state.isLoading && state.profile == null) {
-              return const Center(child: PrimaryCircularLoader());
+              return const SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                physics: AlwaysScrollableScrollPhysics(),
+                child: StaffProfileInfoShimmer(),
+              );
             }
 
             final profile = state.profile;

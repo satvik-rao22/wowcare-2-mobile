@@ -100,6 +100,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   }
 
   Future<void> _loadClassroomData() async {
+    final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
       // Transfers / historical attendance can reference non-CLASSROOM locations.
@@ -113,6 +114,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
+      if (hadClassroomSelection) {
+        _loadAttendanceData(reset: true);
+      }
       return;
     }
 
@@ -128,6 +132,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       _isClassroomDataReady = !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+    if (hadClassroomSelection && _isClassroomDataReady) {
+      _loadAttendanceData(reset: true);
+    }
   }
 
   @override
@@ -294,11 +301,19 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
-    final codes = _selectedClassroomNames
-        .map((n) => nameToCode[n])
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toList();
+    final knownCodes = {
+      for (final c in _classroomCubit.state.classrooms) c.code.trim(),
+    };
+    final codes = <String>[];
+    for (final selected in _selectedClassroomNames) {
+      final trimmed = selected.trim();
+      final fromName = nameToCode[selected]?.trim();
+      if (fromName != null && fromName.isNotEmpty) {
+        codes.add(fromName);
+      } else if (knownCodes.contains(trimmed)) {
+        codes.add(trimmed);
+      }
+    }
     return codes.isEmpty ? null : codes;
   }
 
@@ -332,33 +347,12 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   List<_CustomAttendanceRow> _getFilteredAttendance(
     List<StudentAttendanceCustomItem> items,
   ) {
-    final q = _searchQuery.trim().toLowerCase();
-
-    final filtered = <_CustomAttendanceRow>[];
-
-    for (final entry in items.asMap().entries) {
-      final index = entry.key;
-      final item = entry.value;
-
-      final matchesSearch =
-          q.isEmpty || item.studentName.toLowerCase().contains(q);
-
-      final classroomDisplay = _classroomDisplay(
-        classroomCode: item.classroomCode,
-        classroomName: item.classroomName,
-      );
-      final matchesClassroom =
-          _selectedClassroomNames.isEmpty ||
-              _selectedClassroomNames.contains(classroomDisplay);
-
-      if (matchesSearch && matchesClassroom) {
-        filtered.add(
-          _mapEntityToRow(item, index),
-        );
-      }
-    }
-
-    return filtered;
+    // Classroom and search filters are applied server-side via classroomCodes/search.
+    return items
+        .asMap()
+        .entries
+        .map((entry) => _mapEntityToRow(entry.value, entry.key))
+        .toList();
   }
 
   _CustomAttendanceRow _mapEntityToRow(
@@ -647,6 +641,45 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     );
   }
 
+  /// Expanded-card detail row styled exactly like staff_card.dart:
+  /// label 13/w400 and value 14/w500, both Manrope in Color(0xff573353).
+  Widget _buildCustomDetailRow(String label, String value) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Flexible(
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xff573353),
+              height: 19 / 14,
+            ),
+            textAlign: TextAlign.end,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildCustomStudentCard(_CustomAttendanceRow attendance, int index) {
     final responsive = ResponsiveHelper(context);
     final bool isExpanded = _customExpandedStudentIndex == index;
@@ -692,6 +725,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                   children: [
                     DocumentImageWidget(
                       fileUuid: attendance.studentPhotoUuid,
+                      studentCode: attendance.studentCode.isNotEmpty
+                          ? attendance.studentCode
+                          : attendance.id,
                       size: avatarSize,
                       name: studentName,
                       fontSize: responsive.isTablet ? 18 : 16,
@@ -699,24 +735,42 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                   ],
                 ),
                 const SizedBox(width: 14),
+                // Header matches staff_card.dart: name (left) + classroom (right).
                 Expanded(
-                  child: AppText.body(
-                    studentName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                AppText.body(
-                  'Attended Days : $daysAttended',
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: AppColors.primaryColor,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          studentName,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          roomName,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -725,35 +779,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
               const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: AppText.small(
-                      'Classroom',
-                      style: TextStyle(color: AppColors.secondaryColor),
-                    ),
-                  ),
-                  Expanded(
-                    child: AppText.value(
-                      roomName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
-                    ),
-                  ),
-                ],
-              ),
+              _buildCustomDetailRow('Attended Days', daysAttended),
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  AppText.small(
-                    'Attended Time',
-                    style: TextStyle(color: AppColors.secondaryColor),
-                  ),
-                  const Spacer(),
-                  AppText.value(totalHours),
-                ],
-              ),
+              _buildCustomDetailRow('Attended Time', totalHours),
               SizedBox(height: responsive.verticalSpacing / 1.2),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),

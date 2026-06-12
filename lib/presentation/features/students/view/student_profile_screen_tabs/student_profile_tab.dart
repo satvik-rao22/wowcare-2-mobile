@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_about_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
@@ -52,6 +55,11 @@ class _StudentProfileTabState extends State<StudentProfileTab>
   late Future<StudentProfileModel?> _profileFuture;
   late final CacheManager _cacheManager;
 
+  /// School code used by the Family tab when the student profile failed to
+  /// load (so guardian actions still target the active school). Best-effort
+  /// from storage; the profile's own schoolCode is preferred when available.
+  String _fallbackSchoolCode = '';
+
   static String _studentProfileCacheKey(String studentCode) =>
       CacheManager.buildCacheKey(
         feature: 'student',
@@ -72,6 +80,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       setState(() {});
     });
     _cacheManager = CacheManager(serviceLocator<StorageService>());
+    _loadFallbackSchoolCode();
 
     // Fetch student profile if studentCode is provided
     if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
@@ -80,12 +89,38 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       future.then((profile) {
         if (!mounted) return;
         if (profile != null) widget.onProfileChanged?.call(profile);
-      }).catchError((_) {
-        // UI handles profile load errors in FutureBuilder.
+      }).catchError((Object error) {
+        // About tab renders the inline error; also surface it to the user.
+        _showProfileErrorBanner(error);
       });
     } else {
       _profileFuture = Future<StudentProfileModel?>.value(null);
     }
+  }
+
+  Future<void> _loadFallbackSchoolCode() async {
+    try {
+      final code = await serviceLocator<StorageService>()
+          .getString(StorageKeys.schoolCode);
+      if (!mounted) return;
+      if (code != null && code.trim().isNotEmpty) {
+        setState(() => _fallbackSchoolCode = code.trim());
+      }
+    } catch (_) {
+      // Best-effort only; Family tab tolerates an empty school code.
+    }
+  }
+
+  /// Surfaces a failed student-profile fetch through the shared error banner
+  /// ([CoreUtils]) so the server message is visible, while the Family and
+  /// Pickup tabs keep working independently.
+  void _showProfileErrorBanner(Object error) {
+    if (!mounted) return;
+    CoreUtils.logApiError(
+      ApiErrorHandler.extractErrorMessage(error),
+      showOnScreen: true,
+      context: context,
+    );
   }
 
   Future<void> _refreshProfile() async {
@@ -100,8 +135,9 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       // Wait for the future to complete to ensure data is loaded
       final refreshed = await newFuture;
       if (refreshed != null) widget.onProfileChanged?.call(refreshed);
-    } catch (_) {
-      // UI handles errors via FutureBuilder
+    } catch (error) {
+      // About tab renders the inline error; also surface it to the user.
+      _showProfileErrorBanner(error);
     }
   }
 
@@ -111,9 +147,13 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       final payload = await _cacheManager.loadCache(cacheKey);
       if (payload != null) {
         final model = StudentProfileModel.fromJson(payload);
-        // Stale-while-revalidate.
+        // Stale-while-revalidate. Cached data is already shown, so a failed
+        // background refresh only needs to surface its error to the user.
         // ignore: unawaited_futures
-        _loadProfileFresh(studentCode);
+        _loadProfileFresh(studentCode).catchError((Object error) {
+          _showProfileErrorBanner(error);
+          return null;
+        });
         return model;
       }
     } catch (_) {
@@ -172,7 +212,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     return Column(
         children: [
           Transform.translate(
-            offset: const Offset(0, 4),
+            offset: const Offset(0, 0),
             child: TabBar(
               controller: _tabController,
               dividerHeight: 0,
@@ -231,218 +271,42 @@ class _StudentProfileTabState extends State<StudentProfileTab>
             child: FutureBuilder<StudentProfileModel?>(
               future: _profileFuture,
               builder: (context, snapshot) {
-                // If no studentCode provided, use existing data
-                if (widget.studentCode == null || widget.studentCode!.isEmpty) {
-                  return TabBarView(
-                    controller: _tabController,
-                    children: [
-                      StudentAboutTabCard(
-                        scrollController: _aboutScrollController,
-                        name: widget.name,
-                        classroom: widget.classroom,
-                        tags: widget.tags,
-                        schedule: widget.schedule,
-                        sibling: widget.sibling,
-                        onRefresh: _refreshProfile,
-                        studentCode: widget.studentCode,
-                      ),
-                      StudentFamilyTabCard(
-                        scrollController: _familyScrollController,
-                        name: widget.name,
-                        classroom: widget.classroom,
-                        studentCode: widget.studentCode,
-                        schoolCode: '', // schoolCode unknown in this path
-                        onRefresh: _refreshProfile,
-                      ),
-                      StudentPickupTabCard(
-                        scrollController: _pickupScrollController,
-                        name: widget.name,
-                        classroom: widget.classroom,
-                        studentCode: widget.studentCode,
-                        onRefresh: _refreshProfile,
-                      ),
-                    ],
-                  );
-                }
-
-                // Loading state
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return CustomRefreshIndicator(
-                    onRefresh: _refreshProfile,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
-                      children: const [
-                        StudentProfileInfoShimmer(),
-                      ],
-                    ),
-                  );
-                }
-
-                // Error state
-                if (snapshot.hasError) {
-                  return CustomRefreshIndicator(
-                    onRefresh: _refreshProfile,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-                      children: [
-                        const Icon(
-                          Icons.error_outline,
-                          size: 48,
-                          color: Colors.red,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Failed to load student profile',
-                          style: Theme.of(context).textTheme.titleMedium,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          snapshot.error.toString(),
-                          style: Theme.of(context).textTheme.bodySmall,
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _refreshProfile,
-                          child: const Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // Success state - use API data
                 final profile = snapshot.data;
-                if (profile == null) {
-                  // Fallback to existing data if API returns null
-                  return TabBarView(
-                    controller: _tabController,
-                    children: [
-                      StudentAboutTabCard(
-                        scrollController: _aboutScrollController,
-                        name: widget.name,
-                        classroom: widget.classroom,
-                        tags: widget.tags,
-                        schedule: widget.schedule,
-                        sibling: widget.sibling,
-                        onRefresh: _refreshProfile,
-                        studentCode: widget.studentCode,
-                      ),
-                      StudentFamilyTabCard(
-                        scrollController: _familyScrollController,
-                        name: widget.name,
-                        classroom: widget.classroom,
-                        studentCode: widget.studentCode,
-                        schoolCode: '', // schoolCode unknown in this path
-                        onRefresh: _refreshProfile,
-                      ),
-                      StudentPickupTabCard(
-                        scrollController: _pickupScrollController,
-                        name: widget.name,
-                        classroom: widget.classroom,
-                        studentCode: widget.studentCode,
-                      onRefresh: _refreshProfile,
-                      ),
-                    ],
+                final hasCode =
+                    widget.studentCode != null && widget.studentCode!.isNotEmpty;
+                final isWaiting = hasCode &&
+                    snapshot.connectionState == ConnectionState.waiting;
+
+                // Only the About tab depends on the student profile model.
+                // Family and Pickup load their own data from studentCode, so a
+                // profile fetch failure (e.g. a 500) must NOT block them —
+                // build them unconditionally and let the About tab own its
+                // loading/error state.
+                final Widget aboutChild;
+                if (isWaiting) {
+                  aboutChild = CustomRefreshIndicator(
+                    onRefresh: _refreshProfile,
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 16),
+                      children: const [StudentProfileInfoShimmer()],
+                    ),
                   );
+                } else if (snapshot.hasError) {
+                  aboutChild = _buildAboutError(snapshot.error);
+                } else if (profile != null) {
+                  aboutChild = _buildAboutFromProfile(profile);
+                } else {
+                  aboutChild = _buildAboutFromWidget();
                 }
-
-                // Use API data - profile is StudentProfileModel
-                final profileData = profile;
-
-                // Derive tags list from profile API (tags[].name)
-                final apiTags = (profileData.tags)
-                    .whereType<Map<String, dynamic>>()
-                    .map((t) => (t['name'] ?? '').toString().trim())
-                    .where((name) => name.isNotEmpty)
-                    .toList();
-
-                // Derive schedule short-day list from regularSchedules[].dayOfWeek
-                final apiSchedule = (profileData.regularSchedules)
-                    .whereType<Map<String, dynamic>>()
-                    .map((s) => (s['dayOfWeek'] ?? '').toString().toUpperCase())
-                    .map((day) {
-                      switch (day) {
-                        case 'MONDAY':
-                          return 'Mon';
-                        case 'TUESDAY':
-                          return 'Tue';
-                        case 'WEDNESDAY':
-                          return 'Wed';
-                        case 'THURSDAY':
-                          return 'Thu';
-                        case 'FRIDAY':
-                          return 'Fri';
-                        case 'SATURDAY':
-                          return 'Sat';
-                        case 'SUNDAY':
-                          return 'Sun';
-                        default:
-                          return '';
-                      }
-                    })
-                    .where((d) => d.isNotEmpty)
-                    .toList();
-
-                // Derive sibling display map from profile API siblings[]
-                final siblingNames = <String>[];
-                final siblingRelations = <String>[];
-                final siblingStatuses = <String>[];
-                for (final raw in profileData.siblings) {
-                  if (raw is! Map<String, dynamic>) continue;
-                  final first = (raw['firstName'] ?? '').toString().trim();
-                  final last = (raw['lastName'] ?? '').toString().trim();
-                  final name = ('$first $last').trim();
-                  if (name.isEmpty) continue;
-                  siblingNames.add(name);
-                  siblingRelations.add('Sibling');
-                  final status = (raw['status'] ?? '').toString().toLowerCase();
-                  siblingStatuses.add(status);
-                }
-                final apiSiblingMap = <String, dynamic>{
-                  'name': siblingNames,
-                  'relation': siblingRelations,
-                  'status': siblingStatuses,
-                };
 
                 return TabBarView(
                   controller: _tabController,
                   children: [
-                    StudentAboutTabCard(
-                      scrollController: _aboutScrollController,
-                      name: profileData.fullName.isNotEmpty 
-                          ? profileData.fullName 
-                          : widget.name,
-                      classroom: profileData.classroom ?? widget.classroom,
-                      tags: apiTags,
-                      schedule: apiSchedule,
-                      sibling: apiSiblingMap,
-                      studentProfile: profileData,
-                      onRefresh: _refreshProfile,
-                      studentCode: profileData.code,
-                    ),
-                    StudentFamilyTabCard(
-                      scrollController: _familyScrollController,
-                      name: profileData.fullName.isNotEmpty 
-                          ? profileData.fullName 
-                          : widget.name,
-                      classroom: profileData.classroom ?? widget.classroom,
-                      studentCode: profileData.code,
-                      schoolCode: profileData.schoolCode,
-                      onRefresh: _refreshProfile,
-                    ),
-                    StudentPickupTabCard(
-                      scrollController: _pickupScrollController,
-                      name: profileData.fullName.isNotEmpty 
-                          ? profileData.fullName 
-                          : widget.name,
-                      classroom: profileData.classroom ?? widget.classroom,
-                      studentCode: profileData.code,
-                      onRefresh: _refreshProfile,
-                    ),
+                    aboutChild,
+                    _buildFamilyTab(profile),
+                    _buildPickupTab(profile),
                   ],
                 );
               },
@@ -453,6 +317,158 @@ class _StudentProfileTabState extends State<StudentProfileTab>
 
 
 
+    );
+  }
+
+  /// About tab built from cached/widget data when the profile model is
+  /// unavailable (no studentCode or API returned null).
+  Widget _buildAboutFromWidget() {
+    return StudentAboutTabCard(
+      scrollController: _aboutScrollController,
+      name: widget.name,
+      classroom: widget.classroom,
+      tags: widget.tags,
+      schedule: widget.schedule,
+      sibling: widget.sibling,
+      onRefresh: _refreshProfile,
+      studentCode: widget.studentCode,
+    );
+  }
+
+  /// About tab error state. Family and Pickup tabs remain usable; only this
+  /// tab reflects the failed profile fetch (the message is also surfaced via
+  /// [CoreUtils]).
+  Widget _buildAboutError(Object? error) {
+    return CustomRefreshIndicator(
+      onRefresh: _refreshProfile,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        children: [
+          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(
+            'Failed to load student profile',
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            ApiErrorHandler.extractErrorMessage(error),
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: ElevatedButton(
+              onPressed: _refreshProfile,
+              child: const Text('Retry'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// About tab built from the loaded [profile] model.
+  Widget _buildAboutFromProfile(StudentProfileModel profile) {
+    // Derive tags list from profile API (tags[].name)
+    final apiTags = (profile.tags)
+        .whereType<Map<String, dynamic>>()
+        .map((t) => (t['name'] ?? '').toString().trim())
+        .where((name) => name.isNotEmpty)
+        .toList();
+
+    // Derive schedule short-day list from regularSchedules[].dayOfWeek
+    final apiSchedule = (profile.regularSchedules)
+        .whereType<Map<String, dynamic>>()
+        .map((s) => (s['dayOfWeek'] ?? '').toString().toUpperCase())
+        .map(_shortDayLabel)
+        .where((d) => d.isNotEmpty)
+        .toList();
+
+    // Derive sibling display map from profile API siblings[]
+    final siblingNames = <String>[];
+    final siblingRelations = <String>[];
+    final siblingStatuses = <String>[];
+    for (final raw in profile.siblings) {
+      if (raw is! Map<String, dynamic>) continue;
+      final first = (raw['firstName'] ?? '').toString().trim();
+      final last = (raw['lastName'] ?? '').toString().trim();
+      final name = ('$first $last').trim();
+      if (name.isEmpty) continue;
+      siblingNames.add(name);
+      siblingRelations.add('Sibling');
+      siblingStatuses.add((raw['status'] ?? '').toString().toLowerCase());
+    }
+
+    return StudentAboutTabCard(
+      scrollController: _aboutScrollController,
+      name: profile.fullName.isNotEmpty ? profile.fullName : widget.name,
+      classroom: profile.classroom ?? widget.classroom,
+      tags: apiTags,
+      schedule: apiSchedule,
+      sibling: <String, dynamic>{
+        'name': siblingNames,
+        'relation': siblingRelations,
+        'status': siblingStatuses,
+      },
+      studentProfile: profile,
+      onRefresh: _refreshProfile,
+      studentCode: profile.code,
+    );
+  }
+
+  static String _shortDayLabel(String dayOfWeek) {
+    switch (dayOfWeek) {
+      case 'MONDAY':
+        return 'Mon';
+      case 'TUESDAY':
+        return 'Tue';
+      case 'WEDNESDAY':
+        return 'Wed';
+      case 'THURSDAY':
+        return 'Thu';
+      case 'FRIDAY':
+        return 'Fri';
+      case 'SATURDAY':
+        return 'Sat';
+      case 'SUNDAY':
+        return 'Sun';
+      default:
+        return '';
+    }
+  }
+
+  /// Family tab — loads its own guardian data from studentCode and never
+  /// depends on the About profile fetch succeeding. Prefers the profile's
+  /// schoolCode, falling back to the active school from storage.
+  Widget _buildFamilyTab(StudentProfileModel? profile) {
+    final hasProfileSchool =
+        profile != null && profile.schoolCode.trim().isNotEmpty;
+    return StudentFamilyTabCard(
+      scrollController: _familyScrollController,
+      name: (profile != null && profile.fullName.isNotEmpty)
+          ? profile.fullName
+          : widget.name,
+      classroom: profile?.classroom ?? widget.classroom,
+      studentCode: profile?.code ?? widget.studentCode,
+      schoolCode: hasProfileSchool ? profile.schoolCode : _fallbackSchoolCode,
+      onRefresh: _refreshProfile,
+    );
+  }
+
+  /// Pickup tab — loads its own pickup data from studentCode and never depends
+  /// on the About profile fetch succeeding.
+  Widget _buildPickupTab(StudentProfileModel? profile) {
+    return StudentPickupTabCard(
+      scrollController: _pickupScrollController,
+      name: (profile != null && profile.fullName.isNotEmpty)
+          ? profile.fullName
+          : widget.name,
+      classroom: profile?.classroom ?? widget.classroom,
+      studentCode: profile?.code ?? widget.studentCode,
+      onRefresh: _refreshProfile,
     );
   }
 }

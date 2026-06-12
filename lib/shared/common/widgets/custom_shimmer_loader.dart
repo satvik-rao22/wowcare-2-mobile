@@ -2255,3 +2255,218 @@ class StudentDocumentsListShimmer extends StatelessWidget {
     );
   }
 }
+
+// ============================================================================
+// Billing / General Ledger shimmers
+// ============================================================================
+
+/// Shimmer placeholder matching the collapsed [LedgerCard] layout:
+/// white bordered card (minHeight 60) with a header name line.
+class LedgerCardShimmer extends StatelessWidget {
+  const LedgerCardShimmer({super.key, this.margin});
+
+  final EdgeInsets? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.symmetric(vertical: 6),
+        constraints: const BoxConstraints(minHeight: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE9ECEF)),
+        ),
+        child: Center(
+          child: Container(
+            height: 14,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A column of [LedgerCardShimmer] rows used for the initial ledger list load.
+class LedgerListShimmer extends StatelessWidget {
+  const LedgerListShimmer({super.key, this.rowCount = 6});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: List.generate(rowCount, (_) => const LedgerCardShimmer()),
+    );
+  }
+}
+
+// ============================================================================
+// Staff Profile screen shimmers
+//
+// Mirror the student shimmers: static card shells (background/border do not
+// animate) with only the text lines shimmering. Reuse the same [_ShimmerCard] /
+// [_SkelBox] / [_LabelValueRowShimmer] primitives.
+// ============================================================================
+
+/// Shimmer for the Staff Profile tab — a static card whose title line and
+/// stacked label-over-value fields shimmer (matches the profile `_Field`
+/// column layout: short label line, gap, longer value line).
+class StaffProfileInfoShimmer extends StatelessWidget {
+  const StaffProfileInfoShimmer({super.key, this.rowCount = 11});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return _ShimmerCard(
+      borderRadius: const BorderRadius.vertical(
+        top: Radius.circular(12),
+        bottom: Radius.circular(16),
+      ),
+      borderColor: const Color.fromARGB(255, 232, 234, 234),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SkelBox(width: 150, height: 15),
+          const SizedBox(height: 18),
+          for (int i = 0; i < rowCount; i++) ...[
+            _SkelBox(width: _kLabelWidths[i % _kLabelWidths.length], height: 12),
+            const SizedBox(height: 8),
+            _SkelBox(width: _kValueWidths[i % _kValueWidths.length], height: 14),
+            if (i != rowCount - 1) const SizedBox(height: 16),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shimmer for the Staff Documents tab — static collapsed document tiles whose
+/// name + type-badge + chevron lines shimmer.
+class StaffDocumentsListShimmer extends StatelessWidget {
+  const StaffDocumentsListShimmer({super.key, this.rowCount = 5});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (int i = 0; i < rowCount; i++) ...[
+          _ShimmerCard(
+            borderRadius: BorderRadius.circular(14),
+            borderColor: const Color(0x33162831),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+            child: Row(
+              children: const [
+                _SkelBox(width: 150, height: 14),
+                SizedBox(width: 10),
+                _SkelBox(width: 64, height: 15, radius: 6),
+                Spacer(),
+                _SkelBox(width: 18, height: 18),
+              ],
+            ),
+          ),
+          if (i != rowCount - 1) const SizedBox(height: 12),
+        ],
+      ],
+    );
+  }
+}
+
+/// Shimmer for the Staff Important Dates tab — a list of static bordered cards,
+/// each with a stacked label (date-type) line over a value (date) line.
+class StaffImportantDatesShimmer extends StatelessWidget {
+  const StaffImportantDatesShimmer({super.key, this.rowCount = 5});
+
+  final int rowCount;
+
+  static const List<double> _labelWidths = [180, 150, 220, 160, 200];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (int i = 0; i < rowCount; i++)
+          Container(
+            margin: EdgeInsets.only(top: i == 0 ? 16 : 12),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0x33162831)),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey.shade300,
+              highlightColor: Colors.grey.shade100,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SkelBox(width: _labelWidths[i % _labelWidths.length], height: 13),
+                  const SizedBox(height: 8),
+                  const _SkelBox(width: 100, height: 14),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Shimmer for the Staff Dates tab body (below the static calendar header) —
+/// stacked date rows plus a physical-checkup status card.
+class StaffDatesShimmer extends StatelessWidget {
+  const StaffDatesShimmer({super.key, this.rowCount = 4});
+
+  final int rowCount;
+
+  static const List<double> _labelWidths = [180, 150, 220, 200];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Shimmer.fromColors(
+          baseColor: Colors.grey.shade300,
+          highlightColor: Colors.grey.shade100,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (int i = 0; i < rowCount; i++) ...[
+                _SkelBox(width: _labelWidths[i % _labelWidths.length], height: 13),
+                const SizedBox(height: 8),
+                const _SkelBox(width: 100, height: 14),
+                if (i != rowCount - 1) const SizedBox(height: 16),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        // Physical checkup status card.
+        _ShimmerCard(
+          borderRadius: BorderRadius.circular(8),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              _SkelBox(width: 90, height: 22, radius: 8),
+              SizedBox(height: 18),
+              _LabelValueRowShimmer(labelWidth: 100, valueWidth: 110),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

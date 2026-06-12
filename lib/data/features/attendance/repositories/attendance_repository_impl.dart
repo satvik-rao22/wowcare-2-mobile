@@ -1409,8 +1409,8 @@ class AttendanceRepositoryImpl
       if (signedInAt != null) 'signedInAt': signedInAt.toUtc().toIso8601String(),
       if (signedOutAt != null)
         'signedOutAt': signedOutAt.toUtc().toIso8601String(),
-      if (!isTransferRecord && signedInAt != null) 'SignedInMethod': 'APP',
-      if (!isTransferRecord && signedOutAt != null) 'SignedOutMethod': 'APP',
+      if (!isTransferRecord && signedInAt != null) 'signedInMethod': 'APP',
+      if (!isTransferRecord && signedOutAt != null) 'signedOutMethod': 'APP',
       if (originalClassroomCode != null && originalClassroomCode.trim().isNotEmpty)
         'originalClassroomCode': originalClassroomCode.trim(),
       if (currentClassroomCode != null && currentClassroomCode.trim().isNotEmpty)

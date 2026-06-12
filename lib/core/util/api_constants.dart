@@ -16,6 +16,7 @@ abstract final class ApiMicroservices {
   static const String communication = 'communication';
   static const String newsLatter = 'newslatter';
   static const String notification = 'notification';
+  static const String billing = 'billing';
 }
 
 class ApiConstants {
@@ -36,12 +37,12 @@ class ApiConstants {
   // All LOCAL URLs are derived from this single constant.
   //
   // Known tunnel IDs:
-  //   officeTunnelId  = '4hn0k1dg'   ← currently active
-  //   sairamTunnelId  = 'wnmrl4rn'
+  //   officeTunnelId  = '4hn0k1dg'
+  //   sairamTunnelId  = 'wnmrl4rn'   ← currently active
   //   preshtiaTunnelId = 'qs176zl8'
   // To switch tunnel: replace the value of _localTunnelId below.
   // office='4hn0k1dg'  sairam='wnmrl4rn'  preshtia='qs176zl8'
-  static const String _localTunnelId = '4hn0k1dg';
+  static const String _localTunnelId = 'wnmrl4rn';
 
   static String _local(int port, [String? path]) {
     final base = 'https://$_localTunnelId-$port.inc1.devtunnels.ms';
@@ -50,6 +51,9 @@ class ApiConstants {
 
   // ─── Service base URLs ─────────────────────────────────────────────────────
 
+  /// User / Auth MS  (LOCAL: 8086 | UAT: gateway)
+  static String get baseUrl =>
+      isUat ? ApiConstantsUat.baseUrl : _local(8086);
   /// User / Auth MS  (LOCAL: 8090 | UAT: gateway)
   static String get baseUrl => isUat ? ApiConstantsUat.baseUrl : _local(8090);
 
@@ -57,25 +61,26 @@ class ApiConstants {
   static String get studentBaseUrl =>
       isUat ? ApiConstantsUat.studentBaseUrl : _local(8085);
 
-  /// Classroom MS  (LOCAL: 8082 | UAT: gateway)
+  /// Classroom MS  (LOCAL: 8087 | UAT: gateway)
   static String get classroomBaseUrl =>
-      isUat ? ApiConstantsUat.classroomBaseUrl : _local(8082);
+      isUat ? ApiConstantsUat.classroomBaseUrl : _local(8087);
 
-  /// Staff MS  (LOCAL: 8083 | UAT: gateway)
+  /// Staff MS  (LOCAL: 8088 | UAT: gateway)
   static String get staffBaseUrl =>
-      isUat ? ApiConstantsUat.staffBaseUrl : _local(8083);
+      isUat ? ApiConstantsUat.staffBaseUrl : _local(8088);
 
   /// School / Organization MS  (LOCAL: 8081 | UAT: gateway)
   static String get schoolMs => isUat ? ApiConstantsUat.schoolMs : _local(8081);
 
-  /// Attendance MS  (LOCAL: 8083/attendance | UAT: gateway)
-  static String get attendanceBaseUrl =>
-      isUat ? ApiConstantsUat.attendanceBaseUrl : _local(8083, 'attendance');
+  /// Attendance MS  (LOCAL: 8088/attendance | UAT: gateway)
+  static String get attendanceBaseUrl => isUat
+      ? ApiConstantsUat.attendanceBaseUrl
+      : _local(8088, 'attendance');
 
-  /// Activity MS  (LOCAL: 8084/wowcare-activity-ms | UAT: gateway)
+  /// Activity MS  (LOCAL: 8082/wowcare-activity-ms | UAT: gateway)
   static String get activityBaseUrl => isUat
       ? ApiConstantsUat.activityBaseUrl
-      : _local(8084, 'wowcare-activity-ms');
+      : _local(8082, 'wowcare-activity-ms');
 
   /// Document MS  (LOCAL: ngrok | UAT: gateway)
   static String get documentMsBaseUrl => isUat
@@ -93,6 +98,11 @@ class ApiConstants {
   /// Notification MS  (LOCAL: ngrok | UAT: gateway)
   static String get notificationBaseUrl => isUat
       ? ApiConstantsUat.notificationBaseUrl
+      : 'https://fitten-vallie-forthrightly.ngrok-free.dev';
+
+  /// Billing MS  (LOCAL: ngrok | UAT: gateway)
+  static String get billingBaseUrl => isUat
+      ? ApiConstantsUat.billingBaseUrl
       : 'https://fitten-vallie-forthrightly.ngrok-free.dev';
 
   // ─── Endpoint helpers ──────────────────────────────────────────────────────
@@ -134,6 +144,8 @@ class ApiConstants {
         return newsLatterBaseUrl;
       case ApiMicroservices.notification:
         return notificationBaseUrl;
+      case ApiMicroservices.billing:
+        return billingBaseUrl;
       default:
         return baseUrl;
     }

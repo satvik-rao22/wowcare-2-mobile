@@ -192,23 +192,16 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         builder: (context, state) {
     final String type = widget.transaction.transactionType.toLowerCase();
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.billingCardBorderColor),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.billingCardShadowColor,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorderColor),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Material(
         color: AppColors.billingTransparentColor,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           onTap: _toggleExpanded,
           onLongPress: widget.onLongPress,
           child: Padding(
@@ -253,7 +246,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         DocumentImageWidget(
           fileUuid: widget.transaction.studentPhotoUuid ?? '',
           name: widget.transaction.studentName,
-          size: 40,
+          size: 50,
           shape: BoxShape.circle,
           fit: BoxFit.cover,
           fontSize: 14,
@@ -342,7 +335,11 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   List<Widget> _buildExpandedContent(String type) {
     final List<Widget> content = <Widget>[
-      Divider(color: AppColors.billingDividerColor),
+      const Divider(
+        height: 1,
+        thickness: 1,
+        color: Color(0xFFE9ECEF),
+      ),
       const SizedBox(height: 8),
       _studentInfoRow(),
       const SizedBox(height: 8),

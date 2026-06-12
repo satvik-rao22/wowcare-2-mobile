@@ -1,12 +1,14 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-
-import '../widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/billing/entities/ledger_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/create_ledger_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/update_ledger_usecase.dart';
+import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 
 part 'ledger_form_state.dart';
 
-/// Result of a ledger form submission, returned to the view so it can show the
-/// right snackbar and pop with the created/updated ledger.
 enum LedgerFormStatus { invalid, success, error }
 
 class LedgerFormResult {
@@ -16,59 +18,72 @@ class LedgerFormResult {
   final LedgerAccountModel? ledger;
 }
 
-/// Shared form state for the create + edit ledger screens. The view keeps its
-/// title/description controllers and passes their text into [submit]; the cubit
-/// owns the type selection, validation flags, and the (faked) save.
 class LedgerFormCubit extends Cubit<LedgerFormState> {
-  LedgerFormCubit({String? initialType})
-      : super(LedgerFormState.initial(initialType));
+  LedgerFormCubit({
+    String? initialCategory,
+    required CreateLedgerUseCase createLedgerUseCase,
+    required UpdateLedgerUseCase updateLedgerUseCase,
+    required StorageService storageService,
+  })  : _createLedgerUseCase = createLedgerUseCase,
+        _updateLedgerUseCase = updateLedgerUseCase,
+        _storageService = storageService,
+        super(LedgerFormState.initial(initialCategory));
 
-  void setType(String? value) {
-    emit(state.copyWith(selectedType: () => value, typeError: false));
+  final CreateLedgerUseCase _createLedgerUseCase;
+  final UpdateLedgerUseCase _updateLedgerUseCase;
+  final StorageService _storageService;
+
+  void setCategory(String? value) {
+    emit(state.copyWith(selectedCategory: () => value, categoryError: false));
   }
 
-  /// Validates and "saves" the ledger. When [original] is null a new ledger is
-  /// created; otherwise [original] is copied with the edits.
+  /// Validates and saves the ledger via the API.
+  /// When [original] is null a new ledger is created; otherwise it is updated.
   Future<LedgerFormResult> submit({
     LedgerAccountModel? original,
     required String title,
     required String description,
   }) async {
     final titleError = title.trim().isEmpty;
-    final typeError = state.selectedType == null;
-    emit(state.copyWith(titleError: titleError, typeError: typeError));
-    if (titleError || typeError) {
+    final categoryError = state.selectedCategory == null;
+    emit(state.copyWith(titleError: titleError, categoryError: categoryError));
+    if (titleError || categoryError) {
       return const LedgerFormResult(LedgerFormStatus.invalid, null);
     }
 
     emit(state.copyWith(isSubmitting: true));
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 800));
-      final desc =
-          description.trim().isEmpty ? title.trim() : description.trim();
-      final LedgerAccountModel ledger;
+      final org =
+          await _storageService.getString(StorageKeys.organizationCode) ?? '';
+      final school =
+          await _storageService.getString(StorageKeys.schoolCode) ?? '';
+
+      final params = CreateLedgerParams(
+        name: title.trim(),
+        organization: org,
+        school: school,
+        category: state.selectedCategory,
+        description:
+            description.trim().isEmpty ? null : description.trim(),
+      );
+
+      final LedgerEntity entity;
       if (original == null) {
-        ledger = LedgerAccountModel(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: title.trim(),
-          type: state.selectedType!,
-          description: desc,
-          openBalance: 0,
-          invoiced: 0,
-          received: 0,
-          isSubsidy: state.selectedType == '(Legacy) Subsidy/Agency',
-          status: 'A',
-        );
+        entity = await _createLedgerUseCase(params);
       } else {
-        ledger = original.copyWith(
-          name: title.trim(),
-          type: state.selectedType,
-          description: desc,
+        entity = await _updateLedgerUseCase(
+          ledgerCode: original.id,
+          params: params,
         );
       }
+
       if (isClosed) return const LedgerFormResult(LedgerFormStatus.error, null);
-      return LedgerFormResult(LedgerFormStatus.success, ledger);
+      return LedgerFormResult(
+        LedgerFormStatus.success,
+        LedgerAccountModel.fromEntity(entity),
+      );
     } catch (_) {
+      if (!isClosed) emit(state.copyWith(isSubmitting: false));
       return const LedgerFormResult(LedgerFormStatus.error, null);
     } finally {
       if (!isClosed) emit(state.copyWith(isSubmitting: false));

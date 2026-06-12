@@ -276,7 +276,8 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+          // Space between the tab bar and the heading/+ row.
+          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
           child: Column(
             children: [
               Padding(
@@ -395,10 +396,17 @@ class _FamilyCard extends StatelessWidget {
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
+        // Match the Health tab cards: themeColor outline, square top-left.
+        decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+          border: Border.fromBorderSide(
+            BorderSide(color: AppColors.themeColor, width: 1),
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -443,15 +451,23 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Relation',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
                         ),
                       ),
                       Text(
                         relation,
-                        style: AppTextStyles.value.copyWith(fontSize: 15),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xff573353),
+                          height: 19 / 14,
+                        ),
                       ),
                     ],
                   ),
@@ -462,15 +478,23 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Email ID',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
                         ),
                       ),
                       Text(
                         email,
-                        style: AppTextStyles.value.copyWith(fontSize: 15),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xff573353),
+                          height: 19 / 14,
+                        ),
                       ),
                     ],
                   ),
@@ -481,15 +505,23 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Phone Number',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
                         ),
                       ),
                       Text(
                         phone,
-                        style: AppTextStyles.value.copyWith(fontSize: 15),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xff573353),
+                          height: 19 / 14,
+                        ),
                       ),
                     ],
                   ),
@@ -500,15 +532,23 @@ class _FamilyCard extends StatelessWidget {
                     children: [
                       Text(
                         'Sign-in Pin',
-                        style: AppTextStyles.label.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.5),
-                          fontSize: 14,
-                          letterSpacing: 14 * (-3 / 100),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          color: Color(0xff573353),
+                          height: 16 / 13,
                         ),
                       ),
                       Text(
                         pin,
-                        style: AppTextStyles.value.copyWith(fontSize: 15),
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: Color(0xff573353),
+                          height: 19 / 14,
+                        ),
                       ),
                     ],
                   ),

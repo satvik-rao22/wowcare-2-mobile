@@ -604,13 +604,15 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     var basePath = documentApiBasePath.trim();
     if (basePath.isEmpty) {
-      basePath = ApiConstants.isUat ? '' : '/document-ms/api/v1';
+      basePath = ApiConstants.isUat ? '/api/v1/document' : '/document-ms/api/v1';
     }
     if (!basePath.startsWith('/')) {
       basePath = '/$basePath';
     }
-    if (ApiConstants.isUat && basePath.startsWith('/api/v1/document')) {
-      basePath = basePath.replaceFirst('/api/v1/document', '');
+    // UAT: documentMsBaseUrl is the bare gateway host, so the document MS
+    // namespace (`/api/v1/document`) must live in the path itself.
+    if (ApiConstants.isUat && !basePath.startsWith('/api/v1/document')) {
+      basePath = '/api/v1/document';
     }
     basePath = basePath.replaceAll(RegExp(r'/+$'), '');
     final endpoint =

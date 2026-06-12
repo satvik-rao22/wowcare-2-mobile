@@ -10,6 +10,7 @@ class StudentDocument extends Equatable {
     required this.documentUrl,
     required this.documentSizeKb,
     required this.mimeType,
+    this.assetCode,
     required this.expiryDate,
     this.expired = false,
     this.createdAt,
@@ -22,6 +23,10 @@ class StudentDocument extends Equatable {
   final String documentUrl;
   final int documentSizeKb;
   final String mimeType;
+
+  /// Media-asset code used to resolve a downloadable link (documentUrl is only
+  /// the file name).
+  final String? assetCode;
   final String expiryDate;
   final bool expired;
   final String? createdAt;
@@ -35,6 +40,7 @@ class StudentDocument extends Equatable {
         documentUrl,
         documentSizeKb,
         mimeType,
+        assetCode,
         expiryDate,
         expired,
         createdAt,

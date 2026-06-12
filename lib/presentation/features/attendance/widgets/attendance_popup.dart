@@ -530,7 +530,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                       label: 'Transfer',
                       iconSize: buttonSize,
                       fontSize: fontSize,
-                      onTap: () {
+                      onTap: disableStudentSignInOut ? null : () {
                         final navigator = Navigator.of(
                           context,
                           rootNavigator: true,
@@ -551,7 +551,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                       label: 'Absent',
                       iconSize: buttonSize,
                       fontSize: fontSize,
-                      onTap: () {
+                      onTap: disableStudentSignInOut ? null : () {
                         final navigator = Navigator.of(
                           context,
                           rootNavigator: true,
@@ -624,7 +624,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         label: 'Transfer',
                         iconSize: buttonSize,
                         fontSize: fontSize,
-                        onTap: () {
+                        onTap: disableStudentSignInOut ? null : () {
                           final navigator = Navigator.of(
                             context,
                             rootNavigator: true,
@@ -647,7 +647,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         label: 'Absent',
                         iconSize: buttonSize,
                         fontSize: fontSize,
-                        onTap: () {
+                        onTap: disableStudentSignInOut ? null : () {
                           final navigator = Navigator.of(
                             context,
                             rootNavigator: true,

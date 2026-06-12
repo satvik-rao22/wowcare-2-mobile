@@ -127,6 +127,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
   }
 
   Future<void> _loadClassroomData() async {
+    final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
       onlyTypeClassroom: false,
@@ -137,6 +138,9 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
+      if (hadClassroomSelection) {
+        _loadAbsentStaff(reset: true);
+      }
       return;
     }
 
@@ -151,6 +155,9 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
       _isClassroomDataReady = !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+    if (hadClassroomSelection && _isClassroomDataReady) {
+      _loadAbsentStaff(reset: true);
+    }
   }
 
   @override
@@ -216,11 +223,19 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     final nameToCode = <String, String>{
       for (final c in _classroomCubit.state.classrooms) c.name: c.code,
     };
-    final codes = _selectedClassroomNames
-        .map((n) => nameToCode[n])
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toList();
+    final knownCodes = {
+      for (final c in _classroomCubit.state.classrooms) c.code.trim(),
+    };
+    final codes = <String>[];
+    for (final selected in _selectedClassroomNames) {
+      final trimmed = selected.trim();
+      final fromName = nameToCode[selected]?.trim();
+      if (fromName != null && fromName.isNotEmpty) {
+        codes.add(fromName);
+      } else if (knownCodes.contains(trimmed)) {
+        codes.add(trimmed);
+      }
+    }
     return codes.isEmpty ? null : codes;
   }
 
@@ -285,33 +300,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
   }
 
   List<_AbsentStaffModel> _getFilteredStaff() {
-    var filtered = _absentStaff;
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((staff) {
-        return staff.name.toLowerCase().contains(query) ||
-            staff.roomName.toLowerCase().contains(query);
-      }).toList();
-    }
-
-    // Apply classroom filter
-    if (_selectedClassroomNames.isNotEmpty) {
-      filtered = filtered.where((staff) {
-        return _selectedClassroomNames.contains(staff.roomName);
-      }).toList();
-    }
-
-    // Apply date range filter
-    if (_rangeStart != null && _rangeEnd != null) {
-      filtered = filtered.where((staff) {
-        return staff.startDate.isAfter(_rangeStart!.subtract(const Duration(days: 1))) &&
-            staff.startDate.isBefore(_rangeEnd!.add(const Duration(days: 1)));
-      }).toList();
-    }
-
-    return filtered;
+    // Classroom, date range, and search are applied server-side via classroomCodes.
+    return _absentStaff;
   }
 
   @override
@@ -609,6 +599,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
               isExpectedToday: staff.expectedToday,
               isPresentToday: false,
               profileStatus: 'A',
+              initialShowAbsentDays: true,
             ),
           ),
         );

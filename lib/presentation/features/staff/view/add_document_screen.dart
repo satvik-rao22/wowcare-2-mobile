@@ -350,15 +350,25 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         sessionCode: uploadSession.sessionCode,
         expectedAssetCodes: <String>[presign.assetCode],
       );
-      final resolvedUrl = await uploadService.getMediaAssetUrlByCode(
-        assetCode: presign.assetCode,
-      );
       if (!mounted) return;
+      // Asset is processed & READY — finish the upload now so the loader stops
+      // and the "Add" button is enabled immediately. The delivery URL is only
+      // used for display and falls back to the file name, so resolve it in the
+      // background instead of keeping the spinner up.
       setState(() {
         _uploadedAssetCode = presign.assetCode;
-        _uploadedDocumentUrl =
-            resolvedUrl.trim().isNotEmpty ? resolvedUrl.trim() : selectedFile.name;
+        _uploadedDocumentUrl = selectedFile.name;
+        _isUploadingFile = false;
+        _uploadProgressPercent = 0;
       });
+      uploadService
+          .getMediaAssetUrlByCode(assetCode: presign.assetCode)
+          .then((resolvedUrl) {
+        final url = resolvedUrl.trim();
+        if (mounted && url.isNotEmpty) {
+          setState(() => _uploadedDocumentUrl = url);
+        }
+      }).catchError((_) {});
     } catch (e) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -595,7 +605,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 4.0),
         GestureDetector(
-          onTap: _selectFile,
+          // Block re-picking while an upload is in flight.
+          onTap: _isUploadingFile ? null : _selectFile,
           child: Container(
             height: responsive.inputFieldHeight,
             padding: EdgeInsets.symmetric(
@@ -611,10 +622,14 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 Expanded(
                   child: Text(
                     _isUploadingFile
-                        ? 'Uploading... $_uploadProgressPercent%'
+                        ? 'Uploading… $_uploadProgressPercent%'
                         : (_selectedFilePath ?? 'Choose a File'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: _selectedFilePath == null ? Colors.grey : Colors.black,
+                      color: (_selectedFilePath == null && !_isUploadingFile)
+                          ? Colors.grey
+                          : Colors.black,
                       fontSize: responsive.inputFontSize,
                       fontFamily: 'Manrope',
                     ),
@@ -623,12 +638,26 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                 SvgPicture.asset(
                   MediaRes.uploadIcon,
                   height: responsive.isTablet ? 28.0 : 24.0,
-                  colorFilter: const ColorFilter.mode(Color(0xff573353), BlendMode.srcIn),
+                  colorFilter: const ColorFilter.mode(
+                      Color(0xff573353), BlendMode.srcIn),
                 ),
               ],
             ),
           ),
         ),
+        if (_isUploadingFile) ...[
+          SizedBox(height: responsive.isTablet ? 10.0 : 8.0),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: (_uploadProgressPercent / 100).clamp(0.0, 1.0),
+              minHeight: 6,
+              backgroundColor: const Color(0x22573353),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppColors.themeColor),
+            ),
+          ),
+        ],
       ],
     );
   }

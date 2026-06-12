@@ -73,6 +73,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   DateTime? _selectedSchoolStartDate;
   File? _profilePhoto;
   int? _calculatedAge;
+  String? _calculatedAgeLabel;
   bool _isSubmitting = false;
 
   final List<String> _statusOptions = ['Active', 'Upcoming'];
@@ -108,14 +109,28 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   void _calculateAge(DateTime birthdate) {
     final now = DateTime.now();
-    int age = now.year - birthdate.year;
-    if (now.month < birthdate.month ||
-        (now.month == birthdate.month && now.day < birthdate.day)) {
-      age--;
+    int years = now.year - birthdate.year;
+    int months = now.month - birthdate.month;
+    if (now.day < birthdate.day) {
+      months--;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
     }
     setState(() {
-      _calculatedAge = age;
+      _calculatedAge = years;
+      _calculatedAgeLabel = _formatAgeLabel(years, months);
     });
+  }
+
+  String _formatAgeLabel(int years, int months) {
+    final yearPart = '$years ${years == 1 ? 'year' : 'years'}';
+    final monthPart = '$months ${months == 1 ? 'month' : 'months'}';
+    if (years <= 0) {
+      return monthPart;
+    }
+    return '$yearPart $monthPart';
   }
 
   Future<void> _pickProfileImage() async {
@@ -1023,7 +1038,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                     _selectedBirthdate,
                                     _selectBirthdate,
                                     isRequired: _isActive,
-                                    age: _calculatedAge,
+                                    ageLabel: _calculatedAgeLabel,
                                   ),
                                   SizedBox(height: responsive.verticalSpacing),
                                   // School Start Date
@@ -1247,7 +1262,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     DateTime? selectedDate,
     VoidCallback onTap, {
     bool isRequired = false,
-    int? age,
+    String? ageLabel,
   }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
@@ -1313,11 +1328,11 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (age != null && selectedDate != null)
+                        if (ageLabel != null && selectedDate != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 4.0),
                             child: Text(
-                              'Age: $age ${age == 1 ? 'year' : 'years'}',
+                              'Age: $ageLabel',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade600,
