@@ -6,7 +6,6 @@ import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -121,6 +120,46 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     }
   }
 
+  /// Birth date with the calculated age appended, e.g.
+  /// "Jun 04, 2024 (2 yrs)" or "Jun 04, 2026 (1 wk)" for infants.
+  String _formatDobWithAge(String? dob) {
+    final formatted = _formatDate(dob);
+    if (dob == null || dob.trim().isEmpty) return formatted;
+    try {
+      final age = _ageLabel(DateTime.parse(dob));
+      return age.isEmpty ? formatted : '$formatted  ($age)';
+    } catch (_) {
+      return formatted;
+    }
+  }
+
+  /// Human age relative to today — years/months for older children, weeks/days
+  /// for infants. Empty for a future date of birth.
+  String _ageLabel(DateTime dob) {
+    final now = DateTime.now();
+    if (dob.isAfter(now)) return '';
+
+    int years = now.year - dob.year;
+    int months = now.month - dob.month;
+    if (now.day < dob.day) months -= 1;
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    String plural(int n, String unit) => '$n $unit${n == 1 ? '' : 's'}';
+
+    if (years >= 1) {
+      return months > 0 ? '${plural(years, 'yr')} ${plural(months, 'mo')}'
+          : plural(years, 'yr');
+    }
+    if (months >= 1) return plural(months, 'mo');
+
+    final days = now.difference(dob).inDays;
+    if (days >= 7) return plural(days ~/ 7, 'wk');
+    return plural(days, 'day');
+  }
+
   String _getValueOrDash(String? value) {
     if (value == null || value.isEmpty) return '-';
     return value;
@@ -198,38 +237,21 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 
   Widget _buildUpcomingMove() {
-    final upcomingMoveDate = widget.studentProfile?.importantDates?.upcomingMoveDate;
-    
-    if (upcomingMoveDate == null || upcomingMoveDate.isEmpty) {
-      // Show "-" in ProfileField format to preserve UI
-      return ProfileField(
-        label: 'Upcoming move',
-        value: '-',
-      );
+    final upcomingMoveDate =
+        widget.studentProfile?.importantDates?.upcomingMoveDate;
+
+    // Show only the date (e.g. "8 June, 2026"), not classroom names.
+    String value = '-';
+    if (upcomingMoveDate != null && upcomingMoveDate.trim().isNotEmpty) {
+      try {
+        value = DateFormat('d MMMM, yyyy')
+            .format(DateTime.parse(upcomingMoveDate));
+      } catch (_) {
+        value = '-';
+      }
     }
 
-    try {
-      final date = DateTime.parse(upcomingMoveDate);
-      final month = DateFormat('MMM').format(date);
-      final day = DateFormat('dd').format(date);
-      
-      // Get current and next class from API if available
-      final currentClass = widget.studentProfile?.classroom ?? widget.classroom;
-      final nextClass = widget.studentProfile?.classroom ?? '-'; // API doesn't provide next class yet
-      
-      return UpcomingMoveWidget(
-        month: month,
-        day: day,
-        currentClass: currentClass.isNotEmpty ? currentClass : '-',
-        nextClass: nextClass.isNotEmpty ? nextClass : '-',
-      );
-    } catch (e) {
-      // If date parsing fails, show "-"
-      return ProfileField(
-        label: 'Upcoming move',
-        value: '-',
-      );
-    }
+    return ProfileField(label: 'Upcoming move', value: value);
   }
 
   /// Staff-only tags editor (bottom sheet). Staff can't open the full profile
@@ -448,7 +470,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         ProfileField(
           label: 'Birth Date',
-          value: _formatDate(widget.studentProfile?.dob),
+          value: _formatDobWithAge(widget.studentProfile?.dob),
         ),
 
         ProfileField(
