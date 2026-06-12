@@ -10,7 +10,7 @@ abstract class LedgerRemoteDataSource {
     String? category,
     String? status,
     int page = 0,
-    int size = 50,
+    int size = 10,
   });
 
   Future<LedgerModel> createLedger(LedgerRequestModel request);
@@ -41,7 +41,7 @@ class LedgerRemoteDataSourceImpl implements LedgerRemoteDataSource {
     String? category,
     String? status,
     int page = 0,
-    int size = 50,
+    int size = 10,
   }) async {
     final queryParams = <String, dynamic>{
       'organizationCode': organizationCode,

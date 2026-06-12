@@ -343,6 +343,17 @@ import '../../domain/features/billing/usecases/get_ledger_transactions_usecase.d
 import '../../domain/features/billing/usecases/add_ledger_transaction_usecase.dart';
 import '../../presentation/features/billing/cubit/general_ledger_cubit.dart';
 import '../../presentation/features/billing/cubit/ledger_detail_cubit.dart';
+import '../../data/features/billing/datasources/discount_remote_datasource.dart';
+import '../../data/features/billing/repositories/discount_repository_impl.dart';
+import '../../domain/features/billing/repositories/discount_repository.dart';
+import '../../domain/features/billing/usecases/get_discounts_usecase.dart';
+import '../../domain/features/billing/usecases/create_discount_usecase.dart';
+import '../../domain/features/billing/usecases/update_discount_usecase.dart';
+import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
+import '../../domain/features/billing/usecases/deactivate_discount_usecase.dart';
+import '../../domain/features/billing/usecases/reactivate_discount_usecase.dart';
+import '../../presentation/features/billing/cubit/discount_cubit.dart';
+import '../../presentation/features/billing/cubit/discount_form_cubit.dart';
 
 
 final GetIt serviceLocator = GetIt.instance;
@@ -1784,6 +1795,48 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getTransactionsUseCase: serviceLocator<GetLedgerTransactionsUseCase>(),
       addTransactionUseCase: serviceLocator<AddLedgerTransactionUseCase>(),
       getLedgerByCodeUseCase: serviceLocator<GetLedgerByCodeUseCase>(),
+    ),
+  );
+
+  // ── Discounts ─────────────────────────────────────────────────────────────
+  serviceLocator.registerLazySingleton<DiscountRemoteDataSource>(
+    () => DiscountRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<DiscountRepository>(
+    () => DiscountRepositoryImpl(serviceLocator<DiscountRemoteDataSource>()),
+  );
+  serviceLocator.registerFactory<GetDiscountsUseCase>(
+    () => GetDiscountsUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<CreateDiscountUseCase>(
+    () => CreateDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<UpdateDiscountUseCase>(
+    () => UpdateDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<DeleteDiscountUseCase>(
+    () => DeleteDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<DeactivateDiscountUseCase>(
+    () => DeactivateDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<ReactivateDiscountUseCase>(
+    () => ReactivateDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<DiscountCubit>(
+    () => DiscountCubit(
+      getDiscountsUseCase: serviceLocator<GetDiscountsUseCase>(),
+      deleteDiscountUseCase: serviceLocator<DeleteDiscountUseCase>(),
+      deactivateDiscountUseCase: serviceLocator<DeactivateDiscountUseCase>(),
+      reactivateDiscountUseCase: serviceLocator<ReactivateDiscountUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<DiscountFormCubit>(
+    () => DiscountFormCubit(
+      createDiscountUseCase: serviceLocator<CreateDiscountUseCase>(),
+      updateDiscountUseCase: serviceLocator<UpdateDiscountUseCase>(),
+      storageService: serviceLocator<StorageService>(),
     ),
   );
 }

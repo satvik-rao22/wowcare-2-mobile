@@ -116,6 +116,22 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
   }
 
+  /// The full active route path (e.g. `/dashboard/billing`), read from the
+  /// router's current configuration so it is independent of where in the
+  /// widget tree this bar is mounted. Empty string if the router can't be
+  /// resolved (e.g. transiently during teardown).
+  String _currentLocationPath(BuildContext context) {
+    try {
+      return GoRouter.of(context)
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .path;
+    } catch (_) {
+      return '';
+    }
+  }
+
   void _onItemTapped(int tabIndex, BuildContext context, bool isParent) {
     // The Attendance slot (index 1) is a modal popup, not a route.
     if (tabIndex == 1) {
@@ -261,13 +277,25 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     // Highlight comes from the shell's current branch; falls back to 0
     // when the bar renders outside the shell (e.g. on an auth screen).
     final shell = appNavigationShell(context);
-    final activeTabIndex = widget.activeTabIndexOverride ??
-        (shell == null
-            ? 0
-            : tabIndexForBranchIndex(
-                isParent: isParent,
-                branchIndex: shell.currentIndex,
-              ));
+    final int activeTabIndex;
+    if (widget.activeTabIndexOverride != null) {
+      activeTabIndex = widget.activeTabIndexOverride!;
+    } else if (shell == null) {
+      activeTabIndex = 0;
+    } else if (shell.currentIndex == 0) {
+      // Branch 0 (the Dashboard branch) also hosts every non-tab drill-down
+      // (Billing, Scheduling, Staff, Reports, …). Those screens are NOT
+      // bottom-nav tabs, so only the dashboard ROOT should light up the
+      // Dashboard slot — on any drill-down we highlight nothing (-1) instead
+      // of falsely marking Dashboard as active.
+      final path = _currentLocationPath(context);
+      activeTabIndex = path == AppRoutes.dashboard ? 0 : -1;
+    } else {
+      activeTabIndex = tabIndexForBranchIndex(
+        isParent: isParent,
+        branchIndex: shell.currentIndex,
+      );
+    }
 
     Widget item({
       required String icon,

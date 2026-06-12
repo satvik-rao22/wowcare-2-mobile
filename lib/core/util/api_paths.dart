@@ -234,6 +234,7 @@ class ApiPaths {
         return ApiMicroservices.notification;
       case 'kiosk':
         return ApiMicroservices.attendance;
+      case 'discount':
       case 'ledgers':
       case 'ledger-transactions':
         return ApiMicroservices.billing;
@@ -844,6 +845,14 @@ class ApiPaths {
       '/api/v1/notification/logs/read-all';
 
   // —— Billing MS ——
+  static const String discounts = '/api/v1/discount';
+  static String discountByCode(String code) =>
+      '/api/v1/discount/${Uri.encodeComponent(code.trim())}';
+  static String discountDeactivate(String code) =>
+      '/api/v1/discount/${Uri.encodeComponent(code.trim())}/deactivate';
+  static String discountReactivate(String code) =>
+      '/api/v1/discount/${Uri.encodeComponent(code.trim())}/reactivate';
+
   static const String ledgers = '/api/v1/ledgers';
   static String ledgerByCode(String code) =>
       '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}';

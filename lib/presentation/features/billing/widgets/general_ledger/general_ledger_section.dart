@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
@@ -22,11 +24,15 @@ class GeneralLedgerSection extends StatefulWidget {
   const GeneralLedgerSection({
     this.ledgerCreationNotifier,
     this.onRegisterRefresh,
+    this.onRegisterLoadNextPage,
+    this.onLoadMoreNeeded,
     super.key,
   });
 
   final ValueNotifier<LedgerAccountModel?>? ledgerCreationNotifier;
   final void Function(Future<void> Function())? onRegisterRefresh;
+  final void Function(VoidCallback)? onRegisterLoadNextPage;
+  final VoidCallback? onLoadMoreNeeded;
 
   @override
   State<GeneralLedgerSection> createState() => _GeneralLedgerSectionState();
@@ -49,9 +55,11 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   @override
   void initState() {
     super.initState();
-    _cubit.loadInitial();
+    unawaited(_cubit.loadInitial());
     widget.ledgerCreationNotifier?.addListener(_handleLedgerCreated);
     widget.onRegisterRefresh?.call(_cubit.loadInitial);
+    widget.onRegisterLoadNextPage
+        ?.call(() => unawaited(_cubit.loadNextPage()));
   }
 
   @override
@@ -76,11 +84,11 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   }
 
   void _onView(LedgerAccountModel ledger) {
-    Navigator.of(context).push(
+    unawaited(Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => LedgerDetailScreen(ledger: ledger),
       ),
-    );
+    ));
   }
 
   Future<void> _onEdit(LedgerAccountModel ledger) async {
@@ -174,7 +182,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   void dispose() {
     widget.ledgerCreationNotifier?.removeListener(_handleLedgerCreated);
     _searchController.dispose();
-    _cubit.close();
+    unawaited(_cubit.close());
     super.dispose();
   }
 
@@ -226,20 +234,29 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        CustomToggle(
-                          label: 'Show inactive',
-                          isToggled: showInactive,
-                          labelOnLeftSide: true,
-                          labelStyle: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xff573353),
-                          ),
-                          onToggle: (v) {
-                            _cubit.setStatusFilter(
-                                v ? 'INACTIVE' : 'ACTIVE');
-                          },
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            const Text(
+                              'Show inactive',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xff573353),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            CustomToggle(
+                              label: '',
+                              isToggled: showInactive,
+                              onToggle: (v) {
+                                _cubit.setStatusFilter(
+                                    v ? 'INACTIVE' : 'ACTIVE');
+                              },
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -305,6 +322,13 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
 
               // ── List ─────────────────────────────────────────────────
               else ...[
+                if (widget.onLoadMoreNeeded != null)
+                  Builder(builder: (_) {
+                    WidgetsBinding.instance.addPostFrameCallback((__) {
+                      if (mounted) widget.onLoadMoreNeeded!();
+                    });
+                    return const SizedBox.shrink();
+                  }),
                 ...state.visibleLedgers.map(
                   (ledger) {
                     final isActive = ledger.status != 'INACTIVE';

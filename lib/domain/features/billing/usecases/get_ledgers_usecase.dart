@@ -13,7 +13,7 @@ class GetLedgersUseCase {
     String? category,
     String? status,
     int page = 0,
-    int size = 50,
+    int size = 10,
   }) =>
       _repository.getLedgers(
         organizationCode: organizationCode,

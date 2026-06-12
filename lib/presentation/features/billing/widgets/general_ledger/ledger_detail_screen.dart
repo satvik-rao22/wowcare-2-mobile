@@ -18,6 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 const _kPrimary = Color(0xff573353);
@@ -38,14 +39,32 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     _cubit.init(widget.ledger.id);
   }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     unawaited(_cubit.close());
     super.dispose();
+  }
+
+  void _onScroll() => _maybeLoadNextPage();
+
+  void _maybeLoadNextPage() {
+    if (!_scrollController.hasClients) return;
+    final s = _cubit.state;
+    if (s.isLoadingMore || !s.hasMore) return;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent <= 0) {
+      unawaited(_cubit.loadNextPage());
+      return;
+    }
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      unawaited(_cubit.loadNextPage());
+    }
   }
 
   Future<void> _addTransaction() async {
@@ -228,15 +247,23 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
       );
     }
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _maybeLoadNextPage();
+    });
     return Column(
-      children: state.transactions
-          .map(
-            (tx) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _LedgerEntryCard(tx: tx),
-            ),
-          )
-          .toList(),
+      children: [
+        ...state.transactions.map(
+          (tx) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _LedgerEntryCard(tx: tx),
+          ),
+        ),
+        if (state.isLoadingMore)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Center(child: PrimaryCircularLoader()),
+          ),
+      ],
     );
   }
 }

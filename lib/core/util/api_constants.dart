@@ -100,10 +100,10 @@ class ApiConstants {
       ? ApiConstantsUat.notificationBaseUrl
       : 'https://fitten-vallie-forthrightly.ngrok-free.dev';
 
-  /// Billing MS  (LOCAL: 8090 | UAT: gateway)
-  /// TODO: update LOCAL port if billing runs on a different port.
-  static String get billingBaseUrl =>
-      isUat ? ApiConstantsUat.billingBaseUrl : _local(8090);
+  /// Billing MS  (LOCAL: ngrok | UAT: gateway)
+  static String get billingBaseUrl => isUat
+      ? ApiConstantsUat.billingBaseUrl
+      : 'https://fitten-vallie-forthrightly.ngrok-free.dev';
 
   // ─── Endpoint helpers ──────────────────────────────────────────────────────
 

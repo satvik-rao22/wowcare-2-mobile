@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -13,6 +15,7 @@ import 'package:wowcare/presentation/features/billing/widgets/general_ledger/cre
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/general_ledger_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/presentation/features/billing/widgets/billing_settings/billing_settings_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 class BillingScreen extends StatefulWidget {
@@ -33,17 +36,51 @@ class _BillingScreenState extends State<BillingScreen>
     'General Ledger',
     'Subsidies',
     'Analytics',
-    // 'Billing Settings',
+    'Billing Settings',
   ];
   final ValueNotifier<LedgerAccountModel?> _ledgerCreationNotifier =
       ValueNotifier<LedgerAccountModel?>(null);
+  final ScrollController _scrollController = ScrollController();
+  TabController? _tabController;
 
   Future<void> Function()? _ledgerRefreshFn;
+  VoidCallback? _ledgerLoadNextFn;
+  VoidCallback? _discountLoadNextFn;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _ledgerCreationNotifier.dispose();
     super.dispose();
+  }
+
+  void _onScroll() => _maybeLoadNextPage();
+
+  void _maybeLoadNextPage() {
+    if (!_scrollController.hasClients) return;
+    final tc = _tabController;
+    if (tc == null) return;
+    final position = _scrollController.position;
+
+    VoidCallback? loadFn;
+    if (tc.index == 2) loadFn = _ledgerLoadNextFn;
+    if (tc.index == 5) loadFn = _discountLoadNextFn;
+    if (loadFn == null) return;
+
+    if (position.maxScrollExtent <= 0) {
+      loadFn();
+      return;
+    }
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      loadFn();
+    }
   }
 
   @override
@@ -58,6 +95,7 @@ class _BillingScreenState extends State<BillingScreen>
         child: Builder(
           builder: (context) {
             final TabController controller = DefaultTabController.of(context);
+            _tabController = controller;
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -69,6 +107,7 @@ class _BillingScreenState extends State<BillingScreen>
                       }
                     },
                     child: SingleChildScrollView(
+                    controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
                       padding: contentPadding,
@@ -90,42 +129,51 @@ class _BillingScreenState extends State<BillingScreen>
                                   textAlign: TextAlign.left,
                                 ),
                               ),
-                              GradientAddButton(
-                                onTap: () async {
-                                  final bool isGeneralLedgerTab =
-                                      controller.index ==
-                                          _tabs.indexOf('General Ledger');
-                                  if (isGeneralLedgerTab) {
-                                    final result =
-                                        await Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const CreateLedgerScreen(),
-                                      ),
-                                    );
-                                    if (result is LedgerAccountModel) {
-                                      _ledgerCreationNotifier.value = result;
-                                    }
-                                    return;
+                              AnimatedBuilder(
+                                animation: controller,
+                                builder: (_, __) {
+                                  final int idx = controller.index;
+                                  if (idx == 4 || idx == 5) {
+                                    return const SizedBox.shrink();
                                   }
-
-                                  showDialog<void>(
-                                    context: context,
-                                    builder: (ctx) => CreateInvoiceDialog(
-                                      onSelectOneTime: () {
-                                        Navigator.of(ctx).maybePop();
-                                        Navigator.of(context).push(
+                                  return GradientAddButton(
+                                    onTap: () async {
+                                      final bool isGeneralLedgerTab =
+                                          controller.index ==
+                                              _tabs.indexOf('General Ledger');
+                                      if (isGeneralLedgerTab) {
+                                        final result =
+                                            await Navigator.of(context).push(
                                           MaterialPageRoute(
                                             builder: (_) =>
-                                                const SelectStudentsScreen(),
+                                                const CreateLedgerScreen(),
                                           ),
                                         );
-                                      },
-                                      onSelectRecurring: () {
-                                        Navigator.of(ctx).maybePop();
-                                        // TODO: navigate to recurring invoice flow
-                                      },
-                                    ),
+                                        if (result is LedgerAccountModel) {
+                                          _ledgerCreationNotifier.value =
+                                              result;
+                                        }
+                                        return;
+                                      }
+                                      showDialog<void>(
+                                        context: context,
+                                        builder: (ctx) => CreateInvoiceDialog(
+                                          onSelectOneTime: () {
+                                            unawaited(
+                                                Navigator.of(ctx).maybePop());
+                                            unawaited(Navigator.of(context)
+                                                .push(MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const SelectStudentsScreen(),
+                                            )));
+                                          },
+                                          onSelectRecurring: () {
+                                            unawaited(
+                                                Navigator.of(ctx).maybePop());
+                                          },
+                                        ),
+                                      );
+                                    },
                                   );
                                 },
                               ),
@@ -235,11 +283,22 @@ class _BillingScreenState extends State<BillingScreen>
                                   onRegisterRefresh: (fn) {
                                     _ledgerRefreshFn = fn;
                                   },
+                                  onRegisterLoadNextPage: (fn) {
+                                    _ledgerLoadNextFn = fn;
+                                  },
+                                  onLoadMoreNeeded: _maybeLoadNextPage,
                                 );
                               } else if (current == 3) {
                                 content = const SubsidiesSection();
                               } else if (current == 4) {
                                 content = const AnalyticsSection();
+                              } else if (current == 5) {
+                                content = BillingSettingsSection(
+                                  onRegisterLoadNextPage: (fn) {
+                                    _discountLoadNextFn = fn;
+                                  },
+                                  onLoadMoreNeeded: _maybeLoadNextPage,
+                                );
                               } else {
                                 final String t = _tabs[current];
                                 content = Align(
