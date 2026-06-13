@@ -17,6 +17,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
@@ -50,6 +51,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
 
   String _searchQuery = '';
   List<String> _selectedClassroomNames = <String>[];
+  List<String>? _selectedClassroomCodes;
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStudentIndex;
@@ -115,7 +117,10 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
-        _loadAttendanceData(reset: true);
+        _syncClassroomFilterCodes();
+        if (_selectedClassroomCodes != null) {
+          _loadAttendanceData(reset: true);
+        }
       }
       return;
     }
@@ -133,7 +138,10 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
           _classroomCubit.state.classrooms.isNotEmpty;
     });
     if (hadClassroomSelection && _isClassroomDataReady) {
-      _loadAttendanceData(reset: true);
+      _syncClassroomFilterCodes();
+      if (_selectedClassroomCodes != null) {
+        _loadAttendanceData(reset: true);
+      }
     }
   }
 
@@ -219,8 +227,13 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
-    return BlocBuilder<StudentAttendanceCustomCubit,
-        StudentAttendanceCustomState>(
+    return BlocListener<ClassroomCubit, ClassroomState>(
+      bloc: _classroomCubit,
+      listenWhen: (previous, current) =>
+          previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
+      listener: (_, __) => _reloadIfPendingClassroomFilter(),
+      child: BlocBuilder<StudentAttendanceCustomCubit,
+          StudentAttendanceCustomState>(
       builder: (context, state) {
         return CustomRefreshIndicator(
           onRefresh: () async {
@@ -278,6 +291,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
           ),
         );
       },
+    ),
     );
   }
 
@@ -295,37 +309,43 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     _loadAttendanceData(reset: false);
   }
 
-  List<String>? _resolveSelectedClassroomCodes() {
-    if (_selectedClassroomNames.isEmpty) return null;
-    if (_classroomCubit.state.classrooms.isEmpty) return null;
-    final nameToCode = <String, String>{
-      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-    };
-    final knownCodes = {
-      for (final c in _classroomCubit.state.classrooms) c.code.trim(),
-    };
-    final codes = <String>[];
-    for (final selected in _selectedClassroomNames) {
-      final trimmed = selected.trim();
-      final fromName = nameToCode[selected]?.trim();
-      if (fromName != null && fromName.isNotEmpty) {
-        codes.add(fromName);
-      } else if (knownCodes.contains(trimmed)) {
-        codes.add(trimmed);
-      }
+  void _syncClassroomFilterCodes() {
+    _selectedClassroomCodes = resolveClassroomNamesToCodes(
+      selectedNamesOrCodes: _selectedClassroomNames,
+      classrooms: _classroomCubit.state.classrooms,
+    );
+  }
+
+  List<String>? _effectiveClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) {
+      _selectedClassroomCodes = null;
+      return null;
     }
-    return codes.isEmpty ? null : codes;
+    _syncClassroomFilterCodes();
+    return _selectedClassroomCodes;
+  }
+
+  void _reloadIfPendingClassroomFilter() {
+    if (_selectedClassroomNames.isEmpty) return;
+    _syncClassroomFilterCodes();
+    if (_selectedClassroomCodes == null) return;
+    _loadAttendanceData(reset: true);
   }
 
   void _loadAttendanceData({bool reset = false}) {
     final fromDate = _customRangeStart ?? DateTime.now();
     final toDate = _customRangeEnd ?? DateTime.now();
 
-    final classroomCodes = _resolveSelectedClassroomCodes();
+    final classroomCodes = _effectiveClassroomCodes();
+    if (_selectedClassroomNames.isNotEmpty && classroomCodes == null) {
+      return;
+    }
 
     final search = _searchQuery.trim().isNotEmpty ? _searchQuery.trim() : null;
+    final hasActiveFilters =
+        classroomCodes != null || (search != null && search.isNotEmpty);
 
-    if (reset) {
+    if (reset || hasActiveFilters) {
       _cubit.refresh(
         fromDate: fromDate,
         toDate: toDate,
@@ -473,11 +493,15 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       items: items,
                       selectedItems: _selectedClassroomNames,
                       onChanged: (values) {
-                        if (isLoading) return;
                         setState(() {
                           _selectedClassroomNames =
                               List<String>.from(values);
+                          _syncClassroomFilterCodes();
                         });
+                        if (_selectedClassroomNames.isNotEmpty &&
+                            _selectedClassroomCodes == null) {
+                          return;
+                        }
                         _loadAttendanceData(reset: true);
                       },
                     );
@@ -511,6 +535,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                     _customSearchController.clear();
                     _searchQuery = '';
                     _selectedClassroomNames = <String>[];
+                    _selectedClassroomCodes = null;
                     final now = DateTime.now();
                     _customRangeStart = DateTime(now.year, now.month, 1);
                     _customRangeEnd = DateTime(now.year, now.month + 1, 0);

@@ -161,6 +161,10 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
   Widget _buildPhysicalCheckupSection() {
     final physical = _getEntryByType('PHYSICAL_CHECKUP');
+    if (physical == null) {
+      return const SizedBox.shrink();
+    }
+
     const completedColor = Color.fromRGBO(56, 200, 32, 1);
     const completedBg = Color.fromRGBO(56, 200, 32, 0.1);
     const dueColor = Color.fromRGBO(234, 186, 0, 1);
@@ -170,99 +174,80 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
     const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
 
-    String statusUpper = '';
+    final statusUpper = (physical['status'] ?? '').toUpperCase();
+    final dueDate = (physical['dueDate'] ?? '').trim();
+    final completedDate = (physical['completedDate'] ?? '').trim();
+    final bool isCompleted = statusUpper == 'COMPLETED';
+    final bool showMore = !isCompleted;
     final cards = <Widget>[];
 
-    if (physical == null) {
+    if (dueDate.isNotEmpty) {
+      String dueLabel;
+      String editStatusUi;
+      Color dueLabelColor;
+      Color dueLabelBg;
+      switch (statusUpper) {
+        case 'COMPLETED':
+          dueLabel = 'Completed';
+          editStatusUi = 'Completed';
+          dueLabelColor = completedColor;
+          dueLabelBg = completedBg;
+          break;
+        case 'DUE':
+          dueLabel = 'Due';
+          editStatusUi = 'Due';
+          dueLabelColor = dueColor;
+          dueLabelBg = dueBg;
+          break;
+        case 'OVERDUE':
+          dueLabel = 'Overdue';
+          // Keep edit dropdown compatible (it doesn't have "Overdue").
+          editStatusUi = 'Due';
+          dueLabelColor = overdueColor;
+          dueLabelBg = overdueBg;
+          break;
+        default:
+          dueLabel = 'Scheduled';
+          editStatusUi = 'Scheduled';
+          dueLabelColor = scheduledColor;
+          dueLabelBg = scheduledBg;
+      }
       cards.add(
         _PhysicalCard(
-          statusLabel: '-',
-          statusColor: AppColors.primaryColor.withOpacity(0.5),
-          statusBg: AppColors.primaryColor.withOpacity(0.1),
-          date: '-',
+          statusLabel: dueLabel,
+          statusColor: dueLabelColor,
+          statusBg: dueLabelBg,
+          date: _formatDate(dueDate),
+          showMore: showMore,
+          onMore: showMore
+              ? () => _openEditPhysicalDialog(
+                    initialDateIso: dueDate,
+                    initialStatusUi: editStatusUi,
+                  )
+              : null,
         ),
       );
-    } else {
-      statusUpper = (physical['status'] ?? '').toUpperCase();
-      final dueDate = (physical['dueDate'] ?? '').trim();
-      final completedDate = (physical['completedDate'] ?? '').trim();
-      final bool isCompleted = statusUpper == 'COMPLETED';
-      final bool showMore = !isCompleted;
+    }
 
-      if (dueDate.isNotEmpty) {
-        String dueLabel;
-        String editStatusUi;
-        Color dueLabelColor;
-        Color dueLabelBg;
-        switch (statusUpper) {
-          case 'COMPLETED':
-            dueLabel = 'Completed';
-            editStatusUi = 'Completed';
-            dueLabelColor = completedColor;
-            dueLabelBg = completedBg;
-            break;
-          case 'DUE':
-            dueLabel = 'Due';
-            editStatusUi = 'Due';
-            dueLabelColor = dueColor;
-            dueLabelBg = dueBg;
-            break;
-          case 'OVERDUE':
-            dueLabel = 'Overdue';
-            // Keep edit dropdown compatible (it doesn't have "Overdue").
-            editStatusUi = 'Due';
-            dueLabelColor = overdueColor;
-            dueLabelBg = overdueBg;
-            break;
-          default:
-            dueLabel = 'Scheduled';
-            editStatusUi = 'Scheduled';
-            dueLabelColor = scheduledColor;
-            dueLabelBg = scheduledBg;
-        }
-        cards.add(
-          _PhysicalCard(
-            statusLabel: dueLabel,
-            statusColor: dueLabelColor,
-            statusBg: dueLabelBg,
-            date: _formatDate(dueDate),
-            showMore: showMore,
-            onMore: showMore
-                ? () => _openEditPhysicalDialog(
-                      initialDateIso: dueDate,
-                      initialStatusUi: editStatusUi,
-                    )
-                : null,
-          ),
-        );
-      }
+    if (completedDate.isNotEmpty) {
+      cards.add(
+        _PhysicalCard(
+          statusLabel: 'Completed',
+          statusColor: completedColor,
+          statusBg: completedBg,
+          date: _formatDate(completedDate),
+        ),
+      );
+    }
 
-      if (completedDate.isNotEmpty) {
-        cards.add(
-          _PhysicalCard(
-            statusLabel: 'Completed',
-            statusColor: completedColor,
-            statusBg: completedBg,
-            date: _formatDate(completedDate),
-          ),
-        );
-      }
-
-      if (cards.isEmpty) {
-        cards.add(
-          _PhysicalCard(
-            statusLabel: '-',
-            statusColor: AppColors.primaryColor.withOpacity(0.5),
-            statusBg: AppColors.primaryColor.withOpacity(0.1),
-            date: '-',
-          ),
-        );
-      }
+    if (cards.isEmpty) {
+      return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 12),
         Text(
           'Physical Checkup',
           style: TextStyle(
@@ -838,7 +823,6 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                     label: 'Background Record Check Expiration Date',
                     text: brcDate.isEmpty ? '' : brcDate,
                   ),
-                  const SizedBox(height: 12),
                   _buildPhysicalCheckupSection(),
                 ],
               ],

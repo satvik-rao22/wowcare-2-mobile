@@ -18,6 +18,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -82,6 +83,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
   String _searchQuery = '';
   Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
+  List<String>? _selectedClassroomCodes;
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStaffIndex;
@@ -139,7 +141,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
       if (hadClassroomSelection) {
-        _loadAbsentStaff(reset: true);
+        _syncClassroomFilterCodes();
+        if (_selectedClassroomCodes != null) {
+          _loadAbsentStaff(reset: true);
+        }
       }
       return;
     }
@@ -156,7 +161,10 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
           _classroomCubit.state.classrooms.isNotEmpty;
     });
     if (hadClassroomSelection && _isClassroomDataReady) {
-      _loadAbsentStaff(reset: true);
+      _syncClassroomFilterCodes();
+      if (_selectedClassroomCodes != null) {
+        _loadAbsentStaff(reset: true);
+      }
     }
   }
 
@@ -217,26 +225,27 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     return code;
   }
 
-  List<String>? _resolveSelectedClassroomCodes() {
-    if (_selectedClassroomNames.isEmpty) return null;
-    if (_classroomCubit.state.classrooms.isEmpty) return null;
-    final nameToCode = <String, String>{
-      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-    };
-    final knownCodes = {
-      for (final c in _classroomCubit.state.classrooms) c.code.trim(),
-    };
-    final codes = <String>[];
-    for (final selected in _selectedClassroomNames) {
-      final trimmed = selected.trim();
-      final fromName = nameToCode[selected]?.trim();
-      if (fromName != null && fromName.isNotEmpty) {
-        codes.add(fromName);
-      } else if (knownCodes.contains(trimmed)) {
-        codes.add(trimmed);
-      }
+  void _syncClassroomFilterCodes() {
+    _selectedClassroomCodes = resolveClassroomNamesToCodes(
+      selectedNamesOrCodes: _selectedClassroomNames,
+      classrooms: _classroomCubit.state.classrooms,
+    );
+  }
+
+  List<String>? _effectiveClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) {
+      _selectedClassroomCodes = null;
+      return null;
     }
-    return codes.isEmpty ? null : codes;
+    _syncClassroomFilterCodes();
+    return _selectedClassroomCodes;
+  }
+
+  void _reloadIfPendingClassroomFilter() {
+    if (_selectedClassroomNames.isEmpty) return;
+    _syncClassroomFilterCodes();
+    if (_selectedClassroomCodes == null) return;
+    _loadAbsentStaff(reset: true);
   }
 
   void _initializeDefaultRange() {
@@ -277,26 +286,22 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
     final from = _rangeStart!;
     final to = _rangeEnd!;
 
-    final classroomCodes = _resolveSelectedClassroomCodes();
+    final classroomCodes = _effectiveClassroomCodes();
+    if (_selectedClassroomNames.isNotEmpty && classroomCodes == null) {
+      return;
+    }
 
     if (reset) {
       _expandedStaffIndex = null;
-      await _cubit.loadInitial(
-        fromDate: from,
-        toDate: to,
-        classroomCodes: classroomCodes,
-        tagCodes: null,
-        search: _searchQuery.isNotEmpty ? _searchQuery : null,
-      );
-    } else {
-      await _cubit.refresh(
-        fromDate: from,
-        toDate: to,
-        classroomCodes: classroomCodes,
-        tagCodes: null,
-        search: _searchQuery.isNotEmpty ? _searchQuery : null,
-      );
     }
+
+    await _cubit.refresh(
+      fromDate: from,
+      toDate: to,
+      classroomCodes: classroomCodes,
+      tagCodes: null,
+      search: _searchQuery.isNotEmpty ? _searchQuery : null,
+    );
   }
 
   List<_AbsentStaffModel> _getFilteredStaff() {
@@ -326,7 +331,12 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
         BlocProvider<StaffAttendanceAbsentCubit>.value(value: _cubit),
         BlocProvider<ClassroomCubit>.value(value: _classroomCubit),
       ],
-      child: BlocBuilder<StaffAttendanceAbsentCubit, StaffAttendanceAbsentState>(
+      child: BlocListener<ClassroomCubit, ClassroomState>(
+        bloc: _classroomCubit,
+        listenWhen: (previous, current) =>
+            previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
+        listener: (_, __) => _reloadIfPendingClassroomFilter(),
+        child: BlocBuilder<StaffAttendanceAbsentCubit, StaffAttendanceAbsentState>(
         builder: (context, state) {
           final isInitialLoading = state.isLoading && state.items.isEmpty;
 
@@ -417,11 +427,15 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                                     items: items,
                                     selectedItems: _selectedClassroomNames,
                                     onChanged: (values) {
-                                      if (isLoading) return;
                                       setState(() {
                                         _selectedClassroomNames =
                                             List<String>.from(values);
+                                        _syncClassroomFilterCodes();
                                       });
+                                      if (_selectedClassroomNames.isNotEmpty &&
+                                          _selectedClassroomCodes == null) {
+                                        return;
+                                      }
                                       _loadAbsentStaff(reset: true);
                                     },
                                   );
@@ -471,6 +485,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
                                 setState(() {
                                   _searchController.clear();
                                   _selectedClassroomNames = <String>[];
+                                  _selectedClassroomCodes = null;
                                   final now = DateTime.now();
                                   _rangeStart = DateTime(now.year, now.month, 1);
                                   _rangeEnd = DateTime(now.year, now.month + 1, 0);
@@ -546,6 +561,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
             ),
           );
         },
+      ),
       ),
     );
   }
