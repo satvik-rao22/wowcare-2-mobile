@@ -226,8 +226,14 @@ class ApiPathsUat {
       return p;
     }
 
-    // Notification MS is rooted at `/api/v1/notification/...` on the gateway.
-    if (p.startsWith('/api/v1/notification/')) return p;
+    // Notification endpoints are served under the messaging gateway segment in
+    // UAT, so prepend `messaging` (keeping the `notification/...` resource):
+    //   /api/v1/notification/...  →  /api/v1/messaging/notification/...
+    if (p.startsWith('/api/v1/messaging/notification/')) return p; // already done
+    if (p.startsWith('/api/v1/notification/')) {
+      return p.replaceFirst('/api/v1/notification/', '/api/v1/messaging/notification/');
+    }
+    if (p == '/api/v1/notification') return '/api/v1/messaging/notification';
 
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') return p;

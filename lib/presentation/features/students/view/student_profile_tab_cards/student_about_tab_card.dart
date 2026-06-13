@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
@@ -287,8 +288,14 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       },
       child: ProfileInfoCard(
         title: 'Profile Information',
-        // Full width, sitting directly below the tab bar (no overlap, no gap).
-        outerPadding: const EdgeInsets.fromLTRB(0, 0, 0, 16),
+        // Full width, flush below the tab bar; bottom pads only by the nav's
+        // visible height (above the safe area) so the box's bottom border sits
+        // right on the bottom nav with no extra gap.
+        outerPadding: EdgeInsets.only(
+          bottom: (CustomNavigationBar.navBarHeight -
+                  MediaQuery.of(context).viewPadding.bottom)
+              .clamp(0.0, double.infinity),
+        ),
         // Square top so the card reads as one continuous surface with the tabs
         // (rounded top would bump/overlap the tab borders).
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -394,7 +396,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   Widget build(BuildContext context) {
     return GlobalScaffold(
       hasBackButton: true,
-      showCustomNavigationBar: false,
+      showCustomNavigationBar: true,
       body: Column(
         children: [
           SingleChildScrollView(
@@ -679,23 +681,15 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               ),
             );
           }),
-          _buildActionIcon(MediaRes.timerIcon, onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StudentAttendanceProfile(
-                  studentCode: '',
-                  studentId: 0, // Staff profile - using placeholder ID
-                  studentName: widget.name,
-                  studentPhotoUuid: null,
-                  roomName: widget.classroom,
-                  isSignedIn: false,
-                  isAbsent: false,
-                  isExpectedToday: true,
-                  isPresentToday: false,
-                  profileStatus: 'A',
-                ),
-              ),
+          // Staff Scheduling — opens scheduling pre-selected on this staff.
+          _buildActionIcon(MediaRes.staff_Schedule_drawer_icon, onTap: () {
+            final code = widget.staffCode.trim();
+            if (code.isEmpty) return;
+            context.go(
+              Uri(
+                path: StaffSchedulingScreen.routeName,
+                queryParameters: <String, String>{'staffCode': code},
+              ).toString(),
             );
           }),
           _buildActionIcon(MediaRes.communicationIcon, onTap: () {}),

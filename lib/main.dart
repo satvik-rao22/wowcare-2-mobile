@@ -12,6 +12,9 @@ import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/auth/secure_credential_store.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -137,11 +140,36 @@ Future<Map<String, String>?> _readIosGeofenceTap() async {
   }
 }
 
+/// On a fresh install, clears the Keychain-backed secure credential store so
+/// "Remember me" data from a previous install (which survives uninstall on iOS)
+/// doesn't leak into the new install. Detected via a SharedPreferences marker,
+/// which IS cleared on uninstall.
+Future<void> _resetSecureStoreOnFreshInstall() async {
+  try {
+    final storage = serviceLocator<StorageService>();
+    final alreadyInstalled =
+        await storage.getBool(StorageKeys.appInstalledMarker) ?? false;
+    if (!alreadyInstalled) {
+      await SecureCredentialStore().clear();
+      await storage.saveBool(StorageKeys.appInstalledMarker, true);
+      AppLogger.d('[FreshInstall] Wiped Keychain secure store on fresh install');
+    }
+  } catch (e) {
+    AppLogger.d('[FreshInstall] reset failed (non-fatal): $e');
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tzdata.initializeTimeZones();
 
   await configureDependencies();
+
+  // Fresh-install reset: iOS Keychain (flutter_secure_storage) SURVIVES app
+  // uninstall, so a reinstall could keep old "Remember me" credentials. The
+  // install marker lives in SharedPreferences (wiped on uninstall); if it's
+  // absent, this is a fresh install → wipe the Keychain so the app opens clean.
+  await _resetSecureStoreOnFreshInstall();
 
   if (Platform.isIOS) {
     await Firebase.initializeApp();
