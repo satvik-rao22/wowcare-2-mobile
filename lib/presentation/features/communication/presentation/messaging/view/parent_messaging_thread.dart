@@ -23,6 +23,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import '../widgets/chat_thread_shimmer.dart';
 import '../widgets/message_bubble_widget.dart';
 
 class ParentMessagingThread extends StatefulWidget {
@@ -93,15 +94,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
               : authState.loginResponse.userCode;
         });
       }
-      // authUserId is the JWT sub UUID — the messaging backend stores this as
-      // senderUserCode. userCode (USR-xxx) never matches, so always use authUserId.
+      // senderUserCode from the backend is the USR-/STF-... userCode, not the
+      // JWT sub UUID. Always compare against userCode.
       final storage = serviceLocator<StorageService>();
-      final authUserId = (await storage.getString(StorageKeys.authUserId) ?? '')
-          .trim();
-      final fallbackCode = authState is AuthLoaded
+      final storedUserCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      final authUserCode = authState is AuthLoaded
           ? authState.loginResponse.userCode
           : null;
-      final currentUserId = authUserId.isNotEmpty ? authUserId : fallbackCode;
+      final currentUserId = (authUserCode?.isNotEmpty ?? false) ? authUserCode : (storedUserCode.isNotEmpty ? storedUserCode : null);
       if (!mounted) return;
       final convCode = widget.parentInfo['code'] as String;
       AppLogger.d(
@@ -576,7 +576,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         if (state is CommunicationLoading && _messages.isEmpty) {
           return const GlobalScaffold(
             hasBackButton: true,
-            body: Center(child: CircularProgressIndicator()),
+            body: ChatThreadShimmer(),
           );
         }
         return GlobalScaffold(

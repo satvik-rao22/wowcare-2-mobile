@@ -292,6 +292,25 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     );
   }
 
+  Future<void> _showGroupChatSheet() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
+            BlocProvider(create: (_) => serviceLocator<ClassroomCubit>()),
+            BlocProvider(create: (_) => serviceLocator<StudentCubit>()),
+          ],
+          child: const StaffOrStudentSelectionBulkMessaging(
+            isStaffSelection: false,
+            conversationType: 'ADMIN_CHAT',
+          ),
+        ),
+      ),
+    );
+    if (mounted) unawaited(_cubit.refresh());
+  }
+
   void _showNewMessageSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -337,6 +356,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                 _PageHeader(
                   totalUnread: totalUnread,
                   onComposeTap: _showNewMessageSheet,
+                  onFabTap: _showGroupChatSheet,
                 ),
 
                 // ── Search + filter bar ───────────────────────────────────
@@ -543,10 +563,15 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 // ─── Page header ──────────────────────────────────────────────────────────────
 
 class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.totalUnread, required this.onComposeTap});
+  const _PageHeader({
+    required this.totalUnread,
+    required this.onComposeTap,
+    required this.onFabTap,
+  });
 
   final int totalUnread;
   final VoidCallback onComposeTap;
+  final VoidCallback onFabTap;
 
   @override
   Widget build(BuildContext context) {
@@ -594,34 +619,7 @@ class _PageHeader extends StatelessWidget {
           ),
 
           // Compose FAB-style button in header row
-          GradientAddButton(
-            onTap: () async {
-              await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MultiBlocProvider(
-                    providers: [
-                      BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
-                      BlocProvider(
-                        create: (_) => serviceLocator<ClassroomCubit>(),
-                      ),
-                      BlocProvider(
-                        create: (_) => serviceLocator<StudentCubit>(),
-                      ),
-                    ],
-                    child: StaffOrStudentSelectionBulkMessaging(
-                      isStaffSelection: false,
-                    ),
-                  ),
-                ),
-              );
-              if (context.mounted) {
-                context.read<CommunicationCubit>().loadConversations(
-                  type: 'STAFF_DIRECT',
-                  size: 2000,
-                );
-              }
-            },
-          ),
+          GradientAddButton(onTap: onFabTap),
         ],
       ),
     );

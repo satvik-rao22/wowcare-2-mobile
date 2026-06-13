@@ -10,8 +10,8 @@ class StorageKeys {
   static const String userCode = 'userCode';
 
   /// JWT `sub` claim extracted from the access token at login time.
-  /// This UUID is what the messaging backend stores as `senderUserCode`.
-  /// Use this — not [userCode] — for chat message ownership comparisons.
+  /// NOTE: the messaging backend stores the USR-/STF-... [userCode] as
+  /// `senderUserCode`, not this UUID. Use [userCode] for chat ownership checks.
   static const String authUserId = 'authUserId';
 
   static const String email = 'email';

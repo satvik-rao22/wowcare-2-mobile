@@ -301,6 +301,12 @@ class BulkMessagingCompositionCubit
           return;
         }
 
+        final isAdminChat = state.conversationType == 'ADMIN_CHAT';
+        // ADMIN_CHAT must only have ADMIN + GUARDIAN participants — no STAFF.
+        final filteredRecipientCodes = isAdminChat
+            ? recipientCodes.where((c) => !c.startsWith('STF_')).toList()
+            : recipientCodes;
+
         final request = CreateConversationRequest(
           title: (state.selectedRecipients.first['name'] as String? ?? '').trim(),
           type: state.conversationType,
@@ -309,8 +315,11 @@ class BulkMessagingCompositionCubit
           schoolCode: schoolCode,
           participants: [
             if (actualSenderCode.isNotEmpty)
-              {'userCode': actualSenderCode, 'participantType': 'STAFF'},
-            ...recipientCodes.map(
+              {
+                'userCode': actualSenderCode,
+                'participantType': isAdminChat ? 'ADMIN' : 'STAFF',
+              },
+            ...filteredRecipientCodes.map(
               (code) => {
                 'userCode': code,
                 'participantType': code.startsWith('STF_')

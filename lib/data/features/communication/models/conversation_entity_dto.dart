@@ -187,8 +187,12 @@ class ParticipantEntityDto {
       id: json['id'] as int? ?? 0,
       conversationId: json['conversationId'] as int? ?? 0,
       userCode: json['userCode'] as String? ?? '',
-      userName: json['userName'] as String? ?? '',
-      role: json['role'] as String? ?? 'PARENT',
+      userName: (json['displayName'] as String?)?.isNotEmpty == true
+          ? json['displayName'] as String
+          : (json['userName'] as String? ?? ''),
+      role: (json['participantType'] as String?)?.isNotEmpty == true
+          ? json['participantType'] as String
+          : (json['role'] as String? ?? 'PARENT'),
       avatarUrl: json['avatarUrl'] as String?,
       joinedAt: DateTime.parse(json['joinedAt'] as String? ?? DateTime.now().toIso8601String()),
       leftAt: json['leftAt'] != null ? DateTime.parse(json['leftAt'] as String) : null,

@@ -143,11 +143,17 @@ Future<void> main() async {
 
   await configureDependencies();
 
+  await Firebase.initializeApp();
+
+  // iOS foreground notifications: without this call FCM messages received while
+  // the app is open show NO banner, sound, or badge — they only fire onMessage.
   if (Platform.isIOS) {
-    await Firebase.initializeApp();
-  } else {
-    // Android Firebase initialization
-    await Firebase.initializeApp();
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    debugPrint('[iOS PUSH] ✅ Foreground notification presentation options set (alert/badge/sound)');
   }
 
   // Touch FirebaseAnalytics so the analytics library is linked and registered —

@@ -26,8 +26,8 @@ class ApiConstantsUat {
   // ─── UAT gateway host ──────────────────────────────────────────────────────
   // Single gateway for all microservices in UAT.
   // Update this when the UAT hostname changes.
-  static const String _host = 'https://uat-wowcare.childcarewow.app';
-  // static const String _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms';
+  // static const String _host = 'https://uat-wowcare.childcarewow.app';
+  static const String _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms';
 
   // Communication / Messaging MS runs on port 8086.
   // Must be updated alongside _host when the tunnel ID changes.
