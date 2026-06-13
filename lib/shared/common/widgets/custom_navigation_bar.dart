@@ -8,7 +8,7 @@ import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/src/app_router.dart';
 
 // ---------------------------------------------------------------------------
@@ -116,9 +116,31 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
   }
 
+  /// The full active route path (e.g. `/dashboard/billing`), read from the
+  /// router's current configuration so it is independent of where in the
+  /// widget tree this bar is mounted. Empty string if the router can't be
+  /// resolved (e.g. transiently during teardown).
+  String _currentLocationPath(BuildContext context) {
+    try {
+      return GoRouter.of(context)
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .path;
+    } catch (_) {
+      return '';
+    }
+  }
+
   void _onItemTapped(int tabIndex, BuildContext context, bool isParent) {
     // The Attendance slot (index 1) is a modal popup, not a route.
     if (tabIndex == 1) {
+      if (isParent) {
+        final shell = appNavigationShell(context);
+        if (shell != null && shell.currentIndex != 0) {
+          shell.goBranch(0);
+        }
+      }
       AttendancePopupManager.showAttendancePopup(context);
       return;
     }
@@ -131,11 +153,19 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
     final shell = appNavigationShell(context);
     if (shell != null) {
-      // Re-tap on the active tab is a no-op so the user's place inside the
-      // branch is preserved. Different branch → IndexedStack swap; state of
-      // the outgoing branch is kept alive, the incoming one shows instantly
-      // (no transition animation, no rebuild of the bottom bar).
-      if (branchIndex == shell.currentIndex) return;
+      if (branchIndex == shell.currentIndex) {
+        // Already on this branch. If the user is on a sub-route or has pushed routes
+        // on top of this branch's nested navigator, pop them all to return to the root.
+        final router = GoRouter.of(context);
+        final navigator = Navigator.of(context);
+        while (navigator.canPop()) {
+          navigator.pop();
+        }
+        router.go(branchRootPaths[branchIndex]);
+        return;
+      }
+      // Different branch → IndexedStack swap; state of the outgoing branch is
+      // kept alive, the incoming one shows instantly (no transition animation).
       shell.goBranch(branchIndex);
     } else {
       // Outside the shell (e.g. on an auth screen that still shows the bar):
@@ -209,7 +239,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
   @override
   Widget build(BuildContext context) {
-    final roleProvider = context.watch<RoleProvider>();
+    final roleProvider = context.watch<RoleCubit>();
     final isParent = roleProvider.isParent;
 
     final showParentAttendance = roleProvider.canOpenModule(
@@ -247,13 +277,25 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     // Highlight comes from the shell's current branch; falls back to 0
     // when the bar renders outside the shell (e.g. on an auth screen).
     final shell = appNavigationShell(context);
-    final activeTabIndex = widget.activeTabIndexOverride ??
-        (shell == null
-            ? 0
-            : tabIndexForBranchIndex(
-                isParent: isParent,
-                branchIndex: shell.currentIndex,
-              ));
+    final int activeTabIndex;
+    if (widget.activeTabIndexOverride != null) {
+      activeTabIndex = widget.activeTabIndexOverride!;
+    } else if (shell == null) {
+      activeTabIndex = 0;
+    } else if (shell.currentIndex == 0) {
+      // Branch 0 (the Dashboard branch) also hosts every non-tab drill-down
+      // (Billing, Scheduling, Staff, Reports, …). Those screens are NOT
+      // bottom-nav tabs, so only the dashboard ROOT should light up the
+      // Dashboard slot — on any drill-down we highlight nothing (-1) instead
+      // of falsely marking Dashboard as active.
+      final path = _currentLocationPath(context);
+      activeTabIndex = path == AppRoutes.dashboard ? 0 : -1;
+    } else {
+      activeTabIndex = tabIndexForBranchIndex(
+        isParent: isParent,
+        branchIndex: shell.currentIndex,
+      );
+    }
 
     Widget item({
       required String icon,

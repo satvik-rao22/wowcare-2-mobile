@@ -9,6 +9,21 @@
 # packages, and plugins designed to encourage good coding practices.
 include: package:flutter_lints/flutter.yaml
 
+analyzer:
+  exclude:
+    - "**/*.g.dart"
+    - "**/*.freezed.dart"
+    - "build/**"
+    - "coverage/**"
+    - "lib/**.gen.dart"
+  errors:
+    # Keep the codebase clean for production builds.
+    todo: warning
+    dead_code: warning
+    unused_import: warning
+    unused_local_variable: warning
+    unused_element: warning
+
 linter:
   # The lint rules applied to this project can be customized in the
   # section below to disable rules from the `package:flutter_lints/flutter.yaml`
@@ -21,8 +36,20 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # "Production ready" defaults: keep the Flutter team lints enabled (via
+    # flutter_lints) and add a few high-signal rules on top.
+
+    # Style / consistency (keep low-noise rules only)
+    prefer_single_quotes: true
+    require_trailing_commas: true
+
+    # Safety / correctness
+    avoid_print: true
+    discarded_futures: true
+
+    # Maintainability
+    flutter_style_todos: true
+    public_member_api_docs: false
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

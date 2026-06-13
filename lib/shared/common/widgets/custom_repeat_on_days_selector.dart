@@ -19,11 +19,11 @@ class CustomRepeatOnDaysSelector extends StatefulWidget {
 class _CustomRepeatOnDaysSelectorState
     extends State<CustomRepeatOnDaysSelector> {
   final List<String> _allDays = [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday",
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
   ];
 
   late List<String> _selectedDays;
@@ -69,7 +69,7 @@ class _CustomRepeatOnDaysSelectorState
           child: Row(
             children: [
               const Text(
-                "Repeat On",
+                'Repeat On',
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
@@ -84,7 +84,7 @@ class _CustomRepeatOnDaysSelectorState
                     colors: AppColors.primaryGradientColors,
                   ).createShader(bounds),
                   child: const Text(
-                    "Select All",
+                    'Select All',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,

@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -12,22 +11,26 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 
 // Student entity for Sign-Out UI & API payload
 class StudentEntity {
@@ -65,6 +68,11 @@ class StudentSignOutForm extends StatefulWidget {
     required this.students,
     this.refreshCallback,
     this.popOnSuccess = false,
+    this.isQrScan = false,
+    this.qrToken = '',
+    this.isKiosk = false,
+    this.guardianCode,
+    this.pin,
     super.key,
   });
 
@@ -74,6 +82,25 @@ class StudentSignOutForm extends StatefulWidget {
   // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
   // outside the Attendance tab (e.g. the Classroom Students card).
   final bool popOnSuccess;
+
+  /// True when triggered from a QR code scan.
+  /// Sets method=QR and withinGeofence=true in the API payload.
+  final bool isQrScan;
+
+  /// QR token from the scanned code (only set when isQrScan=true).
+  /// Included in the API payload when method=QR.
+  final String qrToken;
+
+  /// True when called from kiosk flow (guardian persona).
+  /// When true, skips staff code resolution.
+  final bool isKiosk;
+
+  /// Guardian code from kiosk PIN verification.
+  /// Only set when isKiosk=true.
+  final String? guardianCode;
+
+  /// PIN from kiosk access. Included in API payload for kiosk sign-out.
+  final String? pin;
 
   static const String routeName = '/student-sign-out-form';
 
@@ -160,7 +187,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleProvider>().isParent) return true;
+    if (context.read<RoleCubit>().isParent) return true;
 
     try {
       final storage = serviceLocator<StorageService>();
@@ -213,14 +240,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       _isSubmitting = true;
     });
 
-    final client = serviceLocator<ApiClient>().client;
     final isParent = await _resolveIsParentSession();
-    final endpoint = ApiPaths.urlWithBase(
-      isParent
-          ? ApiPaths.studentAttendanceRecordsParentSignOut
-          : ApiPaths.studentAttendanceRecordsSignOut,
-      ApiConstants.attendanceBaseUrl,
-    );
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
@@ -305,15 +325,50 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         ? classroomCodeByStudentCode.values.first
         : '';
 
+    GeofenceState? geofenceState;
+    try {
+      geofenceState = context.read<GeofenceCubit>().state;
+    } catch (_) {
+      geofenceState = null;
+    }
+    // QR and GPS sign-outs are physical-presence methods — withinGeofence is
+    // always true. APP (staff/admin manual) derives it from the geofence state.
+    final String signOutMethod;
+    final bool withinGeofence;
+    if (isParent) {
+      signOutMethod = widget.isQrScan ? 'QR' : 'GPS';
+      withinGeofence = true; // physical presence proven by QR scan or GPS
+    } else {
+      signOutMethod = 'APP';
+      withinGeofence = geofenceState?.isWithinGeofence ?? false;
+    }
+
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      try {
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+    }
+
     final payload = <String, dynamic>{
       'studentCodes': studentCodes,
-      'method': isParent ? 'GPS' : 'APP',
-      'latitude': 0,
-      'longitude': 0,
-      'withinGeofence': true,
-      'isGeofence': true,
+      'method': signOutMethod,
+      'latitude': position?.latitude ?? 0,
+      'longitude': position?.longitude ?? 0,
+      'withinGeofence': withinGeofence,
       'timeZone': schoolTimeZone,
     };
+    // Include QR token if this is a QR scan
+    if (widget.isQrScan && widget.qrToken.isNotEmpty) {
+      payload['qrToken'] = widget.qrToken;
+    }
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
       if (!mounted) return;
@@ -339,58 +394,50 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         );
         return;
       }
-      final staffCode = await _resolveStaffCode();
-      if (!mounted) return;
-      if (staffCode.isEmpty) {
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('Unable to resolve staffCode. Please re-login.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
+      // For kiosk flow (guardian), skip staff code resolution
+      if (!widget.isKiosk) {
+        final staffCode = await _resolveStaffCode();
+        if (!mounted) return;
+        if (staffCode.isEmpty) {
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: const SnackBar(
+              content: Text('Unable to resolve staffCode. Please re-login.'),
+              backgroundColor: AppColors.warningColor,
+            ),
+          );
+          return;
+        }
+        payload.addAll(<String, dynamic>{
+          'attendanceDate': attendanceDate,
+          'staffCode': staffCode,
+          'classroomCode': defaultClassroomCode,
+          'classroomCodeByStudentCode': classroomCodeByStudentCode,
+          'occurredAt': occurredAt.toUtc().toIso8601String(),
+        });
+      } else {
+        // KIOSK MODE: Use guardian code directly, no staff code needed
+        payload['method'] = 'PIN';
+        payload.addAll(<String, dynamic>{
+          'guardianCode': widget.guardianCode,
+          'pin': widget.pin,
+          'isExpected': true,
+        });
       }
-      payload.addAll(<String, dynamic>{
-        'attendanceDate': attendanceDate,
-        'staffCode': staffCode,
-        'classroomCode': defaultClassroomCode,
-        'classroomCodeByStudentCode': classroomCodeByStudentCode,
-        'occurredAt': occurredAt.toUtc().toIso8601String(),
-      });
     }
 
     try {
-      final body = Map<String, dynamic>.from(payload);
-      Map<String, dynamic>? queryParameters;
-      if (isParent) {
-        final g = body.remove('guardianCode');
-        if (g != null && g.toString().trim().isNotEmpty) {
-          queryParameters = {'guardianCode': g.toString().trim()};
-        }
-      }
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.post<dynamic>(
-        endpoint,
-        queryParameters: queryParameters,
-        data: body,
-      );
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Signed-Out successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
+      final result = await serviceLocator<AttendanceRepository>()
+          .submitStudentSignOut(payload: payload, isParent: isParent || widget.isKiosk);
+      final success = result.success;
+      var message = result.message;
 
       if (!mounted) return;
+
+      // Normalize success messages for better UX
+      if (success && (message.toLowerCase().contains('sign out') || message.toLowerCase().contains('sign-out') || message.toLowerCase().contains('signed out'))) {
+        message = 'Sign out successfully';
+      }
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -403,38 +450,32 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       );
 
       if (success) {
+        serviceLocator<ParentChildCubit>().forceRefresh();
         if (widget.popOnSuccess) {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
+        } else if (widget.isKiosk) {
+          context.go('/kiosk');
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
-            context.read<ParentChildProvider>().selectByCode(s.studentCode);
+            context.read<ParentChildCubit>().selectByCode(s.studentCode);
           }
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(
-                name: StudentAttendanceProfile.routeName,
-              ),
-              builder: (_) => StudentAttendanceProfile(
-                studentCode: s.studentCode,
-                studentId: s.id,
-                studentName: s.fullName,
-                studentPhotoUuid: s.photoUuid,
-                roomName: s.roomName,
-                isSignedIn: false,
-                syncWithParentChildSelection: true,
-              ),
-            ),
-            (route) => false,
+          context.go(
+            StudentAttendanceProfile.routeName,
+            extra: <String, dynamic>{
+              'studentCode': s.studentCode,
+              'studentId': s.id,
+              'studentName': s.fullName,
+              'studentPhotoUuid': s.photoUuid,
+              'roomName': s.roomName,
+              'isSignedIn': false,
+              'syncWithParentChildSelection': true,
+            },
           );
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          redirectToAttendanceDaily(
+              context, StudentAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {
@@ -458,11 +499,27 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Access Denied: You must be inside geofence and signed in to manage student attendance.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.red, fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (currentStudents.isEmpty && widget.students.isNotEmpty) {
       currentStudents = List.from(widget.students);
     }
 
     return StaffFormLayout(
+      isKiosk: widget.isKiosk,
       title: 'Sign-Out',
       child: SingleChildScrollView(
         child: Column(
@@ -596,7 +653,7 @@ class RemoveStudentTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    student.fullName.split(' ').first,
+                    student.fullName,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,

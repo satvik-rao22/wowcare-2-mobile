@@ -20,3 +20,11 @@ class NetworkFailure extends Failure {
 class CacheFailure extends Failure {
   const CacheFailure([super.message]);
 }
+
+class ValidationFailure extends Failure {
+  const ValidationFailure([super.message]);
+}
+
+class FileDownloadFailure extends Failure {
+  const FileDownloadFailure([super.message]);
+}

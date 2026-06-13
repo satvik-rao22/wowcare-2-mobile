@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_classroom_display.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_list_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/send_newslatter_list.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -27,6 +28,7 @@ class SentNewsLetterTab extends StatefulWidget {
 
 class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
   final TextEditingController searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   late final NewsletterListCubit _newsletterListCubit;
   late final ClassroomCubit _classroomCubit;
   List<String> _selectedClassroomNames = <String>[];
@@ -43,12 +45,30 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
     super.initState();
     _newsletterListCubit = serviceLocator<NewsletterListCubit>();
     _classroomCubit = serviceLocator<ClassroomCubit>()
-      ..loadActiveClassrooms(
-        force: true,
-        applyAttendanceStaffScope: true,
-      );
+      ..loadActiveClassrooms(force: true, applyAttendanceStaffScope: true);
     searchController.addListener(_applyFilters);
+    _scrollController.addListener(_onScroll);
     _resolveStaffScopeAndLoad();
+  }
+
+  void _onScroll() => _maybeLoadNextPage();
+
+  void _maybeLoadNextPage() {
+    if (!_scrollController.hasClients) return;
+    final NewsletterListState state = _newsletterListCubit.state;
+    if (state.isLoadingMore || !state.hasMore || state.newsletters.isEmpty) {
+      return;
+    }
+    final position = _scrollController.position;
+    // Content shorter than the viewport but more pages exist → fetch next page.
+    if (position.maxScrollExtent <= 0) {
+      _newsletterListCubit.loadNextPage();
+      return;
+    }
+    // Within 400px of the bottom → fetch next page.
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      _newsletterListCubit.loadNextPage();
+    }
   }
 
   Future<void> _resolveStaffScopeAndLoad() async {
@@ -71,6 +91,8 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
     _searchDebounce?.cancel();
     searchController.removeListener(_applyFilters);
     searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     _newsletterListCubit.close();
     _classroomCubit.close();
     super.dispose();
@@ -170,12 +192,13 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
   }
 
   List<String> _classroomNameOptions(ClassroomState s) {
-    final List<String> names = s.classrooms
-        .map((c) => c.name.trim())
-        .where((String n) => n.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final List<String> names =
+        s.classrooms
+            .map((c) => c.name.trim())
+            .where((String n) => n.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
     return names;
   }
 
@@ -255,8 +278,9 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
               _maybeBootstrapStaffList(classroomState);
             });
           }
-          final Map<String, String> nameByCode =
-              _classroomNameByCode(classroomState);
+          final Map<String, String> nameByCode = _classroomNameByCode(
+            classroomState,
+          );
           return BlocConsumer<NewsletterListCubit, NewsletterListState>(
             listener: (_, __) {},
             builder: (BuildContext context, NewsletterListState state) {
@@ -269,83 +293,92 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                       _buildSearchAndFilterBox(classroomState),
                       const SizedBox(height: 12),
                       Expanded(
-                        child: _isStaffScoped &&
+                        child:
+                            _isStaffScoped &&
                                 (!_scopeResolved ||
                                     !_staffListBootstrapped ||
                                     classroomState.isLoading) &&
                                 state.newsletters.isEmpty
-                            ? ListView(
-                                physics:
-                                    const AlwaysScrollableScrollPhysics(),
-                                children: const [
-                                  SizedBox(height: 120),
-                                  Center(child: PrimaryCircularLoader()),
-                                ],
-                              )
+                            ? const NewsletterListShimmer()
                             : state.isLoading && state.newsletters.isEmpty
-                            ? ListView(
-                                physics:
-                                    const AlwaysScrollableScrollPhysics(),
-                                children: const [
-                                  SizedBox(height: 120),
-                                  Center(child: PrimaryCircularLoader()),
-                                ],
-                              )
+                            ? const NewsletterListShimmer()
                             : state.newsletters.isEmpty
-                                ? LayoutBuilder(
-                                    builder: (context, constraints) {
-                                      return SingleChildScrollView(
-                                        physics:
-                                            const AlwaysScrollableScrollPhysics(),
-                                        child: ConstrainedBox(
-                                          constraints: BoxConstraints(
-                                            minHeight: constraints.maxHeight,
-                                          ),
-                                          child: Center(
-                                            child: Padding(
-                                              padding: const EdgeInsets.all(24),
-                                              child: Text(
-                                                state.errorMessage ??
-                                                    'No Sent Newsletters',
-                                                style: const TextStyle(
-                                                  color: AppColors.primaryColor,
-                                                  fontSize: 17,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                                textAlign: TextAlign.center,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : ListView.builder(
+                            ? LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return SingleChildScrollView(
                                     physics:
                                         const AlwaysScrollableScrollPhysics(),
-                                    itemCount: state.newsletters.length,
-                                    itemBuilder:
-                                        (BuildContext context, int index) {
+                                    child: ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        minHeight: constraints.maxHeight,
+                                      ),
+                                      child: Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(24),
+                                          child: Text(
+                                            state.errorMessage ??
+                                                'No Sent Newsletters',
+                                            style: const TextStyle(
+                                              color: AppColors.primaryColor,
+                                              fontSize: 17,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              )
+                            : Builder(
+                                builder: (BuildContext context) {
+                                  // After this list paints, top up the next
+                                  // page if the content is shorter than the
+                                  // viewport (mirrors staff_screen.dart).
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    if (!mounted) return;
+                                    _maybeLoadNextPage();
+                                  });
+                                  return ListView.builder(
+                                    controller: _scrollController,
+                                    physics:
+                                        const AlwaysScrollableScrollPhysics(),
+                                    itemCount:
+                                        state.newsletters.length +
+                                        (state.isLoadingMore ? 1 : 0),
+                                    itemBuilder: (BuildContext context, int index) {
+                                      if (index >= state.newsletters.length) {
+                                        return const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 16,
+                                          ),
+                                          child: Center(
+                                            child: PrimaryCircularLoader(),
+                                          ),
+                                        );
+                                      }
                                       final Newsletter letter =
                                           state.newsletters[index];
                                       final String sentDate =
                                           DateFormat('MMM dd, yyyy').format(
-                                        letter.sentAt ??
-                                            letter.createdAt ??
-                                            DateTime.now(),
-                                      );
+                                            letter.sentAt ??
+                                                letter.createdAt ??
+                                                DateTime.now(),
+                                          );
                                       final String createdBy =
                                           letter.createdByName.trim().isNotEmpty
-                                              ? letter.createdByName
-                                              : 'Demo Test';
+                                          ? letter.createdByName
+                                          : 'Demo Test';
                                       final primaryAttachment =
                                           pickPrimaryListAttachment(letter);
                                       final List<String> derivedAssetCodes =
                                           _extractAssetCodesFromNewsletter(
-                                        letter,
-                                      );
-                                      final Set<String> allCodes =
-                                          <String>{
+                                            letter,
+                                          );
+                                      final Set<String> allCodes = <String>{
                                         ...letter.attachments
                                             .map((a) => a.mediaCode.trim())
                                             .where((c) => c.isNotEmpty),
@@ -353,20 +386,20 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                       };
                                       final String primaryAssetCode =
                                           (primaryAttachment?.mediaCode ?? '')
-                                                  .trim()
-                                                  .isNotEmpty
-                                              ? primaryAttachment!.mediaCode
-                                              : (derivedAssetCodes.isNotEmpty
-                                                  ? derivedAssetCodes.first
-                                                  : '');
+                                              .trim()
+                                              .isNotEmpty
+                                          ? primaryAttachment!.mediaCode
+                                          : (derivedAssetCodes.isNotEmpty
+                                                ? derivedAssetCodes.first
+                                                : '');
                                       final int additionalAttachmentCount =
                                           allCodes.length > 1
-                                              ? allCodes.length - 1
-                                              : 0;
+                                          ? allCodes.length - 1
+                                          : 0;
                                       final String listKey =
                                           letter.code.trim().isNotEmpty
-                                              ? letter.code.trim()
-                                              : 'newsletter-$index';
+                                          ? letter.code.trim()
+                                          : 'newsletter-$index';
                                       return Padding(
                                         key: ValueKey<String>(listKey),
                                         padding: const EdgeInsets.symmetric(
@@ -378,21 +411,21 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                             title: letter.title,
                                             classroom:
                                                 _classroomDisplayForLetter(
-                                              letter,
-                                              nameByCode,
-                                            ),
+                                                  letter,
+                                                  nameByCode,
+                                                ),
                                             sentDate: sentDate,
                                             createdBy: createdBy,
                                             recipientCount:
                                                 letter.recipientCount,
                                             primaryAttachmentAssetCode:
                                                 primaryAssetCode,
-                                            primaryAttachmentMimeType:
-                                                () {
-                                              final mime = (primaryAttachment
-                                                          ?.mimeType ??
-                                                      '')
-                                                  .trim();
+                                            primaryAttachmentMimeType: () {
+                                              final mime =
+                                                  (primaryAttachment
+                                                              ?.mimeType ??
+                                                          '')
+                                                      .trim();
                                               if (mime.isNotEmpty) return mime;
                                               if (primaryAssetCode.isNotEmpty) {
                                                 return 'image/*';
@@ -403,24 +436,27 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                                 additionalAttachmentCount,
                                           ),
                                           onTap: () {
-                                            final String code =
-                                                letter.code.trim();
+                                            final String code = letter.code
+                                                .trim();
                                             if (code.isEmpty) return;
                                             Navigator.of(context).push(
                                               MaterialPageRoute<void>(
                                                 builder:
                                                     (BuildContext context) =>
                                                         PreviewNewsletterScreen(
-                                                  newsletterCode: code,
-                                                  initialNewsletter: letter,
-                                                ),
+                                                          newsletterCode: code,
+                                                          initialNewsletter:
+                                                              letter,
+                                                        ),
                                               ),
                                             );
                                           },
                                         ),
                                       );
                                     },
-                                  ),
+                                  );
+                                },
+                              ),
                       ),
                     ],
                   ),

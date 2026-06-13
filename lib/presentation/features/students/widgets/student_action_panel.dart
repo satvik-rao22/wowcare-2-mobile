@@ -9,7 +9,9 @@ import 'package:wowcare/domain/features/activity/entities/activity_setting.dart'
 import 'package:wowcare/domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 enum StudentPanelType { attendance, activities, none }
@@ -17,7 +19,8 @@ enum StudentPanelType { attendance, activities, none }
 /// Classroom for activity-settings API (parent often passes a new list instance each rebuild).
 String? _classroomCodeForActivityMaps(List<Map<String, dynamic>>? maps) {
   if (maps == null || maps.isEmpty) return null;
-  final dynamic code = maps.first['classroomCode'] ?? maps.first['classroomcode'];
+  final dynamic code =
+      maps.first['classroomCode'] ?? maps.first['classroomcode'];
   if (code is String && code.trim().isNotEmpty) return code.trim();
   return null;
 }
@@ -32,6 +35,8 @@ class StudentActionPanel extends StatefulWidget {
     this.onProfileTap,
     this.onClearSelections,
     this.isProfileEnabled = false,
+    this.attendanceEnabled = true,
+    this.attendanceDisabledHint,
     this.activitiesEnabled = true,
     this.activitiesDisabledHint,
     this.showAttendanceActions = false,
@@ -40,10 +45,13 @@ class StudentActionPanel extends StatefulWidget {
     this.onTransferTap,
     this.onMarkAbsentTap,
     this.isAttendanceActionLoading = false,
-    this.attendanceAvailability = StudentAttendanceActionAvailability.allEnabled,
+    this.attendanceAvailability =
+        StudentAttendanceActionAvailability.allEnabled,
+
     /// Selected students in the same shape as [ChooseActivity.selectedStudents]
     /// (`classroomCode`, `studentCode`, `name`). Drives class activity list + navigation.
     this.activityStudentMaps,
+
     /// Invoked after an activity is successfully recorded from the Activities
     /// panel, so the host can refresh its roster + caches.
     this.onActivityRecorded,
@@ -56,7 +64,15 @@ class StudentActionPanel extends StatefulWidget {
   final VoidCallback? onProfileTap;
   final VoidCallback? onClearSelections;
   final bool isProfileEnabled;
+
+  /// Whether the Attendance button is tappable. Disabled (greyed) when the
+  /// selection contains an inactive student.
+  final bool attendanceEnabled;
+
+  /// Message shown (tooltip + snackbar) when Attendance is tapped while disabled.
+  final String? attendanceDisabledHint;
   final bool activitiesEnabled;
+
   /// Tooltip when Activities is greyed out (e.g. not all students signed in today).
   final String? activitiesDisabledHint;
   final bool showAttendanceActions;
@@ -77,7 +93,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
   StudentPanelType _currentPanel = StudentPanelType.none;
 
   late final GetClassroomActivitySettingsUseCase
-      _getClassroomActivitySettingsUseCase;
+  _getClassroomActivitySettingsUseCase;
   late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
 
   bool _activitiesLoading = false;
@@ -88,6 +104,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
   final Map<String, String> _activityDisplayNameByKey = {};
   String? _activitiesLoadClassroomCode;
   String? _pendingNavigationKey;
+
   /// Avoid duplicate in-flight GET activity-settings for the same classroom.
   String? _inflightActivitySettingsClassroom;
 
@@ -127,8 +144,9 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     // Parents rebuild with a fresh [List<Map>] each frame (`!=` is always true).
     // Only drop cached settings when the *classroom* for those maps actually changes.
     if (widget.activityStudentMaps != oldWidget.activityStudentMaps) {
-      final prevCc =
-          _classroomCodeForActivityMaps(oldWidget.activityStudentMaps);
+      final prevCc = _classroomCodeForActivityMaps(
+        oldWidget.activityStudentMaps,
+      );
       final nextCc = _classroomCodeForActivityMaps(widget.activityStudentMaps);
       if (prevCc != nextCc) {
         _activitiesLoadClassroomCode = null;
@@ -175,9 +193,9 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     try {
       final List<ActivitySetting> settings =
           await _getClassroomActivitySettingsUseCase(
-        classroomCode: classroomCode,
-        refresh: true,
-      );
+            classroomCode: classroomCode,
+            refresh: true,
+          );
 
       final enabled = <String>{};
       final multiAllowed = <String>{};
@@ -259,8 +277,9 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     final maps = widget.activityStudentMaps;
     if (maps == null || maps.isEmpty) return false;
     final hasNapping = maps.any(_isStudentCurrentlyNapping);
-    final hasNotNapping =
-        maps.any((student) => !_isStudentCurrentlyNapping(student));
+    final hasNotNapping = maps.any(
+      (student) => !_isStudentCurrentlyNapping(student),
+    );
     return hasNapping && hasNotNapping;
   }
 
@@ -309,8 +328,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     final maps = widget.activityStudentMaps;
     if (maps == null || maps.isEmpty) return;
 
-    final activityName =
-        _activityDisplayNameByKey[activityKey] ?? activityKey;
+    final activityName = _activityDisplayNameByKey[activityKey] ?? activityKey;
     if (_isActivityDisabled(activityKey, activityName)) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -348,9 +366,9 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null) {
       final nextScreen = destinationBuilder(maps);
-      final recorded = await Navigator.of(context).push<dynamic>(
-        MaterialPageRoute(builder: (_) => nextScreen),
-      );
+      final recorded = await Navigator.of(
+        context,
+      ).push<dynamic>(MaterialPageRoute(builder: (_) => nextScreen));
       // Activity screens pop `true` after a successful create/update.
       if (recorded == true) {
         widget.onActivityRecorded?.call();
@@ -392,7 +410,10 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
               borderRadius: BorderRadius.circular(10),
               elevation: 3,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient(
                     begin: Alignment.topCenter,
@@ -411,6 +432,11 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                         widget.onAttendanceTap?.call();
                       },
                       isSelected: _currentPanel == StudentPanelType.attendance,
+                      isEnabled: widget.attendanceEnabled,
+                      disabledTooltip: widget.attendanceEnabled
+                          ? ''
+                          : (widget.attendanceDisabledHint ??
+                                'You cannot mark attendance for inactive student.'),
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(
@@ -427,9 +453,9 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                       disabledTooltip: widget.activitiesEnabled
                           ? ''
                           : (widget.activitiesDisabledHint ??
-                              'You cannot record activities for absent, not marked, '
-                              'or not signed-in students. Select only students with '
-                              'green signed-in status today.'),
+                                'You cannot record activities for absent, not marked, '
+                                    'or not signed-in students. Select only students with '
+                                    'green signed-in status today.'),
                     ),
                     const SizedBox(height: 20),
                     _ActionButton(
@@ -476,11 +502,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                     customBorder: const CircleBorder(),
                     child: const Padding(
                       padding: EdgeInsets.all(10.0),
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                      child: Icon(Icons.close, color: Colors.white, size: 20),
                     ),
                   ),
                 ),
@@ -501,7 +523,8 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
     this.onTransferTap,
     this.onMarkAbsentTap,
     this.isLoading = false,
-    this.attendanceAvailability = StudentAttendanceActionAvailability.allEnabled,
+    this.attendanceAvailability =
+        StudentAttendanceActionAvailability.allEnabled,
   });
 
   final VoidCallback? onSignInTap;
@@ -600,12 +623,39 @@ class _StudentSidePanel extends StatelessWidget {
   final Map<String, String> activityDisplayNameByKey;
   final String? pendingNavigationKey;
   final Future<void> Function(String activityKey) onActivityTap;
-  final bool Function(String activityKey, String activityName) isActivityDisabled;
+  final bool Function(String activityKey, String activityName)
+  isActivityDisabled;
   final String Function(String activityKey, String activityName)
-      disabledActivityMessage;
+  disabledActivityMessage;
 
-  static const String _validationTooltip =
-      'This action is not allowed for current attendance state';
+  /// Per-action message explaining why an attendance action is disabled —
+  /// mirrors the attendance pop-up. Empty string means "no tooltip".
+  ///
+  /// Precedence: a STAFF persona that hasn't completed their own sign-in
+  /// (no permission to manage student attendance) sees the self-sign-in
+  /// message on every action; otherwise the message is status-based.
+  String _attendanceDisabledReason(
+    BuildContext context, {
+    required String action,
+    required bool actionEnabled,
+  }) {
+    if (isLoading || actionEnabled) return '';
+    if (!AttendancePermissionService
+        .hasPermissionToManageStudentAttendance(context)) {
+      return AttendancePermissionService.staffSelfSignInRequiredMessage;
+    }
+    switch (action) {
+      case 'Sign-In':
+        return 'Sign-In can only be done for Students/Staff not signed in.';
+      case 'Sign-Out':
+        return 'Sign-Out can only be done for Students/Staff already signed in.';
+      case 'Transfer':
+        return 'Transfer can only be done for Students/Staff already signed in.';
+      case 'Absent':
+        return 'Absent can only be done for Students/Staff not yet signed in.';
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -626,7 +676,7 @@ class _StudentSidePanel extends StatelessWidget {
             ),
           ],
         ),
-        child: _buildAttendanceColumn(),
+        child: _buildAttendanceColumn(context),
       );
     }
     return Material(
@@ -645,10 +695,9 @@ class _StudentSidePanel extends StatelessWidget {
     );
   }
 
-  Widget _buildAttendanceColumn() {
+  Widget _buildAttendanceColumn(BuildContext context) {
     final a = availability;
     bool enabled(bool allowed) => !isLoading && allowed;
-    final disabledTip = isLoading ? '' : _validationTooltip;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -658,7 +707,11 @@ class _StudentSidePanel extends StatelessWidget {
           label: 'Sign-In',
           onTap: enabled(a.signInEnabled) ? onSignInTap : null,
           isEnabled: enabled(a.signInEnabled),
-          disabledTooltip: disabledTip,
+          disabledTooltip: _attendanceDisabledReason(
+            context,
+            action: 'Sign-In',
+            actionEnabled: enabled(a.signInEnabled),
+          ),
         ),
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
@@ -666,7 +719,11 @@ class _StudentSidePanel extends StatelessWidget {
           label: 'Sign-Out',
           onTap: enabled(a.signOutEnabled) ? onSignOutTap : null,
           isEnabled: enabled(a.signOutEnabled),
-          disabledTooltip: disabledTip,
+          disabledTooltip: _attendanceDisabledReason(
+            context,
+            action: 'Sign-Out',
+            actionEnabled: enabled(a.signOutEnabled),
+          ),
         ),
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
@@ -674,7 +731,11 @@ class _StudentSidePanel extends StatelessWidget {
           label: 'Transfer',
           onTap: enabled(a.transferEnabled) ? onTransferTap : null,
           isEnabled: enabled(a.transferEnabled),
-          disabledTooltip: disabledTip,
+          disabledTooltip: _attendanceDisabledReason(
+            context,
+            action: 'Transfer',
+            actionEnabled: enabled(a.transferEnabled),
+          ),
         ),
         const SizedBox(height: 5),
         _StudentAttendanceActionItem(
@@ -682,7 +743,11 @@ class _StudentSidePanel extends StatelessWidget {
           label: 'Absent',
           onTap: enabled(a.absentEnabled) ? onMarkAbsentTap : null,
           isEnabled: enabled(a.absentEnabled),
-          disabledTooltip: disabledTip,
+          disabledTooltip: _attendanceDisabledReason(
+            context,
+            action: 'Absent',
+            actionEnabled: enabled(a.absentEnabled),
+          ),
         ),
       ],
     );
@@ -693,9 +758,7 @@ class _StudentSidePanel extends StatelessWidget {
       return const SizedBox(
         width: 100,
         height: 120,
-        child: Center(
-          child: PrimaryCircularLoader(size: 32, strokeWidth: 3),
-        ),
+        child: Center(child: PrimaryCircularLoader(size: 32, strokeWidth: 3)),
       );
     }
     if (visibleActivityKeys.isEmpty) {
@@ -727,8 +790,7 @@ class _StudentSidePanel extends StatelessWidget {
                 final key = visibleActivityKeys[i];
                 final iconPath = ChooseActivity.activityIcons[key];
                 if (iconPath == null) return const SizedBox.shrink();
-                final displayName =
-                    activityDisplayNameByKey[key] ?? key;
+                final displayName = activityDisplayNameByKey[key] ?? key;
                 final disabled = isActivityDisabled(key, displayName);
                 final pending = pendingNavigationKey == key;
                 return _ActivityPngItem(
@@ -736,8 +798,9 @@ class _StudentSidePanel extends StatelessWidget {
                   label: displayName,
                   disabled: disabled,
                   busy: pending,
-                  tooltip:
-                      disabled ? disabledActivityMessage(key, displayName) : '',
+                  tooltip: disabled
+                      ? disabledActivityMessage(key, displayName)
+                      : '',
                   onTap: () => onActivityTap(key),
                 );
               },
@@ -768,12 +831,8 @@ class _StudentAttendanceActionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double opacity = isEnabled ? 1.0 : 0.45;
-    return Tooltip(
+    return AppTooltip(
       message: !isEnabled ? disabledTooltip : '',
-      preferBelow: false,
-      triggerMode: TooltipTriggerMode.tap,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      showDuration: const Duration(seconds: 5),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Opacity(
@@ -788,11 +847,7 @@ class _StudentAttendanceActionItem extends StatelessWidget {
                   color: Colors.blue.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(
-                  svgPath,
-                  height: 24,
-                  width: 24,
-                ),
+                child: SvgPicture.asset(svgPath, height: 24, width: 24),
               ),
               const SizedBox(height: 5),
               Text(
@@ -832,9 +887,8 @@ class _ActivityPngItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final opacity = disabled ? 0.45 : 1.0;
-    return Tooltip(
+    return AppTooltip(
       message: disabled && tooltip.isNotEmpty ? tooltip : '',
-      triggerMode: TooltipTriggerMode.tap,
       child: InkWell(
         onTap: disabled || busy ? null : onTap,
         borderRadius: BorderRadius.circular(8),
@@ -890,9 +944,7 @@ class _AttendanceChipButton extends StatelessWidget {
           color: onTap == null
               ? const Color.fromRGBO(242, 242, 242, 1)
               : const Color.fromRGBO(241, 234, 255, 1),
-          border: Border.all(
-            color: const Color.fromRGBO(170, 141, 255, 1),
-          ),
+          border: Border.all(color: const Color.fromRGBO(170, 141, 255, 1)),
         ),
         child: Text(
           label,
@@ -929,12 +981,8 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double opacity = isEnabled ? 1.0 : 0.5;
-    return Tooltip(
+    return AppTooltip(
       message: !isEnabled ? disabledTooltip : '',
-      preferBelow: false,
-      triggerMode: TooltipTriggerMode.tap,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      showDuration: const Duration(seconds: 5),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Opacity(
@@ -953,10 +1001,7 @@ class _ActionButton extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ],
           ),
@@ -965,5 +1010,3 @@ class _ActionButton extends StatelessWidget {
     );
   }
 }
-
-

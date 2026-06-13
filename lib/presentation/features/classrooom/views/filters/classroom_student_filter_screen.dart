@@ -231,11 +231,7 @@ class _ClassroomStudentFilterScreenState
               setState(() {
                 _selectedStatus
                   ..clear()
-                  ..addAll(
-                    selectedItems.isEmpty
-                        ? const <String>[]
-                        : <String>[selectedItems.last],
-                  );
+                  ..addAll(selectedItems);
               });
             },
           );

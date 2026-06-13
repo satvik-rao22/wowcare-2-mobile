@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/transaction_card_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -50,30 +52,30 @@ class BillingTransactionCard extends StatefulWidget {
 }
 
 class _BillingTransactionCardState extends State<BillingTransactionCard> {
-  bool _isExpanded = false;
-  late bool _localSelected;
+  late final TransactionCardCubit _cubit =
+      TransactionCardCubit(initialSelected: widget.isSelected);
+  bool get _isExpanded => _cubit.state.isExpanded;
+  bool get _localSelected => _cubit.state.localSelected;
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
   bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
 
   @override
-  void initState() {
-    super.initState();
-    _localSelected = widget.isSelected;
-  }
-
-  @override
   void didUpdateWidget(covariant BillingTransactionCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_isSelectionControlled && widget.isSelected != oldWidget.isSelected) {
-      _localSelected = widget.isSelected;
+      _cubit.setSelected(widget.isSelected);
     }
   }
 
-  void _toggleExpanded() {
-    setState(() => _isExpanded = !_isExpanded);
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
+
+  void _toggleExpanded() => _cubit.toggleExpanded();
 
   BillingPopupType? _popupTypeFor(String type) {
     switch (type) {
@@ -161,9 +163,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   void _handleSelectionChanged(BuildContext context, bool? value, String type) {
     if (!_isSelectionControlled) {
-      setState(() {
-        _localSelected = value ?? false;
-      });
+      _cubit.setSelected(value ?? false);
     }
     widget.onSelected?.call(value);
     widget.onToggleSelection?.call(value ?? false);
@@ -178,9 +178,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   void _clearSelection() {
     if (!_isSelectionControlled) {
-      setState(() {
-        _localSelected = false;
-      });
+      _cubit.setSelected(false);
     }
     widget.onSelected?.call(false);
     widget.onToggleSelection?.call(false);
@@ -188,25 +186,22 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<TransactionCardCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<TransactionCardCubit, TransactionCardState>(
+        builder: (context, state) {
     final String type = widget.transaction.transactionType.toLowerCase();
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: AppColors.billingCardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.billingCardBorderColor),
-        boxShadow: <BoxShadow>[
-          BoxShadow(
-            color: AppColors.billingCardShadowColor,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.cardBorderColor),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Material(
         color: AppColors.billingTransparentColor,
         child: InkWell(
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           onTap: _toggleExpanded,
           onLongPress: widget.onLongPress,
           child: Padding(
@@ -224,6 +219,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
             ),
           ),
         ),
+      ),
+    );
+        },
       ),
     );
   }
@@ -248,7 +246,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         DocumentImageWidget(
           fileUuid: widget.transaction.studentPhotoUuid ?? '',
           name: widget.transaction.studentName,
-          size: 40,
+          size: 50,
           shape: BoxShape.circle,
           fit: BoxFit.cover,
           fontSize: 14,
@@ -337,7 +335,11 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   List<Widget> _buildExpandedContent(String type) {
     final List<Widget> content = <Widget>[
-      Divider(color: AppColors.billingDividerColor),
+      const Divider(
+        height: 1,
+        thickness: 1,
+        color: Color(0xFFE9ECEF),
+      ),
       const SizedBox(height: 8),
       _studentInfoRow(),
       const SizedBox(height: 8),

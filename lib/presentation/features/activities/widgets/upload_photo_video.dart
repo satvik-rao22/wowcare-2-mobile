@@ -590,7 +590,7 @@
 //     );
 //
 //     if (picked == null) return;
-//     print('${picked.path}');
+//     AppLogger.d('${picked.path}');
 //
 //     final ext = picked.path.split('.').last.toLowerCase();
 //     if (ext == 'gif') {
@@ -1050,6 +1050,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   @override
   void initState() {
     super.initState();
+    debugPrint('[MediaUploader] initState — hashCode=$hashCode');
     maxPhotos = widget.limit;
     photoMaxSizeMB = widget.photoSizeLimit ?? 10;
 
@@ -1081,6 +1082,11 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   @override
   void dispose() {
+    debugPrint(
+      '[MediaUploader] dispose — hashCode=$hashCode '
+      '(if this fires while the file picker is open, the host activity is '
+      'being recreated)',
+    );
     _remoteVideoController?.dispose();
     super.dispose();
   }
@@ -1153,6 +1159,10 @@ class _MediaUploaderState extends State<MediaUploader> {
   }
 
   Future<void> _pickPhotos(ImageSource source) async {
+    debugPrint(
+      '[MediaUploader] _pickPhotos: start source=$source '
+      'hashCode=$hashCode mounted=$mounted',
+    );
     if (widget.readOnly) return;
     if (_currentType == MediaType.video && !_keepPhotoAndVideoTogether) {
       final replace = await _showReplaceConfirmation('photos');
@@ -1169,19 +1179,28 @@ class _MediaUploaderState extends State<MediaUploader> {
         source: source,
         imageQuality: 85,
       );
+      debugPrint(
+        '[MediaUploader] _pickPhotos: camera returned '
+        '${camera == null ? 'null' : 'image'} mounted=$mounted',
+      );
       if (camera == null) return;
+      if (!mounted) return;
       candidates = [File(camera.path)];
     } else {
-      // Keep one gallery picker flow (same behavior as messaging attachments)
-      // and allow all configured image formats from FilePickerUtils.
+      // Use the SAF document picker (FilePicker) for the gallery so every
+      // allowed image format stays selectable — including GIF (animation
+      // preserved) and HEIC/HEIF. image_picker's pickMultiImage re-encodes
+      // through imageQuality, which flattens GIFs and transcodes HEIC to JPEG,
+      // so we keep FilePicker here and rely on allowedExtensions for filtering.
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: _photoExt,
         allowMultiple: true,
       );
+      if (!mounted) return;
       if (result == null || result.files.isEmpty) return;
       candidates = result.files
-          .map((pf) => pf.path)
+          .map((f) => f.path)
           .whereType<String>()
           .where((p) => p.trim().isNotEmpty)
           .map((p) => File(p))
@@ -1236,6 +1255,7 @@ class _MediaUploaderState extends State<MediaUploader> {
       valid.add(file);
     }
 
+    if (!mounted) return;
     if (valid.isNotEmpty) {
       setState(() {
         _newPhotos.addAll(valid);
@@ -1408,27 +1428,34 @@ class _MediaUploaderState extends State<MediaUploader> {
     if (widget.readOnly) return;
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Select Media Source', textAlign: TextAlign.center),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           if (widget.allowPhoto) ...[
-            _option(Icons.photo_camera, 'Take Photo', () => _pickPhotos(ImageSource.camera)),
-            _option(Icons.image, 'Photo Gallery', () => _pickPhotos(ImageSource.gallery)),
+            _option(dialogContext, Icons.photo_camera, 'Take Photo', () => _pickPhotos(ImageSource.camera)),
+            _option(dialogContext, Icons.image, 'Photo Gallery', () => _pickPhotos(ImageSource.gallery)),
           ],
           if (widget.allowVideo) ...[
-            _option(Icons.videocam, 'Record Video', () => _pickVideo(ImageSource.camera)),
-            _option(Icons.video_library, 'Video Gallery', () => _pickVideo(ImageSource.gallery)),
+            _option(dialogContext, Icons.videocam, 'Record Video', () => _pickVideo(ImageSource.camera)),
+            _option(dialogContext, Icons.video_library, 'Video Gallery', () => _pickVideo(ImageSource.gallery)),
           ],
         ]),
       ),
     );
   }
 
-  Widget _option(IconData icon, String label, VoidCallback onTap) {
+  Widget _option(BuildContext dialogContext, IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: () {
-        Navigator.pop(context);
+        // Dismiss using the dialog's own route context, NOT the State's
+        // `context` getter. If the host activity was recreated mid-flow (see
+        // the FFmpegKit memory-reclaim note in _pickPhotos), this State is
+        // unmounted/defunct and reading `State.context` throws
+        // "This widget has been unmounted". The dialog route context stays
+        // valid for as long as the dialog is on screen.
+        Navigator.pop(dialogContext);
+        if (!mounted) return;
         onTap();
       },
       child: Padding(

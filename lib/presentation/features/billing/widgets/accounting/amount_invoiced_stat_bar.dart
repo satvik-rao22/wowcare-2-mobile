@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 
@@ -27,16 +29,23 @@ class AmountInvoicedStatBar extends StatefulWidget {
 }
 
 class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
-  bool _isExpanded = false;
+  late final BoolToggleCubit _cubit = BoolToggleCubit();
+  bool get _isExpanded => _cubit.state;
 
-  void _toggleExpanded() {
-    setState(() {
-      _isExpanded = !_isExpanded;
-    });
+  void _toggleExpanded() => _cubit.toggle();
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<BoolToggleCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<BoolToggleCubit, bool>(
+        builder: (context, _) {
     final numberFormat = NumberFormat('#,##0');
     String formatAmount(double value) => '\$${numberFormat.format(value)}';
 
@@ -157,6 +166,9 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
           ),
         ),
       ],
+    );
+        },
+      ),
     );
   }
 }

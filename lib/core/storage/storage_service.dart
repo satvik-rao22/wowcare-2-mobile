@@ -12,6 +12,10 @@ abstract class StorageService {
   Future<Map<String, dynamic>?> getJson(String key);
   Future<void> remove(String key);
   Future<void> clear();
+
+  /// All keys currently stored. Used for prefix/pattern-based bulk clears
+  /// (e.g. wiping every `*_cache_*` entry on school switch).
+  Future<Set<String>> getKeys();
 }
 
 class StorageServiceImpl implements StorageService {
@@ -74,5 +78,10 @@ class StorageServiceImpl implements StorageService {
   @override
   Future<void> clear() async {
     await _prefs.clear();
+  }
+
+  @override
+  Future<Set<String>> getKeys() {
+    return Future.value(_prefs.getKeys());
   }
 }

@@ -286,6 +286,20 @@ class AvailabilityRepositoryImpl
       identifier: identity,
     );
   }
+
+  @override
+  Future<({int pendingCount, int overdueCount})> getMovementStatusCounts({
+    required String schoolCode,
+    required String fromDate,
+    required String toDate,
+  }) async {
+    final model = await _remoteDataSource.getMovementStatusCounts(
+      schoolCode: schoolCode,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+    return (pendingCount: model.pendingCount, overdueCount: model.overdueCount);
+  }
 }
 
 String _statusToApi(IndividualMovementWorkflowStatus value) {

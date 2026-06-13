@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/select_students_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
@@ -27,75 +29,38 @@ class SelectStudentsScreen extends StatefulWidget {
 }
 
 class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
-  List<Student> students = [];
-  List<String> classrooms = ['Select Classroom'];
-  List<String> tags = ['Select Tags'];
-  String selectedClassroom = 'Select Classroom';
-  String selectedTag = 'Select Tags';
-  String searchQuery = '';
-  final Set<int> _selectedStudentIds = <int>{};
+  late final SelectStudentsCubit _cubit = SelectStudentsCubit();
   final TextEditingController _searchController = TextEditingController();
-  bool isLoading = true;
+
+  // Read-only proxies onto the cubit state so the build stays unchanged.
+  List<Student> get students => _cubit.state.students;
+  List<String> get classrooms => _cubit.state.classrooms;
+  List<String> get tags => _cubit.state.tags;
+  String get selectedClassroom => _cubit.state.selectedClassroom;
+  String get selectedTag => _cubit.state.selectedTag;
+  Set<int> get _selectedStudentIds => _cubit.state.selectedStudentIds;
+  bool get isLoading => _cubit.state.isLoading;
+  List<Student> get filteredStudents => _cubit.state.filteredStudents;
 
   @override
   void initState() {
     super.initState();
-    _loadDummyData();
-  }
-
-  void _loadDummyData() {
-    // Dummy tags
-    final reading = Tag(id: 1, name: 'Reading');
-    final sports = Tag(id: 2, name: 'Sports');
-    final arts = Tag(id: 3, name: 'Arts');
-
-    // Dummy students
-    students = [
-      Student(id: 1, fullName: 'Alex Johnson', roomName: 'Room 101', roomId: 101, tags: [reading, sports]),
-      Student(id: 2, fullName: 'Maria Gomez', roomName: 'Room 102', roomId: 102, tags: [arts]),
-      Student(id: 3, fullName: 'Liam Chen', roomName: 'Room 101', roomId: 101, tags: [sports]),
-      Student(id: 4, fullName: 'Sophia Patel', roomName: 'Room 103', roomId: 103, tags: [reading, arts]),
-      Student(id: 5, fullName: 'Noah Smith', roomName: 'Room 102', roomId: 102, tags: [reading]),
-      Student(id: 6, fullName: 'Emma Brown', roomName: 'Room 104', roomId: 104, tags: [sports, arts]),
-    ];
-
-    // Classrooms list from dummy data
-    final classroomSet = <String>{};
-    for (final s in students) {
-      if (s.roomName != null) classroomSet.add(s.roomName!);
-    }
-    classrooms = ['Select Classroom', ...classroomSet.toList()..sort()];
-
-    // Tags list from dummy data
-    final tagSet = <String>{};
-    for (final s in students) {
-      for (final t in s.tags) {
-        tagSet.add(t.name);
-      }
-    }
-    tags = ['Select Tags', ...tagSet.toList()..sort()];
-
-    isLoading = false;
-    setState(() {});
-  }
-
-  List<Student> get filteredStudents {
-    return students.where((student) {
-      final matchesSearch = student.fullName.toLowerCase().contains(searchQuery.toLowerCase());
-      final matchesClassroom = selectedClassroom == 'Select Classroom' || student.roomName == selectedClassroom;
-      final matchesTag = selectedTag == 'Select Tags' || student.tags.any((tag) => tag.name == selectedTag);
-      return matchesSearch && matchesClassroom && matchesTag;
-    }).toList();
+    _cubit.initialize();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<SelectStudentsCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<SelectStudentsCubit, SelectStudentsState>(
+        builder: (context, state) {
     final filtered = filteredStudents;
     final bool areAllSelected =
         filtered.isNotEmpty && filtered.every((student) => _selectedStudentIds.contains(student.id));
@@ -160,23 +125,14 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                             child: CustomSearchBar(
                               controller: _searchController,
                               hintText: 'Search Students',
-                              onChanged: (value) {
-                                setState(() {
-                                  searchQuery = value;
-                                });
-                              },
+                              onChanged: (value) => _cubit.setSearchQuery(value),
                             ),
                           ),
                           const SizedBox(width: 8),
                           CustomClearAllChip(
                             onTap: () {
                               _searchController.clear();
-                              setState(() {
-                                searchQuery = '';
-                                selectedClassroom = classrooms[0];
-                                selectedTag = tags[0];
-                                _selectedStudentIds.clear();
-                              });
+                              _cubit.clearAll();
                             },
                           ),
                         ],
@@ -187,11 +143,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                         items: classrooms,
                         selectedItem: selectedClassroom,
                         onSelect: (val) {
-                          if (val != null) {
-                            setState(() {
-                              selectedClassroom = val;
-                            });
-                          }
+                          if (val != null) _cubit.setClassroom(val);
                         },
                       ),
                       const SizedBox(height: 12),
@@ -200,11 +152,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                         items: tags,
                         selectedItem: selectedTag,
                         onSelect: (val) {
-                          if (val != null) {
-                            setState(() {
-                              selectedTag = val;
-                            });
-                          }
+                          if (val != null) _cubit.setTag(val);
                         },
                       ),
                     ],
@@ -215,17 +163,10 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   children: [
                     Checkbox(
                       value: areAllSelected,
-                      onChanged: (val) {
-                        setState(() {
-                          if (val ?? false) {
-                            _selectedStudentIds.addAll(filtered.map((student) => student.id));
-                          } else {
-                            _selectedStudentIds.removeWhere(
-                              (id) => filtered.any((student) => student.id == id),
-                            );
-                          }
-                        });
-                      },
+                      onChanged: (val) => _cubit.setAllSelected(
+                        filtered.map((student) => student.id),
+                        val ?? false,
+                      ),
                       activeColor: AppColors.themeColor,
                       checkColor: AppColors.billingButtonTextColor,
                       fillColor: MaterialStateProperty.resolveWith<Color>((states) {
@@ -257,15 +198,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                             final student = filtered[index];
                             final isChecked = _selectedStudentIds.contains(student.id);
                             return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (isChecked) {
-                                    _selectedStudentIds.remove(student.id);
-                                  } else {
-                                    _selectedStudentIds.add(student.id);
-                                  }
-                                });
-                              },
+                              onTap: () => _cubit.toggleStudent(student.id),
                               child: Container(
                                 margin: const EdgeInsets.symmetric(vertical: 6),
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -312,15 +245,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                                     ),
                                     Checkbox(
                                       value: isChecked,
-                                      onChanged: (val) {
-                                        setState(() {
-                                          if (val ?? false) {
-                                            _selectedStudentIds.add(student.id);
-                                          } else {
-                                            _selectedStudentIds.remove(student.id);
-                                          }
-                                        });
-                                      },
+                                      onChanged: (val) => _cubit
+                                          .setStudentSelected(
+                                              student.id, val ?? false),
                                       activeColor: AppColors.themeColor,
                                       checkColor: AppColors.billingButtonTextColor,
                                       fillColor: MaterialStateProperty.resolveWith<Color>((states) {
@@ -374,9 +301,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               child: TextButton(
                 onPressed: () {
                   // UI-only: handle "Next" with a placeholder
-                  final selectedStudents = students
-                      .where((student) => _selectedStudentIds.contains(student.id))
-                      .toList();
+                  final selectedStudents = _cubit.selectedStudents;
                   if (selectedStudents.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text('Please select at least one student')),
@@ -405,6 +330,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               ),
             ),
           );
+        },
+      ),
+    );
         },
       ),
     );

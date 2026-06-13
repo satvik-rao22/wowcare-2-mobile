@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 
 class CreateInvoiceDialog extends StatelessWidget {
   final VoidCallback? onSelectOneTime;
@@ -109,15 +111,23 @@ class _CreateInvoiceTypeCard extends StatefulWidget {
 }
 
 class _CreateInvoiceTypeCardState extends State<_CreateInvoiceTypeCard> {
-  bool _isHighlighted = false;
+  late final BoolToggleCubit _cubit = BoolToggleCubit();
+  bool get _isHighlighted => _cubit.state;
 
-  void _setHighlight(bool v) {
-    if (_isHighlighted == v) return;
-    setState(() => _isHighlighted = v);
+  void _setHighlight(bool v) => _cubit.set(v);
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<BoolToggleCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<BoolToggleCubit, bool>(
+        builder: (context, _) {
     final Color bgColor = _isHighlighted ? AppColors.themeColor : AppColors.cardColor;
     final Color borderColor = _isHighlighted ? AppColors.themeColor : AppColors.cardBorderColor;
     final Color primaryText = _isHighlighted ? AppColors.billingButtonTextColor : AppColors.billingTextColor;
@@ -176,6 +186,9 @@ class _CreateInvoiceTypeCardState extends State<_CreateInvoiceTypeCard> {
             ),
           ],
         ),
+      ),
+    );
+        },
       ),
     );
   }

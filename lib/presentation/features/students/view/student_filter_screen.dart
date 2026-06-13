@@ -14,7 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:convert';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 enum StudentFilterSection {
   classroom,
@@ -272,7 +272,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   Widget _buildFilterContent() {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
-        final role = context.watch<RoleProvider>();
+        final role = context.watch<RoleCubit>();
         final restrictToAllowed = role.isStaff &&
             _restrictedDesignationLabelsLower.contains(_staffDesignationLower) &&
             _allowedClassroomCodes.isNotEmpty;

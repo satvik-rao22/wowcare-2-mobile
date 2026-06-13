@@ -4,28 +4,15 @@ import 'package:intl/intl.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
-import 'package:wowcare/domain/features/scheduling/repositories/staff_shift_repository.dart';
-import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
-import 'package:wowcare/domain/features/scheduling/usecases/update_staff_shift_series_usecase.dart';
-import 'package:wowcare/domain/features/scheduling/usecases/update_staff_shift_usecase.dart';
-import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
-import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/scheduling/cubit/edit_shift_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_school_time.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
-import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/no_schedule_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/shift_override_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_absent_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_no_availability_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -40,8 +27,9 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 /// `/api/v1/staff-shifts/series/{seriesCode}`).
 enum EditShiftMode { thisShift, entireSeries }
 
-/// Edit form for an existing shift. Mirrors [AddShiftScreen]'s validation
-/// rules end-to-end:
+/// Edit form for an existing shift. All form state, validation and the dual-
+/// mode update flow live in [EditShiftCubit]; this widget is a pure view over
+/// that state. Mirrors [AddShiftScreen]'s validation rules end-to-end:
 ///   * shift end > shift start, break end > break start, break ⊂ shift
 ///   * shift + break within school hours
 ///   * staff-absence pre-check (single-day → hard block, recurring → strip
@@ -52,7 +40,7 @@ enum EditShiftMode { thisShift, entireSeries }
 ///     (recurring → hard-block sheet, single → inline red hint)
 ///   * time-aware conflict detection vs existing shifts on the same day
 ///     (always sends `overrideConflicts: true` so the prompt is just UX)
-class EditShiftScreen extends StatefulWidget {
+class EditShiftScreen extends StatelessWidget {
   const EditShiftScreen({
     super.key,
     required this.mode,
@@ -101,137 +89,68 @@ class EditShiftScreen extends StatefulWidget {
   final VoidCallback? onSave;
 
   @override
-  State<EditShiftScreen> createState() => _EditShiftScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<EditShiftCubit>(
+      create: (_) => serviceLocator<EditShiftCubit>()
+        ..init(
+          mode: mode,
+          shiftCode: shiftCode,
+          seriesCode: seriesCode,
+          staffCode: staffCode,
+          classroomCode: classroomCode,
+          initialDate: initialDate,
+          shiftStart: shiftStart,
+          shiftEnd: shiftEnd,
+          breakStart: breakStart,
+          breakEnd: breakEnd,
+          selectedDays: selectedDays,
+          untilDate: untilDate,
+          isPublished: isPublished,
+        ),
+      child: _EditShiftView(
+        mode: mode,
+        staffCode: staffCode,
+        staffName: staff,
+        classroomFallbackName: classroom,
+        initialDate: initialDate,
+        status: status,
+        note: note,
+        onSave: onSave,
+      ),
+    );
+  }
 }
 
-class _EditShiftScreenState extends State<EditShiftScreen> {
-  /// Canonical Mon→Sun ordering. The actual day grid is filtered down to the
-  /// days the school is open (sourced from regular-schedule API) via
-  /// [_availableWeekDays].
-  static const List<String> _weekDaysOrder = <String>[
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-    'Saturday',
-    'Sunday',
-  ];
+class _EditShiftView extends StatefulWidget {
+  const _EditShiftView({
+    required this.mode,
+    required this.staffCode,
+    required this.staffName,
+    required this.classroomFallbackName,
+    required this.initialDate,
+    required this.status,
+    required this.note,
+    required this.onSave,
+  });
 
-  /// Map `day name → DateTime.weekday` (1..7). Wire format expected by the
-  /// backend is 0-indexed; conversion happens at the request boundary.
-  static const Map<String, int> _weekDayIndex = <String, int>{
-    'Monday': DateTime.monday,
-    'Tuesday': DateTime.tuesday,
-    'Wednesday': DateTime.wednesday,
-    'Thursday': DateTime.thursday,
-    'Friday': DateTime.friday,
-    'Saturday': DateTime.saturday,
-    'Sunday': DateTime.sunday,
-  };
+  final EditShiftMode mode;
+  final String staffCode;
+  final String staffName;
+  final String classroomFallbackName;
+  final DateTime initialDate;
+  final ShiftStatus status;
+  final String? note;
+  final VoidCallback? onSave;
 
-  static const Map<int, String> _weekdayDayKey = <int, String>{
-    DateTime.monday: 'MONDAY',
-    DateTime.tuesday: 'TUESDAY',
-    DateTime.wednesday: 'WEDNESDAY',
-    DateTime.thursday: 'THURSDAY',
-    DateTime.friday: 'FRIDAY',
-    DateTime.saturday: 'SATURDAY',
-    DateTime.sunday: 'SUNDAY',
-  };
+  @override
+  State<_EditShiftView> createState() => _EditShiftViewState();
+}
 
-  late DateTime? _date = widget.initialDate;
-  late DateTime? _untilDate = widget.untilDate;
-  late String? _selectedClassroomCode = widget.classroomCode.isEmpty
-      ? null
-      : widget.classroomCode;
-
-  late TimeOfDay? _shiftStart = widget.shiftStart;
-  late TimeOfDay? _shiftEnd = widget.shiftEnd;
-  late TimeOfDay? _breakStart = widget.breakStart;
-  late TimeOfDay? _breakEnd = widget.breakEnd;
-
-  late final Set<String> _selectedDays = Set<String>.of(widget.selectedDays);
-  late bool _publish = widget.isPublished;
-
+class _EditShiftViewState extends State<_EditShiftView> {
   late final TextEditingController _noteController =
       TextEditingController(text: widget.note ?? '');
 
-  String? _shiftStartError;
-  String? _shiftEndError;
-  String? _breakStartError;
-  String? _breakEndError;
-  String? _untilDateError;
-  String? _daysError;
-  String? _schoolHoursError;
-
-  /// School open/close hours per weekday. Drives the hard-rule check that
-  /// shift / break times must fall inside school hours.
-  SchoolHoursResolver? _schoolHoursResolver;
-
-  /// Classrooms returned by `/classroom/classroom/all?...&type=ADMIN`. Merged
-  /// into the Classroom dropdown when the edited shift's staff has one of the
-  /// teacher designations ([_teacherDesignationCodes]).
-  List<Classroom> _adminClassrooms = const <Classroom>[];
-
-  /// Designation codes (uppercase, snake_case — the wire format used in
-  /// `StaffMember.designation`) that should see ADMIN-type locations merged
-  /// into the Classroom dropdown.
-  static const Set<String> _teacherDesignationCodes = <String>{
-    'LEAD_TEACHER',
-    'ASSOCIATE_TEACHER',
-    'ASSISTANT_TEACHER',
-    'FLOATER',
-  };
-
-  bool _saving = false;
-
   bool get _isSeriesMode => widget.mode == EditShiftMode.entireSeries;
-
-  /// School's open days for the repeat-days grid — strictly the days the
-  /// regular-schedule API returned. Empty while the API is still in flight
-  /// (the grid fills in once the resolver loads).
-  List<String> get _availableWeekDays {
-    final resolver = _schoolHoursResolver;
-    if (resolver == null) return const <String>[];
-    final result = <String>[];
-    for (final name in _weekDaysOrder) {
-      final weekday = _weekDayIndex[name];
-      if (weekday == null) continue;
-      if (_schoolHoursForWeekday(weekday) != null) {
-        result.add(name);
-      }
-    }
-    return result;
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSchoolHours();
-    _loadAdminClassrooms();
-    // ignore: discarded_futures
-    bootstrapSchedulingSchoolTimezone();
-  }
-
-  Future<void> _loadAdminClassrooms() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return;
-      final classrooms =
-          await serviceLocator<GetActiveClassroomsUseCase>()(
-        schoolCode: schoolCode,
-        typeOverride: 'ADMIN',
-      );
-      if (!mounted) return;
-      setState(() => _adminClassrooms = classrooms);
-    } catch (_) {
-      // Best-effort: missing admin locations just keeps the dropdown to the
-      // existing CLASSROOM-type list.
-    }
-  }
 
   @override
   void dispose() {
@@ -239,517 +158,49 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
     super.dispose();
   }
 
-  Future<void> _loadSchoolHours() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return;
-      final repo = serviceLocator<StaffRepository>();
-      final days =
-          await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
-      if (!mounted) return;
-      setState(() {
-        _schoolHoursResolver = SchoolHoursResolver.fromDays(days);
-      });
-    } catch (_) {
-      // Best-effort: without school hours the hard-rule check no-ops.
-    }
-  }
-
-  int _minutesOf(TimeOfDay t) => t.hour * 60 + t.minute;
-
-  TimeOfDay? _parse24hTime(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-    final parts = trimmed.split(':');
-    if (parts.length < 2) return null;
-    final h = int.tryParse(parts[0]);
-    final m = int.tryParse(parts[1]);
-    if (h == null || m == null) return null;
-    if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-    return TimeOfDay(hour: h, minute: m);
-  }
-
-  (TimeOfDay, TimeOfDay)? _schoolHoursForDate(DateTime date) {
-    final day = _schoolHoursResolver?.dayFor(date);
-    if (day == null) return null;
-    final start = _parse24hTime(day.startTime);
-    final end = _parse24hTime(day.endTime);
-    if (start == null || end == null) return null;
-    return (start, end);
-  }
-
-  (TimeOfDay, TimeOfDay)? _schoolHoursForWeekday(int weekday) {
-    final anchor = _date ?? schedulingSchoolToday();
-    for (var i = 0; i < 7; i++) {
-      final probe = anchor.add(Duration(days: i));
-      if (probe.weekday == weekday) {
-        return _schoolHoursForDate(probe);
-      }
-    }
-    return null;
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
-
-  /// Parses `"8:00AM - 8:00PM"` (the format used by
-  /// `StaffRepositoryImpl._mapStaffListItemToEntity`) into a `(start, end)`
-  /// tuple. Returns null on any parse failure.
-  (TimeOfDay, TimeOfDay)? _parseTimeRange(String? raw) {
-    if (raw == null) return null;
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-    final parts = trimmed.split('-');
-    if (parts.length != 2) return null;
-    final start = _parseClockTime(parts[0]);
-    final end = _parseClockTime(parts[1]);
-    if (start == null || end == null) return null;
-    return (start, end);
-  }
-
-  TimeOfDay? _parseClockTime(String raw) {
-    final upper = raw.trim().toUpperCase();
-    if (upper.isEmpty) return null;
-    final isPm = upper.endsWith('PM');
-    final isAm = upper.endsWith('AM');
-    if (!isAm && !isPm) return null;
-    final body = upper.substring(0, upper.length - 2).trim();
-    final segments = body.split(':');
-    if (segments.length < 2) return null;
-    var hour = int.tryParse(segments[0]);
-    final minute = int.tryParse(segments[1]);
-    if (hour == null || minute == null) return null;
-    if (isPm && hour < 12) hour += 12;
-    if (isAm && hour == 12) hour = 0;
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
-    return TimeOfDay(hour: hour, minute: minute);
-  }
-
-  StaffMember? _findStaff(String code, List<StaffMember> list) {
-    if (code.isEmpty) return null;
-    for (final s in list) {
-      if (s.code == code) return s;
-    }
-    return null;
-  }
-
-  /// True when [staffCode]'s designation in [list] is one of the four
-  /// teacher roles that should see ADMIN-type locations in the Classroom
-  /// dropdown.
-  bool _isTeacherDesignationByCode(
-    String staffCode,
-    List<StaffMember> list,
-  ) {
-    final staff = _findStaff(staffCode, list);
-    if (staff == null) return false;
-    final designation = staff.designation.trim().toUpperCase();
-    if (designation.isEmpty) return false;
-    return _teacherDesignationCodes.contains(designation);
-  }
-
-  /// Returns true iff the current shift + break (if any) sit entirely within
-  /// the staff's work-schedule window for [weekday]. Returns true when the
-  /// staff has no entry for that day — the no-schedule gate handles that.
-  bool _shiftFitsStaffSchedule(StaffMember staff, int weekday) {
-    if (_shiftStart == null || _shiftEnd == null) return true;
-    final dayKey = _weekdayDayKey[weekday] ?? '';
-    if (dayKey.isEmpty) return true;
-    final window = _parseTimeRange(staff.workScheduleByDay[dayKey]);
-    if (window == null) return true;
-    final shiftStartMin = _minutesOf(_shiftStart!);
-    final shiftEndMin = _minutesOf(_shiftEnd!);
-    final winStartMin = _minutesOf(window.$1);
-    final winEndMin = _minutesOf(window.$2);
-    if (shiftStartMin < winStartMin || shiftEndMin > winEndMin) return false;
-    if (_breakStart != null && _breakEnd != null) {
-      final bStart = _minutesOf(_breakStart!);
-      final bEnd = _minutesOf(_breakEnd!);
-      if (bStart < winStartMin || bEnd > winEndMin) return false;
-    }
-    return true;
-  }
-
-  bool _staffHasNoScheduleForSelection(StaffMember staff) {
-    if (_isSeriesMode && _selectedDays.isNotEmpty) {
-      for (final day in _selectedDays) {
-        final raw = staff.workScheduleByDay[day.toUpperCase()]?.trim() ?? '';
-        if (raw.isEmpty) return true;
-      }
-      return false;
-    }
-    if (_date == null) return false;
-    final dayKey = _weekdayDayKey[_date!.weekday] ?? '';
-    if (dayKey.isEmpty) return false;
-    final raw = staff.workScheduleByDay[dayKey]?.trim() ?? '';
-    return raw.isEmpty;
-  }
-
-  /// Live, build-time view of whether the currently picked shift time falls
-  /// outside the staff's work-schedule window for the selected date. Only
-  /// applies in single-shift edit mode (recurring uses a bottom sheet).
-  String? get _staffAvailabilityErrorMessage {
-    if (_isSeriesMode) return null;
-    if (_date == null) return null;
-    if (_shiftStart == null || _shiftEnd == null) return null;
-    if (widget.staffCode.isEmpty) return null;
-    final staffList = context.read<SchedulingStaffListCubit>().state.staff;
-    final selectedStaff = _findStaff(widget.staffCode, staffList);
-    if (selectedStaff == null) return null;
-    if (_shiftFitsStaffSchedule(selectedStaff, _date!.weekday)) return null;
-    return 'Selected shift time is outside this staff availability.';
-  }
-
-  bool get _isFormValid {
-    if (_date == null) return false;
-    if (_selectedClassroomCode == null || _selectedClassroomCode!.isEmpty) {
-      return false;
-    }
-    if (_shiftStart == null || _shiftEnd == null) return false;
-    if (_isSeriesMode) {
-      if (_selectedDays.isEmpty) return false;
-      if (_untilDate == null) return false;
-    }
-    return true;
-  }
-
-  void _toggleSelectAll() {
-    setState(() {
-      final available = _availableWeekDays;
-      if (_selectedDays.length == available.length) {
-        _selectedDays.clear();
-      } else {
-        _selectedDays
-          ..clear()
-          ..addAll(available);
-      }
-      _daysError = null;
-    });
-  }
-
-  bool _validate() {
-    setState(() {
-      _shiftStartError = null;
-      _shiftEndError = null;
-      _breakStartError = null;
-      _breakEndError = null;
-      _untilDateError = null;
-      _daysError = null;
-      _schoolHoursError = null;
-    });
-
-    final shiftStartMin = _minutesOf(_shiftStart!);
-    final shiftEndMin = _minutesOf(_shiftEnd!);
-
-    if (shiftEndMin <= shiftStartMin) {
-      setState(() => _shiftEndError = 'Shift end must be after shift start');
-      return false;
-    }
-
-    final hasBreakStart = _breakStart != null;
-    final hasBreakEnd = _breakEnd != null;
-    if (hasBreakStart != hasBreakEnd) {
-      setState(() {
-        if (!hasBreakStart) _breakStartError = 'Break start is required';
-        if (!hasBreakEnd) _breakEndError = 'Break end is required';
-      });
-      return false;
-    }
-
-    if (hasBreakStart && hasBreakEnd) {
-      final breakStartMin = _minutesOf(_breakStart!);
-      final breakEndMin = _minutesOf(_breakEnd!);
-      if (breakEndMin <= breakStartMin) {
-        setState(() => _breakEndError = 'Break end must be after break start');
-        return false;
-      }
-      if (breakStartMin < shiftStartMin || breakEndMin > shiftEndMin) {
-        setState(() {
-          _breakStartError = 'Break must be within shift';
-          _breakEndError = 'Break must be within shift';
-        });
-        return false;
-      }
-    }
-
-    if (_isSeriesMode && _untilDate != null && _date != null) {
-      if (_untilDate!.isBefore(_date!) && !_isSameDay(_untilDate!, _date!)) {
-        setState(() => _untilDateError = 'Must be on or after the shift date');
-        return false;
-      }
-    }
-
-    final windows = <(TimeOfDay, TimeOfDay)>[];
-    if (_isSeriesMode && _selectedDays.isNotEmpty) {
-      for (final day in _selectedDays) {
-        final weekday = _weekDayIndex[day];
-        if (weekday == null) continue;
-        final w = _schoolHoursForWeekday(weekday);
-        if (w != null) windows.add(w);
-      }
-    } else if (_date != null) {
-      final w = _schoolHoursForDate(_date!);
-      if (w != null) windows.add(w);
-    }
-    for (final window in windows) {
-      final schoolStartMin = _minutesOf(window.$1);
-      final schoolEndMin = _minutesOf(window.$2);
-      final windowLabel =
-          '${window.$1.format(context)} – ${window.$2.format(context)}';
-      if (shiftStartMin < schoolStartMin || shiftEndMin > schoolEndMin) {
-        final msg = 'Shift must be within school hours ($windowLabel).';
-        setState(() => _schoolHoursError = msg);
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: msg,
-          isError: true,
-        );
-        return false;
-      }
-      if (hasBreakStart && hasBreakEnd) {
-        final breakStartMin = _minutesOf(_breakStart!);
-        final breakEndMin = _minutesOf(_breakEnd!);
-        if (breakStartMin < schoolStartMin || breakEndMin > schoolEndMin) {
-          final msg = 'Break must be within school hours ($windowLabel).';
-          setState(() => _schoolHoursError = msg);
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: msg,
-            isError: true,
-          );
-          return false;
-        }
-      }
-    }
-
-    // Single-shift staff-availability check is informational only — the red
-    // hint rendered from [_staffAvailabilityErrorMessage] is just a warning;
-    // the PUT itself is still allowed. Recurring handles this as a hard-block
-    // bottom sheet in [_onSave].
-
-    return true;
-  }
+  // ─── Save ──────────────────────────────────────────────────────────────────
 
   Future<void> _onSave() async {
-    if (!_validate()) return;
-    if (_saving) return;
+    final cubit = context.read<EditShiftCubit>();
+    final staff = context.read<SchedulingStaffListCubit>().state.staff;
 
-    // Absence pre-check.
-    setState(() => _saving = true);
-    final shiftRepo = serviceLocator<StaffShiftRepository>();
-    final absentRangeTo =
-        _isSeriesMode && _untilDate != null ? _untilDate! : _date!;
-    List<DateTime> absentDates;
-    try {
-      absentDates = await shiftRepo.getStaffAbsentDatesInRange(
-        staffCode: widget.staffCode,
-        from: _date!,
-        to: absentRangeTo,
-      );
-    } catch (e) {
-      if (mounted) {
-        setState(() => _saving = false);
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: ApiErrorHandler.extractErrorMessage(e),
-          isError: true,
-        );
+    if (!cubit.validate()) {
+      final err = cubit.state.schoolHoursError;
+      if (err != null) {
+        CoreUtils.showTopSnackBar(context: context, message: err, isError: true);
       }
       return;
     }
 
-    if (!_isSeriesMode) {
-      final blocking = absentDates.where((d) => _isSameDay(d, _date!));
-      if (blocking.isNotEmpty) {
-        if (mounted) setState(() => _saving = false);
+    final outcome = await cubit.save(
+      staff: staff,
+      notes: _noteController.text,
+      onAbsentBlock: (absentDate) async {
         if (!mounted) return;
-        await StaffAbsentBottomSheet.show(context, blocking.first);
-        return;
-      }
-    }
+        await StaffAbsentBottomSheet.show(context, absentDate);
+      },
+      onNoScheduleConfirm: () async {
+        if (!mounted) return false;
+        return NoScheduleBottomSheet.show(context);
+      },
+      onNoAvailability: () async {
+        if (!mounted) return;
+        await StaffNoAvailabilityBottomSheet.show(context);
+      },
+      onConflictConfirm: (conflicts) async {
+        if (!mounted) return false;
+        return ShiftOverrideBottomSheet.show(context, conflictDates: conflicts);
+      },
+    );
 
-    var seriesAbsentDates = const <DateTime>[];
-    if (_isSeriesMode) {
-      final selectedDayIndices =
-          _selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
-      seriesAbsentDates = absentDates.where((d) {
-        if (selectedDayIndices.isEmpty) return true;
-        return selectedDayIndices.contains(d.weekday);
-      }).toList(growable: false);
-    }
-
-    if (mounted) setState(() => _saving = false);
     if (!mounted) return;
-
-    // No-schedule check.
-    var forceAdd = false;
-    final staffList = context.read<SchedulingStaffListCubit>().state.staff;
-    final selectedStaff = _findStaff(widget.staffCode, staffList);
-    if (selectedStaff != null &&
-        _staffHasNoScheduleForSelection(selectedStaff)) {
-      if (_isSeriesMode) {
-        if (!mounted) return;
-        await StaffNoAvailabilityBottomSheet.show(context);
-        return;
-      }
-      final confirmed = await NoScheduleBottomSheet.show(context);
-      if (!confirmed) return;
-      if (!mounted) return;
-      forceAdd = true;
-    }
-
-    // Recurring shift: time-vs-staff-window check. Each selected weekday must
-    // fit inside the staff's work-schedule window for that day. Single-day
-    // variant is surfaced inline in [_validate] as `_staffAvailabilityError`.
-    if (_isSeriesMode && selectedStaff != null) {
-      final selectedDayIndices =
-          _selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
-      final anyOutside = selectedDayIndices
-          .any((wd) => !_shiftFitsStaffSchedule(selectedStaff, wd));
-      if (anyOutside) {
-        if (!mounted) return;
-        await StaffNoAvailabilityBottomSheet.show(context);
-        return;
-      }
-    }
-
-    setState(() => _saving = true);
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final orgCode =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-
-      if (schoolCode.isEmpty || orgCode.isEmpty) {
-        throw Exception('Missing school/organization context');
-      }
-
-      // Time-aware conflict detection — the same logic the Add screen uses.
-      // Exclude the shift being edited (single mode) or every shift already in
-      // this series (series mode) so we don't falsely flag a shift as
-      // conflicting with itself.
-      final dateTo =
-          _isSeriesMode && _untilDate != null ? _untilDate! : _date!;
-      final getShiftsUseCase = serviceLocator<GetStaffShiftsUseCase>();
-      final existing = await getShiftsUseCase(
-        staffCode: widget.staffCode,
-        schoolCode: schoolCode,
-        organizationCode: orgCode,
-        dateFrom: _date!,
-        dateTo: dateTo,
+    if (outcome.errorMessage != null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: outcome.errorMessage!,
+        isError: true,
       );
-
-      final selectedDayIndices =
-          _selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
-      final newStartMin = _minutesOf(_shiftStart!);
-      final newEndMin = _minutesOf(_shiftEnd!);
-      final conflicts = <DateTime>[];
-      for (final shift in existing) {
-        if (shift.shiftCode == widget.shiftCode) continue;
-        if (_isSeriesMode &&
-            widget.seriesCode != null &&
-            widget.seriesCode!.isNotEmpty &&
-            shift.seriesCode == widget.seriesCode) {
-          continue;
-        }
-        final existingStartMin = _minutesOf(shift.startTime);
-        final existingEndMin = _minutesOf(shift.endTime);
-        final overlaps =
-            newStartMin < existingEndMin && existingStartMin < newEndMin;
-        if (!overlaps) continue;
-        if (_isSeriesMode) {
-          if (selectedDayIndices.isEmpty ||
-              selectedDayIndices.contains(shift.shiftDate.weekday)) {
-            conflicts.add(shift.shiftDate);
-          }
-        } else {
-          if (_isSameDay(shift.shiftDate, _date!)) {
-            conflicts.add(shift.shiftDate);
-          }
-        }
-      }
-
-      if (conflicts.isNotEmpty) {
-        if (!mounted) return;
-        final confirmed = await ShiftOverrideBottomSheet.show(
-          context,
-          conflictDates: conflicts,
-        );
-        if (!confirmed) {
-          setState(() => _saving = false);
-          return;
-        }
-      }
-
-      if (_isSeriesMode) {
-        final seriesCode = (widget.seriesCode ?? '').trim();
-        if (seriesCode.isEmpty) {
-          throw Exception('Missing series code for series update');
-        }
-        // Wire format: 0=Mon … 6=Sun.
-        final repeatDaysWire = selectedDayIndices
-            .map((d) => d - 1)
-            .toList(growable: false);
-        final request = StaffShiftSeriesUpdateRequest(
-          seriesCode: seriesCode,
-          shiftCode: widget.shiftCode,
-          staffCode: widget.staffCode,
-          schoolCode: schoolCode,
-          organizationCode: orgCode,
-          shiftDate: _date!,
-          classroomCode: _selectedClassroomCode!,
-          startTime: _shiftStart!,
-          endTime: _shiftEnd!,
-          breakStartTime: _breakStart,
-          breakEndTime: _breakEnd,
-          notes: _noteController.text.trim().isEmpty
-              ? null
-              : _noteController.text.trim(),
-          overrideConflicts: true,
-          repeat: true,
-          repeatDays: repeatDaysWire,
-          repeatUntilDate: _untilDate,
-          publish: _publish,
-        );
-        await serviceLocator<UpdateStaffShiftSeriesUseCase>()(request);
-
-        // Strip shifts that landed on absent days, same as Add screen.
-        if (seriesAbsentDates.isNotEmpty) {
-          try {
-            await shiftRepo.markStaffShiftAbsentDays(
-              staffCode: widget.staffCode,
-              schoolCode: schoolCode,
-              absentDates: seriesAbsentDates,
-            );
-          } catch (e) {
-            debugPrint('markStaffShiftAbsentDays failed: $e');
-          }
-        }
-      } else {
-        final request = StaffShiftUpdateRequest(
-          shiftCode: widget.shiftCode,
-          staffCode: widget.staffCode,
-          schoolCode: schoolCode,
-          organizationCode: orgCode,
-          classroomCode: _selectedClassroomCode!,
-          shiftDate: _date!,
-          startTime: _shiftStart!,
-          endTime: _shiftEnd!,
-          breakStartTime: _breakStart,
-          breakEndTime: _breakEnd,
-          notes: _noteController.text.trim().isEmpty
-              ? null
-              : _noteController.text.trim(),
-          overrideConflicts: true,
-          forceAdd: forceAdd,
-          publish: _publish,
-        );
-        await serviceLocator<UpdateStaffShiftUseCase>()(request);
-      }
-
-      if (!mounted) return;
+    } else if (outcome.success) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Shift updated successfully',
@@ -757,15 +208,6 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
       );
       widget.onSave?.call();
       Navigator.of(context).pop(true);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ApiErrorHandler.extractErrorMessage(e),
-        isError: true,
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -778,258 +220,219 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
     final bottomPadding = safeBottom > 0 ? safeBottom : 16.0;
     final title = _isSeriesMode ? 'Edit entire series' : 'Edit this shift';
 
-    return BlocBuilder<ClassroomCubit, ClassroomState>(
-      builder: (context, classroomState) {
-        final classroomCodeToName = <String, String>{
-          for (final c in classroomState.classrooms) c.code: c.name,
-        };
-        // Teachers may need to clock shifts in admin-type locations that
-        // aren't part of the CLASSROOM type list — merge the
-        // `type=ADMIN` payload (loaded once in [_loadAdminClassrooms]) into
-        // the dropdown for those four designations.
-        if (_isTeacherDesignationByCode(
-          widget.staffCode,
-          context.read<SchedulingStaffListCubit>().state.staff,
-        )) {
-          for (final c in _adminClassrooms) {
-            final code = c.code.trim();
-            if (code.isEmpty) continue;
-            final name = c.name.trim();
-            classroomCodeToName.putIfAbsent(
-              code,
-              () => name.isNotEmpty ? name : code,
-            );
-          }
-        }
-        final classroomNames =
-            classroomCodeToName.values.toList(growable: false);
-        final selectedClassroomName =
-            classroomCodeToName[_selectedClassroomCode] ?? widget.classroom;
+    return BlocBuilder<EditShiftCubit, EditShiftState>(
+      builder: (context, state) {
+        return BlocBuilder<ClassroomCubit, ClassroomState>(
+          builder: (context, classroomState) {
+            final cubit = context.read<EditShiftCubit>();
+            final staffList =
+                context.watch<SchedulingStaffListCubit>().state.staff;
 
-        return StaffFormLayout(
-          title: title,
-          bottomBar: Container(
-            padding: EdgeInsets.only(
-              bottom: bottomPadding,
-              left: 16,
-              right: 16,
-              top: 8,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
-                  offset: const Offset(0, -4),
-                  blurRadius: 16,
+            final classroomCodeToName = cubit.classroomOptions(
+              classrooms: classroomState.classrooms,
+              staff: staffList,
+            );
+            final classroomNames =
+                classroomCodeToName.values.toList(growable: false);
+            final selectedClassroomName =
+                classroomCodeToName[state.selectedClassroomCode] ??
+                    widget.classroomFallbackName;
+
+            final staffAvailabilityError =
+                cubit.staffAvailabilityError(staffList);
+
+            return StaffFormLayout(
+              title: title,
+              bottomBar: Container(
+                padding: EdgeInsets.only(
+                  bottom: bottomPadding,
+                  left: 16,
+                  right: 16,
+                  top: 8,
                 ),
-              ],
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              ),
-            ),
-            child: CustomButtonLayout(
-              confirmButtonLabel: _saving ? 'Saving…' : 'Save',
-              onPressedConfirm:
-                  (_isFormValid && !_saving) ? _onSave : null,
-              showCancelButton: false,
-              isForm: false,
-            ),
-          ),
-          child: ListView(
-            padding: EdgeInsets.zero,
-            children: [
-              _buildStatusHeader(responsive),
-              SizedBox(height: responsive.verticalSpacing),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: _buildDateField(
-                      responsive,
-                      label: 'Date',
-                      date: _date,
-                      onDateSelected: (d) => setState(() {
-                        _date = d;
-                        _schoolHoursError = null;
-                      }),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      offset: const Offset(0, -4),
+                      blurRadius: 16,
                     ),
+                  ],
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                   ),
-                  SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
-                  Expanded(
-                    child: CustomDropdown(
-                      label: 'Staff',
-                      hintText: 'Select',
-                      items: <String>[widget.staff],
-                      selectedItem: widget.staff,
-                      labelStyle: TextStyle(
-                        fontSize: responsive.labelFontSize,
-                        fontFamily: 'Manrope',
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xff573353),
+                ),
+                child: CustomButtonLayout(
+                  confirmButtonLabel: state.saving ? 'Saving…' : 'Save',
+                  onPressedConfirm:
+                      (cubit.isFormValid && !state.saving) ? _onSave : null,
+                  showCancelButton: false,
+                  isForm: false,
+                ),
+              ),
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _buildStatusHeader(responsive),
+                  SizedBox(height: responsive.verticalSpacing),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _buildDateField(
+                          responsive,
+                          label: 'Date',
+                          date: state.date,
+                          onDateSelected: cubit.setDate,
+                        ),
                       ),
-                      showAsterisk: true,
-                      labelBottomSpacing:
-                          responsive.isTablet ? 8.0 : 6.0,
-                      onSelect: (_) {},
-                    ),
+                      SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
+                      Expanded(
+                        child: CustomDropdown(
+                          label: 'Staff',
+                          hintText: 'Select',
+                          items: <String>[widget.staffName],
+                          selectedItem: widget.staffName,
+                          labelStyle: TextStyle(
+                            fontSize: responsive.labelFontSize,
+                            fontFamily: 'Manrope',
+                            fontWeight: FontWeight.w400,
+                            color: const Color(0xff573353),
+                          ),
+                          showAsterisk: true,
+                          labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                          onSelect: (_) {},
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              CustomDropdown(
-                label: 'Classroom',
-                hintText: 'Select',
-                items: classroomNames,
-                selectedItem: selectedClassroomName,
-                labelStyle: TextStyle(
-                  fontSize: responsive.labelFontSize,
-                  fontFamily: 'Manrope',
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xff573353),
-                ),
-                showAsterisk: true,
-                labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                onSelect: (name) {
-                  final code = classroomCodeToName.entries
-                      .firstWhere(
-                        (e) => e.value == name,
-                        orElse: () =>
-                            const MapEntry<String, String>('', ''),
-                      )
-                      .key;
-                  setState(() => _selectedClassroomCode =
-                      code.isEmpty ? null : code);
-                },
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: GradientTimePickerField(
-                      label: 'Shift Start',
-                      isRequired: true,
-                      time: _shiftStart,
-                      errorText: _shiftStartError,
-                      onTimeSelected: (t) => setState(() {
-                        _shiftStart = t;
-                        _shiftStartError = null;
-                        _schoolHoursError = null;
-                      }),
-                    ),
-                  ),
-                  SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
-                  Expanded(
-                    child: GradientTimePickerField(
-                      label: 'Shift End',
-                      isRequired: true,
-                      time: _shiftEnd,
-                      errorText: _shiftEndError,
-                      onTimeSelected: (t) => setState(() {
-                        _shiftEnd = t;
-                        _shiftEndError = null;
-                        _schoolHoursError = null;
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: GradientTimePickerField(
-                      label: 'Break Start',
-                      time: _breakStart,
-                      errorText: _breakStartError,
-                      onTimeSelected: (t) => setState(() {
-                        _breakStart = t;
-                        _breakStartError = null;
-                        _schoolHoursError = null;
-                      }),
-                      onClear: () => setState(() {
-                        _breakStart = null;
-                        _breakStartError = null;
-                        _schoolHoursError = null;
-                      }),
-                    ),
-                  ),
-                  SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
-                  Expanded(
-                    child: GradientTimePickerField(
-                      label: 'Break End',
-                      time: _breakEnd,
-                      errorText: _breakEndError,
-                      onTimeSelected: (t) => setState(() {
-                        _breakEnd = t;
-                        _breakEndError = null;
-                        _schoolHoursError = null;
-                      }),
-                      onClear: () => setState(() {
-                        _breakEnd = null;
-                        _breakEndError = null;
-                        _schoolHoursError = null;
-                      }),
-                    ),
-                  ),
-                ],
-              ),
-              if (_schoolHoursError != null)
-                CoreUtils.buildInlineFieldError(_schoolHoursError),
-              if (_staffAvailabilityErrorMessage != null)
-                CoreUtils.buildInlineFieldError(
-                  _staffAvailabilityErrorMessage,
-                ),
-              SizedBox(height: responsive.verticalSpacing),
-              if (_isSeriesMode) ...[
-                _buildRepeatHeader(responsive),
-                SizedBox(height: responsive.isTablet ? 16.0 : 12.0),
-                _buildDaysGrid(responsive),
-                if (_daysError != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    _daysError!,
-                    style: const TextStyle(
-                      color: Colors.red,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
+                  SizedBox(height: responsive.verticalSpacing),
+                  CustomDropdown(
+                    label: 'Classroom',
+                    hintText: 'Select',
+                    items: classroomNames,
+                    selectedItem: selectedClassroomName,
+                    labelStyle: TextStyle(
+                      fontSize: responsive.labelFontSize,
                       fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xff573353),
                     ),
+                    showAsterisk: true,
+                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                    onSelect: (name) {
+                      final code = classroomCodeToName.entries
+                          .firstWhere(
+                            (e) => e.value == name,
+                            orElse: () =>
+                                const MapEntry<String, String>('', ''),
+                          )
+                          .key;
+                      cubit.setClassroom(code.isEmpty ? null : code);
+                    },
                   ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: GradientTimePickerField(
+                          label: 'Shift Start',
+                          isRequired: true,
+                          time: state.shiftStart,
+                          errorText: state.shiftStartError,
+                          onTimeSelected: cubit.setShiftStart,
+                        ),
+                      ),
+                      SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
+                      Expanded(
+                        child: GradientTimePickerField(
+                          label: 'Shift End',
+                          isRequired: true,
+                          time: state.shiftEnd,
+                          errorText: state.shiftEndError,
+                          onTimeSelected: cubit.setShiftEnd,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: GradientTimePickerField(
+                          label: 'Break Start',
+                          time: state.breakStart,
+                          errorText: state.breakStartError,
+                          onTimeSelected: cubit.setBreakStart,
+                          onClear: () => cubit.setBreakStart(null),
+                        ),
+                      ),
+                      SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
+                      Expanded(
+                        child: GradientTimePickerField(
+                          label: 'Break End',
+                          time: state.breakEnd,
+                          errorText: state.breakEndError,
+                          onTimeSelected: cubit.setBreakEnd,
+                          onClear: () => cubit.setBreakEnd(null),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (state.schoolHoursError != null)
+                    CoreUtils.buildInlineFieldError(state.schoolHoursError),
+                  if (staffAvailabilityError != null)
+                    CoreUtils.buildInlineFieldError(staffAvailabilityError),
+                  SizedBox(height: responsive.verticalSpacing),
+                  if (_isSeriesMode) ...[
+                    _buildRepeatHeader(responsive, state),
+                    SizedBox(height: responsive.isTablet ? 16.0 : 12.0),
+                    _buildDaysGrid(responsive, state),
+                    if (state.daysError != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        state.daysError!,
+                        style: const TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          fontFamily: 'Manrope',
+                        ),
+                      ),
+                    ],
+                    SizedBox(height: responsive.verticalSpacing),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _buildPublishCheckbox(responsive, state),
+                    ),
+                    SizedBox(height: responsive.verticalSpacing),
+                    _buildDateField(
+                      responsive,
+                      label: 'Until Date',
+                      date: state.untilDate,
+                      firstDate: state.date,
+                      errorText: state.untilDateError,
+                      onDateSelected: cubit.setUntilDate,
+                    ),
+                    SizedBox(height: responsive.verticalSpacing),
+                    _buildNoteField(responsive),
+                  ] else ...[
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: _buildPublishCheckbox(responsive, state),
+                    ),
+                    SizedBox(height: responsive.verticalSpacing),
+                    _buildNoteField(responsive),
+                  ],
+                  const SizedBox(height: 12),
                 ],
-                SizedBox(height: responsive.verticalSpacing),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: _buildPublishCheckbox(responsive),
-                ),
-                SizedBox(height: responsive.verticalSpacing),
-                _buildDateField(
-                  responsive,
-                  label: 'Until Date',
-                  date: _untilDate,
-                  firstDate: _date,
-                  errorText: _untilDateError,
-                  onDateSelected: (d) => setState(() {
-                    _untilDate = d;
-                    _untilDateError = null;
-                  }),
-                ),
-                SizedBox(height: responsive.verticalSpacing),
-                _buildNoteField(responsive),
-              ] else ...[
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: _buildPublishCheckbox(responsive),
-                ),
-                SizedBox(height: responsive.verticalSpacing),
-                _buildNoteField(responsive),
-              ],
-              const SizedBox(height: 12),
-            ],
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -1104,7 +507,8 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
     );
   }
 
-  Widget _buildRepeatHeader(ResponsiveHelper responsive) {
+  Widget _buildRepeatHeader(ResponsiveHelper responsive, EditShiftState state) {
+    final cubit = context.read<EditShiftCubit>();
     return Row(
       children: [
         Text(
@@ -1118,13 +522,13 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
         ),
         const Spacer(),
         GestureDetector(
-          onTap: _toggleSelectAll,
+          onTap: cubit.toggleSelectAll,
           child: ShaderMask(
             shaderCallback: (bounds) => LinearGradient(
               colors: AppColors.primaryGradientColors,
             ).createShader(bounds),
             child: Text(
-              _selectedDays.length == _availableWeekDays.length
+              state.selectedDays.length == state.availableWeekDays.length
                   ? 'Clear All'
                   : 'Select All',
               style: TextStyle(
@@ -1140,8 +544,9 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
     );
   }
 
-  Widget _buildDaysGrid(ResponsiveHelper responsive) {
-    final days = _availableWeekDays;
+  Widget _buildDaysGrid(ResponsiveHelper responsive, EditShiftState state) {
+    final cubit = context.read<EditShiftCubit>();
+    final days = state.availableWeekDays;
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -1154,7 +559,7 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
       ),
       itemBuilder: (context, index) {
         final day = days[index];
-        final isSelected = _selectedDays.contains(day);
+        final isSelected = state.selectedDays.contains(day);
         return Container(
           decoration: BoxDecoration(
             color: isSelected
@@ -1173,25 +578,20 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
               fontWeight: FontWeight.w500,
               color: AppColors.primaryColor,
             ),
-            onChanged: (val) {
-              setState(() {
-                if (val ?? false) {
-                  _selectedDays.add(day);
-                } else {
-                  _selectedDays.remove(day);
-                }
-                _daysError = null;
-              });
-            },
+            onChanged: (val) => cubit.toggleDay(day, val ?? false),
           ),
         );
       },
     );
   }
 
-  Widget _buildPublishCheckbox(ResponsiveHelper responsive) {
+  Widget _buildPublishCheckbox(
+    ResponsiveHelper responsive,
+    EditShiftState state,
+  ) {
+    final cubit = context.read<EditShiftCubit>();
     return CustomCheckbox(
-      value: _publish,
+      value: state.publish,
       label: 'Publish shift',
       scale: 1.0,
       labelStyle: TextStyle(
@@ -1200,7 +600,7 @@ class _EditShiftScreenState extends State<EditShiftScreen> {
         fontWeight: FontWeight.w500,
         color: const Color(0xff573353),
       ),
-      onChanged: (val) => setState(() => _publish = val ?? false),
+      onChanged: (val) => cubit.setPublish(val ?? false),
     );
   }
 

@@ -1,64 +1,39 @@
-import 'package:flutter/foundation.dart';
-
 /// Cards rendered on the admin dashboard, declared in default display order.
 enum AdminDashboardCard {
   myDay,
   enrollment,
   ratioMonitoring,
   classroomShifts,
-  events,
-  todo,
+  // events,
+  // todo,
   availability,
-  movements,
-  billing,
-  classroomProgress,
-}
+  movements;
+  // billing,
+  // classroomProgress,
 
-/// View-model for [AdminDashboard].
-///
-/// UI-only for now: it owns the (re-orderable) list of dashboard cards, the
-/// greeting name, and the pull-to-refresh hook. This is the single seam for
-/// real data wiring later — card visibility can be derived here from the
-/// signed-in user's authorities (as the reference dashboard does) without the
-/// view needing any change.
-class AdminDashboardViewModel extends ChangeNotifier {
-  /// Live, user-reorderable card order. Seeded from the enum's default order.
-  final List<AdminDashboardCard> _cards =
-      List<AdminDashboardCard>.of(AdminDashboardCard.values);
-
-  bool _isRefreshing = false;
-
-  /// Whether a refresh cycle is currently in flight.
-  bool get isRefreshing => _isRefreshing;
-
-  /// Name shown in the "Welcome {name}" header. Mock data for now.
-  String get userName => 'Sarah Johnson';
-
-  /// Cards currently visible on the dashboard, in render order.
-  List<AdminDashboardCard> get visibleCards =>
-      List<AdminDashboardCard>.unmodifiable(_cards);
-
-  /// Moves the card at [oldIndex] to [newIndex] (drag-and-drop reorder).
-  ///
-  /// Accepts the raw indices reported by `SliverReorderableList`/
-  /// `ReorderableListView` and applies the standard downward-move adjustment.
-  void reorderCard(int oldIndex, int newIndex) {
-    var target = newIndex;
-    if (target > oldIndex) target -= 1;
-    if (oldIndex == target) return;
-    final card = _cards.removeAt(oldIndex);
-    _cards.insert(target, card);
-    notifyListeners();
-  }
-
-  /// Pull-to-refresh hook. UI-only — simulates a refresh round-trip so the
-  /// indicator behaves naturally. Replace the delay with real fetches later.
-  Future<void> refresh() async {
-    if (_isRefreshing) return;
-    _isRefreshing = true;
-    notifyListeners();
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    _isRefreshing = false;
-    notifyListeners();
+  String get title {
+    switch (this) {
+      case AdminDashboardCard.myDay:
+        return 'My Day';
+      case AdminDashboardCard.enrollment:
+        return 'Enrollment';
+      case AdminDashboardCard.ratioMonitoring:
+        return 'Ratio Monitoring';
+      case AdminDashboardCard.classroomShifts:
+        return 'Classroom Shifts';
+      case AdminDashboardCard.availability:
+        return 'Future Availability';
+      case AdminDashboardCard.movements:
+        return 'Individual Movements';
+    }
   }
 }
+
+class AdminDashboardViewModel {
+  const AdminDashboardViewModel();
+
+  static const double maxContentWidth = 640;
+
+  static List<AdminDashboardCard> get defaultCards => AdminDashboardCard.values;
+}
+

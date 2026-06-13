@@ -1,223 +1,3 @@
-// import 'package:flutter/material.dart';
-// import 'package:wowcare/app/theme/colors.dart';
-// import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-
-// // ---------------------------------------------------------------------------
-// // Local mock model – mirrors the shape of NewsletterModel without any entity
-// // or API dependency.
-// // ---------------------------------------------------------------------------
-// class _NewsletterItem {
-//   const _NewsletterItem({
-//     required this.title,
-//     required this.createdBy,
-//     required this.lastModified,
-//     required this.recipientCount,
-//     required this.classroom,
-//     required this.accentColor,
-//   });
-
-//   final String title;
-//   final String createdBy;
-//   final String lastModified;
-//   final int recipientCount;
-//   final String classroom;
-//   final Color accentColor;
-// }
-
-// const List<_NewsletterItem> _mockNewsletters = [
-//   _NewsletterItem(
-//     title: 'Spring Picnic Reminder',
-//     createdBy: 'Sarah Johnson',
-//     lastModified: 'May 14, 2026',
-//     recipientCount: 42,
-//     classroom: 'Sunflower Room',
-//     accentColor: Color(0xFFFFD54F),
-//   ),
-//   _NewsletterItem(
-//     title: 'Monthly Curriculum Update',
-//     createdBy: 'David Lee',
-//     lastModified: 'May 7, 2026',
-//     recipientCount: 58,
-//     classroom: 'Butterfly Room',
-//     accentColor: Color(0xFF80CBC4),
-//   ),
-//   _NewsletterItem(
-//     title: 'Health & Safety Guidelines',
-//     createdBy: 'Maria Gomez',
-//     lastModified: 'Apr 29, 2026',
-//     recipientCount: 35,
-//     classroom: 'Rainbow Room',
-//     accentColor: Color(0xFFEF9A9A),
-//   ),
-// ];
-
-// // ---------------------------------------------------------------------------
-// // Card widget
-// // ---------------------------------------------------------------------------
-// class StudentNewslettersCard extends StatefulWidget {
-//   const StudentNewslettersCard({super.key});
-
-//   @override
-//   State<StudentNewslettersCard> createState() => _StudentNewslettersCardState();
-// }
-
-// class _StudentNewslettersCardState extends State<StudentNewslettersCard> {
-//   bool _minimized = false;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Card(
-//       elevation: 0,
-//       color: Colors.white,
-//       margin: EdgeInsets.zero,
-//       shape: RoundedRectangleBorder(
-//         borderRadius: BorderRadius.circular(12),
-//         side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-//       ),
-//       child: Padding(
-//         padding: const EdgeInsets.all(16),
-//         child: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             DashboardCardHeader(
-//               title: 'Newsletter',
-//               showRedirect: true,
-//               onRedirect: () {},
-//               minimized: _minimized,
-//               onToggle: () => setState(() => _minimized = !_minimized),
-//             ),
-//             if (!_minimized) ...[
-//               const SizedBox(height: 8),
-//               ListView.separated(
-//                 shrinkWrap: true,
-//                 physics: const NeverScrollableScrollPhysics(),
-//                 itemCount: _mockNewsletters.length,
-//                 separatorBuilder: (_, __) => Divider(
-//                   height: 1,
-//                   color: AppColors.primaryColor.withValues(alpha: 0.08),
-//                 ),
-//                 itemBuilder: (context, index) {
-//                   return _NewsletterRow(item: _mockNewsletters[index]);
-//                 },
-//               ),
-//             ],
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// // ---------------------------------------------------------------------------
-// // Individual newsletter row
-// // ---------------------------------------------------------------------------
-// class _NewsletterRow extends StatelessWidget {
-//   const _NewsletterRow({required this.item});
-
-//   final _NewsletterItem item;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return InkWell(
-//       onTap: () {},
-//       borderRadius: BorderRadius.circular(8),
-//       child: Padding(
-//         padding: const EdgeInsets.symmetric(vertical: 10),
-//         child: Row(
-//           crossAxisAlignment: CrossAxisAlignment.start,
-//           children: [
-//             // Placeholder image thumbnail
-//             Container(
-//               width: 75,
-//               height: 75,
-//               decoration: BoxDecoration(
-//                 color: item.accentColor.withValues(alpha: 0.18),
-//                 borderRadius: BorderRadius.circular(8),
-//               ),
-//               child: Icon(
-//                 Icons.article_outlined,
-//                 color: item.accentColor,
-//                 size: 32,
-//               ),
-//             ),
-//             const SizedBox(width: 16),
-//             // Text content
-//             Expanded(
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     item.title,
-//                     maxLines: 2,
-//                     overflow: TextOverflow.ellipsis,
-//                     style: const TextStyle(
-//                       fontSize: 15,
-//                       fontWeight: FontWeight.w600,
-//                       color: AppColors.primaryColor,
-//                     ),
-//                   ),
-//                   const SizedBox(height: 6),
-//                   _MetaRow(label: 'Created by', value: item.createdBy),
-//                   const SizedBox(height: 2),
-//                   Row(
-//                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                     children: [
-//                       Text(
-//                         item.lastModified,
-//                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
-//                       ),
-//                       Row(
-//                         children: [
-//                           Icon(
-//                             Icons.remove_red_eye_outlined,
-//                             size: 14,
-//                             color: Colors.grey[600],
-//                           ),
-//                           const SizedBox(width: 4),
-//                           Text(
-//                             '${item.recipientCount}',
-//                             style: TextStyle(
-//                               color: Colors.grey[600],
-//                               fontSize: 13,
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     ],
-//                   ),
-//                   const SizedBox(height: 2),
-//                   _MetaRow(label: 'Classroom', value: item.classroom),
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-
-// class _MetaRow extends StatelessWidget {
-//   const _MetaRow({required this.label, required this.value});
-
-//   final String label;
-//   final String value;
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Row(
-//       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//       children: [
-//         Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-//         Text(
-//           value,
-//           style: const TextStyle(color: AppColors.primaryColor, fontSize: 13),
-//         ),
-//       ],
-//     );
-//   }
-// }
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
@@ -230,8 +10,9 @@ import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletter
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StudentNewslettersCard extends StatefulWidget {
   const StudentNewslettersCard({super.key});
@@ -257,7 +38,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final parentChildProvider = Provider.of<ParentChildProvider>(context);
+    final parentChildProvider = Provider.of<ParentChildCubit>(context);
     final nextCode = (parentChildProvider.selectedChild?.code ?? '').trim();
     if (nextCode != _selectedChildCode) {
       _selectedChildCode = nextCode;
@@ -348,19 +129,24 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
                       color: AppColors.primaryColor.withValues(alpha: 0.08),
                     ),
                     itemBuilder: (context, index) {
-                      final accentColor = _newsletterAccentColors[
-                          index % _newsletterAccentColors.length];
-                      final selectedChild =
-                          Provider.of<ParentChildProvider>(context).selectedChild;
-                      final classroomName = (selectedChild?.primaryClassroomName ??
-                              selectedChild?.classroom ??
-                              '')
-                          .toString()
-                          .trim();
+                      final accentColor =
+                          _newsletterAccentColors[index %
+                              _newsletterAccentColors.length];
+                      final selectedChild = Provider.of<ParentChildCubit>(
+                        context,
+                      ).selectedChild;
+                      final classroomName =
+                          (selectedChild?.primaryClassroomName ??
+                                  selectedChild?.classroom ??
+                                  '')
+                              .toString()
+                              .trim();
                       return _NewsletterRow(
                         item: visible[index],
                         accentColor: accentColor,
-                        classroomName: classroomName.isEmpty ? '-' : classroomName,
+                        classroomName: classroomName.isEmpty
+                            ? '-'
+                            : classroomName,
                       );
                     },
                   );
@@ -416,18 +202,9 @@ class _NewsletterRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 75,
-              height: 75,
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.article_outlined,
-                color: accentColor,
-                size: 32,
-              ),
+            _NewsletterThumbnail(
+              assetCode: item.assetCode,
+              accentColor: accentColor,
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -462,26 +239,26 @@ class _NewsletterRow extends StatelessWidget {
                           ),
                         ),
                       ),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.remove_red_eye_outlined,
-                            size: 14,
-                            color: Colors.grey[600],
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '$recipientCount',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
+                      // Row(
+                      //   mainAxisSize: MainAxisSize.min,
+                      //   children: [
+                      //     Icon(
+                      //       Icons.remove_red_eye_outlined,
+                      //       size: 14,
+                      //       color: Colors.grey[600],
+                      //     ),
+                      //     const SizedBox(width: 4),
+                      //     Text(
+                      //       '$recipientCount',
+                      //       maxLines: 1,
+                      //       overflow: TextOverflow.ellipsis,
+                      //       style: TextStyle(
+                      //         color: Colors.grey[600],
+                      //         fontSize: 13,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
                     ],
                   ),
                   const SizedBox(height: 2),
@@ -491,6 +268,46 @@ class _NewsletterRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NewsletterThumbnail extends StatelessWidget {
+  const _NewsletterThumbnail({
+    required this.assetCode,
+    required this.accentColor,
+  });
+
+  final String? assetCode;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = assetCode != null && assetCode!.trim().isNotEmpty;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 75,
+        height: 75,
+        child: hasImage
+            ? DocumentImageWidget(
+                fileUuid: '',
+                mediaAssetCode: assetCode,
+                name: '',
+                size: 75,
+                fontSize: 0,
+                disableProfileLookupFallback: true,
+                disableAttendanceStatusLookup: true,
+              )
+            : Container(
+                color: accentColor.withValues(alpha: 0.18),
+                child: Icon(
+                  Icons.article_outlined,
+                  color: accentColor,
+                  size: 32,
+                ),
+              ),
       ),
     );
   }

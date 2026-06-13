@@ -1,38 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'dart:convert';
-import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/string_utils.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_user_profile_screen.dart';
+import '../view_model/user_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
-import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
-import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
-import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -61,21 +50,42 @@ class UserProfileScreen extends StatefulWidget {
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  /// Formats a [StaffProfileTime] as `h:mm AM/PM` (space before period).
+  static String _fmtTime(StaffProfileTime t) {
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    final h = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
+    return '$h:${t.minute.toString().padLeft(2, '0')} $period';
+  }
+
+  /// Returns the 3-letter uppercase day abbreviation from a full day name.
+  static String _dayAbbr(String day) =>
+      day.length >= 3 ? day.substring(0, 3).toUpperCase() : day.toUpperCase();
+
   final ImagePicker _picker = ImagePicker();
-  StaffProfile? _profile;
-  String _loginDisplayName = '';
-  String _loginEmail = '';
-  String _loginPersona = '';
-  bool _hasShownProfileLoadError = false;
-  String? _schoolCode;
-  String? _organizationCode;
-  bool _isUploadingProfilePhoto = false;
-  double _profilePhotoUploadPercent = 0;
-  List<String> _distinctRolesForCurrentSchool = const [];
-  bool _switchPersonasLoading = false;
-  String? _cachedActiveSchoolRole;
-  String _guardianPhone = '';
-  String _guardianAddress = '';
+  late final UserProfileCubit _cubit;
+  // Dedupes the one-time "failed to load profile" snackbar.
+  bool _shownLoadError = false;
+
+  // Read-only proxies onto the cubit's state so the (large) build + helper
+  // methods below keep reading the same names while the cubit owns the data.
+  StaffProfile? get _profile => _cubit.state.profile;
+  String get _loginDisplayName => _cubit.state.loginDisplayName;
+  String get _loginEmail => _cubit.state.loginEmail;
+  String get _loginPersona => _cubit.state.loginPersona;
+  String? get _schoolCode => _cubit.state.schoolCode;
+  String? get _organizationCode => _cubit.state.organizationCode;
+  bool get _isUploadingProfilePhoto => _cubit.state.isUploadingProfilePhoto;
+  double get _profilePhotoUploadPercent =>
+      _cubit.state.profilePhotoUploadPercent;
+  List<String> get _distinctRolesForCurrentSchool =>
+      _cubit.state.distinctRolesForCurrentSchool;
+  bool get _switchPersonasLoading => _cubit.state.switchPersonasLoading;
+  String? get _cachedActiveSchoolRole => _cubit.state.cachedActiveSchoolRole;
+  String get _guardianPhone => _cubit.state.guardianPhone;
+  String get _guardianAddress => _cubit.state.guardianAddress;
+  String get _guardianCode => _cubit.state.guardianCode;
+  String get _guardianPhotoAssetCode => _cubit.state.guardianPhotoAssetCode;
+  String get _guardianPhotoUrl => _cubit.state.guardianPhotoUrl;
 
   String _formatPhoneForDisplay(String raw) {
     final digits = raw.replaceAll(RegExp(r'\D'), '');
@@ -88,180 +98,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _cubit = serviceLocator<UserProfileCubit>();
     // Seed from navigation arguments so we don't render '-' while storage loads.
-    _loginDisplayName = widget.userName.trim();
-    _loginEmail = widget.userEmail.trim();
-    _loginPersona = widget.userPersona.trim();
-    // Load profile for logged-in user.
-    // If staffCode is provided, use it; otherwise resolve staffCode from cached login info.
+    _cubit.seed(
+      name: widget.userName,
+      email: widget.userEmail,
+      persona: widget.userPersona,
+      directStaffCode: widget.staffCode,
+    );
+    // Load profile for logged-in user. If staffCode is provided it's used;
+    // otherwise the cubit resolves staffCode from cached login info.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initProfileLoad();
+      if (!mounted) return;
+      _cubit.load(isParent: context.read<RoleCubit>().isParent);
     });
   }
 
-  Future<void> _initProfileLoad() async {
-    // Preload login-based user summary (name, email, persona) from storage
-    try {
-      final storage = serviceLocator<StorageService>();
-      _loginDisplayName =
-          (await storage.getString(StorageKeys.displayName) ?? '').trim();
-      _loginEmail = (await storage.getString(StorageKeys.email) ?? '').trim();
-      final cachedDesignation =
-          (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
-
-      final activeSchoolRole =
-          (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
-      final rolesJson =
-          await storage.getString(StorageKeys.roles); // JSON array from login
-      String persona = '';
-      if (activeSchoolRole.isNotEmpty) {
-        persona = StringUtils.staffTypeToDisplayRole(activeSchoolRole);
-      }
-      // For staff personas, show designation instead of staffType/role when available.
-      if (persona.isEmpty && cachedDesignation.isNotEmpty) {
-        persona = StringUtils.staffTypeToDisplayRole(cachedDesignation);
-      }
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final org =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      if (persona.isEmpty &&
-          rolesJson != null &&
-          rolesJson.isNotEmpty) {
-        try {
-          final List<dynamic> roles =
-              (jsonDecode(rolesJson) as List<dynamic>);
-          final matches =
-              matchingRolesForOrgSchool(roles, org, school).toList();
-          if (matches.isNotEmpty) {
-            persona = StringUtils.staffTypeToDisplayRole(
-              matches.first['role'] ?? '',
-            );
-          } else if (roles.isNotEmpty) {
-            final first = roles.first as Map<String, dynamic>;
-            final roleCode = (first['role'] ?? '').toString();
-            persona = StringUtils.staffTypeToDisplayRole(roleCode);
-          }
-        } catch (_) {}
-      }
-      _loginPersona = persona;
-      if (mounted) {
-        setState(() {
-          _schoolCode = school.isEmpty ? null : school;
-          _organizationCode = org.isEmpty ? null : org;
-          _cachedActiveSchoolRole =
-              activeSchoolRole.isEmpty ? null : activeSchoolRole;
-        });
-      }
-      await _refreshSwitchProfileAvailability();
-    } catch (_) {}
-
-    // For guardian/parent persona, load guardian profile fields for phone/address
-    // and skip staff profile fetches.
-    try {
-      if (mounted && context.read<RoleProvider>().isParent) {
-        await _loadGuardianProfileForParent();
-        if (!mounted) return;
-        setState(() => _profile = null);
-        return;
-      }
-    } catch (_) {}
-
-    final direct = (widget.staffCode ?? '').trim();
-    if (direct.isNotEmpty) {
-      await _loadStaffProfile(direct);
-      return;
-    }
-
-    final resolved = await _resolveLoggedInStaffCode();
-    if (!mounted) return;
-    if (resolved.isEmpty) {
-      setState(() => _profile = null);
-    } else {
-      await _loadStaffProfile(resolved);
-    }
-  }
-
-  /// Attempts to resolve staffCode for the logged-in user from local cache.
-  /// Falls back to any cached staffCode to keep my-profile fetch non-blocking.
-  Future<String> _resolveLoggedInStaffCode() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-
-      // Ensure cached staffCode, if any, belongs to the currently logged-in user.
-      final currentUserCode =
-          (await storage.getString(StorageKeys.userCode) ?? '').trim();
-      final cachedStaffCode =
-          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-      final cachedStaffUser =
-          (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
-
-      if (cachedStaffCode.isNotEmpty &&
-          cachedStaffUser.isNotEmpty &&
-          currentUserCode.isNotEmpty &&
-          cachedStaffUser == currentUserCode) {
-        // Cache is valid for this user.
-        return cachedStaffCode;
-      }
-      if (cachedStaffCode.isNotEmpty) {
-        // Fallback: still use cached staffCode so my-profile API can run.
-        return cachedStaffCode;
-      }
-      return '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  Future<void> _refreshSwitchProfileAvailability() async {
-    final org = (_organizationCode ?? '').trim();
-    final school = (_schoolCode ?? '').trim();
-    if (org.isEmpty || school.isEmpty) {
-      if (mounted) {
-        setState(() {
-          _distinctRolesForCurrentSchool = const [];
-          _switchPersonasLoading = false;
-        });
-      }
-      return;
-    }
-    if (mounted) setState(() => _switchPersonasLoading = true);
-    try {
-      final storage = serviceLocator<StorageService>();
-      var users = await readCachedUserAccessDetailsUsers(storage);
-      if (users.isEmpty) {
-        final token =
-            (await storage.getString(StorageKeys.accessToken) ?? '').trim();
-        if (token.isNotEmpty) {
-          users = await serviceLocator<AuthRemoteDataSource>().getUserDetails(
-            accessToken: token,
-          );
-          await storage.saveString(
-            StorageKeys.userAccessDetails,
-            jsonEncode(users),
-          );
-        }
-      }
-      final distinct = distinctActiveRolesForCurrentSchoolFromUserDetails(
-        users,
-        org,
-        school,
-      );
-      final active =
-          (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
-      if (!mounted) return;
-      setState(() {
-        _distinctRolesForCurrentSchool = distinct;
-        _cachedActiveSchoolRole = active.isEmpty ? null : active;
-        _switchPersonasLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _distinctRolesForCurrentSchool = const [];
-        _switchPersonasLoading = false;
-      });
-    }
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   String _effectiveActiveBackendRoleForSwitch() {
@@ -303,26 +159,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _applyPersonaSwitch(String backendRole) async {
     if (backendRole.isEmpty) return;
-    if (mounted) setState(() => _switchPersonasLoading = true);
+    _cubit.setSwitching(true);
     try {
       // IMPORTANT: do not change visible persona/profile until required
       // APIs are done. Only show the button loader.
-      final authLocal = serviceLocator<AuthLocalDataSource>();
-      await authLocal.clearPersonaVolatileCaches();
-      await authLocal.persistActiveSchoolPersonaRole(backendRole);
+      await _cubit.persistPersonaSwitch(backendRole);
       if (!mounted) return;
-      context.read<ParentChildProvider>().invalidate();
-      // Preload guardian data BEFORE RoleProvider flips to parent so the global
+      context.read<ParentChildCubit>().invalidate();
+      // Preload guardian data BEFORE RoleCubit flips to parent so the global
       // dropdown doesn't show a loading state.
       final targetIsGuardian = roleStringIsGuardianPersona(backendRole);
       if (targetIsGuardian) {
         // Also fetch guardian profile so phone/address appear immediately.
-        await _loadGuardianProfileForParent();
+        await _cubit.loadGuardianProfileForParent();
         if (!mounted) return;
-        await context.read<ParentChildProvider>().ensureLoaded(force: true);
+        await context.read<ParentChildCubit>().ensureLoaded(force: true);
       }
       if (!mounted) return;
-      await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
       final org = (_organizationCode ?? '').trim();
       final school = (_schoolCode ?? '').trim();
       if (org.isNotEmpty && school.isNotEmpty) {
@@ -335,11 +189,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       }
       if (!mounted) return;
       // Now that prefetch is complete, apply the persona to UI.
-      setState(() {
-        _profile = null;
-        _cachedActiveSchoolRole = backendRole;
-        _loginPersona = StringUtils.staffTypeToDisplayRole(backendRole);
-      });
+      _cubit.applySwitchedPersona(backendRole);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -347,8 +197,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             'Switched to ${StringUtils.staffTypeToDisplayRole(backendRole)}',
         isSuccess: true,
       );
-      await _refreshSwitchProfileAvailability();
-      await _initProfileLoad();
+      await _cubit.refreshSwitchProfileAvailability();
+      if (!mounted) return;
+      await _cubit.load(isParent: context.read<RoleCubit>().isParent);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -357,307 +208,37 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         isError: true,
       );
     } finally {
-      if (mounted) setState(() => _switchPersonasLoading = false);
+      _cubit.setSwitching(false);
     }
   }
 
-  Future<void> _loadStaffProfile(String staffCode) async {
-    try {
-      final repo = serviceLocator<StaffRepository>();
-      // 1) Try cached profile first (fast, no loader).
-      if (repo is StaffRepositoryWithCache) {
-        final cached =
-            await (repo as StaffRepositoryWithCache).loadCachedStaffProfile(
-          staffCode,
-        );
-        if (!mounted) return;
-        if (cached != null) {
-          _profile = cached;
-          // Persist staffType for ProfileMenuHeader.
-          if (cached.staffType.isNotEmpty) {
-            final storage = serviceLocator<StorageService>();
-            await storage.saveString(StorageKeys.staffType, cached.staffType);
-          }
-          if (cached.designation.trim().isNotEmpty) {
-            final storage = serviceLocator<StorageService>();
-            await storage.saveString(
-              StorageKeys.staffDesignation,
-              cached.designation.trim(),
-            );
-          }
-          setState(() {});
-        }
-      }
-
-      // 2) Prefetch latest profile in the background (no loader shown).
-      try {
-        final fresh = await repo.getStaffProfile(staffCode: staffCode);
-        if (!mounted) return;
-        // Persist staffType for ProfileMenuHeader (overwrite with latest).
-        if (fresh.staffType.isNotEmpty) {
-          final storage = serviceLocator<StorageService>();
-          await storage.saveString(StorageKeys.staffType, fresh.staffType);
-        }
-        if (fresh.designation.trim().isNotEmpty) {
-          final storage = serviceLocator<StorageService>();
-          await storage.saveString(
-            StorageKeys.staffDesignation,
-            fresh.designation.trim(),
-          );
-        }
-        setState(() {
-          _profile = fresh;
-        });
-      } catch (e) {
-        CoreUtils.logApiError(e.toString());
-        if (_profile == null && !_hasShownProfileLoadError) {
-          _hasShownProfileLoadError = true;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Failed to load profile. Please try again.',
-            isError: true,
-          );
-        }
-      }
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      if (_profile == null && !_hasShownProfileLoadError) {
-        _hasShownProfileLoadError = true;
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Failed to load profile. Please try again.',
-          isError: true,
-        );
-      }
-    }
-  }
-
-  Future<void> _loadGuardianProfileForParent() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final userCode =
-          (await storage.getString(StorageKeys.userCode) ?? '').trim();
-      if (schoolCode.isEmpty || userCode.isEmpty) return;
-
-      final remote = serviceLocator<StudentRemoteDataSource>();
-      final profile = await remote.getGuardianProfile(
-        schoolCode: schoolCode,
-        userCode: userCode,
-      );
-
-      final firstName = (profile['firstName'] ?? '').toString().trim();
-      final lastName = (profile['lastName'] ?? '').toString().trim();
-      final fullName = (profile['fullName'] ?? '').toString().trim();
-      final resolvedName = fullName.isNotEmpty
-          ? fullName
-          : ('$firstName $lastName').trim();
-      final resolvedEmail = (profile['email'] ?? '').toString().trim();
-      final resolvedPhone = ((profile['mobile'] ?? profile['phone'] ?? '')
-              .toString()
-              .trim());
-
-      String resolvedAddress = '';
-      final rawAddress = profile['address'];
-      if (rawAddress is Map) {
-        final m = Map<String, dynamic>.from(rawAddress);
-        final parts = <String>[
-          (m['street'] ?? m['addressStreet'] ?? '').toString().trim(),
-          (m['line2'] ?? m['addressLine2'] ?? '').toString().trim(),
-          (m['city'] ?? m['addressCity'] ?? '').toString().trim(),
-          (m['state'] ?? m['addressState'] ?? '').toString().trim(),
-          (m['zipCode'] ?? m['addressZipCode'] ?? '').toString().trim(),
-          (m['country'] ?? m['addressCountry'] ?? '').toString().trim(),
-        ].where((e) => e.isNotEmpty).toList(growable: false);
-        resolvedAddress = parts.join(', ');
-      } else if (rawAddress is String) {
-        resolvedAddress = rawAddress.trim();
-      }
-
-      if (!mounted) return;
-      setState(() {
-        if (resolvedName.isNotEmpty) _loginDisplayName = resolvedName;
-        if (resolvedEmail.isNotEmpty) _loginEmail = resolvedEmail;
-        _guardianPhone = resolvedPhone;
-        _guardianAddress = resolvedAddress;
-      });
-    } catch (_) {
-      // Non-blocking: profile still renders with cached/login values.
-    }
-  }
-
-  String _effectiveStaffCode() {
-    final fromProfile = (_profile?.staffCode ?? '').trim();
-    if (fromProfile.isNotEmpty) return fromProfile;
-    return (widget.staffCode ?? '').trim();
-  }
+  String _effectiveStaffCode() => _cubit.effectiveStaffCode();
 
   Future<void> _pickProfileImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
-
-      var staffCode = _effectiveStaffCode();
-      if (staffCode.isEmpty) {
-        final resolved = await _resolveLoggedInStaffCode();
-        if (!mounted) return;
-        staffCode = resolved.trim();
-      }
-      if (staffCode.isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Staff code is required to upload profile photo.',
-          isError: true,
-        );
-        return;
-      }
-
-      if ((_schoolCode ?? '').trim().isEmpty ||
-          (_organizationCode ?? '').trim().isEmpty) {
-        final storage = serviceLocator<StorageService>();
-        final school =
-            (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-        final org =
-            (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-        if (!mounted) return;
-        setState(() {
-          _schoolCode = school.isEmpty ? null : school;
-          _organizationCode = org.isEmpty ? null : org;
-        });
-      }
-      final schoolCode = (_schoolCode ?? '').trim();
-      final organizationCode = (_organizationCode ?? '').trim();
-      if (schoolCode.isEmpty || organizationCode.isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Missing school or organization context.',
-          isError: true,
-        );
-        return;
-      }
-
-      setState(() {
-        _isUploadingProfilePhoto = true;
-        _profilePhotoUploadPercent = 5;
-      });
-      final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(image.path);
-      final sessionCode =
-          await uploadService.createStaffProfilePhotoUploadSession(
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = image.path.toLowerCase();
-      final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType =
-          lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
-      final presign = await uploadService.createAssetPresign(
-        sessionCode: sessionCode,
-        documentApiBasePath: '/api/v1',
-        fileName: fileName.isNotEmpty
-            ? fileName
-            : 'staff-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
-        contentType: contentType,
-        contentLengthBytes: await file.length(),
-        mediaType: 'IMAGE',
-        ownerType: 'STAFF',
-        ownerCode: staffCode,
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 25);
-      await uploadService.uploadFileToPresignedUrl(
-        file: file,
-        presignedPutUrl: presign.presignedPutUrl,
-        requiredHeaders: presign.requiredHeaders,
-        fallbackContentType: contentType,
-        onSendProgress: (int sent, int total) {
-          if (!mounted || total <= 0) return;
-          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
-          setState(() {
-            _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
-          });
-        },
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 84);
-      await uploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: '/api/v1',
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 90);
-      await uploadService.waitUntilAssetsReady(
-        sessionCode: sessionCode,
-        expectedAssetCodes: <String>[presign.assetCode],
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
-      await uploadService.finalizeStaffProfilePhoto(
-        staffCode: staffCode,
-        assetCode: presign.assetCode,
-      );
-      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
-
-      DocumentImageWidget.clearProfilePhotoCache(staffCode: staffCode);
-      await _loadStaffProfile(staffCode);
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Profile photo updated successfully',
-        isSuccess: true,
-      );
-    } catch (e) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Failed to update profile photo: $e',
-        isError: true,
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isUploadingProfilePhoto = false;
-          _profilePhotoUploadPercent = 0;
-        });
-      }
-    }
-  }
-
-  Future<String> _resolveClassroomNameForStaff(StaffProfile profile) async {
-    final code = profile.primaryClassroomCode.trim().isNotEmpty
-        ? profile.primaryClassroomCode.trim()
-        : (profile.allowedClassroomCodes.isNotEmpty
-            ? profile.allowedClassroomCodes.first.trim()
-            : '');
-    if (code.isEmpty) return '-';
-
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return code;
-
-      final getActiveClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getActiveClassrooms(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: false,
-      );
-      for (final c in classrooms) {
-        if (c.code.trim() == code) {
-          final name = c.name.trim();
-          return name.isNotEmpty ? name : code;
-        }
-      }
-      return code;
-    } catch (_) {
-      return code;
-    }
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image == null) return;
+    if (!mounted) return;
+    // The cubit branches staff vs guardian based on persona and streams upload
+    // progress into state; we just surface the resulting snackbar.
+    final isParent = context.read<RoleCubit>().isParent;
+    final result = await _cubit.uploadProfilePhoto(
+      imagePath: image.path,
+      isParent: isParent,
+    );
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: result.message,
+      isSuccess: result.isSuccess,
+      isError: !result.isSuccess,
+    );
   }
 
   Future<void> _openStaffProfile() async {
     // Ensure we have a profile to open.
     final staffCode = (_profile?.staffCode ?? widget.staffCode ?? '').trim();
     if (staffCode.isEmpty) {
-      final resolved = await _resolveLoggedInStaffCode();
+      final resolved = await _cubit.resolveLoggedInStaffCode();
       if (!mounted) return;
       if (resolved.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -667,7 +248,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         );
         return;
       }
-      await _loadStaffProfile(resolved);
+      await _cubit.loadStaffProfile(resolved);
     }
 
     final profile = _profile;
@@ -680,7 +261,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return;
     }
 
-    final classroom = await _resolveClassroomNameForStaff(profile);
+    final classroom = await _cubit.resolveClassroomNameForStaff(profile);
     if (!mounted) return;
 
     Navigator.push(
@@ -699,7 +280,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _viewStudentProfileForParent() async {
-    final parentChild = context.read<ParentChildProvider>();
+    final parentChild = context.read<ParentChildCubit>();
     if (!parentChild.isLoaded && !parentChild.isLoading) {
       await parentChild.ensureLoaded();
     }
@@ -713,11 +294,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return;
     }
 
-    await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+    await context.read<RoleCubit>().refreshAccessFromServer(force: true);
     if (!mounted) return;
 
     final resolvedClassroom =
-        await _resolveClassroomNameForStudent(selected.classroom);
+        await _cubit.resolveClassroomNameForStudent(selected.classroom);
     if (!mounted) return;
 
     Navigator.push(
@@ -740,38 +321,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  Future<String> _resolveClassroomNameForStudent(String classroomRaw) async {
-    final raw = classroomRaw.trim();
-    if (raw.isEmpty) return '-';
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return raw;
-
-      final getActiveClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getActiveClassrooms(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: false,
-      );
-      for (final c in classrooms) {
-        if (c.code.trim() == raw) {
-          final name = c.name.trim();
-          return name.isNotEmpty ? name : raw;
-        }
-      }
-      return raw;
-    } catch (_) {
-      return raw;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<UserProfileCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<UserProfileCubit, UserProfileState>(
+        listener: (context, state) {
+          if (state.profileLoadFailed && !_shownLoadError) {
+            _shownLoadError = true;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Failed to load profile. Please try again.',
+              isError: true,
+            );
+          }
+        },
+        builder: (context, state) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final responsive = ResponsiveHelper(context);
-    final isParentPersona = context.watch<RoleProvider>().isParent;
+    final isParentPersona = context.watch<RoleCubit>().isParent;
     final String displayName =
         _profile?.fullName.isNotEmpty == true
             ? _profile!.fullName
@@ -816,7 +385,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     return GlobalScaffold(
         hasBackButton: true,
         body: CustomRefreshIndicator(
-          onRefresh: _initProfileLoad,
+          onRefresh: () => _cubit.load(isParent: isParentPersona),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
@@ -850,21 +419,42 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     clipBehavior: Clip.none,
                                     children: [
                                       DocumentImageWidget(
-                                        fileUuid: _effectiveStaffCode().isNotEmpty
-                                            ? _effectiveStaffCode()
-                                            : (displayName.isNotEmpty
-                                                ? displayName
-                                                : 'User'),
+                                        fileUuid: isParentPersona
+                                            ? (_guardianCode.isNotEmpty
+                                                ? _guardianCode
+                                                : (displayName.isNotEmpty
+                                                    ? displayName
+                                                    : 'User'))
+                                            : (_effectiveStaffCode().isNotEmpty
+                                                ? _effectiveStaffCode()
+                                                : (displayName.isNotEmpty
+                                                    ? displayName
+                                                    : 'User')),
                                         name: displayName.isNotEmpty ? displayName : 'User',
-                                        imageUrl: (_profile?.profilePhotoUrl ?? '')
-                                                .trim()
-                                                .isNotEmpty
-                                            ? _profile!.profilePhotoUrl.trim()
+                                        imageUrl: isParentPersona
+                                            ? (_guardianPhotoUrl.trim().isNotEmpty
+                                                ? _guardianPhotoUrl.trim()
+                                                : null)
+                                            : ((_profile?.profilePhotoUrl ?? '')
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _profile!.profilePhotoUrl.trim()
+                                                : null),
+                                        mediaAssetCode: isParentPersona
+                                            ? (_guardianPhotoAssetCode
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _guardianPhotoAssetCode.trim()
+                                                : null)
                                             : null,
-                                        staffCode: _effectiveStaffCode().isNotEmpty
+                                        staffCode: (!isParentPersona &&
+                                                _effectiveStaffCode().isNotEmpty)
                                             ? _effectiveStaffCode()
                                             : null,
-                                        staffEmploymentStatus: _profile?.status,
+                                        staffEmploymentStatus:
+                                            isParentPersona ? null : _profile?.status,
+                                        disableAttendanceStatusLookup:
+                                            isParentPersona,
                                         size: 90,
                                         fontSize: 24,
                                       ),
@@ -1237,7 +827,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   // If profile was updated, reload latest data so
                                   // the multiline address and other fields reflect changes.
                                   if (updated == true && mounted) {
-                                    await _initProfileLoad();
+                                    await _cubit.load(
+                                      isParent: context
+                                          .read<RoleCubit>()
+                                          .isParent,
+                                    );
                                   }
                                 },
                                 child: Container(
@@ -1398,6 +992,100 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               ),
                             ],
                           ),
+
+                          // ── Schedule section (staff only) ──────────────────
+                          if (!isParentPersona &&
+                              _profile != null &&
+                              (_profile!.workSchedules.isNotEmpty ||
+                                  _profile!.breakSchedules.isNotEmpty)) ...[
+                            const SizedBox(height: 16),
+                            const Divider(height: 1, thickness: 1, color: Color(0xFFF0ECF4)),
+                            const SizedBox(height: 16),
+
+                            // Work Schedule
+                            if (_profile!.workSchedules.isNotEmpty) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  CustomTextWidget(
+                                    text: 'Work Schedule',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ..._profile!.workSchedules.map((ws) {
+                                final dayAbbr = _dayAbbr(ws.dayOfWeek);
+                                final value =
+                                    '${_fmtTime(ws.workStartTime)} - ${_fmtTime(ws.workEndTime)} ($dayAbbr)';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      CustomTextWidget(
+                                        text: dayAbbr,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        height: 16 / 13,
+                                      ),
+                                      CustomTextWidget(
+                                        text: value,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        height: 19 / 14,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+
+                            // Break Schedule
+                            if (_profile!.breakSchedules.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  CustomTextWidget(
+                                    text: 'Break Schedule',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ..._profile!.breakSchedules.map((bs) {
+                                final dayAbbr = _dayAbbr(bs.dayOfWeek);
+                                final value =
+                                    '${_fmtTime(bs.breakStartTime)} - ${_fmtTime(bs.breakEndTime)} ($dayAbbr)';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      CustomTextWidget(
+                                        text: dayAbbr,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        height: 16 / 13,
+                                      ),
+                                      CustomTextWidget(
+                                        text: value,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        height: 19 / 14,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          ],
+
                           SizedBox(height: responsive.verticalSpacing),
 
                           ],
@@ -1411,6 +1099,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           ),
         ),
+    );
+        },
+      ),
     );
   }
 }

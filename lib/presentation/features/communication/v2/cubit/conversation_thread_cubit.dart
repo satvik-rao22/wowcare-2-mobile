@@ -1,0 +1,552 @@
+import 'dart:async';
+
+import 'package:bloc/bloc.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/edit_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
+import 'conversation_thread_state.dart';
+
+/// Manages the full message thread for a single conversation.
+///
+/// Works for STAFF_DIRECT, ROOM_CHAT, and ADMIN_CHAT — behaviour differences
+/// are solely in the data returned by the backend; the cubit is type-agnostic.
+///
+/// Offline-first pattern:
+///   1. Emit Isar cache immediately for a fast first frame.
+///   2. Refresh from API in the background and replace.
+///   3. Optimistic send: inject a [MessageStatus.pending] message, replace on
+///      confirmation or mark [MessageStatus.failed] on error.
+class ConversationThreadCubit extends Cubit<ConversationThreadState> {
+  ConversationThreadCubit({
+    required String conversationCode,
+    required GetMessagesEntityUseCase getMessagesUseCase,
+    required SendMessageEntityUseCase sendMessageUseCase,
+    required EditMessageEntityUseCase editMessageUseCase,
+    required DeleteMessageEntityUseCase deleteMessageUseCase,
+    required AddReactionEntityUseCase addReactionUseCase,
+    required RemoveReactionUseCase removeReactionUseCase,
+    required MarkConversationReadUseCase markConversationReadUseCase,
+  })  : _getMessagesUseCase = getMessagesUseCase,
+        _sendMessageUseCase = sendMessageUseCase,
+        _editMessageUseCase = editMessageUseCase,
+        _deleteMessageUseCase = deleteMessageUseCase,
+        _addReactionUseCase = addReactionUseCase,
+        _removeReactionUseCase = removeReactionUseCase,
+        _markConversationReadUseCase = markConversationReadUseCase,
+        super(ConversationThreadState.initial(conversationCode: conversationCode));
+
+  final GetMessagesEntityUseCase _getMessagesUseCase;
+  final SendMessageEntityUseCase _sendMessageUseCase;
+  final EditMessageEntityUseCase _editMessageUseCase;
+  final DeleteMessageEntityUseCase _deleteMessageUseCase;
+  final AddReactionEntityUseCase _addReactionUseCase;
+  final RemoveReactionUseCase _removeReactionUseCase;
+  final MarkConversationReadUseCase _markConversationReadUseCase;
+
+  int _refreshRequestId = 0;
+  static const int _pageSize = 50;
+
+  // ─── Load / Refresh ─────────────────────────────────────────────────────────
+
+  /// Load messages. Emits cache first, then refreshes from API.
+  Future<void> loadMessages() async {
+    emit(state.copyWith(isLoading: true, clearError: true));
+
+    final result = await _getMessagesUseCase(
+      conversationCode: state.conversationCode,
+      size: _pageSize,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: failure.message ?? 'Failed to load messages.',
+        ),
+      ),
+      (messages) {
+        final sorted = _sortedOldestFirst(messages);
+        emit(
+          ConversationThreadState.loaded(
+            conversationCode: state.conversationCode,
+            messages: sorted,
+            isFromCache: false,
+            hasOlderMessages: messages.length >= _pageSize,
+            conversation: state.conversation,
+          ),
+        );
+        unawaited(_markRead());
+      },
+    );
+  }
+
+  /// Pull-to-refresh: force a fresh API fetch and replace the list.
+  Future<void> refreshMessages() async {
+    final int requestId = ++_refreshRequestId;
+    emit(state.copyWith(isRefreshing: true, clearError: true));
+
+    final result = await _getMessagesUseCase(
+      conversationCode: state.conversationCode,
+      size: _pageSize,
+    );
+
+    if (isClosed || requestId != _refreshRequestId) return;
+
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          isRefreshing: false,
+          errorMessage: failure.message ?? 'Failed to refresh messages.',
+        ),
+      ),
+      (messages) {
+        final sorted = _sortedOldestFirst(messages);
+        emit(
+          ConversationThreadState.loaded(
+            conversationCode: state.conversationCode,
+            messages: _mergePendingMessages(sorted),
+            isFromCache: false,
+            hasOlderMessages: messages.length >= _pageSize,
+            conversation: state.conversation,
+          ),
+        );
+        unawaited(_markRead());
+      },
+    );
+  }
+
+  /// Paginate backwards: load messages older than the earliest in the list.
+  Future<void> loadOlderMessages() async {
+    if (!state.hasOlderMessages || state.isLoading || state.isRefreshing) return;
+    if (!state.hasMessages) return;
+
+    final int requestId = _refreshRequestId;
+    emit(state.copyWith(isLoading: true, clearError: true));
+
+    final oldest = state.messages.first;
+    final result = await _getMessagesUseCase(
+      conversationCode: state.conversationCode,
+      beforeMessageCode: oldest.code,
+      size: _pageSize,
+    );
+
+    if (isClosed || requestId != _refreshRequestId) return;
+
+    result.fold(
+      (failure) => emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: failure.message ?? 'Failed to load older messages.',
+        ),
+      ),
+      (older) => emit(
+        state.copyWith(
+          messages: [..._sortedOldestFirst(older), ...state.messages],
+          isLoading: false,
+          hasOlderMessages: older.length >= _pageSize,
+          clearError: true,
+        ),
+      ),
+    );
+  }
+
+  // ─── Send ────────────────────────────────────────────────────────────────────
+
+  /// Send a message with optimistic UI.
+  ///
+  /// Immediately inserts a [MessageStatus.pending] placeholder so the bubble
+  /// appears at the bottom. Replaces it with the confirmed message on success,
+  /// or marks it [MessageStatus.failed] so the user can retry.
+  Future<void> sendMessage({
+    required String text,
+    required String senderCode,
+    required String senderName,
+    required ParticipantRole senderRole,
+    required String organizationCode,
+    required String schoolCode,
+    List<String> attachmentCodes = const [],
+    bool isPrivate = false,
+    String? threadParentCode,
+  }) async {
+    final tempCode = 'temp-${DateTime.now().millisecondsSinceEpoch}';
+
+    final optimistic = MessageEntity(
+      id: tempCode,
+      code: tempCode,
+      conversationCode: state.conversationCode,
+      senderCode: senderCode,
+      senderName: senderName,
+      senderRole: senderRole,
+      text: text,
+      messageType: MessageType.text,
+      status: MessageStatus.pending,
+      sentAt: DateTime.now(),
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      isPrivate: isPrivate,
+      threadParentCode: threadParentCode,
+      localTempCode: tempCode,
+    );
+
+    emit(
+      state.copyWith(
+        messages: [...state.messages, optimistic],
+        isSending: true,
+        clearSendError: true,
+      ),
+    );
+
+    final result = await _sendMessageUseCase(
+      conversationCode: state.conversationCode,
+      text: text,
+      attachmentCodes: attachmentCodes,
+      isPrivate: isPrivate,
+      threadParentCode: threadParentCode,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        final failed = _replaceMessage(
+          state.messages,
+          tempCode,
+          optimistic.copyWithStatus(MessageStatus.failed),
+        );
+        emit(
+          state.copyWith(
+            messages: failed,
+            isSending: false,
+            sendError: failure.message ?? 'Failed to send message.',
+          ),
+        );
+      },
+      (confirmed) {
+        final updated = _replaceMessage(state.messages, tempCode, confirmed);
+        emit(state.copyWith(messages: updated, isSending: false, clearSendError: true));
+      },
+    );
+  }
+
+  // ─── Edit ────────────────────────────────────────────────────────────────────
+
+  Future<void> editMessage({
+    required String messageCode,
+    required String newText,
+  }) async {
+    // Optimistic update
+    final optimistic = state.messages.map((m) {
+      if (m.code != messageCode) return m;
+      return m.copyWithText(newText);
+    }).toList();
+    emit(state.copyWith(messages: optimistic));
+
+    final result = await _editMessageUseCase(
+      messageCode: messageCode,
+      newText: newText,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        // Roll back
+        emit(
+          state.copyWith(
+            errorMessage: failure.message ?? 'Failed to edit message.',
+          ),
+        );
+        unawaited(refreshMessages());
+      },
+      (confirmed) {
+        final updated = _replaceMessage(state.messages, messageCode, confirmed);
+        emit(state.copyWith(messages: updated));
+      },
+    );
+  }
+
+  // ─── Delete ──────────────────────────────────────────────────────────────────
+
+  Future<void> deleteMessage(String messageCode) async {
+    // Optimistic: mark deleted locally
+    final optimistic = state.messages.map((m) {
+      if (m.code != messageCode) return m;
+      return m.copyWithDeleted();
+    }).toList();
+    emit(state.copyWith(messages: optimistic));
+
+    final result = await _deleteMessageUseCase(messageCode);
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(
+          state.copyWith(
+            errorMessage: failure.message ?? 'Failed to delete message.',
+          ),
+        );
+        unawaited(refreshMessages());
+      },
+      (_) {},
+    );
+  }
+
+  // ─── Reactions ───────────────────────────────────────────────────────────────
+
+  Future<void> addReaction({
+    required String messageCode,
+    required String emoji,
+    required String currentUserCode,
+  }) async {
+    final optimistic = _applyReaction(
+      state.messages,
+      messageCode,
+      currentUserCode,
+      emoji,
+    );
+    emit(state.copyWith(messages: optimistic));
+
+    final result = await _addReactionUseCase(
+      messageCode: messageCode,
+      emoji: emoji,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(state.copyWith(
+          errorMessage: failure.message ?? 'Failed to add reaction.',
+        ));
+        unawaited(refreshMessages());
+      },
+      (_) {},
+    );
+  }
+
+  Future<void> removeReaction({
+    required String messageCode,
+    required String emoji,
+    required String currentUserCode,
+  }) async {
+    final optimistic = _removeReactionLocally(
+      state.messages,
+      messageCode,
+      currentUserCode,
+    );
+    emit(state.copyWith(messages: optimistic));
+
+    final result = await _removeReactionUseCase(
+      messageCode: messageCode,
+      emoji: emoji,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(state.copyWith(
+          errorMessage: failure.message ?? 'Failed to remove reaction.',
+        ));
+        unawaited(refreshMessages());
+      },
+      (_) {},
+    );
+  }
+
+  // ─── Mark read ───────────────────────────────────────────────────────────────
+
+  Future<void> markConversationRead() async {
+    await _markRead();
+  }
+
+  // ─── Private helpers ─────────────────────────────────────────────────────────
+
+  Future<void> _markRead() async {
+    await _markConversationReadUseCase(state.conversationCode);
+  }
+
+  List<MessageEntity> _sortedOldestFirst(List<MessageEntity> messages) {
+    final sorted = List<MessageEntity>.from(messages);
+    sorted.sort((a, b) => a.sentAt.compareTo(b.sentAt));
+    return sorted;
+  }
+
+  /// Retain any pending/failed optimistic messages not yet confirmed by the API.
+  List<MessageEntity> _mergePendingMessages(List<MessageEntity> fresh) {
+    final pending = state.messages
+        .where((m) => m.localTempCode != null && (m.isPending || m.isFailed))
+        .toList();
+    if (pending.isEmpty) return fresh;
+    final freshCodes = fresh.map((m) => m.code).toSet();
+    final unconfirmed = pending.where((m) => !freshCodes.contains(m.code)).toList();
+    return [...fresh, ...unconfirmed];
+  }
+
+  List<MessageEntity> _replaceMessage(
+    List<MessageEntity> messages,
+    String code,
+    MessageEntity replacement,
+  ) {
+    return messages.map((m) => m.code == code ? replacement : m).toList();
+  }
+
+  List<MessageEntity> _applyReaction(
+    List<MessageEntity> messages,
+    String messageCode,
+    String userCode,
+    String emoji,
+  ) {
+    return messages.map((m) {
+      if (m.code != messageCode) return m;
+      final updated = Map<String, String>.from(m.reactions);
+      updated[userCode] = emoji;
+      return m.copyWithReactions(updated);
+    }).toList();
+  }
+
+  List<MessageEntity> _removeReactionLocally(
+    List<MessageEntity> messages,
+    String messageCode,
+    String userCode,
+  ) {
+    return messages.map((m) {
+      if (m.code != messageCode) return m;
+      final updated = Map<String, String>.from(m.reactions)..remove(userCode);
+      return m.copyWithReactions(updated);
+    }).toList();
+  }
+}
+
+// ─── MessageEntity convenience extensions ───────────────────────────────────
+
+extension _MessageEntityX on MessageEntity {
+  MessageEntity copyWithStatus(MessageStatus newStatus) => MessageEntity(
+        id: id,
+        code: code,
+        conversationCode: conversationCode,
+        senderCode: senderCode,
+        senderName: senderName,
+        senderRole: senderRole,
+        senderAvatarUrl: senderAvatarUrl,
+        text: text,
+        messageType: messageType,
+        status: newStatus,
+        sentAt: sentAt,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        isPrivate: isPrivate,
+        isEdited: isEdited,
+        isDeleted: isDeleted,
+        deletedPlaceholder: deletedPlaceholder,
+        editedAt: editedAt,
+        deletedAt: deletedAt,
+        attachments: attachments,
+        reactions: reactions,
+        readReceipts: readReceipts,
+        threadParentCode: threadParentCode,
+        threadParentSenderCode: threadParentSenderCode,
+        threadParentSenderName: threadParentSenderName,
+        threadParentText: threadParentText,
+        localTempCode: localTempCode,
+      );
+
+  MessageEntity copyWithText(String newText) => MessageEntity(
+        id: id,
+        code: code,
+        conversationCode: conversationCode,
+        senderCode: senderCode,
+        senderName: senderName,
+        senderRole: senderRole,
+        senderAvatarUrl: senderAvatarUrl,
+        text: newText,
+        messageType: messageType,
+        status: status,
+        sentAt: sentAt,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        isPrivate: isPrivate,
+        isEdited: true,
+        isDeleted: isDeleted,
+        deletedPlaceholder: deletedPlaceholder,
+        editedAt: DateTime.now(),
+        deletedAt: deletedAt,
+        attachments: attachments,
+        reactions: reactions,
+        readReceipts: readReceipts,
+        threadParentCode: threadParentCode,
+        threadParentSenderCode: threadParentSenderCode,
+        threadParentSenderName: threadParentSenderName,
+        threadParentText: threadParentText,
+        localTempCode: localTempCode,
+      );
+
+  MessageEntity copyWithDeleted() => MessageEntity(
+        id: id,
+        code: code,
+        conversationCode: conversationCode,
+        senderCode: senderCode,
+        senderName: senderName,
+        senderRole: senderRole,
+        senderAvatarUrl: senderAvatarUrl,
+        text: text,
+        messageType: messageType,
+        status: status,
+        sentAt: sentAt,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        isPrivate: isPrivate,
+        isEdited: isEdited,
+        isDeleted: true,
+        deletedPlaceholder: 'This message was deleted.',
+        editedAt: editedAt,
+        deletedAt: DateTime.now(),
+        attachments: attachments,
+        reactions: reactions,
+        readReceipts: readReceipts,
+        threadParentCode: threadParentCode,
+        threadParentSenderCode: threadParentSenderCode,
+        threadParentSenderName: threadParentSenderName,
+        threadParentText: threadParentText,
+        localTempCode: localTempCode,
+      );
+
+  MessageEntity copyWithReactions(Map<String, String> newReactions) => MessageEntity(
+        id: id,
+        code: code,
+        conversationCode: conversationCode,
+        senderCode: senderCode,
+        senderName: senderName,
+        senderRole: senderRole,
+        senderAvatarUrl: senderAvatarUrl,
+        text: text,
+        messageType: messageType,
+        status: status,
+        sentAt: sentAt,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+        isPrivate: isPrivate,
+        isEdited: isEdited,
+        isDeleted: isDeleted,
+        deletedPlaceholder: deletedPlaceholder,
+        editedAt: editedAt,
+        deletedAt: deletedAt,
+        attachments: attachments,
+        reactions: newReactions,
+        readReceipts: readReceipts,
+        threadParentCode: threadParentCode,
+        threadParentSenderCode: threadParentSenderCode,
+        threadParentSenderName: threadParentSenderName,
+        threadParentText: threadParentText,
+        localTempCode: localTempCode,
+      );
+}

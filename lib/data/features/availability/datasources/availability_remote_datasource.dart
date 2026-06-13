@@ -63,6 +63,12 @@ abstract class AvailabilityRemoteDataSource {
     required DateTime startDate,
     required DateTime endDate,
   });
+
+  Future<MovementStatusCountsModel> getMovementStatusCounts({
+    required String schoolCode,
+    required String fromDate,
+    required String toDate,
+  });
 }
 
 class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
@@ -289,10 +295,10 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
     required DateTime endDate,
     required String shift,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.futureAvailability,
-      ApiConstants.classroomBaseUrl,
-    );
+    // Use ApiPaths.url() so routing works correctly in both LOCAL and UAT.
+    // urlWithBase(..., classroomBaseUrl) passed the devtunnel host in UAT,
+    // causing requests to hit the wrong endpoint.
+    final endpoint = ApiPaths.url(ApiPaths.futureAvailability);
 
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
@@ -319,10 +325,7 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
     required DateTime startDate,
     required DateTime endDate,
   }) async {
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.futureAvailabilityRecompute,
-      ApiConstants.classroomBaseUrl,
-    );
+    final endpoint = ApiPaths.url(ApiPaths.futureAvailabilityRecompute);
 
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
@@ -345,6 +348,28 @@ class AvailabilityRemoteDataSourceImpl implements AvailabilityRemoteDataSource {
       final msg = payload['message']?.toString().trim();
       throw Exception(msg?.isNotEmpty == true ? msg : 'Future availability recompute failed');
     }
+  }
+
+  @override
+  Future<MovementStatusCountsModel> getMovementStatusCounts({
+    required String schoolCode,
+    required String fromDate,
+    required String toDate,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.individualMovementsStatusCounts);
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'fromDate': fromDate,
+        'toDate': toDate,
+      },
+    );
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected movement status counts response format');
+    }
+    return MovementStatusCountsModel.fromJson(
+        response.data! as Map<String, dynamic>);
   }
 }
 

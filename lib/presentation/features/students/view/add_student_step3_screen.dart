@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -204,7 +205,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
         });
       }
     } catch (e) {
-      print('Error opening time picker: $e');
+      AppLogger.d('Error opening time picker: $e');
     }
   }
 

@@ -17,13 +17,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
@@ -104,13 +98,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
       .length;
 
-  late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
-  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
-  late final CreateActivityUseCase _createActivityUseCase;
-  late final GetActivityUseCase _getActivityUseCase;
-  late final UpdateActivityUseCase _updateActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  late final ActivityEditorCubit _editor;
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity =>
@@ -137,15 +125,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     super.initState();
     bootstrapActivitySchoolTimezone();
 
-    _getActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _getActivityTypeDetailsUseCase =
-        serviceLocator<GetActivityTypeDetailsUseCase>();
-    _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
-    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
-    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _editor = serviceLocator<ActivityEditorCubit>();
     _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
@@ -223,7 +203,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     try {
       await _submitUpdateActivity();
       if (!_lastUpdateSucceeded) return;
-      final msg = await _approveActivityUseCase(code: code);
+      final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
       Navigator.of(context).pop(true);
@@ -249,7 +229,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _isApprovingOrRejecting = true);
     try {
-      final msg = await _rejectActivityUseCase(code: code);
+      final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
       Navigator.of(context).pop(true);
@@ -271,7 +251,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _loadingActivityDetail = true);
     try {
-      final detail = await _getActivityUseCase(code: code);
+      final detail = await _editor.getActivity(code: code);
       if (!mounted) return;
       final item = activityItemFromActivityDetail(
         detail,
@@ -365,7 +345,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
 
     try {
       final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+          await _editor.getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? outdoorSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -534,7 +514,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
 
       final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          await _editor.getActivityTypeDetails(code: activityTypeCode);
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -572,7 +552,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      final message = await _createActivityUseCase(
+      final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
         studentCodes: studentCodes,
@@ -643,6 +623,13 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
         .toList();
 
+    // Single student → PER_STUDENT, multiple → SHARED. Owner follows suit so the
+    // session, presign owner, and attachment payload all agree.
+    final isShared = studentCodes.length > 1;
+    final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
+    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
+    final ownerCode = isShared ? classroomCode : studentCodes.first;
+
     if (missing.isNotEmpty) {
       setState(() {
         _isUploadingMedia = true;
@@ -657,7 +644,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           schoolCode: schoolCode,
           classroomCode: classroomCode,
           activityTypeCode: activityTypeCode,
-          bindingMode: 'SHARED',
+          bindingMode: bindingMode,
           studentCodes: studentCodes,
         );
 
@@ -680,8 +667,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
             contentLengthBytes: contentLengthBytes,
             checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
-            ownerType: 'CLASSROOM',
-            ownerCode: classroomCode,
+            ownerType: ownerType,
+            ownerCode: ownerCode,
           );
           await _imageUploadService.uploadFileToPresignedUrl(
             file: photo,
@@ -694,9 +681,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                   ((fileIndex - 1) + (percent / 100)) / totalFiles;
               final overallPercent =
                   (overallFraction * 100).clamp(0, 100).round();
-              final displayPercent =
-                  overallPercent >= 100 ? 99 : overallPercent;
-              setState(() => _uploadProgressPercent = displayPercent);
+              setState(() => _uploadProgressPercent = overallPercent);
             },
           );
           await _imageUploadService.completeAssetUpload(
@@ -722,8 +707,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       }
     }
 
-    final isShared = studentCodes.length > 1;
-    final ownerCode = studentCodes.first;
     final attachments = <Map<String, dynamic>>[];
     for (final photo in _newPhotos) {
       final assetCode = _uploadedAssetCodeByPath[photo.path];
@@ -734,7 +717,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           attachments.add({
             'assetCode': assetCode,
             'studentCode': ownerCode,
-            'bindingMode': 'PER_STUDENT',
+            'bindingMode': bindingMode,
           });
         }
       }
@@ -1080,7 +1063,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
 
       final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          await _editor.getActivityTypeDetails(code: activityTypeCode);
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -1139,7 +1122,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           );
           return;
         }
-        lastMessage = await _updateActivityUseCase(
+        lastMessage = await _editor.updateActivity(
           code: code,
           studentCodes: _selectedStudentsData
               .map((e) => (e['studentCode'] as String?)?.trim())
@@ -1160,7 +1143,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           attachments: patchAttachments,
         );
         try {
-          await _getActivityUseCase(code: code);
+          await _editor.getActivity(code: code);
         } catch (_) {}
       }
 
@@ -1200,6 +1183,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
+    _editor.close();
     super.dispose();
   }
 

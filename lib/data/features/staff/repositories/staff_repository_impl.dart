@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
@@ -511,6 +512,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             documentUrl: m.documentUrl,
             documentSizeKb: m.documentSizeKb,
             mimeType: m.mimeType,
+            assetCode: m.assetCode,
             expiryDate: m.expiryDate.isEmpty ? null : m.expiryDate,
             documentNotes: m.documentNotes,
             expired: m.expired,
@@ -574,6 +576,10 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
 
     await _invalidateStaffProfileCaches(staffCode);
+    // Profile fields (name, primary/allowed classrooms, designation, status)
+    // are shown in the staff list cards, so the cached list is now stale.
+    // Invalidate it so the next refresh re-fetches and reflects the edit.
+    await _invalidateAllStaffListAndSummaryCaches();
 
     return message;
   }
@@ -589,6 +595,38 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
 
     await _invalidateStaffProfileCaches(staffCode);
+
+    return message;
+  }
+
+  @override
+  Future<String> updateStaffAllowedClassrooms({
+    required String staffCode,
+    required List<String> classroomCodes,
+  }) async {
+    final message = await _remoteDataSource.updateStaffAllowedClassrooms(
+      staffCode: staffCode,
+      classroomCodes: classroomCodes,
+    );
+
+    await _invalidateStaffProfileCaches(staffCode);
+    await _invalidateAllStaffListAndSummaryCaches();
+
+    return message;
+  }
+
+  @override
+  Future<String> updateStaffPrimaryClassroom({
+    required String staffCode,
+    required String classroomCode,
+  }) async {
+    final message = await _remoteDataSource.updateStaffPrimaryClassroom(
+      staffCode: staffCode,
+      classroomCode: classroomCode,
+    );
+
+    await _invalidateStaffProfileCaches(staffCode);
+    await _invalidateAllStaffListAndSummaryCaches();
 
     return message;
   }
@@ -683,6 +721,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       jobTag: model.jobTag,
       clockPin: model.clockPin,
       primaryClassroomCode: model.primaryClassroomCode,
+      primaryClassroomName: model.primaryClassroomName,
       allowedClassroomCodes: model.allowedClassroomCodes,
       address: StaffProfileAddress(
         street: model.address.street,
@@ -829,12 +868,12 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
           status == 'DUE' || status == 'SCHEDULED' || status == 'OVERDUE';
       final isCompleted = status == 'COMPLETED';
 
-      print(
+      AppLogger.d(
         '[ImportantDates Guard] staffCode=$staffCode type=$type status=$status dueDate=$dueDate today=$today picked=$picked',
       );
 
       if (isDueOrScheduled && picked.isBefore(today)) {
-        print(
+        AppLogger.d(
           '[ImportantDates Guard] BLOCK: Due/Scheduled picked date is before today.',
         );
         throw Exception(
@@ -842,7 +881,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         );
       }
       if (isCompleted && picked.isAfter(today)) {
-        print(
+        AppLogger.d(
           '[ImportantDates Guard] BLOCK: Completed picked date is after today.',
         );
         throw Exception(
@@ -873,6 +912,34 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     await _invalidateStaffProfileCaches(staffCode);
 
     return response.message;
+  }
+
+  @override
+  Future<({List<StaffProfileWorkSchedule> workSchedules, List<StaffProfileBreakSchedule> breakSchedules})>
+      getStaffSchedules({required String staffCode}) async {
+    final result = await _remoteDataSource.getStaffSchedules(staffCode: staffCode);
+
+    StaffProfileTime _mapTime(StaffProfileTimeModel m) =>
+        StaffProfileTime(hour: m.hour, minute: m.minute, second: m.second, nano: m.nano);
+
+    final work = result.workSchedules
+        .map((m) => StaffProfileWorkSchedule(
+              dayOfWeek: m.dayOfWeek,
+              workStartTime: _mapTime(m.workStartTime),
+              workEndTime: _mapTime(m.workEndTime),
+            ))
+        .toList(growable: false);
+
+    final breaks = result.breakSchedules
+        .map((m) => StaffProfileBreakSchedule(
+              dayOfWeek: m.dayOfWeek,
+              breakType: m.breakType,
+              breakStartTime: _mapTime(m.breakStartTime),
+              breakEndTime: _mapTime(m.breakEndTime),
+            ))
+        .toList(growable: false);
+
+    return (workSchedules: work, breakSchedules: breaks);
   }
 
   @override
@@ -1022,6 +1089,25 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<String> deleteSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    final message = await _remoteDataSource.deleteSchoolUser(
+      userCode: userCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      role: role,
+    );
+
+    await _invalidateStaffListAndSummaryCaches(schoolCode);
+
+    return message;
+  }
+
+  @override
   Future<String> deactivateOrganizationAdmin({
     required String userCode,
     required String organizationCode,
@@ -1102,6 +1188,35 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       total: (payload['total'] as num?)?.toInt() ?? 0,
       active: (payload['active'] as num?)?.toInt() ?? 0,
       upcoming: (payload['upcoming'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount})>
+      getStaffDocumentExpirySummary({required String schoolCode}) async {
+    final model = await _remoteDataSource.getStaffDocumentExpirySummary(
+      schoolCode: schoolCode,
+    );
+    return (
+      expiredDocumentCount: model.expiredDocumentCount,
+      expiringWithinWeekCount: model.expiringWithinWeekCount,
+    );
+  }
+
+  @override
+  Future<
+          ({
+            int overduePhysicalCheckupCount,
+            int staffWithoutActivePhysicalCheckupCount
+          })>
+      getPhysicalCheckupSummary({required String schoolCode}) async {
+    final model = await _remoteDataSource.getPhysicalCheckupSummary(
+      schoolCode: schoolCode,
+    );
+    return (
+      overduePhysicalCheckupCount: model.overduePhysicalCheckupCount,
+      staffWithoutActivePhysicalCheckupCount:
+          model.staffWithoutActivePhysicalCheckupCount,
     );
   }
 }

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -16,6 +17,9 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/presentation/features/staff/util/staff_photo_background.dart';
 
 class AddStaffScreen extends StatefulWidget {
   const AddStaffScreen({
@@ -69,6 +73,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   String? _allowedClassroomsError;
 
   String? _selectedStatus;
+  File? _profilePhoto;
   bool get _isAdminSelected => (_selectedRole ?? '').toLowerCase() == 'admin';
 
   /// True when the *logged-in* user has an admin persona (e.g. SCHOOL_ADMIN / ORGANIZATION_ADMIN).
@@ -190,6 +195,92 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Only close _classroomCubit if we created it (not if it came from context)
     // We'll handle this in build method
     super.dispose();
+  }
+
+  Future<void> _pickProfileImage() async {
+    try {
+      // Shared file picker → every allowed image format is selectable.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
+      );
+      final path = picked?.path;
+      if (path == null || path.isEmpty) return;
+      final file = File(path);
+      final fileSizeInMB = await file.length() / (1024 * 1024);
+      if (fileSizeInMB > 10) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Image size must be less than 10MB',
+          isError: true,
+        );
+        return;
+      }
+      setState(() => _profilePhoto = file);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to pick image: $e',
+        isError: true,
+      );
+    }
+  }
+
+  Widget _buildStaffPhotoField(ResponsiveHelper responsive) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Profile Photo',
+          style: TextStyle(
+            fontSize: responsive.labelFontSize,
+            fontFamily: 'Manrope',
+            fontWeight: FontWeight.w400,
+            color: const Color(0xff573353),
+          ),
+        ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        GestureDetector(
+          onTap: _pickProfileImage,
+          child: Container(
+            height: 120,
+            width: 120,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x66573353)),
+            ),
+            child: _profilePhoto != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_alt,
+                          color: Colors.grey.shade600, size: 32),
+                      const SizedBox(height: 8),
+                      Text('Upload Photo',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
+                    ],
+                  ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'JPG, PNG, max 10MB (Optional)',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontFamily: 'Manrope',
+          ),
+        ),
+      ],
+    );
   }
 
   void _addStaff() {
@@ -481,13 +572,13 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Debug logging to diagnose email validation issues
     final raw = value ?? '';
     final trimmed = raw.trim().toLowerCase();
-    print('[Email Validation] raw: "$raw"');
-    print('[Email Validation] trimmed: "$trimmed"');
-    print('[Email Validation] strict regex: ${_emailRegexStrict.pattern}');
-    print('[Email Validation] permissive regex: ${_emailRegexPermissive.pattern}');
+    AppLogger.d('[Email Validation] raw: "$raw"');
+    AppLogger.d('[Email Validation] trimmed: "$trimmed"');
+    AppLogger.d('[Email Validation] strict regex: ${_emailRegexStrict.pattern}');
+    AppLogger.d('[Email Validation] permissive regex: ${_emailRegexPermissive.pattern}');
 
     if (trimmed.isEmpty) {
-      print('[Email Validation] FAIL: empty');
+      AppLogger.d('[Email Validation] FAIL: empty');
       return 'Email is required';
     }
 
@@ -496,19 +587,19 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final strictMatch = _emailRegexStrict.hasMatch(trimmed);
     final permissiveMatch = _emailRegexPermissive.hasMatch(trimmed);
     final matches = strictMatch || permissiveMatch || (hasAt && hasDot && trimmed.length >= 6);
-    print('[Email Validation] hasAt: $hasAt, hasDotAfterAt: $hasDot');
-    print('[Email Validation] strictMatch: $strictMatch, permissiveMatch: $permissiveMatch');
-    print('[Email Validation] final hasMatch: $matches');
+    AppLogger.d('[Email Validation] hasAt: $hasAt, hasDotAfterAt: $hasDot');
+    AppLogger.d('[Email Validation] strictMatch: $strictMatch, permissiveMatch: $permissiveMatch');
+    AppLogger.d('[Email Validation] final hasMatch: $matches');
     if (!matches) {
       // Pinpoint common issues
       if (trimmed.contains(' ')) {
-        print('[Email Validation] contains spaces');
+        AppLogger.d('[Email Validation] contains spaces');
       }
       if (!trimmed.contains('@')) {
-        print('[Email Validation] missing @');
+        AppLogger.d('[Email Validation] missing @');
       }
       if (!trimmed.contains('.')) {
-        print('[Email Validation] missing dot in domain');
+        AppLogger.d('[Email Validation] missing dot in domain');
       }
       return 'Please enter a valid email address';
     }
@@ -518,20 +609,20 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
   String? _validatePhoneNumber(String? value) {
     final raw = (value ?? '').trim();
     final digits = raw.replaceAll(RegExp(r'\D'), '');
-    print('[Phone Validation] raw: "$raw"');
-    print('[Phone Validation] digitsOnly: "$digits"');
-    print('[Phone Validation] regex: ${_phoneRegex.pattern}');
+    AppLogger.d('[Phone Validation] raw: "$raw"');
+    AppLogger.d('[Phone Validation] digitsOnly: "$digits"');
+    AppLogger.d('[Phone Validation] regex: ${_phoneRegex.pattern}');
 
     if (raw.isEmpty) {
       return 'Phone number is required';
     }
     if (digits.length != 10) {
-      print('[Phone Validation] FAIL: digits length = ${digits.length}');
+      AppLogger.d('[Phone Validation] FAIL: digits length = ${digits.length}');
       return 'Please enter a valid 10-digit phone number';
     }
     // Accept either formatted string OR any 10-digit input (formatter will format on type)
     final formattedMatch = _phoneRegex.hasMatch(raw);
-    print('[Phone Validation] formattedMatch: $formattedMatch');
+    AppLogger.d('[Phone Validation] formattedMatch: $formattedMatch');
     return null; // digits == 10 is sufficient
   }
 
@@ -591,15 +682,40 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               final result = state.result;
               if (result != null) {
                 final staffName = _composeStaffName();
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: result.message.isNotEmpty
-                      ? result.message
-                      : 'User created successfully',
-                  isSuccess: true,
-                );
                 // Prefill from API response so edit profile shows exactly what was saved
                 final u = result.user;
+                // Fire the profile-photo upload in the BACKGROUND (don't block
+                // navigation); it keeps running after this screen is popped.
+                final photo = _profilePhoto;
+                final newStaffCode = (u.staffCode ?? u.userCode).trim();
+                if (photo != null && newStaffCode.isNotEmpty) {
+                  unawaited(() async {
+                    final storage = serviceLocator<StorageService>();
+                    final sc = (await storage.getString(StorageKeys.schoolCode) ??
+                            '')
+                        .trim();
+                    final oc = (await storage
+                                .getString(StorageKeys.organizationCode) ??
+                            '')
+                        .trim();
+                    await uploadStaffPhotoInBackground(
+                      staffCode: newStaffCode,
+                      file: photo,
+                      schoolCode: sc,
+                      organizationCode: oc,
+                    );
+                  }());
+                }
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: (result.message.isNotEmpty
+                          ? result.message
+                          : 'User created successfully') +
+                      (photo != null
+                          ? ' Photo is uploading in the background…'
+                          : ''),
+                  isSuccess: true,
+                );
                 Navigator.pop(context, {
                   'showPostAddPrompt': true,
                   'staffName': staffName,
@@ -942,6 +1058,8 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                             ),
                             SizedBox(height: responsive.verticalSpacing),
                           ],
+                          // Profile photo at the END of the form.
+                          _buildStaffPhotoField(responsive),
                                 const SizedBox(height: 12),
                               ],
                             ),

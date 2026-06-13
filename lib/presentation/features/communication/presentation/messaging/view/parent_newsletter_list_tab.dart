@@ -9,9 +9,10 @@ import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.d
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/newsletter_list_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/widgets/send_newslatter_list.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -54,7 +55,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
 
   Future<void> _onRefresh(BuildContext context) async {
     final code =
-        (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+        (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
     if (code.isEmpty) return;
     await context.read<StudentNewslettersCubit>().loadFirstPage(
           studentCode: code,
@@ -71,7 +72,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
     }).toList();
   }
 
-  String _classroomLabel(ParentChildProvider parentChild) {
+  String _classroomLabel(ParentChildCubit parentChild) {
     final child = parentChild.selectedChild;
     final name = (child?.primaryClassroomName ?? child?.classroom ?? '')
         .toString()
@@ -81,7 +82,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
 
   @override
   Widget build(BuildContext context) {
-    final parentChild = context.watch<ParentChildProvider>();
+    final parentChild = context.watch<ParentChildCubit>();
     final classroomLabel = _classroomLabel(parentChild);
     final studentCode = (parentChild.selectedChild?.code ?? '').trim();
 
@@ -112,13 +113,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                   child: studentCode.isEmpty
                       ? _emptyMessage('Select a child to view newsletters.')
                       : state.isLoading && state.items.isEmpty
-                          ? ListView(
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              children: const [
-                                SizedBox(height: 120),
-                                Center(child: PrimaryCircularLoader()),
-                              ],
-                            )
+                          ? const NewsletterListShimmer()
                           : filtered.isEmpty
                               ? _emptyScrollable(
                                   state.errorMessage.isNotEmpty
@@ -200,6 +195,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                           vertical: 8,
                                         ),
                                         child: NewsletterSentListCard(
+                                          showRecipientCount: false,
                                           newsLetter: NewsletterListItemModel(
                                             title: entity.title,
                                             classroom: classroomLabel,

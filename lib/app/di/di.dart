@@ -1,12 +1,34 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/features/notifications/datasources/fcm_registration_remote_data_source.dart';
+import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_center_data_source.dart';
+import '../../data/features/notifications/datasources/notification_center_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_logs_remote_data_source.dart';
+import '../../data/features/notifications/repositories/fcm_registration_repository_impl.dart';
+import '../../data/features/notifications/repositories/notification_center_repository_impl.dart';
+import '../../data/features/notifications/repositories/push_notification_repository_impl.dart';
+import '../../data/features/notifications/services/fcm_token_registration_service.dart';
+import '../../domain/features/notifications/repositories/fcm_registration_repository.dart';
+import '../../domain/features/notifications/repositories/notification_center_repository.dart';
+import '../../domain/features/notifications/repositories/push_notification_repository.dart';
+import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
+import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
+import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
+import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
+import '../../domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
+import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
+import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
 import '../../core/network/session_expired_interceptor.dart';
 import '../../core/storage/storage_service.dart';
+import '../../core/auth/secure_credential_store.dart';
 import '../../core/util/api_constants.dart';
 import '../../core/cache/cache_service.dart';
 import '../../core/cache/isar_cache_service.dart';
@@ -47,8 +69,25 @@ import '../../domain/features/auth/usecases/forgot_password_usecase.dart';
 import '../../domain/features/classroom/repositories/classroom_repository.dart';
 import '../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
+import '../../domain/features/classroom/usecases/get_school_capacity_usecase.dart';
+import '../../domain/features/classroom/usecases/get_classroom_count_usecase.dart';
+import '../../domain/features/classroom/usecases/get_school_fte_usecase.dart';
 import '../../domain/features/onboarding/repositories/onboarding_repository.dart';
 import '../../domain/features/onboarding/usecases/get_onboarding_content.dart';
+import '../../presentation/features/billing/cubit/parent_billing_cubit.dart';
+import '../../presentation/features/onboarding/view_model/onboarding_cubit.dart';
+import '../../presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
+import '../../presentation/features/reports/cubit/reports_cubit.dart';
+import '../../data/features/reports/datasources/reports_remote_datasource.dart';
+import '../../data/features/reports/datasources/reports_remote_datasource_impl.dart';
+import '../../data/features/reports/repositories/reports_repository_impl.dart';
+import '../../domain/features/reports/repositories/reports_repository.dart';
+import '../../domain/features/reports/usecases/generate_report_usecase.dart';
+import '../../domain/features/reports/usecases/get_recent_reports_usecase.dart';
+import '../../domain/features/reports/usecases/get_student_tags_usecase.dart';
+import '../../domain/features/reports/usecases/download_report_usecase.dart';
+import '../../presentation/features/user-profile/view_model/edit_user_profile_cubit.dart';
+import '../../presentation/features/user-profile/view_model/user_profile_cubit.dart';
 import '../../domain/features/staff/repositories/staff_repository.dart';
 import '../../domain/features/staff/usecases/get_staff_page_usecase.dart';
 import '../../domain/features/staff/usecases/get_all_staff_usecase.dart';
@@ -62,8 +101,41 @@ import '../../presentation/features/scheduling/cubit/scheduling_staff_list_cubit
 import '../../presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import '../../presentation/features/dashboard/cubit/qr_validation_cubit.dart';
+import '../../presentation/features/dashboard/cubit/school_status_cubit.dart';
+import '../../presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import '../../presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_attendance_cubit.dart';
+import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
+import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
+import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
+import '../../presentation/features/dashboard/services/dashboard_cubit_factory.dart';
+import '../../presentation/features/dashboard/cubit/parent_dashboard_coordinator_cubit.dart';
+import '../../presentation/features/dashboard/cubit/staff_dashboard_coordinator_cubit.dart';
+import '../../presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
+import '../../domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
 import '../../domain/features/attendance/usecases/validate_qr_code_usecase.dart';
+import '../../domain/features/kiosk/repositories/kiosk_repository.dart';
+import '../../domain/features/kiosk/usecases/get_active_kiosk_qr_usecase.dart';
+import '../../domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
+import '../../data/features/kiosk/datasources/kiosk_remote_datasource.dart'; // For QR/PIN features
+import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
+// REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
+import '../../data/features/kiosk/datasources/kiosk_attendance_remote_datasource.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
+// REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
+import '../../domain/features/kiosk/repositories/kiosk_attendance_repository.dart';
+import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
+import '../../domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
+import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
+import '../../presentation/features/kiosk/utils/kiosk_access_control.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
+import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
+import '../../presentation/features/scheduling/cubit/edit_shift_cubit.dart';
 import '../../domain/features/staff/usecases/get_staff_count_usecase.dart';
 import '../../domain/features/staff/usecases/add_staff_document_usecase.dart';
 import '../../domain/features/staff/usecases/update_staff_document_usecase.dart';
@@ -134,6 +206,13 @@ import '../../domain/features/student/usecases/get_guardian_name_code_map_for_sc
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
+import '../../presentation/features/activities/cubit/activity_filter_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_student_selection_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_editor_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_moderation_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_daily_feed_cubit.dart';
+import '../../presentation/features/activities/cubit/medication_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/bottle_activity_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -163,6 +242,10 @@ import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
 import '../../presentation/features/student/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_edit_attendance_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_cubit.dart';
+import '../../presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_edit_attendance_cubit.dart';
 import '../../presentation/features/availability/cubit/future_availability_cubit.dart';
 import '../../presentation/features/availability/cubit/individual_movements_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
@@ -182,8 +265,36 @@ import '../../domain/features/communication/usecases/get_conversations_usecase.d
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
+import '../../domain/features/communication/usecases/edit_message_usecase.dart';
+import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
+// Communication v2.1 — Phase 1B
+import '../../domain/features/communication/usecases/get_conversations_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_conversation_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
+import '../../domain/features/communication/usecases/create_conversation_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_conversations_for_student_usecase.dart';
+import '../../domain/features/communication/usecases/get_conversations_for_classroom_usecase.dart';
+import '../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
+import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import '../../domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import '../../domain/features/communication/usecases/get_messages_entity_usecase.dart';
+import '../../domain/features/communication/usecases/send_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/edit_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/delete_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/search_messages_usecase.dart';
+import '../../domain/features/communication/usecases/add_reaction_entity_usecase.dart';
+import '../../domain/features/communication/usecases/remove_reaction_usecase.dart';
+import '../../domain/features/communication/usecases/sync_pending_operations_usecase.dart';
+import '../../data/features/communication/datasources/conversation_entity_remote_data_source.dart';
+import '../../data/features/communication/datasources/conversation_entity_local_data_source.dart';
+import '../../data/features/communication/datasources/message_entity_remote_data_source.dart';
+import '../../data/features/communication/datasources/message_entity_local_data_source.dart';
+import '../../data/features/communication/repositories/conversation_entity_repository_impl.dart';
+import '../../data/features/communication/repositories/message_entity_repository_impl.dart';
+import '../../domain/features/communication/repositories/conversation_entity_repository.dart';
+import '../../domain/features/communication/repositories/message_entity_repository.dart';
 
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
 import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
@@ -195,14 +306,12 @@ import '../../domain/features/newsletter/usecases/get_sent_newsletters_usecase.d
 import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
 import '../../presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
 import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
-
-import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
-import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
+import '../../shared/services/image_upload/profile_photo_uploader.dart';
 import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
@@ -214,11 +323,47 @@ import '../../domain/features/geofencing/usecases/request_location_permission_us
 import '../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
 import '../../domain/features/geofencing/usecases/watch_geofence_usecase.dart';
 import '../../presentation/features/geofencing/cubit/geofence_cubit.dart';
+import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
+import '../../data/services/file_download_service.dart';
+import '../../data/features/reports/repositories/file_download_repository.dart';
+import '../../data/features/billing/datasources/ledger_remote_datasource.dart';
+import '../../data/features/billing/datasources/ledger_transaction_remote_datasource.dart';
+import '../../data/features/billing/repositories/ledger_repository_impl.dart';
+import '../../data/features/billing/repositories/ledger_transaction_repository_impl.dart';
+import '../../domain/features/billing/repositories/ledger_repository.dart';
+import '../../domain/features/billing/repositories/ledger_transaction_repository.dart';
+import '../../domain/features/billing/usecases/get_ledgers_usecase.dart';
+import '../../domain/features/billing/usecases/create_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/get_ledger_by_code_usecase.dart';
+import '../../domain/features/billing/usecases/delete_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/update_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/deactivate_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/reactivate_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/get_ledger_transactions_usecase.dart';
+import '../../domain/features/billing/usecases/add_ledger_transaction_usecase.dart';
+import '../../presentation/features/billing/cubit/general_ledger_cubit.dart';
+import '../../presentation/features/billing/cubit/ledger_detail_cubit.dart';
+import '../../data/features/billing/datasources/discount_remote_datasource.dart';
+import '../../data/features/billing/repositories/discount_repository_impl.dart';
+import '../../domain/features/billing/repositories/discount_repository.dart';
+import '../../domain/features/billing/usecases/get_discounts_usecase.dart';
+import '../../domain/features/billing/usecases/create_discount_usecase.dart';
+import '../../domain/features/billing/usecases/update_discount_usecase.dart';
+import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
+import '../../domain/features/billing/usecases/deactivate_discount_usecase.dart';
+import '../../domain/features/billing/usecases/reactivate_discount_usecase.dart';
+import '../../presentation/features/billing/cubit/discount_cubit.dart';
+import '../../presentation/features/billing/cubit/discount_form_cubit.dart';
+
 
 final GetIt serviceLocator = GetIt.instance;
 
 Future<void> configureDependencies({String? baseUrl}) async {
+  if (serviceLocator.isRegistered<StorageService>()) {
+    AppLogger.d('configureDependencies called but StorageService is already registered. Skipping initialization.');
+    return;
+  }
   // Initialize SharedPreferences
   final sharedPreferences = await SharedPreferences.getInstance();
 
@@ -235,6 +380,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<StorageService>(
     () => StorageServiceImpl(serviceLocator()),
+  );
+  // Kiosk Access Control - must be registered early since other cubits depend on it
+  serviceLocator.registerLazySingleton<KioskAccessControl>(
+    () => KioskAccessControl(serviceLocator<StorageService>()),
+  );
+  // Biometric-gated secure store for the "Remember me" password (Keychain /
+  // EncryptedSharedPreferences) — never the plaintext SharedPreferences.
+  serviceLocator.registerLazySingleton<SecureCredentialStore>(
+    () => SecureCredentialStore(),
   );
 
   // Cache
@@ -253,6 +407,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ImageUploadService>(
     () => ImageUploadService(serviceLocator<ApiClient>()),
+  );
+  serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
+    () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
   );
 
   // Auth Data Sources
@@ -351,7 +508,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => StaffRepositoryImpl(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<ClassroomRepository>(
-    () => ClassroomRepositoryImpl(serviceLocator(), serviceLocator()),
+    () => ClassroomRepositoryImpl(
+      serviceLocator(),
+      serviceLocator(),
+      serviceLocator<StorageService>(),
+    ),
   );
   serviceLocator.registerLazySingleton<StudentRepository>(
     () => StudentRepositoryImpl(serviceLocator(), serviceLocator()),
@@ -385,6 +546,48 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
+  // ===== COMMUNICATION V2.1 — DATA SOURCES (Phase 1B) =====
+  serviceLocator.registerLazySingleton<ConversationEntityRemoteDataSource>(
+    () => ConversationEntityRemoteDataSourceImpl(
+      apiClient: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<ConversationEntityLocalDataSource>(
+    () => ConversationEntityLocalDataSourceImpl(
+      cacheService: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<MessageEntityRemoteDataSource>(
+    () => MessageEntityRemoteDataSourceImpl(
+      apiClient: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<MessageEntityLocalDataSource>(
+    () => MessageEntityLocalDataSourceImpl(
+      cacheService: serviceLocator(),
+    ),
+  );
+
+  // ===== COMMUNICATION V2.1 — REPOSITORIES (Phase 1B) =====
+  serviceLocator.registerLazySingleton<ConversationEntityRepository>(
+    () => ConversationEntityRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      localDataSource: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<MessageEntityRepository>(
+    () => MessageEntityRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      localDataSource: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
   serviceLocator.registerLazySingleton<NewsletterRepository>(
     () => NewsletterRepositoryImpl(
       serviceLocator<NewsletterRemoteDataSource>(),
@@ -414,6 +617,86 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetOnboardingContent>(
     () => GetOnboardingContent(serviceLocator()),
+  );
+  serviceLocator.registerFactory<OnboardingCubit>(
+    () => OnboardingCubit(serviceLocator(), serviceLocator()),
+  );
+  serviceLocator.registerFactory<ProfileMenuHeaderCubit>(
+    () => ProfileMenuHeaderCubit(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ParentBillingCubit>(
+    () => ParentBillingCubit(),
+  );
+
+  // Reports - Data Layer
+  serviceLocator.registerLazySingleton<ReportsRemoteDataSource>(
+    () => ReportsRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+      serviceLocator<StorageService>(),
+    ),
+  );
+
+  // File Download Service
+  serviceLocator.registerLazySingleton<FileDownloadService>(
+    () => FileDownloadService(),
+  );
+
+  serviceLocator.registerLazySingleton<FileDownloadRepository>(
+    () => FileDownloadRepository(serviceLocator<FileDownloadService>()),
+  );
+
+  serviceLocator.registerLazySingleton<ReportsRepository>(
+    () => ReportsRepositoryImpl(
+      serviceLocator<ReportsRemoteDataSource>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+
+  // Reports - Domain Layer (Use Cases)
+  serviceLocator.registerFactory<GenerateReportUseCase>(
+    () => GenerateReportUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<GetRecentReportsUseCase>(
+    () => GetRecentReportsUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<GetStudentTagsUseCase>(
+    () => GetStudentTagsUseCase(serviceLocator()),
+  );
+
+  serviceLocator.registerFactory<DownloadReportUseCase>(
+    () => DownloadReportUseCase(serviceLocator()),
+  );
+
+  // Reports - Presentation Layer (Cubit)
+  serviceLocator.registerFactory<ReportsCubit>(
+    () => ReportsCubit(
+      storageService: serviceLocator(),
+      getTagNamesForSchoolUseCase: serviceLocator(),
+      generateReportUseCase: serviceLocator(),
+      getRecentReportsUseCase: serviceLocator(),
+      getStudentTagsUseCase: serviceLocator(),
+      downloadReportUseCase: serviceLocator(),
+      fileDownloadRepository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<EditUserProfileCubit>(
+    () => EditUserProfileCubit(
+      storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<UserProfileCubit>(
+    () => UserProfileCubit(
+      storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
+      authRemoteDataSource: serviceLocator(),
+      authLocalDataSource: serviceLocator(),
+      studentRemoteDataSource: serviceLocator(),
+      imageUploadService: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<GetStaffPageUseCase>(
     () => GetStaffPageUseCase(serviceLocator()),
@@ -516,6 +799,35 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<MarkStudentsAbsentUseCase>(
     () => MarkStudentsAbsentUseCase(serviceLocator()),
   );
+  // Factories so each attendance form entry gets a fresh form state.
+  serviceLocator.registerFactory<StudentMarkAbsentFormCubit>(
+    () => StudentMarkAbsentFormCubit(
+      markStudentsAbsentUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentEditAttendanceFormCubit>(
+    () => StudentEditAttendanceFormCubit(
+      updateUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffMarkAbsentFormCubit>(
+    () => StaffMarkAbsentFormCubit(
+      markStaffAbsentUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<StaffEditAttendanceFormCubit>(
+    () => StaffEditAttendanceFormCubit(
+      attendanceRepository: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<GetStaffAttendanceDailyUseCase>(
     () => GetStaffAttendanceDailyUseCase(serviceLocator()),
   );
@@ -601,11 +913,92 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentCountsUseCase>(
     () => GetStudentCountsUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetSchoolCapacityUseCase>(
+    () => GetSchoolCapacityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetRatioMonitoringClassroomsUseCase>(
+    () => GetRatioMonitoringClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator
+      .registerFactory<GetStudentAttendanceSummaryByClassroomsUseCase>(
+        () => GetStudentAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+      );
+  serviceLocator.registerFactory<GetStaffAttendanceSummaryByClassroomsUseCase>(
+    () => GetStaffAttendanceSummaryByClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetClassroomCountUseCase>(
+    () => GetClassroomCountUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetSchoolFteUseCase>(
+    () => GetSchoolFteUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetClassroomActivitySettingsUseCase>(
     () => GetClassroomActivitySettingsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetActiveActivityTypesForSchoolUseCase>(
     () => GetActiveActivityTypesForSchoolUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ActivityFilterCubit>(
+    () => ActivityFilterCubit(
+      tagMapUseCase: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      activityTypesUseCase:
+          serviceLocator<GetActiveActivityTypesForSchoolUseCase>(),
+      cacheManager: CacheManager(serviceLocator<StorageService>()),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityStudentSelectionCubit>(
+    () => ActivityStudentSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      apiClient: serviceLocator<ApiClient>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityModerationCubit>(
+    () => ActivityModerationCubit(
+      deleteActivityUseCase: serviceLocator<DeleteActivityUseCase>(),
+      approveActivityUseCase: serviceLocator<ApproveActivityUseCase>(),
+      rejectActivityUseCase: serviceLocator<RejectActivityUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityDailyFeedCubit>(
+    () => ActivityDailyFeedCubit(),
+  );
+  serviceLocator.registerFactory<ActivityEditorCubit>(
+    () => ActivityEditorCubit(
+      getClassroomActivitySettingsUseCase:
+          serviceLocator<GetClassroomActivitySettingsUseCase>(),
+      getActivityTypeDetailsUseCase:
+          serviceLocator<GetActivityTypeDetailsUseCase>(),
+      createActivityUseCase: serviceLocator<CreateActivityUseCase>(),
+      getActivityUseCase: serviceLocator<GetActivityUseCase>(),
+      updateActivityUseCase: serviceLocator<UpdateActivityUseCase>(),
+      approveActivityUseCase: serviceLocator<ApproveActivityUseCase>(),
+      rejectActivityUseCase: serviceLocator<RejectActivityUseCase>(),
+      createSharedActivitiesUseCase:
+          serviceLocator<CreateSharedActivitiesUseCase>(),
+      guardianParentSignatureUseCase:
+          serviceLocator<GuardianParentSignatureUseCase>(),
+      getGuardianNameCodeMapForSchoolUseCase:
+          serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>(),
+    ),
+  );
+  // Per-form ViewModel for the Medication activity screen. Factory so each
+  // screen entry gets fresh form state; it owns its own ActivityEditorCubit.
+  serviceLocator.registerFactory<MedicationActivityCubit>(
+    () => MedicationActivityCubit(
+      editor: serviceLocator<ActivityEditorCubit>(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<BottleActivityCubit>(
+    () => BottleActivityCubit(
+      editor: serviceLocator<ActivityEditorCubit>(),
+      storageService: serviceLocator(),
+    ),
   );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(
     () => GetActivityTypeDetailsUseCase(serviceLocator()),
@@ -685,6 +1078,71 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<AddReactionUseCase>(
     () => AddReactionUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<EditMessageUseCase>(
+    () => EditMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ClearMessagesCacheUseCase>(
+    () => ClearMessagesCacheUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<ClearConversationsCacheUseCase>(
+    () => ClearConversationsCacheUseCase(serviceLocator()),
+  );
+
+  // ===== COMMUNICATION V2.1 — USE CASES (Phase 1C) =====
+  // ConversationEntityRepository use cases
+  serviceLocator.registerFactory<GetConversationsEntityUseCase>(
+    () => GetConversationsEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetConversationEntityUseCase>(
+    () => GetConversationEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedConversationsEntityUseCase>(
+    () => GetCachedConversationsEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateConversationEntityUseCase>(
+    () => CreateConversationEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetConversationsForStudentUseCase>(
+    () => GetConversationsForStudentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetConversationsForClassroomUseCase>(
+    () => GetConversationsForClassroomUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<TogglePrivateModeUseCase>(
+    () => TogglePrivateModeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkConversationReadUseCase>(
+    () => MarkConversationReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetUnreadAggregatesUseCase>(
+    () => GetUnreadAggregatesUseCase(serviceLocator()),
+  );
+  // MessageEntityRepository use cases
+  serviceLocator.registerFactory<GetMessagesEntityUseCase>(
+    () => GetMessagesEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SendMessageEntityUseCase>(
+    () => SendMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<EditMessageEntityUseCase>(
+    () => EditMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteMessageEntityUseCase>(
+    () => DeleteMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SearchMessagesUseCase>(
+    () => SearchMessagesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<AddReactionEntityUseCase>(
+    () => AddReactionEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RemoveReactionUseCase>(
+    () => RemoveReactionUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SyncPendingOperationsUseCase>(
+    () => SyncPendingOperationsUseCase(serviceLocator()),
+  );
+
   serviceLocator.registerFactory<GetStaffShiftsUseCase>(
     () => GetStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
   );
@@ -732,11 +1190,100 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Cubits (factory - new instance each time for UI)
+  serviceLocator.registerFactory<ClassroomShiftsCubit>(
+    () => ClassroomShiftsCubit(
+      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getClassroomForecastUseCase: serviceLocator(),
+      getSchoolStaffShiftsUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<MyAttendanceCubit>(
+    () => MyAttendanceCubit(
+      attendanceRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<MyShiftsCubit>(
+    () => MyShiftsCubit(
+      getStaffShiftsUseCase: serviceLocator(),
+      getClassroomsUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+      staffRepository: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<AdminDashboardCubit>(
+    () => AdminDashboardCubit(),
+  );
+  serviceLocator.registerFactory<StaffDashboardCubit>(
+    () => StaffDashboardCubit(),
+  );
+  serviceLocator.registerFactory<ParentDashboardCubit>(
+    () => ParentDashboardCubit(),
+  );
+
+  serviceLocator.registerLazySingleton<ParentChildCubit>(
+    () => ParentChildCubit(),
+  );
+
+  // Dashboard Coordinators & Factory
+  serviceLocator.registerLazySingleton<DashboardCubitFactory>(
+    () => DashboardCubitFactory(serviceLocator),
+  );
+  serviceLocator.registerFactory<ParentDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createParentDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<StaffDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createStaffDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<AdminDashboardCoordinatorCubit>(
+    () => serviceLocator<DashboardCubitFactory>().createAdminDashboardCoordinator(),
+  );
+  serviceLocator.registerFactory<MyDayCubit>(
+    () => MyDayCubit(
+      staffRepository: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<DashboardAttentionCubit>(
+    () => DashboardAttentionCubit(
+      activityRepository: serviceLocator(),
+      availabilityRepository: serviceLocator(),
+      staffRepository: serviceLocator(),
+      studentRepository: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<RatioMonitoringCubit>(
+    () => RatioMonitoringCubit(
+      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getStudentAttendanceSummaryByClassroomsUseCase: serviceLocator(),
+      getStaffAttendanceSummaryByClassroomsUseCase: serviceLocator(),
+      cacheManager: serviceLocator(),
+      storageService: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<SchoolStatusCubit>(
+    () => SchoolStatusCubit(
+      getStudentCountsUseCase: serviceLocator(),
+      getSchoolCapacityUseCase: serviceLocator(),
+      getClassroomCountUseCase: serviceLocator(),
+      getSchoolFteUseCase: serviceLocator(),
+      getStaffAttendanceExpectedSummaryUseCase: serviceLocator(),
+      getStudentAttendanceExpectedSummaryUseCase: serviceLocator(),
+      cacheManager: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<AuthCubit>(
     () => AuthCubit(
       loginUseCase: serviceLocator(),
       localDataSource: serviceLocator(),
       remoteDataSource: serviceLocator(),
+      registerDeviceFcmToken: serviceLocator(),
+      unregisterDeviceFcmToken: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffCubit>(
@@ -823,7 +1370,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ValidateQrCodeUseCase(serviceLocator<AttendanceRepository>()),
   );
   serviceLocator.registerFactory<QrValidationCubit>(
-    () => QrValidationCubit(validateQrCodeUseCase: serviceLocator()),
+    () => QrValidationCubit(
+      validateQrCodeUseCase: serviceLocator(),
+      getStaffTodaySignInStatusUseCase: serviceLocator(),
+      getStudentTodaySignInStatusMapUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
   );
 
   serviceLocator.registerFactory<StudentAttendanceDailyCubit>(
@@ -904,12 +1456,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<CommunicationCubit>(
     () => CommunicationCubit(
-      getMessagesUseCase: serviceLocator(),
-      sendMessageUseCase: serviceLocator(),
-      getConversationsUseCase: serviceLocator(),
-      getCachedConversationsUseCase: serviceLocator(),
-      getCachedMessagesUseCase: serviceLocator(),
-      addReactionUseCase: serviceLocator(),
+      getMessagesUseCase: serviceLocator<GetMessagesUseCase>(),
+      sendMessageUseCase: serviceLocator<SendMessageUseCase>(),
+      getConversationsUseCase: serviceLocator<GetConversationsUseCase>(),
+      getCachedConversationsUseCase:
+          serviceLocator<GetCachedConversationsUseCase>(),
+      getCachedMessagesUseCase: serviceLocator<GetCachedMessagesUseCase>(),
+      addReactionUseCase: serviceLocator<AddReactionUseCase>(),
+      editMessageUseCase: serviceLocator<EditMessageUseCase>(),
+      clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
+      clearConversationsCacheUseCase:
+          serviceLocator<ClearConversationsCacheUseCase>(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
@@ -956,6 +1513,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
     ),
   );
+  // Factory so each Add Shift screen entry gets a fresh form state.
+  serviceLocator.registerFactory<AddShiftCubit>(
+    () => AddShiftCubit(
+      getActiveClassroomsUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      staffShiftRepository: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
+      createStaffShiftUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+  // Factory so each Edit Shift screen entry gets a fresh form state.
+  serviceLocator.registerFactory<EditShiftCubit>(
+    () => EditShiftCubit(
+      getActiveClassroomsUseCase: serviceLocator(),
+      staffRepository: serviceLocator(),
+      staffShiftRepository: serviceLocator(),
+      getStaffShiftsUseCase: serviceLocator(),
+      updateStaffShiftUseCase: serviceLocator(),
+      updateStaffShiftSeriesUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
   serviceLocator.registerLazySingleton<SchedulingCubit>(
     () => SchedulingCubit(
       getSchoolStaffShiftsUseCase: serviceLocator(),
@@ -991,6 +1571,78 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<GeofenceNotificationService>(
     () => GeofenceNotificationService(),
   );
+
+  // Push notifications (FCM) — domain → data → presentation.
+  serviceLocator.registerLazySingleton<FirebaseMessaging>(
+    () => FirebaseMessaging.instance,
+  );
+  serviceLocator.registerLazySingleton<FcmRemoteDataSource>(
+    () => FcmRemoteDataSourceImpl(serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<FcmRegistrationRemoteDataSource>(
+    () => FcmRegistrationRemoteDataSourceImpl(apiClient: serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<FcmTokenRegistrationService>(
+    () => FcmTokenRegistrationService(
+      remote: serviceLocator(),
+      storage: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<FcmRegistrationRepository>(
+    () => FcmRegistrationRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RegisterDeviceFcmTokenUseCase>(
+    () => RegisterDeviceFcmTokenUseCase(
+      serviceLocator(),
+      serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<UnregisterDeviceFcmTokenUseCase>(
+    () => UnregisterDeviceFcmTokenUseCase(
+      serviceLocator(),
+      serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<PushNotificationRepository>(
+    () => PushNotificationRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<PushNotificationCubit>(
+    () => PushNotificationCubit(
+      repository: serviceLocator(),
+      localNotifications: serviceLocator(),
+      registerDeviceFcmToken: serviceLocator(),
+    ),
+  );
+
+  // Notification center (bell-icon inbox) — delivery logs API.
+  serviceLocator.registerLazySingleton<NotificationLogsRemoteDataSource>(
+    () => NotificationLogsRemoteDataSourceImpl(apiClient: serviceLocator()),
+  );
+  serviceLocator.registerLazySingleton<NotificationCenterDataSource>(
+    () => NotificationCenterRemoteDataSource(
+      logsRemote: serviceLocator(),
+      storage: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<NotificationCenterRepository>(
+    () => NotificationCenterRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetNotificationsUseCase>(
+    () => GetNotificationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkNotificationReadUseCase>(
+    () => MarkNotificationReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkAllNotificationsReadUseCase>(
+    () => MarkAllNotificationsReadUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<NotificationCenterCubit>(
+    () => NotificationCenterCubit(
+      getNotificationsUseCase: serviceLocator(),
+      markNotificationReadUseCase: serviceLocator(),
+      markAllNotificationsReadUseCase: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<CheckLocationPermissionUseCase>(
     () => CheckLocationPermissionUseCase(serviceLocator()),
   );
@@ -1003,7 +1655,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<WatchGeofenceUseCase>(
     () => WatchGeofenceUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GeofenceCubit>(
+  // Singleton — one cubit for the entire app lifetime so GPS state survives
+  // navigation. Never call close() on this from a dashboard widget.
+  serviceLocator.registerLazySingleton<GeofenceCubit>(
     () => GeofenceCubit(
       checkLocationPermissionUseCase: serviceLocator(),
       requestLocationPermissionUseCase: serviceLocator(),
@@ -1019,6 +1673,174 @@ Future<void> configureDependencies({String? baseUrl}) async {
     await serviceLocator<GeofenceNotificationService>().init();
   } catch (e) {
     // Native plugin might not be loaded yet - will retry when geofence cubit initializes
-    print('Warning: Notification service initialization deferred: $e');
+    AppLogger.d('Warning: Notification service initialization deferred: $e');
   }
+
+  // ===== KIOSK FEATURE =====
+  // Data layer
+  serviceLocator.registerLazySingleton<KioskRemoteDataSource>(
+    () => KioskRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<KioskRepository>(
+    () => KioskRepositoryImpl(serviceLocator()),
+  );
+
+  // === REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE ===
+
+  // Data layer - Remote datasources
+  serviceLocator.registerSingleton<KioskAttendanceRemoteDataSource>(
+    KioskAttendanceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+
+  // Data layer - Repository implementations
+  serviceLocator.registerSingleton<KioskAttendanceRepository>(
+    KioskAttendanceRepositoryImpl(serviceLocator<KioskAttendanceRemoteDataSource>()),
+  );
+
+  // Domain layer - Use cases
+  serviceLocator.registerFactory<SignInStaffUseCase>(
+    () => SignInStaffUseCase(serviceLocator<KioskAttendanceRepository>()),
+  );
+  serviceLocator.registerFactory<SignOutStaffUseCase>(
+    () => SignOutStaffUseCase(serviceLocator<KioskAttendanceRepository>()),
+  );
+
+  // Legacy domain layer (still used for kiosk QR and PIN)
+  serviceLocator.registerFactory<GetActiveKioskQrUseCase>(
+    () => GetActiveKioskQrUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<VerifyKioskPinUseCase>(
+    () => VerifyKioskPinUseCase(serviceLocator()),
+  );
+
+  // Presentation layer - Cubits
+  serviceLocator.registerFactory<KioskDashboardCubit>(
+    () => KioskDashboardCubit(
+      getActiveKioskQrUseCase: serviceLocator(),
+      verifyKioskPinUseCase: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
+  // REFACTORED: KioskAttendanceCubitV2 using Clean Architecture
+  serviceLocator.registerFactory<KioskAttendanceCubitV2>(
+    () => KioskAttendanceCubitV2(
+      signInStaffUseCase: serviceLocator<SignInStaffUseCase>(),
+      signOutStaffUseCase: serviceLocator<SignOutStaffUseCase>(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+
+  // Legacy cubit (kept for backwards compatibility if needed)
+  serviceLocator.registerFactory<KioskAttendanceCubit>(
+    () => KioskAttendanceCubit(
+      attendanceRepository: serviceLocator(),
+      storageService: serviceLocator(),
+      apiClient: serviceLocator(),
+    ),
+  );
+
+  // ── Billing ───────────────────────────────────────────────────────────────
+  serviceLocator.registerLazySingleton<LedgerRemoteDataSource>(
+    () => LedgerRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<LedgerRepository>(
+    () => LedgerRepositoryImpl(serviceLocator<LedgerRemoteDataSource>()),
+  );
+  serviceLocator.registerLazySingleton<LedgerTransactionRemoteDataSource>(
+    () => LedgerTransactionRemoteDataSourceImpl(
+        serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<LedgerTransactionRepository>(
+    () => LedgerTransactionRepositoryImpl(
+        serviceLocator<LedgerTransactionRemoteDataSource>()),
+  );
+  serviceLocator.registerFactory<GetLedgersUseCase>(
+    () => GetLedgersUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<CreateLedgerUseCase>(
+    () => CreateLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<GetLedgerByCodeUseCase>(
+    () => GetLedgerByCodeUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<DeleteLedgerUseCase>(
+    () => DeleteLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<UpdateLedgerUseCase>(
+    () => UpdateLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<DeactivateLedgerUseCase>(
+    () => DeactivateLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<ReactivateLedgerUseCase>(
+    () => ReactivateLedgerUseCase(serviceLocator<LedgerRepository>()),
+  );
+  serviceLocator.registerFactory<GetLedgerTransactionsUseCase>(
+    () => GetLedgerTransactionsUseCase(
+        serviceLocator<LedgerTransactionRepository>()),
+  );
+  serviceLocator.registerFactory<AddLedgerTransactionUseCase>(
+    () => AddLedgerTransactionUseCase(
+        serviceLocator<LedgerTransactionRepository>()),
+  );
+  serviceLocator.registerFactory<GeneralLedgerCubit>(
+    () => GeneralLedgerCubit(
+      getLedgersUseCase: serviceLocator<GetLedgersUseCase>(),
+      deleteLedgerUseCase: serviceLocator<DeleteLedgerUseCase>(),
+      deactivateLedgerUseCase: serviceLocator<DeactivateLedgerUseCase>(),
+      reactivateLedgerUseCase: serviceLocator<ReactivateLedgerUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<LedgerDetailCubit>(
+    () => LedgerDetailCubit(
+      getTransactionsUseCase: serviceLocator<GetLedgerTransactionsUseCase>(),
+      addTransactionUseCase: serviceLocator<AddLedgerTransactionUseCase>(),
+      getLedgerByCodeUseCase: serviceLocator<GetLedgerByCodeUseCase>(),
+    ),
+  );
+
+  // ── Discounts ─────────────────────────────────────────────────────────────
+  serviceLocator.registerLazySingleton<DiscountRemoteDataSource>(
+    () => DiscountRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<DiscountRepository>(
+    () => DiscountRepositoryImpl(serviceLocator<DiscountRemoteDataSource>()),
+  );
+  serviceLocator.registerFactory<GetDiscountsUseCase>(
+    () => GetDiscountsUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<CreateDiscountUseCase>(
+    () => CreateDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<UpdateDiscountUseCase>(
+    () => UpdateDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<DeleteDiscountUseCase>(
+    () => DeleteDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<DeactivateDiscountUseCase>(
+    () => DeactivateDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<ReactivateDiscountUseCase>(
+    () => ReactivateDiscountUseCase(serviceLocator<DiscountRepository>()),
+  );
+  serviceLocator.registerFactory<DiscountCubit>(
+    () => DiscountCubit(
+      getDiscountsUseCase: serviceLocator<GetDiscountsUseCase>(),
+      deleteDiscountUseCase: serviceLocator<DeleteDiscountUseCase>(),
+      deactivateDiscountUseCase: serviceLocator<DeactivateDiscountUseCase>(),
+      reactivateDiscountUseCase: serviceLocator<ReactivateDiscountUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<DiscountFormCubit>(
+    () => DiscountFormCubit(
+      createDiscountUseCase: serviceLocator<CreateDiscountUseCase>(),
+      updateDiscountUseCase: serviceLocator<UpdateDiscountUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+    ),
+  );
 }

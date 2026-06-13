@@ -72,7 +72,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     return _organizationCode!;
   }
 
-  /// Caller-driven persona scope. The screen reads [RoleProvider.isStaff] (the
+  /// Caller-driven persona scope. The screen reads [RoleCubit.isStaff] (the
   /// single source of truth used across the app) and feeds it in here, plus
   /// the logged-in user's `staffCode`. Re-filters the roster + re-emits state
   /// whenever the scope flips so the UI reacts even if scope is set after the
@@ -525,6 +525,18 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     if (match == null) return;
 
     emit(state.copyWith(selectedStaffCode: match.code));
+    _loadShiftsForSelection();
+  }
+
+  /// Selects a staff member by code (notification deep-link). No-op if the code
+  /// is empty, already selected, or not present in the loaded roster (the screen
+  /// retries once the roster finishes loading).
+  void selectStaffByCode(String? code) {
+    final wanted = (code ?? '').trim();
+    if (wanted.isEmpty || wanted == state.selectedStaffCode) return;
+    final exists = state.staffList.any((s) => s.code == wanted);
+    if (!exists) return;
+    emit(state.copyWith(selectedStaffCode: wanted));
     _loadShiftsForSelection();
   }
 

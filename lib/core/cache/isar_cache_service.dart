@@ -3,6 +3,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/cache/cache_service.dart';
 import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
+// Communication v2.1 schemas
+import 'package:wowcare/data/features/communication/models/conversation_entity_collection.dart';
+import 'package:wowcare/data/features/communication/models/message_entity_collection.dart';
+import 'package:wowcare/data/features/communication/models/unread_entity_collection.dart';
+import 'package:wowcare/data/features/communication/models/sync_queue_collection.dart';
 
 class IsarCacheService implements CacheService {
   late Isar _isar;
@@ -10,8 +15,14 @@ class IsarCacheService implements CacheService {
   Future<void> init() async {
     final dir = await getApplicationDocumentsDirectory();
     _isar = await Isar.open([
+      // Existing schemas — do not remove
       MessageCollectionSchema,
       ConversationCollectionSchema,
+      // Communication v2.1 schemas
+      ConversationEntityCollectionSchema,
+      MessageEntityCollectionSchema,
+      UnreadEntityCollectionSchema,
+      SyncQueueCollectionSchema,
     ], directory: dir.path);
   }
 
@@ -41,8 +52,6 @@ class IsarCacheService implements CacheService {
 
   @override
   Future<List<T>> getByField<T>(String fieldName, dynamic value) async {
-    // Isar requires specific generated filters for each field.
-    // For a centralized system, we map the fields for each collection here.
     if (T == MessageCollection) {
       if (fieldName == 'threadId') {
         return await _isar.messageCollections
@@ -55,6 +64,13 @@ class IsarCacheService implements CacheService {
         return await _isar.messageCollections
                 .filter()
                 .idEqualTo(value as String)
+                .findAll()
+            as List<T>;
+      }
+      if (fieldName == 'code') {
+        return await _isar.messageCollections
+                .filter()
+                .codeEqualTo(value as String)
                 .findAll()
             as List<T>;
       }

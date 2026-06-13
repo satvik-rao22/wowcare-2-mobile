@@ -28,6 +28,7 @@ class StaffCard extends StatefulWidget {
     required this.isActive,
     this.status,
     this.onPrimaryAction,
+    this.onDeleteAction,
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
@@ -35,6 +36,7 @@ class StaffCard extends StatefulWidget {
     required this.classroomCodeByName,
     this.workScheduleByDay = const <String, String>{},
     this.breakScheduleByDay = const <String, String>{},
+    this.initiallyExpanded = false,
   });
 
   final String staffCode;
@@ -50,6 +52,8 @@ class StaffCard extends StatefulWidget {
   final bool isActive;
   final String? status;
   final VoidCallback? onPrimaryAction;
+  /// Permanently deletes the staff member. Only surfaced for deactivated staff.
+  final VoidCallback? onDeleteAction;
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
@@ -60,12 +64,16 @@ class StaffCard extends StatefulWidget {
   /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" break time.
   final Map<String, String> breakScheduleByDay;
 
+  /// Opens the card pre-expanded — used when a notification deep-link targets
+  /// this staff member.
+  final bool initiallyExpanded;
+
   @override
   State<StaffCard> createState() => _StaffCardState();
 }
 
 class _StaffCardState extends State<StaffCard> {
-  bool isExpanded = false;
+  late bool isExpanded = widget.initiallyExpanded;
 
   /// Shared across all StaffCard instances — every card in a list is for the
   /// same school, so we only call `/regular-schedule` once per app load.
@@ -647,6 +655,57 @@ class _StaffCardState extends State<StaffCard> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
+                                // Deactivated staff can be permanently deleted.
+                                if (!widget.isActive) ...[
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 40,
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (ctx) {
+                                              return DeleteConfirmationBottomSheet(
+                                                name: widget.name,
+                                                type: 'staff_delete',
+                                                onDelete: () {
+                                                  widget.onDeleteAction?.call();
+                                                  return Future.value();
+                                                },
+                                                onCancel: () {
+                                                  Navigator.of(ctx).pop();
+                                                },
+                                              );
+                                            },
+                                          );
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(
+                                            color: Color(0xFF6C7FD8),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF6C7FD8),
+                                            height: 16 / 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                ],
                                 Expanded(
                                   child: Container(
                                     height: 40,

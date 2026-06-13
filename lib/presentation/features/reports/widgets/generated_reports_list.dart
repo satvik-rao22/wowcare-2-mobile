@@ -8,11 +8,13 @@ class GeneratedReportItem {
     required this.fileName,
     required this.generatedAt,
     required this.type,
+    this.assetCode,
   });
 
   final String fileName;
   final DateTime generatedAt;
   final GeneratedReportFileType type;
+  final String? assetCode;
 }
 
 class GeneratedReportsList extends StatelessWidget {
@@ -25,7 +27,7 @@ class GeneratedReportsList extends StatelessWidget {
 
   final List<GeneratedReportItem> items;
   final ValueChanged<GeneratedReportItem>? onView;
-  final ValueChanged<GeneratedReportItem>? onDownload;
+  final Future<void> Function(String?)? onDownload;
 
   @override
   Widget build(BuildContext context) {
@@ -66,7 +68,7 @@ class GeneratedReportsList extends StatelessWidget {
               item: items[i],
               onView: onView == null ? null : () => onView!(items[i]),
               onDownload:
-                  onDownload == null ? null : () => onDownload!(items[i]),
+                  onDownload == null ? null : (assetCode) => onDownload!(assetCode),
             ),
             if (i != items.length - 1) const SizedBox(height: 10),
           ],

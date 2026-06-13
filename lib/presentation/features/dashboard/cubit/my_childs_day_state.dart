@@ -12,6 +12,7 @@ class MyChildsDayState extends Equatable {
     required this.schoolTimeZone,
     required this.todayDayOfWeek,
     required this.todayScheduleRange,
+    required this.allRegularSchedules,
     required this.schoolNow,
     required this.guardianClockPin,
     required this.errorMessage,
@@ -26,6 +27,7 @@ class MyChildsDayState extends Equatable {
       schoolTimeZone = '',
       todayDayOfWeek = '',
       todayScheduleRange = '',
+      allRegularSchedules = const [],
       schoolNow = null,
       guardianClockPin = '',
       errorMessage = '';
@@ -40,6 +42,10 @@ class MyChildsDayState extends Equatable {
   /// "MONDAY", "TUESDAY", ... in the school calendar.
   final String todayDayOfWeek;
   final String todayScheduleRange;
+
+  /// All weekly regular schedule entries from the dedicated schedule API.
+  final List<StudentRegularScheduleEntry> allRegularSchedules;
+
   final DateTime? schoolNow;
   final String guardianClockPin;
   final String errorMessage;
@@ -53,6 +59,7 @@ class MyChildsDayState extends Equatable {
     String? schoolTimeZone,
     String? todayDayOfWeek,
     String? todayScheduleRange,
+    List<StudentRegularScheduleEntry>? allRegularSchedules,
     DateTime? schoolNow,
     String? guardianClockPin,
     String? errorMessage,
@@ -66,6 +73,7 @@ class MyChildsDayState extends Equatable {
       schoolTimeZone: schoolTimeZone ?? this.schoolTimeZone,
       todayDayOfWeek: todayDayOfWeek ?? this.todayDayOfWeek,
       todayScheduleRange: todayScheduleRange ?? this.todayScheduleRange,
+      allRegularSchedules: allRegularSchedules ?? this.allRegularSchedules,
       schoolNow: schoolNow ?? this.schoolNow,
       guardianClockPin: guardianClockPin ?? this.guardianClockPin,
       errorMessage: errorMessage ?? this.errorMessage,
@@ -82,6 +90,7 @@ class MyChildsDayState extends Equatable {
     schoolTimeZone,
     todayDayOfWeek,
     todayScheduleRange,
+    allRegularSchedules,
     schoolNow,
     guardianClockPin,
     errorMessage,

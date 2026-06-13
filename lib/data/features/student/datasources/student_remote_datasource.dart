@@ -195,8 +195,10 @@ abstract class StudentRemoteDataSource {
 
   /// Creates / links a guardian user to a student via `/api/v1/guardian-user`.
   ///
-  /// Returns the backend `message` field.
-  Future<String> createGuardianUser({
+  /// Returns the backend `message` plus the newly created `guardianCode`
+  /// (parsed from the response `data`, null if the backend didn't include it) —
+  /// the caller needs the code to upload the guardian's profile photo.
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -289,6 +291,14 @@ abstract class StudentRemoteDataSource {
     required String code,
   });
 
+  /// Fetches a student's regular schedules via `GET /api/v1/regular-schedules?studentCode={studentCode}`.
+  ///
+  /// Returns a list of raw schedule maps each containing:
+  /// { "dayOfWeek": "MONDAY", "startTime": {"hour":8,"minute":0}, "endTime": {"hour":17,"minute":0} }
+  Future<List<Map<String, dynamic>>> getStudentRegularSchedules({
+    required String studentCode,
+  });
+
   /// Updates a student's regular schedules via `PATCH /api/v1/regular-schedules`.
   ///
   /// Expected body shape:
@@ -366,6 +376,14 @@ abstract class StudentRemoteDataSource {
   /// Fetches student counts (active, upcoming, enrolled) for a school via
   /// `GET /api/v1/student/count`.
   Future<Map<String, int>> getStudentCounts({required String schoolCode});
+
+  /// `GET /api/v1/student/student-documents/expiry-count`
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
+      getStudentDocumentExpiryCount({required String schoolCode});
+
+  /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode});
 }
 
 class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
@@ -1120,7 +1138,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
-  Future<String> createGuardianUser({
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -1167,7 +1185,22 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     final data = response.data! as Map<String, dynamic>;
-    return data['message']?.toString() ?? 'Guardian user created successfully';
+    final message =
+        data['message']?.toString() ?? 'Guardian user created successfully';
+
+    // The created guardian's code can arrive either at the top level or nested
+    // under `data` — check both, and accept a few common field names.
+    String? extractCode(dynamic node) {
+      if (node is! Map) return null;
+      for (final key in const ['guardianCode', 'code', 'guardianId']) {
+        final v = (node[key] ?? '').toString().trim();
+        if (v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
+    final guardianCode = extractCode(data['data']) ?? extractCode(data);
+    return (message: message, guardianCode: guardianCode);
   }
 
   @override
@@ -1427,6 +1460,29 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<List<Map<String, dynamic>>> getStudentRegularSchedules({
+    required String studentCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentRegularSchedules,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'studentCode': studentCode},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student regular schedules GET response format');
+    }
+
+    final root = response.data! as Map<String, dynamic>;
+    final dataList = root['data'] as List<dynamic>? ?? [];
+    return dataList.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  @override
   Future<String> updateStudentRegularSchedules({
     required String schoolCode,
     required String studentCode,
@@ -1681,5 +1737,44 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     return StudentPhysicalExamModel.fromJson(data);
+  }
+
+  @override
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
+      getStudentDocumentExpiryCount({required String schoolCode}) async {
+    final endpoint = ApiPaths.url(ApiPaths.studentDocumentExpiryCount);
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student document expiry count response format');
+    }
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>? ?? {};
+    return (
+      expiredDocumentCount: (data['expiredDocumentCount'] as num?)?.toInt() ?? 0,
+      expiringWithinWeekCount: (data['expiringWithinWeekCount'] as num?)?.toInt() ?? 0,
+      totalDocumentsWithExpiry: (data['totalDocumentsWithExpiry'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  @override
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+    final endpoint = ApiPaths.url(
+      ApiPaths.studentPhysicalCheckupCount(schoolCode),
+    );
+    final response = await _client.get<dynamic>(endpoint);
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student physical checkup count response format');
+    }
+    final root = response.data! as Map<String, dynamic>;
+    final data = root['data'] as Map<String, dynamic>? ?? {};
+    return (
+      overdueExamCount: (data['overdueExamCount'] as num?)?.toInt() ?? 0,
+      studentsWithoutActiveExamCount:
+          (data['studentsWithoutActiveExamCount'] as num?)?.toInt() ?? 0,
+    );
   }
 }

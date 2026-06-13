@@ -5,6 +5,7 @@ import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
 import 'package:wowcare/domain/features/newsletter/repositories/newsletter_repository.dart';
+import 'package:wowcare/data/features/newsletter/util/newsletter_content_parser.dart';
 
 class NewsletterRepositoryImpl
     implements NewsletterRepository, NewsletterRepositoryWithCache {
@@ -43,7 +44,14 @@ class NewsletterRepositoryImpl
       sort: const ['sentAt,desc'],
     );
 
-    if (page == 0) {
+    // Only cache the unfiltered first page. The cache is keyed by schoolCode
+    // alone, while loadCachedSentNewsletters() hydrates the default (no search,
+    // no classroom filter) list — so caching a filtered/searched page-0 here
+    // would pollute it and show a stale subset as the full list on next open.
+    final bool isUnfilteredFirstPage = page == 0 &&
+        (search == null || search.trim().isEmpty) &&
+        classroomCodes.isEmpty;
+    if (isUnfilteredFirstPage) {
       await _cacheManager.saveCache(
         _sentNewslettersCacheKey(schoolCode),
         model.toJson(),
@@ -80,6 +88,11 @@ class NewsletterRepositoryImpl
   }
 
   Newsletter _mapModelToEntity(NewsletterModel model) {
+    final components = parseNewsletterComponents(
+      components: model.components,
+      layoutJson: model.layoutJson,
+    );
+
     return Newsletter(
       id: model.id,
       code: model.code,
@@ -97,6 +110,9 @@ class NewsletterRepositoryImpl
         subtitle: model.subtitle,
         components: model.components,
       ),
+      colorTheme: model.colorTheme,
+      backgroundPattern: model.backgroundPattern,
+      components: components,
       attachments: model.attachments
           .map(
             (NewsletterAttachmentModel attachment) => NewsletterAttachment(
@@ -104,6 +120,8 @@ class NewsletterRepositoryImpl
               mediaCode: attachment.mediaCode,
               fileName: attachment.fileName,
               mimeType: attachment.mimeType,
+              assetUrl: attachment.assetUrl,
+              sortOrder: attachment.sortOrder,
             ),
           )
           .toList(),

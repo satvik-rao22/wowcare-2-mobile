@@ -8,7 +8,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_series_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/delete_staff_shift_usecase.dart';
@@ -17,7 +17,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
@@ -41,18 +41,44 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 /// disk cache); pull-to-refresh re-pulls staff + classroom data. Shift list
 /// remains placeholder until the shift-API cubit is wired in.
 class StaffSchedulingScreen extends StatelessWidget {
-  const StaffSchedulingScreen({super.key});
+  const StaffSchedulingScreen({
+    super.key,
+    this.initialDate,
+    this.initialStaffCode,
+    this.highlightShiftCode,
+  });
 
   static const String routeName = '/dashboard/staff-scheduling';
 
+  /// Notification deep-link: jump to this day on open (shift's date).
+  final DateTime? initialDate;
+
+  /// Notification deep-link: pre-select this staff member once the roster loads.
+  final String? initialStaffCode;
+
+  /// Notification deep-link: flash the shift block with this code.
+  final String? highlightShiftCode;
+
   @override
   Widget build(BuildContext context) {
-    return const _StaffSchedulingView();
+    return _StaffSchedulingView(
+      initialDate: initialDate,
+      initialStaffCode: initialStaffCode,
+      highlightShiftCode: highlightShiftCode,
+    );
   }
 }
 
 class _StaffSchedulingView extends StatefulWidget {
-  const _StaffSchedulingView();
+  const _StaffSchedulingView({
+    this.initialDate,
+    this.initialStaffCode,
+    this.highlightShiftCode,
+  });
+
+  final DateTime? initialDate;
+  final String? initialStaffCode;
+  final String? highlightShiftCode;
 
   @override
   State<_StaffSchedulingView> createState() => _StaffSchedulingViewState();
@@ -78,6 +104,11 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
   /// the POST every rebuild when the roster is unchanged.
   Set<String> _lastRequestedStaffCodes = const <String>{};
 
+  /// Notification deep-link state: applied once each (date immediately, staff
+  /// once the roster contains the wanted code).
+  bool _deepLinkDateApplied = false;
+  bool _deepLinkStaffApplied = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,15 +120,36 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
       _applyPersonaScope();
       _silentlyRefreshStaffIfDirty();
       _bootstrapSchoolZone();
+      _applyDeepLink();
     });
   }
 
-  /// Forwards [RoleProvider]'s persona decision into the cubit so the roster +
+  /// Applies the notification deep-link (date + staff). Called from initState
+  /// and again from the [BlocListener] so the staff selection lands as soon as
+  /// the roster finishes loading. Each part applies at most once.
+  void _applyDeepLink() {
+    if (!mounted) return;
+    final cubit = context.read<StaffSchedulingCubit>();
+    final date = widget.initialDate;
+    if (!_deepLinkDateApplied && date != null) {
+      _deepLinkDateApplied = true;
+      cubit.selectDay(date);
+    }
+    final code = widget.initialStaffCode?.trim() ?? '';
+    if (!_deepLinkStaffApplied &&
+        code.isNotEmpty &&
+        cubit.state.staffList.any((s) => s.code == code)) {
+      _deepLinkStaffApplied = true;
+      cubit.selectStaffByCode(code);
+    }
+  }
+
+  /// Forwards [RoleCubit]'s persona decision into the cubit so the roster +
   /// add/publish/edit/delete affordances stay in sync with the rest of the app
   /// (the cubit is a singleton — running this on every screen mount also
   /// covers persona switches that happened while the screen was off-stack).
   Future<void> _applyPersonaScope() async {
-    final isStaff = context.read<RoleProvider>().isStaff;
+    final isStaff = context.read<RoleCubit>().isStaff;
     final loggedInStaffCode = isStaff
         ? (await serviceLocator<StorageService>()
                     .getString(StorageKeys.staffCode) ??
@@ -593,7 +645,9 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<StaffSchedulingCubit, StaffSchedulingState>(
+    return BlocConsumer<StaffSchedulingCubit, StaffSchedulingState>(
+      // Re-attempt the deep-link staff selection as the roster streams in.
+      listener: (context, state) => _applyDeepLink(),
       builder: (context, state) {
         final cubit = context.read<StaffSchedulingCubit>();
         final staff = state.selectedStaff;
@@ -675,7 +729,10 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                     child: StaffSchedulingStaffDropdown(
                       staffNames: state.staffDropdownNames,
                       selectedStaffName: state.selectedStaffDropdownLabel,
-                      isLoading: state.isLoadingStaff,
+                      // Keep the dropdown visible during loads — the body shimmer
+                      // is the loading indicator; a circular loader here is
+                      // redundant (and hides the dropdown).
+                      isLoading: false,
                       onSelected: cubit.selectStaffByName,
                     ),
                   ),
@@ -761,12 +818,14 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                                 key: ValueKey(
                                   '${staff.code}_${dayColumnLabel}_'
                                   '${state.schoolStartTime}_${state.schoolEndTime}_'
-                                  '${state.classroomNamesByCode.length}',
+                                  '${state.classroomNamesByCode.length}_'
+                                  '${widget.highlightShiftCode}',
                                 ),
                                 dayColumnLabel: dayColumnLabel,
                                 schoolStartTime: state.schoolStartTime!,
                                 schoolEndTime: state.schoolEndTime!,
                                 classroomResolver: state.classroomResolver,
+                                highlightShiftCode: widget.highlightShiftCode,
                                 dailyRoomSchedule:
                                     DailyShifts(shifts: calendarShifts),
                                 onShiftTap: (shift) => _openViewShiftScreen(

@@ -92,6 +92,26 @@ class StaffAttendanceActionAvailability {
   }
 }
 
+/// Standard tooltip messages explaining why a staff attendance action is
+/// unavailable for the given [gate] (today's status). Keyed by the action
+/// labels used in the attendance pop-up: 'Sign-in', 'Sign-Out', 'Transfer',
+/// 'Absent'. Only disabled actions are included.
+Map<String, String> staffAttendanceDisabledReasons(StaffAttendanceGate gate) {
+  return <String, String>{
+    if (!gate.canSignIn)
+      'Sign-in': 'Sign-In can only be done for Students/Staff not signed in.',
+    if (!gate.canSignOut)
+      'Sign-Out':
+          'Sign-Out can only be done for Students/Staff already signed in.',
+    if (!gate.canTransfer)
+      'Transfer':
+          'Transfer can only be done for Students/Staff already signed in.',
+    if (!gate.canMarkAbsent)
+      'Absent':
+          'Absent can only be done for Students/Staff not yet signed in.',
+  };
+}
+
 /// Parses today's status string from [GetStaffTodaySignInStatusMapUseCase] / API.
 StaffAttendanceGate staffAttendanceGateFromTodayStatus({
   required bool isActiveProfile,

@@ -24,7 +24,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -39,6 +39,7 @@ class StaffAttendanceTabbedView extends StatefulWidget {
     this.initialTabIndex = 0, 
     this.dailyIncomingFilter,
     this.classroomFilter,
+    this.hasBackButton = false,
   });
 
   static const String routeName = '/dashboard/staff-attendance-tabbed-view';
@@ -46,6 +47,7 @@ class StaffAttendanceTabbedView extends StatefulWidget {
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
   final FilterData? classroomFilter; // classroom filter data
+  final bool hasBackButton;
 
   @override
   State<StaffAttendanceTabbedView> createState() => _StaffAttendanceTabbedViewState();
@@ -57,8 +59,12 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   bool _isParentRole = false;
   bool? _isTeacherStaffPersona;
   String _loggedInStaffCode = '';
+  // Hide the floating add button while the drawer is open so it isn't painted
+  // on top of (and brighter than) the drawer's dim scrim.
+  bool _isDrawerOpen = false;
   
-  // Keys to access the state of each tab
+  // Keys to reach each tab's state so an attendance action can reload all
+  // three tabs (Daily, Custom, Absent) — see _refreshAllAfterAttendanceFlow.
   final GlobalKey _dailyViewKey = GlobalKey();
   final GlobalKey _customViewKey = GlobalKey();
   final GlobalKey _absentViewKey = GlobalKey();
@@ -83,7 +89,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleProvider>().isParent) return true;
+    if (context.read<RoleCubit>().isParent) return true;
     try {
       final storage = serviceLocator<StorageService>();
       final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
@@ -198,7 +204,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           ),
           child: Scaffold(
             appBar: CustomAppBar(
-              hasBackButton: false,
+              hasBackButton: widget.hasBackButton,
               tabController: _tabController,
               tabBarStyle: TabBarStyle(
                 indicator: const UnderlineTabIndicator(
@@ -233,6 +239,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             ),
             drawer: const CustomDrawer(),
             drawerEnableOpenDragGesture: false,
+            onDrawerChanged: (isOpen) {
+              if (mounted) setState(() => _isDrawerOpen = isOpen);
+            },
             body: SafeArea(
               // Allow the tab contents to respect the device's bottom inset
               // so that the scrollable lists aren't clipped underneath
@@ -241,14 +250,31 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               child: GradientBackground(
                 child: Padding(
                   padding: ResponsiveSizing.contentPadding(context),
-                  child: TabBarView(
-                    controller: _tabController,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      StaffAttendanceDailyViewScreen(
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4, bottom: 8),
+                        child: Text(
+                          'Staff Attendance',
+                          style: TextStyle(
+                            fontFamily: Fonts.manrope,
+                            fontSize: responsive.isTablet ? 22 : 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: TabBarView(
+                          controller: _tabController,
+                          children: [
+                            StaffAttendanceDailyViewScreen(
                         key: _dailyViewKey,
-                        incomingFilter: widget.dailyIncomingFilter, 
+                        incomingFilter: widget.dailyIncomingFilter,
                         contentOnly: true,
                         classroomFilter: widget.classroomFilter,
+                        onAttendanceMutated: _refreshSecondaryTabs,
                       ),
                       StaffAttendanceCustomView(
                         key: _customViewKey,
@@ -257,6 +283,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                       StaffAttendanceAbsentView(
                         key: _absentViewKey,
                         contentOnly: true,
+                      ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
@@ -270,17 +299,19 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                 const CustomNavigationBar(activeTabIndexOverride: 1),
           ),
         ),
-        // Floating button above everything - responsive positioning
-        Positioned(
-          top: floatingButtonTop,
-          right: floatingButtonRight,
-          child: GradientAddButton(
-            onTap: () => _showActionMenu(context),
-            isTablet: isTablet,
-            isLargeTablet: isLargeTablet,
-            wantedButtonSize: floatingButtonSize,
+        // Floating button positioned over the tab bar. Hidden while the drawer
+        // is open so it doesn't sit above the drawer's dim scrim.
+        if (!_isDrawerOpen)
+          Positioned(
+            top: floatingButtonTop,
+            right: floatingButtonRight,
+            child: GradientAddButton(
+              onTap: () => _showActionMenu(context),
+              isTablet: isTablet,
+              isLargeTablet: isLargeTablet,
+              wantedButtonSize: floatingButtonSize,
+            ),
           ),
-        ),
       ],
     );
   }
@@ -288,12 +319,35 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   @override
   bool get wantKeepAlive => true;
 
-  void _refreshDailyAfterAttendanceFlow() {
-    final dailyState = _dailyViewKey.currentState;
-    if (dailyState == null) return;
-    if (dailyState is! DailyAttendanceParentRefresh) return;
-    (dailyState as DailyAttendanceParentRefresh)
-        .refreshAfterReturningFromAttendanceFlow();
+  /// Reloads every tab (Daily, Custom, Absent) after any attendance action —
+  /// sign-in/out, transfer, mark-absent, edit or delete — so the whole page
+  /// (lists + counts) reflects the change, not just the Daily tab.
+  ///
+  /// The Daily tab reloads itself and cascades to the secondary tabs via its
+  /// onAttendanceMutated callback, so refreshing Daily refreshes everything.
+  /// If Daily isn't currently mounted (the user is on a far tab), it will
+  /// reload on its own when revisited, so we just refresh the secondary tabs.
+  void _refreshAllAfterAttendanceFlow() {
+    final daily = _dailyViewKey.currentState;
+    if (daily is AttendanceTabRefresh) {
+      (daily as AttendanceTabRefresh).refreshAfterReturningFromAttendanceFlow();
+    } else {
+      _refreshSecondaryTabs();
+    }
+  }
+
+  /// Reloads just the Custom and Absent tabs (skipping any not currently
+  /// mounted — they reload themselves when revisited).
+  void _refreshSecondaryTabs() {
+    _refreshTab(_customViewKey);
+    _refreshTab(_absentViewKey);
+  }
+
+  void _refreshTab(GlobalKey key) {
+    final state = key.currentState;
+    if (state is AttendanceTabRefresh) {
+      (state as AttendanceTabRefresh).refreshAfterReturningFromAttendanceFlow();
+    }
   }
 
   void _showActionMenu(BuildContext context) {
@@ -316,20 +370,19 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          // Pin to the top-right so the menu sits flush below the + button
+          // instead of being vertically centered in the inset band.
+          alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
-            top: floatingButtonTop + floatingButtonSize + 8,
-            bottom: mediaQuery.size.height * 0.45,
+            top: floatingButtonTop + floatingButtonSize,
             left: mediaQuery.size.width * 0.75,
             right: floatingButtonRight,
           ),
           child: Container(
-            width: 50,
-            constraints: const BoxConstraints(maxHeight: 400),
-            padding: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.all(2),
             decoration: BoxDecoration(
-              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
+              gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
@@ -338,17 +391,28 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                 ),
               ],
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
-                const SizedBox(height: 5),
-                _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
-                const SizedBox(height: 5),
-                _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
-                const SizedBox(height: 5),
-                _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
-              ],
+            child: Container(
+              width: 50,
+              constraints: const BoxConstraints(maxHeight: 400),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
+                  const SizedBox(height: 5),
+                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
+                  const SizedBox(height: 5),
+                  if (!(_isTeacherStaffPersona ?? false))
+                    _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                  if (!(_isTeacherStaffPersona ?? false))
+                    const SizedBox(height: 5),
+                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+                ],
+              ),
             ),
           ),
         );
@@ -417,7 +481,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             context,
             MaterialPageRoute(builder: (_) => StaffSignInForm(staff: staff)),
           ).then((_) {
-            if (mounted) _refreshDailyAfterAttendanceFlow();
+            if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Sign-Out':
@@ -425,7 +489,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             context,
             MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)),
           ).then((_) {
-            if (mounted) _refreshDailyAfterAttendanceFlow();
+            if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Transfer':
@@ -433,7 +497,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             context,
             MaterialPageRoute(builder: (_) => StaffTransferForm(staff: staff)),
           ).then((_) {
-            if (mounted) _refreshDailyAfterAttendanceFlow();
+            if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
         case 'Absent':
@@ -441,7 +505,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             context,
             MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
           ).then((_) {
-            if (mounted) _refreshDailyAfterAttendanceFlow();
+            if (mounted) _refreshAllAfterAttendanceFlow();
           });
           break;
       }
@@ -454,7 +518,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           context,
           MaterialPageRoute(builder: (_) => const StaffSelectionSignInForm()),
         ).then((_) {
-          if (mounted) _refreshDailyAfterAttendanceFlow();
+          if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Sign-Out':
@@ -462,7 +526,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           context,
           MaterialPageRoute(builder: (_) => const StaffSelectionSignOutForm()),
         ).then((_) {
-          if (mounted) _refreshDailyAfterAttendanceFlow();
+          if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Transfer':
@@ -470,7 +534,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           context,
           MaterialPageRoute(builder: (_) => const StaffSelectionTransferForm()),
         ).then((_) {
-          if (mounted) _refreshDailyAfterAttendanceFlow();
+          if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
       case 'Absent':
@@ -478,7 +542,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           context,
           MaterialPageRoute(builder: (_) => const StaffSelectionMarkAbsentForm()),
         ).then((_) {
-          if (mounted) _refreshDailyAfterAttendanceFlow();
+          if (mounted) _refreshAllAfterAttendanceFlow();
         });
         break;
     }

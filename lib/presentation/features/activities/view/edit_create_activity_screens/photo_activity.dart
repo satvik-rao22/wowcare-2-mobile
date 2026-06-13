@@ -21,13 +21,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
@@ -125,13 +119,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _existingPhotoUrls.isNotEmpty ||
       _existingVideoUrl != null;
 
-  late final GetClassroomActivitySettingsUseCase _getSettingsUseCase;
-  late final GetActivityTypeDetailsUseCase _getDetailsUseCase;
-  late final CreateSharedActivitiesUseCase _createSharedUseCase;
-  late final GetActivityUseCase _getActivityUseCase;
-  late final UpdateActivityUseCase _updateActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  late final ActivityEditorCubit _editor;
   late final ImageUploadService _uploadService;
 
   ActivityItem get _effectiveActivity =>
@@ -182,13 +170,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _getSettingsUseCase = serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _getDetailsUseCase = serviceLocator<GetActivityTypeDetailsUseCase>();
-    _createSharedUseCase = serviceLocator<CreateSharedActivitiesUseCase>();
-    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
-    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _editor = serviceLocator<ActivityEditorCubit>();
     _uploadService = serviceLocator<ImageUploadService>();
 
     // Create flow: let [DateWidget]/[TimeWidget] apply school zone after
@@ -267,7 +249,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     try {
       await _submitUpdateActivity();
       if (!_lastUpdateSucceeded) return;
-      final msg = await _approveActivityUseCase(code: code);
+      final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
       Navigator.of(context).pop(true);
@@ -293,7 +275,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _isApprovingOrRejecting = true);
     try {
-      final msg = await _rejectActivityUseCase(code: code);
+      final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
       Navigator.of(context).pop(true);
@@ -315,7 +297,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _loadingActivityDetail = true);
     try {
-      final detail = await _getActivityUseCase(code: code);
+      final detail = await _editor.getActivity(code: code);
       if (!mounted) return;
       final item = activityItemFromActivityDetail(
         detail,
@@ -420,7 +402,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     if (classroomCode.isEmpty) return;
     try {
       final List<ActivitySetting> settings =
-          await _getSettingsUseCase(classroomCode: classroomCode);
+          await _editor.getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? matched;
       for (final setting in settings) {
         final name = setting.activityTypeName.toLowerCase();
@@ -593,12 +575,18 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     // Asset codes are scoped to a specific upload session. Reusing a previous
     // session's cached assetCode causes polling on a new session with no assets.
     _uploadedAssetCodeByPath.clear();
+    // Single student → PER_STUDENT, multiple → SHARED. Owner follows the same
+    // rule: STUDENT/studentCode for per-student, CLASSROOM/classroomCode shared.
+    final isShared = studentCodes.length > 1;
+    final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
+    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
+    final ownerCode = isShared ? classroomCode : studentCodes.first;
     final uploadSession = await _uploadService.createActivityUploadSession(
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       classroomCode: classroomCode,
       activityTypeCode: activityTypeCode,
-      bindingMode: 'SHARED',
+      bindingMode: bindingMode,
       studentCodes: studentCodes,
     );
     final uploadedCodes = <String>[];
@@ -635,8 +623,8 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
         contentLengthBytes: await file.length(),
         checksumSha256: checksumSha256,
         mediaType: isVideo ? 'VIDEO' : 'IMAGE',
-        ownerType: 'CLASSROOM',
-        ownerCode: classroomCode,
+        ownerType: ownerType,
+        ownerCode: ownerCode,
       );
       await _uploadService.uploadFileToPresignedUrl(
         file: file,
@@ -649,8 +637,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               ((fileIndex - 1) + (percent / 100)) / totalFiles;
           final overallPercent =
               (overallFraction * 100).clamp(0, 100).round();
-          final displayPercent = overallPercent >= 100 ? 99 : overallPercent;
-          setState(() => _uploadProgressPercent = displayPercent);
+          setState(() => _uploadProgressPercent = overallPercent);
         },
       );
       await _uploadService.completeAssetUpload(
@@ -673,7 +660,16 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       assetCodes: uploadedCodes,
       persist: true,
     );
-    return uploadedCodes.map((code) => <String, dynamic>{'assetCode': code}).toList();
+    return uploadedCodes.map((code) {
+      if (isShared) {
+        return <String, dynamic>{'assetCode': code};
+      }
+      return <String, dynamic>{
+        'assetCode': code,
+        'studentCode': ownerCode,
+        'bindingMode': bindingMode,
+      };
+    }).toList();
   }
 
   Future<void> _restorePendingProcessingPollIfAny() async {
@@ -932,7 +928,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _isSubmitting = true;
     });
     try {
-      final details = await _getDetailsUseCase(code: activityTypeCode);
+      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
       final localDate =
           '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
       final localTime =
@@ -995,7 +991,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       ];
 
       // Shared media flow (photos + videos): create one shared activity per attachment.
-      await _createSharedUseCase(
+      await _editor.createSharedActivities(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
         studentCodes: studentCodes,
@@ -1200,7 +1196,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       final patchAttachments =
           attachmentsForActivityPatchRequest(mergedRows);
 
-      final details = await _getDetailsUseCase(code: activityTypeCode);
+      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
       final dateCode = _findParameterCode(details.parameters, exactName: 'date');
       final timeCode = _findParameterCode(details.parameters, exactName: 'time');
       final staffCodeParam = _findParameterCode(
@@ -1251,7 +1247,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           );
           return;
         }
-        lastMessage = await _updateActivityUseCase(
+        lastMessage = await _editor.updateActivity(
           code: code,
           studentCodes: _selectedStudentsData
               .map((e) => (e['studentCode'] as String?)?.trim())
@@ -1272,7 +1268,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           attachments: patchAttachments,
         );
         try {
-          await _getActivityUseCase(code: code);
+          await _editor.getActivity(code: code);
         } catch (_) {}
       }
       if (!mounted) return;
@@ -1310,6 +1306,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   void dispose() {
     _mediaProcessingPollTimer?.cancel();
     _descriptionController.dispose();
+    _editor.close();
     super.dispose();
   }
 

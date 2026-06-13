@@ -65,3 +65,24 @@ class ImportantDatesResponseModel extends Equatable {
   List<Object?> get props => [success, message, data, timestamp];
 }
 
+class PhysicalCheckupSummaryModel {
+  const PhysicalCheckupSummaryModel({
+    required this.overduePhysicalCheckupCount,
+    required this.staffWithoutActivePhysicalCheckupCount,
+  });
+
+  final int overduePhysicalCheckupCount;
+  final int staffWithoutActivePhysicalCheckupCount;
+
+  factory PhysicalCheckupSummaryModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? const {};
+    return PhysicalCheckupSummaryModel(
+      overduePhysicalCheckupCount:
+          (data['overduePhysicalCheckupCount'] as num?)?.toInt() ?? 0,
+      staffWithoutActivePhysicalCheckupCount:
+          (data['staffWithoutActivePhysicalCheckupCount'] as num?)?.toInt() ??
+              0,
+    );
+  }
+}
+

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/presentation/features/billing/cubit/create_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/selected_students_receipt_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -29,97 +31,39 @@ class CreateInvoiceScreen extends StatefulWidget {
 }
 
 class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
+  late final CreateInvoiceCubit _cubit = CreateInvoiceCubit();
   final TextEditingController _internalNoteController = TextEditingController();
   final DateFormat _dateFormat = DateFormat('MMM dd, yyyy');
 
-  late List<_InvoiceItemFormData> _invoiceItems;
-
-  DateTime? _dueDate;
-  DateTime? _serviceStartDate;
-  DateTime? _serviceEndDate;
-
-  bool _isSubmitting = false;
-  bool _isFormLocked = false;
+  final ValueNotifier<bool> _isSubmitting = ValueNotifier<bool>(false);
 
   final List<String> _firstItemTypeOptions = ['New Item', 'Preset Item'];
   final List<String> _itemTypeOptions = ['New Item', 'Preset Item', 'Discount', 'Subsidy'];
   final List<String> _presetItemOptions = ['Tuition Fee', 'Activity Fee', 'Late Pick-up'];
   final List<String> _discountOptions = ['Sibling Discount', 'Loyalty Discount'];
 
+  // Read-only proxies onto the cubit state.
+  List<InvoiceItemFormData> get _invoiceItems => _cubit.state.items;
+  DateTime? get _dueDate => _cubit.state.dueDate;
+  DateTime? get _serviceStartDate => _cubit.state.serviceStartDate;
+  DateTime? get _serviceEndDate => _cubit.state.serviceEndDate;
+  bool get _isFormLocked => _cubit.state.isFormLocked;
+  double get _totalAmount => _cubit.state.totalAmount;
+
   @override
   void initState() {
     super.initState();
-    _invoiceItems = [
-      _InvoiceItemFormData.initial(isPrimary: true),
-    ];
-    _hydrateFromInitialData();
+    _cubit.initialize(widget.initialInvoiceData);
+    final note = widget.initialInvoiceData?['internalNote'];
+    if (note is String) _internalNoteController.text = note;
   }
 
   @override
   void dispose() {
     _internalNoteController.dispose();
-    for (final item in _invoiceItems) {
-      item.dispose();
-    }
+    _isSubmitting.dispose();
+    _cubit.close();
     super.dispose();
-  }
-
-  void _hydrateFromInitialData() {
-    final data = widget.initialInvoiceData;
-    if (data == null) return;
-
-    if (data['invoiceItems'] is List) {
-      final List<dynamic> items = data['invoiceItems'] as List<dynamic>;
-      if (items.isNotEmpty) {
-        for (final item in _invoiceItems) {
-          item.dispose();
-        }
-        _invoiceItems = items.mapIndexed((index, raw) {
-          final map = raw as Map<String, dynamic>;
-          return _InvoiceItemFormData(
-            type: map['type']?.toString() ?? (index == 0 ? 'New Item' : 'Preset Item'),
-            description: map['description']?.toString() ?? '',
-            amount: map['amount']?.toString() ?? '',
-            deductionAmount: map['deductionAmt']?.toString() ?? '',
-            percentageAmount: map['percentageAmt']?.toString() ?? '',
-            currencySign: map['currencySign']?.toString() ?? '%',
-            isPrimary: index == 0,
-          );
-        }).toList();
-        for (var i = 0; i < _invoiceItems.length; i++) {
-          _recalculateDiscountAmount(i);
-        }
-      }
-    }
-
-    if (data['internalNote'] is String) {
-      _internalNoteController.text = data['internalNote'] as String;
-    }
-
-    if (data['invoiceDate'] is DateTime) {
-      _dueDate = data['invoiceDate'] as DateTime;
-    }
-
-    if (data['serviceDate'] is DateTime) {
-      _serviceStartDate = data['serviceDate'] as DateTime;
-    }
-
-    if (data['serviceDateEnd'] is DateTime) {
-      _serviceEndDate = data['serviceDateEnd'] as DateTime;
-    }
-  }
-
-  double get _totalAmount {
-    double total = 0;
-    for (final item in _invoiceItems) {
-      final amount = double.tryParse(item.amountController.text.isEmpty ? item.amount : item.amountController.text) ?? 0;
-      if (item.type == 'Discount' || item.type == 'Subsidy') {
-        total -= amount;
-      } else {
-        total += amount;
-      }
-    }
-    return total;
   }
 
   Future<void> _pickDate({
@@ -134,25 +78,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       lastDate: DateTime(now.year + 5),
     );
     if (!mounted) return;
-    if (picked != null) {
-      setState(() => onSelected(picked));
-    }
+    if (picked != null) onSelected(picked);
   }
 
-  void _addInvoiceItem() {
-    if (_isFormLocked) return;
-    setState(() {
-      _invoiceItems.add(_InvoiceItemFormData.initial());
-    });
-  }
+  void _addInvoiceItem() => _cubit.addItem();
 
-  void _removeInvoiceItem(int index) {
-    if (_isFormLocked || index == 0 || index >= _invoiceItems.length) return;
-    setState(() {
-      final removed = _invoiceItems.removeAt(index);
-      removed.dispose();
-    });
-  }
+  void _removeInvoiceItem(int index) => _cubit.removeItem(index);
 
   void _updateInvoiceItem(
     int index, {
@@ -163,71 +94,15 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     String? percentage,
     String? currencySign,
   }) {
-    if (index < 0 || index >= _invoiceItems.length) return;
-    final item = _invoiceItems[index];
-
-    setState(() {
-      if (type != null) {
-        item.type = type;
-        if (type == 'Discount' || type == 'Subsidy') {
-          item.currencySign = currencySign ?? item.currencySign;
-          item.amountController.text = item.amountController.text.isEmpty ? '0' : item.amountController.text;
-        }
-      }
-      if (description != null) {
-        item.description = description;
-        if (item.descriptionController.text != description) {
-          item.descriptionController.text = description;
-        }
-      }
-      if (amount != null) {
-        item.amount = amount;
-        if (item.amountController.text != amount) {
-          item.amountController.text = amount;
-        }
-      }
-      if (deduction != null) {
-        item.deductionAmount = deduction;
-        if (item.deductionController.text != deduction) {
-          item.deductionController.text = deduction;
-        }
-      }
-      if (percentage != null) {
-        item.percentageAmount = percentage;
-        if (item.percentageController.text != percentage) {
-          item.percentageController.text = percentage;
-        }
-      }
-      if (currencySign != null) {
-        item.currencySign = currencySign;
-      }
-      _recalculateDiscountAmount(index);
-    });
-  }
-
-  void _recalculateDiscountAmount(int index) {
-    if (index < 0 || index >= _invoiceItems.length) return;
-    final item = _invoiceItems[index];
-    if (item.type != 'Discount' && item.type != 'Subsidy') return;
-
-    final deductionValue =
-        double.tryParse(item.deductionController.text.isEmpty ? item.deductionAmount : item.deductionController.text) ?? 0;
-    if (item.currencySign == '%') {
-      final baseAmount = double.tryParse(
-            item.percentageController.text.isEmpty ? item.percentageAmount : item.percentageController.text,
-          ) ??
-          0;
-      final calculated = (baseAmount * deductionValue) / 100;
-      item.amount = calculated.toStringAsFixed(2);
-      item.amountController
-        ..text = calculated.toStringAsFixed(2)
-        ..selection = TextSelection.fromPosition(TextPosition(offset: item.amountController.text.length));
-    } else {
-      item.amount = deductionValue.toStringAsFixed(2);
-      item.amountController
-        ..text = deductionValue.toStringAsFixed(2)
-        ..selection = TextSelection.fromPosition(TextPosition(offset: item.amountController.text.length));
-    }
+    _cubit.updateItem(
+      index,
+      type: type,
+      description: description,
+      amount: amount,
+      deduction: deduction,
+      percentage: percentage,
+      currencySign: currencySign,
+    );
   }
 
   List<String> _descriptionOptionsForType(String type) {
@@ -244,7 +119,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   void _handleSubmit() {
-    if (_isSubmitting) return;
+    if (_isSubmitting.value) return;
     if (!_validateRequiredFields()) {
       return;
     }
@@ -271,10 +146,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       'serviceDateEnd': _serviceEndDate,
     };
 
-    setState(() => _isSubmitting = true);
+    _isSubmitting.value = true;
     Future<void>.delayed(const Duration(milliseconds: 150), () {
       if (!mounted) return;
-      setState(() => _isSubmitting = false);
+      _isSubmitting.value = false;
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -289,6 +164,10 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<CreateInvoiceCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<CreateInvoiceCubit, CreateInvoiceState>(
+        builder: (context, state) {
     final responsive = ResponsiveHelper(context);
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = responsive.isTablet;
@@ -403,24 +282,33 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? AppColors.billingButtonDisabled : null,
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : _handleSubmit,
-              child: Text(
-                'Save Invoice (UI Only)',
-                style: AppTextStyles.button(color: AppColors.billingCardColor).copyWith(
-                  fontSize: responsive.buttonFontSize,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: _isSubmitting,
+            builder: (context, isSubmitting, _) => Container(
+              height: responsive.buttonHeight,
+              decoration: BoxDecoration(
+                gradient:
+                    isSubmitting ? null : AppColors.buildPrimaryGradient(),
+                color: isSubmitting ? AppColors.billingButtonDisabled : null,
+                borderRadius:
+                    BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+              ),
+              child: TextButton(
+                onPressed: isSubmitting ? null : _handleSubmit,
+                child: Text(
+                  'Save Invoice (UI Only)',
+                  style: AppTextStyles.button(color: AppColors.billingCardColor)
+                      .copyWith(
+                    fontSize: responsive.buttonFontSize,
+                  ),
                 ),
               ),
             ),
           ),
         ),
+      ),
+    );
+        },
       ),
     );
   }
@@ -443,7 +331,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           child: GestureDetector(
             onTap: () => _pickDate(
               currentValue: _dueDate,
-              onSelected: (value) => _dueDate = value,
+              onSelected: _cubit.setDueDate,
             ),
             child: Container(
               width: 160,
@@ -496,7 +384,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: GestureDetector(
                 onTap: () => _pickDate(
                   currentValue: _serviceStartDate,
-                  onSelected: (value) => _serviceStartDate = value,
+                  onSelected: _cubit.setServiceStartDate,
                 ),
                 child: _DateField(
                   label: _serviceStartDate == null ? 'Select date' : _dateFormat.format(_serviceStartDate!),
@@ -516,7 +404,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               child: GestureDetector(
                 onTap: () => _pickDate(
                   currentValue: _serviceEndDate,
-                  onSelected: (value) => _serviceEndDate = value,
+                  onSelected: _cubit.setServiceEndDate,
                 ),
                 child: _DateField(
                   label: _serviceEndDate == null ? 'Select date' : _dateFormat.format(_serviceEndDate!),
@@ -1083,64 +971,5 @@ class _ItemTextField extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _InvoiceItemFormData {
-  _InvoiceItemFormData({
-    required this.type,
-    required this.description,
-    required this.amount,
-    required this.deductionAmount,
-    required this.percentageAmount,
-    required this.currencySign,
-    this.isPrimary = false,
-  })  : descriptionController = TextEditingController(text: description),
-        amountController = TextEditingController(text: amount),
-        deductionController = TextEditingController(text: deductionAmount),
-        percentageController = TextEditingController(text: percentageAmount);
-
-  factory _InvoiceItemFormData.initial({bool isPrimary = false}) {
-    return _InvoiceItemFormData(
-      type: isPrimary ? 'New Item' : 'Preset Item',
-      description: '',
-      amount: '',
-      deductionAmount: '',
-      percentageAmount: '',
-      currencySign: '%',
-      isPrimary: isPrimary,
-    );
-  }
-
-  String type;
-  String description;
-  String amount;
-  String deductionAmount;
-  String percentageAmount;
-  String currencySign;
-  final bool isPrimary;
-
-  final TextEditingController descriptionController;
-  final TextEditingController amountController;
-  final TextEditingController deductionController;
-  final TextEditingController percentageController;
-
-  void dispose() {
-    descriptionController.dispose();
-    amountController.dispose();
-    deductionController.dispose();
-    percentageController.dispose();
-  }
-}
-
-extension IterableMapIndexedExtension<T> on Iterable<T> {
-  List<R> mapIndexed<R>(R Function(int index, T value) callback) {
-    var index = 0;
-    final result = <R>[];
-    for (final value in this) {
-      result.add(callback(index, value));
-      index += 1;
-    }
-    return result;
   }
 }

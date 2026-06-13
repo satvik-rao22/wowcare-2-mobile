@@ -100,6 +100,7 @@ class StudentDocumentItemModel extends Equatable {
     required this.storagePath,
     required this.mimeType,
     required this.size,
+    this.assetCode,
     this.ownerId,
     this.notes,
     this.createdAt,
@@ -113,6 +114,9 @@ class StudentDocumentItemModel extends Equatable {
   final String storagePath;
   final String mimeType;
   final int size;
+
+  /// Media-asset code used to resolve a downloadable link.
+  final String? assetCode;
   final String? ownerId;
   final String? notes;
   final String? createdAt;
@@ -127,6 +131,7 @@ class StudentDocumentItemModel extends Equatable {
       storagePath: json['storagePath'] as String? ?? '',
       mimeType: json['mimeType'] as String? ?? '',
       size: json['size'] as int? ?? 0,
+      assetCode: (json['assetCode'] as String?)?.trim(),
       ownerId: json['ownerId'] as String?,
       notes: json['notes'] as String?,
       createdAt: json['createdAt'] as String?,
@@ -143,6 +148,8 @@ class StudentDocumentItemModel extends Equatable {
       'storagePath': storagePath,
       'mimeType': mimeType,
       'size': size,
+      if (assetCode != null && assetCode!.trim().isNotEmpty)
+        'assetCode': assetCode,
       'ownerId': ownerId,
       'notes': notes,
       'createdAt': createdAt,
@@ -159,6 +166,7 @@ class StudentDocumentItemModel extends Equatable {
         storagePath,
         mimeType,
         size,
+        assetCode,
         ownerId,
         notes,
         createdAt,

@@ -18,7 +18,7 @@ class ClassroomDetailsDataModel {
   final String code;
   final String name;
   final int capacity;
-  final int studentsPerTeacher;
+  final double studentsPerTeacher;
   /// API `minAge`: inclusive lower bound in whole months (0 = unset / from birth UI side).
   final int minAgeTotalMonths;
   /// API `maxAge`: inclusive upper bound in whole months (0 = unset).
@@ -31,16 +31,6 @@ class ClassroomDetailsDataModel {
   final DateTime? updatedAt;
   final String updatedBy;
 
-  static int _asPositiveInt(dynamic v) {
-    if (v is num) {
-      final n = v.toInt();
-      return n > 0 ? n : 0;
-    }
-    final s = (v ?? '').toString().trim();
-    final n = int.tryParse(s);
-    return (n != null && n > 0) ? n : 0;
-  }
-
   static int _nonNegativeMonths(dynamic v) {
     if (v is num) {
       return v.toInt().clamp(0, 12000);
@@ -49,37 +39,48 @@ class ClassroomDetailsDataModel {
     return n == null ? 0 : n.clamp(0, 12000);
   }
 
-  static int _parseStudentsPerTeacher(Map<String, dynamic> json) {
-    final direct = _asPositiveInt(json['studentsPerTeacher']);
-    if (direct > 0) return direct;
+  static double _asPositiveDouble(dynamic v) {
+    if (v is num) {
+      final n = v.toDouble();
+      return n > 0 ? n : 0;
+    }
+    final s = (v ?? '').toString().trim();
+    final n = double.tryParse(s);
+    return (n != null && n > 0) ? n : 0;
+  }
 
-    final fromApiRatio = _asPositiveInt(json['studentsTeacherRatio']);
-    if (fromApiRatio > 0) return fromApiRatio;
-
+  static double _parseStudentsPerTeacher(Map<String, dynamic> json) {
     final ratioRawCandidates = <dynamic>[
-      json['ratio'],
       json['studentTeacherRatio'],
       json['studentsTeacherRatio'],
+      json['studentsPerTeacher'],
+      json['ratio'],
       json['studentsToTeacherRatio'],
       json['teacherStudentRatio'],
     ];
+
     for (final raw in ratioRawCandidates) {
       final text = (raw ?? '').toString().trim();
       if (text.isEmpty) continue;
-      final match = RegExp(r'(\d+)\s*[:/\-]\s*(\d+)').firstMatch(text);
-      if (match != null) {
-        final students = int.tryParse(match.group(1) ?? '');
-        final teachers = int.tryParse(match.group(2) ?? '');
+
+      final fractionMatch =
+          RegExp(r'^(\d+(?:\.\d+)?)\s*[:/\-]\s*(\d+(?:\.\d+)?)$')
+              .firstMatch(text);
+      if (fractionMatch != null) {
+        final students = double.tryParse(fractionMatch.group(1) ?? '');
+        final teachers = double.tryParse(fractionMatch.group(2) ?? '');
         if (students != null &&
             teachers != null &&
             students > 0 &&
             teachers > 0) {
-          return (students / teachers).round();
+          return students / teachers;
         }
       }
-      final maybeInt = int.tryParse(text);
-      if (maybeInt != null && maybeInt > 0) return maybeInt;
+
+      final asDouble = _asPositiveDouble(raw);
+      if (asDouble > 0) return asDouble;
     }
+
     return 0;
   }
 

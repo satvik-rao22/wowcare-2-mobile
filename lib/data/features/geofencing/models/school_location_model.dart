@@ -5,11 +5,13 @@ class SchoolLocationModel {
     required this.schoolCode,
     required this.latitude,
     required this.longitude,
+    required this.radiusMeters,
   });
 
   final String schoolCode;
   final double latitude;
   final double longitude;
+  final double radiusMeters;
 
   factory SchoolLocationModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? json;
@@ -17,6 +19,11 @@ class SchoolLocationModel {
       schoolCode: (data['schoolCode'] as String?) ?? '',
       latitude: (data['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
+      radiusMeters:
+          (data['radiusMeters'] as num?)?.toDouble() ??
+          (data['radius'] as num?)?.toDouble() ??
+          (data['geofenceRadiusMeters'] as num?)?.toDouble() ??
+          250.0,
     );
   }
 
@@ -24,5 +31,6 @@ class SchoolLocationModel {
     schoolCode: schoolCode,
     latitude: latitude,
     longitude: longitude,
+    radiusMeters: radiusMeters,
   );
 }

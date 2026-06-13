@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -107,6 +108,12 @@ class StaffCubit extends Cubit<StaffState> {
       ),
     );
 
+    // Snapshot the status this refresh is fetching. If the filter changes while
+    // we're in flight (e.g. a deep-link resolves a deactivated staff and flips
+    // to INACTIVE while the route's default ACTIVE load is still running), the
+    // older result must NOT clobber the newer one — we drop it before emitting.
+    final requestedStatus = _effectiveStatusFilter();
+
     try {
       final organizationCode = await _resolveOrganizationCode();
       // Start both requests in parallel.
@@ -119,7 +126,7 @@ class StaffCubit extends Cubit<StaffState> {
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
-        status: _effectiveStatusFilter(),
+        status: requestedStatus,
         designation: state.designationFilter,
         search: state.searchQuery,
         primaryClassroomCodes: state.primaryClassroomCodes,
@@ -150,7 +157,7 @@ class StaffCubit extends Cubit<StaffState> {
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
-          status: _effectiveStatusFilter(),
+          status: requestedStatus,
           designation: state.designationFilter,
           search: state.searchQuery,
           primaryClassroomCodes: state.primaryClassroomCodes,
@@ -164,6 +171,9 @@ class StaffCubit extends Cubit<StaffState> {
       }
 
       if (isClosed) return;
+      // Drop a stale result: the filter changed while this load was in flight,
+      // so a newer refresh owns the list now.
+      if (_effectiveStatusFilter() != requestedStatus) return;
       emit(
         state.copyWith(
           items: items,
@@ -208,14 +218,14 @@ class StaffCubit extends Cubit<StaffState> {
 
   Future<void> loadNextPage() async {
     // ignore: avoid_print
-    print('[StaffCubit] loadNextPage called: '
+    AppLogger.d('[StaffCubit] loadNextPage called: '
         'isLoadingMore=${state.isLoadingMore}, '
         'hasMore=${state.hasMore}, '
         'currentPage=${state.currentPage}, '
         'items=${state.items.length}');
     if (state.isLoadingMore || !state.hasMore) {
       // ignore: avoid_print
-      print('[StaffCubit] loadNextPage aborted due to guard.');
+      AppLogger.d('[StaffCubit] loadNextPage aborted due to guard.');
       return;
     }
 
@@ -227,7 +237,7 @@ class StaffCubit extends Cubit<StaffState> {
     try {
       final nextPageIndex = state.currentPage + 1;
       // ignore: avoid_print
-      print('[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize');
+      AppLogger.d('[StaffCubit] requesting page=$nextPageIndex, size=$_pageSize');
       final page = await _getStaffPageUseCase(
         organizationCode: organizationCode,
         schoolCode: schoolCode,
@@ -244,7 +254,7 @@ class StaffCubit extends Cubit<StaffState> {
       if (isClosed) return;
 
       // ignore: avoid_print
-      print('[StaffCubit] loaded page=${page.page}, '
+      AppLogger.d('[StaffCubit] loaded page=${page.page}, '
           'itemsAdded=${page.items.length}, '
           'hasMore=${page.hasMore}');
       emit(
@@ -348,6 +358,34 @@ class StaffCubit extends Cubit<StaffState> {
     );
 
     // Refresh the list so UI and cache reflect the updated status.
+    await refreshWithCacheReset();
+
+    return message;
+  }
+
+  /// Permanently deletes a (deactivated) staff member via the school-user
+  /// delete API and refreshes the list. Returns the success message from the
+  /// backend. Errors are rethrown for the UI to handle.
+  Future<String> deleteStaff(String staffCode) async {
+    // Resolve userCode, organizationCode, schoolCode and role from the profile.
+    final profile = await _repository.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+
+    final staffTypeUpper = profile.staffType.toUpperCase().trim();
+    final role = (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+        ? 'SCHOOL_ADMIN'
+        : 'STAFF';
+
+    final message = await _repository.deleteSchoolUser(
+      userCode: profile.userCode,
+      organizationCode: profile.organizationCode,
+      schoolCode: profile.schoolCode.trim(),
+      role: role,
+    );
+
+    // Refresh the list so UI and cache reflect the deletion.
     await refreshWithCacheReset();
 
     return message;

@@ -1,10 +1,31 @@
+import 'package:wowcare/core/util/active_school_switcher.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/notification_payload.dart';
+import 'package:wowcare/src/app_router.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class GeofenceNotificationService {
   static const String _channelId = 'geofence_channel';
   static const String _channelName = 'School Sign-In Zone Alerts';
+
+  // Dedicated high-importance channel for ALL push notifications (any module),
+  // so every push plays the system notification tune + vibrates. A NEW channel
+  // id (not the legacy 'push_background_channel') guarantees a fresh, audible
+  // channel is created even on devices where an older silent channel exists —
+  // Android locks a channel's sound/importance at creation time, so re-using an
+  // old id would keep it silent. Keep this id in sync with main.dart and the
+  // AndroidManifest's `default_notification_channel_id`.
+  static const String pushChannelId = 'wowcare_alerts_v2';
+  static const String pushChannelName = 'WowCare Notifications';
+
   static const int _enteredId = 1001;
   static const int _exitedId = 1002;
+
+  // Push notifications must each get a UNIQUE id — a fixed id makes every new
+  // push replace the previous one in the tray, so firing 5 in a row leaves only
+  // 1 visible. Start above the reserved geofence ids and increment per push.
+  static int _nextPushId = 2000;
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
@@ -14,78 +35,113 @@ class GeofenceNotificationService {
     if (_initialized) return;
     _initialized = true;
     try {
-      const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
+      const androidInit = AndroidInitializationSettings('ic_launcher_foreground');
+      // Request iOS alert/sound permission at init so the system prompt appears
+      // as soon as GPS monitoring starts, not silently after the first event.
       const iosInit = DarwinInitializationSettings(
-        requestAlertPermission: false,
+        requestAlertPermission: true,
         requestBadgePermission: false,
-        requestSoundPermission: false,
+        requestSoundPermission: true,
       );
       await _plugin.initialize(
-        const InitializationSettings(android: androidInit, iOS: iosInit),
+        settings: const InitializationSettings(
+          android: androidInit,
+          iOS: iosInit,
+        ),
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
 
-      // Create Android notification channel for Android 8.0+
-      await _plugin
+      // Create Android notification channels for Android 8.0+.
+      final androidPlugin = _plugin
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(
-            const AndroidNotificationChannel(
-              _channelId,
-              _channelName,
-              importance: Importance.high,
-              enableVibration: true,
-              playSound: true,
-            ),
-          );
+            AndroidFlutterLocalNotificationsPlugin
+          >();
+      // Geofence sign-in zone alerts.
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          _channelId,
+          _channelName,
+          importance: Importance.high,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
+      // Push notifications (all modules) — system sound + vibration.
+      await androidPlugin?.createNotificationChannel(
+        const AndroidNotificationChannel(
+          pushChannelId,
+          pushChannelName,
+          importance: Importance.high,
+          enableVibration: true,
+          playSound: true,
+        ),
+      );
     } catch (e) {
-      print('GeofenceNotificationService init failed: $e');
+      AppLogger.d('GeofenceNotificationService init failed: $e');
       // Continue without notifications - geofencing still works
       _initialized = false;
     }
   }
 
   Future<void> showEnteredZoneNotification() => _show(
-        id: _enteredId,
-        title: 'You are now within school sign-in range',
-        body: 'Tap to sign your child in or out.',
-        isCritical: true,
-      );
+    id: _enteredId,
+    title: 'Attendance Available',
+    body: 'You are within the school premises. You can now Sign In or Sign Out.',
+    isCritical: true,
+  );
 
   Future<void> showExitedZoneNotification() => _show(
-        id: _exitedId,
-        title: 'You left the school sign-in zone',
-        body: 'GPS sign-in is unavailable until you return.',
-        isCritical: false,
-      );
+    id: _exitedId,
+    title: 'Outside School Premises',
+    body: 'Attendance actions are currently unavailable.',
+    isCritical: false,
+  );
 
   Future<void> showCustomNotification({
     required String title,
     required String body,
-  }) =>
-      _show(
-        id: 1003,
-        title: title,
-        body: body,
-        isCritical: true,
-      );
+    String? payload,
+  }) => _show(
+    // Unique id per push so multiple notifications stack instead of replacing.
+    id: _nextPushId++,
+    title: title,
+    body: body,
+    isCritical: true,
+    payload: payload,
+    // Route through the dedicated push channel so every module's notification
+    // plays the system tune.
+    channelId: pushChannelId,
+    channelName: pushChannelName,
+  );
 
   Future<void> _show({
     required int id,
     required String title,
     required String body,
     required bool isCritical,
+    String? payload,
+    String channelId = _channelId,
+    String channelName = _channelName,
   }) async {
+    // Ensure the plugin is initialized so the tap handler
+    // (onDidReceiveNotificationResponse → _onNotificationTapped) is registered.
+    // Push notifications can show before geofencing ever runs init(), and
+    // without this a foreground-notification tap would do nothing. init() is
+    // idempotent.
+    if (!_initialized) await init();
     try {
       await _plugin.show(
-        id,
-        title,
-        body,
-        NotificationDetails(
+        id: id,
+        title: title,
+        body: body,
+        payload: payload,
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            _channelId,
-            _channelName,
-            importance: isCritical ? Importance.high : Importance.defaultImportance,
+            channelId,
+            channelName,
+            importance: isCritical
+                ? Importance.high
+                : Importance.defaultImportance,
             priority: isCritical ? Priority.high : Priority.defaultPriority,
             enableVibration: isCritical,
             playSound: isCritical,
@@ -104,6 +160,40 @@ class GeofenceNotificationService {
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap - can navigate to sign-in flow if needed
+    // Foreground push notifications carry their deep-link location as the
+    // payload (set by PushNotificationCubit). Route to it on tap so foreground
+    // taps behave like background-tray taps instead of doing nothing.
+    final raw = response.payload?.trim();
+    if (raw == null || raw.isEmpty) return;
+    final decoded = decodeNotificationPayload(raw);
+    final ctx = CoreUtils.rootNavigatorKey.currentContext;
+    // If the notification targets a different school the user belongs to, switch
+    // the active org/school BEFORE routing (mirrors the background-tap path).
+    if (ctx != null &&
+        (decoded.organizationCode ?? '').isNotEmpty &&
+        (decoded.schoolCode ?? '').isNotEmpty) {
+      () async {
+        try {
+          await switchActiveSchoolIfNeeded(
+            context: ctx,
+            organizationCode: decoded.organizationCode,
+            schoolCode: decoded.schoolCode,
+          );
+        } catch (e) {
+          AppLogger.d('[FCM] Foreground tap school-switch failed: $e');
+        }
+        try {
+          appRouter.go(decoded.location);
+        } catch (e) {
+          AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
+        }
+      }();
+      return;
+    }
+    try {
+      appRouter.go(decoded.location);
+    } catch (e) {
+      AppLogger.d('[FCM] Foreground tap route failed for "$raw": $e');
+    }
   }
 }

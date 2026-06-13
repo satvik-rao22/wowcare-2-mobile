@@ -8,7 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -2071,7 +2071,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       // Parent UX: use the child currently selected in the global dropdown.
       final globalSelectedCode =
-          (context.read<ParentChildProvider>().selectedChild?.code ?? '')
+          (context.read<ParentChildCubit>().selectedChild?.code ?? '')
               .trim();
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
@@ -2610,7 +2610,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   void _syncWithGlobalChildSelection() {
     if (!_parentHome) return;
     final globalSelectedCode =
-        (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+        (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
     if (globalSelectedCode.isEmpty) return;
     if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
 
@@ -2632,10 +2632,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // Listen to global child dropdown. When ParentChildProvider notifies,
+    // Listen to global child dropdown. When ParentChildCubit notifies,
     // this widget rebuilds and we can refresh the feed for the selected child.
     if (_parentHome) {
-      context.watch<ParentChildProvider>().selectedChild?.code;
+      context.watch<ParentChildCubit>().selectedChild?.code;
     }
     if (_parentHome) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
