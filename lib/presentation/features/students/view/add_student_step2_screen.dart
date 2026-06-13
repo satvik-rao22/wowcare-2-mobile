@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -13,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -68,7 +70,6 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _relationOtherController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
 
   static const int _nameMaxLength = 50;
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
@@ -168,16 +169,20 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
 
   Future<void> _pickProfileImage() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
+      // Shared file picker → every allowed image format is selectable
+      // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff).
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
       );
-      if (image == null) return;
+      final path = picked?.path;
+      if (path == null || path.isEmpty) return;
 
-      final file = File(image.path);
+      final file = File(path);
       final fileSizeInMB = await file.length() / (1024 * 1024);
 
       if (fileSizeInMB > 10) {
+        if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Image size must be less than 10MB',
@@ -190,6 +195,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
         _profilePhoto = file;
       });
     } catch (e) {
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to pick image: $e',
@@ -506,8 +512,25 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                 studentCode: studentCode,
                 fields: fields,
               );
+              // Photo upload runs in the BACKGROUND so the form returns
+              // instantly; it keeps going even after this screen is closed.
+              final editFile = _profilePhoto;
+              if (editFile != null) {
+                unawaited(uploadGuardianPhotoInBackground(
+                  file: editFile,
+                  guardianCode: guardianCode,
+                  studentCode: studentCode,
+                  email: email,
+                  mobile: digits,
+                  schoolCode: schoolCode,
+                  organizationCode: orgCode.trim(),
+                  userCode: (widget.initialUserCode ?? '').trim(),
+                ));
+              }
             } else {
-              message = await repo.createGuardianUser(
+              // Create guardian FIRST, then upload the photo in the background
+              // using the new code (resolved inside the detached task).
+              final created = await repo.createGuardianUser(
                 schoolCode: schoolCode,
                 studentCode: studentCode,
                 firstName: first,
@@ -521,12 +544,28 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                     loggedInUserCode.trim().isEmpty ? null : loggedInUserCode.trim(),
                 organizationCode: orgCode.trim(),
               );
+              message = created.message;
+              final createFile = _profilePhoto;
+              if (createFile != null) {
+                unawaited(uploadGuardianPhotoInBackground(
+                  file: createFile,
+                  guardianCode: (created.guardianCode ?? '').trim(),
+                  studentCode: studentCode,
+                  email: email,
+                  mobile: digits,
+                  schoolCode: schoolCode,
+                  organizationCode: orgCode.trim(),
+                  userCode: '',
+                ));
+              }
             }
 
             if (!mounted) return;
             CoreUtils.showTopSnackBar(
               context: context,
-              message: message,
+              message: _profilePhoto != null
+                  ? '$message Photo is uploading in the background…'
+                  : message,
               isSuccess: true,
             );
             Navigator.pop(context, true);

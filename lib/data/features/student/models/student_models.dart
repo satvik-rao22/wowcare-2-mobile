@@ -484,6 +484,8 @@ class StudentGuardianModel extends Equatable {
     required this.relationToStudent,
     required this.primaryContact,
     required this.legalCustody,
+    this.profilePhotoUrl,
+    this.profilePhotoAssetCode,
   });
 
   final String guardianCode;
@@ -497,9 +499,24 @@ class StudentGuardianModel extends Equatable {
   final bool primaryContact;
   final bool legalCustody;
 
+  /// Direct profile-photo URL, if the backend returns one.
+  final String? profilePhotoUrl;
+
+  /// Document-MS asset code for the profile photo, when the backend returns a
+  /// code instead of a ready URL (resolved to a URL by [DocumentImageWidget]).
+  final String? profilePhotoAssetCode;
+
   String get fullName => '$firstName $lastName'.trim();
 
   factory StudentGuardianModel.fromJson(Map<String, dynamic> json) {
+    String? firstNonEmpty(List<String> keys) {
+      for (final k in keys) {
+        final v = (json[k] as Object?)?.toString().trim() ?? '';
+        if (v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
     return StudentGuardianModel(
       // The per-student guardian endpoint returns the code under `code`, while
       // some other guardian endpoints use `guardianCode`. Accept either so the
@@ -517,6 +534,12 @@ class StudentGuardianModel extends Equatable {
       relationToStudent: json['relationToStudent'] as String? ?? '',
       primaryContact: json['primaryContact'] as bool? ?? false,
       legalCustody: json['legalCustody'] as bool? ?? false,
+      profilePhotoUrl: firstNonEmpty(
+        const ['profilePhotoUrl', 'photoUrl', 'profileImageUrl', 'imageUrl'],
+      ),
+      profilePhotoAssetCode: firstNonEmpty(
+        const ['profilePhotoAssetCode', 'photoAssetCode', 'mediaAssetCode'],
+      ),
     );
   }
 
@@ -532,6 +555,8 @@ class StudentGuardianModel extends Equatable {
       'relationToStudent': relationToStudent,
       'primaryContact': primaryContact,
       'legalCustody': legalCustody,
+      'profilePhotoUrl': profilePhotoUrl,
+      'profilePhotoAssetCode': profilePhotoAssetCode,
     };
   }
 
@@ -547,6 +572,8 @@ class StudentGuardianModel extends Equatable {
         relationToStudent,
         primaryContact,
         legalCustody,
+        profilePhotoUrl,
+        profilePhotoAssetCode,
       ];
 }
 

@@ -6,7 +6,7 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
@@ -95,7 +95,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _healthScrollController = ScrollController();
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
-  final ImagePicker _picker = ImagePicker();
   late final CacheManager _cacheManager;
   late Future<StudentHealthModel?> _healthFuture;
   late String _displayName;
@@ -392,8 +391,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       return;
     }
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
+      // Shared file picker → every allowed image format is selectable.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
+      );
+      final imagePath = picked?.path;
+      if (imagePath == null || imagePath.isEmpty) return;
       final studentCode = (_activeStudentCode ?? '').trim();
       final schoolCode = (_schoolCode ?? '').trim();
       final organizationCode = (_organizationCode ?? '').trim();
@@ -425,16 +429,18 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         _profilePhotoUploadPercent = 5;
       });
       final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(image.path);
+      final file = File(imagePath);
       final sessionCode = await uploadService.createStudentProfilePhotoUploadSession(
         studentCode: studentCode,
         schoolCode: resolvedSchoolCode,
         organizationCode: resolvedOrganizationCode,
       );
       if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = image.path.toLowerCase();
+      final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final mime = FilePickerUtils.getMimeType(
+          fileName.contains('.') ? fileName.split('.').last : '');
+      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',

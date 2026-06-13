@@ -1,8 +1,9 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -16,6 +17,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
@@ -58,7 +60,6 @@ class AddStudentStep1Screen extends StatefulWidget {
 class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
 
   static const int _nameMaxLength = 50;
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
@@ -135,16 +136,20 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _pickProfileImage() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
+      // Use the shared file picker so every allowed image format is selectable
+      // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not just gallery JPEGs.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
       );
-      if (image == null) return;
+      final path = picked?.path;
+      if (path == null || path.isEmpty) return;
 
-      final file = File(image.path);
+      final file = File(path);
       final fileSizeInMB = await file.length() / (1024 * 1024);
 
       if (fileSizeInMB > 10) {
+        if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Image size must be less than 10MB',
@@ -157,6 +162,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         _profilePhoto = file;
       });
     } catch (e) {
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to pick image: $e',
@@ -665,6 +671,18 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         profilePhotoUrl: null,
       );
 
+      // Upload the picked student photo in the BACKGROUND so creation returns
+      // immediately; the upload keeps running even after this screen is closed.
+      final pickedPhoto = _profilePhoto;
+      if (pickedPhoto != null && student.code.trim().isNotEmpty) {
+        unawaited(uploadStudentPhotoInBackground(
+          studentCode: student.code.trim(),
+          file: pickedPhoto,
+          schoolCode: schoolCode.trim(),
+          organizationCode: organizationCode.trim(),
+        ));
+      }
+
       final studentName = student.fullName.isNotEmpty
           ? student.fullName
           : '$firstName $lastName'.trim();
@@ -765,7 +783,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           final bool legalCustody = map['isChildCustody'] as bool? ?? true;
 
           try {
-            await repo.createGuardianUser(
+            final createdGuardian = await repo.createGuardianUser(
               schoolCode: schoolCode,
               studentCode: student.code,
               firstName: parentFirst,
@@ -779,6 +797,20 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               userCode: userCode.isEmpty ? null : userCode,
               organizationCode: organizationCode.trim(),
             );
+            // Upload this parent's photo (picked in step 2) in the background.
+            final parentPhoto = map['profilePhoto'];
+            if (parentPhoto is File) {
+              unawaited(uploadGuardianPhotoInBackground(
+                file: parentPhoto,
+                guardianCode: (createdGuardian.guardianCode ?? '').trim(),
+                studentCode: student.code,
+                email: parentEmail,
+                mobile: parentPhoneDigits,
+                schoolCode: schoolCode,
+                organizationCode: organizationCode.trim(),
+                userCode: '',
+              ));
+            }
           } catch (e) {
             final message = ApiErrorHandler.extractErrorMessage(e);
             if (mounted) {
@@ -871,10 +903,13 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       }
 
+      final bool anyPhotoUploading = _profilePhoto != null ||
+          parents.any((p) => p is Map && p['profilePhoto'] is File);
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully',
+            'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully'
+            '${anyPhotoUploading ? '. Photo is uploading in the background…' : ''}',
         isSuccess: true,
       );
 

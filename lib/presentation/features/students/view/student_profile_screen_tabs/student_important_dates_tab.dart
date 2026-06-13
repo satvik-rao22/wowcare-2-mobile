@@ -128,7 +128,9 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
+        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
+            !role.isStaff &&
+            !role.isParent;
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return Stack(

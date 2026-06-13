@@ -29,6 +29,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
@@ -503,8 +504,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     if (organizationCode.isEmpty || schoolCode.isEmpty) return;
 
     try {
-      final file = await CoreUtils.pickImage();
-      if (file == null) return;
+      // Shared file picker → every allowed image format is selectable
+      // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not gallery-only.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: mounted ? context : null,
+      );
+      final pickedPath = picked?.path;
+      if (pickedPath == null || pickedPath.isEmpty) return;
+      final file = File(pickedPath);
 
       if (!mounted) return;
       // No full-screen loading dialog — the logo avatar shows its own

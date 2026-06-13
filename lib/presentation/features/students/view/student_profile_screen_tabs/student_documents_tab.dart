@@ -143,7 +143,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
   Future<void> _handleEdit(BuildContext context, StudentDocument doc) async {
     final role = context.read<RoleCubit>();
-    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student) ||
+        role.isParent) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
@@ -187,7 +188,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
   Future<void> _handleDelete(BuildContext context, StudentDocument doc) async {
     final role = context.read<RoleCubit>();
-    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student) ||
+        role.isParent) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
@@ -364,7 +366,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
-    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return const Center(

@@ -275,7 +275,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
     // Staff persona (teachers/floaters) may edit only tags here — not the full
     // profile or schedule. Admins keep full profile edit.
     final isStaffPersona = role.isStaff;

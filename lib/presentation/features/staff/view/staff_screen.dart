@@ -42,6 +42,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
@@ -98,6 +99,9 @@ class _StaffScreenState extends State<StaffScreen> {
     super.initState();
     _highlightStaffCode = widget.incomingHighlightCode?.trim();
     _scrollController.addListener(_onScroll);
+    // Refresh the list when a background profile-photo upload finishes, so the
+    // new photo shows — same refresh as after an add.
+    ProfilePhotoUploadEvents.staffTick.addListener(_onProfilePhotoUploaded);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Staff list must resolve names for all ACTIVE locations (e.g. admin/office).
@@ -226,10 +230,16 @@ class _StaffScreenState extends State<StaffScreen> {
 
   @override
   void dispose() {
+    ProfilePhotoUploadEvents.staffTick.removeListener(_onProfilePhotoUploaded);
     _scrollController.removeListener(_onScroll);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onProfilePhotoUploaded() {
+    if (!mounted) return;
+    context.read<StaffCubit>().refresh(ignoreRefreshingGuard: true);
   }
 
   // (Unused for now) Helper that can detect active filters/search on staff list.

@@ -17,7 +17,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
@@ -65,7 +65,6 @@ class StaffProfileScreen extends StatefulWidget {
 class _StaffProfileScreenState extends State<StaffProfileScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
-  final ImagePicker _picker = ImagePicker();
 
   late String _displayName;
   late String _displayDesignation;
@@ -269,8 +268,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
 
   Future<void> _pickProfileImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
+      // Shared file picker → every allowed image format is selectable.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
+      );
+      final imagePath = picked?.path;
+      if (imagePath == null || imagePath.isEmpty) return;
       final staffCode = widget.staffCode.trim();
       if (staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -298,16 +302,18 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       setState(() => _isUploadingProfilePhoto = true);
       setState(() => _profilePhotoUploadPercent = 0);
       final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(image.path);
+      final file = File(imagePath);
       final sessionCode = await uploadService.createStaffProfilePhotoUploadSession(
         staffCode: staffCode,
         schoolCode: schoolCode,
         organizationCode: organizationCode,
       );
       if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = image.path.toLowerCase();
+      final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final mime = FilePickerUtils.getMimeType(
+          fileName.contains('.') ? fileName.split('.').last : '');
+      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',

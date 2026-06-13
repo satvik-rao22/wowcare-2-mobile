@@ -430,7 +430,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canMutateStudent =
-        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
+        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
+            !role.isStaff &&
+            !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: _reloadPhysicalExams,

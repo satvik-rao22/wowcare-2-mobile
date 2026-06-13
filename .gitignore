@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Apple APNs auth keys — secret, never commit
+*.p8
+AuthKey_*.p8
