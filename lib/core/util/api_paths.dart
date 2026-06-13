@@ -227,9 +227,10 @@ class ApiPaths {
         }
         return ApiMicroservices.user;
       case 'conversations':
-      // case 'newsletters':
       case 'messages':
         return ApiMicroservices.communication;
+      case 'newsletters':
+        return ApiMicroservices.newsLatter;
       case 'notification':
         return ApiMicroservices.notification;
       case 'kiosk':
