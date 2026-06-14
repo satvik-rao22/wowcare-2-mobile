@@ -117,22 +117,22 @@ class _MessageAttachmentBottomSheetState
     );
   }
 
-  Future<void> _processFiles(List<File> files,
-      {required bool isPhoto}) async {
+  Future<void> _processFiles(List<File> files, {required bool isPhoto}) async {
     final valid = <ChatAttachment>[];
     for (final file in files) {
       final size = await file.length();
       if (size > 10 * 1024 * 1024) continue;
-      final mime =
-          lookupMimeType(file.path) ?? 'application/octet-stream';
-      valid.add(ChatAttachment(
-        localPath: file.path,
-        name: p.basename(file.path),
-        type: isPhoto ? 'image' : 'document',
-        sizeBytes: size,
-        mimeType: mime,
-        remoteUrl: '',
-      ));
+      final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
+      valid.add(
+        ChatAttachment(
+          localPath: file.path,
+          name: p.basename(file.path),
+          type: isPhoto ? 'image' : 'document',
+          sizeBytes: size,
+          mimeType: mime,
+          remoteUrl: '',
+        ),
+      );
     }
     if (valid.isEmpty) return;
     widget.onAttachmentsSelected(valid);
@@ -200,9 +200,7 @@ class _MessageAttachmentBottomSheetState
                       decoration: BoxDecoration(
                         color: const Color(0xFFF4F6FB),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFFE2E8F0),
-                        ),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
                       ),
                       alignment: Alignment.center,
                       child: Text(emoji, style: const TextStyle(fontSize: 22)),
@@ -246,24 +244,24 @@ class _MessageAttachmentBottomSheetState
                   color: const Color(0xFFF59E0B),
                   onTap: _pickDocument,
                 ),
-                _AttachmentGridItem(
-                  icon: Icons.videocam_rounded,
-                  label: 'Video',
-                  color: const Color(0xFFEC4899),
-                  onTap: _pickVideo,
-                ),
-                _AttachmentGridItem(
-                  icon: Icons.audiotrack_rounded,
-                  label: 'Audio',
-                  color: const Color(0xFF8B5CF6),
-                  onTap: () => _notImplemented('Audio'),
-                ),
-                _AttachmentGridItem(
-                  icon: Icons.location_on_rounded,
-                  label: 'Location',
-                  color: const Color(0xFF14B8A6),
-                  onTap: () => _notImplemented('Location'),
-                ),
+                // _AttachmentGridItem(
+                //   icon: Icons.videocam_rounded,
+                //   label: 'Video',
+                //   color: const Color(0xFFEC4899),
+                //   onTap: _pickVideo,
+                // ),
+                // _AttachmentGridItem(
+                //   icon: Icons.audiotrack_rounded,
+                //   label: 'Audio',
+                //   color: const Color(0xFF8B5CF6),
+                //   onTap: () => _notImplemented('Audio'),
+                // ),
+                // _AttachmentGridItem(
+                //   icon: Icons.location_on_rounded,
+                //   label: 'Location',
+                //   color: const Color(0xFF14B8A6),
+                //   onTap: () => _notImplemented('Location'),
+                // ),
               ],
             ),
           ),
@@ -282,7 +280,9 @@ class _MessageAttachmentBottomSheetState
                 },
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 14),
+                    horizontal: 20,
+                    vertical: 14,
+                  ),
                   child: Row(
                     children: [
                       Container(
@@ -292,8 +292,11 @@ class _MessageAttachmentBottomSheetState
                           color: AppColors.primaryColor.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Icon(Icons.group_rounded,
-                            color: AppColors.primaryColor, size: 22),
+                        child: Icon(
+                          Icons.group_rounded,
+                          color: AppColors.primaryColor,
+                          size: 22,
+                        ),
                       ),
                       const SizedBox(width: 14),
                       const Expanded(
@@ -306,8 +309,10 @@ class _MessageAttachmentBottomSheetState
                           ),
                         ),
                       ),
-                      Icon(Icons.chevron_right_rounded,
-                          color: AppColors.primaryColor.withValues(alpha: 0.5)),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.primaryColor.withValues(alpha: 0.5),
+                      ),
                     ],
                   ),
                 ),

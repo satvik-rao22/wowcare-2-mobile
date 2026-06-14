@@ -55,12 +55,13 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     super.initState();
     _cubit = ConversationListCubit(
       conversationType: ConversationType.adminChat,
+      watchConversationsUseCase: serviceLocator(),
       getConversationsUseCase: serviceLocator(),
       getCachedConversationsUseCase: serviceLocator(),
     );
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
-    unawaited(_cubit.loadInitial());
+    unawaited(_cubit.startWatching());
   }
 
   @override
@@ -76,11 +77,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final threshold = _scrollController.position.maxScrollExtent - 200;
-    if (_scrollController.offset >= threshold) {
-      unawaited(_cubit.loadNextPage());
-    }
+    // Firestore stream auto-loads; no manual pagination needed.
   }
 
   void _onSearchChanged() => setState(() {});
@@ -292,6 +289,25 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     );
   }
 
+  Future<void> _showGroupChatSheet() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
+            BlocProvider(create: (_) => serviceLocator<ClassroomCubit>()),
+            BlocProvider(create: (_) => serviceLocator<StudentCubit>()),
+          ],
+          child: const StaffOrStudentSelectionBulkMessaging(
+            isStaffSelection: false,
+            conversationType: 'ADMIN_CHAT',
+          ),
+        ),
+      ),
+    );
+    if (mounted) unawaited(_cubit.refresh());
+  }
+
   void _showNewMessageSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -337,6 +353,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                 _PageHeader(
                   totalUnread: totalUnread,
                   onComposeTap: _showNewMessageSheet,
+                  onFabTap: _showGroupChatSheet,
                 ),
 
                 // ── Search + filter bar ───────────────────────────────────
@@ -469,7 +486,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               message: state.errorMessage!,
                               onRetry: () => context
                                   .read<ConversationListCubit>()
-                                  .loadInitial(),
+                                  .startWatching(),
                             ),
                           ),
 
@@ -543,10 +560,15 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 // ─── Page header ──────────────────────────────────────────────────────────────
 
 class _PageHeader extends StatelessWidget {
-  const _PageHeader({required this.totalUnread, required this.onComposeTap});
+  const _PageHeader({
+    required this.totalUnread,
+    required this.onComposeTap,
+    required this.onFabTap,
+  });
 
   final int totalUnread;
   final VoidCallback onComposeTap;
+  final VoidCallback onFabTap;
 
   @override
   Widget build(BuildContext context) {
@@ -594,34 +616,7 @@ class _PageHeader extends StatelessWidget {
           ),
 
           // Compose FAB-style button in header row
-          GradientAddButton(
-            onTap: () async {
-              await Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => MultiBlocProvider(
-                    providers: [
-                      BlocProvider(create: (_) => serviceLocator<StaffCubit>()),
-                      BlocProvider(
-                        create: (_) => serviceLocator<ClassroomCubit>(),
-                      ),
-                      BlocProvider(
-                        create: (_) => serviceLocator<StudentCubit>(),
-                      ),
-                    ],
-                    child: StaffOrStudentSelectionBulkMessaging(
-                      isStaffSelection: false,
-                    ),
-                  ),
-                ),
-              );
-              if (context.mounted) {
-                context.read<CommunicationCubit>().loadConversations(
-                  type: 'STAFF_DIRECT',
-                  size: 2000,
-                );
-              }
-            },
-          ),
+          GradientAddButton(onTap: onFabTap),
         ],
       ),
     );
@@ -750,11 +745,11 @@ class _ConversationTile extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0984E3),
+                    color: const Color(0xFF00B894),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF0984E3).withValues(alpha: 0.3),
+                        color: const Color(0xFF00B894).withValues(alpha: 0.35),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

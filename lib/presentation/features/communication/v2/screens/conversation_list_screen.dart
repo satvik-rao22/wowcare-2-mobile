@@ -59,12 +59,13 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     super.initState();
     _cubit = ConversationListCubit(
       conversationType: widget.conversationType,
+      watchConversationsUseCase: serviceLocator(),
       getConversationsUseCase: serviceLocator(),
       getCachedConversationsUseCase: serviceLocator(),
     );
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
-    unawaited(_cubit.loadInitial());
+    unawaited(_cubit.startWatching());
   }
 
   @override
@@ -80,11 +81,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final threshold = _scrollController.position.maxScrollExtent - 200;
-    if (_scrollController.offset >= threshold) {
-      unawaited(context.read<ConversationListCubit>().loadNextPage());
-    }
+    // Firestore stream auto-loads; no manual pagination needed.
   }
 
   void _onSearchChanged() => setState(() {});
@@ -190,7 +187,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                       child: _FullScreenError(
                         message: state.errorMessage!,
                         onRetry: () =>
-                            context.read<ConversationListCubit>().loadInitial(),
+                            context.read<ConversationListCubit>().startWatching(),
                       ),
                     ),
 
@@ -400,11 +397,11 @@ class _ConversationTile extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6C5CE7),
+                    color: const Color(0xFF00B894),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6C5CE7).withValues(alpha: 0.3),
+                        color: const Color(0xFF00B894).withValues(alpha: 0.35),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

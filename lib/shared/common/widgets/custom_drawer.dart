@@ -29,6 +29,8 @@ import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
 import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -692,6 +694,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   @override
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleCubit>();
+    final unreadState = context.watch<UnreadBadgeCubit>().state;
     final isParent = roleProvider.isParent;
     final isStaff = roleProvider.isStaff;
     final canViewStudents = roleProvider.canAccessAny([
@@ -847,8 +850,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () =>
-                                      _navigate(MessagingScreen.routeName),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.roomChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(MessagingScreen.routeName);
+                                  },
                                 ),
                               if (showAdminChatDrawer)
                                 DrawerListTile(
@@ -860,8 +870,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () =>
-                                      _navigate(AdminChatHostScreen.routeName),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.adminChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(AdminChatHostScreen.routeName);
+                                  },
                                 ),
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
@@ -1044,8 +1061,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () =>
-                                      _navigate(MessagingScreen.routeName),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.staffDirect,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(MessagingScreen.routeName);
+                                  },
                                 ),
                               if (showParentMessagingDrawer)
                                 DrawerListTile(
@@ -1057,8 +1081,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () =>
-                                      _navigate(MessagingScreen.routeName),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.roomChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(MessagingScreen.routeName);
+                                  },
                                 ),
                               if (showAdminChatDrawer)
                                 DrawerListTile(
@@ -1070,8 +1101,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () =>
-                                      _navigate(AdminChatHostScreen.routeName),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.adminChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(AdminChatHostScreen.routeName);
+                                  },
                                 ),
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
@@ -1330,12 +1368,38 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
   }
 }
 
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class DrawerListTile extends StatelessWidget {
   final String title;
   final Widget leading;
   final VoidCallback onTap;
   final double horizontalTitleGap;
   final Color? textColor;
+  final Widget? trailing;
 
   const DrawerListTile({
     super.key,
@@ -1344,6 +1408,7 @@ class DrawerListTile extends StatelessWidget {
     required this.onTap,
     this.horizontalTitleGap = 16,
     this.textColor = AppColors.themeColor,
+    this.trailing,
   });
 
   @override
@@ -1353,6 +1418,7 @@ class DrawerListTile extends StatelessWidget {
       horizontalTitleGap: horizontalTitleGap,
       leading: leading,
       title: Text(title, maxLines: 1, style: TextStyle(color: textColor)),
+      trailing: trailing,
     );
   }
 }

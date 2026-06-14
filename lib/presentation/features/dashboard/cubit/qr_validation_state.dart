@@ -6,6 +6,8 @@ part of 'qr_validation_cubit.dart';
 enum QrNavigationRoute {
   guardianSignIn,
   guardianSignOut,
+  /// Mixed state: some children signed in, some signed out.
+  guardianSignInOut,
   staffSignIn,
   staffSignOut,
 }
@@ -29,14 +31,20 @@ class QrValidationSuccess extends QrValidationState {
     this.result, {
     required this.route,
     required this.qrToken,
+    this.signedInCodes = const [],
+    this.signedOutCodes = const [],
   });
 
   final QrValidationResult result;
   final QrNavigationRoute route;
   final String qrToken;
+  /// Codes of children currently signed in (populated for guardian routes).
+  final List<String> signedInCodes;
+  /// Codes of children currently signed out (populated for guardian routes).
+  final List<String> signedOutCodes;
 
   @override
-  List<Object?> get props => [result, route, qrToken];
+  List<Object?> get props => [result, route, qrToken, signedInCodes, signedOutCodes];
 }
 
 class QrValidationFailure extends QrValidationState {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
@@ -10,6 +11,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_messages_enti
 import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
 import 'conversation_thread_state.dart';
 
 /// Manages the full message thread for a single conversation.
@@ -25,6 +27,7 @@ import 'conversation_thread_state.dart';
 class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   ConversationThreadCubit({
     required String conversationCode,
+    required WatchMessagesUseCase watchMessagesUseCase,
     required GetMessagesEntityUseCase getMessagesUseCase,
     required SendMessageEntityUseCase sendMessageUseCase,
     required EditMessageEntityUseCase editMessageUseCase,
@@ -32,7 +35,8 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required AddReactionEntityUseCase addReactionUseCase,
     required RemoveReactionUseCase removeReactionUseCase,
     required MarkConversationReadUseCase markConversationReadUseCase,
-  })  : _getMessagesUseCase = getMessagesUseCase,
+  })  : _watchMessagesUseCase = watchMessagesUseCase,
+        _getMessagesUseCase = getMessagesUseCase,
         _sendMessageUseCase = sendMessageUseCase,
         _editMessageUseCase = editMessageUseCase,
         _deleteMessageUseCase = deleteMessageUseCase,
@@ -41,6 +45,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         _markConversationReadUseCase = markConversationReadUseCase,
         super(ConversationThreadState.initial(conversationCode: conversationCode));
 
+  final WatchMessagesUseCase _watchMessagesUseCase;
   final GetMessagesEntityUseCase _getMessagesUseCase;
   final SendMessageEntityUseCase _sendMessageUseCase;
   final EditMessageEntityUseCase _editMessageUseCase;
@@ -49,12 +54,58 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   final RemoveReactionUseCase _removeReactionUseCase;
   final MarkConversationReadUseCase _markConversationReadUseCase;
 
+  StreamSubscription<List<MessageEntity>>? _messagesSubscription;
+  bool _firestoreActive = false;
+
   int _refreshRequestId = 0;
   static const int _pageSize = 50;
 
+  // ─── Lifecycle ───────────────────────────────────────────────────────────────
+
+  @override
+  Future<void> close() {
+    _messagesSubscription?.cancel();
+    return super.close();
+  }
+
+  // ─── Firestore realtime stream ───────────────────────────────────────────────
+
+  /// Subscribe to Firestore message stream for this conversation.
+  ///
+  /// Keeps the message list live without manual refreshes. Pending/failed
+  /// optimistic messages sent by this device are preserved — they won't appear
+  /// in Firestore until the backend confirms them.
+  ///
+  /// Falls back silently to the API path ([loadMessages]) when Firestore has no
+  /// messages subcollection or returns an error.
+  void startWatchingMessages() {
+    _messagesSubscription?.cancel();
+    _messagesSubscription = _watchMessagesUseCase(
+      conversationCode: state.conversationCode,
+    ).listen(
+      (fresh) {
+        if (isClosed) return;
+        _firestoreActive = true;
+        final merged = _mergePendingMessages(_sortedOldestFirst(fresh));
+        emit(ConversationThreadState.loaded(
+          conversationCode: state.conversationCode,
+          messages: merged,
+          isFromCache: false,
+          hasOlderMessages: state.hasOlderMessages,
+          conversation: state.conversation,
+        ));
+        unawaited(_markRead());
+      },
+      onError: (_) {
+        // Firestore messages subcollection unavailable — load via API once.
+        if (!_firestoreActive) unawaited(loadMessages());
+      },
+    );
+  }
+
   // ─── Load / Refresh ─────────────────────────────────────────────────────────
 
-  /// Load messages. Emits cache first, then refreshes from API.
+  /// Load messages from API. Used on first entry and as Firestore fallback.
   Future<void> loadMessages() async {
     emit(state.copyWith(isLoading: true, clearError: true));
 
@@ -372,7 +423,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   Future<void> _markRead() async {
-    await _markConversationReadUseCase(state.conversationCode);
+    final result = await _markConversationReadUseCase(state.conversationCode);
+    // Publish event so ConversationListCubit zeroes the badge immediately —
+    // before Firestore confirms the read receipt.
+    result.fold(
+      (_) {},
+      (_) => MessagingEventService.instance
+          .notifyMarkedRead(state.conversationCode),
+    );
   }
 
   List<MessageEntity> _sortedOldestFirst(List<MessageEntity> messages) {

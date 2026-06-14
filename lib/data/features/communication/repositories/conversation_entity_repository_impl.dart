@@ -4,6 +4,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_remote_data_source.dart';
+import 'package:wowcare/data/features/communication/realtime/conversation_realtime_data_source.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
@@ -19,14 +20,17 @@ class ConversationEntityRepositoryImpl
     implements ConversationEntityRepository {
   final ConversationEntityRemoteDataSource _remote;
   final ConversationEntityLocalDataSource _local;
+  final ConversationRealtimeDataSource _realtime;
   final StorageService _storage;
 
   ConversationEntityRepositoryImpl({
     required ConversationEntityRemoteDataSource remoteDataSource,
     required ConversationEntityLocalDataSource localDataSource,
+    required ConversationRealtimeDataSource realtimeDataSource,
     required StorageService storageService,
   })  : _remote = remoteDataSource,
         _local = localDataSource,
+        _realtime = realtimeDataSource,
         _storage = storageService;
 
   // ─── Tenancy helpers ────────────────────────────────────────────────────────
@@ -278,20 +282,40 @@ class ConversationEntityRepositoryImpl
     try {
       await _remote.markConversationRead(conversationCode);
 
-      // Update cached unread to 0 immediately for responsive UI
-      final org = await _orgCode;
-      final school = await _schoolCode;
-      final cached = await _local.getUnreadCounts(
-        organizationCode: org,
-        schoolCode: school,
-      );
-      final match = cached
-          .where((u) => u.conversationCode == conversationCode)
-          .toList();
-      for (final u in match) {
-        u.unreadCount = 0;
-        u.updatedAt = DateTime.now();
-        await _local.saveUnreadCount(u.toEntity());
+      // Zero unreadCount in ConversationEntityCollection immediately so that
+      // any subsequent Isar read (before Firestore confirms) returns 0.
+      final cachedConv = await _local.getConversation(conversationCode);
+      if (cachedConv != null) {
+        final zeroed = cachedConv.toEntity();
+        // Rebuild entity with unreadCount = 0. We reconstruct because
+        // ConversationEntity is immutable (no copyWith on the domain class).
+        await _local.saveConversation(
+          ConversationEntity(
+            id: zeroed.id,
+            code: zeroed.code,
+            type: zeroed.type,
+            title: zeroed.title,
+            description: zeroed.description,
+            avatarUrl: zeroed.avatarUrl,
+            status: zeroed.status,
+            organizationCode: zeroed.organizationCode,
+            schoolCode: zeroed.schoolCode,
+            createdAt: zeroed.createdAt,
+            createdBy: zeroed.createdBy,
+            updatedAt: zeroed.updatedAt,
+            updatedBy: zeroed.updatedBy,
+            participantCount: zeroed.participantCount,
+            unreadCount: 0,
+            lastMessagePreview: zeroed.lastMessagePreview,
+            lastMessageAt: zeroed.lastMessageAt,
+            lastMessageBy: zeroed.lastMessageBy,
+            lastMessageSenderName: zeroed.lastMessageSenderName,
+            participants: zeroed.participants,
+            studentCode: zeroed.studentCode,
+            classroomCode: zeroed.classroomCode,
+            privateModeStates: zeroed.privateModeStates,
+          ),
+        );
       }
 
       return const Right(null);
@@ -326,5 +350,77 @@ class ConversationEntityRepositoryImpl
     } catch (e) {
       return Left(CacheFailure(e.toString()));
     }
+  }
+
+  // ─── Realtime streams (Firestore) ────────────────────────────────────────────
+
+  @override
+  Stream<List<ConversationEntity>> watchConversations({
+    ConversationType? type,
+  }) async* {
+    final org = await _orgCode;
+    final school = await _schoolCode;
+    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+
+    yield* _realtime
+        .watchInbox(
+          organizationCode: org,
+          schoolCode: school,
+          userCode: user,
+          filterType: type?.toApiString(),
+        )
+        .asyncMap((inboxItems) async {
+      // For each Firestore inbox item, merge with the Isar-cached entity so
+      // metadata fields (title, avatarUrl, participants) are preserved.
+      final cached = await _local.getConversations(
+        organizationCode: org,
+        schoolCode: school,
+        type: type,
+      );
+      final cacheMap = {for (final c in cached) c.code: c.toEntity()};
+
+      final merged = inboxItems.map((item) {
+        final existing = cacheMap[item.conversationCode];
+        // Firestore wins for unreadCount / lastMessage* fields.
+        // Isar provides metadata (title, avatarUrl, participants).
+        // Do NOT write back to Isar here — that caused a race condition when
+        // both ConversationListCubit and UnreadBadgeCubit ran asyncMap
+        // concurrently on the same records.
+        if (existing != null) return item.mergeWith(existing);
+        return item.toMinimalEntity(
+          organizationCode: org,
+          schoolCode: school,
+        );
+      }).toList();
+
+      return merged;
+    });
+  }
+
+  @override
+  Stream<int> watchUnreadCountForType(ConversationType type) async* {
+    final org = await _orgCode;
+    final school = await _schoolCode;
+    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+
+    yield* _realtime.watchUnreadCountForType(
+      organizationCode: org,
+      schoolCode: school,
+      userCode: user,
+      conversationType: type.toApiString(),
+    );
+  }
+
+  @override
+  Stream<int> watchTotalUnreadCount() async* {
+    final org = await _orgCode;
+    final school = await _schoolCode;
+    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+
+    yield* _realtime.watchTotalUnreadCount(
+      organizationCode: org,
+      schoolCode: school,
+      userCode: user,
+    );
   }
 }

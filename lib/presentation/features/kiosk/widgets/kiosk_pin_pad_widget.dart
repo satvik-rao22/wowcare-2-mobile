@@ -63,13 +63,6 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       return;
     }
 
-    // Show PIN validation success message
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'PIN is validated',
-      isSuccess: true,
-    );
-
     setState(() {
       _isSubmitting = true;
     });
