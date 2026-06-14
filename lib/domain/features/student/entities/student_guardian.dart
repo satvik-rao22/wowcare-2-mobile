@@ -13,6 +13,8 @@ class StudentGuardian extends Equatable {
     required this.primaryContact,
     required this.legalCustody,
     this.clockPin,
+    this.profilePhotoUrl,
+    this.profilePhotoAssetCode,
   });
 
   final String guardianCode;
@@ -25,6 +27,13 @@ class StudentGuardian extends Equatable {
   final String relationToStudent;
   final bool primaryContact;
   final bool legalCustody;
+
+  /// Direct profile-photo URL, if available.
+  final String? profilePhotoUrl;
+
+  /// Document-MS asset code for the profile photo (resolved to a URL by the
+  /// image widget when no direct URL is present).
+  final String? profilePhotoAssetCode;
 
   String get fullName => '$firstName $lastName'.trim();
 
@@ -40,5 +49,7 @@ class StudentGuardian extends Equatable {
         relationToStudent,
         primaryContact,
         legalCustody,
+        profilePhotoUrl,
+        profilePhotoAssetCode,
       ];
 }

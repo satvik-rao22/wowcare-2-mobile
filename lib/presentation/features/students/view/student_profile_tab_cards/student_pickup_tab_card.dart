@@ -76,7 +76,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -188,6 +188,8 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           rawPhoneNumber: pickups[i].phoneNumber,
                           firstName: pickups[i].firstName,
                           lastName: pickups[i].lastName,
+                          photoUrl: pickups[i].profilePhotoUrl,
+                          photoAssetCode: pickups[i].profilePhotoAssetCode,
                           onRefresh: _handleRefresh,
                           isLoading: _isMutating,
                           onSetLoading: (v) => setState(() => _isMutating = v),
@@ -259,6 +261,8 @@ class _PickupCard extends StatefulWidget {
     this.phoneNumber,
     this.onRefresh,
     this.showActionButtons = true,
+    this.photoUrl,
+    this.photoAssetCode,
   });
   final String studentCode;
   final String pickupCode;
@@ -275,6 +279,8 @@ class _PickupCard extends StatefulWidget {
   final String? email;
   final String? rawEmail;
   final String? phoneNumber;
+  final String? photoUrl;
+  final String? photoAssetCode;
   /// Called after edit or delete so parent can refresh pickups list and profile cache.
   final Future<void> Function()? onRefresh;
   final bool showActionButtons;
@@ -399,6 +405,13 @@ class _PickupCardState extends State<_PickupCard> {
                     children: [
                       DocumentImageWidget(
                         fileUuid: '',
+                        imageUrl: (widget.photoUrl ?? '').trim().isNotEmpty
+                            ? widget.photoUrl!.trim()
+                            : null,
+                        mediaAssetCode:
+                            (widget.photoAssetCode ?? '').trim().isNotEmpty
+                                ? widget.photoAssetCode!.trim()
+                                : null,
                         name: widget.name,
                         size: 50,
                       ),

@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:io';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/presentation/features/staff/util/staff_photo_background.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -94,6 +98,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
+  File? _profilePhoto;
   String _originalEmail = '';
   String _profileUserCode = '';
   String _profileOrganizationCode = '';
@@ -391,6 +396,91 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     super.dispose();
   }
 
+  Future<void> _pickProfileImage() async {
+    try {
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
+      );
+      final path = picked?.path;
+      if (path == null || path.isEmpty) return;
+      final file = File(path);
+      final fileSizeInMB = await file.length() / (1024 * 1024);
+      if (fileSizeInMB > 10) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Image size must be less than 10MB',
+          isError: true,
+        );
+        return;
+      }
+      setState(() => _profilePhoto = file);
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to pick image: $e',
+        isError: true,
+      );
+    }
+  }
+
+  Widget _buildStaffPhotoField(ResponsiveHelper responsive) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Profile Photo',
+          style: TextStyle(
+            fontSize: responsive.labelFontSize,
+            fontFamily: 'Manrope',
+            fontWeight: FontWeight.w400,
+            color: const Color(0xff573353),
+          ),
+        ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        GestureDetector(
+          onTap: _pickProfileImage,
+          child: Container(
+            height: 120,
+            width: 120,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0x66573353)),
+            ),
+            child: _profilePhoto != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.camera_alt,
+                          color: Colors.grey.shade600, size: 32),
+                      const SizedBox(height: 8),
+                      Text('Upload Photo',
+                          style: TextStyle(
+                              fontSize: 12, color: Colors.grey.shade600)),
+                    ],
+                  ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'JPG, PNG, max 10MB (Optional)',
+          style: TextStyle(
+            fontSize: 12,
+            color: Colors.grey.shade600,
+            fontFamily: 'Manrope',
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _saveProfileDetails() async {
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
@@ -668,9 +758,22 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       // re-pull the staff list on the next visit.
       SchedulingCacheGate.invalidate();
 
+      // Upload the picked photo in the BACKGROUND so saving returns instantly;
+      // it keeps running even after this screen is popped.
+      final photo = _profilePhoto;
+      if (photo != null && widget.staffCode.trim().isNotEmpty) {
+        unawaited(uploadStaffPhotoInBackground(
+          staffCode: widget.staffCode.trim(),
+          file: photo,
+          schoolCode: _profileSchoolCode,
+          organizationCode: _profileOrganizationCode,
+        ));
+      }
+
       CoreUtils.showTopSnackBar(
         context: context,
-        message: addressMessage.isNotEmpty ? addressMessage : profileMessage,
+        message: (addressMessage.isNotEmpty ? addressMessage : profileMessage) +
+            (photo != null ? ' Photo is uploading in the background…' : ''),
         isSuccess: true,
       );
       Navigator.pop(context, true);
@@ -912,6 +1015,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                           child: ListView(
                             padding: EdgeInsets.zero,
                             children: [
+                        _buildStaffPhotoField(responsive),
+                        SizedBox(height: responsive.isTablet ? 24.0 : 16.0),
                         Row(
                           children: [
                             Expanded(

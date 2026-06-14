@@ -318,6 +318,7 @@ import '../../presentation/features/communication/cubit/communication_cubit.dart
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
+import '../../shared/services/image_upload/profile_photo_uploader.dart';
 import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
@@ -414,6 +415,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ImageUploadService>(
     () => ImageUploadService(serviceLocator<ApiClient>()),
+  );
+  serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
+    () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
   );
 
   // Auth Data Sources

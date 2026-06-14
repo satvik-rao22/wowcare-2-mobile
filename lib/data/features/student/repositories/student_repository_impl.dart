@@ -1074,7 +1074,7 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<String> createGuardianUser({
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -1088,7 +1088,7 @@ class StudentRepositoryImpl
     String? userCode,
     String? organizationCode,
   }) async {
-    final message = await _remoteDataSource.createGuardianUser(
+    final result = await _remoteDataSource.createGuardianUser(
       schoolCode: schoolCode,
       studentCode: studentCode,
       firstName: firstName,
@@ -1110,7 +1110,7 @@ class StudentRepositoryImpl
       includeFilterMetadata: true,
     );
 
-    return message;
+    return result;
   }
 
   @override

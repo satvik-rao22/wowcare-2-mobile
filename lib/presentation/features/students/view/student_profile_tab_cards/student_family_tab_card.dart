@@ -263,7 +263,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: () async {
@@ -346,6 +346,8 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                           email: data[i].email,
                           phone: _formatPhoneNumber(data[i].mobile),
                           pin: _extractGuardianClockPin(data[i]),
+                          photoUrl: data[i].profilePhotoUrl,
+                          photoAssetCode: data[i].profilePhotoAssetCode,
                           isLoading: _isMutating,
                           showActionButtons: canStudentWrite,
                           onEdit: () => _onEditParent(data[i]),
@@ -376,6 +378,8 @@ class _FamilyCard extends StatelessWidget {
     required this.onDelete,
     required this.isLoading,
     this.showActionButtons = true,
+    this.photoUrl,
+    this.photoAssetCode,
   });
 
   final String name;
@@ -387,6 +391,8 @@ class _FamilyCard extends StatelessWidget {
   final VoidCallback onDelete;
   final bool isLoading;
   final bool showActionButtons;
+  final String? photoUrl;
+  final String? photoAssetCode;
 
   @override
   Widget build(BuildContext context) {
@@ -419,7 +425,17 @@ class _FamilyCard extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DocumentImageWidget(fileUuid: '', name: name, size: 45),
+                  DocumentImageWidget(
+                    fileUuid: '',
+                    imageUrl: (photoUrl ?? '').trim().isNotEmpty
+                        ? photoUrl!.trim()
+                        : null,
+                    mediaAssetCode: (photoAssetCode ?? '').trim().isNotEmpty
+                        ? photoAssetCode!.trim()
+                        : null,
+                    name: name,
+                    size: 45,
+                  ),
                   SizedBox(width: isTablet ? 16 : 9),
                   Flexible(
                     child: Text(

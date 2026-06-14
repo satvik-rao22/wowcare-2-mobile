@@ -44,6 +44,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -131,10 +132,18 @@ class _StudentScreenState extends State<StudentScreen> {
     _applyIncomingStatusFilter();
     _applyIncomingClassroomSelections();
     _searchController.addListener(_onSearchChanged);
+    // Refresh the list when a background profile-photo upload finishes, so the
+    // new photo shows — same refresh as after an add.
+    ProfilePhotoUploadEvents.studentTick.addListener(_onProfilePhotoUploaded);
     // Load students from API via cubit after first frame to ensure BlocProvider is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _bootstrapList();
     });
+  }
+
+  void _onProfilePhotoUploaded() {
+    if (!mounted) return;
+    context.read<StudentCubit>().refreshWithCacheReset();
   }
 
   Future<void> _bootstrapList() async {
@@ -274,6 +283,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   @override
   void dispose() {
+    ProfilePhotoUploadEvents.studentTick.removeListener(_onProfilePhotoUploaded);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.dispose();

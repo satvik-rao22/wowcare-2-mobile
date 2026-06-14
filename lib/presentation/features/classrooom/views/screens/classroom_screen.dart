@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -278,7 +279,9 @@ class _ClassroomScreenState extends State<ClassroomScreen>
             floatingActionButton: _buildTabFab(context),
             body: Container(
               color: Colors.white,
-              padding: const EdgeInsets.all(8),
+              // Extra bottom padding clears the (extend-body) bottom nav so the
+              // tab box's bottom border is visible instead of sitting behind it.
+              padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + CustomNavigationBar.navBarHeight),
               child: Column(
                 children: [
                   Row(

@@ -729,7 +729,10 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                     child: StaffSchedulingStaffDropdown(
                       staffNames: state.staffDropdownNames,
                       selectedStaffName: state.selectedStaffDropdownLabel,
-                      isLoading: state.isLoadingStaff,
+                      // Keep the dropdown visible during loads — the body shimmer
+                      // is the loading indicator; a circular loader here is
+                      // redundant (and hides the dropdown).
+                      isLoading: false,
                       onSelected: cubit.selectStaffByName,
                     ),
                   ),

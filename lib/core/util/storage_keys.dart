@@ -1,6 +1,11 @@
 class StorageKeys {
   StorageKeys._();
 
+  /// Set once on first launch. Lives in SharedPreferences (wiped on iOS/Android
+  /// uninstall), so its ABSENCE means a fresh install — used to wipe Keychain
+  /// secure credentials that survive uninstall on iOS.
+  static const String appInstalledMarker = 'app_installed_marker_v1';
+
   // Storage Keys
   static const String accessToken = 'accessToken';
   static const String refreshToken = 'refreshToken';

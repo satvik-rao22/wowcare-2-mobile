@@ -139,7 +139,9 @@ abstract class StudentRepository {
   /// Creates or links a guardian user to a student via `/api/v1/guardian-user`.
   ///
   /// Returns the backend `message` field.
-  Future<String> createGuardianUser({
+  /// Returns the backend `message` and the newly created `guardianCode`
+  /// (needed to upload the guardian's profile photo right after creation).
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,

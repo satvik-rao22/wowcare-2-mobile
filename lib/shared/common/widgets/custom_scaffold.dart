@@ -164,6 +164,7 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
@@ -228,12 +229,17 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
-    // Do not auto-hide the app bar or bottom navigation on scroll.
-    // Keeping _showBars always true ensures the blue header divider
-    // remains pinned below the system status bar, and the list content
-    // never scrolls above it.
-    if (!_showBars) {
-      setState(() => _showBars = true);
+    // Hide the bottom nav while scrolling DOWN (reverse), reveal it when
+    // scrolling UP (forward) — app-wide, since every screen uses this scaffold.
+    // The app bar stays pinned regardless (handled in build).
+    if (notification is UserScrollNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _showBars) {
+        setState(() => _showBars = false);
+      } else if (direction == ScrollDirection.forward && !_showBars) {
+        setState(() => _showBars = true);
+      }
     }
     return false;
   }
@@ -254,12 +260,8 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
       child: GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        appBar: _showBars
-            ? appBar
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(0),
-                child: const SizedBox.shrink(),
-              ),
+        // App bar stays pinned; only the bottom nav hides on scroll.
+        appBar: appBar,
         drawer: const CustomDrawer(),
         drawerEnableOpenDragGesture: false,
         body: GradientBackground(
