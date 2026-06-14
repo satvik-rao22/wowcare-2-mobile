@@ -202,6 +202,7 @@ import '../../domain/features/student/usecases/get_guardian_names_for_school_use
 import '../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import '../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import '../../presentation/features/billing/cubit/select_students_cubit.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
@@ -348,6 +349,29 @@ import '../../data/features/billing/datasources/discount_remote_datasource.dart'
 import '../../data/features/billing/repositories/discount_repository_impl.dart';
 import '../../domain/features/billing/repositories/discount_repository.dart';
 import '../../domain/features/billing/usecases/get_discounts_usecase.dart';
+import '../../data/features/billing/datasources/invoice_catalog_remote_datasource.dart';
+import '../../data/features/billing/repositories/invoice_catalog_repository_impl.dart';
+import '../../domain/features/billing/repositories/invoice_catalog_repository.dart';
+import '../../domain/features/billing/usecases/get_fee_structures_usecase.dart';
+import '../../domain/features/billing/usecases/get_other_fees_usecase.dart';
+import '../../domain/features/billing/usecases/get_subsidies_usecase.dart';
+import '../../data/features/billing/datasources/invoice_remote_datasource.dart';
+import '../../data/features/billing/repositories/invoice_repository_impl.dart';
+import '../../domain/features/billing/repositories/invoice_repository.dart';
+import '../../domain/features/billing/usecases/create_invoice_usecase.dart';
+import '../../domain/features/billing/usecases/update_invoice_usecase.dart';
+import '../../domain/features/billing/usecases/delete_invoice_usecase.dart';
+import '../../domain/features/billing/usecases/cancel_invoice_usecase.dart';
+import '../../domain/features/billing/usecases/issue_invoice_usecase.dart';
+import '../../domain/features/billing/usecases/resend_invoice_usecase.dart';
+import '../../domain/features/billing/usecases/get_invoice_overview_usecase.dart';
+import '../../domain/features/billing/usecases/get_family_summary_usecase.dart';
+import '../../domain/features/billing/usecases/create_payment_usecase.dart';
+import '../../domain/features/billing/usecases/create_refund_usecase.dart';
+import '../../presentation/features/billing/cubit/create_invoice_cubit.dart';
+import '../../presentation/features/billing/cubit/transactions_cubit.dart';
+import '../../presentation/features/billing/cubit/family_summary_cubit.dart';
+import '../../presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
 import '../../domain/features/billing/usecases/create_discount_usecase.dart';
 import '../../domain/features/billing/usecases/update_discount_usecase.dart';
 import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
@@ -744,6 +768,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetStudentPageUseCase>(
     () => GetStudentPageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SelectStudentsCubit>(
+    () => SelectStudentsCubit(
+      getStudentPage: serviceLocator<GetStudentPageUseCase>(),
+      getActiveClassrooms: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMap: serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
   );
   serviceLocator.registerFactory<GetStudentProfileUseCase>(
     () => GetStudentProfileUseCase(serviceLocator()),
@@ -1841,6 +1873,90 @@ Future<void> configureDependencies({String? baseUrl}) async {
       createDiscountUseCase: serviceLocator<CreateDiscountUseCase>(),
       updateDiscountUseCase: serviceLocator<UpdateDiscountUseCase>(),
       storageService: serviceLocator<StorageService>(),
+    ),
+  );
+
+  // ── Invoice catalog (fee structures / other fees / subsidies) ───────────────
+  serviceLocator.registerLazySingleton<InvoiceCatalogRemoteDataSource>(
+    () => InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<InvoiceCatalogRepository>(
+    () => InvoiceCatalogRepositoryImpl(
+        serviceLocator<InvoiceCatalogRemoteDataSource>()),
+  );
+  serviceLocator.registerFactory<GetFeeStructuresUseCase>(
+    () => GetFeeStructuresUseCase(serviceLocator<InvoiceCatalogRepository>()),
+  );
+  serviceLocator.registerFactory<GetOtherFeesUseCase>(
+    () => GetOtherFeesUseCase(serviceLocator<InvoiceCatalogRepository>()),
+  );
+  serviceLocator.registerFactory<GetSubsidiesUseCase>(
+    () => GetSubsidiesUseCase(serviceLocator<InvoiceCatalogRepository>()),
+  );
+  serviceLocator.registerLazySingleton<InvoiceRemoteDataSource>(
+    () => InvoiceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<InvoiceRepository>(
+    () => InvoiceRepositoryImpl(serviceLocator<InvoiceRemoteDataSource>()),
+  );
+  serviceLocator.registerFactory<CreateInvoiceUseCase>(
+    () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<UpdateInvoiceUseCase>(
+    () => UpdateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<DeleteInvoiceUseCase>(
+    () => DeleteInvoiceUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<CancelInvoiceUseCase>(
+    () => CancelInvoiceUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<IssueInvoiceUseCase>(
+    () => IssueInvoiceUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<ResendInvoiceUseCase>(
+    () => ResendInvoiceUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<GetInvoiceOverviewUseCase>(
+    () => GetInvoiceOverviewUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<GetFamilySummaryUseCase>(
+    () => GetFamilySummaryUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<TransactionsCubit>(
+    () => TransactionsCubit(
+      getOverview: serviceLocator<GetInvoiceOverviewUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<FamilySummaryCubit>(
+    () => FamilySummaryCubit(
+      getFamilySummary: serviceLocator<GetFamilySummaryUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<CreatePaymentUseCase>(
+    () => CreatePaymentUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<CreateRefundUseCase>(
+    () => CreateRefundUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<ReceivePaymentRefundCubit>(
+    () => ReceivePaymentRefundCubit(
+      createPayment: serviceLocator<CreatePaymentUseCase>(),
+      createRefund: serviceLocator<CreateRefundUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<CreateInvoiceCubit>(
+    () => CreateInvoiceCubit(
+      getFeeStructures: serviceLocator<GetFeeStructuresUseCase>(),
+      getOtherFees: serviceLocator<GetOtherFeesUseCase>(),
+      getDiscounts: serviceLocator<GetDiscountsUseCase>(),
+      getSubsidies: serviceLocator<GetSubsidiesUseCase>(),
+      createInvoice: serviceLocator<CreateInvoiceUseCase>(),
+      issueInvoice: serviceLocator<IssueInvoiceUseCase>(),
+      storage: serviceLocator<StorageService>(),
     ),
   );
 }

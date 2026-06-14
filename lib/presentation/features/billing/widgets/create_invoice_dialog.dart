@@ -66,7 +66,7 @@ class CreateInvoiceDialog extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: _CreateInvoiceTypeCard(
+                    child: BillingActionCard(
                       title: 'One-Time\nInvoice',
                       subtitle:
                           'Create a manual invoice for one or more students with custom line items',
@@ -76,7 +76,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: _CreateInvoiceTypeCard(
+                    child: BillingActionCard(
                       title: 'Recurring\nInvoice',
                       subtitle:
                           'Set up automatic recurring invoices for a student based on their schedule',
@@ -94,12 +94,12 @@ class CreateInvoiceDialog extends StatelessWidget {
   }
 }
 
-class _CreateInvoiceTypeCard extends StatefulWidget {
+class BillingActionCard extends StatefulWidget {
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback? onTap;
-  const _CreateInvoiceTypeCard({
+  const BillingActionCard({
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -107,10 +107,10 @@ class _CreateInvoiceTypeCard extends StatefulWidget {
   });
 
   @override
-  State<_CreateInvoiceTypeCard> createState() => _CreateInvoiceTypeCardState();
+  State<BillingActionCard> createState() => BillingActionCardState();
 }
 
-class _CreateInvoiceTypeCardState extends State<_CreateInvoiceTypeCard> {
+class BillingActionCardState extends State<BillingActionCard> {
   late final BoolToggleCubit _cubit = BoolToggleCubit();
   bool get _isHighlighted => _cubit.state;
 

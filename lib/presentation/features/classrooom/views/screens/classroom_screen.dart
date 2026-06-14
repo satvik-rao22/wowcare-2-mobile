@@ -79,8 +79,10 @@ class _ClassroomScreenState extends State<ClassroomScreen>
 
   Future<void> _resolveDefaultClassroomPrefs() async {
     try {
-      final storage = serviceLocator<StorageService>();
-      final primary = await resolveStaffPrimaryClassroomCode(storage: storage);
+      // Resolve the primary for any persona (admins included) so an admin whose
+      // primary is a real classroom lands on it; an Office primary is filtered
+      // out of the list and falls back to the top sorted classroom.
+      final primary = await resolveStaffPrimaryClassroomCodeAnyPersona();
       if (!mounted) return;
       setState(() {
         _staffPrimaryClassroomCode = primary;

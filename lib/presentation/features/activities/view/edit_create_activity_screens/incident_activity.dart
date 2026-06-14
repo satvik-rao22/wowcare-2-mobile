@@ -5,7 +5,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
@@ -1390,6 +1389,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         message: 'Acknowledged successfully',
         isSuccess: true,
       );
+      Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.logApiError(
@@ -2530,12 +2530,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: responsive.isTablet ? 16 : 12,
                   mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 50,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   return ActivityStudentDisplayTile(
                     name: _selectedStudents[index],
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
                   );
                 },
               )
@@ -2548,14 +2551,17 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   final String name = _selectedStudents[index];
-                  return SelectedStudentTile(
+                  return ActivityStudentDisplayTile(
                     name: name,
-                    onTap: () => _removeStudent(name),
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
+                    onRemove: () => _removeStudent(name),
                   );
                 },
               ),

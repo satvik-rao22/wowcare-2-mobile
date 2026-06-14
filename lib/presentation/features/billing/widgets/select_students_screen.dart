@@ -1,46 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/select_students_cubit.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
-import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 
-// NOTE: UI-only screen. All API/backend-related code has been removed or commented out.
-// import 'dart:convert';
-// import 'package:http/http.dart' as http;
-// import 'package:wowcare/core/util/api_paths.dart';
-// import 'package:wowcare/core/util/constants.dart';
-// import 'package:wowcare/core/common/app/providers/auth_providers.dart';
-// import 'package:wowcare/core/util/core_utils.dart';
-// import 'selected_students_receipt_screen.dart';
-
 class SelectStudentsScreen extends StatefulWidget {
-  const SelectStudentsScreen({Key? key, this.invoiceData}) : super(key: key);
+  const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
+      : super(key: key);
   final Map<String, dynamic>? invoiceData;
+
+  /// Optional override for the "Next" action. When provided, it's called with
+  /// the selected students instead of the default Create Invoice navigation
+  /// (used e.g. for the Receive Payment flow).
+  final void Function(BuildContext context, List<Student> students)? onNext;
 
   @override
   State<SelectStudentsScreen> createState() => _SelectStudentsScreenState();
 }
 
 class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
-  late final SelectStudentsCubit _cubit = SelectStudentsCubit();
+  final SelectStudentsCubit _cubit = serviceLocator<SelectStudentsCubit>();
   final TextEditingController _searchController = TextEditingController();
 
-  // Read-only proxies onto the cubit state so the build stays unchanged.
-  List<Student> get students => _cubit.state.students;
-  List<String> get classrooms => _cubit.state.classrooms;
-  List<String> get tags => _cubit.state.tags;
-  String get selectedClassroom => _cubit.state.selectedClassroom;
-  String get selectedTag => _cubit.state.selectedTag;
-  Set<int> get _selectedStudentIds => _cubit.state.selectedStudentIds;
-  bool get isLoading => _cubit.state.isLoading;
-  List<Student> get filteredStudents => _cubit.state.filteredStudents;
+  /// Status filter options (display names), mirroring the student list screen.
+  static const List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
 
   @override
   void initState() {
@@ -61,10 +54,13 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
       value: _cubit,
       child: BlocBuilder<SelectStudentsCubit, SelectStudentsState>(
         builder: (context, state) {
-          final filtered = filteredStudents;
+          final filtered = state.filteredStudents;
+          final visibleCodes =
+              filtered.map((student) => student.code).toList();
           final bool areAllSelected = filtered.isNotEmpty &&
               filtered.every(
-                  (student) => _selectedStudentIds.contains(student.id));
+                (student) => state.selectedStudentCodes.contains(student.code),
+              );
 
           return StaffFormLayout(
             title: 'Select Students',
@@ -88,7 +84,8 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                             child: CustomSearchBar(
                               controller: _searchController,
                               hintText: 'Search Students',
-                              onChanged: (value) => _cubit.setSearchQuery(value),
+                              onChanged: (value) =>
+                                  _cubit.setSearchQuery(value),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -101,131 +98,100 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      CustomDropdown(
-                        hintText: selectedClassroom,
-                        items: classrooms,
-                        selectedItem: selectedClassroom,
-                        onSelect: (val) {
-                          if (val != null) _cubit.setClassroom(val);
-                        },
+                      CustomMultiSelectDropdown(
+                        hintText: 'Select Classroom',
+                        items: state.classroomNames,
+                        selectedItems: state.selectedClassroomNames,
+                        showSelectAll: true,
+                        onChanged: (values) => _cubit.setClassrooms(values),
                       ),
                       const SizedBox(height: 12),
-                      CustomDropdown(
-                        hintText: selectedTag,
-                        items: tags,
-                        selectedItem: selectedTag,
-                        onSelect: (val) {
-                          if (val != null) _cubit.setTag(val);
-                        },
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: CustomMultiSelectDropdown(
+                              hintText: 'Tags',
+                              items: state.tagNames,
+                              selectedItems: state.selectedTagNames,
+                              showSelectAll: true,
+                              onChanged: (values) => _cubit.setTags(values),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: CustomMultiSelectDropdown(
+                              hintText: 'Status',
+                              items: _statusOptions,
+                              selectedItems: [state.selectedStatus],
+                              onChanged: (values) => _cubit.setStatus(values),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Checkbox(
-                      value: areAllSelected,
-                      onChanged: (val) => _cubit.setAllSelected(
-                        filtered.map((student) => student.id),
-                        val ?? false,
-                      ),
-                      activeColor: AppColors.themeColor,
-                      checkColor: AppColors.billingButtonTextColor,
-                      fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                        if (states.contains(MaterialState.selected)) {
-                          return AppColors.themeColor;
-                        }
-                        return AppColors.billingTransparentColor;
-                      }),
-                    ),
-                    const Text(
-                      'Select All',
-                      style: TextStyle(
-                        fontFamily: "Manrope",
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.billingTextColor,
-                        height: 19 / 14,
-                      ),
-                    ),
-                  ],
+                CustomCheckbox(
+                  value: areAllSelected,
+                  label: 'Select All',
+                  labelStyle: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.billingTextColor,
+                  ),
+                  onChanged: (val) =>
+                      _cubit.setAllSelected(visibleCodes, val ?? false),
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: isLoading
-                      ? const Center(child: GradientCircularProgress())
-                      : ListView.builder(
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
-                            final student = filtered[index];
-                            final isChecked = _selectedStudentIds.contains(student.id);
-                            return GestureDetector(
-                              onTap: () => _cubit.toggleStudent(student.id),
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(vertical: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: const Color(0xFF6657F8), width: 1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    DocumentImageWidget(
-                                      fileUuid: (student.photoUuid ?? student.fullName),
-                                      name: student.fullName,
-                                      size: 40,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            student.fullName,
-                                            style: const TextStyle(
-                                              fontFamily: 'Manrope',
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.billingTextColor,
-                                              height: 19 / 14,
-                                            ),
-                                          ),
-                                          if (student.roomName != null) ...[
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              student.roomName!,
-                                              style: const TextStyle(
-                                                fontFamily: 'Manrope',
-                                                fontSize: 12,
-                                                color: Color(0x99573353),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    Checkbox(
-                                      value: isChecked,
-                                      onChanged: (val) => _cubit
-                                          .setStudentSelected(
-                                              student.id, val ?? false),
-                                      activeColor: AppColors.themeColor,
-                                      checkColor: AppColors.billingButtonTextColor,
-                                      fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                                        if (states.contains(MaterialState.selected)) {
-                                          return AppColors.themeColor;
-                                        }
-                                        return AppColors.billingTransparentColor;
-                                      }),
-                                    ),
-                                  ],
+                  child: state.isLoading
+                      ? const Center(child: PrimaryCircularLoader())
+                      : (state.errorMessage != null && filtered.isEmpty)
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  state.errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 14,
+                                    color: AppColors.billingTextColor,
+                                  ),
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            )
+                          : filtered.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'No students found.',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 14,
+                                      color: AppColors.billingTextColor,
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, index) {
+                                    final student = filtered[index];
+                                    final isChecked = state.selectedStudentCodes
+                                        .contains(student.code);
+                                    return _StudentRow(
+                                      student: student,
+                                      isChecked: isChecked,
+                                      onTap: () =>
+                                          _cubit.toggleStudent(student.code),
+                                      onChanged: (val) =>
+                                          _cubit.setStudentSelected(
+                                              student.code, val ?? false),
+                                    );
+                                  },
+                                ),
                 ),
               ],
             ),
@@ -267,13 +233,17 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
         ),
         child: TextButton(
           onPressed: () {
-            // UI-only: handle "Next" with a placeholder
             final selectedStudents = _cubit.selectedStudents;
             if (selectedStudents.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Please select at least one student')),
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Please select at least one student.',
+                isWarning: true,
               );
+              return;
+            }
+            if (widget.onNext != null) {
+              widget.onNext!(context, selectedStudents);
               return;
             }
             Navigator.push(
@@ -295,6 +265,89 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               color: AppColors.billingCardColor,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StudentRow extends StatelessWidget {
+  const _StudentRow({
+    required this.student,
+    required this.isChecked,
+    required this.onTap,
+    required this.onChanged,
+  });
+
+  final Student student;
+  final bool isChecked;
+  final VoidCallback onTap;
+  final ValueChanged<bool?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    // Compose the subtitle: classroom + age (e.g. "Room 101 · 2 yrs 3 mos").
+    final parts = <String>[
+      if ((student.roomName ?? '').trim().isNotEmpty) student.roomName!.trim(),
+      if (student.ageLabel.trim().isNotEmpty) student.ageLabel.trim(),
+    ];
+    final subtitle = parts.join('  ·  ');
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFF6657F8), width: 1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            DocumentImageWidget(
+              fileUuid: '',
+              studentCode: student.code,
+              mediaAssetCode: (student.photoAssetCode ?? '').trim().isNotEmpty
+                  ? student.photoAssetCode!.trim()
+                  : null,
+              name: student.fullName,
+              size: 40,
+              shape: BoxShape.circle,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.fullName,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.billingTextColor,
+                      height: 19 / 14,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        color: Color(0x99573353),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            CustomCheckbox(
+              value: isChecked,
+              onChanged: onChanged,
+            ),
+          ],
         ),
       ),
     );
