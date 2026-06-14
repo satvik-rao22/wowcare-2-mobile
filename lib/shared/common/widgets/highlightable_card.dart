@@ -68,10 +68,7 @@ class HighlightableCard extends StatefulWidget {
 
 class _HighlightableCardState extends State<HighlightableCard>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: widget.duration,
-  );
+  late AnimationController _controller;
 
   /// The (code|highlightCode) pair we've already flashed for. Prevents the
   /// highlight from re-firing on every rebuild (e.g. each swipe of a bucket
@@ -84,6 +81,10 @@ class _HighlightableCardState extends State<HighlightableCard>
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    );
     if (widget._matches) _trigger();
   }
 

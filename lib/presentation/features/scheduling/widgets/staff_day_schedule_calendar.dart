@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 
@@ -45,6 +45,7 @@ class StaffDayScheduleCalendar extends StatefulWidget {
 
 class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
   late List<Shift> _shifts;
+  static const double cellHeightRow = 48;
 
   @override
   void initState() {

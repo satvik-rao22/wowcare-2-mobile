@@ -14,7 +14,7 @@ class GeneratedReportCard extends StatefulWidget {
 
   final GeneratedReportItem item;
   final VoidCallback? onView;
-  final VoidCallback? onDownload;
+  final Future<void> Function(String?)? onDownload;
 
   @override
   State<GeneratedReportCard> createState() => _GeneratedReportCardState();
@@ -22,6 +22,7 @@ class GeneratedReportCard extends StatefulWidget {
 
 class _GeneratedReportCardState extends State<GeneratedReportCard> {
   bool _isExpanded = false;
+  bool _isDownloading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -36,17 +37,13 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () =>
-                    setState(() => _isExpanded = !_isExpanded),
+                onTap: () => setState(() => _isExpanded = !_isExpanded),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -98,13 +95,80 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
                               value: _formatTime(widget.item.generatedAt),
                             ),
                             const SizedBox(height: 16),
-                            CustomButtonLayout(
-                              isForm: false,
-                              cancelButtonLabel: 'View',
-                              onPressedCancel: widget.onView,
-                              confirmButtonLabel: 'Download',
-                              onPressedConfirm: widget.onDownload,
-                            ),
+                            if (widget.onDownload != null)
+                              SizedBox(
+                                width: double.infinity,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: _isDownloading
+                                          ? [
+                                              Colors.grey.shade400,
+                                              Colors.grey.shade600,
+                                            ]
+                                          : AppColors.primaryGradientColors,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed: _isDownloading
+                                        ? null
+                                        : () async {
+                                            setState(
+                                              () => _isDownloading = true,
+                                            );
+                                            try {
+                                              await widget.onDownload?.call(
+                                                widget.item.assetCode,
+                                              );
+                                            } finally {
+                                              if (mounted) {
+                                                setState(
+                                                  () => _isDownloading = false,
+                                                );
+                                              }
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: _isDownloading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
+                                                  ),
+                                            ),
+                                          )
+                                        : const Text(
+                                            'Download',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              )
+                            else
+                              CustomButtonLayout(
+                                isForm: false,
+                                cancelButtonLabel: 'View',
+                                onPressedCancel: widget.onView,
+                                confirmButtonLabel: 'Download',
+                                onPressedConfirm: () => widget.onDownload?.call(
+                                  widget.item.assetCode,
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -120,8 +184,18 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
   }
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   String _formatDate(DateTime dt) {

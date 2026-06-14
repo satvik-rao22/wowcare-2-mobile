@@ -430,6 +430,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
                           return _ActivityStudentListItem(
                             name: name,
+                            studentCode: studentCode,
                             isNapping: isNapping,
                             isSelected: isSelected,
                             onSelectionChanged: (selected) {
@@ -545,12 +546,14 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
 class _ActivityStudentListItem extends StatelessWidget {
   final String name;
+  final String? studentCode;
   final bool isNapping;
   final bool isSelected;
   final ValueChanged<bool?> onSelectionChanged;
 
   const _ActivityStudentListItem({
     required this.name,
+    this.studentCode,
     required this.isNapping,
     required this.isSelected,
     required this.onSelectionChanged,
@@ -585,6 +588,9 @@ class _ActivityStudentListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: '',
                 name: name,
+                studentCode: (studentCode ?? '').trim().isEmpty
+                    ? null
+                    : studentCode!.trim(),
                 size: 32,
                 fontSize: 14,
               ),

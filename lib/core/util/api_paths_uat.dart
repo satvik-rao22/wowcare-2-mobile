@@ -21,6 +21,8 @@ class ApiPathsUat {
     // UAT gateway uses singular `newsletter` (constant value is `newslatter`).
     'newsletter',
     // Communication
+    // Billing MS — UAT segment is `accounts`.
+    'accounts',
   };
 
   static const Map<String, Set<String>> _resourceRootsByMicroservice = {
@@ -61,6 +63,7 @@ class ApiPathsUat {
       'staff-absence-records',
       'staff-attendance-records',
       'schools', // GPS sign-in settings: /api/v1/attendance/schools/{code}/attendance-settings
+      'kiosk', // Kiosk PIN verification: /api/v1/kiosk/verify-pin
     },
     ApiMicroservices.classroom: {
       'classroom',
@@ -76,6 +79,16 @@ class ApiPathsUat {
 
     // Newsletter MS — resource root is plural `newsletters`.
     ApiMicroservices.newsLatter: {'newsletters'},
+    // Billing MS — UAT segment `accounts`, resource roots.
+    ApiMicroservices.billing: {
+      'ledgers',
+      'ledger-transactions',
+      'discount',
+      'subsidy',
+      'fee-structure',
+      'other-fees',
+      'invoices',
+    },
   };
 
   static String _uatSegmentForMicroservice(String microserviceKey) {
@@ -83,6 +96,8 @@ class ApiPathsUat {
     if (microserviceKey == ApiMicroservices.activity) return 'activities';
     // UAT gateway uses singular `newsletter` (constant value is `newslatter`).
     if (microserviceKey == ApiMicroservices.newsLatter) return 'newsletter';
+    // UAT gateway uses `accounts` for the billing microservice.
+    if (microserviceKey == ApiMicroservices.billing) return 'accounts';
     return microserviceKey;
   }
 
@@ -146,6 +161,7 @@ class ApiPathsUat {
       case 'staff-attendance':
       case 'staff-absence-records':
       case 'staff-attendance-records':
+      case 'kiosk':
         return ApiMicroservices.attendance;
       case 'classroom':
       case 'individual-movements':
@@ -164,6 +180,11 @@ class ApiPathsUat {
         return ApiMicroservices.notification;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
+      case 'ledgers':
+      case 'accounts':
+      case 'ledger-transactions':
+      case 'discount':
+        return ApiMicroservices.billing;
       case 'admin':
         // v2 activity moderation endpoints:
         // /api/v2/admin/activities/{cardGroupCode}/approve|reject
@@ -201,11 +222,26 @@ class ApiPathsUat {
     // Special-case: document-ms endpoints are already namespaced differently.
     if (p.startsWith('/document-ms/')) return p;
 
-    // Special-case: communication/messaging endpoints do not use a microservice segment in UAT.
-    if (microserviceKeyFromPath(p) == ApiMicroservices.communication) return p;
+    // Communication/messaging endpoints in UAT are routed under /messaging/ prefix.
+    if (microserviceKeyFromPath(p) == ApiMicroservices.communication) {
+      if (p.startsWith('/api/v1/messaging/')) return p; // already prefixed
+      if (p.startsWith('/api/v1/conversations')) {
+        return p.replaceFirst('/api/v1/conversations', '/api/v1/messaging/conversations');
+      }
+      if (p.startsWith('/api/v1/messages')) {
+        return p.replaceFirst('/api/v1/messages', '/api/v1/messaging/messages');
+      }
+      return p;
+    }
 
-    // Notification MS is rooted at `/api/v1/notification/...` on the gateway.
-    if (p.startsWith('/api/v1/notification/')) return p;
+    // Notification endpoints are served under the messaging gateway segment in
+    // UAT, so prepend `messaging` (keeping the `notification/...` resource):
+    //   /api/v1/notification/...  →  /api/v1/messaging/notification/...
+    if (p.startsWith('/api/v1/messaging/notification/')) return p; // already done
+    if (p.startsWith('/api/v1/notification/')) {
+      return p.replaceFirst('/api/v1/notification/', '/api/v1/messaging/notification/');
+    }
+    if (p == '/api/v1/notification') return '/api/v1/messaging/notification';
 
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') return p;

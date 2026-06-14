@@ -471,6 +471,7 @@ class StudentRepositoryImpl
         documentUrl: documentUrl,
         documentSizeKb: m.size > 0 ? (m.size / 1024).ceil() : 0,
         mimeType: m.mimeType,
+        assetCode: m.assetCode,
         expiryDate: m.expiryDate,
         expired: false,
         createdAt: m.createdAt,
@@ -1073,7 +1074,7 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<String> createGuardianUser({
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -1087,7 +1088,7 @@ class StudentRepositoryImpl
     String? userCode,
     String? organizationCode,
   }) async {
-    final message = await _remoteDataSource.createGuardianUser(
+    final result = await _remoteDataSource.createGuardianUser(
       schoolCode: schoolCode,
       studentCode: studentCode,
       firstName: firstName,
@@ -1109,7 +1110,7 @@ class StudentRepositoryImpl
       includeFilterMetadata: true,
     );
 
-    return message;
+    return result;
   }
 
   @override
@@ -1344,7 +1345,13 @@ class StudentRepositoryImpl
             .map(StudentGuardianModel.fromJson)
             .toList(growable: false);
         if (list.isNotEmpty) {
-          return list.map((m) => m.toEntity()).toList(growable: false);
+          // Older cached payloads may not include the guardian code. If so,
+          // bypass cache so the edit/delete flows can resolve a valid code.
+          final hasMissingCode =
+              list.any((g) => g.guardianCode.trim().isEmpty);
+          if (!hasMissingCode) {
+            return list.map((m) => m.toEntity()).toList(growable: false);
+          }
         }
       }
     }

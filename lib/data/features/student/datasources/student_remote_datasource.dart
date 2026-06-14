@@ -195,8 +195,10 @@ abstract class StudentRemoteDataSource {
 
   /// Creates / links a guardian user to a student via `/api/v1/guardian-user`.
   ///
-  /// Returns the backend `message` field.
-  Future<String> createGuardianUser({
+  /// Returns the backend `message` plus the newly created `guardianCode`
+  /// (parsed from the response `data`, null if the backend didn't include it) —
+  /// the caller needs the code to upload the guardian's profile photo.
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -1136,7 +1138,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
-  Future<String> createGuardianUser({
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -1183,7 +1185,22 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
 
     final data = response.data! as Map<String, dynamic>;
-    return data['message']?.toString() ?? 'Guardian user created successfully';
+    final message =
+        data['message']?.toString() ?? 'Guardian user created successfully';
+
+    // The created guardian's code can arrive either at the top level or nested
+    // under `data` — check both, and accept a few common field names.
+    String? extractCode(dynamic node) {
+      if (node is! Map) return null;
+      for (final key in const ['guardianCode', 'code', 'guardianId']) {
+        final v = (node[key] ?? '').toString().trim();
+        if (v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
+    final guardianCode = extractCode(data['data']) ?? extractCode(data);
+    return (message: message, guardianCode: guardianCode);
   }
 
   @override

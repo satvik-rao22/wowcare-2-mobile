@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -46,6 +47,9 @@ class _QrScanViewState extends State<_QrScanView>
   late final AnimationController _scanAnim;
   late final Animation<double> _scanLine;
 
+  // Stream subscription for QR scanning
+  StreamSubscription<Barcode>? _scanSubscription;
+
   @override
   void initState() {
     super.initState();
@@ -84,13 +88,21 @@ class _QrScanViewState extends State<_QrScanView>
     unawaited(_controller?.resumeCamera() ?? Future.value());
   }
 
-  void _navigateAfterSuccess(QrNavigationRoute route, String qrToken) {
+  void _navigateAfterSuccess(
+    QrNavigationRoute route,
+    String qrToken, {
+    List<String> signedInCodes = const [],
+    List<String> signedOutCodes = const [],
+  }) {
     if (_hasNavigated) return;
     _hasNavigated = true;
 
     if (route == QrNavigationRoute.guardianSignIn ||
-        route == QrNavigationRoute.guardianSignOut) {
-      if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+        route == QrNavigationRoute.guardianSignOut ||
+        route == QrNavigationRoute.guardianSignInOut) {
+      if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+        context,
+      )) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
@@ -101,6 +113,21 @@ class _QrScanViewState extends State<_QrScanView>
         _resetScan();
         return;
       }
+    }
+
+    if (route == QrNavigationRoute.guardianSignInOut) {
+      // Mixed state — pop scanner then navigate to selection screen.
+      Navigator.pop(context);
+      context.go(
+        '/dashboard/student-sign-in-out-selection',
+        extra: <String, dynamic>{
+          'signedInCodes': signedInCodes,
+          'signedOutCodes': signedOutCodes,
+          'isQrScan': true,
+          'qrToken': qrToken,
+        },
+      );
+      return;
     }
 
     final Widget destination;
@@ -119,6 +146,8 @@ class _QrScanViewState extends State<_QrScanView>
         destination = StaffSignInForm(qrToken: qrToken);
       case QrNavigationRoute.staffSignOut:
         destination = StaffSignOutForm(qrToken: qrToken);
+      case QrNavigationRoute.guardianSignInOut:
+        return; // handled above
     }
 
     unawaited(
@@ -133,7 +162,12 @@ class _QrScanViewState extends State<_QrScanView>
       listener: (context, state) {
         if (state is QrValidationSuccess) {
           if (state.result.valid) {
-            _navigateAfterSuccess(state.route, state.qrToken);
+            _navigateAfterSuccess(
+              state.route,
+              state.qrToken,
+              signedInCodes: state.signedInCodes,
+              signedOutCodes: state.signedOutCodes,
+            );
           } else {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -302,14 +336,25 @@ class _QrScanViewState extends State<_QrScanView>
   }
 
   void _onQRViewCreated(QRViewController controller) {
-    setState(() => _controller = controller);
+    setState(() {
+      _controller = controller;
+      // Reset state when QRView is created/recreated
+      _result = null;
+      _hasNavigated = false;
+    });
 
-    controller.scannedDataStream.listen((scanData) async {
+    // Reset cubit state
+    context.read<QrValidationCubit>().reset();
+
+    // Cancel previous subscription if exists
+    _scanSubscription?.cancel();
+
+    _scanSubscription = controller.scannedDataStream.listen((scanData) async {
       final raw = scanData.code?.trim();
       if (_result != null || raw == null || raw.isEmpty) return;
 
       setState(() => _result = scanData);
-      await controller.pauseCamera();
+      unawaited(controller.pauseCamera());
 
       final token = _extractToken(raw);
       if (token == null) {
@@ -357,6 +402,7 @@ class _QrScanViewState extends State<_QrScanView>
   @override
   void dispose() {
     _scanAnim.dispose();
+    _scanSubscription?.cancel();
     super.dispose();
   }
 }

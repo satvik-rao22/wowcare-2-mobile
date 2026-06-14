@@ -15,7 +15,6 @@
         android:maxSdkVersion="29" />
     <application
         android:label="wowcare"
-        android:requestLegacyExternalStorage="true"
         android:name="${applicationName}"
         android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
@@ -50,6 +49,14 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Default channel FCM uses for notification-type messages received while
+             the app is backgrounded/killed. Matches the 'wowcare_alerts_v2'
+             channel created in main.dart / GeofenceNotificationService (high
+             importance + system sound + vibration) so every tray push is audible,
+             and silences "Missing Default Notification Channel metadata". -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="wowcare_alerts_v2" />
         <!-- Foreground service for continuous location monitoring -->
         <service
             android:name="com.baseflow.geolocator.GeolocatorService"

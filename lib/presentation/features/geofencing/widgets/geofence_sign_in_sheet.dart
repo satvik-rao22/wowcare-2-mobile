@@ -157,24 +157,33 @@ class GeofenceSignInSheet extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.themeColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+                borderRadius: BorderRadius.circular(14),
               ),
-              onPressed: () {
-                Navigator.pop(context);
-                context.go(route);
-              },
-              child: Text(
-                action,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  final router = GoRouter.of(context);
+                  Navigator.of(context).pop();
+                  router.go(route);
+                },
+                child: Text(
+                  action,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -182,35 +191,23 @@ class GeofenceSignInSheet extends StatelessWidget {
           const SizedBox(height: 12),
 
           // ── dismiss ───────────────────────────────────────────────────
-          // SizedBox(
-          //   width: double.infinity,
-          //   height: 48,
-          //   child: TextButton(
-          //     onPressed: () => Navigator.pop(context),
-          //     child: Text(
-          //       'Dismiss',
-          //       style: TextStyle(fontSize: 14, color: AppColors.primaryColor),
-          //     ),
-          //   ),
-          // ),
           SizedBox(
             width: double.infinity,
             height: 48,
-            child: TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryColor,
+                side: BorderSide(color: AppColors.primaryColor, width: 1.5),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppColors.themeColor, width: 1),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'Dismiss',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

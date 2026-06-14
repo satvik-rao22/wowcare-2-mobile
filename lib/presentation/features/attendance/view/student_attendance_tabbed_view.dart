@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -57,6 +59,20 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     super.initState();
     _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
     _tabController.addListener(_onTabChanged);
+
+    // Refresh the operator's own sign-in status so the staff gating (which
+    // disables ALL student attendance actions — Sign-In/Out/Transfer/Absent —
+    // until the staff has signed in) reflects the current state, not a stale
+    // value carried over from earlier in the session.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // ignore: discarded_futures
+      context.read<GeofenceCubit>().checkStaffSignInStatus();
+    });
+
+    debugPrint('[StudentAttendanceTabbedView] initialized: '
+        'filter=${widget.dailyIncomingFilter}, hasBackButton=${widget.hasBackButton}, '
+        'routeName=${StudentAttendanceTabbedView.routeName}');
   }
 
   void _onTabChanged() {

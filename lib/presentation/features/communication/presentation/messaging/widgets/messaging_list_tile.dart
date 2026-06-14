@@ -175,18 +175,20 @@ class MessagingListTile extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6C5CE7), // Theme color
+                    color: const Color(0xFF00B894),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6C5CE7).withOpacity(0.3),
+                        color: const Color(0xFF00B894).withOpacity(0.35),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
                     ],
                   ),
                   child: Text(
-                    conversation.unreadCount.toString(),
+                    conversation.unreadCount > 99
+                        ? '99+'
+                        : '${conversation.unreadCount}',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 11,

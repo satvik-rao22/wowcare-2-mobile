@@ -1,10 +1,10 @@
 import 'dart:io';
 
 import 'package:equatable/equatable.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mime/mime.dart';
-import 'package:path/path.dart' as path;
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -27,6 +27,7 @@ class BulkMessagingCompositionState extends Equatable {
   final List<SelectedAttachment> attachments;
   final String messageText;
   final bool isStaff;
+  final String conversationType;
   final bool isLoading;
   final bool isSuccess;
   final String? errorMessage;
@@ -38,6 +39,7 @@ class BulkMessagingCompositionState extends Equatable {
     this.attachments = const [],
     this.messageText = '',
     this.isStaff = true,
+    this.conversationType = 'ROOM_CHAT',
     this.isLoading = false,
     this.isSuccess = false,
     this.errorMessage,
@@ -54,6 +56,7 @@ class BulkMessagingCompositionState extends Equatable {
     List<SelectedAttachment>? attachments,
     String? messageText,
     bool? isStaff,
+    String? conversationType,
     bool? isLoading,
     bool? isSuccess,
     String? errorMessage,
@@ -66,6 +69,7 @@ class BulkMessagingCompositionState extends Equatable {
       attachments: attachments ?? this.attachments,
       messageText: messageText ?? this.messageText,
       isStaff: isStaff ?? this.isStaff,
+      conversationType: conversationType ?? this.conversationType,
       isLoading: isLoading ?? this.isLoading,
       isSuccess: isSuccess ?? this.isSuccess,
       errorMessage: errorMessage, // Reset error if not provided
@@ -80,6 +84,7 @@ class BulkMessagingCompositionState extends Equatable {
     attachments,
     messageText,
     isStaff,
+    conversationType,
     isLoading,
     isSuccess,
     errorMessage,
@@ -99,12 +104,14 @@ class BulkMessagingCompositionCubit
     required CreateConversationUseCase createConversationUseCase,
     required SendMessageUseCase sendMessageUseCase,
     required StorageService storageService,
+    String conversationType = 'ROOM_CHAT',
   }) : _createConversationUseCase = createConversationUseCase,
        _sendMessageUseCase = sendMessageUseCase,
        _storageService = storageService,
        super(
          BulkMessagingCompositionState(
            isStaff: isStaff,
+           conversationType: conversationType,
            selectedRecipients: List<Map<String, dynamic>>.from(
              initialRecipients,
            ),
@@ -154,7 +161,7 @@ class BulkMessagingCompositionCubit
     );
   }
 
-  Future<void> sendMessages() async {
+  Future<void> sendMessages(BuildContext context) async {
     if (!state.canSend) return;
 
     emit(
@@ -188,9 +195,10 @@ class BulkMessagingCompositionCubit
           (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
       final senderUserCode =
           (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
-      final actualSenderCode = senderCode.isNotEmpty ? senderCode : senderUserCode;
+      final actualSenderCode = senderCode.isNotEmpty
+          ? senderCode
+          : senderUserCode;
 
-      final attachmentPayloads = await _buildAttachmentPayloads();
       if (isClosed) return;
       final messageText = state.messageText.trim();
 
@@ -215,64 +223,56 @@ class BulkMessagingCompositionCubit
             title: recipientName,
             type: 'STAFF_DIRECT',
             description: messageText,
-            initialMessage: messageText,
             organizationCode: orgCode,
             schoolCode: schoolCode,
-            participantUserCodes: [recipientCode],
             participants: [
-              {
-                'userCode': actualSenderCode,
-                'participantType': 'STAFF',
-              },
-              {
-                'userCode': recipientCode,
-                'participantType': 'STAFF',
-              }
+              {'userCode': actualSenderCode, 'participantType': 'STAFF'},
+              {'userCode': recipientCode, 'participantType': 'STAFF'},
             ],
-            attachments: attachmentPayloads,
           );
 
           final result = await _createConversationUseCase(request);
           if (isClosed) return;
 
-          await result.fold(
-            (_) async {},
-            (conversation) async {
-              successCount++;
-              // Backend ignores initialMessage field — send as a real message.
-              if (messageText.isNotEmpty) {
-                final msg = Message(
-                  id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
-                  code: '',
-                  text: messageText,
-                  isSentByMe: true,
-                  senderUserCode: senderUserCode.isNotEmpty ? senderUserCode : actualSenderCode,
-                  time: DateTime.now(),
-                );
-                await _sendMessageUseCase(conversation.code, msg);
-              }
-            },
-          );
+          await result.fold((_) async {}, (conversation) async {
+            successCount++;
+            // Backend ignores initialMessage field — send as a real message.
+            if (messageText.isNotEmpty) {
+              final msg = Message(
+                id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                code: '',
+                text: messageText,
+                isSentByMe: true,
+                senderUserCode: senderUserCode.isNotEmpty
+                    ? senderUserCode
+                    : actualSenderCode,
+                time: DateTime.now(),
+              );
+              await _sendMessageUseCase(conversation.code, msg);
+            }
+          });
           if (isClosed) return;
         }
 
         if (successCount == state.selectedRecipients.length) {
-          emit(
-            state.copyWith(
-              isLoading: false,
+          if (context.mounted) {
+            CoreUtils.showTopSnackBar(
+              context: context,
               isSuccess: true,
-              progressMessage: 'All messages sent successfully!',
-            ),
-          );
+              message: 'All messages sent successfully!',
+            );
+          }
+          emit(state.copyWith(isLoading: false, isSuccess: true));
         } else if (successCount > 0) {
-          emit(
-            state.copyWith(
-              isLoading: false,
+          if (context.mounted) {
+            CoreUtils.showTopSnackBar(
+              context: context,
               isSuccess: true,
-              progressMessage:
+              message:
                   'Sent $successCount of ${state.selectedRecipients.length} messages.',
-            ),
-          );
+            );
+          }
+          emit(state.copyWith(isLoading: false, isSuccess: true));
         } else {
           emit(
             state.copyWith(
@@ -301,28 +301,33 @@ class BulkMessagingCompositionCubit
           return;
         }
 
+        final isAdminChat = state.conversationType == 'ADMIN_CHAT';
+        // ADMIN_CHAT must only have ADMIN + GUARDIAN participants — no STAFF.
+        final filteredRecipientCodes = isAdminChat
+            ? recipientCodes.where((c) => !c.startsWith('STF_')).toList()
+            : recipientCodes;
+
         final request = CreateConversationRequest(
-          title:
-              'Bulk Message ${DateTime.now().toString().substring(0, 16)}', // Default title
-          type:
-              'GROUP', // Group chat might have a different type, but following user's structure
+          title: (state.selectedRecipients.first['name'] as String? ?? '').trim(),
+          type: state.conversationType,
           description: messageText,
-          initialMessage: messageText,
           organizationCode: orgCode,
           schoolCode: schoolCode,
-          participantUserCodes: recipientCodes,
           participants: [
             if (actualSenderCode.isNotEmpty)
               {
                 'userCode': actualSenderCode,
-                'participantType': 'STAFF',
+                'participantType': isAdminChat ? 'ADMIN' : 'STAFF',
               },
-            ...recipientCodes.map((code) => {
-                  'userCode': code,
-                  'participantType': code.startsWith('STF_') ? 'STAFF' : 'STUDENT',
-                }),
+            ...filteredRecipientCodes.map(
+              (code) => {
+                'userCode': code,
+                'participantType': code.startsWith('STF_')
+                    ? 'STAFF'
+                    : 'GUARDIAN',
+              },
+            ),
           ],
-          attachments: attachmentPayloads,
         );
 
         final result = await _createConversationUseCase(request);
@@ -343,18 +348,21 @@ class BulkMessagingCompositionCubit
                 code: '',
                 text: messageText,
                 isSentByMe: true,
-                senderUserCode: senderUserCode.isNotEmpty ? senderUserCode : actualSenderCode,
+                senderUserCode: senderUserCode.isNotEmpty
+                    ? senderUserCode
+                    : actualSenderCode,
                 time: DateTime.now(),
               );
               await _sendMessageUseCase(conversation.code, msg);
             }
-            emit(
-              state.copyWith(
-                isLoading: false,
+            if (context.mounted) {
+              CoreUtils.showTopSnackBar(
+                context: context,
                 isSuccess: true,
-                progressMessage: 'Group message sent successfully!',
-              ),
-            );
+                message: 'Group message sent successfully!',
+              );
+            }
+            emit(state.copyWith(isLoading: false, isSuccess: true));
           },
         );
       }
@@ -377,23 +385,5 @@ class BulkMessagingCompositionCubit
             '')
         .toString()
         .trim();
-  }
-
-  Future<List<Map<String, dynamic>>> _buildAttachmentPayloads() async {
-    final payloads = <Map<String, dynamic>>[];
-    for (final attachment in state.attachments) {
-      final file = attachment.file;
-      final mimeType =
-          lookupMimeType(file.path) ??
-          (attachment.isImage ? 'image/*' : 'application/octet-stream');
-      payloads.add({
-        'name': path.basename(file.path),
-        'type': attachment.isImage ? 'image' : 'document',
-        'sizeBytes': await file.length(),
-        'mimeType': mimeType,
-        'localPath': file.path,
-      });
-    }
-    return payloads;
   }
 }

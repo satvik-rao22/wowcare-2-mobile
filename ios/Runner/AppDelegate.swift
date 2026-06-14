@@ -4,39 +4,47 @@ import UserNotifications
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
-  // Stores the action from a geofence notification tap so Dart can read it
-  // once the Flutter engine starts (userNotificationCenter fires after
-  // didFinishLaunchingWithOptions, so we persist it here then read on demand).
-  private static let geofenceTapKey = "geofence_pending_tap_action"
 
-  override func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-  ) -> Bool {
-    let controller = window?.rootViewController as! FlutterViewController
-    let geofenceChannel = FlutterMethodChannel(
-      name: GeofencePlugin.methodChannelName,
-      binaryMessenger: controller.binaryMessenger
-    )
-    GeofencePlugin.initializeWithChannel(geofenceChannel)
+  // MARK: - FlutterImplicitEngineDelegate
 
-    // Expose a channel so Dart can read and clear a pending geofence tap action
-    // (set by userNotificationCenter below when a native geofence notification
-    // is tapped from the killed / background state).
-    FlutterMethodChannel(
-      name: "wowcare/geofence_tap",
-      binaryMessenger: controller.binaryMessenger
-    ).setMethodCallHandler { [weak self] call, result in
-      guard call.method == "getPendingAction" else {
-        result(FlutterMethodNotImplemented)
-        return
-      }
-      let action = UserDefaults.standard.string(forKey: AppDelegate.geofenceTapKey)
-      UserDefaults.standard.removeObject(forKey: AppDelegate.geofenceTapKey)
-      result(action)
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    // Wire up the native geofence plugin so CLLocationManager region monitoring
+    // and Dart ↔ native method calls work on iOS.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "WowCareGeofence") {
+      let geofenceChannel = FlutterMethodChannel(
+        name: GeofencePlugin.methodChannelName,
+        binaryMessenger: registrar.messenger()
+      )
+      GeofencePlugin.initializeWithChannel(geofenceChannel)
     }
+  }
 
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  // MARK: - UNUserNotificationCenterDelegate
+
+  // Called when a notification arrives while the app is in the FOREGROUND.
+  // FlutterAppDelegate's default implementation passes [] (no presentation),
+  // so banners/sounds are suppressed. We override to show our local geofence
+  // notifications as banners. FCM foreground presentation is controlled by
+  // FirebaseMessaging.setForegroundNotificationPresentationOptions() in Dart.
+  override func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    willPresent notification: UNNotification,
+    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+  ) {
+    let id = notification.request.identifier
+    if id.hasPrefix("wowcare_geofence_") {
+      // Show geofence local notifications as banner + sound when app is open.
+      if #available(iOS 14.0, *) {
+        completionHandler([.banner, .sound, .badge])
+      } else {
+        completionHandler([.alert, .sound, .badge])
+      }
+    } else {
+      // All other notifications (FCM): delegate to Flutter/Firebase SDK.
+      super.userNotificationCenter(center, willPresent: notification, withCompletionHandler: completionHandler)
+    }
   }
 
   // Called when the user taps a notification (foreground, background, or killed).
@@ -48,15 +56,11 @@ import UserNotifications
   ) {
     let id = response.notification.request.identifier
     if id.hasPrefix("wowcare_geofence_") {
-      let action = response.notification.request.content.userInfo["action"] as? String
-      if let action = action {
-        UserDefaults.standard.set(action, forKey: AppDelegate.geofenceTapKey)
+      if let action = response.notification.request.content.userInfo["action"] as? String {
+        print("[iOS PUSH] Geofence notification tapped: action=\(action)")
+        UserDefaults.standard.set(action, forKey: "geofence_pending_tap_action")
       }
     }
     super.userNotificationCenter(center, didReceive: response, withCompletionHandler: completionHandler)
-  }
-
-  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
-    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
   }
 }

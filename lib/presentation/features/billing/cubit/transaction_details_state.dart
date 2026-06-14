@@ -29,7 +29,7 @@ class TransactionDetailsState extends Equatable {
         familyChildren = const [],
         familyParents = const [],
         familyError = '',
-        hasMoreData = true,
+        hasMoreData = false,
         isLoadingMore = false;
 
   final List<TransactionItem> siblingTransactions;

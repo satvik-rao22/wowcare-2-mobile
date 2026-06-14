@@ -1,0 +1,236 @@
+import 'package:wowcare/core/cache/cache_service.dart';
+import 'package:wowcare/data/features/communication/models/message_entity_collection.dart';
+import 'package:wowcare/data/features/communication/models/sync_queue_collection.dart';
+import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
+
+abstract class MessageEntityLocalDataSource {
+  Future<List<MessageEntityCollection>> getMessages({
+    required String conversationCode,
+    required String organizationCode,
+    required String schoolCode,
+    int limit,
+    String? currentUserCode,
+  });
+
+  Future<MessageEntityCollection?> getMessage(String messageCode);
+
+  Future<void> saveMessages({
+    required List<MessageEntity> entities,
+    required String conversationCode,
+  });
+
+  Future<void> saveMessage(MessageEntity entity);
+
+  Future<void> updateMessageStatus({
+    required String localTempCode,
+    required String confirmedCode,
+    required String status,
+  });
+
+  Future<void> deleteMessage(String messageCode);
+
+  Future<void> clearMessages({
+    required String conversationCode,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  // Sync queue
+  Future<List<SyncQueueCollection>> getPendingOperations({
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  Future<void> queueOperation(SyncQueueEntity entity);
+
+  Future<void> markOperationCompleted(int id);
+
+  Future<void> markOperationFailed({
+    required int id,
+    required String error,
+    required int attempts,
+  });
+
+  Future<int> cleanupSyncQueue({
+    required String organizationCode,
+    required String schoolCode,
+    int olderThanDays,
+  });
+}
+
+class MessageEntityLocalDataSourceImpl
+    implements MessageEntityLocalDataSource {
+  final CacheService cacheService;
+
+  MessageEntityLocalDataSourceImpl({required this.cacheService});
+
+  @override
+  Future<List<MessageEntityCollection>> getMessages({
+    required String conversationCode,
+    required String organizationCode,
+    required String schoolCode,
+    int limit = 50,
+    String? currentUserCode,
+  }) async {
+    final all = await cacheService.getAll<MessageEntityCollection>();
+    return all
+        .where(
+          (m) =>
+              m.conversationCode == conversationCode &&
+              m.organizationCode == organizationCode &&
+              m.schoolCode == schoolCode,
+        )
+        .toList()
+      ..sort((a, b) => b.sentAt.compareTo(a.sentAt)) // newest first
+      ..take(limit);
+  }
+
+  @override
+  Future<MessageEntityCollection?> getMessage(String messageCode) async {
+    final all = await cacheService.getAll<MessageEntityCollection>();
+    try {
+      return all.firstWhere(
+        (m) => m.code == messageCode || m.localTempCode == messageCode,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> saveMessages({
+    required List<MessageEntity> entities,
+    required String conversationCode,
+  }) async {
+    final collections =
+        entities.map(MessageEntityCollection.fromEntity).toList();
+    await cacheService.putAll(collections);
+  }
+
+  @override
+  Future<void> saveMessage(MessageEntity entity) async {
+    await cacheService.put(MessageEntityCollection.fromEntity(entity));
+  }
+
+  @override
+  Future<void> updateMessageStatus({
+    required String localTempCode,
+    required String confirmedCode,
+    required String status,
+  }) async {
+    final all = await cacheService.getAll<MessageEntityCollection>();
+    final match = all
+        .where((m) => m.localTempCode == localTempCode)
+        .toList();
+
+    for (final m in match) {
+      m.code = confirmedCode;
+      m.status = status;
+      m.localTempCode = null;
+      await cacheService.put(m);
+    }
+  }
+
+  @override
+  Future<void> deleteMessage(String messageCode) async {
+    final all = await cacheService.getAll<MessageEntityCollection>();
+    final match = all
+        .where((m) => m.code == messageCode || m.localTempCode == messageCode)
+        .toList();
+    for (final m in match) {
+      await cacheService.delete<MessageEntityCollection>(m.isarId);
+    }
+  }
+
+  @override
+  Future<void> clearMessages({
+    required String conversationCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final all = await cacheService.getAll<MessageEntityCollection>();
+    final toDelete = all.where(
+      (m) =>
+          m.conversationCode == conversationCode &&
+          m.organizationCode == organizationCode &&
+          m.schoolCode == schoolCode,
+    );
+    for (final m in toDelete) {
+      await cacheService.delete<MessageEntityCollection>(m.isarId);
+    }
+  }
+
+  // ─── Sync Queue ─────────────────────────────────────────────────────────────
+
+  @override
+  Future<List<SyncQueueCollection>> getPendingOperations({
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final all = await cacheService.getAll<SyncQueueCollection>();
+    return all
+        .where(
+          (op) =>
+              op.organizationCode == organizationCode &&
+              op.schoolCode == schoolCode &&
+              op.status == 'PENDING',
+        )
+        .toList()
+      ..sort((a, b) => a.createdAt.compareTo(b.createdAt)); // oldest first
+  }
+
+  @override
+  Future<void> queueOperation(SyncQueueEntity entity) async {
+    await cacheService.put(SyncQueueCollection.fromEntity(entity));
+  }
+
+  @override
+  Future<void> markOperationCompleted(int id) async {
+    final op = await cacheService.get<SyncQueueCollection>(id);
+    if (op != null) {
+      op.status = 'COMPLETED';
+      await cacheService.put(op);
+    }
+  }
+
+  @override
+  Future<void> markOperationFailed({
+    required int id,
+    required String error,
+    required int attempts,
+  }) async {
+    final op = await cacheService.get<SyncQueueCollection>(id);
+    if (op != null) {
+      op.status = 'FAILED';
+      op.lastError = error;
+      op.attempts = attempts;
+      op.lastAttemptAt = DateTime.now();
+      await cacheService.put(op);
+    }
+  }
+
+  @override
+  Future<int> cleanupSyncQueue({
+    required String organizationCode,
+    required String schoolCode,
+    int olderThanDays = 7,
+  }) async {
+    final cutoff = DateTime.now().subtract(Duration(days: olderThanDays));
+    final all = await cacheService.getAll<SyncQueueCollection>();
+    final toDelete = all.where(
+      (op) =>
+          op.organizationCode == organizationCode &&
+          op.schoolCode == schoolCode &&
+          (op.status == 'COMPLETED' || op.status == 'FAILED') &&
+          op.createdAt.isBefore(cutoff),
+    );
+
+    var count = 0;
+    for (final op in toDelete) {
+      await cacheService.delete<SyncQueueCollection>(op.isarId);
+      count++;
+    }
+    return count;
+  }
+}

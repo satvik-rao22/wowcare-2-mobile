@@ -1,6 +1,12 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_invoice_overview_usecase.dart';
+
 import '../widgets/transactions/transaction_item.dart';
 
 part 'transactions_state.dart';
@@ -14,11 +20,50 @@ class TransactionRecord {
   final TransactionStatus status;
 }
 
-/// Owns the Transactions tab's list + search state. Records are demo data
-/// today; swap [_seedTransactions] for a repository call when billing has a
-/// backend.
+/// Owns the Transactions tab's list + search state and the invoice overview
+/// totals (amount invoiced / net paid / outstanding …) fetched from the
+/// billing API. The transaction list itself is still demo data; swap
+/// [seedTransactions] for a repository call when that endpoint lands.
 class TransactionsCubit extends Cubit<TransactionsState> {
-  TransactionsCubit() : super(TransactionsState.initial());
+  TransactionsCubit({
+    required GetInvoiceOverviewUseCase getOverview,
+    required StorageService storage,
+  })  : _getOverview = getOverview,
+        _storage = storage,
+        super(TransactionsState.initial());
+
+  final GetInvoiceOverviewUseCase _getOverview;
+  final StorageService _storage;
+
+  /// Loads the invoice overview for the current (optional) date range. Silent
+  /// on failure — the stat bar just falls back to the seed totals.
+  Future<void> loadOverview({DateTime? dateFrom, DateTime? dateTo}) async {
+    try {
+      final org =
+          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final school =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isEmpty || school.isEmpty) return;
+      final overview = await _getOverview(
+        organizationCode: org,
+        school: school,
+        dateFrom: dateFrom ?? state.dateFrom,
+        dateTo: dateTo ?? state.dateTo,
+      );
+      if (isClosed) return;
+      emit(state.copyWith(overview: () => overview));
+    } catch (e) {
+      if (isClosed) return;
+      // Totals fall back to zero; surface the error to the view.
+      emit(state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  /// Applies a date range and refetches the overview for it.
+  Future<void> setDateRange(DateTime? from, DateTime? to) async {
+    emit(state.copyWith(dateFrom: () => from, dateTo: () => to));
+    await loadOverview(dateFrom: from, dateTo: to);
+  }
 
   void setSearchQuery(String query) {
     emit(state.copyWith(searchQuery: query));

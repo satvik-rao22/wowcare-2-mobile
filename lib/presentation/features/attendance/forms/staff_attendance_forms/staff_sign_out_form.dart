@@ -7,7 +7,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -15,6 +15,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -23,6 +24,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
@@ -32,11 +34,27 @@ class StaffSignOutForm extends StatefulWidget {
     this.staff,
     this.staffList,
     this.qrToken = '',
+    this.isKiosk = false,
+    this.staffCode,
+    this.staffName,
+    this.pin,
   });
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
   final String qrToken;
+
+  /// True when called from kiosk flow.
+  final bool isKiosk;
+
+  /// Staff code from kiosk PIN verification. Only set when isKiosk=true.
+  final String? staffCode;
+
+  /// Staff name from kiosk PIN verification. Only set when isKiosk=true.
+  final String? staffName;
+
+  /// PIN from kiosk access. Included in API payload for kiosk sign-out.
+  final String? pin;
 
   static const String routeName = '/staff-sign-out-form';
 
@@ -64,12 +82,13 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
   /// Initializes form with logged-in user data
   Future<void> _initializeFormData() async {
-    // Load current staff code from storage
-    final staffCode =
-        (await serviceLocator<StorageService>().getString(
-          StorageKeys.staffCode,
-        ))?.trim() ??
-        '';
+    // Load current staff code from storage (or use provided kiosk staffCode)
+    final staffCode = widget.isKiosk && widget.staffCode != null
+        ? widget.staffCode!.trim()
+        : (await serviceLocator<StorageService>().getString(
+              StorageKeys.staffCode,
+            ))?.trim() ??
+            '';
     if (!mounted) return;
     setState(() {
       _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
@@ -81,10 +100,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     // Load persona flags (admin check, timezone, etc.)
     await _loadPersonaFlags();
 
-    // When coming from QR scan, form is pre-populated with logged-in user
+    // When coming from QR scan or kiosk, form is pre-populated with logged-in user
     // User must manually tap Sign-Out button to submit (not auto-submit)
-    if (widget.qrToken.isNotEmpty) {
-      // QR token is passed to form and will be included in submission
+    if (widget.qrToken.isNotEmpty || widget.isKiosk) {
+      // QR token/kiosk PIN is passed to form and will be included in submission
     }
   }
 
@@ -120,15 +139,23 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
   }
 
-  /// Creates staff entity from storage (name, designation, code)
+  /// Creates staff entity from storage (name, designation, code) or from kiosk params
   Future<void> _createStaffFromStorage() async {
     final storage = serviceLocator<StorageService>();
-    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
-    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
-        .trim();
-    final designation =
-        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+
+    // For kiosk mode, use the provided staffCode
+    final staffCode = widget.isKiosk && widget.staffCode != null
+        ? widget.staffCode!.trim()
+        : (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+
+    final displayName = widget.isKiosk
+        ? (widget.staffName?.trim() ?? 'Staff')
+        : (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final designation = widget.isKiosk
+        ? 'Staff'
+        : (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+
+    AppLogger.d('[StaffSignOut] Kiosk=${widget.isKiosk}, DisplayName=$displayName, StaffName=${widget.staffName}');
 
     if (!mounted) return;
 
@@ -203,7 +230,14 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
   }
 
-  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
+  Future<String> _resolveStaffCode() async {
+    // In kiosk mode, use the staff code from PIN verification
+    if (widget.isKiosk && widget.staffCode != null && widget.staffCode!.isNotEmpty) {
+      return widget.staffCode!.trim();
+    }
+    // Otherwise, resolve from logged-in user
+    return resolveStaffCodeForLoggedInUser();
+  }
 
   Future<void> _handleSubmit() async {
     if (_isSubmitting) return;
@@ -338,10 +372,11 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         : '';
 
     // QR scan is physical proof of presence — skip GPS geofence check.
+    // Kiosk is a fixed location device — always within geofence.
     // For GPS sign-out, read the singleton directly (form may be outside the
     // dashboard BlocProvider tree when pushed via MaterialPageRoute).
     final bool withinGeofence;
-    if (widget.qrToken.isNotEmpty) {
+    if (widget.qrToken.isNotEmpty || widget.isKiosk) {
       withinGeofence = true;
     } else {
       GeofenceState? geofenceState;
@@ -353,22 +388,30 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
 
+    // GPS is optional for kiosk (fixed location device)
     Position? position;
-    try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-    } catch (_) {
+    if (!widget.isKiosk) {
       try {
-        position = await Geolocator.getLastKnownPosition();
-      } catch (_) {}
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+      } catch (_) {
+        try {
+          position = await Geolocator.getLastKnownPosition();
+        } catch (_) {}
+      }
     }
 
     final bool isQrSignOut = widget.qrToken.isNotEmpty;
     final String signOutMethod = isQrSignOut ? 'QR' : 'GPS';
+
+    // QR scan is always self sign-out — the person holding the phone is signing
+    // themselves out. Kiosk is always self sign-out (staff member via PIN).
+    // Admin bulk sign-out only happens via GPS flow where the admin selects other staff.
+    final bool isSelfSignOut = !isStaffAdmin || isQrSignOut || widget.isKiosk;
 
     final payload = <String, dynamic>{
       'attendanceDate': attendanceDate,
@@ -376,25 +419,32 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       'staffCodes': staffCodes,
       'classroomCode': classroomCode,
       'classroomCodeByStaffCode': classroomCodeByStaffCode,
-      'method': signOutMethod,
+      'method': widget.isKiosk ? 'KIOSK' : signOutMethod,
       'latitude': position?.latitude ?? 0,
       'longitude': position?.longitude ?? 0,
       'withinGeofence': withinGeofence,
       'timeZone': schoolTimeZone,
       'occurredAt': occurredAt.toUtc().toIso8601String(),
     };
-    // Include QR token if this is a QR scan
-    if (isQrSignOut) {
+    // Include QR token or pin
+    if (widget.isKiosk && widget.pin != null) {
+      payload['pin'] = widget.pin;
+    } else if (isQrSignOut) {
       payload['qrToken'] = widget.qrToken;
     }
 
     try {
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignOut(payload: payload);
+          .submitStaffSignOut(payload: payload, isSelf: isSelfSignOut);
       final success = result.success;
-      final message = result.message;
+      var message = result.message;
 
       if (!mounted) return;
+
+      // Normalize success messages for better UX
+      if (success && (message.toLowerCase().contains('sign out') || message.toLowerCase().contains('sign-out') || message.toLowerCase().contains('signed out'))) {
+        message = 'Sign out successfully';
+      }
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -407,14 +457,15 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       );
 
       if (success) {
-        if (isStaffAdmin) {
-          context.go(StaffAttendanceTabbedView.routeName);
-        } else {
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            Navigator.of(context).pop();
+        if (widget.isKiosk) {
+          // For kiosk: show success for 2 seconds then return to kiosk dashboard
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            context.go('/kiosk');
           }
+        } else {
+          redirectToAttendanceDaily(
+              context, StaffAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {
@@ -449,6 +500,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   Widget build(BuildContext context) {
     return StaffFormLayout(
       title: 'Sign-Out',
+      isKiosk: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -519,7 +571,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                       const SizedBox(height: 8),
                       IgnorePointer(
                         ignoring: _isStaffAdminPersona == false,
-                        child: SimpleTimePickerField(
+                        child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {
                             setState(() {

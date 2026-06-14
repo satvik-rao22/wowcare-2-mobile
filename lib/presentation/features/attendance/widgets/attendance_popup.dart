@@ -530,7 +530,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                       label: 'Transfer',
                       iconSize: buttonSize,
                       fontSize: fontSize,
-                      onTap: () {
+                      onTap: disableStudentSignInOut ? null : () {
                         final navigator = Navigator.of(
                           context,
                           rootNavigator: true,
@@ -551,7 +551,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                       label: 'Absent',
                       iconSize: buttonSize,
                       fontSize: fontSize,
-                      onTap: () {
+                      onTap: disableStudentSignInOut ? null : () {
                         final navigator = Navigator.of(
                           context,
                           rootNavigator: true,
@@ -624,7 +624,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         label: 'Transfer',
                         iconSize: buttonSize,
                         fontSize: fontSize,
-                        onTap: () {
+                        onTap: disableStudentSignInOut ? null : () {
                           final navigator = Navigator.of(
                             context,
                             rootNavigator: true,
@@ -647,7 +647,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                         label: 'Absent',
                         iconSize: buttonSize,
                         fontSize: fontSize,
-                        onTap: () {
+                        onTap: disableStudentSignInOut ? null : () {
                           final navigator = Navigator.of(
                             context,
                             rootNavigator: true,
@@ -695,6 +695,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final bool isStaff = roleProvider.isStaff;
     final bool isSignInDisabled = isStaff && !geofenceState.isWithinGeofence;
     final bool isSignOutDisabled = isStaff && !geofenceState.isWithinGeofence;
+    // Disable transfer button for staff when doing self-transfer (teacher persona)
+    final bool isTransferDisabledForStaff =
+        isStaff && _isTeacherStaffPersona == true;
 
     final buttonSize = isTablet ? 40.0 : 36.0;
     final fontSize = isTablet ? 14.0 : 12.0;
@@ -812,42 +815,47 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     label: 'Transfer',
                     iconSize: buttonSize,
                     fontSize: fontSize,
-                    onTap: () async {
-                      final navigator = Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      );
-                      navigator.pop();
-                      if (_isTeacherStaffPersona == true &&
-                          _loggedInStaffCode.isNotEmpty) {
-                        final display = await resolveLoggedInStaffDisplay();
-                        navigator.push(
-                          MaterialPageRoute(
-                            builder: (_) => StaffTransferForm(
-                              staff: StaffEntity(
-                                id: 0,
-                                name: display.fullName.isNotEmpty
-                                    ? display.fullName
-                                    : 'My Attendance',
-                                primaryRoomId: 0,
-                                photoUuid: display.profilePhotoUrl.isNotEmpty
-                                    ? display.profilePhotoUrl
-                                    : null,
-                                staffCode: display.staffCode.isNotEmpty
-                                    ? display.staffCode
-                                    : _loggedInStaffCode,
-                              ),
-                            ),
-                          ),
-                        );
-                      } else {
-                        navigator.push(
-                          MaterialPageRoute(
-                            builder: (_) => const StaffSelectionTransferForm(),
-                          ),
-                        );
-                      }
-                    },
+                    onTap: isTransferDisabledForStaff
+                        ? null
+                        : () async {
+                            final navigator = Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            );
+                            navigator.pop();
+                            if (_isTeacherStaffPersona == true &&
+                                _loggedInStaffCode.isNotEmpty) {
+                              final display =
+                                  await resolveLoggedInStaffDisplay();
+                              navigator.push(
+                                MaterialPageRoute(
+                                  builder: (_) => StaffTransferForm(
+                                    staff: StaffEntity(
+                                      id: 0,
+                                      name: display.fullName.isNotEmpty
+                                          ? display.fullName
+                                          : 'My Attendance',
+                                      primaryRoomId: 0,
+                                      photoUuid: display
+                                              .profilePhotoUrl.isNotEmpty
+                                          ? display.profilePhotoUrl
+                                          : null,
+                                      staffCode: display.staffCode.isNotEmpty
+                                          ? display.staffCode
+                                          : _loggedInStaffCode,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            } else {
+                              navigator.push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const StaffSelectionTransferForm(),
+                                ),
+                              );
+                            }
+                          },
                     context: context,
                   ),
                   _buildActionButton(
@@ -998,43 +1006,48 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                       label: 'Transfer',
                       iconSize: buttonSize,
                       fontSize: fontSize,
-                      onTap: () async {
-                        final navigator = Navigator.of(
-                          context,
-                          rootNavigator: true,
-                        );
-                        navigator.pop();
-                        if (_isTeacherStaffPersona == true &&
-                            _loggedInStaffCode.isNotEmpty) {
-                          final display = await resolveLoggedInStaffDisplay();
-                          navigator.push(
-                            MaterialPageRoute(
-                              builder: (_) => StaffTransferForm(
-                                staff: StaffEntity(
-                                  id: 0,
-                                  name: display.fullName.isNotEmpty
-                                      ? display.fullName
-                                      : 'My Attendance',
-                                  primaryRoomId: 0,
-                                  photoUuid: display.profilePhotoUrl.isNotEmpty
-                                      ? display.profilePhotoUrl
-                                      : null,
-                                  staffCode: display.staffCode.isNotEmpty
-                                      ? display.staffCode
-                                      : _loggedInStaffCode,
-                                ),
-                              ),
-                            ),
-                          );
-                        } else {
-                          navigator.push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const StaffSelectionTransferForm(),
-                            ),
-                          );
-                        }
-                      },
+                      onTap: isTransferDisabledForStaff
+                          ? null
+                          : () async {
+                              final navigator = Navigator.of(
+                                context,
+                                rootNavigator: true,
+                              );
+                              navigator.pop();
+                              if (_isTeacherStaffPersona == true &&
+                                  _loggedInStaffCode.isNotEmpty) {
+                                final display =
+                                    await resolveLoggedInStaffDisplay();
+                                navigator.push(
+                                  MaterialPageRoute(
+                                    builder: (_) => StaffTransferForm(
+                                      staff: StaffEntity(
+                                        id: 0,
+                                        name: display.fullName.isNotEmpty
+                                            ? display.fullName
+                                            : 'My Attendance',
+                                        primaryRoomId: 0,
+                                        photoUuid: display
+                                                .profilePhotoUrl.isNotEmpty
+                                            ? display.profilePhotoUrl
+                                            : null,
+                                        staffCode:
+                                            display.staffCode.isNotEmpty
+                                                ? display.staffCode
+                                                : _loggedInStaffCode,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                navigator.push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const StaffSelectionTransferForm(),
+                                  ),
+                                );
+                              }
+                            },
                       context: context,
                     ),
                   ),

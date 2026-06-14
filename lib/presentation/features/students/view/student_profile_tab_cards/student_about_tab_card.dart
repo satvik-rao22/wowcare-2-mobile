@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
@@ -6,7 +7,6 @@ import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/widgets/upcoming_move_widget.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -23,6 +23,7 @@ import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../edit_student_profile_details_screen.dart';
 import '../add_student_step3_screen.dart';
+import '../student_tags_edit_sheet.dart';
 
 class StudentAboutTabCard extends StatefulWidget {
   const StudentAboutTabCard({
@@ -120,6 +121,46 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     }
   }
 
+  /// Birth date with the calculated age appended, e.g.
+  /// "Jun 04, 2024 (2 yrs)" or "Jun 04, 2026 (1 wk)" for infants.
+  String _formatDobWithAge(String? dob) {
+    final formatted = _formatDate(dob);
+    if (dob == null || dob.trim().isEmpty) return formatted;
+    try {
+      final age = _ageLabel(DateTime.parse(dob));
+      return age.isEmpty ? formatted : '$formatted  ($age)';
+    } catch (_) {
+      return formatted;
+    }
+  }
+
+  /// Human age relative to today — years/months for older children, weeks/days
+  /// for infants. Empty for a future date of birth.
+  String _ageLabel(DateTime dob) {
+    final now = DateTime.now();
+    if (dob.isAfter(now)) return '';
+
+    int years = now.year - dob.year;
+    int months = now.month - dob.month;
+    if (now.day < dob.day) months -= 1;
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+
+    String plural(int n, String unit) => '$n $unit${n == 1 ? '' : 's'}';
+
+    if (years >= 1) {
+      return months > 0 ? '${plural(years, 'yr')} ${plural(months, 'mo')}'
+          : plural(years, 'yr');
+    }
+    if (months >= 1) return plural(months, 'mo');
+
+    final days = now.difference(dob).inDays;
+    if (days >= 7) return plural(days ~/ 7, 'wk');
+    return plural(days, 'day');
+  }
+
   String _getValueOrDash(String? value) {
     if (value == null || value.isEmpty) return '-';
     return value;
@@ -197,45 +238,49 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   }
 
   Widget _buildUpcomingMove() {
-    final upcomingMoveDate = widget.studentProfile?.importantDates?.upcomingMoveDate;
-    
-    if (upcomingMoveDate == null || upcomingMoveDate.isEmpty) {
-      // Show "-" in ProfileField format to preserve UI
-      return ProfileField(
-        label: 'Upcoming move',
-        value: '-',
-      );
+    final upcomingMoveDate =
+        widget.studentProfile?.importantDates?.upcomingMoveDate;
+
+    // Show only the date (e.g. "8 June, 2026"), not classroom names.
+    String value = '-';
+    if (upcomingMoveDate != null && upcomingMoveDate.trim().isNotEmpty) {
+      try {
+        value = DateFormat('d MMMM, yyyy')
+            .format(DateTime.parse(upcomingMoveDate));
+      } catch (_) {
+        value = '-';
+      }
     }
 
-    try {
-      final date = DateTime.parse(upcomingMoveDate);
-      final month = DateFormat('MMM').format(date);
-      final day = DateFormat('dd').format(date);
-      
-      // Get current and next class from API if available
-      final currentClass = widget.studentProfile?.classroom ?? widget.classroom;
-      final nextClass = widget.studentProfile?.classroom ?? '-'; // API doesn't provide next class yet
-      
-      return UpcomingMoveWidget(
-        month: month,
-        day: day,
-        currentClass: currentClass.isNotEmpty ? currentClass : '-',
-        nextClass: nextClass.isNotEmpty ? nextClass : '-',
-      );
-    } catch (e) {
-      // If date parsing fails, show "-"
-      return ProfileField(
-        label: 'Upcoming move',
-        value: '-',
-      );
-    }
+    return ProfileField(label: 'Upcoming move', value: value);
+  }
+
+  /// Staff-only tags editor (bottom sheet). Staff can't open the full profile
+  /// editor, but may manage tags from here.
+  void _openTagsEditSheet() {
+    final code =
+        (widget.studentCode ?? widget.studentProfile?.code ?? '').trim();
+    if (code.isEmpty) return;
+    showStudentTagsEditSheet(
+      context: context,
+      studentCode: code,
+      schoolCode: widget.studentProfile?.schoolCode,
+      initialTagNames: widget.tags,
+      onSaved: () async {
+        await widget.onRefresh?.call();
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
+    // Staff persona (teachers/floaters) may edit only tags here — not the full
+    // profile or schedule. Admins keep full profile edit.
+    final isStaffPersona = role.isStaff;
+    final canEditProfile = canStudentWrite && !isStaffPersona;
 
     return CustomRefreshIndicator(
       onRefresh: () async {
@@ -243,9 +288,22 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       },
       child: ProfileInfoCard(
         title: 'Profile Information',
+        // Full width, flush below the tab bar; bottom pads only by the nav's
+        // visible height (above the safe area) so the box's bottom border sits
+        // right on the bottom nav with no extra gap.
+        outerPadding: EdgeInsets.only(
+          bottom: (CustomNavigationBar.navBarHeight -
+                  MediaQuery.of(context).viewPadding.bottom)
+              .clamp(0.0, double.infinity),
+        ),
+        // Square top so the card reads as one continuous surface with the tabs
+        // (rounded top would bump/overlap the tab borders).
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
         scrollController: widget.scrollController,
         onEdit: widget.studentProfile != null && canStudentWrite
-            ? () {
+            ? (isStaffPersona
+                ? _openTagsEditSheet
+                : () {
         final profile = widget.studentProfile!;
         
         // Map status from API format (ACTIVE) to display format (Active)
@@ -375,7 +433,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
             await widget.onRefresh?.call();
           }
         });
-      }
+      })
             : null,
       children: [
         ProfileField(
@@ -419,7 +477,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
 
         ProfileField(
           label: 'Birth Date',
-          value: _formatDate(widget.studentProfile?.dob),
+          value: _formatDobWithAge(widget.studentProfile?.dob),
         ),
 
         ProfileField(
@@ -462,8 +520,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         Builder(
           builder: (context) {
             final names = (widget.sibling['name'] as List?)?.cast<String>() ?? const <String>[];
-            final relations = (widget.sibling['relation'] as List?)?.cast<String>() ?? const <String>[];
-            final statuses = (widget.sibling['status'] as List?)?.cast<String>() ?? const <String>[];
 
             if (names.isEmpty) {
               return ProfileField(
@@ -480,18 +536,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: List.generate(names.length, (index) {
                   final name = names[index];
-                  final relation = index < relations.length ? relations[index] : 'Sibling';
-                  final rawStatus = index < statuses.length ? statuses[index] : '';
-                  final statusLower = rawStatus.toString().toLowerCase();
-
-                  Color? statusColor;
-                  if (statusLower == 'upcoming') {
-                    statusColor = const Color.fromARGB(255, 253, 205, 22);
-                  } else if (statusLower == 'active' || statusLower == 'signedin') {
-                    statusColor = const Color.fromRGBO(0, 177, 21, 1);
-                  } else if (statusLower == 'inactive' || statusLower == 'isabsent') {
-                    statusColor = const Color.fromRGBO(200, 32, 32, 1);
-                  }
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -501,11 +545,10 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                           fileUuid: '',
                           name: name,
                           size: 45,
-                          statusColor: statusColor,
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          '$name ($relation)',
+                          name,
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontSize: 16,
@@ -530,7 +573,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
               : '-',
         ),
 
-        if (canStudentWrite)
+        if (canEditProfile)
           GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: () async {

@@ -105,8 +105,14 @@ class ConversationParticipantModel extends ConversationParticipant {
       id: json['id'] as int? ?? 0,
       conversationId: json['conversationId'] as int? ?? 0,
       userCode: json['userCode'] as String? ?? '',
-      userName: json['userName'] as String? ?? '',
-      role: json['role'] as String? ?? 'OWNER',
+      // New API uses 'displayName'; old API used 'userName'. Accept both.
+      userName: (json['displayName'] as String?)?.isNotEmpty == true
+          ? json['displayName'] as String
+          : json['userName'] as String? ?? '',
+      // New API uses 'participantType'; old API used 'role'. Accept both.
+      role: json['participantType'] as String? ??
+          json['role'] as String? ??
+          'STAFF',
       joinedAt: json['joinedAt'] != null
           ? DateTime.parse(json['joinedAt'] as String)
           : DateTime.now(),

@@ -9,6 +9,10 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 class AmountInvoicedStatBar extends StatefulWidget {
   final double totalAmount;
   final double paidPercentage;
+
+  /// Gross paid share (before refunds), shown as the "Paid" item in the
+  /// expanded view. Defaults to [paidPercentage] when not provided.
+  final double? grossPaidPercentage;
   final double inProcessPercentage;
   final double unpaidPercentage;
   final double refundPercentage;
@@ -18,6 +22,7 @@ class AmountInvoicedStatBar extends StatefulWidget {
     super.key,
     required this.totalAmount,
     required this.paidPercentage,
+    this.grossPaidPercentage,
     required this.inProcessPercentage,
     required this.unpaidPercentage,
     this.refundPercentage = 0,
@@ -91,10 +96,15 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       color: AppColors.refundLegendColor,
     );
 
+    final double grossPaidPct = widget.grossPaidPercentage ?? widget.paidPercentage;
+    final double grossPaidAmt = (widget.totalAmount *
+            (grossPaidPct.clamp(0, 100) / 100))
+        .clamp(0, widget.totalAmount);
+
     final paidItem = ProgressItemHelper(
       label:
-          'Paid\n${formatAmount(paidAmt)} (${widget.paidPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.paidPercentage.clamp(0, 100).toDouble(),
+          'Paid\n${formatAmount(grossPaidAmt)} (${grossPaidPct.clamp(0, 100).toStringAsFixed(1)}%)',
+      value: grossPaidPct.clamp(0, 100).toDouble(),
       color: AppColors.paidLegendColor,
     );
 
@@ -130,37 +140,36 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
           percentageLabel: '$outstandingPercentage%',
         ),
         const SizedBox(height: 8),
-        GestureDetector(
-          onTap: _toggleExpanded,
-          child: CustomStatBarCard(
-            title: widget.title,
-            number: '\$${numberFormat.format(widget.totalAmount)}',
-            numberFontSize: 26,
-            titleFontSize: 17,
-            items: itemsToShow,
-            progressItems: progressItems,
-            fullWidthBar: true,
-            footer: TextButton.icon(
-              onPressed: _toggleExpanded,
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                minimumSize: const Size(0, 0),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              icon: Icon(
-                _isExpanded
-                    ? Icons.keyboard_arrow_up_rounded
-                    : Icons.keyboard_arrow_down_rounded,
-                size: 16,
+        // Only the "Show more" / "Show less" button toggles expand/collapse —
+        // tapping the card body itself does nothing.
+        CustomStatBarCard(
+          title: widget.title,
+          number: '\$${numberFormat.format(widget.totalAmount)}',
+          numberFontSize: 26,
+          titleFontSize: 17,
+          items: itemsToShow,
+          progressItems: progressItems,
+          fullWidthBar: true,
+          footer: TextButton.icon(
+            onPressed: _toggleExpanded,
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, 0),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            icon: Icon(
+              _isExpanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              size: 16,
+              color: AppColors.primaryColor,
+            ),
+            label: Text(
+              _isExpanded ? 'Show less' : 'Show more',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor,
-              ),
-              label: Text(
-                _isExpanded ? 'Show less' : 'Show more',
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor,
-                ),
               ),
             ),
           ),

@@ -12,10 +12,9 @@ part 'transaction_details_state.dart';
 class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
   TransactionDetailsCubit() : super(const TransactionDetailsState.initial());
 
+  // Data is static/dummy today, so there is nothing to wait for — populate
+  // synchronously and keep pagination disabled (no "Loading more..." / spinner).
   Future<void> initialize() async {
-    emit(state.copyWith(isLoadingSiblings: true, isLoadingFamily: true));
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    if (isClosed) return;
     emit(state.copyWith(
       startDate: () => null,
       endDate: () => null,
@@ -37,19 +36,11 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
       ],
       isLoadingSiblings: false,
       isLoadingFamily: false,
+      hasMoreData: false,
     ));
   }
 
   Future<void> loadSiblingTransactions({bool refresh = false}) async {
-    if (refresh) {
-      emit(state.copyWith(
-        hasMoreData: true,
-        siblingTransactions: const <TransactionItem>[],
-      ));
-    }
-    emit(state.copyWith(isLoadingSiblings: true, hasError: false));
-    await Future<void>.delayed(const Duration(milliseconds: 800));
-    if (isClosed) return;
     emit(state.copyWith(
       siblingTransactions: refresh
           ? _generateDummyTransactions()
@@ -58,16 +49,14 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
               ..._generateDummyTransactions(),
             ],
       isLoadingSiblings: false,
+      hasError: false,
       hasMoreData: false,
     ));
   }
 
+  // No pagination for static data; kept as a guarded no-op.
   Future<void> loadMore() async {
     if (state.isLoadingMore || !state.hasMoreData) return;
-    emit(state.copyWith(isLoadingMore: true));
-    await Future<void>.delayed(const Duration(milliseconds: 500));
-    if (isClosed) return;
-    emit(state.copyWith(isLoadingMore: false, hasMoreData: false));
   }
 
   /// Applies a new date range and reloads the sibling transactions.

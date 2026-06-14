@@ -3,17 +3,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_schedule_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_profile_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -296,7 +298,11 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
         child: BlocBuilder<StaffProfileCubit, StaffProfileState>(
           builder: (context, state) {
             if (state.isLoading && state.profile == null) {
-              return const Center(child: PrimaryCircularLoader());
+              return const SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+                physics: AlwaysScrollableScrollPhysics(),
+                child: StaffProfileInfoShimmer(),
+              );
             }
 
             final profile = state.profile;
@@ -354,15 +360,22 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
               onRefresh: () async {
                 await _profileCubit.refresh(widget.staffCode);
               },
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 16,
+              child: Padding(
+                // Bottom pads only by the nav's visible height (above the safe
+                // area) so the box's bottom border sits flush on the bottom nav.
+                padding: EdgeInsets.fromLTRB(
+                  8,
+                  16,
+                  8,
+                  (CustomNavigationBar.navBarHeight -
+                          MediaQuery.of(context).viewPadding.bottom)
+                      .clamp(0.0, double.infinity),
                 ),
+                // Fixed bordered box; content scrolls INSIDE it (clipped by the
+                // border radius) so the cards slide under the box, not the box.
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(16),
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     border: Border.all(color: AppColors.themeColor),
                     borderRadius: const BorderRadius.vertical(
@@ -371,7 +384,10 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                     ),
                     color: Colors.white,
                   ),
-                  child: Column(
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
@@ -484,6 +500,15 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                       _Field(
                         label: 'Designation',
                         value: _formatEnumLabel(profile.designation),
+                      ),
+                      const SizedBox(height: 16),
+                      _Field(
+                        label: 'Role',
+                        value: profile.staffType.trim().isEmpty
+                            ? '-'
+                            : StringUtils.staffTypeToDisplayRole(
+                                profile.staffType,
+                              ),
                       ),
                       const SizedBox(height: 16),
                       _Field(
@@ -777,6 +802,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                       ),
                     ],
                   ),
+                ),
                 ),
               ),
             );

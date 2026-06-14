@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -18,7 +20,6 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/staff_attendance_vertical_popup.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
@@ -55,11 +56,14 @@ class _AttendanceField extends StatelessWidget {
       children: [
         SizedBox(
           width: 120,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
-              fontSize: 14,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -90,12 +94,15 @@ class _AttendanceField extends StatelessWidget {
                 const SizedBox(width: 6),
               ],
               Flexible(
-                child: AppText.value(
+                child: Text(
                   text,
                   textAlign: TextAlign.end,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
+                    color: Color(0xff573353),
+                    height: 19 / 14,
                   ),
                 ),
               ),
@@ -107,35 +114,47 @@ class _AttendanceField extends StatelessWidget {
   }
 
   Widget _methodIcon(StaffProfileAbsentMarkMethod method) {
+    const double size = 16;
     switch (method) {
       case StaffProfileAbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: 16, height: 16);
+        return Tooltip(
+          message: 'GPS',
+          child: SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size),
+        );
       case StaffProfileAbsentMarkMethod.qr:
-        return SvgPicture.asset(
-          MediaRes.qrAttendanceIcon,
-          width: 16,
-          height: 16,
+        return Tooltip(
+          message: 'QR',
+          child: SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size),
         );
       case StaffProfileAbsentMarkMethod.kiosk:
-        return SvgPicture.asset(MediaRes.pinMethodIcon, width: 16, height: 16);
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size),
+        );
       case StaffProfileAbsentMarkMethod.app:
-        return SvgPicture.asset(
-          MediaRes.appMethodIcon,
-          width: 16,
-          height: 16,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
+        return Tooltip(
+          message: 'APP',
+          child: SvgPicture.asset(
+            MediaRes.appMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case StaffProfileAbsentMarkMethod.web:
-        return SvgPicture.asset(
-          MediaRes.webMethodIcon,
-          width: 16,
-          height: 16,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
+        return Tooltip(
+          message: 'WEB',
+          child: SvgPicture.asset(
+            MediaRes.webMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
     }
@@ -155,6 +174,8 @@ class _AttendanceModel {
   final int attendedMinutes;
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+  final StaffProfileAbsentMarkMethod? signInMethod;
+  final StaffProfileAbsentMarkMethod? signOutMethod;
 
   _AttendanceModel({
     required this.date,
@@ -168,6 +189,8 @@ class _AttendanceModel {
     this.attendedMinutes = 0,
     this.isTransferSignIn = false,
     this.isTransferSignOut = false,
+    this.signInMethod,
+    this.signOutMethod,
   });
 }
 
@@ -263,6 +286,7 @@ class StaffAttendanceProfile extends StatefulWidget {
     this.isExpectedToday = true,
     this.isPresentToday = false,
     this.profileStatus = 'A',
+    this.initialShowAbsentDays = false,
   });
 
   final String staffCode;
@@ -276,6 +300,9 @@ class StaffAttendanceProfile extends StatefulWidget {
   final bool isExpectedToday;
   final bool isPresentToday;
   final String profileStatus;
+
+  /// When true, opens the profile with the absent-days list visible (e.g. Absent tab).
+  final bool initialShowAbsentDays;
 
   @override
   State<StaffAttendanceProfile> createState() => _StaffAttendanceProfileState();
@@ -413,6 +440,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   @override
   void initState() {
     super.initState();
+    showAbsentDays = widget.initialShowAbsentDays;
     final now = DateTime.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
@@ -442,9 +470,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   /// without them (notification deep-link). No-op for normal navigation that
   /// already supplied [staffName].
   Future<void> _ensureHeaderIdentityLoaded() async {
-    if (widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-') {
-      return;
-    }
+    final hasName =
+        widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-';
+    final hasClassroom = (staff?.roomName ?? widget.roomName).trim().isNotEmpty;
+    // Skip the fetch only when both the name and the primary classroom name
+    // (shown in the header) are already available.
+    if (hasName && hasClassroom) return;
     final code = widget.staffCode.trim();
     if (code.isEmpty) return;
     try {
@@ -585,6 +616,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             attendedMinutes: (m['attendedMinutes'] as int?) ?? 0,
             isTransferSignIn: isTransferSignIn,
             isTransferSignOut: isTransferSignOut,
+            signInMethod:
+                _mapAbsentMethodStringToEnum(m['signedInMethod'] as String?),
+            signOutMethod:
+                _mapAbsentMethodStringToEnum(m['signedOutMethod'] as String?),
           );
         }).toList();
 
@@ -737,17 +772,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     final current = staff;
     if (current == null) return;
 
+    // Disabled actions are already non-tappable in the pop-up and explain
+    // themselves via the per-action tooltip, so just no-op here instead of
+    // showing a generic snackbar.
     if ((actionLabel == 'Sign-in' && !_canSignIn) ||
         (actionLabel == 'Sign-Out' && !_canSignOut) ||
         (actionLabel == 'Transfer' && !_canTransfer) ||
         (actionLabel == 'Absent' && !_canMarkAbsent)) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('Please Sign in First'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
       return;
     }
 
@@ -779,10 +810,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
+    // Use the exact dates the user picked. Snapping to start/end of month
+    // here made every range collapse to the whole month, so a same-day
+    // (10 Jun → 10 Jun) or any custom range never filtered.
     final effectiveEnd = endDate ?? startDate;
     setState(() {
-      _startDate = _startOfMonth(startDate);
-      _endDate = _endOfMonth(effectiveEnd);
+      _startDate = startDate;
+      _endDate = effectiveEnd;
     });
     _loadData();
   }
@@ -924,11 +958,26 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               if (!_canTransfer) 'Transfer',
               if (!_canMarkAbsent) 'Absent',
             },
+            disabledReasons: _isTodayStatusLoading
+                ? const <String, String>{}
+                : staffAttendanceDisabledReasons(_todayGate),
             onActionTap: _handleStaffAction,
           ),
         );
       },
     );
+  }
+
+  /// Cleans an enum-style designation from the API into a human label, e.g.
+  /// "ASSISTANT_TEACHER" -> "Assistant Teacher", "DIRECTOR" -> "Director".
+  String _formatDesignation(String? value) {
+    final raw = (value ?? '').trim();
+    if (raw.isEmpty) return '-';
+    return raw
+        .split(RegExp(r'[_\s]+'))
+        .where((p) => p.isNotEmpty)
+        .map((p) => p[0].toUpperCase() + p.substring(1).toLowerCase())
+        .join(' ');
   }
 
   Widget _buildStaffCard() {
@@ -980,17 +1029,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      if (currentStaff.designationName != null) ...[
+                      // Staff persona: show the primary classroom name.
+                      // Admin persona: show the designation, cleaned up
+                      // (e.g. ASSISTANT_TEACHER -> Assistant Teacher) instead
+                      // of the raw enum value from the API.
+                      if (context.read<RoleCubit>().isStaff)
                         AppText.body(
-                          currentStaff.designationName!,
+                          currentStaff.roomName,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        )
+                      else
+                        AppText.body(
+                          _formatDesignation(currentStaff.designationName),
                           style: const TextStyle(fontWeight: FontWeight.w500),
                         ),
-                        const SizedBox(height: 4),
-                      ],
-                      AppText.body(
-                        currentStaff.roomName,
-                        style: const TextStyle(fontWeight: FontWeight.w500),
-                      ),
                     ],
                   ),
                 ),
@@ -1288,8 +1340,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   }
 
   String getFirstName(String name) {
-    if (name == 'System Auto Signout') return name;
-    return name.split(' ').first;
+    // Show the full name (first + last), not just the first word.
+    return name.trim();
   }
 
   String formatTime(String time) {
@@ -1336,6 +1388,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             label: 'Sign In',
             text: formatTime(attendance.signInTime),
             showTransferIcon: attendance.isTransferSignIn,
+            markMethod: attendance.signInMethod,
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1347,6 +1400,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             label: 'Sign Out',
             text: formatTime(attendance.signOutTime),
             showTransferIcon: attendance.isTransferSignOut,
+            markMethod: attendance.signOutMethod,
           ),
           const SizedBox(height: 16),
           _AttendanceField(

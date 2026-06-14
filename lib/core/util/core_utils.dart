@@ -194,8 +194,14 @@ class CoreUtils {
 
     // Ensure only one banner is visible at a time (prevents "double banners"
     // when multiple events fire back-to-back during login/navigation).
-    if (_activeTopBannerEntry?.mounted == true) {
-      _activeTopBannerEntry!.remove();
+    if (_activeTopBannerEntry != null) {
+      try {
+        // Always try to remove, even if not mounted
+        _activeTopBannerEntry!.remove();
+      } catch (_) {
+        // Silently ignore removal errors (entry may have already been removed)
+      }
+      _activeTopBannerEntry = null;
     }
 
     late final OverlayEntry overlayEntry;
@@ -266,11 +272,19 @@ class CoreUtils {
     _activeTopBannerEntry = overlayEntry;
 
     Future.delayed(duration, () {
-      if (_activeTopBannerEntry == overlayEntry && overlayEntry.mounted) {
-        overlayEntry.remove();
-      }
-      if (_activeTopBannerEntry == overlayEntry) {
-        _activeTopBannerEntry = null;
+      // Always try to remove the entry
+      try {
+        if (_activeTopBannerEntry == overlayEntry) {
+          // Always attempt removal, even if not mounted
+          overlayEntry.remove();
+          _activeTopBannerEntry = null;
+        }
+      } catch (_) {
+        // Silently ignore removal errors (entry may have been removed by navigation)
+        // But still clear the reference
+        if (_activeTopBannerEntry == overlayEntry) {
+          _activeTopBannerEntry = null;
+        }
       }
     });
   }

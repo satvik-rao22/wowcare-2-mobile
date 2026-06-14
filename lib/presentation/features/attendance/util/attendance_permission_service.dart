@@ -4,6 +4,11 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 
 class AttendancePermissionService {
+  /// Tooltip shown when a STAFF persona tries to manage student attendance
+  /// before completing their own self sign-in.
+  static const String staffSelfSignInRequiredMessage =
+      'Please sign in yourself before signing in a student.';
+
   /// Checks if the current context has permission to manage student attendance.
   ///
   /// Under Clean Architecture:

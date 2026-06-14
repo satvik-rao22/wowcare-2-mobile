@@ -17,6 +17,8 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
 // import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -27,6 +29,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
@@ -80,11 +83,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   String? _cachedSelectedClassroomCode;
   String? _cachedSelectedClassroomName;
 
+  late final IndividualMovementsCubit _movementsCubit;
+
   @override
   void initState() {
     super.initState();
     _storage = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storage);
+    _movementsCubit = serviceLocator<IndividualMovementsCubit>()
+      ..loadInitial();
     _loadLastSelectedClassroomFromCache();
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,6 +104,12 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _loadDetails(args.code);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _movementsCubit.close();
+    super.dispose();
   }
 
   String get _lastSelectedClassroomCacheKey => CacheManager.buildCacheKey(
@@ -491,8 +504,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     if (organizationCode.isEmpty || schoolCode.isEmpty) return;
 
     try {
-      final file = await CoreUtils.pickImage();
-      if (file == null) return;
+      // Shared file picker → every allowed image format is selectable
+      // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not gallery-only.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: mounted ? context : null,
+      );
+      final pickedPath = picked?.path;
+      if (pickedPath == null || pickedPath.isEmpty) return;
+      final file = File(pickedPath);
 
       if (!mounted) return;
       // No full-screen loading dialog — the logo avatar shows its own
@@ -613,8 +633,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     }
   }
 
-  /// Compares signed-in students vs signed-in staff against [ClassroomDetails.studentsPerTeacher]
-  /// (N in N:1). Returns null when ratio is not configured or attendance summaries are missing.
+  /// Compares signed-in students vs signed-in staff against [ClassroomDetails.studentsPerTeacher].
+  /// Returns null when ratio is not configured or attendance summaries are missing.
   bool? _signedInStaffingMeetsConfiguredRatio(ClassroomDetails details) {
     final maxStudentsPerStaff = details.studentsPerTeacher;
     if (maxStudentsPerStaff <= 0) return null;
@@ -767,7 +787,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+      create: (_) => serviceLocator<ClassroomCubit>()
+        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final classrooms = state.classrooms;
@@ -807,7 +828,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             bodyPadding: EdgeInsets.zero,
             body: CustomRefreshIndicator(
               onRefresh: () async {
-                await context.read<ClassroomCubit>().loadActiveClassrooms(force: true);
+                await Future.wait<void>([
+                  context.read<ClassroomCubit>().loadActiveClassrooms(
+                        force: true,
+                        applyAttendanceStaffScope: true,
+                      ),
+                  _movementsCubit.refresh(),
+                ]);
                 if (_selectedRoom != null) {
                   await _loadDetails(
                     _selectedRoom!.code,
@@ -865,7 +892,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               tooltip: 'Back',
                               onPressed: () => Navigator.pop(context),
                               icon: SvgPicture.asset(
-                                MediaRes.infoButtonIcon,
+                                MediaRes.classroomInfoIcon,
                                 height: 32,
                               ),
                             ),
@@ -884,6 +911,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               const SummaryCardShimmer(),
                               const SizedBox(height: 16),
                               const SummaryCardShimmer(),
+                              const SizedBox(height: 16),
+                              const MovementsCardShimmer(),
                             ],
                           )
                         else if (_detailsError != null)
@@ -945,6 +974,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                             title: 'Expected\nStaff',
                             summary: _staffSummary,
                             forStaff: true,
+                          ),
+                          const SizedBox(height: 16),
+                          BlocProvider<IndividualMovementsCubit>.value(
+                            value: _movementsCubit,
+                            child: MovementsCard(
+                              classroomCode: _selectedRoom?.code,
+                            ),
                           ),
                         ],
                         // Events section (temporarily disabled)

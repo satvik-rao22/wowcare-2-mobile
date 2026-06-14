@@ -86,6 +86,9 @@ class ClassroomCubit extends Cubit<ClassroomState> {
       final cached = await _cacheManager.loadCache(cacheKey);
       hydratedClassrooms = _decodeClassroomsFromCache(cached);
       if (hydratedClassrooms.isNotEmpty) {
+        hydratedClassrooms.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         if (isClosed) return;
         emit(
           state.copyWith(
@@ -135,6 +138,10 @@ class ClassroomCubit extends Cubit<ClassroomState> {
               .toList(growable: false);
         }
       }
+
+      visibleClassrooms.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
 
       if (schoolCode.isNotEmpty) {
         await _cacheManager.saveCache(

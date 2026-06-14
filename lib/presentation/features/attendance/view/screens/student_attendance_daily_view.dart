@@ -31,6 +31,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
@@ -399,30 +400,14 @@ class _StudentAttendanceDailyViewScreenState
 
   List<String>? _resolveSelectedClassroomCodes() {
     if (_selectedClassroomNames.isNotEmpty) {
-      // Ensure classroom data is loaded
-      if (_classroomCubit.state.classrooms.isEmpty) {
+      final codes = resolveClassroomNamesToCodes(
+        selectedNamesOrCodes: _selectedClassroomNames,
+        classrooms: _classroomCubit.state.classrooms,
+      );
+      if (codes == null) {
         debugPrint('Warning: No classroom data available for code resolution');
-        return null;
       }
-
-      final nameToCode = <String, String>{
-        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-      };
-      final codes = _selectedClassroomNames
-          .map((n) => nameToCode[n])
-          .whereType<String>()
-          .toList();
-
-      if (codes.length < _selectedClassroomNames.length) {
-        final unresolved = _selectedClassroomNames
-            .where((n) => !nameToCode.containsKey(n))
-            .toList();
-        debugPrint(
-          'Warning: Could not resolve classroom codes for: $unresolved',
-        );
-      }
-
-      return codes.isEmpty ? null : codes;
+      return codes;
     }
 
     // Pre-seeded from navigation (e.g. classroom info): [FilterData.classrooms] are codes.
@@ -766,8 +751,18 @@ class _StudentAttendanceDailyViewScreenState
           _normalizeByName(item.signedOutBy) ??
           (transferSignOut ? _loggedInUserName : null),
       // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
-      signInMethod: _mapMethodStringToEnum(item.signedInMethod),
-      signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),
+      signInMethod: _resolveSignMethodForDisplay(
+        method: item.signedInMethod,
+        hasRecordedTime:
+            (effectiveSignIn ?? item.formattedSignInTime)?.trim().isNotEmpty ==
+                true,
+      ),
+      signOutMethod: _resolveSignMethodForDisplay(
+        method: item.signedOutMethod,
+        hasRecordedTime:
+            (effectiveSignOut ?? item.formattedSignOutTime)?.trim().isNotEmpty ==
+                true,
+      ),
       tags: item.tagNames.isNotEmpty ? item.tagNames : null,
       studentId: index, // Use index as placeholder
       roomId: index, // Use index as placeholder
@@ -813,12 +808,27 @@ class _StudentAttendanceDailyViewScreenState
       case 'QR':
         return SignMethod.qr;
       case 'APP':
+      case 'MOBILE':
+      case 'DIRECT':
+      case 'MANUAL':
         return SignMethod.direct;
       case 'WEB':
         return SignMethod.web;
       default:
         return null;
     }
+  }
+
+  /// Maps API method codes; when a time is present but method is missing (common
+  /// after edit-attendance), default to the mobile/APP icon.
+  SignMethod? _resolveSignMethodForDisplay({
+    required String? method,
+    required bool hasRecordedTime,
+  }) {
+    final mapped = _mapMethodStringToEnum(method);
+    if (mapped != null) return mapped;
+    if (hasRecordedTime) return SignMethod.direct;
+    return null;
   }
 
   AbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
@@ -1095,6 +1105,7 @@ class _StudentAttendanceDailyViewScreenState
                                                 student.expectedToday,
                                             isPresentToday: false,
                                             profileStatus: 'A',
+                                            initialShowAbsentDays: true,
                                           ),
                                     ),
                                   ).then((_) {

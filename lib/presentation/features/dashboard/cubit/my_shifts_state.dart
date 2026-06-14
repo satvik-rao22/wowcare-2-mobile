@@ -18,6 +18,8 @@ class MyShiftsState extends Equatable {
     this.weekFrom,
     this.weekTo,
     this.selectedDate,
+    this.schoolStartTime = '',
+    this.schoolEndTime = '',
     this.errorMessage = '',
   });
 
@@ -40,6 +42,9 @@ class MyShiftsState extends Equatable {
   final DateTime? weekFrom;
   final DateTime? weekTo;
   final DateTime? selectedDate;
+
+  final String schoolStartTime;
+  final String schoolEndTime;
 
   final String errorMessage;
 
@@ -64,6 +69,8 @@ class MyShiftsState extends Equatable {
     DateTime? weekFrom,
     DateTime? weekTo,
     DateTime? selectedDate,
+    String? schoolStartTime,
+    String? schoolEndTime,
     String? errorMessage,
     bool clearError = false,
   }) {
@@ -82,6 +89,8 @@ class MyShiftsState extends Equatable {
       weekFrom: weekFrom ?? this.weekFrom,
       weekTo: weekTo ?? this.weekTo,
       selectedDate: selectedDate ?? this.selectedDate,
+      schoolStartTime: schoolStartTime ?? this.schoolStartTime,
+      schoolEndTime: schoolEndTime ?? this.schoolEndTime,
       errorMessage: clearError ? '' : (errorMessage ?? this.errorMessage),
     );
   }
@@ -102,6 +111,8 @@ class MyShiftsState extends Equatable {
     weekFrom,
     weekTo,
     selectedDate,
+    schoolStartTime,
+    schoolEndTime,
     errorMessage,
   ];
 }

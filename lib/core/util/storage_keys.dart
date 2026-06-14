@@ -1,6 +1,11 @@
 class StorageKeys {
   StorageKeys._();
 
+  /// Set once on first launch. Lives in SharedPreferences (wiped on iOS/Android
+  /// uninstall), so its ABSENCE means a fresh install — used to wipe Keychain
+  /// secure credentials that survive uninstall on iOS.
+  static const String appInstalledMarker = 'app_installed_marker_v1';
+
   // Storage Keys
   static const String accessToken = 'accessToken';
   static const String refreshToken = 'refreshToken';
@@ -10,8 +15,8 @@ class StorageKeys {
   static const String userCode = 'userCode';
 
   /// JWT `sub` claim extracted from the access token at login time.
-  /// This UUID is what the messaging backend stores as `senderUserCode`.
-  /// Use this — not [userCode] — for chat message ownership comparisons.
+  /// NOTE: the messaging backend stores the USR-/STF-... [userCode] as
+  /// `senderUserCode`, not this UUID. Use [userCode] for chat ownership checks.
   static const String authUserId = 'authUserId';
 
   static const String email = 'email';

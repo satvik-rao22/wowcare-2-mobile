@@ -6,24 +6,28 @@ class ReceivePaymentRefundState extends Equatable {
     required this.amountError,
     required this.sendEmailNotification,
     required this.selectedPaymentType,
+    this.errorMessage,
   });
 
   const ReceivePaymentRefundState.initial()
       : isSubmitting = false,
         amountError = false,
         sendEmailNotification = true,
-        selectedPaymentType = null;
+        selectedPaymentType = null,
+        errorMessage = null;
 
   final bool isSubmitting;
   final bool amountError;
   final bool sendEmailNotification;
   final String? selectedPaymentType;
+  final String? errorMessage;
 
   ReceivePaymentRefundState copyWith({
     bool? isSubmitting,
     bool? amountError,
     bool? sendEmailNotification,
     String? Function()? selectedPaymentType,
+    String? errorMessage,
   }) {
     return ReceivePaymentRefundState(
       isSubmitting: isSubmitting ?? this.isSubmitting,
@@ -33,10 +37,16 @@ class ReceivePaymentRefundState extends Equatable {
       selectedPaymentType: selectedPaymentType != null
           ? selectedPaymentType()
           : this.selectedPaymentType,
+      errorMessage: errorMessage,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [isSubmitting, amountError, sendEmailNotification, selectedPaymentType];
+  List<Object?> get props => [
+        isSubmitting,
+        amountError,
+        sendEmailNotification,
+        selectedPaymentType,
+        errorMessage,
+      ];
 }

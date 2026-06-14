@@ -1,11 +1,11 @@
-import 'dart:io';
+import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
-import 'package:thumbnailer/thumbnailer.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/attachment_widget.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_attachment_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -13,21 +13,22 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../../../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
-import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
-import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import '../widgets/chat_thread_shimmer.dart';
 import '../widgets/message_bubble_widget.dart';
 
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({super.key, required this.parentInfo});
   final Map<String, dynamic> parentInfo;
-  final String currentSender =
-      'Eddie Barnes'; // later this can be taken from logged in user profile
 
   @override
   State<ParentMessagingThread> createState() => _ParentMessagingThreadState();
@@ -42,10 +43,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   final AutoScrollController _parent2Controller = AutoScrollController();
   TabController? _tabController;
 
-  //late final ReactionsController _reactionsController;
+  late final ReactionsController _reactionsController;
   Message? _quotedMessage = null;
   String? _quotedMessageId;
   List<ChatAttachment> _pendingAttachments = [];
+  String _currentSender = '';
 
   bool isPrivateModeEnabled(Map<String, dynamic> parentInfo) {
     final privateParents =
@@ -67,7 +69,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   @override
   void initState() {
     super.initState();
-    //_reactionsController = ReactionsController(currentUserId: 'me');
+    _reactionsController = ReactionsController(currentUserId: '');
     final parents =
         (widget.parentInfo['parents'] as List<dynamic>?)?.cast<String>() ?? [];
     parent1Name = parents.isNotEmpty ? parents[0] : 'Parent 1';
@@ -82,17 +84,34 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       if (mounted) setState(() {});
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final authState = context.read<AuthCubit>().state;
-        final userCode = authState is AuthLoaded
-            ? authState.loginResponse.userCode
-            : null;
-        context.read<CommunicationCubit>().loadMessages(
-          widget.parentInfo['code'] as String,
-          currentUserId: userCode,
-        );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final authState = context.read<AuthCubit>().state;
+      if (authState is AuthLoaded) {
+        setState(() {
+          _currentSender = authState.loginResponse.displayName.isNotEmpty
+              ? authState.loginResponse.displayName
+              : authState.loginResponse.userCode;
+        });
       }
+      // senderUserCode from the backend is the USR-/STF-... userCode, not the
+      // JWT sub UUID. Always compare against userCode.
+      final storage = serviceLocator<StorageService>();
+      final storedUserCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      final authUserCode = authState is AuthLoaded
+          ? authState.loginResponse.userCode
+          : null;
+      final currentUserId = (authUserCode?.isNotEmpty ?? false) ? authUserCode : (storedUserCode.isNotEmpty ? storedUserCode : null);
+      if (!mounted) return;
+      final convCode = widget.parentInfo['code'] as String;
+      AppLogger.d(
+        '[ParentThread] loading messages for $convCode '
+        'currentUserId=$currentUserId',
+      );
+      context.read<CommunicationCubit>().loadMessages(
+        convCode,
+        currentUserId: currentUserId,
+      );
     });
   }
 
@@ -135,7 +154,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     List<String> receivers = [];
     receivers.addAll(
-      (widget.parentInfo['staffList'] as List<dynamic>).cast<String>(),
+      (widget.parentInfo['staffList'] as List<dynamic>? ?? []).cast<String>(),
     );
 
     if (_privateModeEnabled) {
@@ -145,7 +164,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       }
     } else {
       receivers.addAll(
-        (widget.parentInfo['parents'] as List<dynamic>).cast<String>(),
+        (widget.parentInfo['parents'] as List<dynamic>? ?? []).cast<String>(),
       );
     }
 
@@ -153,7 +172,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     final authState = context.read<AuthCubit>().state;
     final senderName = authState is AuthLoaded
         ? authState.loginResponse.displayName
-        : widget.currentSender;
+        : _currentSender;
 
     context.read<CommunicationCubit>().sendMessage(
       widget.parentInfo['code'] as String,
@@ -397,22 +416,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  // void _onReactionAdded(Message message, String emoji) {
-  //   final tabIndex = _tabController.index;
-  //   final String activeTabKey;
-  //   if (_privateModeEnabled) {
-  //     activeTabKey =
-  //         tabIndex == 0 ? 'parent_group_parent1' : 'parent_group_parent2';
-  //   } else {
-  //     activeTabKey = 'parent_group_default';
-  //   }
-  //   context.read<CommunicationCubit>().addReaction(
-  //     activeTabKey,
-  //     message.id,
-  //     emoji,
-  //   );
-  // }
-
   void _showEditDialog(BuildContext context, Message message) {
     final TextEditingController editingController = TextEditingController(
       text: message.text,
@@ -521,7 +524,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         id: message.id,
                         code: message.code,
                         text: newText,
-                        senderName: widget.currentSender,
+                        senderName: _currentSender,
                         isSentByMe: message.isSentByMe,
                         time: message.time,
                         deliveredAt: message.deliveredAt,
@@ -573,7 +576,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         if (state is CommunicationLoading && _messages.isEmpty) {
           return const GlobalScaffold(
             hasBackButton: true,
-            body: Center(child: CircularProgressIndicator()),
+            body: ChatThreadShimmer(),
           );
         }
         return GlobalScaffold(
@@ -652,12 +655,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                            final _schoolTz =
+                                                SchoolTimezoneResolver
+                                                    .lastKnownTimeZone;
+                                            final _currDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  message.time,
+                                                  _schoolTz,
+                                                );
+                                            final _prevDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  prevMessage.time,
+                                                  _schoolTz,
+                                                );
                                             showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
+                                                _currDate.year !=
+                                                    _prevDate.year ||
+                                                _currDate.month !=
+                                                    _prevDate.month ||
                                                 _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
@@ -688,27 +703,61 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 if (showDateHeader)
                                                   const SizedBox(height: 10),
 
-                                                // MessageBubble(
-                                                //   //key: key,
-                                                //   //scrollKey: scrollKey,
-                                                //   message: message,
-                                                //   isParentMessaging: true,
-                                                //   quotedMessage: quotedMessage,
-                                                //   onLongPress:
-                                                //       (
-                                                //         LongPressStartDetails
-                                                //         details,
-                                                //       ) {
-                                                //         _showMessageOptions(
-                                                //           context,
-                                                //           message,
-                                                //           details,
-                                                //         );
-                                                //       },
-                                                //   onScrollToQuoted: (quoteId) {
-                                                //     _scrollToMessage(quoteId);
-                                                //   },
-                                                // ),
+                                                MessageBubble(
+                                                  message: message,
+                                                  reactionsController:
+                                                      _reactionsController,
+                                                  isParentMessaging: true,
+                                                  quotedMessage: quotedMessage,
+                                                  onReplyFromMenu: () {
+                                                    setState(() {
+                                                      _quotedMessageId =
+                                                          message.id;
+                                                      _quotedMessage = message;
+                                                    });
+                                                  },
+                                                  onCopy: () {
+                                                    Clipboard.setData(
+                                                      ClipboardData(
+                                                        text: message.text,
+                                                      ),
+                                                    );
+                                                    CoreUtils.showTopSnackBar(
+                                                      context: context,
+                                                      message:
+                                                          'Message copied successfully',
+                                                      isSuccess: true,
+                                                    );
+                                                  },
+                                                  onEdit: () => _showEditDialog(
+                                                    context,
+                                                    message,
+                                                  ),
+                                                  onDelete: () {
+                                                    setState(() {
+                                                      _activeMessages
+                                                          .removeWhere(
+                                                            (m) =>
+                                                                m.id ==
+                                                                message.id,
+                                                          );
+                                                    });
+                                                    CoreUtils.showTopSnackBar(
+                                                      context: context,
+                                                      message:
+                                                          'Message deleted successfully',
+                                                      isSuccess: true,
+                                                    );
+                                                  },
+                                                  onInfo: () =>
+                                                      _showMessageStatusDialog(
+                                                        context,
+                                                        message,
+                                                      ),
+                                                  onScrollToQuoted: (quoteId) {
+                                                    _scrollToMessage(quoteId);
+                                                  },
+                                                ),
                                               ],
                                             ),
                                           );
@@ -747,12 +796,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                            final _schoolTz =
+                                                SchoolTimezoneResolver
+                                                    .lastKnownTimeZone;
+                                            final _currDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  message.time,
+                                                  _schoolTz,
+                                                );
+                                            final _prevDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  prevMessage.time,
+                                                  _schoolTz,
+                                                );
                                             showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
+                                                _currDate.year !=
+                                                    _prevDate.year ||
+                                                _currDate.month !=
+                                                    _prevDate.month ||
                                                 _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
@@ -783,27 +844,61 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 if (showDateHeader)
                                                   const SizedBox(height: 10),
 
-                                                // MessageBubble(
-                                                //   //key: key,
-                                                //   //scrollKey: scrollKey,
-                                                //   message: message,
-                                                //   isParentMessaging: true,
-                                                //   quotedMessage: quotedMessage,
-                                                //   onLongPress:
-                                                //       (
-                                                //         LongPressStartDetails
-                                                //         details,
-                                                //       ) {
-                                                //         _showMessageOptions(
-                                                //           context,
-                                                //           message,
-                                                //           details,
-                                                //         );
-                                                //       },
-                                                //   onScrollToQuoted: (quoteId) {
-                                                //     _scrollToMessage(quoteId);
-                                                //   },
-                                                // ),
+                                                MessageBubble(
+                                                  message: message,
+                                                  reactionsController:
+                                                      _reactionsController,
+                                                  isParentMessaging: true,
+                                                  quotedMessage: quotedMessage,
+                                                  onReplyFromMenu: () {
+                                                    setState(() {
+                                                      _quotedMessageId =
+                                                          message.id;
+                                                      _quotedMessage = message;
+                                                    });
+                                                  },
+                                                  onCopy: () {
+                                                    Clipboard.setData(
+                                                      ClipboardData(
+                                                        text: message.text,
+                                                      ),
+                                                    );
+                                                    CoreUtils.showTopSnackBar(
+                                                      context: context,
+                                                      message:
+                                                          'Message copied successfully',
+                                                      isSuccess: true,
+                                                    );
+                                                  },
+                                                  onEdit: () => _showEditDialog(
+                                                    context,
+                                                    message,
+                                                  ),
+                                                  onDelete: () {
+                                                    setState(() {
+                                                      _activeMessages
+                                                          .removeWhere(
+                                                            (m) =>
+                                                                m.id ==
+                                                                message.id,
+                                                          );
+                                                    });
+                                                    CoreUtils.showTopSnackBar(
+                                                      context: context,
+                                                      message:
+                                                          'Message deleted successfully',
+                                                      isSuccess: true,
+                                                    );
+                                                  },
+                                                  onInfo: () =>
+                                                      _showMessageStatusDialog(
+                                                        context,
+                                                        message,
+                                                      ),
+                                                  onScrollToQuoted: (quoteId) {
+                                                    _scrollToMessage(quoteId);
+                                                  },
+                                                ),
                                               ],
                                             ),
                                           );
@@ -849,12 +944,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             final prevMessage =
                                                 _messages[prevListIndex];
 
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                            final _schoolTz =
+                                                SchoolTimezoneResolver
+                                                    .lastKnownTimeZone;
+                                            final _currDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  message.time,
+                                                  _schoolTz,
+                                                );
+                                            final _prevDate =
+                                                SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                  prevMessage.time,
+                                                  _schoolTz,
+                                                );
                                             showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
+                                                _currDate.year !=
+                                                    _prevDate.year ||
+                                                _currDate.month !=
+                                                    _prevDate.month ||
                                                 _currDate.day != _prevDate.day;
                                           } else {
                                             showDateHeader = true;
@@ -943,13 +1050,27 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
                               color: Colors.white,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 6,
+                                  offset: const Offset(0, -2),
+                                ),
+                              ],
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 16,
-                              ),
-                              child: _buildMessageInput(),
+                            child: ChatInputBar(
+                              controller: _controller,
+                              onSend: _sendMessage,
+                              onAttachmentTap: _showAttachmentSheet,
+                              pendingAttachments: _pendingAttachments,
+                              quotedMessage: _quotedMessage,
+                              onCancelQuote: () => setState(() {
+                                _quotedMessage = null;
+                                _quotedMessageId = null;
+                              }),
+                              onRemoveAttachment: (i) => setState(() {
+                                _pendingAttachments.removeAt(i);
+                              }),
                             ),
                           ),
                         ),
@@ -971,7 +1092,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     ],
                   )
                 : Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.max,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       CustomTextWidget(text: 'Messaging', fontSize: 16),
@@ -984,78 +1105,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           ),
                           child: Column(
                             children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.transparent,
-                                  border: const Border(
-                                    bottom: BorderSide(
-                                      color: Color(0xFFE9ECEF),
-                                      width: 1,
-                                    ),
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24.0,
-                                    vertical: 10,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      Stack(
-                                        children: [
-                                          DocumentImageWidget(
-                                            fileUuid:
-                                                widget.parentInfo['avatar'] ??
-                                                null,
-                                            name:
-                                                widget.parentInfo['name'] ??
-                                                null,
-                                            size: 45,
-                                          ),
-                                          Positioned(
-                                            right: 0,
-                                            top: 0,
-                                            child: Container(
-                                              width: 12,
-                                              height: 12,
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    widget
-                                                        .parentInfo['isSigned']
-                                                    ? const Color.fromRGBO(
-                                                        0,
-                                                        177,
-                                                        21,
-                                                        1,
-                                                      )
-                                                    : Colors.transparent,
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color:
-                                                      widget
-                                                          .parentInfo['isSigned']
-                                                      ? Colors.white
-                                                      : Colors.transparent,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Flexible(
-                                        child: CustomTextWidget(
-                                          text: widget.parentInfo['name'],
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 20,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                              _buildParticipantHeader(),
                               //const SizedBox(height: 10,),
                               TabBar(
                                 controller: _tabController,
@@ -1116,13 +1166,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                                final _schoolTz =
+                                                    SchoolTimezoneResolver
+                                                        .lastKnownTimeZone;
+                                                final _currDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      message.time,
+                                                      _schoolTz,
+                                                    );
+                                                final _prevDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      prevMessage.time,
+                                                      _schoolTz,
+                                                    );
                                                 showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
+                                                    _currDate.year !=
+                                                        _prevDate.year ||
+                                                    _currDate.month !=
+                                                        _prevDate.month ||
+                                                    _currDate.day !=
+                                                        _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1155,31 +1218,66 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         height: 10,
                                                       ),
 
-                                                    // MessageBubble(
-                                                    //   //key: key,
-                                                    //   //scrollKey: scrollKey,
-                                                    //   message: message,
-                                                    //   isParentMessaging: true,
-                                                    //   quotedMessage:
-                                                    //       quotedMessage,
-                                                    //   onLongPress:
-                                                    //       (
-                                                    //         LongPressStartDetails
-                                                    //         details,
-                                                    //       ) {
-                                                    //         _showMessageOptions(
-                                                    //           context,
-                                                    //           message,
-                                                    //           details,
-                                                    //         );
-                                                    //       },
-                                                    //   onScrollToQuoted:
-                                                    //       (quoteId) {
-                                                    //         _scrollToMessage(
-                                                    //           quoteId,
-                                                    //         );
-                                                    //       },
-                                                    // ),
+                                                    MessageBubble(
+                                                      message: message,
+                                                      reactionsController:
+                                                          _reactionsController,
+                                                      isParentMessaging: true,
+                                                      quotedMessage:
+                                                          quotedMessage,
+                                                      onReplyFromMenu: () {
+                                                        setState(() {
+                                                          _quotedMessageId =
+                                                              message.id;
+                                                          _quotedMessage =
+                                                              message;
+                                                        });
+                                                      },
+                                                      onCopy: () {
+                                                        Clipboard.setData(
+                                                          ClipboardData(
+                                                            text: message.text,
+                                                          ),
+                                                        );
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message copied',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                      onEdit: () =>
+                                                          _showEditDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onDelete: () {
+                                                        setState(() {
+                                                          _activeMessages
+                                                              .removeWhere(
+                                                                (m) =>
+                                                                    m.id ==
+                                                                    message.id,
+                                                              );
+                                                        });
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message deleted',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                      onInfo: () =>
+                                                          _showMessageStatusDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onScrollToQuoted:
+                                                          (quoteId) =>
+                                                              _scrollToMessage(
+                                                                quoteId,
+                                                              ),
+                                                    ),
                                                   ],
                                                 ),
                                               );
@@ -1225,13 +1323,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                                final _schoolTz =
+                                                    SchoolTimezoneResolver
+                                                        .lastKnownTimeZone;
+                                                final _currDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      message.time,
+                                                      _schoolTz,
+                                                    );
+                                                final _prevDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      prevMessage.time,
+                                                      _schoolTz,
+                                                    );
                                                 showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
+                                                    _currDate.year !=
+                                                        _prevDate.year ||
+                                                    _currDate.month !=
+                                                        _prevDate.month ||
+                                                    _currDate.day !=
+                                                        _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1264,31 +1375,66 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         height: 10,
                                                       ),
 
-                                                    // MessageBubble(
-                                                    //   //key: key,
-                                                    //   //scrollKey: scrollKey,
-                                                    //   message: message,
-                                                    //   isParentMessaging: true,
-                                                    //   quotedMessage:
-                                                    //       quotedMessage,
-                                                    //   onLongPress:
-                                                    //       (
-                                                    //         LongPressStartDetails
-                                                    //         details,
-                                                    //       ) {
-                                                    //         _showMessageOptions(
-                                                    //           context,
-                                                    //           message,
-                                                    //           details,
-                                                    //         );
-                                                    //       },
-                                                    //   onScrollToQuoted:
-                                                    //       (quoteId) {
-                                                    //         _scrollToMessage(
-                                                    //           quoteId,
-                                                    //         );
-                                                    //       },
-                                                    // ),
+                                                    MessageBubble(
+                                                      message: message,
+                                                      reactionsController:
+                                                          _reactionsController,
+                                                      isParentMessaging: true,
+                                                      quotedMessage:
+                                                          quotedMessage,
+                                                      onReplyFromMenu: () {
+                                                        setState(() {
+                                                          _quotedMessageId =
+                                                              message.id;
+                                                          _quotedMessage =
+                                                              message;
+                                                        });
+                                                      },
+                                                      onCopy: () {
+                                                        Clipboard.setData(
+                                                          ClipboardData(
+                                                            text: message.text,
+                                                          ),
+                                                        );
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message copied',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                      onEdit: () =>
+                                                          _showEditDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onDelete: () {
+                                                        setState(() {
+                                                          _activeMessages
+                                                              .removeWhere(
+                                                                (m) =>
+                                                                    m.id ==
+                                                                    message.id,
+                                                              );
+                                                        });
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message deleted',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                      onInfo: () =>
+                                                          _showMessageStatusDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onScrollToQuoted:
+                                                          (quoteId) =>
+                                                              _scrollToMessage(
+                                                                quoteId,
+                                                              ),
+                                                    ),
                                                   ],
                                                 ),
                                               );
@@ -1336,13 +1482,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 final prevMessage =
                                                     _messages[prevListIndex];
 
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
+                                                final _schoolTz =
+                                                    SchoolTimezoneResolver
+                                                        .lastKnownTimeZone;
+                                                final _currDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      message.time,
+                                                      _schoolTz,
+                                                    );
+                                                final _prevDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      prevMessage.time,
+                                                      _schoolTz,
+                                                    );
                                                 showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
+                                                    _currDate.year !=
+                                                        _prevDate.year ||
+                                                    _currDate.month !=
+                                                        _prevDate.month ||
+                                                    _currDate.day !=
+                                                        _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1375,31 +1534,66 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         height: 10,
                                                       ),
 
-                                                    // MessageBubble(
-                                                    //   //key: key,
-                                                    //   //scrollKey: scrollKey,
-                                                    //   message: message,
-                                                    //   isParentMessaging: true,
-                                                    //   quotedMessage:
-                                                    //       quotedMessage,
-                                                    //   onLongPress:
-                                                    //       (
-                                                    //         LongPressStartDetails
-                                                    //         details,
-                                                    //       ) {
-                                                    //         _showMessageOptions(
-                                                    //           context,
-                                                    //           message,
-                                                    //           details,
-                                                    //         );
-                                                    //       },
-                                                    //   onScrollToQuoted:
-                                                    //       (quoteId) {
-                                                    //         _scrollToMessage(
-                                                    //           quoteId,
-                                                    //         );
-                                                    //       },
-                                                    // ),
+                                                    MessageBubble(
+                                                      message: message,
+                                                      reactionsController:
+                                                          _reactionsController,
+                                                      isParentMessaging: true,
+                                                      quotedMessage:
+                                                          quotedMessage,
+                                                      onReplyFromMenu: () {
+                                                        setState(() {
+                                                          _quotedMessageId =
+                                                              message.id;
+                                                          _quotedMessage =
+                                                              message;
+                                                        });
+                                                      },
+                                                      onCopy: () {
+                                                        Clipboard.setData(
+                                                          ClipboardData(
+                                                            text: message.text,
+                                                          ),
+                                                        );
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message copied',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                      onEdit: () =>
+                                                          _showEditDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onDelete: () {
+                                                        setState(() {
+                                                          _activeMessages
+                                                              .removeWhere(
+                                                                (m) =>
+                                                                    m.id ==
+                                                                    message.id,
+                                                              );
+                                                        });
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message deleted',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                      onInfo: () =>
+                                                          _showMessageStatusDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onScrollToQuoted:
+                                                          (quoteId) =>
+                                                              _scrollToMessage(
+                                                                quoteId,
+                                                              ),
+                                                    ),
                                                   ],
                                                 ),
                                               );
@@ -1417,13 +1611,27 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 6,
+                              offset: const Offset(0, -2),
+                            ),
+                          ],
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 16,
-                          ),
-                          child: _buildMessageInput(),
+                        child: ChatInputBar(
+                          controller: _controller,
+                          onSend: _sendMessage,
+                          onAttachmentTap: _showAttachmentSheet,
+                          pendingAttachments: _pendingAttachments,
+                          quotedMessage: _quotedMessage,
+                          onCancelQuote: () => setState(() {
+                            _quotedMessage = null;
+                            _quotedMessageId = null;
+                          }),
+                          onRemoveAttachment: (i) => setState(() {
+                            _pendingAttachments.removeAt(i);
+                          }),
                         ),
                       ),
                     ],
@@ -1434,302 +1642,247 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  Widget _buildMessageInput() {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_quotedMessage != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Color.fromRGBO(89, 120, 247, 0.1),
-                      Color.fromRGBO(156, 132, 255, 0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
+  List<ConversationParticipant> get _participants {
+    final raw = widget.parentInfo['participants'];
+    if (raw is List) {
+      return raw.whereType<ConversationParticipant>().toList();
+    }
+    return [];
+  }
+
+  Color _roleColor(String role) {
+    switch (role.toUpperCase()) {
+      case 'GUARDIAN':
+        return const Color(0xFF6C63FF);
+      case 'STAFF':
+        return const Color(0xFF00897B);
+      case 'ADMIN':
+        return const Color(0xFFE65100);
+      default:
+        return AppColors.primaryColor;
+    }
+  }
+
+  List<ParticipantDisplayData> get _participantDisplayData =>
+      _participants.map((p) {
+        final roleStr = p.role.toUpperCase();
+        final normalised = roleStr == 'PARENT' ? 'GUARDIAN' : roleStr;
+        return ParticipantDisplayData(
+          userCode: p.userCode,
+          displayName: p.userName.isNotEmpty ? p.userName : p.userCode,
+          role: normalised,
+        );
+      }).toList();
+
+  void _showParticipantsDialog() {
+    final studentName = widget.parentInfo['name'] as String? ?? '';
+    final avatarUuid = widget.parentInfo['avatar'] as String?;
+    ParticipantInfoDialog.show(
+      context,
+      participants: _participantDisplayData,
+      studentName: studentName,
+      studentAvatarUuid: avatarUuid,
+    );
+  }
+
+  void _showAttachmentSheet() {
+    MessageAttachmentBottomSheet.show(
+      context,
+      onAttachmentsSelected: (attachments) {
+        setState(() {
+          _pendingAttachments.addAll(attachments);
+        });
+      },
+      onEmojiSelected: (emoji) {
+        final pos = _controller.selection.isValid
+            ? _controller.selection.baseOffset
+            : _controller.text.length;
+        final text = _controller.text;
+        _controller.value = _controller.value.copyWith(
+          text: text.substring(0, pos) + emoji + text.substring(pos),
+          selection: TextSelection.collapsed(offset: pos + emoji.length),
+        );
+      },
+      onViewParticipants: _showParticipantsDialog,
+    );
+  }
+
+  Widget _buildParticipantHeader() {
+    final participants = _participants;
+    final title = widget.parentInfo['name'] as String? ?? '';
+    final count = participants.isNotEmpty ? participants.length : null;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Title row ──────────────────────────────────────────────
+          Row(
+            children: [
+              DocumentImageWidget(
+                fileUuid: widget.parentInfo['avatar'] as String? ?? '',
+                name: title,
+                size: 36,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: CustomTextWidget(
-                        text: _quotedMessage?.text,
-                        fontSize: 14,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    CustomTextWidget(
+                      text: title,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                    ),
+                    if (count != null)
+                      Text(
+                        '$count participant${count == 1 ? '' : 's'}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF636E72),
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () {
-                        setState(() {
-                          _quotedMessage = null;
-                        });
-                      },
-                    ),
                   ],
                 ),
               ),
-
-            if (_pendingAttachments.isNotEmpty)
-              Container(
-                constraints: const BoxConstraints(maxHeight: 90),
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _pendingAttachments.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final att = _pendingAttachments[index];
-
-                    return SizedBox(
-                      width: 80,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ShowFullScreenMediaView(
-                                imageFile: File(att.localPath!),
-                                title: att.name,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Stack(
-                          fit: StackFit.loose,
-                          children: [
-                            ClipRRect(
-                              clipBehavior: Clip.none,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Thumbnail(
-                                mimeType: att.mimeType,
-                                dataResolver: () async {
-                                  return await File(
-                                    att.localPath!,
-                                  ).readAsBytes();
-                                },
-                                widgetSize: 80,
-                                decoration: WidgetDecoration(
-                                  backgroundColor: Colors.white,
-                                  iconColor: AppColors.primaryColor,
-                                  textColor: AppColors.primaryColor,
-                                  wrapperBgColor: Colors.transparent,
-                                  wrapperSize: 84,
-                                ),
-                                errorBuilder: (context, error) => Container(
-                                  color: Colors.grey[200],
-                                  child: Center(
-                                    child: Icon(
-                                      att.isImage
-                                          ? Icons.image
-                                          : Icons.picture_as_pdf,
-                                      size: 40,
-                                      color: AppColors.primaryColor,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            Positioned(
-                              top: -2.5,
-                              right: -2.5,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _pendingAttachments.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                    border: Border.fromBorderSide(
-                                      BorderSide(color: Colors.white, width: 2),
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            if (!att.isImage)
-                              Positioned(
-                                bottom: 4,
-                                left: 4,
-                                right: 4,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    att.name.length > 15
-                                        ? '${att.name.substring(0, 12)}...'
-                                        : att.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+              Tooltip(
+                message: 'View Participants',
+                child: IconButton(
+                  icon: const Icon(Icons.info_outline_rounded,
+                      color: AppColors.primaryColor),
+                  onPressed: _showParticipantsDialog,
                 ),
               ),
+            ],
+          ),
 
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Container(
+          // ── Participant chips ───────────────────────────────────────
+          if (participants.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 28,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: participants.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 6),
+                itemBuilder: (context, index) {
+                  final p = participants[index];
+                  final roleColor = _roleColor(p.role);
+                  final initial = p.userName.isNotEmpty
+                      ? p.userName[0].toUpperCase()
+                      : '?';
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Color.fromRGBO(89, 120, 247, 0.1),
-                          Color.fromRGBO(156, 132, 255, 0.1),
-                        ],
+                      color: roleColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: roleColor.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            minLines: 1,
-                            maxLines: 10,
-                            maxLength: 2000,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: InputDecoration(
-                              hintText: "Type your message here...",
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide.none,
-                              ),
+                        CircleAvatar(
+                          radius: 8,
+                          backgroundColor: roleColor.withValues(alpha: 0.25),
+                          child: Text(
+                            initial,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: roleColor,
                             ),
-                            buildCounter:
-                                (
-                                  context, {
-                                  required currentLength,
-                                  required isFocused,
-                                  maxLength,
-                                }) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      '$currentLength / $maxLength',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: currentLength >= maxLength!
-                                            ? Colors.red
-                                            : Colors.grey,
-                                      ),
-                                    ),
-                                  );
-                                },
                           ),
                         ),
-                        Padding(
+                        const SizedBox(width: 4),
+                        Text(
+                          p.userName,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: roleColor,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Container(
                           padding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 12,
+                            horizontal: 4,
+                            vertical: 1,
                           ),
-                          child: AttachmentWidget(
-                            iconWidget: GradientAddButton(
-                              wantedButtonSize: 28,
-                              isRectangle: false,
+                          decoration: BoxDecoration(
+                            color: roleColor.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            p.role,
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: roleColor,
                             ),
-                            onAttachmentsSelected: (attachments) {
-                              setState(() {
-                                _pendingAttachments.addAll(attachments);
-                              });
-                            },
                           ),
-                          // child: GradientAddButton(
-                          //   onTap: () {},
-                          //   wantedButtonSize: 26,
-                          //   isRectangle: false,
-                          // ),
                         ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CustomClearAllChip(
-                  onTap: () {
-                    _sendMessage();
-                  },
-                  label: 'Send',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  borderRadius: 8,
-                ),
-              ],
+                  );
+                },
+              ),
             ),
           ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildDateChip(DateTime date) {
     final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final schoolDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(date, schoolTz);
-    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(DateTime.now().toUtc(), schoolTz);
+    final schoolDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      date,
+      schoolTz,
+    );
+    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      DateTime.now().toUtc(),
+      schoolTz,
+    );
 
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     String label;
     if (schoolDate.year == now.year &&
         schoolDate.month == now.month &&
         schoolDate.day == now.day) {
-      label = "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     } else if (schoolDate.year == now.year &&
         schoolDate.month == now.month &&
         schoolDate.day == now.day - 1) {
-      label = "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     } else {
-      label = "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     }
 
     return CustomTextWidget(
@@ -2032,9 +2185,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     return '$hour12$separator$minute $period';
   }
-  // String _formatTimeShort(DateTime dt) {
-  //   return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
-  // }
 
   String _formatFullTime(DateTime dt) {
     final now = DateTime.now();

@@ -12,7 +12,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/view/add_physician_screen.dart';
@@ -90,7 +90,9 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
+            !role.isStaff &&
+            !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -131,13 +133,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                 future: _physiciansFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(
-                        size: 28,
-                        strokeWidth: 2.5,
-                      ),
-                    );
+                    return const StudentDetailCardsShimmer();
                   }
 
                   if (snapshot.hasError) {
@@ -249,10 +245,17 @@ class _PhysicianCard extends StatelessWidget{
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
+        // Match the Family/Pickup cards: themeColor outline, square top-left.
+        decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+          border: Border.fromBorderSide(
+            BorderSide(color: AppColors.themeColor, width: 1),
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
@@ -421,6 +424,7 @@ class _PhysicianCard extends StatelessWidget{
                   CustomButtonLayout(
                     confirmButtonLabel: 'Edit',
                     cancelButtonLabel: 'Delete',
+                    gradientCancelLabel: true,
                     onPressedConfirm: () async {
                       final result = await Navigator.of(context).push<bool>(
                         MaterialPageRoute(

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
@@ -12,7 +13,8 @@ import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
-import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart' show FilterData;
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart'
+    show FilterData;
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
@@ -31,6 +33,7 @@ import 'package:wowcare/presentation/features/classrooom/views/screens/classroom
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
@@ -54,6 +57,10 @@ import 'package:wowcare/presentation/features/user-profile/view/user_profile_scr
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
+import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 
 /// Top-level paths. Kept identical to the old `Screen.routeName` constants so
 /// existing call sites that read those constants keep working.
@@ -71,6 +78,7 @@ class AppRoutes {
   static const String classroom = ClassroomScreen.routeName;
   static const String activityFeed = ActivityFeedScreen.routeName;
   static const String messaging = MessagingScreen.routeName;
+  static const String adminChat = AdminChatHostScreen.routeName;
   static const String parentBilling = ParentBillingScreen.routeName;
 }
 
@@ -155,9 +163,9 @@ int tabIndexForBranchIndex({required bool isParent, required int branchIndex}) {
 /// "_elements.contains(element)" assertion.
 final _dashboardBranchKey = GlobalKey<NavigatorState>(debugLabel: 'dashboard');
 final _classroomBranchKey = GlobalKey<NavigatorState>(debugLabel: 'classroom');
-final _activityBranchKey  = GlobalKey<NavigatorState>(debugLabel: 'activity');
+final _activityBranchKey = GlobalKey<NavigatorState>(debugLabel: 'activity');
 final _messagingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'messaging');
-final _billingBranchKey   = GlobalKey<NavigatorState>(debugLabel: 'billing');
+final _billingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'billing');
 
 /// Deep-link captured from a notification that cold-launched the app (killed
 /// state). On a killed-state tap the app starts at the splash, which runs an
@@ -173,9 +181,71 @@ String? consumePendingNotificationDeepLink() {
   return value;
 }
 
+/// Org/school of the killed-state notification (when it targets a school other
+/// than the last-used one). Captured alongside [pendingNotificationDeepLink] in
+/// main() and consumed by the splash, which switches the active school before
+/// routing to the deep-link. `{organizationCode, schoolCode}` or null.
+Map<String, String>? pendingNotificationOrgSchool;
+
+Map<String, String>? consumePendingNotificationOrgSchool() {
+  final value = pendingNotificationOrgSchool;
+  pendingNotificationOrgSchool = null;
+  return value;
+}
+
 final GoRouter appRouter = GoRouter(
   navigatorKey: CoreUtils.rootNavigatorKey,
   initialLocation: AppRoutes.splash,
+  redirect: (context, state) async {
+    // Log navigation events for debugging
+    debugPrint(
+      '[GoRouter] Navigating to: ${state.uri.path} (name: ${state.name})',
+    );
+
+    // CRITICAL SECURITY: Check if user is in kiosk mode and block non-kiosk routes
+    // Use synchronous cache check to avoid race conditions from multiple redirect() calls
+    bool isKioskMode = KioskAccessControl.isKioskModeActiveDirect();
+
+    // Fallback: If cache is empty, try async storage check (app startup cold load)
+    if (!isKioskMode) {
+      try {
+        isKioskMode = await serviceLocator<KioskAccessControl>()
+            .isKioskModeActive();
+      } catch (e) {
+        // If KioskAccessControl is not registered, try to create it on demand
+        try {
+          AppLogger.w(
+            '[KioskAccess] KioskAccessControl not in DI, creating on demand',
+          );
+          final kioskAccess = KioskAccessControl(
+            serviceLocator<StorageService>(),
+          );
+          isKioskMode = await kioskAccess.isKioskModeActive();
+        } catch (e2) {
+          AppLogger.e('[KioskAccess] Error checking kiosk mode: $e2');
+        }
+      }
+    }
+
+    if (isKioskMode) {
+      final currentRoute = state.uri.path;
+      final allowed = KioskAccessControl.isRouteAllowedForKiosk(currentRoute);
+
+      AppLogger.d(
+        '[KioskAccess] Route check: path=$currentRoute, allowed=$allowed',
+      );
+
+      // Allow kiosk routes only
+      if (!allowed) {
+        AppLogger.d(
+          '[KioskAccess] Blocking access to $currentRoute - kiosk user, redirecting to /kiosk',
+        );
+        return '/kiosk';
+      }
+    }
+
+    return null;
+  },
   routes: [
     GoRoute(
       path: AppRoutes.splash,
@@ -259,6 +329,211 @@ final GoRouter appRouter = GoRouter(
           child: const NotificationCenterScreen(),
         ),
       ),
+    ),
+
+    // Kiosk dashboard — full-screen tablet UI for school entrance kiosk.
+    // Top-level route (outside StatefulShellRoute) so it bypasses the nav shell.
+    // REFACTORED: Cubits provided at app root level in main.dart
+    // Problem: GoRouter's nested route builders receive context from NavigatorWidget.
+    // Solution: Provide cubits at app root (main.dart) instead of route level.
+    //           All screens (including nested routes) now have access to shared cubits.
+    GoRoute(
+      path: KioskDashboardScreen.routeName,
+      builder: (context, state) {
+        AppLogger.d('[Kiosk] Building kiosk dashboard');
+        return const KioskDashboardScreen();
+      },
+      routes: [
+        // Kiosk staff sign-in/out screen (pure kiosk flow)
+        // Uses KioskStaffSignScreenV2 which is built specifically for kiosk
+        // Does NOT call resolveStaffCodeForLoggedInUser() - uses staffCode from PIN verification
+
+        // Student attendance routes
+        GoRoute(
+          path: 'student-sign-in',
+          builder: (context, state) {
+            AppLogger.d('[Kiosk] Building student-sign-in screen');
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final pinValue = extra['pin'] as String?;
+            AppLogger.d(
+              '[Kiosk] Router received pin=$pinValue (type=${extra['pin'].runtimeType})',
+            );
+            return StudentSelectionSignInForm(
+              allowedStudentCodes: (extra['students'] as List?)
+                  ?.map((s) => (s as Map)['studentCode'] as String)
+                  .toList(),
+              isKiosk: extra['isKiosk'] as bool? ?? false,
+              guardianCode: extra['guardianCode'] as String?,
+              pin: pinValue,
+            );
+          },
+        ),
+        GoRoute(
+          path: 'student-sign-out',
+          builder: (context, state) {
+            AppLogger.d('[Kiosk] Building student-sign-out screen');
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            return StudentSelectionSignOutForm(
+              allowedStudentCodes: (extra['students'] as List?)
+                  ?.map((s) => (s as Map)['studentCode'] as String)
+                  .toList(),
+              isKiosk: extra['isKiosk'] as bool? ?? false,
+              guardianCode: extra['guardianCode'] as String?,
+              pin: extra['pin'] as String?,
+            );
+          },
+        ),
+        GoRoute(
+          path: 'student-sign-in-out',
+          builder: (context, state) {
+            AppLogger.d('[Kiosk] Building student-sign-in-out screen');
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final signedInCodes =
+                (extra['signedInStudents'] as List?)
+                    ?.map((s) => (s as Map)['studentCode'] as String)
+                    .toList() ??
+                [];
+            final signedOutCodes =
+                (extra['signedOutStudents'] as List?)
+                    ?.map((s) => (s as Map)['studentCode'] as String)
+                    .toList() ??
+                [];
+            final guardianCode = extra['guardianCode'] as String?;
+            final pin = extra['pin'] as String?;
+            return StudentSignInOutSelectionScreen(
+              signedInCodes: signedInCodes,
+              signedOutCodes: signedOutCodes,
+              guardianCode: guardianCode,
+              pin: pin,
+            );
+          },
+        ),
+
+        // UNIFIED KIOSK SIGN-IN/SIGN-OUT PAGE
+        // Consolidates student selection, sign-in, and sign-out flows
+        // Stays within /kiosk context (no navigation to /dashboard)
+        GoRoute(
+          path: 'student-sign-in-and-sign-out',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final signedInCodes =
+                (extra['signedInCodes'] as List?)?.cast<String>() ?? [];
+            final signedOutCodes =
+                (extra['signedOutCodes'] as List?)?.cast<String>() ?? [];
+            final guardianCode = extra['guardianCode'] as String?;
+            final pin = extra['pin'] as String?;
+            final action = extra['action'] as String? ?? 'selection';
+
+            AppLogger.d(
+              '[Kiosk] Routing to unified student-sign-in-and-sign-out: '
+              'action=$action, signedIn=${signedInCodes.length}, '
+              'signedOut=${signedOutCodes.length}',
+            );
+
+            return _fastPage(
+              state,
+              KioskStudentSignInAndSignOutPage(
+                signedInCodes: signedInCodes,
+                signedOutCodes: signedOutCodes,
+                guardianCode: guardianCode ?? '',
+                pin: pin ?? '',
+                action: action,
+              ),
+            );
+          },
+        ),
+        // KIOSK STAFF SIGN-IN FORM
+        GoRoute(
+          path: 'staff-sign-in',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final isKiosk = extra['isKiosk'] as bool? ?? false;
+            final staffCode = extra['staffCode'] as String?;
+            final staffName = extra['staffName'] as String?;
+            final pin = extra['pin'] as String?;
+            AppLogger.d(
+              '[Kiosk] Routing to staff-sign-in: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}',
+            );
+            return _fastPage(
+              state,
+              StaffSignInForm(
+                isKiosk: isKiosk,
+                staffCode: staffCode,
+                staffName: staffName,
+                pin: pin,
+              ),
+            );
+          },
+        ),
+        // KIOSK STAFF SIGN-OUT FORM
+        GoRoute(
+          path: 'staff-sign-out',
+          pageBuilder: (context, state) {
+            final extra = state.extra as Map<String, dynamic>? ?? {};
+            final isKiosk = extra['isKiosk'] as bool? ?? false;
+            final staffCode = extra['staffCode'] as String?;
+            final staffName = extra['staffName'] as String?;
+            final pin = extra['pin'] as String?;
+            AppLogger.d(
+              '[Kiosk] Routing to staff-sign-out: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}',
+            );
+            return _fastPage(
+              state,
+              StaffSignOutForm(
+                isKiosk: isKiosk,
+                staffCode: staffCode,
+                staffName: staffName,
+                pin: pin,
+              ),
+            );
+          },
+        ),
+      ],
+    ),
+
+    // Top-level staff attendance forms (accessible from kiosk context)
+    GoRoute(
+      path: '/dashboard/staff-sign-in-form',
+      pageBuilder: (context, state) {
+        final isGps = state.uri.queryParameters['gps'] == '1';
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        final isKiosk = extra['isKiosk'] as bool? ?? false;
+        final staffCode = extra['staffCode'] as String?;
+        final staffName = extra['staffName'] as String?;
+        final pin = extra['pin'] as String?;
+        AppLogger.d(
+          '[Router] StaffSignInForm: isKiosk=$isKiosk, staffCode=$staffCode, staffName=$staffName, pin=${pin?.isNotEmpty ?? false}',
+        );
+        return _fastPage(
+          state,
+          StaffSignInForm(
+            forceSelf: isGps,
+            isKiosk: isKiosk,
+            staffCode: staffCode,
+            staffName: staffName,
+            pin: pin,
+          ),
+        );
+      },
+    ),
+    GoRoute(
+      path: '/dashboard/staff-sign-out-form',
+      pageBuilder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>? ?? {};
+        final isKiosk = extra['isKiosk'] as bool? ?? false;
+        final staffCode = extra['staffCode'] as String?;
+        final staffName = extra['staffName'] as String?;
+        final pin = extra['pin'] as String?;
+        return _fastPage(
+          state,
+          StaffSignOutForm(
+            isKiosk: isKiosk,
+            staffCode: staffCode,
+            staffName: staffName,
+            pin: pin,
+          ),
+        );
+      },
     ),
 
     StatefulShellRoute.indexedStack(
@@ -399,7 +674,8 @@ final GoRouter appRouter = GoRouter(
                         highlightClassroomCode:
                             state.uri.queryParameters['highlightCode'],
                         initialDate: _parseYmd(
-                            state.uri.queryParameters['date']),
+                          state.uri.queryParameters['date'],
+                        ),
                         forceDayView:
                             state.uri.queryParameters['view'] == 'day',
                       ),
@@ -437,7 +713,8 @@ final GoRouter appRouter = GoRouter(
                         // jump to the shift's day, select its staff, and flash
                         // the shift block (`highlightCode` = shiftCode).
                         initialDate: _parseYmd(
-                            state.uri.queryParameters['date']),
+                          state.uri.queryParameters['date'],
+                        ),
                         initialStaffCode:
                             state.uri.queryParameters['staffCode'],
                         highlightShiftCode:
@@ -456,8 +733,7 @@ final GoRouter appRouter = GoRouter(
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     IndividualMovementScreen(
-                      highlightCode:
-                          state.uri.queryParameters['highlightCode'],
+                      highlightCode: state.uri.queryParameters['highlightCode'],
                     ),
                   ),
                 ),
@@ -486,7 +762,8 @@ final GoRouter appRouter = GoRouter(
                         args?['classroomFilter'] as FilterData?;
                     final initialTabIndex =
                         (args?['initialTabIndex'] as int?) ?? 0;
-                    final hasBackButton = args?['hasBackButton'] as bool? ?? false;
+                    final hasBackButton =
+                        args?['hasBackButton'] as bool? ?? false;
                     return _fastPage(
                       state,
                       StudentAttendanceTabbedView(
@@ -509,7 +786,8 @@ final GoRouter appRouter = GoRouter(
                         args?['classroomFilter'] as FilterData?;
                     final initialTabIndex =
                         (args?['initialTabIndex'] as int?) ?? 0;
-                    final hasBackButton = args?['hasBackButton'] as bool? ?? false;
+                    final hasBackButton =
+                        args?['hasBackButton'] as bool? ?? false;
                     return _fastPage(
                       state,
                       StaffAttendanceTabbedView(
@@ -569,8 +847,9 @@ final GoRouter appRouter = GoRouter(
                     return _fastPage(
                       state,
                       BlocProvider<ClassroomCubit>(
-                        create: (_) => serviceLocator<ClassroomCubit>()
-                          ..loadActiveClassrooms(),
+                        create: (_) =>
+                            serviceLocator<ClassroomCubit>()
+                              ..loadActiveClassrooms(),
                         child: StudentProfileScreen(
                           studentCode: q['code'],
                           name: '',
@@ -582,8 +861,7 @@ final GoRouter appRouter = GoRouter(
                             'relation': <dynamic>[],
                             'status': <dynamic>[],
                           },
-                          initialTabIndex:
-                              int.tryParse(q['tab'] ?? '') ?? 0,
+                          initialTabIndex: int.tryParse(q['tab'] ?? '') ?? 0,
                           initialProfileSubTabIndex:
                               int.tryParse(q['profileTab'] ?? '') ?? 0,
                           initialHealthSubTabIndex:
@@ -668,14 +946,26 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'student-selection-sign-in-form',
                   pageBuilder: (context, state) {
-                    final code = state.uri.queryParameters['studentCode']?.trim() ?? '';
+                    final code =
+                        state.uri.queryParameters['studentCode']?.trim() ?? '';
                     final extra = state.extra as Map<String, dynamic>?;
-                    final allowed = extra?['allowedStudentCodes'] as List<String>?;
+                    final allowed =
+                        extra?['allowedStudentCodes'] as List<String>?;
+                    final isKiosk = extra?['isKiosk'] as bool? ?? false;
+                    final guardianCode = extra?['guardianCode'] as String?;
+                    final pin = extra?['pin'] as String?;
+                    final isQrScan = extra?['isQrScan'] as bool? ?? false;
+                    final qrToken = extra?['qrToken'] as String? ?? '';
                     return _fastPage(
                       state,
                       StudentSelectionSignInForm(
                         preSelectedStudentCode: code.isNotEmpty ? code : null,
                         allowedStudentCodes: allowed,
+                        isKiosk: isKiosk,
+                        guardianCode: guardianCode,
+                        pin: pin,
+                        isQrScan: isQrScan,
+                        qrToken: qrToken,
                       ),
                     );
                   },
@@ -683,14 +973,26 @@ final GoRouter appRouter = GoRouter(
                 GoRoute(
                   path: 'student-selection-sign-out-form',
                   pageBuilder: (context, state) {
-                    final code = state.uri.queryParameters['studentCode']?.trim() ?? '';
+                    final code =
+                        state.uri.queryParameters['studentCode']?.trim() ?? '';
                     final extra = state.extra as Map<String, dynamic>?;
-                    final allowed = extra?['allowedStudentCodes'] as List<String>?;
+                    final allowed =
+                        extra?['allowedStudentCodes'] as List<String>?;
+                    final isKiosk = extra?['isKiosk'] as bool? ?? false;
+                    final guardianCode = extra?['guardianCode'] as String?;
+                    final pin = extra?['pin'] as String?;
+                    final isQrScan = extra?['isQrScan'] as bool? ?? false;
+                    final qrToken = extra?['qrToken'] as String? ?? '';
                     return _fastPage(
                       state,
                       StudentSelectionSignOutForm(
                         preSelectedStudentCode: code.isNotEmpty ? code : null,
                         allowedStudentCodes: allowed,
+                        isKiosk: isKiosk,
+                        guardianCode: guardianCode,
+                        pin: pin,
+                        isQrScan: isQrScan,
+                        qrToken: qrToken,
                       ),
                     );
                   },
@@ -699,31 +1001,26 @@ final GoRouter appRouter = GoRouter(
                   path: 'student-sign-in-out-selection',
                   pageBuilder: (context, state) {
                     final extra = state.extra as Map<String, dynamic>?;
-                    final signedInCodes = extra?['signedInCodes'] as List<String>? ?? [];
-                    final signedOutCodes = extra?['signedOutCodes'] as List<String>? ?? [];
+                    final signedInCodes =
+                        extra?['signedInCodes'] as List<String>? ?? [];
+                    final signedOutCodes =
+                        extra?['signedOutCodes'] as List<String>? ?? [];
+                    final guardianCode = extra?['guardianCode'] as String?;
+                    final pin = extra?['pin'] as String?;
+                    final isQrScan = extra?['isQrScan'] as bool? ?? false;
+                    final qrToken = extra?['qrToken'] as String? ?? '';
                     return _fastPage(
                       state,
                       StudentSignInOutSelectionScreen(
                         signedInCodes: signedInCodes,
                         signedOutCodes: signedOutCodes,
+                        guardianCode: guardianCode,
+                        pin: pin,
+                        isQrScan: isQrScan,
+                        qrToken: qrToken,
                       ),
                     );
                   },
-                ),
-                GoRoute(
-                  path: 'staff-sign-in-form',
-                  pageBuilder: (context, state) {
-                    final isGps = state.uri.queryParameters['gps'] == '1';
-                    return _fastPage(
-                      state,
-                      StaffSignInForm(forceSelf: isGps),
-                    );
-                  },
-                ),
-                GoRoute(
-                  path: 'staff-sign-out-form',
-                  pageBuilder: (context, state) =>
-                      _fastPage(state, const StaffSignOutForm()),
                 ),
               ],
             ),
@@ -776,7 +1073,9 @@ final GoRouter appRouter = GoRouter(
               path: AppRoutes.messaging,
               builder: (context, state) {
                 final isParent = context.read<RoleCubit>().isParent;
-                final tab = state.uri.queryParameters['tab']?.trim().toLowerCase();
+                final tab = state.uri.queryParameters['tab']
+                    ?.trim()
+                    .toLowerCase();
                 final initialTabIndex = tab == 'newsletter' ? 1 : 0;
                 return MessagingScreen(
                   userPersona: isParent
@@ -785,6 +1084,10 @@ final GoRouter appRouter = GoRouter(
                   initialTabIndex: initialTabIndex,
                 );
               },
+            ),
+            GoRoute(
+              path: AppRoutes.adminChat,
+              builder: (context, state) => const AdminChatHostScreen(),
             ),
           ],
         ),
@@ -965,7 +1268,8 @@ class _ShellScopeContentState extends State<_ShellScopeContent> {
   void didUpdateWidget(covariant _ShellScopeContent oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.navigationShell != oldWidget.navigationShell) {
-      if (SchedulerBinding.instance.schedulerPhase == SchedulerPhase.persistentCallbacks) {
+      if (SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
@@ -994,7 +1298,8 @@ class _ShellScope extends InheritedWidget {
     // Look up the InheritedWidget statically via its Element to avoid
     // registering a reactive dependency. This prevents layout-phase rebuild
     // conflicts when CustomNavigationBar reads the active shell.
-    final element = context.getElementForInheritedWidgetOfExactType<_ShellScope>();
+    final element = context
+        .getElementForInheritedWidgetOfExactType<_ShellScope>();
     if (element == null) return null;
     return (element.widget as _ShellScope).shell;
   }

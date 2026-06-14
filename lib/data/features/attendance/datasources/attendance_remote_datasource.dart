@@ -354,8 +354,10 @@ abstract class AttendanceRemoteDataSource {
   });
 
   /// Posts a staff sign-out request.
+  /// Set [isSelf] to true to use the self sign-out endpoint.
   Future<Map<String, dynamic>?> postStaffSignOut({
     required Map<String, dynamic> body,
+    bool isSelf = false,
   });
 
   /// Posts a staff classroom transfer request.
@@ -414,9 +416,29 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     Map<String, dynamic> queryParameters,
     List<String> allowedClassroomCodes,
   ) {
+    if (allowedClassroomCodes.isEmpty) return;
     queryParameters['allowedClassroomCodes'] = List<String>.from(
       allowedClassroomCodes,
     );
+  }
+
+  void _applyAttendancePageableParams(
+    Map<String, dynamic> queryParameters, {
+    required int page,
+    required int size,
+    List<String>? sort,
+    List<String> defaultSort = const <String>['studentName,asc'],
+  }) {
+    queryParameters['page'] = page;
+    queryParameters['size'] = size;
+    queryParameters['pageable.page'] = page;
+    queryParameters['pageable.size'] = size;
+    final effectiveSort =
+        (sort != null && sort.isNotEmpty) ? sort : defaultSort;
+    queryParameters['pageable.sort'] = effectiveSort;
+    if (sort != null && sort.isNotEmpty) {
+      queryParameters['sort'] = sort;
+    }
   }
 
   @override
@@ -514,9 +536,13 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
       'toAttendanceDate': toAttendanceDate,
-      'page': page,
-      'size': size,
     };
+    _applyAttendancePageableParams(
+      queryParameters,
+      page: page,
+      size: size,
+      sort: sort,
+    );
 
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       queryParameters['classroomCodes'] = classroomCodes;
@@ -528,10 +554,6 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
-    }
-
-    if (sort != null && sort.isNotEmpty) {
-      queryParameters['sort'] = sort;
     }
 
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
@@ -1117,9 +1139,14 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final queryParameters = <String, dynamic>{
       'fromAttendanceDate': fromAttendanceDate,
       'toAttendanceDate': toAttendanceDate,
-      'page': page,
-      'size': size,
     };
+    _applyAttendancePageableParams(
+      queryParameters,
+      page: page,
+      size: size,
+      sort: sort,
+      defaultSort: const <String>['staffName,asc'],
+    );
 
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       queryParameters['classroomCodes'] = classroomCodes;
@@ -1131,10 +1158,6 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
-    }
-
-    if (sort != null && sort.isNotEmpty) {
-      queryParameters['sort'] = sort;
     }
 
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
@@ -1290,9 +1313,14 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromAbsenceDate,
       'toAbsenceDate': toAbsenceDate,
-      'page': page,
-      'size': size,
     };
+    _applyAttendancePageableParams(
+      queryParameters,
+      page: page,
+      size: size,
+      sort: sort,
+      defaultSort: const <String>['staffName,asc'],
+    );
 
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       queryParameters['classroomCodes'] = classroomCodes;
@@ -1304,10 +1332,6 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
 
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;
-    }
-
-    if (sort != null && sort.isNotEmpty) {
-      queryParameters['sort'] = sort;
     }
 
     _mergeAllowedClassroomCodes(queryParameters, allowedClassroomCodes);
@@ -1780,9 +1804,12 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
   @override
   Future<Map<String, dynamic>?> postStaffSignOut({
     required Map<String, dynamic> body,
+    bool isSelf = false,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceRecordsSignOut,
+      isSelf
+          ? ApiPaths.staffAttendanceRecordsSignOutSelf
+          : ApiPaths.staffAttendanceRecordsSignOut,
       ApiConstants.attendanceBaseUrl,
     );
     final response = await _client.post<dynamic>(endpoint, data: body);

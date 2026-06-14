@@ -205,6 +205,8 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     } else if (normalized.startsWith('upcoming')) {
                       filter = 'UPCOMING';
                     }
+                    debugPrint('[EnrollmentCard] Navigating to Student Attendance: '
+                        'filter=$filter, route=${StudentAttendanceTabbedView.routeName}');
                     context.push(
                       StudentAttendanceTabbedView.routeName,
                       extra: {'filter': filter, 'hasBackButton': true},
@@ -251,6 +253,8 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     } else if (normalized.startsWith('not')) {
                       filter = 'Not Marked';
                     }
+                    debugPrint('[EnrollmentCard] Navigating to Student Attendance: '
+                        'filter=$filter, label=$label, route=${StudentAttendanceTabbedView.routeName}');
                     context.push(
                       StudentAttendanceTabbedView.routeName,
                       extra: {'filter': filter, 'hasBackButton': true},

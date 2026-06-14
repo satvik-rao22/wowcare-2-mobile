@@ -15,7 +15,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 
 class StudentImmunizationTabCard extends StatefulWidget {
@@ -375,7 +375,9 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canMutateStudent =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
+            !role.isStaff &&
+            !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: () async {
@@ -400,10 +402,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
           future: _immunizationFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: Center(child: PrimaryCircularLoader()),
-              );
+              return const StudentImmunizationShimmer();
             }
 
             if (snapshot.hasError) {

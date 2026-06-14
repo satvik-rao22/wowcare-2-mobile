@@ -406,8 +406,10 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   const SizedBox(height: 5),
                   _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
-                  const SizedBox(height: 5),
+                  if (!(_isTeacherStaffPersona ?? false))
+                    _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                  if (!(_isTeacherStaffPersona ?? false))
+                    const SizedBox(height: 5),
                   _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
                 ],
               ),

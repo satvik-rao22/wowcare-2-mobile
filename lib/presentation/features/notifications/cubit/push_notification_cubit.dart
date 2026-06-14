@@ -1,15 +1,13 @@
 import 'dart:async';
-
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-
 import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/notification_payload.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../../../../domain/features/notifications/repositories/push_notification_repository.dart';
 import '../../../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../../../shared/services/geofence_notification_service.dart';
 import '../routing/notification_route_resolver.dart';
-
 part 'push_notification_state.dart';
 
 /// ViewModel for push notifications.
@@ -27,10 +25,10 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
     required PushNotificationRepository repository,
     required GeofenceNotificationService localNotifications,
     required RegisterDeviceFcmTokenUseCase registerDeviceFcmToken,
-  })  : _repository = repository,
-        _localNotifications = localNotifications,
-        _registerDeviceFcmToken = registerDeviceFcmToken,
-        super(const PushNotificationState.initial());
+  }) : _repository = repository,
+       _localNotifications = localNotifications,
+       _registerDeviceFcmToken = registerDeviceFcmToken,
+       super(const PushNotificationState.initial());
 
   final PushNotificationRepository _repository;
   final GeofenceNotificationService _localNotifications;
@@ -46,6 +44,10 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
   /// Wires up permissions, token retrieval and message listeners. Call once,
   /// after the View's [BlocListener] is mounted, so a killed-state launch tap
   /// isn't emitted before anyone is listening.
+  ///
+  /// Note: FCM registration is deferred until after auth is complete (AuthCubit
+  /// handles this via _registerDeviceFcmTokenIfSessionReady). Here we only set
+  /// up permissions and listeners, not registration.
   Future<void> init() async {
     try {
       // Note: the killed-state launch tap is captured in main() (before runApp)
@@ -58,14 +60,20 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
       if (token != null) {
         _lastToken = token;
         emit(state.copyWith(token: token));
-        await _registerDeviceFcmToken(fcmToken: token);
+        // FCM registration deferred to AuthCubit after login completes.
+        // Registering here would fail with 401 since auth token isn't set yet.
+        AppLogger.d(
+          '[FCM] Token received; registration will happen after auth',
+        );
       }
 
       _onTokenRefreshSub = _repository.onTokenRefresh.listen((newToken) {
         AppLogger.d('[FCM] Token refreshed: $newToken');
         _lastToken = newToken;
         emit(state.copyWith(token: newToken));
-        _registerDeviceFcmToken(fcmToken: newToken);
+        // Only auto-register on refresh if already authenticated (has stored access token).
+        // Otherwise auth flow will handle initial registration after login.
+        _registerOnTokenRefreshIfAuthenticated(newToken);
       });
 
       // Foreground: the OS does not show a tray notification, so surface one
@@ -74,12 +82,26 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
       // notification redirects exactly like a background-tray tap (otherwise a
       // foreground tap does nothing and the user stays put).
       _onMessageSub = _repository.onMessage.listen((message) {
-        AppLogger.d('[FCM] Foreground: ${message.title} | ${message.data}');
+        AppLogger.d('[FCM] ════════ Foreground notification received ════════');
+        AppLogger.d('[FCM] title : ${message.title}');
+        AppLogger.d('[FCM] body  : ${message.body}');
+        AppLogger.d('[FCM] data  : ${message.data}');
+        AppLogger.d('[FCM] ═══════════════════════════════════════════════════');
         final destination = NotificationRouteResolver.resolve(message);
+        // Encode the target org/school into the payload so a tap on this local
+        // notification (now, or after a kill/relaunch) can switch school before
+        // routing — the plain location alone would lose that context.
+        final payload = destination == null
+            ? null
+            : encodeNotificationPayload(
+                location: destination.location,
+                organizationCode: message.organizationCode,
+                schoolCode: message.schoolCode,
+              );
         _localNotifications.showCustomNotification(
           title: message.title ?? 'School Alert',
           body: message.body ?? 'You have a new notification',
-          payload: destination?.location,
+          payload: payload,
         );
       });
 
@@ -88,6 +110,15 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
     } catch (e) {
       AppLogger.d('[FCM] setup failed (continuing without push): $e');
     }
+  }
+
+  /// Register token on refresh (use case handles 401 gracefully if not authenticated).
+  /// Fire-and-forget: don't await to avoid blocking the token refresh event.
+  void _registerOnTokenRefreshIfAuthenticated(String token) {
+    // Use case handles auth failures gracefully (marked as non-fatal in logs)
+    // If user is not authenticated yet, the 401 is caught and ignored.
+    // ignore: unawaited_futures
+    _registerDeviceFcmToken(fcmToken: token);
   }
 
   void _requestNavigation(PushNotification message) {

@@ -21,9 +21,11 @@ class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
   const StaffOrStudentSelectionBulkMessaging({
     super.key,
     this.isStaffSelection = true,
+    this.conversationType = 'ROOM_CHAT',
   });
   final bool showLoading = false;
   final bool isStaffSelection;
+  final String conversationType;
 
   @override
   State<StaffOrStudentSelectionBulkMessaging> createState() =>
@@ -254,8 +256,12 @@ class _StaffOrStudentSelectionBulkMessagingState
     final responsive = ResponsiveHelper(context);
     return Scaffold(
       backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
       appBar: const CustomAppBar(hasBackButton: true),
-      body: BlocListener<ClassroomCubit, ClassroomState>(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: BlocListener<ClassroomCubit, ClassroomState>(
         listener: (context, state) {
           if (state.classrooms.isNotEmpty && _selectedClassrooms.isEmpty) {
             setState(() {
@@ -304,6 +310,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                             Expanded(
                               child: CustomScrollView(
                                 physics: const AlwaysScrollableScrollPhysics(),
+                                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                                 slivers: [
                                   SliverToBoxAdapter(
                                     child: Column(
@@ -657,6 +664,7 @@ class _StaffOrStudentSelectionBulkMessagingState
           },
         ),
       ),
+      ), // GestureDetector
       bottomNavigationBar: _buildBottomBar(context, responsive),
     );
   }
@@ -755,6 +763,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                           builder: (_) => MessageCompositionBulkMessaging(
                             selectedRecipients: selectedStaffMaps,
                             isStaff: true,
+                            conversationType: widget.conversationType,
                           ),
                         ),
                       );
@@ -773,6 +782,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                           builder: (_) => MessageCompositionBulkMessaging(
                             selectedRecipients: selectedStudentMaps,
                             isStaff: false,
+                            conversationType: widget.conversationType,
                           ),
                         ),
                       );

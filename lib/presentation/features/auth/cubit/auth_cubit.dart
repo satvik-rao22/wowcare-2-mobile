@@ -18,6 +18,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
@@ -30,12 +32,12 @@ class AuthCubit extends Cubit<AuthState> {
     required AuthRemoteDataSource remoteDataSource,
     required RegisterDeviceFcmTokenUseCase registerDeviceFcmToken,
     required UnregisterDeviceFcmTokenUseCase unregisterDeviceFcmToken,
-  })  : _loginUseCase = loginUseCase,
-        _localDataSource = localDataSource,
-        _remoteDataSource = remoteDataSource,
-        _registerDeviceFcmToken = registerDeviceFcmToken,
-        _unregisterDeviceFcmToken = unregisterDeviceFcmToken,
-        super(const AuthInitial());
+  }) : _loginUseCase = loginUseCase,
+       _localDataSource = localDataSource,
+       _remoteDataSource = remoteDataSource,
+       _registerDeviceFcmToken = registerDeviceFcmToken,
+       _unregisterDeviceFcmToken = unregisterDeviceFcmToken,
+       super(const AuthInitial());
 
   final LoginUseCase _loginUseCase;
   final AuthLocalDataSource _localDataSource;
@@ -44,6 +46,7 @@ class AuthCubit extends Cubit<AuthState> {
   final UnregisterDeviceFcmTokenUseCase _unregisterDeviceFcmToken;
 
   /// Mark login as completed only after org + school selection is done.
+  /// FCM registration is non-blocking and errors don't interrupt login completion.
   Future<void> completeLogin({
     required String selectedOrgCode,
     required String selectedSchoolName,
@@ -58,18 +61,39 @@ class AuthCubit extends Cubit<AuthState> {
       schoolName: selectedSchoolName,
       schoolCode: selectedSchoolCode,
     );
-    await _registerDeviceFcmTokenIfSessionReady();
+
+    // FCM registration is non-blocking when login is completed
+    try {
+      AppLogger.d('[AUTH] Login completed — registering FCM token');
+      await _registerDeviceFcmTokenIfSessionReady();
+    } catch (e) {
+      // Non-fatal: FCM failures should not block login completion
+      AppLogger.w('[AUTH] FCM registration failed during completeLogin (non-fatal): $e');
+    }
   }
 
   Future<void> _registerDeviceFcmTokenIfSessionReady() async {
-    final loginCompleted = await serviceLocator<StorageService>()
-            .getBool(StorageKeys.loginCompleted) ??
-        false;
-    if (!loginCompleted) return;
-    await _registerDeviceFcmToken();
+    try {
+      final loginCompleted =
+          await serviceLocator<StorageService>().getBool(
+            StorageKeys.loginCompleted,
+          ) ??
+          false;
+      if (!loginCompleted) {
+        AppLogger.d('[AUTH-FCM] Session not ready (loginCompleted=false) — skipping registration');
+        return;
+      }
+
+      AppLogger.d('[AUTH-FCM] Session ready — registering FCM token');
+      await _registerDeviceFcmToken();
+    } catch (e) {
+      // Non-fatal: FCM registration errors should not interrupt auth flow
+      AppLogger.w('[AUTH-FCM] FCM registration encountered error (non-fatal): $e');
+    }
   }
 
   /// Set selected org/school (e.g. when switching organisation from Dashboard).
+  /// FCM registration is non-blocking and errors are logged but don't interrupt the flow.
   Future<void> setSelectedOrgAndSchool({
     required String organizationCode,
     required String schoolCode,
@@ -80,7 +104,15 @@ class AuthCubit extends Cubit<AuthState> {
       schoolCode: schoolCode,
       schoolName: schoolName,
     );
-    await _registerDeviceFcmToken();
+
+    // FCM registration is non-blocking when org/school changes
+    try {
+      AppLogger.d('[AUTH] Org/school changed — re-registering FCM token');
+      await _registerDeviceFcmToken();
+    } catch (e) {
+      // Non-fatal: FCM failures should not block org/school selection
+      AppLogger.w('[AUTH] FCM re-registration failed (non-fatal): $e');
+    }
   }
 
   /// Updates backend login-context (last org/school) via PATCH. Call when user
@@ -128,13 +160,20 @@ class AuthCubit extends Cubit<AuthState> {
             redirectUrl: null,
           ),
         );
-        // FCM init may have run before splash restored org/school — register now.
-        await _registerDeviceFcmTokenIfSessionReady();
+        // FCM init may have run before splash restored org/school — register now (non-blocking).
+        try {
+          AppLogger.d('[AUTH] App initialized with cached session — registering FCM token');
+          await _registerDeviceFcmTokenIfSessionReady();
+        } catch (e) {
+          // Non-fatal: FCM failures should not prevent app initialization
+          AppLogger.w('[AUTH] FCM registration during init failed (non-fatal): $e');
+        }
       } else {
         emit(const AuthInitial());
       }
     } catch (e) {
       // Silently fall back to initial state if anything goes wrong.
+      AppLogger.w('[AUTH] Initialize failed, falling back to initial state: $e');
       emit(const AuthInitial());
     }
   }
@@ -160,6 +199,138 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthError(message));
       },
       (response) async {
+        // KIOSK SHORT-CIRCUIT: check role BEFORE any further processing.
+        // This prevents all unnecessary APIs (context, staff lookup, profile, PIN) for kiosk users.
+        if (loginResponseIsKioskUser(response.roles)) {
+          // Persist login response for kiosk users (needed for cold-start session restore)
+          try {
+            await _localDataSource.cacheLoginResponse(response);
+          } catch (_) {
+            // Non-fatal: if caching fails, login can still proceed.
+          }
+
+          // Extract and store schoolCode from kiosk user's role for QR API
+          try {
+            final kioskRole = response.roles.firstWhere(
+              (r) => (r.role ?? '').contains('KIOSK'),
+            );
+            final schoolCode = (kioskRole.schoolCode ?? '').trim();
+            final orgCode = (kioskRole.organizationCode ?? '').trim();
+            if (schoolCode.isNotEmpty && orgCode.isNotEmpty) {
+              // Fetch proper school name and org name from /api/v1/users/details
+              String schoolName = schoolCode; // fallback to code
+              String orgName = orgCode; // fallback to code
+              String roleFromApi = 'KIOSK'; // fallback role
+              int permissionCount = 0;
+
+              try {
+                AppLogger.d('[Kiosk] Fetching user details from /api/v1/users/details with token');
+
+                // Call the API directly
+                final userDetailsList = await _remoteDataSource.getUserDetails(
+                  accessToken: response.accessToken,
+                );
+
+                if (userDetailsList.isNotEmpty) {
+                  final userDetailData = userDetailsList.first;
+
+                  // Extract organization name
+                  if (userDetailData['organizationName'] != null) {
+                    final extractedOrgName = (userDetailData['organizationName'] as String?)?.trim() ?? '';
+                    if (extractedOrgName.isNotEmpty) {
+                      orgName = extractedOrgName;
+                    }
+                  }
+
+                  // Find matching school in user's schools list
+                  final schools = userDetailData['schools'] as List<dynamic>? ?? [];
+                  for (final schoolData in schools) {
+                    if (schoolData is Map<String, dynamic>) {
+                      final code = (schoolData['schoolCode'] as String?)?.trim() ?? '';
+                      if (code == schoolCode) {
+                        // Extract school name
+                        final name = (schoolData['schoolName'] as String?)?.trim() ?? '';
+                        if (name.isNotEmpty) {
+                          schoolName = name;
+                        }
+
+                        // Extract role
+                        final role = (schoolData['role'] as String?)?.trim() ?? '';
+                        if (role.isNotEmpty) {
+                          roleFromApi = role.toUpperCase();
+                        }
+
+                        // Extract permissions
+                        final perms = schoolData['permissions'] as List<dynamic>? ?? [];
+                        permissionCount = perms.length;
+
+                        break;
+                      }
+                    }
+                  }
+
+                  AppLogger.d(
+                    '[Kiosk] Fetched user details: '
+                    'schoolName=$schoolName, '
+                    'schoolCode=$schoolCode, '
+                    'organizationName=$orgName, '
+                    'role=$roleFromApi, '
+                    'permissions=$permissionCount',
+                  );
+                }
+              } catch (e) {
+                AppLogger.w('[Kiosk] Error fetching user details: $e. Using fallback values.');
+              }
+
+              // Store proper school name and org name
+              await _localDataSource.setSelectedOrgAndSchool(
+                organizationCode: orgCode,
+                schoolCode: schoolCode,
+                schoolName: schoolName,
+              );
+
+              AppLogger.d(
+                '[AUTH] Kiosk login: org=$orgCode (name=$orgName), '
+                'school=$schoolCode (name=$schoolName), role=$roleFromApi',
+              );
+            }
+          } catch (e) {
+            AppLogger.w('[AUTH] Error processing kiosk login: $e');
+            // Non-fatal: if storing fails, kiosk dashboard will handle missing schoolCode
+          }
+
+          // Emit immediately and return — skip all post-login processing
+          emit(
+            AuthLoaded(
+              loginResponse: response,
+              schoolsByOrg: const <String, List<Map<String, String>>>{},
+              isPrefetchingSchools: false,
+              lastErrorMessage: null,
+              orgNames: const [],
+              hasLastSchoolFromContext: false,
+              redirectUrl: null,
+            ),
+          );
+          return; // skip context API, staff lookup, staff profile, PIN
+        }
+
+        // Non-kiosk users: clear any stale kiosk state IMMEDIATELY.
+        // A previous kiosk session may have left kiosk_mode_active=true in
+        // storage. Clear both storage and static cache before any navigation
+        // so the router never sees a stale kiosk flag for this user.
+        try {
+          final kioskAccess = serviceLocator<KioskAccessControl>();
+          await kioskAccess.deactivateKioskMode();
+          AppLogger.d(
+            '[AUTH ROLE CHECK] Non-kiosk login — kiosk state cleared. '
+            'Role(s): ${response.roles.map((r) => r.role).join(', ')}. '
+            'IsKiosk: false.',
+          );
+        } catch (_) {
+          // Fallback: force static cache clear even if DI lookup fails.
+          KioskAccessControl.clearCacheForNonKioskLogin();
+        }
+
         // Persist latest login response (tokens, user, roles) for future app launches.
         try {
           await _localDataSource.cacheLoginResponse(response);
@@ -202,14 +373,13 @@ class AuthCubit extends Cubit<AuthState> {
             accessToken: response.accessToken,
           );
           await _localDataSource.saveLoginContext(contextData);
-          hasLastSchoolFromContext =
-              await _localDataSource.saveOrgAndSchoolFromContext(contextData);
+          hasLastSchoolFromContext = await _localDataSource
+              .saveOrgAndSchoolFromContext(contextData);
 
           // Raw values from login-context (may be null/empty, especially LastLoginSchoolCode).
           final String contextOrgCode =
-              (contextData['LastLoginOrganizationCode'] as String?)
-                      ?.trim() ??
-                  '';
+              (contextData['LastLoginOrganizationCode'] as String?)?.trim() ??
+              '';
           final String contextSchoolCode =
               (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
 
@@ -222,7 +392,8 @@ class AuthCubit extends Cubit<AuthState> {
             if (contextOrgCode.isNotEmpty) {
               final storage = serviceLocator<StorageService>();
               final existingSchool =
-                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+                  (await storage.getString(StorageKeys.schoolCode) ?? '')
+                      .trim();
               if (existingSchool.isNotEmpty) {
                 await _localDataSource.setSelectedOrgAndSchool(
                   organizationCode: contextOrgCode,
@@ -260,7 +431,8 @@ class AuthCubit extends Cubit<AuthState> {
             var schoolCode = contextSchoolCode;
             if (schoolCode.isEmpty) {
               schoolCode =
-                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+                  (await storage.getString(StorageKeys.schoolCode) ?? '')
+                      .trim();
             }
 
             const orgAdminRole = 'ORGANIZATION_ADMIN';
@@ -271,11 +443,13 @@ class AuthCubit extends Cubit<AuthState> {
             );
             // Staff-code lookup uses '-' for org admins (org-level lookup).
             // The persisted selected school must remain the real LastLoginSchoolCode.
-            final staffLookupSchoolCode =
-                isOrgAdminForSelectedOrg ? '-' : schoolCode;
+            final staffLookupSchoolCode = isOrgAdminForSelectedOrg
+                ? '-'
+                : schoolCode;
 
-            final rolesJson =
-                jsonEncode(response.roles.map((e) => e.toJson()).toList());
+            final rolesJson = jsonEncode(
+              response.roles.map((e) => e.toJson()).toList(),
+            );
             final skipStaffLookup = shouldSkipStaffCodeResolutionForContext(
               rolesJson: rolesJson,
               organizationCode: orgCode,
@@ -370,7 +544,12 @@ class AuthCubit extends Cubit<AuthState> {
         }
 
         // FCM init runs at app start (before login) — register once session exists.
-        await _registerDeviceFcmTokenIfSessionReady();
+        // Non-blocking: FCM registration failures must NOT break the login flow.
+        try {
+          await _registerDeviceFcmTokenIfSessionReady();
+        } catch (e) {
+          AppLogger.w('[AUTH] FCM registration failed after login (non-fatal): $e');
+        }
       },
     );
   }
@@ -402,8 +581,9 @@ class AuthCubit extends Cubit<AuthState> {
         .where((r) => r.organizationCode == organizationCode)
         .toList();
     const orgAdminRole = 'ORGANIZATION_ADMIN';
-    final isOrgAdmin = rolesForOrg
-        .any((r) => r.role.toUpperCase() == orgAdminRole.toUpperCase());
+    final isOrgAdmin = rolesForOrg.any(
+      (r) => r.role.toUpperCase() == orgAdminRole.toUpperCase(),
+    );
     final schoolCodes = rolesForOrg
         .map((r) => r.schoolCode)
         .where((c) => c.isNotEmpty)
@@ -426,15 +606,18 @@ class AuthCubit extends Cubit<AuthState> {
     ).cast<Map<String, String>>();
 
     final prev = state is AuthLoaded ? state as AuthLoaded : null;
-    emit(AuthLoaded(
-      loginResponse: login,
-      schoolsByOrg: prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
-      isPrefetchingSchools: true,
-      lastErrorMessage: null,
-      orgNames: prev?.orgNames ?? const [],
-      hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-      redirectUrl: prev?.redirectUrl,
-    ));
+    emit(
+      AuthLoaded(
+        loginResponse: login,
+        schoolsByOrg:
+            prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
+        isPrefetchingSchools: true,
+        lastErrorMessage: null,
+        orgNames: prev?.orgNames ?? const [],
+        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+        redirectUrl: prev?.redirectUrl,
+      ),
+    );
 
     try {
       final result = await _remoteDataSource.getSchoolNamesByOrg(
@@ -445,16 +628,15 @@ class AuthCubit extends Cubit<AuthState> {
       );
       var schoolList = result.dataWithCodes.isNotEmpty
           ? result.dataWithCodes
-          : result.data
-              .map((n) => {'schoolCode': n, 'schoolName': n})
-              .toList();
+          : result.data.map((n) => {'schoolCode': n, 'schoolName': n}).toList();
 
       // If API returns empty (or unexpected payload), fallback to static catalog.
       if (schoolList.isEmpty && staticFallback.isNotEmpty) {
         schoolList = staticFallback;
       }
-      final updated =
-          Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
+      final updated = Map<String, List<Map<String, String>>>.from(
+        prev?.schoolsByOrg ?? {},
+      );
       updated[organizationCode] = schoolList;
 
       // Also update organization display name (orgNames) when API
@@ -488,41 +670,49 @@ class AuthCubit extends Cubit<AuthState> {
         }
       }
 
-      emit(AuthLoaded(
-        loginResponse: login,
-        schoolsByOrg: updated,
-        isPrefetchingSchools: false,
-        lastErrorMessage: null,
-        orgNames: nextOrgNames,
-        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-        redirectUrl: prev?.redirectUrl,
-      ));
-    } catch (e) {
-      // Fallback to static catalog when API fails so user can still continue.
-      if (staticFallback.isNotEmpty) {
-        final updated =
-            Map<String, List<Map<String, String>>>.from(prev?.schoolsByOrg ?? {});
-        updated[organizationCode] = staticFallback;
-        emit(AuthLoaded(
+      emit(
+        AuthLoaded(
           loginResponse: login,
           schoolsByOrg: updated,
           isPrefetchingSchools: false,
           lastErrorMessage: null,
-          orgNames: prev?.orgNames ?? const [],
+          orgNames: nextOrgNames,
           hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
           redirectUrl: prev?.redirectUrl,
-        ));
+        ),
+      );
+    } catch (e) {
+      // Fallback to static catalog when API fails so user can still continue.
+      if (staticFallback.isNotEmpty) {
+        final updated = Map<String, List<Map<String, String>>>.from(
+          prev?.schoolsByOrg ?? {},
+        );
+        updated[organizationCode] = staticFallback;
+        emit(
+          AuthLoaded(
+            loginResponse: login,
+            schoolsByOrg: updated,
+            isPrefetchingSchools: false,
+            lastErrorMessage: null,
+            orgNames: prev?.orgNames ?? const [],
+            hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+            redirectUrl: prev?.redirectUrl,
+          ),
+        );
       } else {
-        emit(AuthLoaded(
-          loginResponse: login,
-          schoolsByOrg:
-              prev?.schoolsByOrg ?? const <String, List<Map<String, String>>>{},
-          isPrefetchingSchools: false,
-          lastErrorMessage: e.toString(),
-          orgNames: prev?.orgNames ?? const [],
-          hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-          redirectUrl: prev?.redirectUrl,
-        ));
+        emit(
+          AuthLoaded(
+            loginResponse: login,
+            schoolsByOrg:
+                prev?.schoolsByOrg ??
+                const <String, List<Map<String, String>>>{},
+            isPrefetchingSchools: false,
+            lastErrorMessage: e.toString(),
+            orgNames: prev?.orgNames ?? const [],
+            hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+            redirectUrl: prev?.redirectUrl,
+          ),
+        );
       }
     }
   }
@@ -617,7 +807,8 @@ class AuthCubit extends Cubit<AuthState> {
 
       // Only run for staff personas in the current org/school context.
       final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (shouldSkipStaffCodeResolutionForContext(
         rolesJson: rolesJson,
         organizationCode: org,
@@ -639,7 +830,8 @@ class AuthCubit extends Cubit<AuthState> {
       // user *and* the same org/school. Otherwise (e.g. the user switched
       // school) it belongs to a different selection and must be re-resolved,
       // or My Profile renders the previous school's staff data.
-      final cacheMatchesContext = cachedStaffUser == login.userCode &&
+      final cacheMatchesContext =
+          cachedStaffUser == login.userCode &&
           cachedStaffOrg == org &&
           cachedStaffSchool == school;
       String trimmed = cacheMatchesContext ? cachedStaffCode : '';
@@ -677,10 +869,7 @@ class AuthCubit extends Cubit<AuthState> {
           staffCode: trimmed,
           forEditStaff: true,
         );
-        await storage.saveString(
-          StorageKeys.staffType,
-          profile.staffType,
-        );
+        await storage.saveString(StorageKeys.staffType, profile.staffType);
         await storage.saveString(
           StorageKeys.staffDesignation,
           profile.designation,
@@ -691,8 +880,9 @@ class AuthCubit extends Cubit<AuthState> {
         );
         // Also prefetch PIN whenever we prefetch profile for a new org/school.
         try {
-          final pin =
-              await staffRepository.getStaffSignInPin(staffCode: trimmed);
+          final pin = await staffRepository.getStaffSignInPin(
+            staffCode: trimmed,
+          );
           if (pin.trim().isNotEmpty) {
             await storage.saveString(StorageKeys.staffPin, pin.trim());
           }
@@ -723,15 +913,17 @@ class AuthCubit extends Cubit<AuthState> {
         organizationCodes: organizationCodes,
         accessToken: login.accessToken,
       );
-      emit(AuthLoaded(
-        loginResponse: login,
-        schoolsByOrg: prev?.schoolsByOrg ?? const {},
-        isPrefetchingSchools: prev?.isPrefetchingSchools ?? false,
-        lastErrorMessage: prev?.lastErrorMessage,
-        orgNames: names,
-        hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
-        redirectUrl: prev?.redirectUrl,
-      ));
+      emit(
+        AuthLoaded(
+          loginResponse: login,
+          schoolsByOrg: prev?.schoolsByOrg ?? const {},
+          isPrefetchingSchools: prev?.isPrefetchingSchools ?? false,
+          lastErrorMessage: prev?.lastErrorMessage,
+          orgNames: names,
+          hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
+          redirectUrl: prev?.redirectUrl,
+        ),
+      );
     } catch (_) {
       // Non-fatal: keep previous state, org names will fall back to codes
     }

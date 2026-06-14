@@ -16,5 +16,7 @@ extension StudentPickupModelMapper on StudentPickupModel {
         relationshipDescription: relationshipDescription,
         pickupType: pickupType,
         carpoolId: carpoolId,
+        profilePhotoUrl: profilePhotoUrl,
+        profilePhotoAssetCode: profilePhotoAssetCode,
       );
 }

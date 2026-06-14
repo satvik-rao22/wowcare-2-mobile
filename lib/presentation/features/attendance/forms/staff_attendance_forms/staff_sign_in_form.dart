@@ -7,7 +7,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -15,6 +15,7 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -24,6 +25,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_fo
 import 'staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/unexpected_sign_in_attention_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -36,6 +38,10 @@ class StaffSignInForm extends StatefulWidget {
     this.staffList,
     this.qrToken = '',
     this.forceSelf = false,
+    this.isKiosk = false,
+    this.staffCode,
+    this.staffName,
+    this.pin,
   });
 
   final StaffEntity? staff;
@@ -45,6 +51,18 @@ class StaffSignInForm extends StatefulWidget {
   /// When true, always uses the self sign-in endpoint regardless of admin role.
   /// Set this when opening the form from a personal GPS sign-in button.
   final bool forceSelf;
+
+  /// True when called from kiosk flow.
+  final bool isKiosk;
+
+  /// Staff code from kiosk PIN verification. Only set when isKiosk=true.
+  final String? staffCode;
+
+  /// Staff name from kiosk PIN verification. Only set when isKiosk=true.
+  final String? staffName;
+
+  /// PIN from kiosk access. Included in API payload for kiosk sign-in.
+  final String? pin;
 
   static const String routeName = '/staff-sign-in-form';
 
@@ -82,17 +100,18 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   /// Initializes form data in proper order:
-  /// 1. Load current staff code from storage
+  /// 1. Load current staff code from storage (or use provided kiosk staffCode)
   /// 2. Initialize school/persona settings
   /// 3. Pre-populate self if non-admin and no staff was resolved from widget params
   ///    (covers both QR and GPS flows — regular staff can only sign in themselves)
   Future<void> _initializeFormData() async {
     // First: Load the current staff code
-    final staffCode =
-        (await serviceLocator<StorageService>().getString(
-          StorageKeys.staffCode,
-        ))?.trim() ??
-        '';
+    final staffCode = widget.isKiosk && widget.staffCode != null
+        ? widget.staffCode!.trim()
+        : (await serviceLocator<StorageService>().getString(
+              StorageKeys.staffCode,
+            ))?.trim() ??
+            '';
     if (!mounted) return;
     setState(() {
       _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
@@ -101,19 +120,22 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // Then: Initialize school and persona
     await _initializeSchoolAndPersona();
 
-    // Non-admin staff (QR or GPS): if no staff pre-populated, pre-fill with self.
+    // Non-admin staff (QR or GPS or KIOSK): if no staff pre-populated, pre-fill with self.
     // Also applies to admin scanning QR or opening from GPS (forceSelf=true).
     final isAdmin = _isAdminRole ?? false;
     final isQrFlow = widget.qrToken.isNotEmpty;
+    final isKioskFlow = widget.isKiosk;
     if (mounted &&
-        (!isAdmin || isQrFlow || widget.forceSelf) &&
-        _selectedStaff.isEmpty &&
-        _currentStaffCode != null) {
-      final displayName =
-          (await serviceLocator<StorageService>().getString(
-            StorageKeys.displayName,
-          ))?.trim() ??
-          '';
+        ((!isAdmin || isQrFlow || widget.forceSelf || isKioskFlow) &&
+            _selectedStaff.isEmpty &&
+            _currentStaffCode != null)) {
+      final displayName = isKioskFlow
+          ? (widget.staffName?.trim() ?? 'Staff')
+          : (await serviceLocator<StorageService>().getString(
+                StorageKeys.displayName,
+              ))?.trim() ??
+              '';
+      AppLogger.d('[StaffSignIn] Kiosk=$isKioskFlow, DisplayName=$displayName, StaffName=${widget.staffName}');
       if (!mounted) return;
       setState(() {
         _selectedStaff = [
@@ -345,7 +367,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     return false;
   }
 
-  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
+  Future<String> _resolveStaffCode() async {
+    // In kiosk mode, use the staff code from PIN verification
+    if (widget.isKiosk && widget.staffCode != null && widget.staffCode!.isNotEmpty) {
+      return widget.staffCode!.trim();
+    }
+    // Otherwise, resolve from logged-in user
+    return resolveStaffCodeForLoggedInUser();
+  }
 
   /// Loads `staffCode -> isExpectedToday` from the sign-in form list GET API
   /// for the given calendar date (same contract as the list shown in selection UI).
@@ -531,8 +560,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     }
 
     // QR scan is physical proof of presence — skip GPS geofence check.
+    // Kiosk is a fixed location device — always within geofence.
     final bool withinGeofence;
-    if (widget.qrToken.isNotEmpty) {
+    if (widget.qrToken.isNotEmpty || widget.isKiosk) {
       withinGeofence = true;
     } else {
       GeofenceState? geofenceState;
@@ -544,18 +574,21 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       withinGeofence = geofenceState?.isWithinGeofence ?? false;
     }
 
+    // GPS is optional for kiosk (fixed location device)
     Position? position;
-    try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 10),
-        ),
-      );
-    } catch (_) {
+    if (!widget.isKiosk) {
       try {
-        position = await Geolocator.getLastKnownPosition();
-      } catch (_) {}
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+      } catch (_) {
+        try {
+          position = await Geolocator.getLastKnownPosition();
+        } catch (_) {}
+      }
     }
 
     late final Map<String, dynamic> payload;
@@ -571,7 +604,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
       payload = <String, dynamic>{
         'staffCode': staffCode,
-        'method': signInMethod,
+        'method': widget.isKiosk ? 'KIOSK' : signInMethod,
         'latitude': position?.latitude ?? 0,
         'longitude': position?.longitude ?? 0,
         'withinGeofence': withinGeofence,
@@ -582,7 +615,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           expectedFromApi,
         ),
       };
-      if (isQrSignIn) {
+      if (widget.isKiosk && widget.pin != null) {
+        payload['pin'] = widget.pin;
+      } else if (isQrSignIn) {
         payload['qrToken'] = widget.qrToken;
       }
     } else {
@@ -621,9 +656,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       final result = await serviceLocator<AttendanceRepository>()
           .submitStaffSignIn(payload: payload, isSelf: isSelfSignIn);
       final success = result.success;
-      final message = result.message;
+      var message = result.message;
 
       if (!mounted) return;
+
+      // Normalize success messages for better UX
+      if (success && (message.toLowerCase().contains('sign in') || message.toLowerCase().contains('sign-in') || message.toLowerCase().contains('signed in'))) {
+        message = 'Sign in successfully';
+      }
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -636,17 +676,18 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
 
       if (success) {
-        if (isSelfSignIn) {
-          context.read<GeofenceCubit>().updateStaffSignInStatus(true);
-        }
-        if (isStaffAdmin) {
-          context.go(StaffAttendanceTabbedView.routeName);
-        } else {
-          if (context.canPop()) {
-            context.pop();
-          } else {
-            Navigator.of(context).pop();
+        if (widget.isKiosk) {
+          // For kiosk: show success for 2 seconds then return to kiosk dashboard
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            context.go('/kiosk');
           }
+        } else {
+          if (isSelfSignIn) {
+            context.read<GeofenceCubit>().updateStaffSignInStatus(true);
+          }
+          redirectToAttendanceDaily(
+              context, StaffAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {
@@ -681,6 +722,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   Widget build(BuildContext context) {
     return StaffFormLayout(
       title: 'Sign-In',
+      isKiosk: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -753,7 +795,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                       IgnorePointer(
                         // Teachers cannot modify time; submission will also force "now".
                         ignoring: _isStaffAdminPersona == false,
-                        child: SimpleTimePickerField(
+                        child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {
                             setState(() {

@@ -9,7 +9,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
@@ -76,7 +76,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -84,7 +84,8 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+          // Space between the tab bar and the heading/+ row.
+          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
           child: Column(
             children: [
               Padding(
@@ -141,13 +142,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                 future: _pickupsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(
-                        size: 28,
-                        strokeWidth: 2.5,
-                      ),
-                    );
+                    return const StudentDetailCardsShimmer();
                   }
 
                   if (snapshot.hasError) {
@@ -193,6 +188,8 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           rawPhoneNumber: pickups[i].phoneNumber,
                           firstName: pickups[i].firstName,
                           lastName: pickups[i].lastName,
+                          photoUrl: pickups[i].profilePhotoUrl,
+                          photoAssetCode: pickups[i].profilePhotoAssetCode,
                           onRefresh: _handleRefresh,
                           isLoading: _isMutating,
                           onSetLoading: (v) => setState(() => _isMutating = v),
@@ -264,6 +261,8 @@ class _PickupCard extends StatefulWidget {
     this.phoneNumber,
     this.onRefresh,
     this.showActionButtons = true,
+    this.photoUrl,
+    this.photoAssetCode,
   });
   final String studentCode;
   final String pickupCode;
@@ -280,6 +279,8 @@ class _PickupCard extends StatefulWidget {
   final String? email;
   final String? rawEmail;
   final String? phoneNumber;
+  final String? photoUrl;
+  final String? photoAssetCode;
   /// Called after edit or delete so parent can refresh pickups list and profile cache.
   final Future<void> Function()? onRefresh;
   final bool showActionButtons;
@@ -379,10 +380,17 @@ class _PickupCardState extends State<_PickupCard> {
         return IntrinsicHeight(
           child: Container(
             width: constraints.maxWidth,
-            decoration: BoxDecoration(
+            // Match the Health tab cards: themeColor outline, square top-left.
+            decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
+              borderRadius: BorderRadius.only(
+                topRight: Radius.circular(8),
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(8),
+              ),
+              border: Border.fromBorderSide(
+                BorderSide(color: AppColors.themeColor, width: 1),
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -397,6 +405,13 @@ class _PickupCardState extends State<_PickupCard> {
                     children: [
                       DocumentImageWidget(
                         fileUuid: '',
+                        imageUrl: (widget.photoUrl ?? '').trim().isNotEmpty
+                            ? widget.photoUrl!.trim()
+                            : null,
+                        mediaAssetCode:
+                            (widget.photoAssetCode ?? '').trim().isNotEmpty
+                                ? widget.photoAssetCode!.trim()
+                                : null,
                         name: widget.name,
                         size: 50,
                       ),

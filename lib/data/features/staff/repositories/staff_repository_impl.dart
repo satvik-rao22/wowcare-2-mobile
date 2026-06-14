@@ -512,6 +512,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             documentUrl: m.documentUrl,
             documentSizeKb: m.documentSizeKb,
             mimeType: m.mimeType,
+            assetCode: m.assetCode,
             expiryDate: m.expiryDate.isEmpty ? null : m.expiryDate,
             documentNotes: m.documentNotes,
             expired: m.expired,
@@ -575,6 +576,10 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
 
     await _invalidateStaffProfileCaches(staffCode);
+    // Profile fields (name, primary/allowed classrooms, designation, status)
+    // are shown in the staff list cards, so the cached list is now stale.
+    // Invalidate it so the next refresh re-fetches and reflects the edit.
+    await _invalidateAllStaffListAndSummaryCaches();
 
     return message;
   }
@@ -590,6 +595,38 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
 
     await _invalidateStaffProfileCaches(staffCode);
+
+    return message;
+  }
+
+  @override
+  Future<String> updateStaffAllowedClassrooms({
+    required String staffCode,
+    required List<String> classroomCodes,
+  }) async {
+    final message = await _remoteDataSource.updateStaffAllowedClassrooms(
+      staffCode: staffCode,
+      classroomCodes: classroomCodes,
+    );
+
+    await _invalidateStaffProfileCaches(staffCode);
+    await _invalidateAllStaffListAndSummaryCaches();
+
+    return message;
+  }
+
+  @override
+  Future<String> updateStaffPrimaryClassroom({
+    required String staffCode,
+    required String classroomCode,
+  }) async {
+    final message = await _remoteDataSource.updateStaffPrimaryClassroom(
+      staffCode: staffCode,
+      classroomCode: classroomCode,
+    );
+
+    await _invalidateStaffProfileCaches(staffCode);
+    await _invalidateAllStaffListAndSummaryCaches();
 
     return message;
   }
@@ -1040,6 +1077,25 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     required String role,
   }) async {
     final message = await _remoteDataSource.deactivateSchoolUser(
+      userCode: userCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      role: role,
+    );
+
+    await _invalidateStaffListAndSummaryCaches(schoolCode);
+
+    return message;
+  }
+
+  @override
+  Future<String> deleteSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    final message = await _remoteDataSource.deleteSchoolUser(
       userCode: userCode,
       organizationCode: organizationCode,
       schoolCode: schoolCode,

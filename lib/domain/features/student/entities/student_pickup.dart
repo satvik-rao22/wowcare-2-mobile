@@ -17,6 +17,8 @@ class StudentPickup extends Equatable {
     this.relationshipDescription,
     this.pickupType,
     this.carpoolId,
+    this.profilePhotoUrl,
+    this.profilePhotoAssetCode,
   });
 
   final String? code;
@@ -30,6 +32,8 @@ class StudentPickup extends Equatable {
   final String? relationshipDescription;
   final String? pickupType;
   final String? carpoolId;
+  final String? profilePhotoUrl;
+  final String? profilePhotoAssetCode;
 
   String get fullName => ('$firstName $lastName').trim();
 
@@ -46,5 +50,7 @@ class StudentPickup extends Equatable {
         relationshipDescription,
         pickupType,
         carpoolId,
+        profilePhotoUrl,
+        profilePhotoAssetCode,
       ];
 }

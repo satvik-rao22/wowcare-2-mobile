@@ -170,6 +170,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                       left: BorderSide(color: AppColors.themeColor),
                       top: BorderSide(color: AppColors.themeColor),
                       right: BorderSide(color: AppColors.themeColor),
+                      bottom: BorderSide(color: AppColors.themeColor),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(8, 20, 8, 10),

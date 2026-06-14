@@ -1,3 +1,5 @@
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -153,14 +155,19 @@ class _MessagingTabState extends State<MessagingTab>
                                 create: (_) => serviceLocator<StudentCubit>(),
                               ),
                             ],
-                            child: StaffOrStudentSelectionBulkMessaging(),
+                            child: StaffOrStudentSelectionBulkMessaging(
+                              isStaffSelection: true,
+                              conversationType: 'STAFF_DIRECT',
+                            ),
                           ),
                         ),
                       );
                       if (context.mounted) {
-                        context.read<CommunicationCubit>().loadConversations(
-                          type: 'STAFF_DIRECT',
-                          size: _conversationPageSize,
+                        unawaited(
+                          context.read<CommunicationCubit>().refreshConversations(
+                            type: 'STAFF_DIRECT',
+                            size: _conversationPageSize,
+                          ),
                         );
                       }
                     } else {
@@ -180,14 +187,17 @@ class _MessagingTabState extends State<MessagingTab>
                             ],
                             child: StaffOrStudentSelectionBulkMessaging(
                               isStaffSelection: false,
+                              conversationType: 'ROOM_CHAT',
                             ),
                           ),
                         ),
                       );
                       if (context.mounted) {
-                        context.read<CommunicationCubit>().loadConversations(
-                          type: 'STAFF_DIRECT',
-                          size: _conversationPageSize,
+                        unawaited(
+                          context.read<CommunicationCubit>().refreshConversations(
+                            type: 'ROOM_CHAT',
+                            size: _conversationPageSize,
+                          ),
                         );
                       }
                     }

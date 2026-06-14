@@ -18,7 +18,6 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -66,11 +65,14 @@ class _AttendanceField extends StatelessWidget {
       children: [
         SizedBox(
           width: 120,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
-              fontSize: 14,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -101,12 +103,15 @@ class _AttendanceField extends StatelessWidget {
                 const SizedBox(width: 6),
               ],
               Flexible(
-                child: AppText.value(
+                child: Text(
                   text,
                   textAlign: TextAlign.end,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
+                    color: Color(0xff573353),
+                    height: 19 / 14,
                   ),
                 ),
               ),
@@ -118,35 +123,47 @@ class _AttendanceField extends StatelessWidget {
   }
 
   Widget _methodIcon(ProfileAbsentMarkMethod method) {
+    const double size = 16;
     switch (method) {
       case ProfileAbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: 16, height: 16);
+        return Tooltip(
+          message: 'GPS',
+          child: SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size),
+        );
       case ProfileAbsentMarkMethod.qr:
-        return SvgPicture.asset(
-          MediaRes.qrAttendanceIcon,
-          width: 16,
-          height: 16,
+        return Tooltip(
+          message: 'QR',
+          child: SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size),
         );
       case ProfileAbsentMarkMethod.kiosk:
-        return SvgPicture.asset(MediaRes.pinMethodIcon, width: 16, height: 16);
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size),
+        );
       case ProfileAbsentMarkMethod.app:
-        return SvgPicture.asset(
-          MediaRes.appMethodIcon,
-          width: 16,
-          height: 16,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
+        return Tooltip(
+          message: 'APP',
+          child: SvgPicture.asset(
+            MediaRes.appMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case ProfileAbsentMarkMethod.web:
-        return SvgPicture.asset(
-          MediaRes.webMethodIcon,
-          width: 16,
-          height: 16,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
+        return Tooltip(
+          message: 'WEB',
+          child: SvgPicture.asset(
+            MediaRes.webMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
     }
@@ -166,6 +183,8 @@ class _AttendanceModel {
   final int attendedMinutes;
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+  final ProfileAbsentMarkMethod? signInMethod;
+  final ProfileAbsentMarkMethod? signOutMethod;
 
   _AttendanceModel({
     required this.date,
@@ -179,6 +198,8 @@ class _AttendanceModel {
     this.attendedMinutes = 0,
     this.isTransferSignIn = false,
     this.isTransferSignOut = false,
+    this.signInMethod,
+    this.signOutMethod,
   });
 }
 
@@ -281,6 +302,7 @@ class StudentAttendanceProfile extends StatefulWidget {
     this.isPresentToday = false,
     this.profileStatus = 'A',
     this.syncWithParentChildSelection = false,
+    this.initialShowAbsentDays = false,
   });
 
   final int studentId;
@@ -296,6 +318,9 @@ class StudentAttendanceProfile extends StatefulWidget {
 
   /// When true (e.g. parent drawer / popup), reloads when the global child dropdown changes.
   final bool syncWithParentChildSelection;
+
+  /// When true, opens the profile with the absent-days list visible (e.g. Absent tab).
+  final bool initialShowAbsentDays;
 
   @override
   State<StudentAttendanceProfile> createState() =>
@@ -481,6 +506,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   @override
   void initState() {
     super.initState();
+    showAbsentDays = widget.initialShowAbsentDays;
     _activeStudentCode = widget.studentCode.trim();
     final now = DateTime.now();
     _startDate = _startOfMonth(now);
@@ -735,6 +761,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               attendedMinutes: m['attendedMinutes'] as int? ?? 0,
               isTransferSignIn: isTransferSignIn,
               isTransferSignOut: isTransferSignOut,
+              signInMethod:
+                  _mapAbsentMethodStringToEnum(m['signedInMethod'] as String?),
+              signOutMethod:
+                  _mapAbsentMethodStringToEnum(m['signedOutMethod'] as String?),
             ),
           );
         }
@@ -887,8 +917,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       !_isTodayStatusLoading &&
       _todayGate.canSignOut &&
       AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
-  bool get _canTransfer => !_isTodayStatusLoading && _todayGate.canTransfer;
-  bool get _canMarkAbsent => !_isTodayStatusLoading && _todayGate.canMarkAbsent;
+  bool get _canTransfer =>
+      !_isTodayStatusLoading &&
+      _todayGate.canTransfer &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+  bool get _canMarkAbsent =>
+      !_isTodayStatusLoading &&
+      _todayGate.canMarkAbsent &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
 
   Future<Map<String, String>> _loadClassroomNameToCodeMap() async {
     try {
@@ -919,17 +955,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final current = student;
     if (current == null) return;
 
+    // Disabled actions are already non-tappable in the pop-up and explain
+    // themselves via the per-action tooltip, so just no-op here instead of
+    // showing a generic snackbar.
     if ((actionLabel == 'Sign-in' && !_canSignIn) ||
         (actionLabel == 'Sign-Out' && !_canSignOut) ||
         (actionLabel == 'Transfer' && !_canTransfer) ||
         (actionLabel == 'Absent' && !_canMarkAbsent)) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('Please Sign in First'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
       return;
     }
 
@@ -1016,10 +1048,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
+    // Use the exact dates the user picked. Snapping to start/end of month
+    // here made every range collapse to the whole month, so a same-day
+    // (10 Jun → 10 Jun) or any custom range never filtered.
     final effectiveEnd = endDate ?? startDate;
     setState(() {
-      _startDate = _startOfMonth(startDate);
-      _endDate = _endOfMonth(effectiveEnd);
+      _startDate = startDate;
+      _endDate = effectiveEnd;
     });
     _loadData();
   }
@@ -1123,6 +1158,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         if (!_canTransfer) 'Transfer',
         if (!_canMarkAbsent) 'Absent',
       },
+      disabledReasons: _isTodayStatusLoading
+          ? const <String, String>{}
+          : studentAttendanceDisabledReasons(_todayGate),
       onActionTap: _handleStudentAction,
     );
   }
@@ -1589,8 +1627,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   String getFirstName(String name) {
-    if (name == 'System Auto Signout') return name;
-    return name.split(' ').first;
+    // Show the full name (first + last), not just the first word.
+    return name.trim();
   }
 
   String formatTime(String time) {
@@ -1638,6 +1676,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             label: 'Sign In',
             text: formatTime(attendance.signInTime),
             showTransferIcon: attendance.isTransferSignIn,
+            markMethod: attendance.signInMethod,
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1649,6 +1688,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             label: 'Sign Out',
             text: formatTime(attendance.signOutTime),
             showTransferIcon: attendance.isTransferSignOut,
+            markMethod: attendance.signOutMethod,
           ),
           const SizedBox(height: 16),
           _AttendanceField(

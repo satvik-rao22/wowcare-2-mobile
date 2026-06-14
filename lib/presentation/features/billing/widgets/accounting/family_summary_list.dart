@@ -1,0 +1,178 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:shimmer/shimmer.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
+import 'package:wowcare/presentation/features/billing/widgets/billing_student_card.dart';
+
+/// Renders the per-family billing summary rows (used by both the Student(s)
+/// overview list and the Transactions list) as [BillingStudentCard]s.
+class FamilySummaryList extends StatelessWidget {
+  const FamilySummaryList({
+    super.key,
+    required this.families,
+    required this.isLoading,
+    this.errorMessage,
+    this.showSelection = false,
+    this.onBillingProfile,
+  });
+
+  final List<FamilySummaryEntity> families;
+  final bool isLoading;
+  final String? errorMessage;
+  final bool showSelection;
+  final void Function(FamilySummaryEntity family)? onBillingProfile;
+
+  static final DateFormat _dateFormat = DateFormat('dd MMM yyyy');
+
+  String _formatDate(DateTime? date) =>
+      date == null ? '-' : _dateFormat.format(date);
+
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) {
+      // Skeleton placeholders instead of a spinner so the list area shows
+      // structure while the family summary loads.
+      return const _FamilySummaryShimmer();
+    }
+    if (errorMessage != null && families.isEmpty) {
+      // Detail goes to the top snackbar; keep the list area calm.
+      return const _Message(text: 'Couldn’t load families.');
+    }
+    if (families.isEmpty) {
+      return const _Message(text: 'No families found.');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final family in families)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: BillingStudentCard(
+              name: family.familyName.trim().isNotEmpty
+                  ? family.familyName
+                  : family.guardianName,
+              classroom: family.guardianName,
+              fileUuid: '',
+              amount: family.lastPaymentAmount,
+              paidOn: _formatDate(family.lastPaymentDate),
+              paymentMethod: family.lastPaymentMethod,
+              paymentNote: '',
+              lastPaymentStatus: family.lastInvoiceStatus,
+              lastInvoiceAmount: family.lastInvoiceAmount,
+              lastInvoiceSent: _formatDate(family.lastInvoiceDate),
+              lastInvoiceDue: _formatDate(family.lastInvoiceDueDate),
+              openBalance: family.openBalance,
+              showSelection: showSelection,
+              onBillingProfile: onBillingProfile == null
+                  ? null
+                  : () => onBillingProfile!(family),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Shimmer skeleton roughly matching the collapsed [BillingStudentCard]:
+/// avatar + name/subtitle column + a trailing amount, repeated a few times.
+class _FamilySummaryShimmer extends StatelessWidget {
+  const _FamilySummaryShimmer({this.rowCount = 4});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Column(
+        children: List.generate(rowCount, (_) => const _FamilyRowShimmer()),
+      ),
+    );
+  }
+}
+
+class _FamilyRowShimmer extends StatelessWidget {
+  const _FamilyRowShimmer();
+
+  Widget _box({double? width, double height = 14, double radius = 4}) =>
+      Container(
+        width: width,
+        height: height,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(radius),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _box(width: 140, height: 16),
+                const SizedBox(height: 8),
+                _box(width: 90, height: 12),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          _box(width: 60, height: 18),
+        ],
+      ),
+    );
+  }
+}
+
+class _Message extends StatelessWidget {
+  const _Message({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      child: Center(
+        child: Text(
+          text,
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: AppColors.billingTextColor,
+          ),
+        ),
+      ),
+    );
+  }
+}
