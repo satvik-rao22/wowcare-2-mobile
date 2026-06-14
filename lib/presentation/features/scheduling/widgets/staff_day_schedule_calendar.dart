@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 
 /// Day shift calendar for [StaffSchedulingScreen]: hourly time column plus
 /// positioned shift blocks. The day column label is supplied by the parent
@@ -16,11 +17,16 @@ class StaffDayScheduleCalendar extends StatefulWidget {
     required this.schoolEndTime,
     this.classroomResolver,
     this.onShiftTap,
+    this.highlightShiftCode,
   });
 
   final DailyShifts dailyRoomSchedule;
   final String dayColumnLabel;
   final ClassroomNameResolver? classroomResolver;
+
+  /// Notification deep-link: the work-shift block whose `shiftCode` matches this
+  /// scrolls into view and flashes.
+  final String? highlightShiftCode;
 
   /// School open time for the selected weekday (`hh:mm:ss a`).
   final String schoolStartTime;
@@ -39,6 +45,7 @@ class StaffDayScheduleCalendar extends StatefulWidget {
 
 class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
   late List<Shift> _shifts;
+  static const double cellHeightRow = 48;
 
   @override
   void initState() {
@@ -396,6 +403,15 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       child: _buildSingleShift(shift, contentHeight),
     );
 
+    // Flash + scroll-into-view when this block is the notification target.
+    final highlightable = HighlightableCard(
+      code: shift.shiftCode,
+      highlightCode: widget.highlightShiftCode,
+      scrollOnHighlight: true,
+      borderRadius: 8,
+      child: shiftWidget,
+    );
+
     return Positioned(
       top: topSpace,
       left: 0,
@@ -403,11 +419,11 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       child: SizedBox(
         height: height,
         child: shift.isBreakShift || widget.onShiftTap == null
-            ? shiftWidget
+            ? highlightable
             : GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => widget.onShiftTap!(shift),
-                child: shiftWidget,
+                child: highlightable,
               ),
       ),
     );

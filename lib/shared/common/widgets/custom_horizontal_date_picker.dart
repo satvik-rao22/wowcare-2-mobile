@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -77,7 +78,7 @@ class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker>
                   _selectedDay = selectedDay;
                   _focusedDay = focusedDay;
                 });
-                print('Selected:  ${selectedDay.toString().split(' ')[0]}');
+                AppLogger.d('Selected:  ${selectedDay.toString().split(' ')[0]}');
               },
               calendarStyle: CalendarStyle(
                 selectedDecoration: BoxDecoration(

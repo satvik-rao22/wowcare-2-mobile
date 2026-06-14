@@ -115,6 +115,7 @@ class StaffProfile extends Equatable {
     this.jobTag = '',
     this.clockPin = '',
     this.primaryClassroomCode = '',
+    this.primaryClassroomName = '',
     required this.allowedClassroomCodes,
     required this.address,
     required this.workSchedules,
@@ -140,6 +141,9 @@ class StaffProfile extends Equatable {
   final String jobTag;
   final String clockPin;
   final String primaryClassroomCode;
+  /// Human-readable classroom name from the API (`primaryClassroom.name`), so
+  /// the header can render it without a separate code→name lookup.
+  final String primaryClassroomName;
   final List<String> allowedClassroomCodes;
   final StaffProfileAddress address;
   final List<StaffProfileWorkSchedule> workSchedules;
@@ -166,6 +170,7 @@ class StaffProfile extends Equatable {
         jobTag,
         clockPin,
         primaryClassroomCode,
+        primaryClassroomName,
         allowedClassroomCodes,
         address,
         workSchedules,

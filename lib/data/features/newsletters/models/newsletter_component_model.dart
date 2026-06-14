@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/newsletters/entities/newsletter_component_entity.dart';
 
@@ -16,14 +18,28 @@ class NewsletterComponentModel extends Equatable {
 
   factory NewsletterComponentModel.fromJson(Map<String, dynamic> json) {
     final rawData = json['data'];
+    Map<String, dynamic> data = rawData is Map<String, dynamic>
+        ? rawData
+        : rawData is Map
+            ? Map<String, dynamic>.from(rawData)
+            : <String, dynamic>{};
+
+    if (data.isEmpty) {
+      final contentJson = json['contentJson'];
+      if (contentJson is String && contentJson.trim().isNotEmpty) {
+        try {
+          final decoded = jsonDecode(contentJson);
+          if (decoded is Map) {
+            data = Map<String, dynamic>.from(decoded);
+          }
+        } catch (_) {}
+      }
+    }
+
     return NewsletterComponentModel(
       id: json['id'] as int?,
       type: (json['type'] ?? json['componentType'] ?? '').toString().trim(),
-      data: rawData is Map<String, dynamic>
-          ? rawData
-          : rawData is Map
-              ? Map<String, dynamic>.from(rawData)
-              : <String, dynamic>{},
+      data: data,
       order: json['order'] as int? ?? json['sortOrder'] as int?,
     );
   }

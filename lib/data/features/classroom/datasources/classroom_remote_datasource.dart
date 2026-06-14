@@ -46,11 +46,40 @@ abstract class ClassroomRemoteDataSource {
   /// Per-classroom student attendance counts from by-classrooms summary API.
   Future<Map<String, dynamic>> getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   });
 
   /// Per-classroom staff attendance counts from by-classrooms summary API.
   Future<Map<String, dynamic>> getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
+  });
+
+  /// GET student-classroom enrolled count (active/upcoming/enrolled) for a
+  /// classroom. Optional [organizationCode]/[schoolCode] are sent as headers.
+  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+    required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
+  });
+
+  /// GET the logo asset codes list for a school's classrooms.
+  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
+    required String classroomCode,
+    required String schoolCode,
+  });
+
+  /// POST to create a classroom-logo upload session.
+  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+    required String classroomCode,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// POST to finalize a classroom logo with the uploaded [assetCode].
+  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+    required String classroomCode,
+    required String assetCode,
   });
 }
 
@@ -70,7 +99,7 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final qp = <String, String>{
       'school': schoolCode,
       'status': 'ACTIVE',
-      'sort': 'name,asc',
+      'sortByName': 'asc',
     };
     final overrideType = (typeOverride ?? '').trim();
     if (overrideType.isNotEmpty) {
@@ -78,12 +107,10 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     } else if (onlyTypeClassroom) {
       qp['type'] = 'CLASSROOM';
     }
-    // Build query manually so the comma in `sort=name,asc` stays literal
-    // instead of being percent-encoded to `%2C`.
     final query = qp.entries
         .map(
           (e) =>
-              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value).replaceAll('%2C', ',')}',
+              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}',
         )
         .join('&');
     final uri = Uri.parse(
@@ -220,17 +247,25 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
   @override
   Future<Map<String, dynamic>> getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   }) async {
     if (classroomCodes.isEmpty) return <String, dynamic>{};
 
     final endpoint = ApiPaths.url(
       ApiPaths.studentAttendanceExpectedSummaryCardByClassrooms,
     );
+    final qp = <String, dynamic>{
+      'classroomCodes': classroomCodes.join(','),
+    };
+    if (date != null) {
+      qp['date'] =
+          '${date.year.toString().padLeft(4, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';
+    }
     final response = await _client.get<dynamic>(
       endpoint,
-      queryParameters: <String, dynamic>{
-        'classroomCodes': classroomCodes.join(','),
-      },
+      queryParameters: qp,
     );
     if (response.data is! Map<String, dynamic>) {
       throw Exception(
@@ -246,17 +281,25 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
   @override
   Future<Map<String, dynamic>> getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   }) async {
     if (classroomCodes.isEmpty) return <String, dynamic>{};
 
     final endpoint = ApiPaths.url(
       ApiPaths.staffAttendanceExpectedSummaryCardByClassrooms,
     );
+    final qp = <String, dynamic>{
+      'classroomCodes': classroomCodes.join(','),
+    };
+    if (date != null) {
+      qp['date'] =
+          '${date.year.toString().padLeft(4, '0')}-'
+          '${date.month.toString().padLeft(2, '0')}-'
+          '${date.day.toString().padLeft(2, '0')}';
+    }
     final response = await _client.get<dynamic>(
       endpoint,
-      queryParameters: <String, dynamic>{
-        'classroomCodes': classroomCodes.join(','),
-      },
+      queryParameters: qp,
     );
     if (response.data is! Map<String, dynamic>) {
       throw Exception(
@@ -267,5 +310,96 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final data = body['data'];
     if (data is Map<String, dynamic>) return data;
     return <String, dynamic>{};
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+    required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(
+      '/api/v1/student-classroom/enrolled-count/$classroomCode',
+    );
+    final org = (organizationCode ?? '').trim();
+    final school = (schoolCode ?? '').trim();
+
+    final Response<dynamic> response;
+    if (org.isEmpty && school.isEmpty) {
+      response = await _client.get<dynamic>(endpoint);
+    } else {
+      response = await _client.get<dynamic>(
+        endpoint,
+        options: Options(
+          headers: <String, dynamic>{
+            'accept': 'application/json',
+            if (org.isNotEmpty) ...{
+              'X-Organization-Code': org,
+              'x-organization-code': org,
+              'organizationCode': org,
+            },
+            if (school.isNotEmpty) ...{
+              'X-School-Code': school,
+              'x-school-code': school,
+              'schoolCode': school,
+            },
+          },
+        ),
+      );
+    }
+
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
+    required String classroomCode,
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.url(ApiPaths.classroomLogoAssetCodes);
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'classroomCode': classroomCode,
+        'schoolCode': schoolCode,
+      },
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+    required String classroomCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final endpoint =
+        ApiPaths.url(ApiPaths.classroomLogoUploadSessionPath(classroomCode));
+    final response = await _client.post<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+      },
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  @override
+  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+    required String classroomCode,
+    required String assetCode,
+  }) async {
+    final endpoint =
+        ApiPaths.url(ApiPaths.classroomLogoFinalizePath(classroomCode));
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'assetCode': assetCode},
+    );
+    final data = response.data;
+    return data is Map<String, dynamic> ? data : null;
   }
 }

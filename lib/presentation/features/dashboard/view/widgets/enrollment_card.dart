@@ -9,7 +9,6 @@ import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubi
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
@@ -74,9 +73,9 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
     if (schoolCode != null && schoolCode.isNotEmpty && mounted) {
       try {
         await context.read<SchoolStatusCubit>().loadSchoolStatus(
-              schoolCode: schoolCode,
-              isSilent: true,
-            );
+          schoolCode: schoolCode,
+          isSilent: true,
+        );
       } catch (e) {
         // Safe fallback in case the Cubit is not provided in some context
       }
@@ -87,7 +86,8 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
   Widget build(BuildContext context) {
     return BlocBuilder<SchoolStatusCubit, SchoolStatusState>(
       builder: (context, state) {
-        final isLoading = state.isInitial || (state.isLoading && state.schoolCode.isEmpty);
+        final isLoading =
+            state.isInitial || (state.isLoading && state.schoolCode.isEmpty);
         if (isLoading) {
           return const _EnrollmentCardShimmer();
         }
@@ -103,7 +103,11 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.error_outline, color: AppColors.errorColor, size: 36),
+                const Icon(
+                  Icons.error_outline,
+                  color: AppColors.errorColor,
+                  size: 36,
+                ),
                 const SizedBox(height: 8),
                 Text(
                   state.errorMessage ?? 'Failed to load school status',
@@ -144,43 +148,54 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                 const SizedBox(height: 16),
 
                 // ── Capacity summary — three stat columns ─────────────────────
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: _StatColumn(
-                        value: state.totalClassrooms.toString(),
-                        label: 'Total Classrooms',
+                // classroomClassrooms excludes admin/non-teaching rooms.
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _StatColumn(
+                          value: state.classroomClassrooms.toString(),
+                          label: 'Total \n Classrooms',
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _StatColumn(
-                        value: state.capacity.toString(),
-                        label: 'Total Capacity',
+                      // VerticalDivider(
+                      //   width: 1,
+                      //   color: AppColors.primaryColor.withValues(alpha: 0.1),
+                      // ),
+                      Expanded(
+                        child: _StatColumn(
+                          value: state.capacity.toString(),
+                          label: 'Total \n Capacity',
+                        ),
                       ),
-                    ),
-                    Expanded(
-                      child: _StatColumn(
-                        value: '${state.schoolFte.toStringAsFixed(0)}%',
-                        label: 'Full time Equivalent',
-                        showTrend: true,
+                      // VerticalDivider(
+                      //   width: 1,
+                      //   color: AppColors.primaryColor.withValues(alpha: 0.1),
+                      // ),
+                      Expanded(
+                        child: _StatColumn(
+                          value: '${state.schoolFte.toStringAsFixed(0)}%',
+                          label: 'Full time \n Equivalent',
+                          showTrend: true,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
                 const SizedBox(height: 16),
 
                 // ── Breakdown bars (shared CustomStatBarCard) ─────────────────
-                 CustomStatBarCard(
+                CustomStatBarCard(
                   title: 'Enrolled Students',
                   number: state.enrolledCount.toString(),
                   fullWidthBar: true,
                   embedded: true,
                   titleFontSize: 14,
                   onHeaderTap: () {
-                    context.push(ClassroomOverviewScreen.routeName);
+                    // context.push(ClassroomOverviewScreen.routeName);
                   },
                   onLegendTap: (label, filterValue) {
                     final normalized = label.trim().toLowerCase();
@@ -190,13 +205,26 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     } else if (normalized.startsWith('upcoming')) {
                       filter = 'UPCOMING';
                     }
-                    context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': filter});
+                    debugPrint('[EnrollmentCard] Navigating to Student Attendance: '
+                        'filter=$filter, route=${StudentAttendanceTabbedView.routeName}');
+                    context.push(
+                      StudentAttendanceTabbedView.routeName,
+                      extra: {'filter': filter, 'hasBackButton': true},
+                    );
                   },
                   items: _percentItems(
                     total: state.enrolledCount,
                     raw: [
-                      _Seg('Active', state.activeCount, AppColors.lightBlueProgressBar),
-                      _Seg('Upcoming', state.upcomingCount, AppColors.mustardProgressBar),
+                      _Seg(
+                        'Active',
+                        state.activeCount,
+                        AppColors.lightBlueProgressBar,
+                      ),
+                      _Seg(
+                        'Upcoming',
+                        state.upcomingCount,
+                        AppColors.mustardProgressBar,
+                      ),
                     ],
                   ),
                 ),
@@ -208,7 +236,10 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                   embedded: true,
                   titleFontSize: 14,
                   onHeaderTap: () {
-                    context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Expected'});
+                    // context.push(
+                    // StudentAttendanceTabbedView.routeName,
+                    // extra: {'filter': 'Expected'},
+                    // );
                   },
                   onLegendTap: (label, filterValue) {
                     final normalized = label.trim().toLowerCase();
@@ -222,15 +253,28 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     } else if (normalized.startsWith('not')) {
                       filter = 'Not Marked';
                     }
-                    context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': filter});
+                    debugPrint('[EnrollmentCard] Navigating to Student Attendance: '
+                        'filter=$filter, label=$label, route=${StudentAttendanceTabbedView.routeName}');
+                    context.push(
+                      StudentAttendanceTabbedView.routeName,
+                      extra: {'filter': filter, 'hasBackButton': true},
+                    );
                   },
                   items: _percentItems(
                     total: state.studentExpected,
                     raw: [
-                      _Seg('Signed-in', state.studentPresent, AppColors.colorBox),
+                      _Seg(
+                        'Signed-in',
+                        state.studentPresent,
+                        AppColors.colorBox,
+                      ),
                       _Seg('Absent', state.studentAbsent, AppColors.colorBox2),
                       _Seg('Signed-out', state.studentSignOut, _signedOutColor),
-                      _Seg('Not Marked', state.studentNotMarked, _notMarkedColor),
+                      _Seg(
+                        'Not Marked',
+                        state.studentNotMarked,
+                        _notMarkedColor,
+                      ),
                     ],
                   ),
                 ),
@@ -242,7 +286,10 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                   embedded: true,
                   titleFontSize: 14,
                   onHeaderTap: () {
-                    context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': 'Expected'});
+                    // context.push(
+                    //   StaffAttendanceTabbedView.routeName,
+                    //   extra: {'filter': 'Expected'},
+                    // );
                   },
                   onLegendTap: (label, filterValue) {
                     final normalized = label.trim().toLowerCase();
@@ -256,7 +303,10 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
                     } else if (normalized.startsWith('not')) {
                       filter = 'Not Marked';
                     }
-                    context.push(StaffAttendanceTabbedView.routeName, extra: {'filter': filter});
+                    context.push(
+                      StaffAttendanceTabbedView.routeName,
+                      extra: {'filter': filter, 'hasBackButton': true},
+                    );
                   },
                   items: _percentItems(
                     total: state.staffExpected,
@@ -325,7 +375,7 @@ class _StatColumn extends StatelessWidget {
               SizedBox(width: 3),
               Flexible(
                 child: Text(
-                  '5% vs last month',
+                  '0% vs last month',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.successColor,
@@ -390,12 +440,8 @@ class _EnrollmentCardShimmer extends StatelessWidget {
             const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _StatColumnShimmer(label: 'Total Classrooms'),
-                ),
-                Expanded(
-                  child: _StatColumnShimmer(label: 'Total Capacity'),
-                ),
+                Expanded(child: _StatColumnShimmer(label: 'Total Classrooms')),
+                Expanded(child: _StatColumnShimmer(label: 'Total Capacity')),
                 Expanded(
                   child: _StatColumnShimmer(
                     label: 'Full time Equivalent',
@@ -419,10 +465,7 @@ class _EnrollmentCardShimmer extends StatelessWidget {
               legendRowsCount: 2,
             ),
             Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-            const _StatBarShimmer(
-              title: 'Expected Staff',
-              legendRowsCount: 2,
-            ),
+            const _StatBarShimmer(title: 'Expected Staff', legendRowsCount: 2),
           ],
         ),
       ),
@@ -432,10 +475,7 @@ class _EnrollmentCardShimmer extends StatelessWidget {
 
 /// Stat column shimmer mirroring spacing and height of real column.
 class _StatColumnShimmer extends StatelessWidget {
-  const _StatColumnShimmer({
-    required this.label,
-    this.showTrend = false,
-  });
+  const _StatColumnShimmer({required this.label, this.showTrend = false});
 
   final String label;
   final bool showTrend;
@@ -486,10 +526,7 @@ class _StatColumnShimmer extends StatelessWidget {
 
 /// Stat bar shimmer mirroring the progress bar and exact legend lines count.
 class _StatBarShimmer extends StatelessWidget {
-  const _StatBarShimmer({
-    required this.title,
-    required this.legendRowsCount,
-  });
+  const _StatBarShimmer({required this.title, required this.legendRowsCount});
 
   final String title;
   final int legendRowsCount;

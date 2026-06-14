@@ -9,8 +9,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'dart:convert';
 import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/classroom_visibility.dart';
@@ -22,8 +21,9 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 
 // Student entity for Transfer UI & API payload
 class StudentEntity {
@@ -214,7 +214,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         for (final classroom in classrooms)
           if (classroom.name.trim().isNotEmpty &&
               classroom.code.trim().isNotEmpty &&
-              (!isScopedStaff || allowedCodes.contains(classroom.code.trim())) &&
+              (!isScopedStaff ||
+                  allowedCodes.contains(classroom.code.trim())) &&
               isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
@@ -326,12 +327,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       _isSubmitting = true;
     });
 
-    final client = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceRecordsTransfer,
-      ApiConstants.attendanceBaseUrl,
-    );
-
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
@@ -426,23 +421,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     };
 
     try {
-      final body = Map<String, dynamic>.from(payload);
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.post<dynamic>(endpoint, data: body);
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Transfer successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
+      final result = await serviceLocator<AttendanceRepository>()
+          .submitStudentTransfer(payload: payload);
+      final success = result.success;
+      final message = result.message;
 
       if (!mounted) return;
 
@@ -461,12 +443,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          redirectToAttendanceDaily(
+              context, StudentAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {
@@ -564,7 +542,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                       const SizedBox(height: 8),
                       IgnorePointer(
                         ignoring: !(_isStaffAdminPersona ?? false),
-                        child: SimpleTimePickerField(
+                        child: GradientTimePickerField(
                           time: _selectedTransferTime,
                           onTimeSelected: (t) {
                             setState(() {
@@ -716,7 +694,7 @@ class RemoveStudentTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    student.fullName.split(' ').first,
+                    student.fullName,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,

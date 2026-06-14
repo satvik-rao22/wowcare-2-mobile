@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:open_file/open_file.dart';
+import 'package:open_filex/open_filex.dart' as open_filex;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
@@ -111,7 +111,11 @@ class _MessageBubbleState extends State<MessageBubble>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final reactions = widget.message.reactions.entries.map((e) {
-        return Reaction(emoji: e.value, userId: e.key, timestamp: DateTime.now());
+        return Reaction(
+          emoji: e.value,
+          userId: e.key,
+          timestamp: DateTime.now(),
+        );
       }).toList();
       widget.reactionsController.loadReactions(widget.message.code, reactions);
     });
@@ -729,11 +733,12 @@ class _MessageBubbleState extends State<MessageBubble>
                     return;
                   }
                   if (att.localPath != null) {
-                    final result = await OpenFile.open(att.localPath!);
-                    if (result.type != ResultType.done) {
+                    try {
+                      await open_filex.OpenFilex.open(att.localPath!);
+                    } catch (e) {
                       CoreUtils.showTopSnackBar(
                         context: context,
-                        message: 'Cannot open file: ${result.message}',
+                        message: 'Cannot open file: $e',
                         isError: true,
                       );
                     }
@@ -744,11 +749,12 @@ class _MessageBubbleState extends State<MessageBubble>
                         final tempDir = await getTemporaryDirectory();
                         final tempFile = File('${tempDir.path}/${att.name}');
                         await tempFile.writeAsBytes(response.bodyBytes);
-                        final result = await OpenFile.open(tempFile.path);
-                        if (result.type != ResultType.done) {
+                        try {
+                          await open_filex.OpenFilex.open(tempFile.path);
+                        } catch (e) {
                           CoreUtils.showTopSnackBar(
                             context: context,
-                            message: 'Cannot open: ${result.message}',
+                            message: 'Cannot open: $e',
                             isError: true,
                           );
                         }

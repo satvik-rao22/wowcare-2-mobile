@@ -12,7 +12,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 
 class LogOutModelBottomSheet extends StatefulWidget {
   const LogOutModelBottomSheet({
@@ -37,7 +37,7 @@ class _LogOutModelBottomSheetState extends State<LogOutModelBottomSheet> {
       await context.read<AuthCubit>().logoutSession();
 
       if (context.mounted) {
-        context.read<ParentChildProvider>().invalidate();
+        context.read<ParentChildCubit>().invalidate();
       }
 
       context.go(SignInScreen.routeName);

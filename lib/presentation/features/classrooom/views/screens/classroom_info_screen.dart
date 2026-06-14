@@ -1,12 +1,12 @@
 import 'dart:io';
 
-import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom_details.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -17,17 +17,19 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
 // import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
@@ -37,7 +39,12 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class ClassroomInfoScreen extends StatefulWidget {
-  const ClassroomInfoScreen({super.key});
+  const ClassroomInfoScreen({super.key, this.initialClassroomCode});
+
+  /// When opened from a notification deep-link (e.g. RATIO_BREACHED), the
+  /// classroom to pre-select by code. Takes precedence over the cached/first
+  /// selection.
+  final String? initialClassroomCode;
 
   static const String routeName = '/classroom-info-screen';
 
@@ -76,11 +83,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   String? _cachedSelectedClassroomCode;
   String? _cachedSelectedClassroomName;
 
+  late final IndividualMovementsCubit _movementsCubit;
+
   @override
   void initState() {
     super.initState();
     _storage = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storage);
+    _movementsCubit = serviceLocator<IndividualMovementsCubit>()
+      ..loadInitial();
     _loadLastSelectedClassroomFromCache();
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -93,6 +104,12 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _loadDetails(args.code);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _movementsCubit.close();
+    super.dispose();
   }
 
   String get _lastSelectedClassroomCacheKey => CacheManager.buildCacheKey(
@@ -227,30 +244,12 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     final orgCode = (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-    final path = '/api/v1/student-classroom/enrolled-count/$code';
-    final endpoint = ApiPaths.url(path);
-    final dio = serviceLocator<ApiClient>().client;
-
-    final response = await dio.get<dynamic>(
-      endpoint,
-      options: Options(
-        headers: <String, dynamic>{
-          'accept': 'application/json',
-          if (orgCode.isNotEmpty) ...{
-            'X-Organization-Code': orgCode,
-            'x-organization-code': orgCode,
-            'organizationCode': orgCode,
-          },
-          if (schoolCode.isNotEmpty) ...{
-            'X-School-Code': schoolCode,
-            'x-school-code': schoolCode,
-            'schoolCode': schoolCode,
-          },
-        },
-      ),
+    final body = await serviceLocator<ClassroomRepository>()
+        .getStudentClassroomEnrolledCount(
+      classroomCode: code,
+      organizationCode: orgCode,
+      schoolCode: schoolCode,
     );
-
-    final body = response.data;
     if (body is! Map<String, dynamic>) return;
     final data = body['data'];
     if (data is! Map) return;
@@ -348,17 +347,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _isLogoLoading = true;
       });
 
-      final endpoint = ApiPaths.url(ApiPaths.classroomLogoAssetCodes);
-      final dio = serviceLocator<ApiClient>().client;
-      final response = await dio.get<dynamic>(
-        endpoint,
-        queryParameters: <String, dynamic>{
-          'classroomCode': code,
-          'schoolCode': schoolCode,
-        },
-      );
-
-      final body = response.data;
+      final body = await serviceLocator<ClassroomRepository>()
+          .getClassroomLogoAssetCodes(classroomCode: code, schoolCode: schoolCode);
       if (body is! Map<String, dynamic> || body['success'] == false) {
         return;
       }
@@ -414,23 +404,27 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     try {
       final details = await _getClassroomByCodeUseCase(code: code);
       if (!mounted) return;
+      // Clear the page shimmer as soon as the core classroom details arrive.
+      // The enrolled-count / attendance-summary / logo loads each drive their
+      // own card state, so a slow or never-resolving one of those must not keep
+      // the whole screen stuck on shimmer.
       setState(() {
         _details = details;
+        _isAllClassroomApisLoading = false;
       });
-      await Future.wait<void>([
+      AppLogger.d('[ClassroomInfo] _loadDetails details ready for $code');
+      // Load secondary data in the background (own cards); don't block the UI.
+      Future.wait<void>([
         _ensureEnrolledCountLoaded(
           code,
           forceRefresh: refreshEnrolledCounts,
         ),
         _loadSummaries(code),
         _loadClassroomLogo(code),
-      ]);
-      if (!mounted) return;
-      setState(() {
-        _isAllClassroomApisLoading = false;
-      });
+      ]).catchError((Object _) => <void>[]);
     } catch (e) {
       if (!mounted) return;
+      AppLogger.d('[ClassroomInfo] _loadDetails ERROR for $code: $e');
       setState(() {
         _details = null;
         _isAllClassroomApisLoading = false;
@@ -510,8 +504,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     if (organizationCode.isEmpty || schoolCode.isEmpty) return;
 
     try {
-      final file = await CoreUtils.pickImage();
-      if (file == null) return;
+      // Shared file picker → every allowed image format is selectable
+      // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not gallery-only.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: mounted ? context : null,
+      );
+      final pickedPath = picked?.path;
+      if (pickedPath == null || pickedPath.isEmpty) return;
+      final file = File(pickedPath);
 
       if (!mounted) return;
       // No full-screen loading dialog — the logo avatar shows its own
@@ -520,27 +521,19 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _isLogoLoading = true;
       });
 
-      final dio = serviceLocator<ApiClient>().client;
       final uploadService = serviceLocator<ImageUploadService>();
 
-      final uploadSessionEndpoint =
-          ApiPaths.url(ApiPaths.classroomLogoUploadSessionPath(classroomCode));
-      final sessionResponse = await dio.post<dynamic>(
-        uploadSessionEndpoint,
-        queryParameters: <String, dynamic>{
-          'organizationCode': organizationCode,
-          'schoolCode': schoolCode,
-        },
+      final sessionBody = await serviceLocator<ClassroomRepository>()
+          .createClassroomLogoUploadSession(
+        classroomCode: classroomCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
       );
-      final sessionBody = sessionResponse.data;
-      if (sessionBody is! Map<String, dynamic> || sessionBody['success'] == false) {
+      if (sessionBody is! Map<String, dynamic> ||
+          sessionBody['success'] == false) {
+        final msg = (sessionBody?['message'] ?? '').toString().trim();
         throw Exception(
-          (sessionBody is Map ? (sessionBody['message'] ?? '') : '')
-              .toString()
-              .trim()
-              .isNotEmpty
-              ? (sessionBody['message'] ?? '').toString().trim()
-              : 'Unable to create upload session',
+          msg.isNotEmpty ? msg : 'Unable to create upload session',
         );
       }
       final sessionData = sessionBody['data'];
@@ -589,21 +582,16 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         expectedAssetCodes: <String>[presign.assetCode],
       );
 
-      final finalizeEndpoint =
-          ApiPaths.url(ApiPaths.classroomLogoFinalizePath(classroomCode));
-      final finalizeResponse = await dio.post<dynamic>(
-        finalizeEndpoint,
-        data: <String, dynamic>{'assetCode': presign.assetCode.trim()},
+      final finalizeBody = await serviceLocator<ClassroomRepository>()
+          .finalizeClassroomLogo(
+        classroomCode: classroomCode,
+        assetCode: presign.assetCode.trim(),
       );
-      final finalizeBody = finalizeResponse.data;
-      if (finalizeBody is! Map<String, dynamic> || finalizeBody['success'] == false) {
+      if (finalizeBody is! Map<String, dynamic> ||
+          finalizeBody['success'] == false) {
+        final msg = (finalizeBody?['message'] ?? '').toString().trim();
         throw Exception(
-          (finalizeBody is Map ? (finalizeBody['message'] ?? '') : '')
-              .toString()
-              .trim()
-              .isNotEmpty
-              ? (finalizeBody['message'] ?? '').toString().trim()
-              : 'Unable to finalize classroom logo',
+          msg.isNotEmpty ? msg : 'Unable to finalize classroom logo',
         );
       }
       final finalizeData = finalizeBody['data'];
@@ -645,8 +633,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     }
   }
 
-  /// Compares signed-in students vs signed-in staff against [ClassroomDetails.studentsPerTeacher]
-  /// (N in N:1). Returns null when ratio is not configured or attendance summaries are missing.
+  /// Compares signed-in students vs signed-in staff against [ClassroomDetails.studentsPerTeacher].
+  /// Returns null when ratio is not configured or attendance summaries are missing.
   bool? _signedInStaffingMeetsConfiguredRatio(ClassroomDetails details) {
     final maxStudentsPerStaff = details.studentsPerTeacher;
     if (maxStudentsPerStaff <= 0) return null;
@@ -799,15 +787,22 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+      create: (_) => serviceLocator<ClassroomCubit>()
+        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final classrooms = state.classrooms;
           if (classrooms.isNotEmpty && _selectedRoom == null) {
+            // A deep-link classroom code wins over the cached/first selection.
+            final deepLinkCode = (widget.initialClassroomCode ?? '').trim();
             final cachedCode = (_cachedSelectedClassroomCode ?? '').trim();
-            final match = cachedCode.isEmpty
+            final preferredCode =
+                deepLinkCode.isNotEmpty ? deepLinkCode : cachedCode;
+            final match = preferredCode.isEmpty
                 ? null
-                : classrooms.where((c) => c.code.trim() == cachedCode).toList();
+                : classrooms
+                    .where((c) => c.code.trim() == preferredCode)
+                    .toList();
             _selectedRoom = match != null && match.isNotEmpty
                 ? match.first
                 : classrooms.first;
@@ -822,12 +817,24 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
               (_detailsError == null &&
                   _selectedRoom != null &&
                   (_isAllClassroomApisLoading || _details == null));
+          AppLogger.d(
+            '[ClassroomInfo] shimmer=$showAllCardsShimmer '
+            'isLoading=${state.isLoading} rooms=${classrooms.length} '
+            'selected=${_selectedRoom?.code} apisLoading=$_isAllClassroomApisLoading '
+            'details=${_details != null} err=${_detailsError != null}',
+          );
 
           return GlobalScaffold(
             bodyPadding: EdgeInsets.zero,
             body: CustomRefreshIndicator(
               onRefresh: () async {
-                await context.read<ClassroomCubit>().loadActiveClassrooms(force: true);
+                await Future.wait<void>([
+                  context.read<ClassroomCubit>().loadActiveClassrooms(
+                        force: true,
+                        applyAttendanceStaffScope: true,
+                      ),
+                  _movementsCubit.refresh(),
+                ]);
                 if (_selectedRoom != null) {
                   await _loadDetails(
                     _selectedRoom!.code,
@@ -885,7 +892,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               tooltip: 'Back',
                               onPressed: () => Navigator.pop(context),
                               icon: SvgPicture.asset(
-                                MediaRes.infoButtonIcon,
+                                MediaRes.classroomInfoIcon,
                                 height: 32,
                               ),
                             ),
@@ -904,6 +911,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               const SummaryCardShimmer(),
                               const SizedBox(height: 16),
                               const SummaryCardShimmer(),
+                              const SizedBox(height: 16),
+                              const MovementsCardShimmer(),
                             ],
                           )
                         else if (_detailsError != null)
@@ -965,6 +974,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                             title: 'Expected\nStaff',
                             summary: _staffSummary,
                             forStaff: true,
+                          ),
+                          const SizedBox(height: 16),
+                          BlocProvider<IndividualMovementsCubit>.value(
+                            value: _movementsCubit,
+                            child: MovementsCard(
+                              classroomCode: _selectedRoom?.code,
+                            ),
                           ),
                         ],
                         // Events section (temporarily disabled)

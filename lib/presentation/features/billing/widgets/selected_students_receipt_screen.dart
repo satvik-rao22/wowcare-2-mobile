@@ -13,11 +13,16 @@ class SelectedStudentsReceiptScreen extends StatefulWidget {
     required this.selectedStudents,
     required this.invoiceData,
     this.onStudentRemoved,
+    this.isConfirmation = false,
   });
 
   final List<Student> selectedStudents;
   final Map<String, dynamic> invoiceData;
   final void Function(Student student)? onStudentRemoved;
+
+  /// When true the invoice has already been created — the screen is a read-only
+  /// confirmation, so the bottom bar shows a single "Done" button.
+  final bool isConfirmation;
 
   @override
   State<SelectedStudentsReceiptScreen> createState() => _SelectedStudentsReceiptScreenState();
@@ -86,7 +91,11 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
     );
 
     String? dueDateString;
-    final dueDate = invoiceData['invoiceDate'] is DateTime ? invoiceData['invoiceDate'] as DateTime : null;
+    final dueDate = invoiceData['dueDate'] is DateTime
+        ? invoiceData['dueDate'] as DateTime
+        : (invoiceData['invoiceDate'] is DateTime
+            ? invoiceData['invoiceDate'] as DateTime
+            : null);
     if (dueDate != null) {
       dueDateString = DateFormat('MMM dd, yyyy').format(dueDate);
     } else if (invoiceData['dueDate'] is String) {
@@ -487,19 +496,17 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             topRight: Radius.circular(isTablet ? 40.0 : 24.0),
           ),
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Container(
+        child: widget.isConfirmation
+            ? Container(
                 height: isTablet ? 56.0 : 48.0,
                 decoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient(),
                   borderRadius: BorderRadius.circular(isTablet ? 16.0 : 8.0),
                 ),
                 child: TextButton(
-                  onPressed: _onSave,
+                  onPressed: () => Navigator.of(context).pop(),
                   child: Text(
-                    'Save',
+                    'Done',
                     style: TextStyle(
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 20.0 : 16.0,
@@ -508,32 +515,56 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     ),
                   ),
                 ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Container(
-                height: isTablet ? 56.0 : 48.0,
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(isTablet ? 16.0 : 8.0),
-                ),
-                child: TextButton(
-                  onPressed: _onSaveAndSend,
-                  child: Text(
-                    'Save & Send',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: isTablet ? 20.0 : 16.0,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.billingCardColor,
+              )
+            : Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      height: isTablet ? 56.0 : 48.0,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.buildPrimaryGradient(),
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 16.0 : 8.0),
+                      ),
+                      child: TextButton(
+                        onPressed: _onSave,
+                        child: Text(
+                          'Save',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: isTablet ? 20.0 : 16.0,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.billingCardColor,
+                          ),
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Container(
+                      height: isTablet ? 56.0 : 48.0,
+                      decoration: BoxDecoration(
+                        gradient: AppColors.buildPrimaryGradient(),
+                        borderRadius:
+                            BorderRadius.circular(isTablet ? 16.0 : 8.0),
+                      ),
+                      child: TextButton(
+                        onPressed: _onSaveAndSend,
+                        child: Text(
+                          'Save & Send',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: isTablet ? 20.0 : 16.0,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.billingCardColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
       ),
     );
   }

@@ -15,9 +15,11 @@ class CreateConversationCubit extends Cubit<CreateConversationState> {
     required String organizationCode,
     required String schoolCode,
     required List<String> participantUserCodes,
-    String type = 'DIRECT',
+    String type = 'STAFF_DIRECT',
     required String description,
     required String avatarUrl,
+    String? studentCode,
+    List<Map<String, dynamic>>? participants,
   }) async {
     emit(CreateConversationLoading());
 
@@ -29,6 +31,8 @@ class CreateConversationCubit extends Cubit<CreateConversationState> {
       schoolCode: schoolCode,
       avatarUrl: avatarUrl,
       participantUserCodes: participantUserCodes,
+      studentCode: studentCode,
+      participants: participants,
     );
 
     final result = await createConversationUseCase(request);
@@ -51,9 +55,11 @@ class CreateConversationCubit extends Cubit<CreateConversationState> {
     required String organizationCode,
     required String schoolCode,
     required List<String> participantUserCodes,
-    String type = 'DIRECT',
+    String type = 'STAFF_DIRECT',
     required String description,
     required String avatarUrl,
+    String? studentCode,
+    List<Map<String, dynamic>>? participants,
   }) async {
     final request = CreateConversationRequest(
       title: title,
@@ -63,6 +69,8 @@ class CreateConversationCubit extends Cubit<CreateConversationState> {
       schoolCode: schoolCode,
       avatarUrl: avatarUrl,
       participantUserCodes: participantUserCodes,
+      studentCode: studentCode,
+      participants: participants,
     );
 
     final result = await createConversationUseCase(request);

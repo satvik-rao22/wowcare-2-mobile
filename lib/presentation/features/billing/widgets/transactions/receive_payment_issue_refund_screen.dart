@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class ReceivePaymentIssueRefundScreen extends StatefulWidget {
@@ -9,10 +14,19 @@ class ReceivePaymentIssueRefundScreen extends StatefulWidget {
     super.key,
     required this.transaction,
     this.isRefund = false,
+    this.studentCode,
+    this.ownerType,
+    this.ownerCode,
   });
 
   final TransactionItem transaction;
   final bool isRefund;
+
+  /// Identifiers sent to the payment/refund API (resolved from the selected
+  /// student / family when available).
+  final String? studentCode;
+  final String? ownerType;
+  final String? ownerCode;
 
   @override
   State<ReceivePaymentIssueRefundScreen> createState() =>
@@ -21,17 +35,18 @@ class ReceivePaymentIssueRefundScreen extends StatefulWidget {
 
 class _ReceivePaymentIssueRefundScreenState
     extends State<ReceivePaymentIssueRefundScreen> {
+  late final ReceivePaymentRefundCubit _cubit =
+      serviceLocator<ReceivePaymentRefundCubit>();
   late final TextEditingController _amountController;
   late final TextEditingController _internalNoteController;
   late final TextEditingController _staffNoteController;
   late final TextEditingController _chequeNumberController;
 
-  bool _isSubmitting = false;
-  bool _amountError = false;
-  bool _sendEmailNotification = true;
-  String? _selectedPaymentType;
-
   double? _amountUnpaid;
+
+  /// Receive method: false = pay the current outstanding balance, true = a
+  /// custom amount the user types.
+  bool _useCustomAmount = false;
 
   final List<String> _paymentTypeOptions = <String>[
     'Cash',
@@ -40,17 +55,18 @@ class _ReceivePaymentIssueRefundScreenState
     'Others',
   ];
 
+  // Read-only proxies onto the cubit state.
+  bool get _isSubmitting => _cubit.state.isSubmitting;
+  bool get _amountError => _cubit.state.amountError;
+  bool get _sendEmailNotification => _cubit.state.sendEmailNotification;
+  String? get _selectedPaymentType => _cubit.state.selectedPaymentType;
+
   @override
   void initState() {
     super.initState();
-    _amountController = TextEditingController(
-      text: widget.isRefund
-          ? widget.transaction.amount.toStringAsFixed(2)
-          : (widget.transaction.balance != null &&
-                  widget.transaction.balance! < 0)
-              ? widget.transaction.balance!.abs().toStringAsFixed(2)
-              : widget.transaction.amount.toStringAsFixed(2),
-    );
+    // Custom-amount entry starts empty; the "Current Outstanding" option uses
+    // the account balance directly.
+    _amountController = TextEditingController();
     _internalNoteController = TextEditingController();
     _staffNoteController = TextEditingController();
     _chequeNumberController = TextEditingController();
@@ -60,6 +76,7 @@ class _ReceivePaymentIssueRefundScreenState
 
   @override
   void dispose() {
+    _cubit.close();
     _amountController.dispose();
     _internalNoteController.dispose();
     _staffNoteController.dispose();
@@ -74,729 +91,482 @@ class _ReceivePaymentIssueRefundScreenState
     return _paymentTypeOptions;
   }
 
+  double get _outstandingValue => _amountUnpaid ?? 0.0;
+
   Future<void> _onSave() async {
-    if (_amountController.text.trim().isEmpty) {
-      setState(() {
-        _amountError = true;
-      });
-      _showSnackBar('Please enter an amount');
-      return;
-    }
-
-    if (_selectedPaymentType == null) {
-      _showSnackBar('Please select a payment type');
-      return;
-    }
-
-    if (_selectedPaymentType == 'Cheque' &&
-        _chequeNumberController.text.trim().isEmpty) {
-      _showSnackBar('Please enter cheque number');
-      return;
-    }
-
-    setState(() {
-      _amountError = false;
-      _isSubmitting = true;
-    });
-
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-
-    if (!mounted) return;
-
-    setState(() {
-      _isSubmitting = false;
-    });
-
-    _showSnackBar(
-      widget.isRefund
-          ? 'Refund saved (UI only).'
-          : 'Payment saved (UI only).',
+    final String amount = _useCustomAmount
+        ? _amountController.text
+        : _outstandingValue.toStringAsFixed(2);
+    final result = await _cubit.validateAndSave(
+      amount: amount,
+      chequeNumber: _chequeNumberController.text,
+      isRefund: widget.isRefund,
+      studentCode: widget.studentCode,
+      ownerType: widget.ownerType,
+      ownerCode: widget.ownerCode,
+      narration: _internalNoteController.text.trim().isEmpty
+          ? _staffNoteController.text.trim()
+          : _internalNoteController.text.trim(),
     );
-    Navigator.of(context).maybePop(true);
+    if (!mounted) return;
+    switch (result) {
+      case ReceivePaymentRefundResult.missingAmount:
+        _showMessage('Please enter an amount', isError: true);
+      case ReceivePaymentRefundResult.missingType:
+        _showMessage('Please select a payment type', isError: true);
+      case ReceivePaymentRefundResult.missingCheque:
+        _showMessage('Please enter cheque number', isError: true);
+      case ReceivePaymentRefundResult.failure:
+        _showMessage(
+          _cubit.state.errorMessage ??
+              (widget.isRefund
+                  ? 'Could not process the refund.'
+                  : 'Could not process the payment.'),
+          isError: true,
+        );
+      case ReceivePaymentRefundResult.success:
+        _showMessage(
+          widget.isRefund
+              ? 'Refund processed successfully.'
+              : 'Payment received successfully.',
+          isSuccess: true,
+        );
+        Navigator.of(context).maybePop(true);
+    }
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
+  void _showMessage(String message,
+      {bool isError = false, bool isSuccess = false}) {
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isError: isError,
+      isSuccess: isSuccess,
+    );
+  }
+
+  // ── Shared field styling (matches the Add Staff / Create Invoice forms) ────
+
+  TextStyle _labelStyle(ResponsiveHelper responsive) => TextStyle(
+        fontSize: responsive.labelFontSize,
+        fontFamily: 'Manrope',
+        fontWeight: FontWeight.w400,
+        color: AppColors.billingTextColor,
+      );
+
+  Widget _fieldLabel(
+    ResponsiveHelper responsive,
+    String text, {
+    bool required = false,
+  }) {
+    return RichText(
+      text: TextSpan(
+        style: _labelStyle(responsive),
+        children: <InlineSpan>[
+          TextSpan(text: text),
+          if (required)
+            const TextSpan(
+              text: ' *',
+              style: TextStyle(color: AppColors.errorColor),
+            ),
+        ],
+      ),
+    );
+  }
+
+  BoxDecoration _fieldBox(ResponsiveHelper responsive) => BoxDecoration(
+        color: AppColors.billingCardColor,
+        border: Border.all(color: const Color(0x66573353)),
+        borderRadius:
+            BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+      );
+
+  EdgeInsets _fieldPadding(ResponsiveHelper responsive) => EdgeInsets.symmetric(
+        horizontal: responsive.isTablet ? 16.0 : 12.0,
+        vertical: responsive.isTablet ? 16.0 : 12.0,
+      );
+
+  Widget _outlinedTextField(
+    ResponsiveHelper responsive, {
+    required TextEditingController controller,
+    required String hint,
+    int minLines = 1,
+    int maxLines = 1,
+    TextInputType? keyboardType,
+    ValueChanged<String>? onChanged,
+  }) {
+    return Container(
+      decoration: _fieldBox(responsive),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        minLines: minLines,
+        maxLines: maxLines,
+        onChanged: onChanged,
+        style: TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: responsive.inputFontSize,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xff573353),
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: _labelStyle(responsive).copyWith(color: Colors.grey),
+          border: InputBorder.none,
+          contentPadding: _fieldPadding(responsive),
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final ResponsiveHelper responsive = ResponsiveHelper(context);
-    final Size screenSize = MediaQuery.of(context).size;
-    final bool isTablet = responsive.isTablet;
-    final bool isLargeTablet = responsive.isLargeTablet;
-    final double containerWidth = isLargeTablet
-        ? (screenSize.width * 0.8).clamp(800.0, 1200.0)
-        : isTablet
-            ? screenSize.width * 0.9
-            : screenSize.width - 32.0;
-    final double horizontalSpacing = isLargeTablet
-        ? (screenSize.width * 0.1).clamp(32.0, 64.0)
-        : isTablet
-            ? 32.0
-            : 16.0;
-    final double verticalSpacing = isLargeTablet
-        ? 32.0
-        : isTablet
-            ? 24.0
-            : 16.0;
+    return BlocProvider<ReceivePaymentRefundCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<ReceivePaymentRefundCubit, ReceivePaymentRefundState>(
+        builder: (context, state) {
+          final ResponsiveHelper responsive = ResponsiveHelper(context);
+          final double verticalSpacing = responsive.verticalSpacing;
+          final double labelGap = responsive.isTablet ? 8.0 : 6.0;
+
+          return StaffFormLayout(
+            title: widget.isRefund ? 'Issue Refund' : 'Receive Payment',
+            bottomBar: _buildBottomBar(responsive),
+            child: ListView(
+              padding: EdgeInsets.zero,
+              children: <Widget>[
+                _buildUserInfoSection(),
+                SizedBox(height: verticalSpacing),
+                _buildPaymentTypeField(responsive, labelGap),
+                if (_selectedPaymentType == 'Cheque') ...<Widget>[
+                  SizedBox(height: verticalSpacing),
+                  _fieldLabel(responsive, 'Cheque Number', required: true),
+                  SizedBox(height: labelGap),
+                  _outlinedTextField(
+                    responsive,
+                    controller: _chequeNumberController,
+                    hint: 'Enter cheque number',
+                  ),
+                ],
+                SizedBox(height: verticalSpacing),
+                _buildReceiveMethod(responsive),
+                SizedBox(height: verticalSpacing),
+                _outlinedTextField(
+                  responsive,
+                  controller: _internalNoteController,
+                  hint: 'Add Optional Note',
+                  minLines: 3,
+                  maxLines: 4,
+                ),
+                SizedBox(height: verticalSpacing),
+                CustomCheckbox(
+                  value: _sendEmailNotification,
+                  onChanged: (bool? value) =>
+                      _cubit.setSendEmailNotification(value ?? true),
+                  label: 'Send Email Notification To Parents On Payment',
+                  labelStyle: _labelStyle(responsive),
+                ),
+                SizedBox(height: verticalSpacing),
+                _fieldLabel(responsive, 'Admin Only Note'),
+                SizedBox(height: labelGap),
+                _outlinedTextField(
+                  responsive,
+                  controller: _staffNoteController,
+                  hint: 'Admin Only Note',
+                  minLines: 3,
+                  maxLines: 4,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // ── Receive Method ─────────────────────────────────────────────────────────
+
+  Widget _buildReceiveMethod(ResponsiveHelper responsive) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        Text(
+          'Receive Method',
+          style: TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: responsive.isTablet ? 18.0 : 16.0,
+            fontWeight: FontWeight.w700,
+            color: AppColors.billingTextColor,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _methodRadio(
+          responsive,
+          selected: !_useCustomAmount,
+          label: 'Current Outstanding (Family Balance)',
+          onTap: () => setState(() => _useCustomAmount = false),
+        ),
+        const SizedBox(height: 8),
+        _buildAmountBox(
+          responsive,
+          active: !_useCustomAmount,
+          readOnlyText: _outstandingValue.toStringAsFixed(2),
+        ),
+        const SizedBox(height: 12),
+        _methodRadio(
+          responsive,
+          selected: _useCustomAmount,
+          label: 'Custom Amount',
+          onTap: () => setState(() => _useCustomAmount = true),
+        ),
+        if (_useCustomAmount) ...<Widget>[
+          const SizedBox(height: 8),
+          _buildAmountBox(
+            responsive,
+            active: true,
+            controller: _amountController,
+          ),
+        ],
+        if (_amountError)
+          const Padding(
+            padding: EdgeInsets.only(top: 4.0, left: 2.0),
+            child: Text(
+              '*Please enter an amount.',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _methodRadio(
+    ResponsiveHelper responsive, {
+    required bool selected,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: _isSubmitting ? null : onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
+        children: <Widget>[
+          Radio<bool>(
+            value: true,
+            groupValue: selected,
+            onChanged: _isSubmitting ? null : (_) => onTap(),
+            activeColor: AppColors.themeColor,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            visualDensity: VisualDensity.compact,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: responsive.isTablet ? 17.0 : 15.0,
+                fontWeight: FontWeight.w500,
+                color: AppColors.billingTextColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Amount box with a `$` prefix. Editable when [controller] is provided,
+  /// otherwise shows [readOnlyText]. Greyed when [active] is false.
+  Widget _buildAmountBox(
+    ResponsiveHelper responsive, {
+    required bool active,
+    TextEditingController? controller,
+    String? readOnlyText,
+  }) {
+    final TextStyle valueStyle = TextStyle(
+      fontFamily: 'Manrope',
+      fontSize: responsive.inputFontSize,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xff573353),
+    );
+    final double radius = responsive.isTablet ? 12.0 : 8.0;
+
+    return Container(
+      constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+      decoration: BoxDecoration(
+        color: active ? AppColors.billingCardColor : const Color(0xFFF4F4F6),
+        border: Border.all(color: const Color(0x66573353)),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Row(
+        children: <Widget>[
+          Container(
+            alignment: Alignment.center,
+            padding: _fieldPadding(responsive),
+            decoration: BoxDecoration(
+              color: const Color(0x1AB1AFE9),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(radius),
+                bottomLeft: Radius.circular(radius),
+              ),
+            ),
+            child: Text(r'$', style: valueStyle),
+          ),
+          Expanded(
+            child: controller != null
+                ? TextField(
+                    controller: controller,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => _cubit.clearAmountError(),
+                    style: valueStyle,
+                    decoration: InputDecoration(
+                      hintText: '0.00',
+                      hintStyle: _labelStyle(responsive)
+                          .copyWith(color: AppColors.billingGrey),
+                      border: InputBorder.none,
+                      contentPadding: _fieldPadding(responsive),
+                    ),
+                  )
+                : Padding(
+                    padding: _fieldPadding(responsive),
+                    child: Text(readOnlyText ?? '0.00', style: valueStyle),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Payment Type as a bordered dropdown that visually matches the Amount box
+  /// next to it (white fill, themed border, same height/padding).
+  Widget _buildPaymentTypeField(ResponsiveHelper responsive, double labelGap) {
+    final List<String> options = _getFilteredPaymentOptions();
+    final String? selected =
+        options.contains(_selectedPaymentType) ? _selectedPaymentType : null;
+    final TextStyle valueStyle = TextStyle(
+      fontFamily: 'Manrope',
+      fontSize: responsive.inputFontSize,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xff573353),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _fieldLabel(responsive, 'Payment Type', required: true),
+        SizedBox(height: labelGap),
+        LayoutBuilder(
+          builder: (BuildContext context, BoxConstraints constraints) {
+            return Container(
+              constraints:
+                  BoxConstraints(minHeight: responsive.inputFieldHeight),
+              decoration: _fieldBox(responsive),
+              child: PopupMenuButton<String>(
+                enabled: !_isSubmitting,
+                padding: EdgeInsets.zero,
+                position: PopupMenuPosition.under,
+                color: Colors.white,
+                // Make the menu span the full width of the field.
+                constraints: BoxConstraints(
+                  minWidth: constraints.maxWidth,
+                  maxWidth: constraints.maxWidth,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius:
+                      BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+                ),
+                onSelected: (String value) => _cubit.setPaymentType(value),
+                itemBuilder: (BuildContext context) => options
+                    .map(
+                      (String type) => PopupMenuItem<String>(
+                        value: type,
+                        child: Text(
+                          type,
+                          style: valueStyle.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                child: Padding(
+                  padding: _fieldPadding(responsive),
+                  child: Row(
+                    children: <Widget>[
+                      Expanded(
+                        child: Text(
+                          selected ?? 'Select payment type',
+                          style: selected != null
+                              ? valueStyle
+                              : _labelStyle(responsive)
+                                  .copyWith(color: Colors.grey),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      const Icon(
+                        Icons.keyboard_arrow_down,
+                        color: AppColors.primaryColor,
+                        size: 24,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomBar(ResponsiveHelper responsive) {
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: AppColors.billingCardColor,
-        body: Stack(
-          children: <Widget>[
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-            NestedScrollView(
-              headerSliverBuilder:
-                  (BuildContext context, bool innerBoxIsScrolled) {
-                return <Widget>[
-                  SliverAppBar(
-                    pinned: true,
-                    floating: true,
-                    snap: true,
-                    stretch: true,
-                    scrolledUnderElevation: 0,
-                    backgroundColor: AppColors.billingCardColor,
-                    leading: IconButton(
-                      onPressed: () => Navigator.of(context).maybePop(),
-                      icon: const Icon(
-                        Icons.arrow_back,
-                        color: AppColors.billingTextColor,
-                      ),
-                    ),
-                    bottom: PreferredSize(
-                      preferredSize: const Size.fromHeight(1.5),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: const Border(
-                            bottom: BorderSide(
-                              width: 1.5,
-                              color: AppColors.billingTransparentColor,
-                            ),
-                          ),
-                          gradient: AppColors.buildSecondaryGradient(),
-                        ),
-                      ),
-                    ),
-                  ),
-                ];
-              },
-              body: Column(
-                children: <Widget>[
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding:
-                        EdgeInsets.symmetric(horizontal: horizontalSpacing),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        widget.isRefund ? 'Issue Refund' : 'Receive Payment',
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: responsive.titleFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.billingTextColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                  Expanded(
-                    child: Container(
-                      width: containerWidth,
-                      margin:
-                          EdgeInsets.symmetric(horizontal: horizontalSpacing),
-                      padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
-                      decoration: BoxDecoration(
-                        color: AppColors.billingCardColor,
-                        borderRadius: BorderRadius.all(
-                          Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                        ),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: AppColors.billingShadowColorLight,
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        children: <Widget>[
-                          Expanded(
-                            child: ListView(
-                              padding: EdgeInsets.zero,
-                              children: <Widget>[
-                                _buildUserInfoSection(),
-                                SizedBox(height: verticalSpacing),
-                                Row(
-                                  children: <Widget>[
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          RichText(
-                                            text: TextSpan(
-                                              style: TextStyle(
-                                                fontSize:
-                                                    responsive.labelFontSize,
-                                                fontFamily: 'Manrope',
-                                                fontWeight: FontWeight.w400,
-                                                color:
-                                                    AppColors.billingTextColor,
-                                              ),
-                                              children: const <InlineSpan>[
-                                                TextSpan(text: 'Amount'),
-                                                TextSpan(
-                                                  text: ' *',
-                                                  style: TextStyle(
-                                                    color: AppColors.errorColor,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            height: responsive.isTablet
-                                                ? 8.0
-                                                : 6.0,
-                                          ),
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: AppColors.billingCardColor,
-                                              border: Border.all(
-                                                color: const Color(0x66573353),
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                responsive.isTablet
-                                                    ? 12.0
-                                                    : 8.0,
-                                              ),
-                                            ),
-                                            child: Row(
-                                              children: <Widget>[
-                                                Container(
-                                                  padding:
-                                                      EdgeInsets.symmetric(
-                                                    horizontal:
-                                                        responsive.isTablet
-                                                            ? 16.0
-                                                            : 12.0,
-                                                    vertical:
-                                                        responsive.isTablet
-                                                            ? 16.0
-                                                            : 12.0,
-                                                  ),
-                                                  decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0x1AB1AFE9,
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.only(
-                                                      topLeft:
-                                                          Radius.circular(
-                                                        responsive.isTablet
-                                                            ? 12.0
-                                                            : 8.0,
-                                                      ),
-                                                      bottomLeft:
-                                                          Radius.circular(
-                                                        responsive.isTablet
-                                                            ? 12.0
-                                                            : 8.0,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    '\$',
-                                                    style: TextStyle(
-                                                      fontSize: responsive
-                                                          .labelFontSize,
-                                                      fontFamily: 'Manrope',
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: const Color(
-                                                        0xff573353,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                Expanded(
-                                                  child: TextField(
-                                                    controller:
-                                                        _amountController,
-                                                    keyboardType:
-                                                        const TextInputType
-                                                            .numberWithOptions(
-                                                      decimal: true,
-                                                    ),
-                                                    onChanged: (_) {
-                                                      if (_amountError) {
-                                                        setState(() {
-                                                          _amountError = false;
-                                                        });
-                                                      }
-                                                    },
-                                                    decoration:
-                                                        InputDecoration(
-                                                      hintText:
-                                                          'Enter Amount',
-                                                      hintStyle: TextStyle(
-                                                        fontSize: responsive
-                                                            .labelFontSize,
-                                                        fontFamily: 'Manrope',
-                                                        fontWeight:
-                                                            FontWeight.w400,
-                                                        color: AppColors.billingGrey,
-                                                      ),
-                                                      border: InputBorder.none,
-                                                      contentPadding:
-                                                          EdgeInsets.symmetric(
-                                                        horizontal:
-                                                            responsive.isTablet
-                                                                ? 16.0
-                                                                : 12.0,
-                                                        vertical:
-                                                            responsive.isTablet
-                                                                ? 16.0
-                                                                : 12.0,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          if (_amountError)
-                                            const Padding(
-                                              padding: EdgeInsets.only(
-                                                top: 4.0,
-                                                left: 2.0,
-                                              ),
-                                              child: Text(
-                                                '*This field is required.',
-                                                style: TextStyle(
-                                                  color: Colors.red,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: <Widget>[
-                                          RichText(
-                                            text: TextSpan(
-                                              style: TextStyle(
-                                                fontSize:
-                                                    responsive.labelFontSize,
-                                                fontFamily: 'Manrope',
-                                                fontWeight: FontWeight.w400,
-                                                color:
-                                                    AppColors.billingTextColor,
-                                              ),
-                                              children: const <InlineSpan>[
-                                                TextSpan(
-                                                    text: 'Payment Type'),
-                                                TextSpan(
-                                                  text: ' *',
-                                                  style: TextStyle(
-                                                    color: AppColors.errorColor,
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          SizedBox(
-                                            height: responsive.isTablet
-                                                ? 8.0
-                                                : 6.0,
-                                          ),
-                                          Container(
-                                            decoration: BoxDecoration(
-                                              color: AppColors.billingCardColor,
-                                              border: Border.all(
-                                                color: const Color(0x66573353),
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                responsive.isTablet
-                                                    ? 12.0
-                                                    : 8.0,
-                                              ),
-                                            ),
-                                            child: DropdownButtonFormField<
-                                                String>(
-                                              value: _getFilteredPaymentOptions()
-                                                      .contains(
-                                                          _selectedPaymentType)
-                                                  ? _selectedPaymentType
-                                                  : null,
-                                              isExpanded: true,
-                                              decoration:
-                                                  const InputDecoration(
-                                                border: InputBorder.none,
-                                                contentPadding:
-                                                    EdgeInsets.symmetric(
-                                                  horizontal: 16.0,
-                                                  vertical: 12.0,
-                                                ),
-                                              ),
-                                              hint: Text(
-                                                'Select payment type',
-                                                style: TextStyle(
-                                                  fontSize: responsive
-                                                      .labelFontSize,
-                                                  fontFamily: 'Manrope',
-                                                  fontWeight: FontWeight.w400,
-                                                  color: Colors.grey,
-                                                ),
-                                              ),
-                                              items:
-                                                  _getFilteredPaymentOptions()
-                                                      .map(
-                                                (String type) {
-                                                  return DropdownMenuItem<
-                                                      String>(
-                                                    value: type,
-                                                    child: Text(
-                                                      type,
-                                                      style: TextStyle(
-                                                        fontSize: responsive
-                                                            .labelFontSize,
-                                                        fontFamily: 'Manrope',
-                                                        fontWeight:
-                                                            FontWeight.w500,
-                                                        color: const Color(
-                                                          0xff573353,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  );
-                                                },
-                                              ).toList(),
-                                              onChanged: (String? value) {
-                                                setState(() {
-                                                  _selectedPaymentType = value;
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (_selectedPaymentType == 'Cheque') ...<
-                                    Widget>[
-                                  SizedBox(height: verticalSpacing),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: <Widget>[
-                                      RichText(
-                                        text: TextSpan(
-                                          style: TextStyle(
-                                            fontSize:
-                                                responsive.labelFontSize,
-                                            fontFamily: 'Manrope',
-                                            fontWeight: FontWeight.w400,
-                                            color: AppColors.billingTextColor,
-                                          ),
-                                          children: const <InlineSpan>[
-                                            TextSpan(text: 'Cheque Number'),
-                                            TextSpan(
-                                              text: ' *',
-                                              style:
-                                                  TextStyle(color: AppColors.errorColor),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        height:
-                                            responsive.isTablet ? 8.0 : 6.0,
-                                      ),
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          color: AppColors.billingCardColor,
-                                          border: Border.all(
-                                            color: const Color(0x66573353),
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            responsive.isTablet
-                                                ? 12.0
-                                                : 8.0,
-                                          ),
-                                        ),
-                                        child: TextField(
-                                          controller:
-                                              _chequeNumberController,
-                                          decoration: InputDecoration(
-                                            hintText: 'Enter cheque number',
-                                            hintStyle: TextStyle(
-                                              fontSize:
-                                                  responsive.labelFontSize,
-                                              fontFamily: 'Manrope',
-                                              fontWeight: FontWeight.w400,
-                                              color: Colors.grey,
-                                            ),
-                                            border: InputBorder.none,
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                              horizontal:
-                                                  responsive.isTablet
-                                                      ? 16.0
-                                                      : 12.0,
-                                              vertical: responsive.isTablet
-                                                  ? 16.0
-                                                  : 12.0,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                                SizedBox(height: verticalSpacing),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(
-                                      'Add Optional Internal Note',
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: 'Manrope',
-                                        fontWeight: FontWeight.w400,
-                                        color: AppColors.billingTextColor,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      height:
-                                          responsive.isTablet ? 8.0 : 6.0,
-                                    ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.billingCardColor,
-                                        border: Border.all(
-                                          color: const Color(0x66573353),
-                                        ),
-                                        borderRadius: BorderRadius.circular(
-                                          responsive.isTablet
-                                              ? 12.0
-                                              : 8.0,
-                                        ),
-                                      ),
-                                      child: TextField(
-                                        controller: _internalNoteController,
-                                        maxLines: 4,
-                                        minLines: 3,
-                                        decoration: InputDecoration(
-                                          hintText:
-                                              'Add Optional Internal Note',
-                                          hintStyle: TextStyle(
-                                            fontSize:
-                                                responsive.labelFontSize,
-                                            fontFamily: 'Manrope',
-                                            fontWeight: FontWeight.w400,
-                                            color: Colors.grey,
-                                          ),
-                                          border: InputBorder.none,
-                                          contentPadding:
-                                              EdgeInsets.symmetric(
-                                            horizontal: responsive.isTablet
-                                                ? 16.0
-                                                : 12.0,
-                                            vertical: responsive.isTablet
-                                                ? 16.0
-                                                : 12.0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: verticalSpacing),
-                                Row(
-                                  children: <Widget>[
-                                    Checkbox(
-                                      value: _sendEmailNotification,
-                                      onChanged: (bool? value) {
-                                        setState(() {
-                                          _sendEmailNotification =
-                                              value ?? true;
-                                        });
-                                      },
-                                      activeColor: const Color(0xFF6B73FF),
-                                      checkColor: AppColors.billingButtonTextColor,
-                                    ),
-                                    Expanded(
-                                      child: Text(
-                                        'Send Email Notification To Parents On Payment',
-                                        style: TextStyle(
-                                          fontSize: responsive.labelFontSize,
-                                          fontFamily: 'Manrope',
-                                          fontWeight: FontWeight.w400,
-                                          color: AppColors.billingTextColor,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                SizedBox(height: verticalSpacing),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: <Widget>[
-                                    Text(
-                                      'Staff Only Note',
-                                      style: TextStyle(
-                                        fontSize: responsive.labelFontSize,
-                                        fontFamily: 'Manrope',
-                                        fontWeight: FontWeight.w400,
-                                        color: AppColors.billingTextColor,
-                                      ),
-                                    ),
-                                    SizedBox(
-                                      height:
-                                          responsive.isTablet ? 8.0 : 6.0,
-                                    ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        color: AppColors.billingCardColor,
-                                        border: Border.all(
-                                          color: const Color(0x66573353),
-                                        ),
-                                        borderRadius: BorderRadius.circular(
-                                          responsive.isTablet
-                                              ? 12.0
-                                              : 8.0,
-                                        ),
-                                      ),
-                                      child: TextField(
-                                        controller: _staffNoteController,
-                                        maxLines: 4,
-                                        minLines: 3,
-                                        decoration: InputDecoration(
-                                          hintText: 'Staff Only Note',
-                                          hintStyle: TextStyle(
-                                            fontSize:
-                                                responsive.labelFontSize,
-                                            fontFamily: 'Manrope',
-                                            fontWeight: FontWeight.w400,
-                                            color: Colors.grey,
-                                          ),
-                                          border: InputBorder.none,
-                                          contentPadding:
-                                              EdgeInsets.symmetric(
-                                            horizontal: responsive.isTablet
-                                                ? 16.0
-                                                : 12.0,
-                                            vertical: responsive.isTablet
-                                                ? 16.0
-                                                : 12.0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ],
+    return Container(
+      padding:
+          EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            offset: const Offset(0, -4),
+            blurRadius: 16,
+          ),
+        ],
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
         ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            boxShadow: <BoxShadow>[
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient:
-                  _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? AppColors.billingGreyLight : null,
-              borderRadius:
-                  BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _isSubmitting ? null : _onSave,
-              child: _isSubmitting
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: <Widget>[
-                        const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(AppColors.billingButtonTextColor),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Processing...',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: responsive.buttonFontSize,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.billingCardColor,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Text(
-                      'Save',
+      ),
+      child: Container(
+        height: responsive.buttonHeight,
+        decoration: BoxDecoration(
+          gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
+          color: _isSubmitting ? AppColors.billingGreyLight : null,
+          borderRadius:
+              BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+        ),
+        child: TextButton(
+          onPressed: _isSubmitting ? null : _onSave,
+          child: _isSubmitting
+              ? Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.billingButtonTextColor),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Processing...',
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: responsive.buttonFontSize,
@@ -804,8 +574,17 @@ class _ReceivePaymentIssueRefundScreenState
                         color: AppColors.billingCardColor,
                       ),
                     ),
-            ),
-          ),
+                  ],
+                )
+              : Text(
+                  'Save',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.buttonFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.billingCardColor,
+                  ),
+                ),
         ),
       ),
     );
@@ -815,6 +594,7 @@ class _ReceivePaymentIssueRefundScreenState
     final double effectiveBalance =
         _amountUnpaid != null ? _amountUnpaid!.toDouble() : 0.0;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
         Row(
           children: <Widget>[
@@ -839,38 +619,36 @@ class _ReceivePaymentIssueRefundScreenState
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    widget.transaction.studentName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.billingTextColor,
-                      fontFamily: 'Manrope',
-                    ),
-                  ),
-                  Text(
-                    widget.isRefund
-                        ? 'Invoice Amount : \$${widget.transaction.amount.toStringAsFixed(2)}'
-                        : 'Account Balance : \$${effectiveBalance.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.billingTextColor,
-                      fontFamily: 'Manrope',
-                    ),
-                  ),
-                ],
+              child: Text(
+                widget.transaction.studentName,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.billingTextColor,
+                  fontFamily: 'Manrope',
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
+        Text(
+          widget.isRefund
+              ? 'Invoice Amount : \$ ${widget.transaction.amount.toStringAsFixed(2)}'
+              : 'Account Balance : \$ ${effectiveBalance.toStringAsFixed(2)}',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: AppColors.billingTextColor,
+            fontFamily: 'Manrope',
+          ),
+        ),
+        const SizedBox(height: 12),
         Container(
-          height: 1,
-          color: AppColors.primaryColor.withValues(alpha: 0.3),
+          height: 1.5,
+          decoration: BoxDecoration(
+            gradient: AppColors.buildSecondaryGradient(),
+          ),
         ),
       ],
     );

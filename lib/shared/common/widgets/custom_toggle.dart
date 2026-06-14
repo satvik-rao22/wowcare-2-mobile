@@ -8,7 +8,8 @@ class CustomToggle extends StatefulWidget {
     required this.isToggled,
     required this.onToggle,
     this.labelStyle,
-    this.labelOnLeftSide = false
+    this.labelOnLeftSide = false,
+    this.enabled = true,
   });
 
   final String label;
@@ -16,6 +17,11 @@ class CustomToggle extends StatefulWidget {
   final ValueChanged<bool> onToggle;
   final TextStyle? labelStyle;
   final bool labelOnLeftSide;
+
+  /// When false the toggle is shown in its current state but cannot be tapped
+  /// (rendered dimmed). Used e.g. to lock "Requires Admin Approval" while
+  /// editing an existing activity.
+  final bool enabled;
 
   @override
   State<CustomToggle> createState() => _CustomToggleState();
@@ -43,6 +49,7 @@ class _CustomToggleState extends State<CustomToggle> {
   }
 
   void _handleToggle() {
+    if (!widget.enabled) return;
     setState(() {
       _internalToggle = !_internalToggle;
     });
@@ -65,7 +72,7 @@ class _CustomToggleState extends State<CustomToggle> {
                 ),
               if (widget.label.trim().isNotEmpty) const SizedBox(width: 8),
               GestureDetector(
-                onTap: _handleToggle,
+                onTap: widget.enabled ? _handleToggle : null,
                 child: AnimatedContainer(
                   height: 28,
                   width: 56,
@@ -95,7 +102,7 @@ class _CustomToggleState extends State<CustomToggle> {
         :Row(
       children: [
         GestureDetector(
-          onTap: _handleToggle,
+          onTap: widget.enabled ? _handleToggle : null,
           child: AnimatedContainer(
             height: 28,
             width: 56,

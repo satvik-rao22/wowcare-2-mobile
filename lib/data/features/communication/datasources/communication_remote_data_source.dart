@@ -40,15 +40,19 @@ class CommunicationRemoteDataSourceImpl
     String? currentUserId,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
-      '${ApiPaths.messagingMessages}/conversation/$threadId?page=0&size=50&sort=createdAt,asc',
+      '${ApiPaths.messagingMessages}/conversation/$threadId?page=0&size=100&sort=createdAt,asc',
       ApiConstants.communicationBaseUrl,
     );
 
     final response = await apiClient.client.get(endpoint);
 
     if (response.data != null && response.data['success'] == true) {
-      final List<dynamic> messagesJson = response.data['data']['messages'];
-      return messagesJson
+      final dataMap = response.data['data'] as Map<String, dynamic>?;
+      final List<dynamic> messagesJson =
+          (dataMap?['messages'] as List<dynamic>?) ?? [];
+      // ignore: avoid_print
+      print('[Messages] conversation=$threadId received=${messagesJson.length}');
+      final messages = messagesJson
           .map(
             (json) => MessageModel.fromJson(
               json as Map<String, dynamic>,
@@ -56,6 +60,19 @@ class CommunicationRemoteDataSourceImpl
             ),
           )
           .toList();
+      // ignore: avoid_print
+      print('[Messages] mapped=${messages.length}');
+
+      // Mark all messages as read immediately after a successful fetch.
+      try {
+        final readEndpoint = ApiPaths.urlWithBase(
+          ApiPaths.messagingConversationMarkRead(threadId),
+          ApiConstants.communicationBaseUrl,
+        );
+        await apiClient.client.post(readEndpoint);
+      } catch (_) {}
+
+      return messages;
     } else {
       throw Exception(response.data?['message'] ?? 'Failed to load messages');
     }
@@ -138,13 +155,22 @@ class CommunicationRemoteDataSourceImpl
 
   @override
   Future<void> markAsRead(String threadId, String messageId) async {
-    await Future.delayed(const Duration(milliseconds: 100));
+    // POST /api/v1/messages/conversation/{conversationCode}/receipts/read-all
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingConversationMarkRead(threadId),
+      ApiConstants.communicationBaseUrl,
+    );
+    try {
+      await apiClient.client.post(endpoint);
+    } catch (_) {
+      // Non-fatal — read receipts failing should not surface to the user.
+    }
   }
 
   @override
   Future<String> uploadAttachment(ChatAttachmentModel attachment) async {
     await Future.delayed(const Duration(seconds: 1));
-    return "https://example.com/mock-upload/${attachment.name}";
+    return '';
   }
 
   @override
@@ -152,7 +178,7 @@ class CommunicationRemoteDataSourceImpl
     CreateConversationRequest request,
   ) async {
     final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.messagingCreateMessage,
+      ApiPaths.conversations,
       ApiConstants.communicationBaseUrl,
     );
 
@@ -164,32 +190,7 @@ class CommunicationRemoteDataSourceImpl
     final apiResponse = CreateConversationResponse.fromJson(response.data);
 
     if (apiResponse.success && apiResponse.data != null) {
-      final conversation = apiResponse.data!;
-
-      // Some backends accept `initialMessage` in the create request but don't
-      // actually create a first message (response shows lastMessageAt/Preview null).
-      // Ensure the first message exists by sending it explicitly.
-      final initial = request.initialMessage.trim();
-      if (initial.isNotEmpty) {
-        try {
-          final messageEndpoint = ApiPaths.urlWithBase(
-            ApiPaths.messagingMessages,
-            ApiConstants.communicationBaseUrl,
-          );
-          await apiClient.client.post(
-            messageEndpoint,
-            data: {
-              'conversationCode': conversation.code,
-              'type': 'TEXT',
-              'content': initial,
-            },
-          );
-        } catch (_) {
-          // Conversation is created; message send can be retried separately.
-        }
-      }
-
-      return conversation;
+      return apiResponse.data!;
     } else {
       throw Exception(apiResponse.message);
     }

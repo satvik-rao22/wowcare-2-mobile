@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -10,8 +11,11 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_classroom.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // ---------------------------------------------------------------------------
@@ -45,7 +49,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   static const int _initialDisplayCount = 7;
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  final DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = DateTime.now();
   bool _showAllClassrooms = false;
   bool _minimized = false;
 
@@ -101,12 +105,30 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   // Data loading helpers
   // ---------------------------------------------------------------------------
 
-  Future<void> _load() async {
+  Future<void> _load({DateTime? date}) async {
     final cubit = _cubit;
     if (cubit == null) return;
     final schoolCode = await _resolveSchoolCode();
     if (schoolCode == null || !mounted) return;
-    cubit.loadRatioMonitoring(schoolCode: schoolCode, isSilent: true);
+    cubit.loadRatioMonitoring(
+      schoolCode: schoolCode,
+      isSilent: true,
+      date: date ?? _selectedDate,
+    );
+  }
+
+  /// Called on date navigation — clears stale data and shows shimmer while
+  /// fetching attendance for the newly selected [date].
+  Future<void> _loadForDate(DateTime date) async {
+    final cubit = _cubit;
+    if (cubit == null) return;
+    final schoolCode = await _resolveSchoolCode();
+    if (schoolCode == null || !mounted) return;
+    cubit.loadRatioMonitoring(
+      schoolCode: schoolCode,
+      forceRefresh: true,
+      date: date,
+    );
   }
 
   void _silentRefresh() {
@@ -123,7 +145,11 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
 
     unawaited(_resolveSchoolCode().then((schoolCode) {
       if (schoolCode == null || !mounted) return;
-      cubit.loadRatioMonitoring(schoolCode: schoolCode, isSilent: true);
+      cubit.loadRatioMonitoring(
+        schoolCode: schoolCode,
+        isSilent: true,
+        date: _selectedDate,
+      );
     }));
   }
 
@@ -137,11 +163,50 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   // Header date navigator
   // ---------------------------------------------------------------------------
 
+  /// Returns true when [_selectedDate] is today (so the next-day arrow is
+  /// disabled — we never allow selecting a future date).
+  bool get _isToday {
+    final now = DateTime.now();
+    return _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+  }
+
+  void _changeDate(int deltaDays) {
+    final candidate = _selectedDate.add(Duration(days: deltaDays));
+    final today = DateTime.now();
+    // Clamp: never go into the future.
+    final next = candidate.isAfter(today) ? today : candidate;
+    if (next.year == _selectedDate.year &&
+        next.month == _selectedDate.month &&
+        next.day == _selectedDate.day) {
+      return; // Nothing changed.
+    }
+    final newDate = DateTime(next.year, next.month, next.day);
+    setState(() {
+      _selectedDate = newDate;
+    });
+    // Use forceRefresh so the card clears old data and shows a loading
+    // shimmer while it fetches attendance for the newly selected date.
+    unawaited(_loadForDate(newDate));
+  }
+
   Widget _buildDateNavigator() {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        const SizedBox(width: 2),
+        // ── Previous day ──────────────────────────────────────────────────
+        GestureDetector(
+          onTap: () => _changeDate(-1),
+          child: const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 2),
+            child: Icon(
+              Icons.chevron_left,
+              size: 20,
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ),
         Text(
           DateFormat('EEE, MMM d').format(_selectedDate),
           style: const TextStyle(
@@ -149,7 +214,20 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(width: 2),
+        // ── Next day (disabled on today) ──────────────────────────────────
+        GestureDetector(
+          onTap: _isToday ? null : () => _changeDate(1),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Icon(
+              Icons.chevron_right,
+              size: 20,
+              color: _isToday
+                  ? AppColors.primaryColor.withValues(alpha: 0.3)
+                  : AppColors.primaryColor,
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -248,6 +326,49 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Navigation helpers
+  // ---------------------------------------------------------------------------
+
+  /// Navigates to the **Student** daily attendance tab pre-filtered to [room].
+  ///
+  /// Uses [FilterData.classrooms] as classroom codes — the daily view reads
+  /// them with `_resolveSelectedClassroomCodes` (line 416 of the daily view).
+  void _navigateToStudentAttendance(
+      BuildContext context, RatioMonitoringClassroom room) {
+    final filter = FilterData(
+      classroomIds: const [],
+      classrooms: [room.code],
+      statuses: const [],
+      tags: const [],
+    );
+    unawaited(context.push(
+      StudentAttendanceTabbedView.routeName,
+      extra: <String, dynamic>{
+        'initialTabIndex': 0,
+        'classroomFilter': filter,
+      },
+    ));
+  }
+
+  /// Navigates to the **Staff** daily attendance tab pre-filtered to [room].
+  void _navigateToStaffAttendance(
+      BuildContext context, RatioMonitoringClassroom room) {
+    final filter = FilterData(
+      classroomIds: const [],
+      classrooms: [room.code],
+      statuses: const [],
+      tags: const [],
+    );
+    unawaited(context.push(
+      StaffAttendanceTabbedView.routeName,
+      extra: <String, dynamic>{
+        'initialTabIndex': 0,
+        'classroomFilter': filter,
+      },
+    ));
+  }
+
   /// Builds a data row for [room].
   ///
   /// Always renders — even when [room.studentPresent] and [room.staffPresent]
@@ -293,9 +414,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           ),
         ),
 
-        // ── Students present ────────────────────────────────────────────────
+        // ── Students present — tapping navigates to student daily attendance
+        //    pre-filtered to this classroom.
         GestureDetector(
-          onTap: () {},
+          onTap: () => _navigateToStudentAttendance(context, room),
           child: Container(
             height: _cellH,
             color: const Color.fromRGBO(234, 240, 253, 1),
@@ -315,9 +437,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           ),
         ),
 
-        // ── Staff present ───────────────────────────────────────────────────
+        // ── Staff present — tapping navigates to staff daily attendance
+        //    pre-filtered to this classroom.
         GestureDetector(
-          onTap: () {},
+          onTap: () => _navigateToStaffAttendance(context, room),
           child: Container(
             height: _cellH,
             color: const Color.fromRGBO(234, 251, 255, 1),
@@ -375,7 +498,8 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           return const _RatioMonitoringCardShimmer();
         }
 
-        final classrooms = state.classrooms;
+        final classrooms = [...state.classrooms]
+          ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
         final displayed = (_showAllClassrooms || !widget.isDashboard)
             ? classrooms
             : classrooms.take(_initialDisplayCount).toList();

@@ -73,7 +73,9 @@ class MessageModel extends Message {
               ?.map((e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
-      senderName: json['senderName'] as String?,
+      senderName: (json['senderDisplayName'] as String?)?.isNotEmpty == true
+          ? json['senderDisplayName'] as String
+          : json['senderName'] as String?,
       receivers: const [],
     );
   }

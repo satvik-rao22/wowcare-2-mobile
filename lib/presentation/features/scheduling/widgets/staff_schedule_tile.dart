@@ -374,3 +374,73 @@ class _DashedRRectPainter extends CustomPainter {
       old.strokeWidth != strokeWidth ||
       old.radius != radius;
 }
+
+/// Tile displaying an hours summary: available, scheduled, or unscheduled.
+/// Used in staff scheduling views to show hour totals with background color.
+class ShiftHoursTile extends StatelessWidget {
+  const ShiftHoursTile({
+    super.key,
+    required this.bgColor,
+    required this.label,
+    required this.hours,
+    required this.icon,
+  });
+
+  final Color bgColor;
+  final String label;
+  final String hours;
+  final String icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.primaryColor.withValues(alpha: 0.1),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hours,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          SvgPicture.asset(
+            icon,
+            width: 32,
+            height: 32,
+            fit: BoxFit.contain,
+          ),
+        ],
+      ),
+    );
+  }
+}

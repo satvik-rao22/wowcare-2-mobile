@@ -1,146 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/cubit/select_students_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 
-// NOTE: UI-only screen. All API/backend-related code has been removed or commented out.
-// import 'dart:convert';
-// import 'package:http/http.dart' as http;
-// import 'package:wowcare/core/util/api_paths.dart';
-// import 'package:wowcare/core/util/constants.dart';
-// import 'package:wowcare/core/common/app/providers/auth_providers.dart';
-// import 'package:wowcare/core/util/core_utils.dart';
-// import 'selected_students_receipt_screen.dart';
-
 class SelectStudentsScreen extends StatefulWidget {
-  const SelectStudentsScreen({Key? key, this.invoiceData}) : super(key: key);
+  const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
+      : super(key: key);
   final Map<String, dynamic>? invoiceData;
+
+  /// Optional override for the "Next" action. When provided, it's called with
+  /// the selected students instead of the default Create Invoice navigation
+  /// (used e.g. for the Receive Payment flow).
+  final void Function(BuildContext context, List<Student> students)? onNext;
 
   @override
   State<SelectStudentsScreen> createState() => _SelectStudentsScreenState();
 }
 
 class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
-  List<Student> students = [];
-  List<String> classrooms = ['Select Classroom'];
-  List<String> tags = ['Select Tags'];
-  String selectedClassroom = 'Select Classroom';
-  String selectedTag = 'Select Tags';
-  String searchQuery = '';
-  final Set<int> _selectedStudentIds = <int>{};
+  final SelectStudentsCubit _cubit = serviceLocator<SelectStudentsCubit>();
   final TextEditingController _searchController = TextEditingController();
-  bool isLoading = true;
+
+  /// Status filter options (display names), mirroring the student list screen.
+  static const List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
 
   @override
   void initState() {
     super.initState();
-    _loadDummyData();
-  }
-
-  void _loadDummyData() {
-    // Dummy tags
-    final reading = Tag(id: 1, name: 'Reading');
-    final sports = Tag(id: 2, name: 'Sports');
-    final arts = Tag(id: 3, name: 'Arts');
-
-    // Dummy students
-    students = [
-      Student(id: 1, fullName: 'Alex Johnson', roomName: 'Room 101', roomId: 101, tags: [reading, sports]),
-      Student(id: 2, fullName: 'Maria Gomez', roomName: 'Room 102', roomId: 102, tags: [arts]),
-      Student(id: 3, fullName: 'Liam Chen', roomName: 'Room 101', roomId: 101, tags: [sports]),
-      Student(id: 4, fullName: 'Sophia Patel', roomName: 'Room 103', roomId: 103, tags: [reading, arts]),
-      Student(id: 5, fullName: 'Noah Smith', roomName: 'Room 102', roomId: 102, tags: [reading]),
-      Student(id: 6, fullName: 'Emma Brown', roomName: 'Room 104', roomId: 104, tags: [sports, arts]),
-    ];
-
-    // Classrooms list from dummy data
-    final classroomSet = <String>{};
-    for (final s in students) {
-      if (s.roomName != null) classroomSet.add(s.roomName!);
-    }
-    classrooms = ['Select Classroom', ...classroomSet.toList()..sort()];
-
-    // Tags list from dummy data
-    final tagSet = <String>{};
-    for (final s in students) {
-      for (final t in s.tags) {
-        tagSet.add(t.name);
-      }
-    }
-    tags = ['Select Tags', ...tagSet.toList()..sort()];
-
-    isLoading = false;
-    setState(() {});
-  }
-
-  List<Student> get filteredStudents {
-    return students.where((student) {
-      final matchesSearch = student.fullName.toLowerCase().contains(searchQuery.toLowerCase());
-      final matchesClassroom = selectedClassroom == 'Select Classroom' || student.roomName == selectedClassroom;
-      final matchesTag = selectedTag == 'Select Tags' || student.tags.any((tag) => tag.name == selectedTag);
-      return matchesSearch && matchesClassroom && matchesTag;
-    }).toList();
+    _cubit.initialize();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = filteredStudents;
-    final bool areAllSelected =
-        filtered.isNotEmpty && filtered.every((student) => _selectedStudentIds.contains(student.id));
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final isLargeTablet = screenWidth > 900;
-    final containerWidth = isLargeTablet
-        ? (screenWidth * 0.8).clamp(800.0, 1200.0)
-        : isTablet
-            ? screenWidth * 0.9
-            : screenWidth - 32.0;
-    final horizontalSpacing = isLargeTablet
-        ? (screenWidth * 0.1).clamp(32.0, 64.0)
-        : isTablet
-            ? 32.0
-            : 16.0;
-    final verticalSpacing = isLargeTablet
-        ? 32.0
-        : isTablet
-            ? 24.0
-            : 16.0;
+    return BlocProvider<SelectStudentsCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<SelectStudentsCubit, SelectStudentsState>(
+        builder: (context, state) {
+          final filtered = state.filteredStudents;
+          final visibleCodes =
+              filtered.map((student) => student.code).toList();
+          final bool areAllSelected = filtered.isNotEmpty &&
+              filtered.every(
+                (student) => state.selectedStudentCodes.contains(student.code),
+              );
 
-    return Scaffold(
-      backgroundColor: AppColors.billingCardColor,
-      body: GlobalScaffold(
-        hasBackButton: true,
-        showCustomNavigationBar: false,
-        body: Center(
-          child: Container(
-            width: containerWidth,
-            margin: EdgeInsets.symmetric(horizontal: horizontalSpacing, vertical: verticalSpacing),
-            padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
-            decoration: BoxDecoration(
-              color: AppColors.billingCardColor,
-              borderRadius: BorderRadius.all(
-                Radius.circular(isTablet ? 40.0 : 24.0),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.billingShadowColorLight,
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
+          return StaffFormLayout(
+            title: 'Select Students',
+            bottomBar: _buildBottomBar(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -160,252 +84,271 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                             child: CustomSearchBar(
                               controller: _searchController,
                               hintText: 'Search Students',
-                              onChanged: (value) {
-                                setState(() {
-                                  searchQuery = value;
-                                });
-                              },
+                              onChanged: (value) =>
+                                  _cubit.setSearchQuery(value),
                             ),
                           ),
                           const SizedBox(width: 8),
                           CustomClearAllChip(
                             onTap: () {
                               _searchController.clear();
-                              setState(() {
-                                searchQuery = '';
-                                selectedClassroom = classrooms[0];
-                                selectedTag = tags[0];
-                                _selectedStudentIds.clear();
-                              });
+                              _cubit.clearAll();
                             },
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
-                      CustomDropdown(
-                        hintText: selectedClassroom,
-                        items: classrooms,
-                        selectedItem: selectedClassroom,
-                        onSelect: (val) {
-                          if (val != null) {
-                            setState(() {
-                              selectedClassroom = val;
-                            });
-                          }
-                        },
+                      CustomMultiSelectDropdown(
+                        hintText: 'Select Classroom',
+                        items: state.classroomNames,
+                        selectedItems: state.selectedClassroomNames,
+                        showSelectAll: true,
+                        onChanged: (values) => _cubit.setClassrooms(values),
                       ),
                       const SizedBox(height: 12),
-                      CustomDropdown(
-                        hintText: selectedTag,
-                        items: tags,
-                        selectedItem: selectedTag,
-                        onSelect: (val) {
-                          if (val != null) {
-                            setState(() {
-                              selectedTag = val;
-                            });
-                          }
-                        },
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: CustomMultiSelectDropdown(
+                              hintText: 'Tags',
+                              items: state.tagNames,
+                              selectedItems: state.selectedTagNames,
+                              showSelectAll: true,
+                              onChanged: (values) => _cubit.setTags(values),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: CustomMultiSelectDropdown(
+                              hintText: 'Status',
+                              items: _statusOptions,
+                              selectedItems: [state.selectedStatus],
+                              onChanged: (values) => _cubit.setStatus(values),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Checkbox(
-                      value: areAllSelected,
-                      onChanged: (val) {
-                        setState(() {
-                          if (val ?? false) {
-                            _selectedStudentIds.addAll(filtered.map((student) => student.id));
-                          } else {
-                            _selectedStudentIds.removeWhere(
-                              (id) => filtered.any((student) => student.id == id),
-                            );
-                          }
-                        });
-                      },
-                      activeColor: AppColors.themeColor,
-                      checkColor: AppColors.billingButtonTextColor,
-                      fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                        if (states.contains(MaterialState.selected)) {
-                          return AppColors.themeColor;
-                        }
-                        return AppColors.billingTransparentColor;
-                      }),
-                    ),
-                    const Text(
-                      'Select All',
-                      style: TextStyle(
-                        fontFamily: "Manrope",
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.billingTextColor,
-                        height: 19 / 14,
-                      ),
-                    ),
-                  ],
+                CustomCheckbox(
+                  value: areAllSelected,
+                  label: 'Select All',
+                  labelStyle: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.billingTextColor,
+                  ),
+                  onChanged: (val) =>
+                      _cubit.setAllSelected(visibleCodes, val ?? false),
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: isLoading
-                      ? const Center(child: GradientCircularProgress())
-                      : ListView.builder(
-                          itemCount: filtered.length,
-                          itemBuilder: (context, index) {
-                            final student = filtered[index];
-                            final isChecked = _selectedStudentIds.contains(student.id);
-                            return GestureDetector(
-                              onTap: () {
-                                setState(() {
-                                  if (isChecked) {
-                                    _selectedStudentIds.remove(student.id);
-                                  } else {
-                                    _selectedStudentIds.add(student.id);
-                                  }
-                                });
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(vertical: 6),
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: const Color(0xFF6657F8), width: 1),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    DocumentImageWidget(
-                                      fileUuid: (student.photoUuid ?? student.fullName),
-                                      name: student.fullName,
-                                      size: 40,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            student.fullName,
-                                            style: const TextStyle(
-                                              fontFamily: 'Manrope',
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w500,
-                                              color: AppColors.billingTextColor,
-                                              height: 19 / 14,
-                                            ),
-                                          ),
-                                          if (student.roomName != null) ...[
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              student.roomName!,
-                                              style: const TextStyle(
-                                                fontFamily: 'Manrope',
-                                                fontSize: 12,
-                                                color: Color(0x99573353),
-                                              ),
-                                            ),
-                                          ],
-                                        ],
-                                      ),
-                                    ),
-                                    Checkbox(
-                                      value: isChecked,
-                                      onChanged: (val) {
-                                        setState(() {
-                                          if (val ?? false) {
-                                            _selectedStudentIds.add(student.id);
-                                          } else {
-                                            _selectedStudentIds.remove(student.id);
-                                          }
-                                        });
-                                      },
-                                      activeColor: AppColors.themeColor,
-                                      checkColor: AppColors.billingButtonTextColor,
-                                      fillColor: MaterialStateProperty.resolveWith<Color>((states) {
-                                        if (states.contains(MaterialState.selected)) {
-                                          return AppColors.themeColor;
-                                        }
-                                        return AppColors.billingTransparentColor;
-                                      }),
-                                    ),
-                                  ],
+                  child: state.isLoading
+                      ? const Center(child: PrimaryCircularLoader())
+                      : (state.errorMessage != null && filtered.isEmpty)
+                          ? Center(
+                              child: Padding(
+                                padding: const EdgeInsets.all(24),
+                                child: Text(
+                                  state.errorMessage!,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 14,
+                                    color: AppColors.billingTextColor,
+                                  ),
                                 ),
                               ),
-                            );
-                          },
-                        ),
+                            )
+                          : filtered.isEmpty
+                              ? const Center(
+                                  child: Text(
+                                    'No students found.',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 14,
+                                      color: AppColors.billingTextColor,
+                                    ),
+                                  ),
+                                )
+                              : ListView.builder(
+                                  itemCount: filtered.length,
+                                  itemBuilder: (context, index) {
+                                    final student = filtered[index];
+                                    final isChecked = state.selectedStudentCodes
+                                        .contains(student.code);
+                                    return _StudentRow(
+                                      student: student,
+                                      isChecked: isChecked,
+                                      onTap: () =>
+                                          _cubit.toggleStudent(student.code),
+                                      onChanged: (val) =>
+                                          _cubit.setStudentSelected(
+                                              student.code, val ?? false),
+                                    );
+                                  },
+                                ),
                 ),
               ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom > 0
+            ? MediaQuery.of(context).padding.bottom
+            : 16.0,
+        left: 16,
+        right: 16,
+        top: 8,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.billingCardColor,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.billingShadowColorLight,
+            offset: const Offset(0, -4),
+            blurRadius: 16,
+          ),
+        ],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24.0),
+          topRight: Radius.circular(24.0),
+        ),
+      ),
+      child: Container(
+        height: 48.0,
+        decoration: BoxDecoration(
+          gradient: AppColors.buildPrimaryGradient(),
+          borderRadius: BorderRadius.circular(8.0),
+        ),
+        child: TextButton(
+          onPressed: () {
+            final selectedStudents = _cubit.selectedStudents;
+            if (selectedStudents.isEmpty) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Please select at least one student.',
+                isWarning: true,
+              );
+              return;
+            }
+            if (widget.onNext != null) {
+              widget.onNext!(context, selectedStudents);
+              return;
+            }
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => CreateInvoiceScreen(
+                  selectedStudents: selectedStudents,
+                  initialInvoiceData: widget.invoiceData,
+                ),
+              ),
+            );
+          },
+          child: const Text(
+            'Next',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 16.0,
+              fontWeight: FontWeight.w600,
+              color: AppColors.billingCardColor,
             ),
           ),
         ),
       ),
-      bottomNavigationBar: Builder(
-        builder: (context) {
-          return Container(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 16.0,
-              left: 16,
-              right: 16,
-              top: 8,
+    );
+  }
+}
+
+class _StudentRow extends StatelessWidget {
+  const _StudentRow({
+    required this.student,
+    required this.isChecked,
+    required this.onTap,
+    required this.onChanged,
+  });
+
+  final Student student;
+  final bool isChecked;
+  final VoidCallback onTap;
+  final ValueChanged<bool?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    // Compose the subtitle: classroom + age (e.g. "Room 101 · 2 yrs 3 mos").
+    final parts = <String>[
+      if ((student.roomName ?? '').trim().isNotEmpty) student.roomName!.trim(),
+      if (student.ageLabel.trim().isNotEmpty) student.ageLabel.trim(),
+    ];
+    final subtitle = parts.join('  ·  ');
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFF6657F8), width: 1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            DocumentImageWidget(
+              fileUuid: '',
+              studentCode: student.code,
+              mediaAssetCode: (student.photoAssetCode ?? '').trim().isNotEmpty
+                  ? student.photoAssetCode!.trim()
+                  : null,
+              name: student.fullName,
+              size: 40,
+              shape: BoxShape.circle,
             ),
-            decoration: BoxDecoration(
-              color: AppColors.billingCardColor,
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.billingShadowColorLight,
-                  offset: const Offset(0, -4),
-                  blurRadius: 16,
-                ),
-              ],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(24.0),
-                topRight: Radius.circular(24.0),
-              ),
-            ),
-            child: Container(
-              height: 48.0,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(8.0),
-              ),
-              child: TextButton(
-                onPressed: () {
-                  // UI-only: handle "Next" with a placeholder
-                  final selectedStudents = students
-                      .where((student) => _selectedStudentIds.contains(student.id))
-                      .toList();
-                  if (selectedStudents.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please select at least one student')),
-                    );
-                    return;
-                  }
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => CreateInvoiceScreen(
-                        selectedStudents: selectedStudents,
-                        initialInvoiceData: widget.invoiceData,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    student.fullName,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.billingTextColor,
+                      height: 19 / 14,
+                    ),
+                  ),
+                  if (subtitle.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 12,
+                        color: Color(0x99573353),
                       ),
                     ),
-                  );
-                },
-                child: const Text(
-                  'Next',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 16.0,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.billingCardColor,
-                  ),
-                ),
+                  ],
+                ],
               ),
             ),
-          );
-        },
+            CustomCheckbox(
+              value: isChecked,
+              onChanged: onChanged,
+            ),
+          ],
+        ),
       ),
     );
   }

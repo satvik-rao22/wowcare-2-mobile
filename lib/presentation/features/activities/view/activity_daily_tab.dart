@@ -10,8 +10,9 @@ import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
 import 'package:wowcare/presentation/features/activities/widgets/avtivity_media_preview.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -32,9 +33,7 @@ import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
-import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
-import '../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
+import '../cubit/activity_moderation_cubit.dart';
 import '../../../../domain/features/activity/usecases/get_daily_activity_feed_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
@@ -67,11 +66,14 @@ import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 import '../util/activity_parent_feed_merge.dart';
 import '../utils/activity_staff_display.dart';
+import '../utils/activity_patch_attachments.dart';
 import 'activity_feed_card_permissions.dart';
 import 'activity_item.dart';
 
 export 'activity_item.dart';
 export 'activity_feed_card_permissions.dart';
+export '../utils/activity_patch_attachments.dart'
+    show attachmentUsableDeliveryUrl, attachmentRowHasUsableMedia;
 
 bool activityHasMediaOrProcessing(ActivityItem activity) {
   final photo = (activity.photoUrl ?? '').trim();
@@ -103,7 +105,17 @@ class ActivityDailyTab extends StatefulWidget {
     this.studentProfile,
     this.isNotParent = true,
     this.allowActivityWrite = true,
+    this.highlightCode,
+    this.highlightDate,
   });
+
+  /// Activity code from a notification deep-link; the matching feed card is
+  /// scrolled into view and briefly flashed.
+  final String? highlightCode;
+
+  /// Date of the deep-linked activity (yyyy-MM-dd) so the feed opens on that
+  /// day rather than today — otherwise the highlighted card isn't in view.
+  final DateTime? highlightDate;
 
   final bool fromStudentProfile;
 
@@ -127,6 +139,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
+
+  /// Notification deep-link target activity; applied once (scroll + flash).
+  final GlobalKey _highlightCardKey = GlobalKey();
+  bool _highlightApplied = false;
+  bool _isHighlightTarget(String? code) {
+    final target = (widget.highlightCode ?? '').trim();
+    final c = (code ?? '').trim();
+    return target.isNotEmpty && c.toUpperCase() == target.toUpperCase();
+  }
 
   //final TextEditingController _searchController = TextEditingController();
   late bool isNotParent;
@@ -198,9 +219,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
   late final GetStudentAbsentRecordsActivityUseCase
       _getStudentAbsentRecordsActivityUseCase;
-  late final DeleteActivityUseCase _deleteActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  late final ActivityModerationCubit _moderationCubit;
+  StreamSubscription<ActivityModerationState>? _moderationSub;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
   StreamSubscription<void>? _feedInvalidationSub;
@@ -639,7 +659,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 final primaryCode = (_primaryClassroomCode ?? '').trim();
                 final primaryName =
                     primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
-                _selectdClassroom = primaryName ?? _classroomOptions.first;
+                // If the primary classroom is Office (filtered out of the
+                // selectable list) or otherwise unavailable, fall back to the
+                // top sorted classroom.
+                _selectdClassroom =
+                    (primaryName != null && _classroomOptions.contains(primaryName))
+                        ? primaryName
+                        : _classroomOptions.first;
               }
               // Keep multi-select UI in sync with default classroom.
               if (_selectdClassroom != null &&
@@ -723,7 +749,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             final primaryCode = (_primaryClassroomCode ?? '').trim();
             final primaryName =
                 primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
-            _selectdClassroom = primaryName ?? _classroomOptions.first;
+            // If the primary classroom is Office (filtered out of the
+            // selectable list) or otherwise unavailable, fall back to the
+            // top sorted classroom.
+            _selectdClassroom =
+                (primaryName != null && _classroomOptions.contains(primaryName))
+                    ? primaryName
+                    : _classroomOptions.first;
           }
           // Keep multi-select UI in sync with default classroom.
           if (_selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
@@ -876,7 +908,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       // Parent UX: use the child currently selected in the global dropdown.
       final globalSelectedCode =
-          (context.read<ParentChildProvider>().selectedChild?.code ?? '')
+          (context.read<ParentChildCubit>().selectedChild?.code ?? '')
               .trim();
       if (globalSelectedCode.isNotEmpty) {
         final selectedClassroom =
@@ -927,7 +959,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   void _syncWithGlobalChildSelection() {
     if (!_parentHome) return;
     final globalSelectedCode =
-        (context.read<ParentChildProvider>().selectedChild?.code ?? '').trim();
+        (context.read<ParentChildCubit>().selectedChild?.code ?? '').trim();
     if (globalSelectedCode.isEmpty) return;
     if (_lastGlobalSelectedStudentCode == globalSelectedCode) return;
 
@@ -2348,6 +2380,11 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   @override
   void initState() {
     super.initState();
+    // Deep-linked activity: open its date from the first load (avoids a
+    // today-then-jump flash before the timezone resolves).
+    if (widget.highlightDate != null) {
+      _selectedDate = widget.highlightDate;
+    }
     _getDailyActivityFeedUseCase =
         serviceLocator<GetDailyActivityFeedUseCase>();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
@@ -2364,9 +2401,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         serviceLocator<GetStudentAttendanceDailyUseCase>();
     _getStudentAbsentRecordsActivityUseCase =
         serviceLocator<GetStudentAbsentRecordsActivityUseCase>();
-    _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _moderationCubit = serviceLocator<ActivityModerationCubit>();
+    _moderationSub = _moderationCubit.stream.listen(_onModerationState);
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
@@ -2398,7 +2434,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       if (!mounted) return;
       setState(() {
         _schoolIana = z;
-        _selectedDate = SchoolZoneDateTime.schoolCalendarTodayOnly(z);
+        // A deep-linked activity's date wins so its card is on the open day.
+        _selectedDate =
+            widget.highlightDate ?? SchoolZoneDateTime.schoolCalendarTodayOnly(z);
       });
     } catch (_) {}
   }
@@ -2406,9 +2444,33 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   @override
   void dispose() {
     _feedInvalidationSub?.cancel();
+    _moderationSub?.cancel();
     _feedScrollController.removeListener(_onFeedScroll);
     _feedScrollController.dispose();
+    _moderationCubit.close();
     super.dispose();
+  }
+
+  /// Reacts to moderation results emitted by [ActivityModerationCubit].
+  void _onModerationState(ActivityModerationState state) {
+    if (!mounted) return;
+    if (state is ActivityModerationSuccess) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: state.message,
+        isSuccess: true,
+      );
+      // Approve/reject change the feed; delete does not refresh (matches prior).
+      if (state.action != ActivityModerationAction.delete) {
+        _loadDailyFeed(refresh: true);
+      }
+    } else if (state is ActivityModerationFailure) {
+      CoreUtils.logApiError(
+        state.message,
+        showOnScreen: true,
+        context: context,
+      );
+    }
   }
 
   void _updateAvailableStudents() {
@@ -2495,24 +2557,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
       return;
     }
-    try {
-      final message = await _deleteActivityUseCase(code: code);
-      if (!mounted) return;
-      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+    _moderationCubit.delete(code);
   }
 
   Future<void> _approveActivityFromMenu(ActivityItem activity) async {
@@ -2526,23 +2572,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
       return;
     }
-    try {
-      final message = await _approveActivityUseCase(code: code);
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-      await _loadDailyFeed(refresh: true);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    _moderationCubit.approve(code);
   }
 
   Future<void> _rejectActivityFromMenu(ActivityItem activity) async {
@@ -2556,23 +2586,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       );
       return;
     }
-    try {
-      final message = await _rejectActivityUseCase(code: code);
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-      await _loadDailyFeed(refresh: true);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    _moderationCubit.reject(code);
   }
 
   Future<void> _showApprovalActionBottomSheet({
@@ -2675,10 +2689,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    // Listen to global child dropdown. When ParentChildProvider notifies,
+    // Listen to global child dropdown. When ParentChildCubit notifies,
     // this widget rebuilds and we can refresh the feed for the selected child.
     if (_parentHome) {
-      context.watch<ParentChildProvider>().selectedChild?.code;
+      context.watch<ParentChildCubit>().selectedChild?.code;
     }
     if (_parentHome) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -3017,8 +3031,29 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         final students = activity.studentList;
                         final Color activityColor =
                             _colorPalette[index % _colorPalette.length];
+                        final bool isHighlightTarget =
+                            _isHighlightTarget(activity.activityCode);
+                        if (isHighlightTarget && !_highlightApplied) {
+                          _highlightApplied = true;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            final ctx = _highlightCardKey.currentContext;
+                            if (ctx != null) {
+                              Scrollable.ensureVisible(
+                                ctx,
+                                duration: const Duration(milliseconds: 400),
+                                alignment: 0.1,
+                                curve: Curves.easeOut,
+                              );
+                            }
+                          });
+                        }
 
-                        return Column(
+                        return HighlightableCard(
+                          key: isHighlightTarget ? _highlightCardKey : null,
+                          code: activity.activityCode,
+                          highlightCode: widget.highlightCode,
+                          borderRadius: 12,
+                          child: Column(
                           children: [
                             Row(
                               children: [
@@ -3519,10 +3554,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
                                                           activityFeedStudentAvatarStack(
                                                             students,
+                                                            studentCodes:
+                                                                feedStudentCodesForNames(
+                                                              activity,
+                                                            ),
                                                             onOpenStudentList: () =>
                                                                 showActivityStudentListSheet(
                                                               context,
                                                               students,
+                                                              studentCodes:
+                                                                  feedStudentCodesForNames(
+                                                                activity,
+                                                              ),
                                                             ),
                                                           ),
                                                           const SizedBox(height: 10),
@@ -3598,6 +3641,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                               ],
                             ),
                           ],
+                          ),
                         );
                       }, childCount: _activities.length + (_loadingMoreFeed ? 1 : 0)),
                     ),
@@ -3750,8 +3794,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //                                   _filterActivityTypes =
           //                                   filters['Activity Type']!;
           //                                 });
-          //                                 //print(_filterTags);
-          //                                 //print(_filterActivityTypes);
+          //                                 //AppLogger.d(_filterTags);
+          //                                 //AppLogger.d(_filterActivityTypes);
           //                               },
           //                             ),
           //                           ),
@@ -3796,7 +3840,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //                         _filterActivityTypes.clear();
           //                         _filterTags.clear();
           //                       });
-          //                       //print(_filterTags);
+          //                       //AppLogger.d(_filterTags);
           //                     },
           //                     label: 'Clear All',
           //                   ),
@@ -4592,8 +4636,34 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                 final students = activity.studentList;
                                 final Color activityColor =
                                     _colorPalette[index % _colorPalette.length];
+                                final bool isHighlightTarget =
+                                    _isHighlightTarget(activity.activityCode);
+                                if (isHighlightTarget && !_highlightApplied) {
+                                  _highlightApplied = true;
+                                  WidgetsBinding.instance
+                                      .addPostFrameCallback((_) {
+                                    final ctx =
+                                        _highlightCardKey.currentContext;
+                                    if (ctx != null) {
+                                      Scrollable.ensureVisible(
+                                        ctx,
+                                        duration:
+                                            const Duration(milliseconds: 400),
+                                        alignment: 0.1,
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  });
+                                }
 
-                                return Column(
+                                return HighlightableCard(
+                                  key: isHighlightTarget
+                                      ? _highlightCardKey
+                                      : null,
+                                  code: activity.activityCode,
+                                  highlightCode: widget.highlightCode,
+                                  borderRadius: 12,
+                                  child: Column(
                                   children: [
                                     Row(
                                       children: [
@@ -5127,10 +5197,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
                                                             activityFeedStudentAvatarStack(
                                                             students,
+                                                            studentCodes:
+                                                                feedStudentCodesForNames(
+                                                              activity,
+                                                            ),
                                                             onOpenStudentList: () =>
                                                                 showActivityStudentListSheet(
                                                               context,
                                                               students,
+                                                              studentCodes:
+                                                                  feedStudentCodesForNames(
+                                                                activity,
+                                                              ),
                                                             ),
                                                           ),
                                                             const SizedBox(height: 10),
@@ -5208,6 +5286,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                       ],
                                     ),
                                   ],
+                                ),
                                 );
                               },
                             ),
@@ -6007,6 +6086,30 @@ List<Map<String, dynamic>> studentDataMapsForActivityEdit(ActivityItem activity)
   return maps;
 }
 
+/// Student codes aligned (by index) to [activity.studentList], so feed-card
+/// avatars can resolve the real profile photo instead of showing initials.
+/// Uses [ActivityItem.studentActivityRefs] (name→code), falling back to the
+/// single `studentCode` for single-student activities.
+List<String?> feedStudentCodesForNames(ActivityItem activity) {
+  final refs = activity.studentActivityRefs;
+  final byName = <String, String>{};
+  if (refs != null) {
+    for (final r in refs) {
+      final n = (r['name'] ?? '').trim();
+      final c = (r['studentCode'] ?? '').trim();
+      if (n.isNotEmpty && c.isNotEmpty) byName[n] = c;
+    }
+  }
+  final fallback = (activity.studentCode ?? '').trim();
+  final single = activity.studentList.length == 1;
+  return activity.studentList.map<String?>((name) {
+    final c = byName[name.trim()];
+    if (c != null && c.isNotEmpty) return c;
+    if (single && fallback.isNotEmpty) return fallback;
+    return null;
+  }).toList();
+}
+
 /// Option code → label for activity type definitions (`GET …/activity-types/{code}`).
 final Map<String, Map<String, String>> _activityFeedOptionLabelCache = {};
 
@@ -6181,7 +6284,9 @@ ActivityItem activityItemFromFeedRow(
   String? videoUrl;
   for (final a in row.attachments) {
     final mt = (a['mediaType'] ?? '').toString().toLowerCase();
-    final u = (a['deliveryUrl'] ?? a['thumbnailUrl'] ?? '').toString().trim();
+    // Fall back to processed variant URLs so images already render even while
+    // the backend still reports status == PROCESSING (deliveryUrl null).
+    final u = attachmentUsableDeliveryUrl(a);
     if (u.isEmpty) continue;
     if (mt.contains('video') ||
         u.toLowerCase().endsWith('.mp4') ||

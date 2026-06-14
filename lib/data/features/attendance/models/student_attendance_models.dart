@@ -767,6 +767,8 @@ class StaffAttendanceDailyPageModel extends Equatable {
     required this.totalPages,
     required this.totalElements,
     required this.hasMore,
+    this.attendedDays = 0,
+    this.totalAttendedHours = '',
   });
 
   final List<StaffAttendanceDailyItemModel> items;
@@ -775,6 +777,8 @@ class StaffAttendanceDailyPageModel extends Equatable {
   final int totalPages;
   final int totalElements;
   final bool hasMore;
+  final int attendedDays;
+  final String totalAttendedHours;
 
   @override
   List<Object?> get props => [
@@ -784,10 +788,13 @@ class StaffAttendanceDailyPageModel extends Equatable {
     totalPages,
     totalElements,
     hasMore,
+    attendedDays,
+    totalAttendedHours,
   ];
 
   factory StaffAttendanceDailyPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
+    final aggJson = data['aggregations'] as Map<String, dynamic>? ?? {};
     final content = data['content'] as List<dynamic>? ?? const [];
     final pageNumber = data['number'] as int? ?? 0;
     final pageSize = data['size'] as int? ?? content.length;
@@ -802,6 +809,8 @@ class StaffAttendanceDailyPageModel extends Equatable {
         .toList();
 
     final hasMore = pageNumber + 1 < totalPages;
+    final attendedDays = (aggJson['attendedDays'] as int?) ?? 0;
+    final totalAttendedHours = (aggJson['totalAttendedTime'] as String?) ?? '';
 
     return StaffAttendanceDailyPageModel(
       items: items,
@@ -810,6 +819,8 @@ class StaffAttendanceDailyPageModel extends Equatable {
       totalPages: totalPages,
       totalElements: totalElements,
       hasMore: hasMore,
+      attendedDays: attendedDays,
+      totalAttendedHours: totalAttendedHours,
     );
   }
 
@@ -925,6 +936,7 @@ class StaffAttendanceAbsentPageModel extends Equatable {
     required this.totalPages,
     required this.totalElements,
     required this.hasMore,
+    this.absentDays = 0,
   });
 
   final List<StaffAttendanceAbsentItemModel> items;
@@ -933,6 +945,7 @@ class StaffAttendanceAbsentPageModel extends Equatable {
   final int totalPages;
   final int totalElements;
   final bool hasMore;
+  final int absentDays;
 
   @override
   List<Object?> get props => [
@@ -942,10 +955,12 @@ class StaffAttendanceAbsentPageModel extends Equatable {
     totalPages,
     totalElements,
     hasMore,
+    absentDays,
   ];
 
   factory StaffAttendanceAbsentPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
+    final aggJson = data['aggregations'] as Map<String, dynamic>? ?? {};
     final content = data['content'] as List<dynamic>? ?? const [];
     final pageNumber = data['number'] as int? ?? 0;
     final pageSize = data['size'] as int? ?? content.length;
@@ -961,6 +976,7 @@ class StaffAttendanceAbsentPageModel extends Equatable {
         .toList();
 
     final hasMore = pageNumber + 1 < totalPages;
+    final absentDays = (aggJson['absentDays'] as int?) ?? 0;
 
     return StaffAttendanceAbsentPageModel(
       items: items,
@@ -969,6 +985,7 @@ class StaffAttendanceAbsentPageModel extends Equatable {
       totalPages: totalPages,
       totalElements: totalElements,
       hasMore: hasMore,
+      absentDays: absentDays,
     );
   }
 

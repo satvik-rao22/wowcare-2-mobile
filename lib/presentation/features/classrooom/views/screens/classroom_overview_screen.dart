@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -77,12 +76,8 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
     final code = classroomCode.trim();
     if (code.isEmpty) return;
 
-    final path = '/api/v1/student-classroom/enrolled-count/$code';
-    final url = ApiPaths.url(path);
-    final dio = serviceLocator<ApiClient>().client;
-
-    final response = await dio.get<dynamic>(url);
-    final body = response.data;
+    final body = await serviceLocator<ClassroomRepository>()
+        .getStudentClassroomEnrolledCount(classroomCode: code);
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected enrolled-count API response format');
     }

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -340,7 +341,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
         _onTimePicked(day, timeType, picked);
       }
     } catch (e) {
-      print('Error opening time picker: $e');
+      AppLogger.d('Error opening time picker: $e');
     }
   }
 

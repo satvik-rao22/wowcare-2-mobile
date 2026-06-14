@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/data/features/auth/models/login_response_model.dart' show RoleModel;
 
 /// True for parent/guardian API personas (not staff/teachers).
 bool roleStringIsGuardianPersona(String role) {
@@ -7,6 +8,12 @@ bool roleStringIsGuardianPersona(String role) {
       u == 'PARENT' ||
       u.contains('GUARDIAN') ||
       u.contains('PARENT');
+}
+
+/// True for kiosk personas (not staff/teachers/guardians).
+bool roleStringIsKioskPersona(String role) {
+  final u = role.toUpperCase().trim();
+  return u == 'KIOSK';
 }
 
 /// True when [rolesJson] is the login roles payload and includes a parent/guardian role.
@@ -66,8 +73,10 @@ Iterable<Map<String, String>> matchingRolesForOrgSchool(
 
 /// Whether to skip `GET /staff/code` for this org/school context.
 ///
-/// When every role tied to the context is guardian/parent-only, the user has
-/// no staff record and the staff lookup returns 404.
+/// When every role tied to the context is guardian/parent-only OR kiosk-only,
+/// the user has no staff record and the staff lookup returns 404.
+/// Kiosk users are specifically excluded from staff code resolution because
+/// they are not mapped in the staff system — they authenticate via PIN.
 bool shouldSkipStaffCodeResolutionForContext({
   required String rolesJson,
   required String organizationCode,
@@ -81,6 +90,14 @@ bool shouldSkipStaffCodeResolutionForContext({
         matchingRolesForOrgSchool(decoded, organizationCode, schoolCode)
             .toList();
     if (matching.isEmpty) return false;
+
+    // Check if any role is kiosk — if so, skip staff code resolution entirely
+    final hasKiosk = matching.any(
+      (m) => roleStringIsKioskPersona(m['role'] ?? ''),
+    );
+    if (hasKiosk) return true;
+
+    // If no kiosk role, skip only if all roles are guardian/parent
     final hasNonGuardian = matching.any(
       (m) => !roleStringIsGuardianPersona(m['role'] ?? ''),
     );
@@ -88,4 +105,40 @@ bool shouldSkipStaffCodeResolutionForContext({
   } catch (_) {
     return false;
   }
+}
+
+/// True when any role in the login response is a kiosk persona.
+///
+/// Kiosk users should skip all post-login APIs (context, staff lookup, profile, PIN)
+/// and redirect directly to `/kiosk`.
+/// Accepts either RoleModel objects or raw Map objects.
+/// Uses EXACT matching to avoid false positives with roles like STAFF_KIOSK.
+bool loginResponseIsKioskUser(List<dynamic> roles) {
+  try {
+    for (final role in roles) {
+      String roleStr = '';
+
+      // Handle RoleModel objects (from LoginResponseModel.roles)
+      if (role is RoleModel) {
+        roleStr = role.role;
+      }
+      // Handle raw Map objects (from JSON)
+      else if (role is Map) {
+        roleStr = (role['role'] ?? '').toString();
+      }
+      // Skip anything else
+      else {
+        continue;
+      }
+
+      final upperRole = roleStr.toUpperCase().trim();
+      // Exact match only — not .contains() to avoid matching STAFF_KIOSK or similar
+      if (upperRole == 'KIOSK') {
+        return true;
+      }
+    }
+  } catch (e) {
+    // Log error for debugging
+  }
+  return false;
 }

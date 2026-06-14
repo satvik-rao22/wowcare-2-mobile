@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/newsletter_tab.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_view_screen.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_tab.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -90,15 +93,12 @@ class _MessagingScreenState extends State<MessagingScreen>
         MediaQuery.of(context).orientation == Orientation.landscape;
     final bool isParentPersona =
         widget.userPersona == UserPersona.parent ||
-        context.watch<RoleProvider>().isParent;
+        context.watch<RoleCubit>().isParent;
 
     return BlocProvider<CommunicationCubit>(
       create: (context) => serviceLocator<CommunicationCubit>(),
       child: GlobalScaffold(
         hasBackButton: widget.userPersona == UserPersona.parent ? false : true,
-        studentList: widget.userPersona == UserPersona.parent
-            ? ['Ajay Sundaram', 'Jaya Sundaram']
-            : null,
         showCustomNavigationBar: !isLandscape,
         body: Column(
           mainAxisSize: MainAxisSize.min,
@@ -134,7 +134,22 @@ class _MessagingScreenState extends State<MessagingScreen>
                 ],
               ),
             if (isParentPersona)
-              const Expanded(child: ParentViewScreen())
+              Expanded(
+                child: MultiBlocProvider(
+                  providers: [
+                    BlocProvider<StaffCubit>(
+                      create: (_) => serviceLocator<StaffCubit>(),
+                    ),
+                    BlocProvider<StudentCubit>(
+                      create: (_) => serviceLocator<StudentCubit>(),
+                    ),
+                    BlocProvider<ClassroomCubit>(
+                      create: (_) => serviceLocator<ClassroomCubit>(),
+                    ),
+                  ],
+                  child: const StaffMessagingTab(isStaffMessaging: false),
+                ),
+              )
             else
               Expanded(
                 child: TabBarView(

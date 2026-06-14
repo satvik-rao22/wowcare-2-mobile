@@ -1,0 +1,488 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource_impl.dart';
+
+class FakeDio extends Fake implements Dio {
+  Map<String, dynamic>? Function(String path)? responseBuilder;
+  bool shouldThrow = false;
+  DioException? exception;
+
+  @override
+  Future<Response<T>> post<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    CancelToken? cancelToken,
+    dynamic onSendProgress,
+    dynamic onReceiveProgress,
+    String? baseUrl,
+    Options? options,
+    ProgressCallback? onUploadProgress,
+  }) async {
+    if (shouldThrow) {
+      throw exception ?? DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Network error',
+      );
+    }
+    final responseData = responseBuilder?.call(path);
+    return Response<T>(
+      data: responseData as T?,
+      statusCode: 200,
+      requestOptions: RequestOptions(path: path),
+    );
+  }
+
+  @override
+  Future<Response<T>> get<T>(
+    String path, {
+    dynamic data,
+    Map<String, dynamic>? queryParameters,
+    Options? options,
+    CancelToken? cancelToken,
+    ProgressCallback? onReceiveProgress,
+    String? baseUrl,
+  }) async {
+    if (shouldThrow) {
+      throw exception ?? DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Network error',
+      );
+    }
+    final responseData = responseBuilder?.call(path);
+    return Response<T>(
+      data: responseData as T?,
+      statusCode: 200,
+      requestOptions: RequestOptions(path: path),
+    );
+  }
+}
+
+class FakeStorageService extends Fake implements StorageService {}
+
+void main() {
+  late FakeDio fakeDio;
+  late FakeStorageService fakeStorageService;
+  late ReportsRemoteDataSourceImpl dataSource;
+
+  setUp(() {
+    fakeDio = FakeDio();
+    fakeStorageService = FakeStorageService();
+    dataSource = ReportsRemoteDataSourceImpl(fakeDio, fakeStorageService);
+  });
+
+  group('ReportsRemoteDataSourceImpl', () {
+    group('generateReport', () {
+      test('routes STUDENT_DAILY_ATTENDANCE to student-attendance endpoint', () async {
+        const reportType = 'STUDENT_DAILY_ATTENDANCE';
+        final requestBody = <String, dynamic>{'startDate': '2026-01-01', 'endDate': '2026-01-01'};
+        final responseData = {
+          'reportId': 'report-123',
+          'reportType': 'STUDENT_DAILY_ATTENDANCE',
+          'generatedAt': '2026-01-15T10:30:00Z',
+          'assetCode': 'asset-456',
+          'fileName': 'report.xlsx',
+        };
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/attendance/student-attendance/reports/generate') {
+            return responseData;
+          }
+          return null;
+        };
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(result.reportId, 'report-123');
+        expect(result.reportType, 'STUDENT_DAILY_ATTENDANCE');
+        expect(result.assetCode, 'asset-456');
+        expect(result.fileName, 'report.xlsx');
+      });
+
+      test('routes STUDENT_ABSENT to student-attendance endpoint', () async {
+        const reportType = 'STUDENT_ABSENT';
+        final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/attendance/student-attendance/reports/generate') {
+            return {
+              'reportId': 'report-789',
+              'reportType': 'STUDENT_ABSENT',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            };
+          }
+          return null;
+        };
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(result.reportType, 'STUDENT_ABSENT');
+      });
+
+      test('routes STAFF_ABSENT to staff-attendance endpoint', () async {
+        const reportType = 'STAFF_ABSENT';
+        final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/attendance/staff-attendance/reports/generate') {
+            return {
+              'reportId': 'report-555',
+              'reportType': 'STAFF_ABSENT',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            };
+          }
+          return null;
+        };
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(result.reportType, 'STAFF_ABSENT');
+      });
+
+      test('routes STAFF_DETAILS to staff endpoint', () async {
+        const reportType = 'STAFF_DETAILS';
+        final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/staff/staff/reports/generate') {
+            return {
+              'reportId': 'report-dir-1',
+              'reportType': 'STAFF_DETAILS',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            };
+          }
+          return null;
+        };
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(result.reportType, 'STAFF_DETAILS');
+      });
+
+      test('routes STUDENTS_AND_FAMILY to student endpoint', () async {
+        const reportType = 'STUDENTS_AND_FAMILY';
+        final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/student/student/reports/generate') {
+            return {
+              'reportId': 'report-family-1',
+              'reportType': 'STUDENTS_AND_FAMILY',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            };
+          }
+          return null;
+        };
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(result.reportType, 'STUDENTS_AND_FAMILY');
+      });
+
+      test('routes EMERGENCY_CONTACTS to student endpoint', () async {
+        const reportType = 'EMERGENCY_CONTACTS';
+        final requestBody = <String, dynamic>{};
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/student/student/reports/generate') {
+            return {
+              'reportId': 'report-emergency-1',
+              'reportType': 'EMERGENCY_CONTACTS',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            };
+          }
+          return null;
+        };
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(result.reportType, 'EMERGENCY_CONTACTS');
+      });
+
+      test('routes IMMUNIZATION to immunization endpoint', () async {
+        const reportType = 'IMMUNIZATION';
+        final requestBody = <String, dynamic>{'studentCodes': ['STU-1']};
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/student/settings/immunization/report') {
+            return {
+              'reportId': 'report-immun-1',
+              'reportType': 'IMMUNIZATION',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            };
+          }
+          return null;
+        };
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(result.reportType, 'IMMUNIZATION');
+      });
+
+      test('throws ArgumentError for unknown report type', () async {
+        const reportType = 'UNKNOWN_TYPE';
+        final requestBody = <String, dynamic>{};
+
+        expect(
+          () => dataSource.generateReport(
+            reportType: reportType,
+            requestBody: requestBody,
+          ),
+          throwsA(isA<ArgumentError>()),
+        );
+      });
+
+      test('handles null response data gracefully', () async {
+        const reportType = 'STUDENT_DAILY_ATTENDANCE';
+        final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
+
+        fakeDio.responseBuilder = (_) => null;
+
+        final result = await dataSource.generateReport(
+          reportType: reportType,
+          requestBody: requestBody,
+        );
+
+        expect(result.reportId, '');
+        expect(result.reportType, '');
+      });
+
+      test('propagates DioException from network errors', () async {
+        const reportType = 'STUDENT_DAILY_ATTENDANCE';
+        final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
+
+        fakeDio.shouldThrow = true;
+        fakeDio.exception = DioException(
+          requestOptions: RequestOptions(path: ''),
+          message: 'Connection timeout',
+          type: DioExceptionType.connectionTimeout,
+        );
+
+        expect(
+          () => dataSource.generateReport(
+            reportType: reportType,
+            requestBody: requestBody,
+          ),
+          throwsA(isA<DioException>()),
+        );
+      });
+    });
+
+    group('getRecentStudentAttendanceReports', () {
+      test('returns list of recent student attendance reports', () async {
+        final responseData = {
+          'reports': [
+            {
+              'reportId': 'recent-1',
+              'reportType': 'STUDENT_DAILY_ATTENDANCE',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            },
+            {
+              'reportId': 'recent-2',
+              'reportType': 'STUDENT_DAILY_ATTENDANCE',
+              'generatedAt': '2026-01-14T10:30:00Z',
+            },
+          ],
+        };
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/attendance/student-attendance/reports/recent') {
+            return responseData;
+          }
+          return null;
+        };
+
+        final result = await dataSource.getRecentStudentAttendanceReports();
+
+        expect(result, hasLength(2));
+        expect(result[0].reportId, 'recent-1');
+        expect(result[1].reportId, 'recent-2');
+      });
+
+      test('handles empty reports list', () async {
+        fakeDio.responseBuilder = (path) => {'reports': []};
+
+        final result = await dataSource.getRecentStudentAttendanceReports();
+
+        expect(result, isEmpty);
+      });
+
+      test('handles null response data', () async {
+        fakeDio.responseBuilder = (_) => null;
+
+        final result = await dataSource.getRecentStudentAttendanceReports();
+
+        expect(result, isEmpty);
+      });
+
+      test('handles missing reports field', () async {
+        fakeDio.responseBuilder = (_) => {};
+
+        final result = await dataSource.getRecentStudentAttendanceReports();
+
+        expect(result, isEmpty);
+      });
+    });
+
+    group('getRecentStaffAttendanceReports', () {
+      test('returns list of recent staff attendance reports', () async {
+        final responseData = {
+          'reports': [
+            {
+              'reportId': 'staff-recent-1',
+              'reportType': 'STAFF_ABSENT',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            },
+          ],
+        };
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/attendance/staff-attendance/reports/recent') {
+            return responseData;
+          }
+          return null;
+        };
+
+        final result = await dataSource.getRecentStaffAttendanceReports();
+
+        expect(result, hasLength(1));
+        expect(result[0].reportId, 'staff-recent-1');
+      });
+
+      test('handles empty list', () async {
+        fakeDio.responseBuilder = (_) => {'reports': []};
+
+        final result = await dataSource.getRecentStaffAttendanceReports();
+
+        expect(result, isEmpty);
+      });
+    });
+
+    group('getRecentStaffReports', () {
+      test('returns list of recent staff reports', () async {
+        final responseData = {
+          'reports': [
+            {
+              'reportId': 'staff-dir-1',
+              'reportType': 'STAFF_DETAILS',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            },
+          ],
+        };
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/staff/staff/reports/recent') {
+            return responseData;
+          }
+          return null;
+        };
+
+        final result = await dataSource.getRecentStaffReports();
+
+        expect(result, hasLength(1));
+        expect(result[0].reportId, 'staff-dir-1');
+      });
+    });
+
+    group('getRecentStudentManagementReports', () {
+      test('returns list of recent student management reports', () async {
+        final responseData = {
+          'reports': [
+            {
+              'reportId': 'mgmt-1',
+              'reportType': 'STUDENTS_AND_FAMILY',
+              'generatedAt': '2026-01-15T10:30:00Z',
+            },
+            {
+              'reportId': 'mgmt-2',
+              'reportType': 'EMERGENCY_CONTACTS',
+              'generatedAt': '2026-01-14T10:30:00Z',
+            },
+          ],
+        };
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/student/student/reports/recent') {
+            return responseData;
+          }
+          return null;
+        };
+
+        final result = await dataSource.getRecentStudentManagementReports();
+
+        expect(result, hasLength(2));
+        expect(result[0].reportId, 'mgmt-1');
+        expect(result[1].reportId, 'mgmt-2');
+      });
+    });
+
+    group('getStudentTags', () {
+      test('returns list of student tags', () async {
+        final responseData = {
+          'tags': ['VIP', 'SCHOLARSHIP', 'MEDICAL'],
+        };
+
+        fakeDio.responseBuilder = (path) {
+          if (path == '/api/v1/student/tags') {
+            return responseData;
+          }
+          return null;
+        };
+
+        final result = await dataSource.getStudentTags();
+
+        expect(result, hasLength(3));
+        expect(result, containsAll(['VIP', 'SCHOLARSHIP', 'MEDICAL']));
+      });
+
+      test('handles empty tags list', () async {
+        fakeDio.responseBuilder = (_) => {'tags': []};
+
+        final result = await dataSource.getStudentTags();
+
+        expect(result, isEmpty);
+      });
+
+      test('handles null response data', () async {
+        fakeDio.responseBuilder = (_) => null;
+
+        final result = await dataSource.getStudentTags();
+
+        expect(result, isEmpty);
+      });
+
+      test('handles tags with integer values', () async {
+        fakeDio.responseBuilder = (_) => <String, dynamic>{
+          'tags': [123, 456],
+        };
+
+        final result = await dataSource.getStudentTags();
+
+        expect(result, hasLength(2));
+        expect(result, containsAll(['123', '456']));
+      });
+    });
+  });
+}

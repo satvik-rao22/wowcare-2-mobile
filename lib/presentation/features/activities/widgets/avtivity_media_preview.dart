@@ -72,9 +72,12 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     final rows = widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
     for (final r in rows) {
       final status = (r['status'] ?? '').toString().trim().toUpperCase();
-      if (status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING') {
-        return true;
-      }
+      final isProcessing =
+          status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING';
+      if (!isProcessing) continue;
+      // Treat as ready (not processing) once a servable URL exists — the
+      // backend often keeps status == PROCESSING after the variants are live.
+      if (!attachmentRowHasUsableMedia(r)) return true;
     }
     return false;
   }

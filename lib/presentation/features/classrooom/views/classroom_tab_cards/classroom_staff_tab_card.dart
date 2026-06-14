@@ -7,6 +7,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
@@ -30,6 +31,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 
 /// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
 /// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
@@ -81,11 +83,16 @@ class ClassroomStaffTabCard extends StatefulWidget {
   const ClassroomStaffTabCard({
     required this.scrollController,
     required this.selectedRoom,
+    this.highlightCode,
     super.key,
   });
 
   final ScrollController scrollController;
   final Classroom? selectedRoom;
+
+  /// Staff code from a notification deep-link; the matching row is scrolled
+  /// into view and briefly flashed.
+  final String? highlightCode;
 
   static const routeName = '/classroom-staff-screen';
 
@@ -96,6 +103,13 @@ class ClassroomStaffTabCard extends StatefulWidget {
 class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
+
+  /// Notification deep-link target row.
+  final GlobalKey _highlightRowKey = GlobalKey();
+  bool _isHighlightTarget(String code) {
+    final target = (widget.highlightCode ?? '').trim();
+    return target.isNotEmpty && target.toUpperCase() == code.trim().toUpperCase();
+  }
   late final ClassroomStaffCubit _cubit;
   bool isSelectAllChecked = false;
   Map<String, bool> staffSelections = {};
@@ -304,13 +318,32 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   }
 
   List<Staff> _getVisibleStaff() {
+      final List<Staff> base;
       if (_filteredStaff.isEmpty &&
           _searchController.text.isEmpty &&
           _selectedDesignation.isEmpty) {
-      return _allStaff.where((staff) => staff.designation != 'Kiosk').toList();
+      base = _allStaff.where((staff) => staff.designation != 'Kiosk').toList();
       } else {
-        return _filteredStaff;
+        base = _filteredStaff;
       }
+      return _floatHighlightTargetToTop(base);
+  }
+
+  /// When opened from an assign-to-classroom notification, the deep-linked
+  /// staff must flash + scroll into view. The list is sorted by name, so the
+  /// target can land far down the lazy [ListView.builder] and never get built —
+  /// its [HighlightableCard] then never mounts, so no flash fires. Floating the
+  /// target to the top guarantees the row renders, is visible, and highlights.
+  List<Staff> _floatHighlightTargetToTop(List<Staff> staff) {
+    final target = (widget.highlightCode ?? '').trim().toUpperCase();
+    if (target.isEmpty) return staff;
+    final idx = staff.indexWhere(
+      (s) => s.staffCode.trim().toUpperCase() == target,
+    );
+    if (idx <= 0) return staff;
+    final reordered = List<Staff>.of(staff);
+    reordered.insert(0, reordered.removeAt(idx));
+    return reordered;
   }
 
   Set<String> _getSelectedStaffCodes() {
@@ -448,6 +481,24 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     _loadForSelectedRoom(refresh: true);
     // Re-fetch today's attendance status.
     await _refreshAttendanceStatusForVisibleStaff();
+  }
+
+  void _dismissSelectionPanel() {
+    if (!mounted) return;
+    setState(() {
+      isSelectAllChecked = false;
+      staffSelections.updateAll((key, val) => false);
+      _currentPanel = StaffPanelType.none;
+    });
+  }
+
+  void _refreshAfterAttendanceAction() {
+    _dismissSelectionPanel();
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _lastVisibleAttendanceCodes = <String>{};
+    _attendanceStatusByStaffCode.clear();
+    _loadForSelectedRoom(refresh: true);
+    _refreshAttendanceStatusForVisibleStaff();
   }
 
   StaffAttendanceActionAvailability _attendanceAvailabilityForSelection() {
@@ -617,6 +668,8 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
           MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: target)),
         );
       }
+      if (!mounted) return;
+      _refreshAfterAttendanceAction();
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -686,6 +739,28 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     _loadForSelectedRoom(refresh: false);
   }
 
+  String _employmentStatusForProfile(Staff staff) {
+    if (staff.profileStatus == 'Upcoming') return 'UPCOMING';
+    return 'ACTIVE';
+  }
+
+  void _openStaffProfile(Staff staff) {
+    if (staff.staffCode.trim().isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StaffProfileScreen(
+          staffCode: staff.staffCode.trim(),
+          name: staff.name,
+          classroom: widget.selectedRoom?.name ?? '',
+          designation: staff.designation,
+          phoneNumber: '',
+          employmentStatus: _employmentStatusForProfile(staff),
+        ),
+      ),
+    );
+  }
+
   Future<void> _openFilterScreen() async {
     final result = await Navigator.push<ClassroomStaffFilterResult>(
       context,
@@ -748,6 +823,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                   left: BorderSide(color: AppColors.themeColor),
                   top: BorderSide(color: AppColors.themeColor),
                   right: BorderSide(color: AppColors.themeColor),
+                  bottom: BorderSide(color: AppColors.themeColor),
                 ),
                 color: Colors.white,
                 child: Column(
@@ -844,14 +920,6 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                   ),
                                 ),
                               ),
-                              IconButton(
-                                onPressed: () {},
-                                icon: const Icon(
-                                  Icons.info_outline_rounded,
-                                  color: AppColors.primaryColor,
-                                  size: 20,
-                                ),
-                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -915,10 +983,32 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                               .addPostFrameCallback((_) {
                                             _refreshAttendanceStatusForVisibleStaff();
                                           });
+                                          final isTarget = _isHighlightTarget(
+                                              staff.staffCode);
                                           return Padding(
                                             padding: const EdgeInsets.only(
                                                 bottom: 8.0),
-                                            child: _StaffListItem(
+                                            child: HighlightableCard(
+                                              key: isTarget
+                                                  ? _highlightRowKey
+                                                  : null,
+                                              code: staff.staffCode,
+                                              highlightCode: widget.highlightCode,
+                                              borderRadius: 12,
+                                              onHighlighted: () {
+                                                final ctx = _highlightRowKey
+                                                    .currentContext;
+                                                if (ctx != null) {
+                                                  Scrollable.ensureVisible(
+                                                    ctx,
+                                                    duration: const Duration(
+                                                        milliseconds: 400),
+                                                    alignment: 0.1,
+                                                    curve: Curves.easeOut,
+                                                  );
+                                                }
+                                              },
+                                              child: _StaffListItem(
                                               staff: staff,
                                               isSelected: staffSelections[
                                                       staff.staffCode] ??
@@ -930,11 +1020,14 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                                   formatDesignationForDisplay(
                                                 staff.designation,
                                               ),
+                                              onNameTap: () =>
+                                                  _openStaffProfile(staff),
                                               onSelectionChanged:
                                                   (bool? value) {
                                                 _toggleStaffSelection(
                                                     staff.staffCode, value);
                                               },
+                                            ),
                                             ),
                                           );
                                         },
@@ -973,7 +1066,18 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                     });
                   },
                   onMessageTap: () {},
-                  onProfileTap: null,
+                  onProfileTap: _getSelectedStaffCodes().length == 1
+                      ? () {
+                          final code = _getSelectedStaffCodes().first;
+                          final staff = _allStaff.firstWhere(
+                            (s) => s.staffCode == code,
+                            orElse: () => _filteredStaff.firstWhere(
+                              (s) => s.staffCode == code,
+                            ),
+                          );
+                          _openStaffProfile(staff);
+                        }
+                      : null,
                   onSignIn: () => _openAttendanceActionFlow('sign_in'),
                   onSignOut: () => _openAttendanceActionFlow('sign_out'),
                   onTransfer: () => _openAttendanceActionFlow('transfer'),
@@ -985,7 +1089,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                       _currentPanel = StaffPanelType.none;
                     });
                   },
-                  isProfileEnabled: false,
+                  isProfileEnabled: _getSelectedStaffCodes().length == 1,
                   activitiesEnabled: _getSelectedStaffCodes().isNotEmpty,
                 ),
               ),
@@ -1003,6 +1107,7 @@ class _StaffListItem extends StatelessWidget {
     required this.onSelectionChanged,
     this.todayAttendanceStatusRaw,
     required this.designationLabel,
+    this.onNameTap,
   });
 
   final Staff staff;
@@ -1010,6 +1115,7 @@ class _StaffListItem extends StatelessWidget {
   final ValueChanged<bool?> onSelectionChanged;
   final String? todayAttendanceStatusRaw;
   final String designationLabel;
+  final VoidCallback? onNameTap;
 
   @override
   Widget build(BuildContext context) {
@@ -1076,14 +1182,17 @@ class _StaffListItem extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Expanded(
-              child: Container(
-                color: Colors.transparent,
+            child: InkWell(
+              onTap: onNameTap,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                    staff.name,
+                      staff.name,
                       style: const TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 16,
@@ -1092,7 +1201,7 @@ class _StaffListItem extends StatelessWidget {
                       ),
                     ),
                     Text(
-                    designationLabel,
+                      designationLabel,
                       style: const TextStyle(
                         fontFamily: 'Manrope',
                         color: Color(0xff573353),
@@ -1102,6 +1211,7 @@ class _StaffListItem extends StatelessWidget {
                 ),
               ),
             ),
+          ),
             IconButton(
               color: const Color.fromRGBO(44, 99, 226, 1),
               iconSize: 20,

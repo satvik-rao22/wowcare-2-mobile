@@ -303,11 +303,13 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   Future<Map<String, ClassroomAttendanceSummaryEntry>>
   getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   }) async {
     if (classroomCodes.isEmpty) return <String, ClassroomAttendanceSummaryEntry>{};
 
     final raw = await _remoteDataSource.getStudentAttendanceSummaryByClassrooms(
       classroomCodes: classroomCodes,
+      date: date,
     );
 
     return raw.map(
@@ -324,11 +326,13 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   Future<Map<String, ClassroomAttendanceSummaryEntry>>
   getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   }) async {
     if (classroomCodes.isEmpty) return <String, ClassroomAttendanceSummaryEntry>{};
 
     final raw = await _remoteDataSource.getStaffAttendanceSummaryByClassrooms(
       classroomCodes: classroomCodes,
+      date: date,
     );
 
     return raw.map(
@@ -338,6 +342,54 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
           value is Map<String, dynamic> ? value : <String, dynamic>{},
         ),
       ),
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+    required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
+  }) {
+    return _remoteDataSource.getStudentClassroomEnrolledCount(
+      classroomCode: classroomCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
+    required String classroomCode,
+    required String schoolCode,
+  }) {
+    return _remoteDataSource.getClassroomLogoAssetCodes(
+      classroomCode: classroomCode,
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+    required String classroomCode,
+    required String organizationCode,
+    required String schoolCode,
+  }) {
+    return _remoteDataSource.createClassroomLogoUploadSession(
+      classroomCode: classroomCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+    required String classroomCode,
+    required String assetCode,
+  }) {
+    return _remoteDataSource.finalizeClassroomLogo(
+      classroomCode: classroomCode,
+      assetCode: assetCode,
     );
   }
 }

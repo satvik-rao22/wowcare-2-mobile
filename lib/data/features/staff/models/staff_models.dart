@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:equatable/equatable.dart';
 
 class StaffListItemModel extends Equatable {
@@ -200,7 +201,7 @@ class StaffPageModel extends Equatable {
             (pageNumber + 1) * pageSize < totalElements);
 
     // ignore: avoid_print
-    print('[StaffPageModel] fromJson: page=$pageNumber, size=$pageSize, '
+    AppLogger.d('[StaffPageModel] fromJson: page=$pageNumber, size=$pageSize, '
         'totalPages=$totalPages, totalElements=$totalElements, '
         'itemsOnPage=${items.length}, hasMore=$hasMore');
 
@@ -468,6 +469,7 @@ class StaffProfileModel extends Equatable {
     this.jobTag = '',
     this.clockPin = '',
     this.primaryClassroomCode = '',
+    this.primaryClassroomName = '',
     required this.allowedClassroomCodes,
     required this.address,
     required this.workSchedules,
@@ -493,6 +495,9 @@ class StaffProfileModel extends Equatable {
   final String jobTag;
   final String clockPin;
   final String primaryClassroomCode;
+  /// Human-readable name from the API's `primaryClassroom:{code,name}` object,
+  /// so the header can show it directly without a code→name lookup.
+  final String primaryClassroomName;
   final List<String> allowedClassroomCodes;
   final StaffProfileAddressModel address;
   final List<StaffProfileWorkScheduleModel> workSchedules;
@@ -501,7 +506,10 @@ class StaffProfileModel extends Equatable {
   final String updatedAt;
 
   factory StaffProfileModel.fromJson(Map<String, dynamic> json) {
-    final data = json['data'] as Map<String, dynamic>? ?? {};
+    // The endpoint may wrap the staff under `data` OR return it flat. Falling
+    // back to `{}` blanked EVERY field (name, classroom, …) on the flat shape —
+    // use the flat json itself when there's no `data` wrapper.
+    final data = json['data'] as Map<String, dynamic>? ?? json;
     // Backend variants:
     // - Newer: address is nested under `address`
     // - Legacy/current UAT: address fields are top-level: addressStreet, addressCity, ...
@@ -527,10 +535,19 @@ class StaffProfileModel extends Equatable {
       return value?.toString() ?? '';
     }
 
+    String _extractClassroomName(dynamic value) {
+      if (value is Map<String, dynamic>) {
+        return value['name']?.toString().trim() ?? '';
+      }
+      return '';
+    }
+
     final primaryFromObject = _extractClassroomCode(data['primaryClassroom']);
     final primaryClassroomCode = primaryFromObject.isNotEmpty
         ? primaryFromObject
         : (data['primaryClassroomCode'] as String? ?? '');
+    final primaryClassroomName =
+        _extractClassroomName(data['primaryClassroom']);
 
     // New backend shape:
     // - allowedClassrooms: [{code,name}, ...]
@@ -560,12 +577,15 @@ class StaffProfileModel extends Equatable {
       phoneNumber: data['phoneNumber'] as String? ?? '',
       profilePhotoUrl: data['profilePhotoUrl'] as String? ?? '',
       birthDate: data['birthDate'] as String? ?? '',
-      staffType: data['staffType'] as String? ?? '',
+      staffType: (data['staffType'] as String?)?.trim().isNotEmpty == true
+          ? (data['staffType'] as String).trim()
+          : (data['role'] as String? ?? '').trim(),
       status: data['status'] as String? ?? '',
       designation: data['designation'] as String? ?? '',
       jobTag: data['jobTag'] as String? ?? '',
       clockPin: data['clockPin'] as String? ?? '',
       primaryClassroomCode: primaryClassroomCode,
+      primaryClassroomName: primaryClassroomName,
       allowedClassroomCodes: allowedCodes,
       address: StaffProfileAddressModel.fromJson(addressJson),
       workSchedules: workSchedulesJson
@@ -627,12 +647,15 @@ class StaffProfileModel extends Equatable {
       phoneNumber: json['phoneNumber'] as String? ?? '',
       profilePhotoUrl: json['profilePhotoUrl'] as String? ?? '',
       birthDate: json['birthDate'] as String? ?? '',
-      staffType: json['staffType'] as String? ?? '',
+      staffType: (json['staffType'] as String?)?.trim().isNotEmpty == true
+          ? (json['staffType'] as String).trim()
+          : (json['role'] as String? ?? '').trim(),
       status: json['status'] as String? ?? '',
       designation: json['designation'] as String? ?? '',
       jobTag: json['jobTag'] as String? ?? '',
       clockPin: json['clockPin'] as String? ?? '',
       primaryClassroomCode: json['primaryClassroomCode'] as String? ?? '',
+      primaryClassroomName: json['primaryClassroomName'] as String? ?? '',
       allowedClassroomCodes: allowedCodes,
       address: StaffProfileAddressModel.fromJson(addressJson),
       workSchedules: workSchedulesJson
@@ -665,6 +688,7 @@ class StaffProfileModel extends Equatable {
       'jobTag': jobTag,
       'clockPin': clockPin,
       'primaryClassroomCode': primaryClassroomCode,
+      'primaryClassroomName': primaryClassroomName,
       'allowedClassroomCodes': allowedClassroomCodes,
       'address': address.toJson(),
       'workSchedules': workSchedules.map((e) => e.toJson()).toList(),

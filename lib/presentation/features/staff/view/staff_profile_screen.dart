@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -17,7 +19,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
@@ -34,7 +36,17 @@ class StaffProfileScreen extends StatefulWidget {
     this.employmentStatus,
     this.classroomNames,
     this.classroomNameByCode,
+    this.initialTabIndex = 0,
+    this.highlightCode,
   });
+
+  /// Tab to open on entry (0 Profile, 1 Dates, 2 Documents) — set by
+  /// notification deep-links.
+  final int initialTabIndex;
+
+  /// Row code to highlight inside the opened tab (e.g. documentCode on the
+  /// Documents tab). Null for normal navigation.
+  final String? highlightCode;
 
   final String staffCode;
   final String name;
@@ -55,7 +67,6 @@ class StaffProfileScreen extends StatefulWidget {
 class _StaffProfileScreenState extends State<StaffProfileScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
-  final ImagePicker _picker = ImagePicker();
 
   late String _displayName;
   late String _displayDesignation;
@@ -93,17 +104,58 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _displayName = widget.name;
     _displayDesignation = _formatEnumLabel(widget.designation);
     _displayClassroom = widget.classroom;
     _loadUploadContext();
+    // Deep-link case: opened by code straight to a non-Profile tab. The summary
+    // (name/designation/classroom) is normally pushed up by the Profile tab,
+    // which TabBarView builds lazily — so it never runs when we land on Dates or
+    // Documents. Fetch here too so the header loads regardless of the tab.
+    _ensureHeaderProfileLoaded();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // If classroom is a code (or not present in passed cache), resolve using
       // classrooms API WITHOUT type=CLASSROOM filter.
       _ensureClassroomResolved();
     });
+  }
+
+  /// Loads the staff profile at the screen level so the header (name,
+  /// designation, classroom, photo) populates even when the user deep-links
+  /// straight to a tab other than Profile. Only runs when we were opened by code
+  /// without a pre-supplied name (the notification-redirect path).
+  Future<void> _ensureHeaderProfileLoaded() async {
+    final code = widget.staffCode.trim();
+    if (code.isEmpty || _displayName.trim().isNotEmpty) return;
+    try {
+      final profile =
+          await serviceLocator<StaffRepository>().getStaffProfile(staffCode: code);
+      if (!mounted) return;
+      setState(() {
+        final name = profile.fullName.trim();
+        if (name.isNotEmpty) _displayName = name;
+        final designation = profile.designation.trim();
+        if (designation.isNotEmpty) {
+          _displayDesignation = _formatEnumLabel(designation);
+        }
+        final photo = profile.profilePhotoUrl.trim();
+        if (photo.isNotEmpty) _profilePhotoUrl = photo;
+      });
+      // Prefer the human-readable name the API already returns; fall back to the
+      // code (which _applyHeaderClassroomFromProfile then resolves to a name).
+      final classroomName = profile.primaryClassroomName.trim();
+      _applyHeaderClassroomFromProfile(
+        classroomName.isNotEmpty ? classroomName : profile.primaryClassroomCode,
+      );
+    } catch (_) {
+      // Profile tab's own load still surfaces errors when visited.
+    }
   }
 
   Future<void> _loadUploadContext() async {
@@ -218,8 +270,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
 
   Future<void> _pickProfileImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
+      // Shared file picker → every allowed image format is selectable.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
+      );
+      final imagePath = picked?.path;
+      if (imagePath == null || imagePath.isEmpty) return;
       final staffCode = widget.staffCode.trim();
       if (staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -247,16 +304,18 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       setState(() => _isUploadingProfilePhoto = true);
       setState(() => _profilePhotoUploadPercent = 0);
       final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(image.path);
+      final file = File(imagePath);
       final sessionCode = await uploadService.createStaffProfilePhotoUploadSession(
         staffCode: staffCode,
         schoolCode: schoolCode,
         organizationCode: organizationCode,
       );
       if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = image.path.toLowerCase();
+      final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final mime = FilePickerUtils.getMimeType(
+          fileName.contains('.') ? fileName.split('.').last : '');
+      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',
@@ -337,7 +396,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   Widget build(BuildContext context) {
     return GlobalScaffold(
       hasBackButton: true,
-      showCustomNavigationBar: false,
+      showCustomNavigationBar: true,
       body: Column(
         children: [
           SingleChildScrollView(
@@ -392,7 +451,10 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   },
                 ),
                 StaffDatesTab(staffCode: widget.staffCode),
-                StaffDocumentsTab(staffCode: widget.staffCode),
+                StaffDocumentsTab(
+                  staffCode: widget.staffCode,
+                  highlightCode: widget.highlightCode,
+                ),
               ],
             ),
           ),
@@ -419,7 +481,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       DocumentImageWidget(
                         fileUuid: widget.staffCode,
                         imageUrl: _profilePhotoUrl,
-                        name: widget.name,
+                        // Use the resolved display name so the no-photo branch
+                        // renders the coloured initials avatar. On a deep-link
+                        // widget.name starts empty, which fell back to the grey
+                        // placeholder instead of initials.
+                        name: _displayName.trim().isNotEmpty
+                            ? _displayName
+                            : widget.name,
                         staffCode: widget.staffCode,
                         staffEmploymentStatus: widget.employmentStatus,
                         size: 90,
@@ -613,23 +681,15 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               ),
             );
           }),
-          _buildActionIcon(MediaRes.timerIcon, onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StudentAttendanceProfile(
-                  studentCode: '',
-                  studentId: 0, // Staff profile - using placeholder ID
-                  studentName: widget.name,
-                  studentPhotoUuid: null,
-                  roomName: widget.classroom,
-                  isSignedIn: false,
-                  isAbsent: false,
-                  isExpectedToday: true,
-                  isPresentToday: false,
-                  profileStatus: 'A',
-                ),
-              ),
+          // Staff Scheduling — opens scheduling pre-selected on this staff.
+          _buildActionIcon(MediaRes.staff_Schedule_drawer_icon, onTap: () {
+            final code = widget.staffCode.trim();
+            if (code.isEmpty) return;
+            context.go(
+              Uri(
+                path: StaffSchedulingScreen.routeName,
+                queryParameters: <String, String>{'staffCode': code},
+              ).toString(),
             );
           }),
           _buildActionIcon(MediaRes.communicationIcon, onTap: () {}),

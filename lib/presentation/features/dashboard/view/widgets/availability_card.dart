@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
 import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
@@ -227,7 +229,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
             child: DashboardCardHeader(
               title: 'Availability',
               showRedirect: true,
-              onRedirect: () {},
+              onRedirect: () => context.go(FutureAvailabilityScreen.routeName),
               minimized: _minimized,
               onToggle: () {
                 setState(() {

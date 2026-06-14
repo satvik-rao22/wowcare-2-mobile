@@ -3,6 +3,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/cache/cache_service.dart';
 import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
+// Communication v2.1 schemas
+import 'package:wowcare/data/features/communication/models/conversation_entity_collection.dart';
+import 'package:wowcare/data/features/communication/models/message_entity_collection.dart';
+import 'package:wowcare/data/features/communication/models/unread_entity_collection.dart';
+import 'package:wowcare/data/features/communication/models/sync_queue_collection.dart';
 
 class IsarCacheService implements CacheService {
   late Isar _isar;
@@ -10,8 +15,14 @@ class IsarCacheService implements CacheService {
   Future<void> init() async {
     final dir = await getApplicationDocumentsDirectory();
     _isar = await Isar.open([
+      // Existing schemas — do not remove
       MessageCollectionSchema,
       ConversationCollectionSchema,
+      // Communication v2.1 schemas
+      ConversationEntityCollectionSchema,
+      MessageEntityCollectionSchema,
+      UnreadEntityCollectionSchema,
+      SyncQueueCollectionSchema,
     ], directory: dir.path);
   }
 

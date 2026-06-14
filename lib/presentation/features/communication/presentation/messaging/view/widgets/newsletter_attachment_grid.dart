@@ -79,6 +79,9 @@ class NewsletterAttachmentGrid extends StatelessWidget {
           itemBuilder: (BuildContext context, int index) {
             final NewsletterAttachment attachment = attachments[index];
             return _AttachmentTile(
+              key: ValueKey<String>(
+                '${attachment.id}|${attachment.mediaCode}|${attachment.resolvedUrl}',
+              ),
               attachment: attachment,
               showFileName: showFileName,
             );
@@ -91,6 +94,7 @@ class NewsletterAttachmentGrid extends StatelessWidget {
 
 class _AttachmentTile extends StatefulWidget {
   const _AttachmentTile({
+    super.key,
     required this.attachment,
     required this.showFileName,
   });
@@ -103,7 +107,7 @@ class _AttachmentTile extends StatefulWidget {
 }
 
 class _AttachmentTileState extends State<_AttachmentTile> {
-  late final Future<String> _assetUrlFuture;
+  late Future<String> _assetUrlFuture;
 
   @override
   void initState() {
@@ -111,7 +115,19 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     _assetUrlFuture = _resolveAssetUrl();
   }
 
+  @override
+  void didUpdateWidget(covariant _AttachmentTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.attachment.resolvedUrl != widget.attachment.resolvedUrl ||
+        oldWidget.attachment.mediaCode != widget.attachment.mediaCode) {
+      _assetUrlFuture = _resolveAssetUrl();
+    }
+  }
+
   Future<String> _resolveAssetUrl() async {
+    final String direct = widget.attachment.resolvedUrl;
+    if (direct.isNotEmpty) return direct;
+
     final String code = widget.attachment.mediaCode.trim();
     if (code.isEmpty) return '';
     try {
@@ -235,8 +251,10 @@ class _AttachmentTileState extends State<_AttachmentTile> {
     if (attachment.isImage && hasUrl) {
       return Image.network(
         url,
+        key: ValueKey<String>(url),
         fit: BoxFit.cover,
         width: double.infinity,
+        gaplessPlayback: false,
         errorBuilder: (_, __, ___) => Image.asset(
           MediaRes.deafultNewsletterImage,
           fit: BoxFit.cover,

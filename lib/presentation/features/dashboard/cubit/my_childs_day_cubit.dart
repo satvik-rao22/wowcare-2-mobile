@@ -6,9 +6,12 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule.dart';
+
+import '../../../../core/util/storage_keys.dart';
 
 part 'my_childs_day_state.dart';
 
@@ -31,11 +34,19 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
   Timer? _clockTimer;
 
+  void _safeEmit(MyChildsDayState state) {
+    if (!isClosed) {
+      try {
+        emit(state);
+      } catch (_) {}
+    }
+  }
+
   Future<void> loadForChild({required String studentCode}) async {
     final code = studentCode.trim();
     if (code.isEmpty) {
       _stopClock();
-      emit(const MyChildsDayState.initial());
+      _safeEmit(const MyChildsDayState.initial());
       return;
     }
 
@@ -44,7 +55,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
     }
 
     _stopClock();
-    emit(
+    _safeEmit(
       state.copyWith(
         status: MyChildsDayStatus.loading,
         studentCode: code,
@@ -53,42 +64,99 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
     );
 
     try {
-      final profile = await _getStudentProfileUseCase(code: code);
       final tz = await SchoolTimezoneResolver.resolveForCurrentSchool(
         storage: _storageService,
         apiClient: _apiClient,
       );
+      if (isClosed) return;
+
+      final results = await Future.wait([
+        _getStudentProfileUseCase(code: code)
+            .then<Object?>((v) => v)
+            .onError((_, __) => null),
+        _studentRepository
+            .getStudentRegularSchedules(studentCode: code)
+            .then<Object?>((v) => v)
+            .onError((_, __) => <StudentRegularScheduleEntry>[]),
+      ], eagerError: false);
+      if (isClosed) return;
+
+      final profile = results[0];
+      final regularSchedules =
+          (results[1] as List<StudentRegularScheduleEntry>?) ??
+          <StudentRegularScheduleEntry>[];
 
       final todayKey = _schoolDowKey(tz);
-      final todayRange = (profile.scheduleByDay[todayKey] ?? '').trim();
 
-      var guardianClockPin = '';
-      final repo = _studentRepository;
-      if (repo is StudentRepositoryImpl) {
-        try {
-          final guardians = await repo.getStudentGuardians(studentCode: code);
-          final primary = guardians.where((g) => g.primaryContact).firstOrNull;
-          final withPin = guardians
-              .where((g) => (g.clockPin ?? '').trim().isNotEmpty)
-              .toList();
-          guardianClockPin =
-              (primary?.clockPin ?? (withPin.firstOrNull?.clockPin ?? ''))
-                  .trim();
-        } catch (_) {
-          // Non-blocking: pin is optional for dashboard display.
+      // Derive todayScheduleRange from the dedicated schedule API.
+      String todayRange = '';
+      for (final entry in regularSchedules) {
+        if (entry.dayOfWeek.toUpperCase() == todayKey) {
+          final startLabel = _fmtHM(entry.startHour, entry.startMinute);
+          final endLabel = _fmtHM(entry.endHour, entry.endMinute);
+          todayRange = '$startLabel - $endLabel';
+          break;
         }
       }
 
-      emit(
+      var guardianClockPin = '';
+      try {
+        final guardians = await _studentRepository.getStudentGuardians(
+          studentCode: code,
+        );
+        final loggedInUserCode =
+            (await _storageService.getString(StorageKeys.userCode) ?? '')
+                .trim();
+        final loggedInGuardianCode =
+            (await _storageService.getString(StorageKeys.guardianCode) ?? '')
+                .trim();
+
+        final withPin = guardians
+            .where((g) => (g.clockPin ?? '').trim().isNotEmpty)
+            .toList(growable: false);
+
+        StudentGuardian? matchForUser;
+        if (loggedInUserCode.isNotEmpty || loggedInGuardianCode.isNotEmpty) {
+          for (final g in withPin) {
+            if (loggedInUserCode.isNotEmpty &&
+                g.userCode.trim() == loggedInUserCode) {
+              matchForUser = g;
+              break;
+            }
+            if (loggedInGuardianCode.isNotEmpty &&
+                g.guardianCode.trim() == loggedInGuardianCode) {
+              matchForUser = g;
+              break;
+            }
+          }
+        }
+
+        final primaryWithPin = withPin
+            .where((g) => g.primaryContact)
+            .firstOrNull;
+
+        guardianClockPin =
+            ((matchForUser?.clockPin) ??
+                    (primaryWithPin?.clockPin) ??
+                    (withPin.firstOrNull?.clockPin) ??
+                    '')
+                .trim();
+      } catch (_) {
+        // Non-blocking: pin is optional for dashboard display.
+      }
+
+      final typedProfile = profile as dynamic;
+      _safeEmit(
         state.copyWith(
           status: MyChildsDayStatus.loaded,
           studentCode: code,
-          fullName: profile.fullName.trim(),
-          classroomName: (profile.classroomName ?? '').trim(),
-          schoolCode: profile.schoolCode.trim(),
+          fullName: (typedProfile?.fullName as String? ?? '').trim(),
+          classroomName: ((typedProfile?.classroomName as String?) ?? '').trim(),
+          schoolCode: (typedProfile?.schoolCode as String? ?? '').trim(),
           schoolTimeZone: tz,
           todayDayOfWeek: todayKey,
           todayScheduleRange: todayRange,
+          allRegularSchedules: regularSchedules,
           schoolNow: SchoolZoneDateTime.dateTimeFromInstantInSchool(
             DateTime.now().toUtc(),
             tz,
@@ -100,7 +168,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
       _startClock(tz);
     } catch (e) {
-      emit(
+      _safeEmit(
         state.copyWith(
           status: MyChildsDayStatus.error,
           studentCode: code,
@@ -111,9 +179,14 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
   }
 
   void _startClock(String iana) {
+    if (isClosed) return;
     _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (isClosed) {
+        _stopClock();
+        return;
+      }
       if (state.status != MyChildsDayStatus.loaded) return;
-      emit(
+      _safeEmit(
         state.copyWith(
           schoolNow: SchoolZoneDateTime.dateTimeFromInstantInSchool(
             DateTime.now().toUtc(),
@@ -127,6 +200,12 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
   void _stopClock() {
     _clockTimer?.cancel();
     _clockTimer = null;
+  }
+
+  static String _fmtHM(int hour, int minute) {
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final h = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$h:${minute.toString().padLeft(2, '0')} $period';
   }
 
   String _schoolDowKey(String iana) {

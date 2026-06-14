@@ -7,23 +7,34 @@ class CustomButtonLayout extends StatelessWidget {
   const CustomButtonLayout({
     required this.confirmButtonLabel,
     required this.onPressedConfirm,
+    this.confirmButtonChild,
+    this.onDisabledConfirmTap,
+    this.disabledConfirmTooltip,
     this.cancelButtonLabel,
     this.onPressedCancel,
     this.showCancelButton = true,
     this.isForm = true,
     this.isLoading = false,
+    this.gradientCancelLabel = false,
     super.key,
   });
 
   final String confirmButtonLabel;
+  final Widget? confirmButtonChild;
   final String? cancelButtonLabel;
   final void Function()? onPressedConfirm;
   final void Function()? onPressedCancel;
+  final VoidCallback? onDisabledConfirmTap;
+  final String? disabledConfirmTooltip;
   final bool showCancelButton;
   final bool isForm;
   /// When true, shows a white loader on top of the confirm button
   /// and disables all button interactions.
   final bool isLoading;
+
+  /// When true, the cancel button's label text is painted with the primary
+  /// gradient instead of the flat primary color.
+  final bool gradientCancelLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +55,7 @@ class CustomButtonLayout extends StatelessWidget {
                 child: CustomCancelButton(
                   cancelButtonLabel: cancelButtonLabel,
                   onPressedCancel: onPressedCancel,
+                  gradientLabel: gradientCancelLabel,
                 ),
               ),
             if (showCancelButton) const SizedBox(width: 16),
@@ -53,9 +65,24 @@ class CustomButtonLayout extends StatelessWidget {
                 children: [
                   Opacity(
                     opacity: isLoading ? 0.6 : 1,
-                    child: CustomConfirmButton(
-                      label: confirmButtonLabel,
-                      onPressed: onPressedConfirm,
+                    child: Tooltip(
+                      message: (onPressedConfirm == null &&
+                              disabledConfirmTooltip != null)
+                          ? disabledConfirmTooltip!
+                          : '',
+                      preferBelow: false,
+                      verticalOffset: 14,
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: (onPressedConfirm == null && !isLoading)
+                            ? onDisabledConfirmTap
+                            : null,
+                        child: CustomConfirmButton(
+                          label: confirmButtonLabel,
+                          widget: confirmButtonChild,
+                          onPressed: onPressedConfirm,
+                        ),
+                      ),
                     ),
                   ),
                   if (isLoading)

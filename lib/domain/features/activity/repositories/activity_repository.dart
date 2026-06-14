@@ -153,5 +153,9 @@ abstract class ActivityRepository {
     required String ownerType,
     required String ownerCode,
   });
+
+  /// Returns count of pending incident approvals via
+  /// `GET /api/v2/activities/admin/activities/pending-incident-count`.
+  Future<int> getPendingIncidentCount();
 }
 

@@ -8,7 +8,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:rich_field_controller/rich_field_controller.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/cubit/bulk_messaging_composition_cubit.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -23,9 +22,11 @@ class MessageCompositionBulkMessaging extends StatefulWidget {
     super.key,
     required this.selectedRecipients,
     required this.isStaff,
+    this.conversationType = 'ROOM_CHAT',
   });
   final List<Map<String, dynamic>> selectedRecipients;
   final bool isStaff;
+  final String conversationType;
 
   @override
   State<MessageCompositionBulkMessaging> createState() =>
@@ -100,6 +101,7 @@ class _MessageCompositionBulkMessagingState
     _compositionCubit = BulkMessagingCompositionCubit(
       initialRecipients: widget.selectedRecipients,
       isStaff: widget.isStaff,
+      conversationType: widget.conversationType,
       createConversationUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
       storageService: serviceLocator(),
@@ -159,21 +161,18 @@ class _MessageCompositionBulkMessagingState
         builder: (context, compositionState) {
           return Scaffold(
             backgroundColor: Colors.white,
+            resizeToAvoidBottomInset: true,
             appBar: const CustomAppBar(hasBackButton: true),
-            body: BlocListener<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
+            body: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              child: BlocListener<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
               listener: (context, state) {
                 if (!context.mounted) return;
                 if (state.isSuccess) {
-                  CoreUtils.showTopSnackBar(
-                    context: context,
-                    message: state.progressMessage.isNotEmpty
-                        ? state.progressMessage
-                        : 'Messages sent successfully!',
-                    isWarning: false,
-                  );
-                  Navigator.of(context).popUntil((route) {
-                    return route.settings.name == MessagingScreen.routeName;
-                  });
+                  final nav = Navigator.of(context);
+                  if (nav.canPop()) nav.pop(); // pop composition → selection
+                  if (nav.canPop()) nav.pop(); // pop selection → MessagingTab
                 } else if (state.errorMessage != null) {
                   CoreUtils.showTopSnackBar(
                     context: context,
@@ -201,6 +200,7 @@ class _MessageCompositionBulkMessagingState
                       Expanded(
                         child: SingleChildScrollView(
                           physics: const AlwaysScrollableScrollPhysics(),
+                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                           child: Column(
                             children: [
                               SizedBox(height: responsive.verticalSpacing),
@@ -496,6 +496,7 @@ class _MessageCompositionBulkMessagingState
                 ],
               ),
             ),
+            ), // GestureDetector
             bottomNavigationBar: _buildBottomBar(
               context,
               responsive,
@@ -595,7 +596,7 @@ class _MessageCompositionBulkMessagingState
               child: TextButton(
                 onPressed: () {
                   if (compositionState.canSend) {
-                    _compositionCubit.sendMessages();
+                    _compositionCubit.sendMessages(context);
                   } else if (!compositionState.isLoading) {
                     CoreUtils.showTopSnackBar(
                       context: context,

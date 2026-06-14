@@ -1,6 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -10,6 +11,7 @@ import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dar
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -20,8 +22,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 
 class TabBarStyle {
@@ -61,6 +63,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.notificationCount = 0,
     this.isParent = false,
     this.studentList,
+    this.isKiosk = false,
     super.key,
   });
 
@@ -71,6 +74,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int notificationCount;
   final bool isParent;
   final List<String>? studentList;
+  final bool isKiosk;
 
   @override
   Size get preferredSize => Size.fromHeight(
@@ -81,7 +85,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final bool hasTabs =
         tabs != null && tabController != null && tabs!.isNotEmpty;
-    final bool isParentPersona = context.read<RoleProvider>().isParent;
+    final bool isParentPersona = context.read<RoleCubit>().isParent;
     // Capture the current route name once per build so menu actions can
     // skip pushing a duplicate when the user is already on that screen.
     final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
@@ -111,22 +115,22 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       foregroundColor: Colors.black,
       titleSpacing: 0,
       title: isParent
-          ? Consumer<ParentChildProvider>(
-              builder: (context, parentChildProvider, _) {
-                final names = parentChildProvider.childNames;
-                final canPickChild =
-                    !parentChildProvider.isLoading && names.isNotEmpty;
+          ? BlocBuilder<ParentChildCubit, ParentChildState>(
+              builder: (context, state) {
+                final cubit = context.read<ParentChildCubit>();
+                final names = cubit.childNames;
+                final canPickChild = !state.isLoading && names.isNotEmpty;
                 return Padding(
                   padding: const EdgeInsets.only(left: 20),
                   child: SizedBox(
                     width: 220,
                     child: CustomDropdown(
-                      hintText: parentChildProvider.isLoading
+                      hintText: state.isLoading
                           ? 'Loading children...'
                           : 'No children linked',
                       items: names,
-                      selectedItem: parentChildProvider.selectedChild?.name,
-                      onSelect: parentChildProvider.selectByName,
+                      selectedItem: state.selectedChild?.name,
+                      onSelect: cubit.selectByName,
                       prependHintAsSelectableItem: false,
                       isEnabled: canPickChild,
                     ),
@@ -139,15 +143,17 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? IconButton(
               icon: SvgPicture.asset(MediaRes.backButton),
               onPressed: () {
-                // Always do something useful: pop one level if possible,
-                // otherwise go home to Dashboard. Previously this was just
-                // Navigator.maybePop — which silently does nothing on a tab
-                // branch root (e.g. /messageFeed for staff has
-                // hasBackButton:true but nothing to pop), so the back icon
-                // appeared broken.
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
+                // Use GoRouter's navigation for proper back handling in shell routes.
+                // In StatefulShellRoute, context.canPop() may not work as expected because
+                // the route hierarchy differs from traditional Navigator stacks.
+                // Always try to pop from the shell context first, preserving route history.
+                debugPrint('[CustomAppBar] Back button pressed. '
+                    'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}');
+
+                if (context.canPop()) {
+                  context.pop();
                 } else {
+                  // Fallback: navigate to dashboard if nothing to pop
                   context.go(DashboardScreen.routeName);
                 }
               },
@@ -159,54 +165,62 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
       actions: [
-        IconButton(
-          icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
-          onPressed: () {},
-        ),
-        Stack(
-          children: [
-            IconButton(
-              icon: SvgPicture.asset(
-                MediaRes.notificationsIcon,
-                width: 22,
-                height: 22,
+        if (!isKiosk)
+          IconButton(
+            icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
+            onPressed: () {},
+          ),
+        if (!isKiosk)
+          Stack(
+            children: [
+              IconButton(
+                icon: SvgPicture.asset(
+                  MediaRes.notificationsIcon,
+                  width: 22,
+                  height: 22,
+                ),
+                onPressed: () {
+                  // Don't stack a second notification page when the bell is
+                  // tapped again while already on it.
+                  if (currentRoute == NotificationCenterScreen.routeName) return;
+                  context.push(NotificationCenterScreen.routeName);
+                },
               ),
-              onPressed: () {},
-            ),
-            if (notificationCount > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color.fromRGBO(179, 38, 30, 1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    notificationCount > 99 ? '99+' : '$notificationCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+              if (notificationCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color.fromRGBO(179, 38, 30, 1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      notificationCount > 99 ? '99+' : '$notificationCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
-        ),
-        PopupMenuButton<int>(
-          constraints: const BoxConstraints(maxWidth: 240),
-          icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
-          offset: const Offset(0, 48),
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            ],
           ),
-          itemBuilder: (context) => [
+        if (!isKiosk)
+          PopupMenuButton<int>(
+            constraints: const BoxConstraints(maxWidth: 240),
+            icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
+            offset: const Offset(0, 48),
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            itemBuilder: (context) => [
             PopupMenuItem<int>(
               enabled: false,
               height: 64,

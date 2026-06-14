@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_list_tab.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 import '../../../../../../app/theme/colors.dart';
@@ -37,7 +37,7 @@ class _ParentNewsletterScreenState extends State<ParentNewsletterScreen>
   }
 
   void _syncSelectedChild() {
-    final parentChild = context.read<ParentChildProvider>();
+    final parentChild = context.read<ParentChildCubit>();
     if (!parentChild.isLoaded && !parentChild.isLoading) {
       Future.microtask(parentChild.ensureLoaded);
     }
@@ -128,9 +128,9 @@ class _ParentNewsletterScreenState extends State<ParentNewsletterScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ParentChildProvider>(
-      builder: (context, parentChild, _) {
-        final selectedCode = (parentChild.selectedChild?.code ?? '').trim();
+    return BlocBuilder<ParentChildCubit, ParentChildState>(
+      builder: (context, state) {
+        final selectedCode = (state.selectedChild?.code ?? '').trim();
         if (selectedCode.isNotEmpty && selectedCode != _trackedChildCode) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;

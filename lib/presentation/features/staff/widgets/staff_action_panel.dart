@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 
 enum StaffPanelType { attendance, activities, none }
 
@@ -36,6 +37,7 @@ class StaffActionPanel extends StatefulWidget {
   final VoidCallback? onAbsent;
   final bool isProfileEnabled;
   final bool activitiesEnabled;
+
   /// Enables/disables attendance sub-actions (Sign-In, Sign-Out, Transfer, Absent)
   /// from the current selection's attendance state.
   final StaffAttendanceActionAvailability attendanceAvailability;
@@ -71,6 +73,7 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
   }
 
   void _toggleActivitiesPanel() {
+    if (!widget.activitiesEnabled) return;
     setState(() {
       _current = _current == StaffPanelType.activities
           ? StaffPanelType.none
@@ -79,12 +82,18 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
     widget.onActivitiesTap?.call();
   }
 
+  bool get _showActivitiesPanel =>
+      widget.activitiesEnabled && _current == StaffPanelType.activities;
+
+  bool get _showExpandedPanel =>
+      _current == StaffPanelType.attendance || _showActivitiesPanel;
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (_current != StaffPanelType.none)
+        if (_showExpandedPanel)
           Padding(
             padding: const EdgeInsets.only(right: 8),
             child: _current == StaffPanelType.attendance
@@ -107,7 +116,10 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
               borderRadius: BorderRadius.circular(10),
               elevation: 3,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   gradient: AppColors.buildPrimaryGradient(
                     begin: Alignment.topCenter,
@@ -124,13 +136,15 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                       onTap: _toggleAttendancePanel,
                       isSelected: _current == StaffPanelType.attendance,
                     ),
-                    const SizedBox(height: 20),
-                    _ActionButton(
-                      svgPath: MediaRes.activity_panel_icon,
-                      label: 'Activities',
-                      onTap: _toggleActivitiesPanel,
-                      isSelected: _current == StaffPanelType.activities,
-                    ),
+                    if (widget.activitiesEnabled) ...[
+                      const SizedBox(height: 20),
+                      _ActionButton(
+                        svgPath: MediaRes.activity_panel_icon,
+                        label: 'Activities',
+                        onTap: _toggleActivitiesPanel,
+                        isSelected: _current == StaffPanelType.activities,
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     _ActionButton(
                       svgPath: MediaRes.message_panel_icon,
@@ -141,7 +155,9 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                     _ActionButton(
                       svgPath: MediaRes.profile_panel_icon,
                       label: 'Profile',
-                      onTap: widget.isProfileEnabled ? widget.onProfileTap : null,
+                      onTap: widget.isProfileEnabled
+                          ? widget.onProfileTap
+                          : null,
                       isEnabled: widget.isProfileEnabled,
                       disabledTooltip: 'Select only one to view profile',
                     ),
@@ -168,17 +184,13 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: () {
-                    setState(() => _current = StaffPanelType.none);
+                      setState(() => _current = StaffPanelType.none);
                       widget.onClearSelections?.call();
                     },
                     customBorder: const CircleBorder(),
                     child: const Padding(
                       padding: EdgeInsets.all(10.0),
-                      child: Icon(
-                        Icons.close,
-                        color: Colors.white,
-                        size: 20,
-                      ),
+                      child: Icon(Icons.close, color: Colors.white, size: 20),
                     ),
                   ),
                 ),
@@ -206,8 +218,21 @@ class _AttendanceOptionsPanel extends StatelessWidget {
   final VoidCallback? onAbsent;
   final StaffAttendanceActionAvailability availability;
 
-  static const String _disabledTooltip =
-      'This action is not allowed for current attendance state';
+  /// Per-action message explaining why an attendance action is disabled —
+  /// mirrors the attendance pop-up. Empty string means "no tooltip".
+  static String _disabledReason(String action) {
+    switch (action) {
+      case 'Sign-In':
+        return 'Sign-In can only be done for Students/Staff not signed in.';
+      case 'Sign-Out':
+        return 'Sign-Out can only be done for Students/Staff already signed in.';
+      case 'Transfer':
+        return 'Transfer can only be done for Students/Staff already signed in.';
+      case 'Absent':
+        return 'Absent can only be done for Students/Staff not yet signed in.';
+    }
+    return '';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -235,7 +260,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
             label: 'Sign-In',
             onTap: availability.signInEnabled ? onSignIn : null,
             isEnabled: availability.signInEnabled,
-            disabledTooltip: _disabledTooltip,
+            disabledTooltip: _disabledReason('Sign-In'),
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
@@ -243,7 +268,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
             label: 'Sign-Out',
             onTap: availability.signOutEnabled ? onSignOut : null,
             isEnabled: availability.signOutEnabled,
-            disabledTooltip: _disabledTooltip,
+            disabledTooltip: _disabledReason('Sign-Out'),
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
@@ -251,7 +276,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
             label: 'Transfer',
             onTap: availability.transferEnabled ? onTransfer : null,
             isEnabled: availability.transferEnabled,
-            disabledTooltip: _disabledTooltip,
+            disabledTooltip: _disabledReason('Transfer'),
           ),
           const SizedBox(height: 5),
           _AttendanceActionItem(
@@ -259,7 +284,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
             label: 'Absent',
             onTap: availability.absentEnabled ? onAbsent : null,
             isEnabled: availability.absentEnabled,
-            disabledTooltip: _disabledTooltip,
+            disabledTooltip: _disabledReason('Absent'),
           ),
         ],
       ),
@@ -307,7 +332,7 @@ class _ActivitiesOptionsPanel extends StatelessWidget {
                 onTap: onAnyActivityTap,
               ),
               if (i < items.length - 1) const SizedBox(height: 5),
-            ]
+            ],
           ],
         ),
       ),
@@ -336,12 +361,8 @@ class _AttendanceActionItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double opacity = isEnabled ? 1.0 : 0.45;
-    return Tooltip(
+    return AppTooltip(
       message: !isEnabled ? disabledTooltip : '',
-      preferBelow: false,
-      triggerMode: TooltipTriggerMode.tap,
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-      showDuration: const Duration(seconds: 5),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Opacity(
@@ -356,11 +377,7 @@ class _AttendanceActionItem extends StatelessWidget {
                   color: Colors.blue.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: SvgPicture.asset(
-                  svgPath,
-                  height: 24,
-                  width: 24,
-                ),
+                child: SvgPicture.asset(svgPath, height: 24, width: 24),
               ),
               const SizedBox(height: 5),
               Text(
@@ -401,12 +418,8 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double opacity = isEnabled ? 1.0 : 0.5;
-    return Tooltip(
+    return AppTooltip(
       message: !isEnabled ? disabledTooltip : '',
-      preferBelow: false,
-      triggerMode: TooltipTriggerMode.tap,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      showDuration: const Duration(seconds: 5),
       child: InkWell(
         onTap: isEnabled ? onTap : null,
         child: Opacity(
@@ -425,10 +438,7 @@ class _ActionButton extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ],
           ),
@@ -473,5 +483,3 @@ class _ActivityPngItem extends StatelessWidget {
     );
   }
 }
-
-

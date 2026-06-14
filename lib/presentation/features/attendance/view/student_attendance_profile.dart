@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -13,20 +16,18 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
@@ -64,11 +65,14 @@ class _AttendanceField extends StatelessWidget {
       children: [
         SizedBox(
           width: 120,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
-              fontSize: 14,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -99,12 +103,15 @@ class _AttendanceField extends StatelessWidget {
                 const SizedBox(width: 6),
               ],
               Flexible(
-                child: AppText.value(
+                child: Text(
                   text,
                   textAlign: TextAlign.end,
                   style: const TextStyle(
-                    fontSize: 15,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
+                    color: Color(0xff573353),
+                    height: 19 / 14,
                   ),
                 ),
               ),
@@ -116,35 +123,47 @@ class _AttendanceField extends StatelessWidget {
   }
 
   Widget _methodIcon(ProfileAbsentMarkMethod method) {
+    const double size = 16;
     switch (method) {
       case ProfileAbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: 16, height: 16);
+        return Tooltip(
+          message: 'GPS',
+          child: SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size),
+        );
       case ProfileAbsentMarkMethod.qr:
-        return SvgPicture.asset(
-          MediaRes.qrAttendanceIcon,
-          width: 16,
-          height: 16,
+        return Tooltip(
+          message: 'QR',
+          child: SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size),
         );
       case ProfileAbsentMarkMethod.kiosk:
-        return SvgPicture.asset(MediaRes.pinMethodIcon, width: 16, height: 16);
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size),
+        );
       case ProfileAbsentMarkMethod.app:
-        return SvgPicture.asset(
-          MediaRes.appMethodIcon,
-          width: 16,
-          height: 16,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
+        return Tooltip(
+          message: 'APP',
+          child: SvgPicture.asset(
+            MediaRes.appMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case ProfileAbsentMarkMethod.web:
-        return SvgPicture.asset(
-          MediaRes.webMethodIcon,
-          width: 16,
-          height: 16,
-          colorFilter: const ColorFilter.mode(
-            AppColors.themeColor,
-            BlendMode.srcIn,
+        return Tooltip(
+          message: 'WEB',
+          child: SvgPicture.asset(
+            MediaRes.webMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
     }
@@ -164,6 +183,8 @@ class _AttendanceModel {
   final int attendedMinutes;
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+  final ProfileAbsentMarkMethod? signInMethod;
+  final ProfileAbsentMarkMethod? signOutMethod;
 
   _AttendanceModel({
     required this.date,
@@ -177,6 +198,8 @@ class _AttendanceModel {
     this.attendedMinutes = 0,
     this.isTransferSignIn = false,
     this.isTransferSignOut = false,
+    this.signInMethod,
+    this.signOutMethod,
   });
 }
 
@@ -230,6 +253,25 @@ class _StudentModel {
     this.allergies = '',
     this.dietRestriction = '',
   });
+
+  _StudentModel copyWith({String? name, String? roomName, String? photoUuid}) {
+    return _StudentModel(
+      id: id,
+      name: name ?? this.name,
+      photoUuid: photoUuid ?? this.photoUuid,
+      roomName: roomName ?? this.roomName,
+      isSignedIn: isSignedIn,
+      isAbsent: isAbsent,
+      isExpectedToday: isExpectedToday,
+      isPresentToday: isPresentToday,
+      profileStatus: profileStatus,
+      isPhotoPermission: isPhotoPermission,
+      medications: medications,
+      note: note,
+      allergies: allergies,
+      dietRestriction: dietRestriction,
+    );
+  }
 }
 
 class _AttendanceReportModel {
@@ -260,6 +302,7 @@ class StudentAttendanceProfile extends StatefulWidget {
     this.isPresentToday = false,
     this.profileStatus = 'A',
     this.syncWithParentChildSelection = false,
+    this.initialShowAbsentDays = false,
   });
 
   final int studentId;
@@ -275,6 +318,9 @@ class StudentAttendanceProfile extends StatefulWidget {
 
   /// When true (e.g. parent drawer / popup), reloads when the global child dropdown changes.
   final bool syncWithParentChildSelection;
+
+  /// When true, opens the profile with the absent-days list visible (e.g. Absent tab).
+  final bool initialShowAbsentDays;
 
   @override
   State<StudentAttendanceProfile> createState() =>
@@ -319,7 +365,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   _AttendanceReportModel? attendanceReport;
 
   late String _activeStudentCode;
-  ParentChildProvider? _parentChildProvider;
+  ParentChildCubit? _parentChildProvider;
+  StreamSubscription<ParentChildState>? _parentChildSub;
   String? _todayStatusRaw;
   bool _isTodayStatusLoading = false;
 
@@ -459,6 +506,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   @override
   void initState() {
     super.initState();
+    showAbsentDays = widget.initialShowAbsentDays;
     _activeStudentCode = widget.studentCode.trim();
     final now = DateTime.now();
     _startDate = _startOfMonth(now);
@@ -484,6 +532,36 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
     // Load data from API
     _loadData();
+    // Deep-link (e.g. ATTENDANCE_NOT_MARKED) opens this screen with only a
+    // studentCode — the attendance API doesn't return the student's name, so
+    // the header would show empty. Fetch the student's identity by code.
+    _ensureHeaderIdentityLoaded();
+  }
+
+  /// Fills the header name + classroom when opened by code without them
+  /// (notification deep-link). No-op for normal navigation that already
+  /// supplied [studentName].
+  Future<void> _ensureHeaderIdentityLoaded() async {
+    if (widget.studentName.trim().isNotEmpty) return;
+    final code = _activeStudentCode.trim();
+    if (code.isEmpty) return;
+    try {
+      final profile = await serviceLocator<StudentRemoteDataSource>()
+          .getStudentProfile(code);
+      if (!mounted) return;
+      final current = student;
+      if (current == null) return;
+      final name = profile.fullName.trim();
+      final classroom = (profile.classroom ?? '').trim();
+      setState(() {
+        student = current.copyWith(
+          name: name.isNotEmpty ? name : current.name,
+          roomName: classroom.isNotEmpty ? classroom : current.roomName,
+        );
+      });
+    } catch (_) {
+      // Header stays as-is; attendance data still loads.
+    }
   }
 
   @override
@@ -492,14 +570,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     if (!widget.syncWithParentChildSelection || _parentChildProvider != null) {
       return;
     }
-    final p = context.read<ParentChildProvider>();
+    final p = context.read<ParentChildCubit>();
     _parentChildProvider = p;
-    p.addListener(_onParentChildSelectionChanged);
+    _parentChildSub = p.stream.listen((_) => _onParentChildSelectionChanged());
   }
 
   @override
   void dispose() {
-    _parentChildProvider?.removeListener(_onParentChildSelectionChanged);
+    _parentChildSub?.cancel();
     super.dispose();
   }
 
@@ -589,12 +667,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final client = serviceLocator<ApiClient>().client;
-    final profileEndpoint = ApiPaths.urlWithBase(
-      ApiPaths.studentAttendanceProfile,
-      ApiConstants.attendanceBaseUrl,
-    );
-
     final queryParameters = <String, dynamic>{
       'studentCode': _activeStudentCode,
       'fromAttendanceDate': fromStr,
@@ -615,13 +687,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       final codeToNameMap = await _loadClassroomCodeToNameMap();
       _applyResolvedClassroomHeaderName(codeToNameMap);
       // --------- Load attendance (present days / summary) ----------
-      final profileResponse = await client.get<dynamic>(
-        profileEndpoint,
-        queryParameters: queryParameters,
-        options: attendanceListQueryOptions,
-      );
-
-      final profileData = profileResponse.data;
+      final profileData = await serviceLocator<AttendanceRepository>()
+          .fetchStudentAttendanceProfile(queryParameters: queryParameters);
       if (profileData is Map<String, dynamic>) {
         final root = profileData['data'] as Map<String, dynamic>? ?? {};
         final agg = root['aggregations'] as Map<String, dynamic>? ?? {};
@@ -694,6 +761,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               attendedMinutes: m['attendedMinutes'] as int? ?? 0,
               isTransferSignIn: isTransferSignIn,
               isTransferSignOut: isTransferSignOut,
+              signInMethod:
+                  _mapAbsentMethodStringToEnum(m['signedInMethod'] as String?),
+              signOutMethod:
+                  _mapAbsentMethodStringToEnum(m['signedOutMethod'] as String?),
             ),
           );
         }
@@ -715,11 +786,6 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       }
 
       // --------- Load absent days for toggle list (profile/absent/toggle) ----------
-      final absentEndpoint = ApiPaths.urlWithBase(
-        ApiPaths.studentAttendanceProfileAbsentToggle,
-        ApiConstants.attendanceBaseUrl,
-      );
-
       final absentQueryParameters = <String, dynamic>{
         'studentCode': _activeStudentCode,
         'fromAbsenceDate': fromStr,
@@ -738,13 +804,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         allowedClassroomCodes,
       );
 
-      final absentResponse = await client.get<dynamic>(
-        absentEndpoint,
-        queryParameters: absentQueryParameters,
-        options: attendanceListQueryOptions,
-      );
-
-      final absentData = absentResponse.data;
+      final absentData = await serviceLocator<AttendanceRepository>()
+          .fetchStudentAttendanceProfileAbsentToggle(
+            queryParameters: absentQueryParameters,
+          );
 
       if (absentData is Map<String, dynamic>) {
         final root = absentData['data'] as Map<String, dynamic>? ?? {};
@@ -846,10 +909,22 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     todayStatusRaw: _todayStatusRaw,
   );
 
-  bool get _canSignIn => !_isTodayStatusLoading && _todayGate.canSignIn;
-  bool get _canSignOut => !_isTodayStatusLoading && _todayGate.canSignOut;
-  bool get _canTransfer => !_isTodayStatusLoading && _todayGate.canTransfer;
-  bool get _canMarkAbsent => !_isTodayStatusLoading && _todayGate.canMarkAbsent;
+  bool get _canSignIn =>
+      !_isTodayStatusLoading &&
+      _todayGate.canSignIn &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+  bool get _canSignOut =>
+      !_isTodayStatusLoading &&
+      _todayGate.canSignOut &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+  bool get _canTransfer =>
+      !_isTodayStatusLoading &&
+      _todayGate.canTransfer &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+  bool get _canMarkAbsent =>
+      !_isTodayStatusLoading &&
+      _todayGate.canMarkAbsent &&
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
 
   Future<Map<String, String>> _loadClassroomNameToCodeMap() async {
     try {
@@ -880,19 +955,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     final current = student;
     if (current == null) return;
 
+    // Disabled actions are already non-tappable in the pop-up and explain
+    // themselves via the per-action tooltip, so just no-op here instead of
+    // showing a generic snackbar.
     if ((actionLabel == 'Sign-in' && !_canSignIn) ||
         (actionLabel == 'Sign-Out' && !_canSignOut) ||
         (actionLabel == 'Transfer' && !_canTransfer) ||
         (actionLabel == 'Absent' && !_canMarkAbsent)) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text(
-            'This action is not allowed for current attendance state',
-          ),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
       return;
     }
 
@@ -979,10 +1048,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   void _onDateRangeSelected(DateTime startDate, DateTime? endDate) {
+    // Use the exact dates the user picked. Snapping to start/end of month
+    // here made every range collapse to the whole month, so a same-day
+    // (10 Jun → 10 Jun) or any custom range never filtered.
     final effectiveEnd = endDate ?? startDate;
     setState(() {
-      _startDate = _startOfMonth(startDate);
-      _endDate = _endOfMonth(effectiveEnd);
+      _startDate = startDate;
+      _endDate = effectiveEnd;
     });
     _loadData();
   }
@@ -991,11 +1063,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
-    final isParentPersona = context.watch<RoleProvider>().isParent;
+    final isParentPersona = context.watch<RoleCubit>().isParent;
 
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
+      // Highlight the Attendance tab while a parent views their child's profile.
+      activeTabIndexOverride: isParentPersona ? 1 : null,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(
@@ -1084,6 +1158,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         if (!_canTransfer) 'Transfer',
         if (!_canMarkAbsent) 'Absent',
       },
+      disabledReasons: _isTodayStatusLoading
+          ? const <String, String>{}
+          : studentAttendanceDisabledReasons(_todayGate),
       onActionTap: _handleStudentAction,
     );
   }
@@ -1272,7 +1349,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         children: [
           InkWell(
             onTap: () {
-              context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Present'});
+              context.push(
+                StudentAttendanceTabbedView.routeName,
+                extra: {'filter': 'Present'},
+              );
             },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
@@ -1287,7 +1367,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           InkWell(
             onTap: () {
-              context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Absent'});
+              context.push(
+                StudentAttendanceTabbedView.routeName,
+                extra: {'filter': 'Absent'},
+              );
             },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
@@ -1305,7 +1388,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       children: [
         InkWell(
           onTap: () {
-            context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Present'});
+            context.push(
+              StudentAttendanceTabbedView.routeName,
+              extra: {'filter': 'Present'},
+            );
           },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
@@ -1320,7 +1406,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         const SizedBox(height: 16),
         InkWell(
           onTap: () {
-            context.push(StudentAttendanceTabbedView.routeName, extra: {'filter': 'Absent'});
+            context.push(
+              StudentAttendanceTabbedView.routeName,
+              extra: {'filter': 'Absent'},
+            );
           },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
@@ -1538,8 +1627,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   }
 
   String getFirstName(String name) {
-    if (name == 'System Auto Signout') return name;
-    return name.split(' ').first;
+    // Show the full name (first + last), not just the first word.
+    return name.trim();
   }
 
   String formatTime(String time) {
@@ -1587,6 +1676,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             label: 'Sign In',
             text: formatTime(attendance.signInTime),
             showTransferIcon: attendance.isTransferSignIn,
+            markMethod: attendance.signInMethod,
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1598,6 +1688,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             label: 'Sign Out',
             text: formatTime(attendance.signOutTime),
             showTransferIcon: attendance.isTransferSignOut,
+            markMethod: attendance.signOutMethod,
           ),
           const SizedBox(height: 16),
           _AttendanceField(

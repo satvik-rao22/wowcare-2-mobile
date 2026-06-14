@@ -32,44 +32,46 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   }
 
   void _initializeDummyData() {
-    // Load dummy data
-    setState(() {
-      _addressEntity = {
-        'line': '123 Main Street',
-        'city': 'New York',
-        'state': 'NY',
-        'country': 'USA',
-        'zipcode': '10001',
-      };
+    // Load dummy data once during init (no rebuild needed: build runs after).
+    _addressEntity = {
+      'line': '123 Main Street',
+      'city': 'New York',
+      'state': 'NY',
+      'country': 'USA',
+      'zipcode': '10001',
+    };
 
-      _invoiceDetails = {
-        'invoiceNumber': 'INV-2025-${widget.transaction.id}',
-        'date': widget.transaction.date.toIso8601String(),
-        'startDate': widget.transaction.date.subtract(const Duration(days: 30)).toIso8601String(),
-        'endDate': widget.transaction.date.toIso8601String(),
-        'dueDate': widget.transaction.endDate != null
-            ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
-            : widget.transaction.date.add(const Duration(days: 7)).toIso8601String(),
-      };
+    _invoiceDetails = {
+      'invoiceNumber': 'INV-2025-${widget.transaction.id}',
+      'date': widget.transaction.date.toIso8601String(),
+      'startDate': widget.transaction.date
+          .subtract(const Duration(days: 30))
+          .toIso8601String(),
+      'endDate': widget.transaction.date.toIso8601String(),
+      'dueDate': widget.transaction.endDate != null
+          ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
+          : widget.transaction.date
+              .add(const Duration(days: 7))
+              .toIso8601String(),
+    };
 
-      // Generate dummy invoice items
-      _invoiceItems = [
+    // Generate dummy invoice items
+    _invoiceItems = [
+      {
+        'type': 'item',
+        'description': widget.transaction.description,
+        'amount': widget.transaction.amount.toString(),
+        'deductionAmt': '0',
+      },
+      if (widget.transaction.amount > 200) ...[
         {
-          'type': 'item',
-          'description': widget.transaction.description,
-          'amount': widget.transaction.amount.toString(),
-          'deductionAmt': '0',
+          'type': 'discount',
+          'description': 'Early Payment Discount',
+          'amount': '0',
+          'deductionAmt': (widget.transaction.amount * 0.1).toStringAsFixed(2),
         },
-        if (widget.transaction.amount > 200) ...[
-          {
-            'type': 'discount',
-            'description': 'Early Payment Discount',
-            'amount': '0',
-            'deductionAmt': (widget.transaction.amount * 0.1).toStringAsFixed(2),
-          },
-        ],
-      ];
-    });
+      ],
+    ];
   }
 
   String _getDueDate() {

@@ -45,12 +45,14 @@ abstract class ClassroomRepository {
   Future<Map<String, ClassroomAttendanceSummaryEntry>>
   getStudentAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   });
 
   /// Per-classroom staff attendance summary keyed by classroom code.
   Future<Map<String, ClassroomAttendanceSummaryEntry>>
   getStaffAttendanceSummaryByClassrooms({
     required List<String> classroomCodes,
+    DateTime? date,
   });
 
   /// Returns students for a classroom via `GET /api/v1/student-classroom`.
@@ -69,6 +71,33 @@ abstract class ClassroomRepository {
     List<String>? status,
     String? attendanceStatus,
     bool refresh,
+  });
+
+  /// GET student-classroom enrolled count (active/upcoming/enrolled) for a
+  /// classroom. Returns the raw backend response map.
+  Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
+    required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
+  });
+
+  /// GET the logo asset codes list for a school's classrooms.
+  Future<Map<String, dynamic>?> getClassroomLogoAssetCodes({
+    required String classroomCode,
+    required String schoolCode,
+  });
+
+  /// POST to create a classroom-logo upload session.
+  Future<Map<String, dynamic>?> createClassroomLogoUploadSession({
+    required String classroomCode,
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// POST to finalize a classroom logo with the uploaded [assetCode].
+  Future<Map<String, dynamic>?> finalizeClassroomLogo({
+    required String classroomCode,
+    required String assetCode,
   });
 }
 

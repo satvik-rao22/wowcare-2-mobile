@@ -590,7 +590,7 @@
 //     );
 //
 //     if (picked == null) return;
-//     print('${picked.path}');
+//     AppLogger.d('${picked.path}');
 //
 //     final ext = picked.path.split('.').last.toLowerCase();
 //     if (ext == 'gif') {
@@ -1428,43 +1428,95 @@ class _MediaUploaderState extends State<MediaUploader> {
     if (widget.readOnly) return;
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Select Media Source', textAlign: TextAlign.center),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          if (widget.allowPhoto) ...[
-            _option(dialogContext, Icons.photo_camera, 'Take Photo', () => _pickPhotos(ImageSource.camera)),
-            _option(dialogContext, Icons.image, 'Photo Gallery', () => _pickPhotos(ImageSource.gallery)),
-          ],
-          if (widget.allowVideo) ...[
-            _option(dialogContext, Icons.videocam, 'Record Video', () => _pickVideo(ImageSource.camera)),
-            _option(dialogContext, Icons.video_library, 'Video Gallery', () => _pickVideo(ImageSource.gallery)),
-          ],
-        ]),
+      builder: (dialogContext) => Dialog(
+        backgroundColor: AppColors.cardColor,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Select Media Source',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryColor,
+                ),
+              ),
+              const SizedBox(height: 20),
+              if (widget.allowPhoto) ...[
+                _option(dialogContext, Icons.photo_camera, 'Take Photo', () => _pickPhotos(ImageSource.camera)),
+                _option(dialogContext, Icons.image, 'Photo Gallery', () => _pickPhotos(ImageSource.gallery)),
+              ],
+              if (widget.allowVideo) ...[
+                _option(dialogContext, Icons.videocam, 'Record Video', () => _pickVideo(ImageSource.camera)),
+                _option(dialogContext, Icons.video_library, 'Video Gallery', () => _pickVideo(ImageSource.gallery)),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
 
   Widget _option(BuildContext dialogContext, IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: () {
-        // Dismiss using the dialog's own route context, NOT the State's
-        // `context` getter. If the host activity was recreated mid-flow (see
-        // the FFmpegKit memory-reclaim note in _pickPhotos), this State is
-        // unmounted/defunct and reading `State.context` throws
-        // "This widget has been unmounted". The dialog route context stays
-        // valid for as long as the dialog is on screen.
-        Navigator.pop(dialogContext);
-        if (!mounted) return;
-        onTap();
-      },
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: Row(children: [
-          Icon(icon, size: 35, color: const Color(0xff573353)),
-          const SizedBox(width: 12),
-          Text(label, style: const TextStyle(fontSize: 16, color: Color(0xff573353))),
-        ]),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        color: AppColors.primaryColor.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () {
+            // Dismiss using the dialog's own route context, NOT the State's
+            // `context` getter. If the host activity was recreated mid-flow (see
+            // the FFmpegKit memory-reclaim note in _pickPhotos), this State is
+            // unmounted/defunct and reading `State.context` throws
+            // "This widget has been unmounted". The dialog route context stays
+            // valid for as long as the dialog is on screen.
+            Navigator.pop(dialogContext);
+            if (!mounted) return;
+            onTap();
+          },
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                // Gradient-colored icon.
+                child: ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (bounds) =>
+                      AppColors.buildPrimaryGradient().createShader(bounds),
+                  child: Icon(icon, size: 26, color: Colors.white),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: AppColors.primaryColor.withValues(alpha: 0.35),
+              ),
+            ]),
+          ),
+        ),
       ),
     );
   }

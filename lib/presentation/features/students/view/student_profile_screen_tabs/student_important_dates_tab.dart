@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -11,7 +11,7 @@ import 'package:wowcare/domain/features/student/usecases/get_student_important_d
 import 'package:wowcare/presentation/features/students/view/edit_student_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 class StudentImportantDatesTab extends StatefulWidget {
   const StudentImportantDatesTab({
@@ -100,8 +100,9 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
   }
 
   Future<void> _openEdit(BuildContext context) async {
-    final role = context.read<RoleProvider>();
-    if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
+    final role = context.read<RoleCubit>();
+    if (!ModuleAccess.mayWrite(role, AppAccessModules.student) ||
+        role.isStaff) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
@@ -125,8 +126,11 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
-    final canStudentWrite = ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final role = context.watch<RoleCubit>();
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
+            !role.isStaff &&
+            !role.isParent;
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return Stack(
@@ -199,10 +203,17 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
                 padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
+                // Match the Family/Pickup cards: themeColor outline, square top-left.
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  border: Border.all(color: AppColors.cardBorderColor, width: 1),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.only(
+                    topRight: Radius.circular(8),
+                    bottomLeft: Radius.circular(8),
+                    bottomRight: Radius.circular(8),
+                  ),
+                  border: Border.fromBorderSide(
+                    BorderSide(color: AppColors.themeColor, width: 1),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -236,12 +247,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     ),
                     const SizedBox(height: 16),
                     if (_isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(24),
-                          child: PrimaryCircularLoader(size: 32),
-                        ),
-                      )
+                      const StudentImportantDatesShimmer()
                     else if (_errorMessage != null)
                       Padding(
                         padding: const EdgeInsets.all(16),

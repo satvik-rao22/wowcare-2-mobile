@@ -1,5 +1,5 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -58,22 +58,16 @@ class _ParentViewScreenState extends State<ParentViewScreen>
   }
 
   Map<String, dynamic> parentInfo = {
-    // hardcoded for now
-    'name': 'Ajay Sundaram',
-    'avatar': 'https://randomuser.me/api/portraits/boys/45.jpg',
-    'dateTime': DateTime(2026, 2, 4, 13, 30),
-    'message': 'Oh, hello! All perfectly.',
-    'isSigned': true,
+    'name': '',
+    'avatar': '',
+    'isSigned': false,
     'isFavorite': false,
-    'unreadCount': 1,
-    'classroom': '2-Green B',
-    'status': 'Upcoming',
-    'tags': ['5 Days', 'Full Day', 'Photo Permission', 'Boy'],
-    'staffList': ['Eddie Barnes', 'John Doe', 'Priya Sharma', 'Mr. Kumar'],
-    'parents': ['Nitin Sundaram', 'Radha Sundaram'],
-    'privateModeParents': ['Radha Sundaram'],
+    'unreadCount': 0,
+    'staffList': <String>[],
+    'parents': <String>[],
+    'privateModeParents': <String>[],
   };
-  final String currentSender = 'Radha Sundaram';
+  String currentSender = '';
   Message? _quotedMessage = null;
   String? _quotedMessageId;
   List<ChatAttachment> _pendingAttachments = [];
@@ -100,12 +94,17 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     super.initState();
     _privateModeEnabled = isPrivateModeEnabled(parentInfo);
     final parents = (parentInfo['parents'] as List<dynamic>).cast<String>();
-    parent1Name = parents[0];
-    parent2Name = parents[1];
+    parent1Name = parents.isNotEmpty ? parents[0] : '';
+    parent2Name = parents.length > 1 ? parents[1] : '';
     final authState = context.read<AuthCubit>().state;
     _currentUserCode = authState is AuthLoaded
         ? authState.loginResponse.userCode
         : null;
+    currentSender = authState is AuthLoaded
+        ? (authState.loginResponse.displayName.isNotEmpty
+            ? authState.loginResponse.displayName
+            : authState.loginResponse.userCode)
+        : '';
 
     _reactionsController = ReactionsController(
       currentUserId: _currentUserCode ?? 'me',
@@ -120,11 +119,14 @@ class _ParentViewScreenState extends State<ParentViewScreen>
       if (mounted) setState(() {});
     });
 
-    // Load initial messages
-    context.read<CommunicationCubit>().loadMessages(
-      'parent_group_default',
-      currentUserId: _currentUserCode,
-    );
+    // Load messages only when a real conversation code is available.
+    final conversationCode = parentInfo['code'] as String? ?? '';
+    if (conversationCode.isNotEmpty) {
+      context.read<CommunicationCubit>().loadMessages(
+        conversationCode,
+        currentUserId: _currentUserCode,
+      );
+    }
   }
 
   @override
@@ -163,9 +165,8 @@ class _ParentViewScreenState extends State<ParentViewScreen>
 
     if (!hasText && !hasAttachments) return;
 
-    final conversationId = _privateModeEnabled
-        ? 'parent_private_default'
-        : 'parent_group_default';
+    final conversationId = parentInfo['code'] as String? ?? '';
+    if (conversationId.isEmpty) return;
 
     context.read<CommunicationCubit>().sendMessage(
       conversationId,
@@ -200,7 +201,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
   void _scrollToMessage(String messageId) {
     final index = _getReversedIndex(messageId);
     if (index == null) {
-      print("Message $messageId not found");
+      AppLogger.d("Message $messageId not found");
       return;
     }
     final scrollController = _getActiveScrollController();
@@ -795,7 +796,9 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                       [])
                                                   .isNotEmpty;
                                         });
-                                        print(parentInfo['privateModeParents']);
+                                        AppLogger.d(
+                                          parentInfo['privateModeParents'],
+                                        );
                                         return;
                                       }
 
@@ -833,7 +836,9 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                       [])
                                                   .isNotEmpty;
                                         });
-                                        print(parentInfo['privateModeParents']);
+                                        AppLogger.d(
+                                          parentInfo['privateModeParents'],
+                                        );
                                       }
                                     },
                                   ),
@@ -1187,7 +1192,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                         [])
                                                     .isNotEmpty;
                                           });
-                                          print(
+                                          AppLogger.d(
                                             parentInfo['privateModeParents'],
                                           );
                                           return;
@@ -1229,7 +1234,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                         [])
                                                     .isNotEmpty;
                                           });
-                                          print(
+                                          AppLogger.d(
                                             parentInfo['privateModeParents'],
                                           );
                                         }

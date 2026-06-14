@@ -1,14 +1,17 @@
+import 'dart:async';
 import 'dart:io';
+
+import 'package:wowcare/core/util/logger_service.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
@@ -43,6 +46,10 @@ class StudentProfileScreen extends StatefulWidget {
     /// Raw API status (e.g. ACTIVE, UPCOMING) so the header dot is correct before the profile tab loads.
     this.initialEnrollmentStatus,
     this.syncWithParentChildSelection = false,
+    this.initialTabIndex = 0,
+    this.initialProfileSubTabIndex = 0,
+    this.initialHealthSubTabIndex = 0,
+    this.highlightCode,
   });
 
   final String name;
@@ -53,6 +60,26 @@ class StudentProfileScreen extends StatefulWidget {
   final String? studentCode;
 
   final String? initialEnrollmentStatus;
+
+  /// Tab to open on entry (0 Profile, 1 Health, 2 Dates, 3 Documents) — set by
+  /// notification deep-links so e.g. an immunization alert lands on Health.
+  final int initialTabIndex;
+
+  /// Sub-tab to open inside the Profile tab (0 About, 1 Family, 2 Pickup) — set
+  /// by notification deep-links so e.g. a "parent not added" alert lands on
+  /// Family. Only applies when [initialTabIndex] is 0 (Profile).
+  final int initialProfileSubTabIndex;
+
+  /// Sub-tab to open inside the Health tab (0 Health, 1 Physician,
+  /// 2 Physical Examination Dates, 3 Immunization) — set by notification
+  /// deep-links so e.g. a "physical overdue" alert lands on Physical Exam Dates
+  /// and an immunization alert lands on Immunization. Only applies when
+  /// [initialTabIndex] is 1 (Health).
+  final int initialHealthSubTabIndex;
+
+  /// Row code to highlight inside the opened tab (e.g. documentCode on the
+  /// Documents tab). Null for normal navigation.
+  final String? highlightCode;
 
   /// When true (e.g. parent opens My Child from drawer), child dropdown updates this screen.
   final bool syncWithParentChildSelection;
@@ -68,7 +95,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _healthScrollController = ScrollController();
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
-  final ImagePicker _picker = ImagePicker();
   late final CacheManager _cacheManager;
   late Future<StudentHealthModel?> _healthFuture;
   late String _displayName;
@@ -79,7 +105,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late List<String> _profileTags;
   late List<String> _profileSchedule;
   late Map<String, dynamic> _profileSibling;
-  ParentChildProvider? _parentChildProvider;
+  ParentChildCubit? _parentChildProvider;
+  StreamSubscription<ParentChildState>? _parentChildSub;
   String? _profilePhotoUrl;
   String? _schoolCode;
   String? _organizationCode;
@@ -90,7 +117,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   void initState() {
     super.initState();
     _cacheManager = CacheManager(serviceLocator<StorageService>());
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 3),
+    );
     _activeStudentCode = widget.studentCode;
     _profileTags = List<String>.from(widget.tags);
     _profileSchedule = List<String>.from(widget.schedule);
@@ -101,6 +132,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _profileStatusUpper =
         widget.initialEnrollmentStatus?.trim().toUpperCase();
     _loadUploadContext();
+    // Deep-link case: opened by code straight to a non-Profile tab. The profile
+    // fetch that fills the header (name/classroom) lives inside the Profile tab,
+    // which TabBarView builds lazily — so it never runs when we land on another
+    // tab. Fetch here too so the header loads regardless of the initial tab.
+    _ensureHeaderProfileLoaded();
 
     // Cache-first classroom load (won't refetch if already loaded).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,8 +149,28 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     });
   }
 
+  /// Loads the student's profile at the screen level so the header (name,
+  /// classroom, status, photo) populates even when the user deep-links straight
+  /// to a tab other than Profile. Only runs when we were opened by code without
+  /// a pre-supplied name (i.e. the notification-redirect path).
+  Future<void> _ensureHeaderProfileLoaded() async {
+    final code = (_activeStudentCode ?? '').trim();
+    if (code.isEmpty || _displayName.trim().isNotEmpty) return;
+    try {
+      final profile =
+          await serviceLocator<StudentRemoteDataSource>().getStudentProfile(code);
+      _onProfileChanged(profile);
+    } catch (_) {
+      // Profile tab's FutureBuilder still surfaces load errors when visited.
+    }
+  }
+
   void _onProfileChanged(StudentProfileModel profile) {
     if (!mounted) return;
+    AppLogger.d(
+      '[ProfileHeader] student=${profile.code} name="${profile.fullName}" '
+      'classroom="${profile.classroom}"',
+    );
     setState(() {
       final nextName = profile.fullName.trim();
       _displayName = nextName.isEmpty ? _displayName : nextName;
@@ -291,9 +347,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (!widget.syncWithParentChildSelection || _parentChildProvider != null) {
       return;
     }
-    final p = context.read<ParentChildProvider>();
+    final p = context.read<ParentChildCubit>();
     _parentChildProvider = p;
-    p.addListener(_onParentChildSelectionChanged);
+    _parentChildSub = p.stream.listen((_) => _onParentChildSelectionChanged());
   }
 
   void _onParentChildSelectionChanged() {
@@ -319,7 +375,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   @override
   void dispose() {
-    _parentChildProvider?.removeListener(_onParentChildSelectionChanged);
+    _parentChildSub?.cancel();
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
@@ -329,14 +385,19 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Future<void> _pickProfileImage() async {
-    final role = context.read<RoleProvider>();
+    final role = context.read<RoleCubit>();
     if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
+      // Shared file picker → every allowed image format is selectable.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
+      );
+      final imagePath = picked?.path;
+      if (imagePath == null || imagePath.isEmpty) return;
       final studentCode = (_activeStudentCode ?? '').trim();
       final schoolCode = (_schoolCode ?? '').trim();
       final organizationCode = (_organizationCode ?? '').trim();
@@ -368,16 +429,18 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         _profilePhotoUploadPercent = 5;
       });
       final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(image.path);
+      final file = File(imagePath);
       final sessionCode = await uploadService.createStudentProfilePhotoUploadSession(
         studentCode: studentCode,
         schoolCode: resolvedSchoolCode,
         organizationCode: resolvedOrganizationCode,
       );
       if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = image.path.toLowerCase();
+      final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final mime = FilePickerUtils.getMimeType(
+          fileName.contains('.') ? fileName.split('.').last : '');
+      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',
@@ -494,7 +557,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Widget _buildScreen(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canChangePhoto =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
 
@@ -555,12 +618,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   schedule: _profileSchedule,
                   sibling: _profileSibling,
                   studentCode: _activeStudentCode,
+                  initialTabIndex:
+                      widget.initialProfileSubTabIndex.clamp(0, 2),
                   onProfileChanged: _onProfileChanged,
                 ),
                 StudentHealthTab(
                   key: ValueKey<String>(
                     'health_tab_${_activeStudentCode ?? 'none'}',
                   ),
+                  initialTabIndex:
+                      widget.initialHealthSubTabIndex.clamp(0, 3),
                   scrollController: _healthScrollController,
                   name: _displayName,
                   classroom: _displayClassroom,
@@ -584,6 +651,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  highlightCode: widget.highlightCode,
                 )
 
               ],
@@ -596,7 +664,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildStudentProfileCard(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
     bool canChangePhoto,
   ) {
     return Card(
@@ -851,7 +919,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildStudentActionButtons(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
   ) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -997,7 +1065,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildActionIcon(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
     String asset, {
     required VoidCallback onTap,
     required bool enabled,
