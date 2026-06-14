@@ -7,6 +7,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_remote_data_source.dart';
+import 'package:wowcare/data/features/communication/realtime/message_realtime_data_source.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
@@ -15,6 +16,7 @@ import 'package:wowcare/domain/features/communication/repositories/message_entit
 class MessageEntityRepositoryImpl implements MessageEntityRepository {
   final MessageEntityRemoteDataSource _remote;
   final MessageEntityLocalDataSource _local;
+  final MessageRealtimeDataSource _realtime;
   final StorageService _storage;
 
   static const _uuid = Uuid();
@@ -22,9 +24,11 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   MessageEntityRepositoryImpl({
     required MessageEntityRemoteDataSource remoteDataSource,
     required MessageEntityLocalDataSource localDataSource,
+    required MessageRealtimeDataSource realtimeDataSource,
     required StorageService storageService,
   })  : _remote = remoteDataSource,
         _local = localDataSource,
+        _realtime = realtimeDataSource,
         _storage = storageService;
 
   // ─── Tenancy helpers ────────────────────────────────────────────────────────
@@ -416,5 +420,23 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       schoolCode: schoolCode,
     );
     await _local.queueOperation(entity);
+  }
+
+  // ─── Realtime streams (Firestore) ────────────────────────────────────────────
+
+  @override
+  Stream<List<MessageEntity>> watchMessages({
+    required String conversationCode,
+    int limit = 100,
+  }) async* {
+    final org = await _orgCode;
+    final school = await _schoolCode;
+
+    yield* _realtime.watchMessages(
+      organizationCode: org,
+      schoolCode: school,
+      conversationCode: conversationCode,
+      limit: limit,
+    );
   }
 }

@@ -47,6 +47,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
     super.initState();
     _cubit = ConversationThreadCubit(
       conversationCode: widget.conversation.code,
+      watchMessagesUseCase: serviceLocator(),
       getMessagesUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
       editMessageUseCase: serviceLocator(),
@@ -55,7 +56,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
       removeReactionUseCase: serviceLocator(),
       markConversationReadUseCase: serviceLocator(),
     );
-    unawaited(_cubit.loadMessages());
+    _cubit.startWatchingMessages();
     unawaited(_loadSenderInfo());
   }
 

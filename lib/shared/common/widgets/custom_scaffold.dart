@@ -164,6 +164,11 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
+import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -204,6 +209,23 @@ class GlobalScaffold extends StatefulWidget {
 
 class _GlobalScaffoldState extends State<GlobalScaffold> {
   bool _showBars = true;
+  late final UnreadBadgeCubit _unreadBadgeCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _unreadBadgeCubit = UnreadBadgeCubit(
+      watchUnreadCountForTypeUseCase:
+          serviceLocator<WatchUnreadCountForTypeUseCase>(),
+      getUnreadAggregatesUseCase: serviceLocator<GetUnreadAggregatesUseCase>(),
+    )..startWatching();
+  }
+
+  @override
+  void dispose() {
+    _unreadBadgeCubit.close();
+    super.dispose();
+  }
 
   bool _handleScrollNotification(ScrollNotification notification) {
     // Do not auto-hide the app bar or bottom navigation on scroll.
@@ -227,7 +249,9 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
       studentList: widget.studentList,
     );
 
-    return GestureDetector(
+    return BlocProvider<UnreadBadgeCubit>.value(
+      value: _unreadBadgeCubit,
+      child: GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
         appBar: _showBars
@@ -272,6 +296,7 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
               )
             : widget.customButtonLayout,
       ),
+    ),
     );
   }
 }

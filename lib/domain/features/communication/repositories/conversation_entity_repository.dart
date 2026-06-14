@@ -128,4 +128,22 @@ abstract class ConversationEntityRepository {
 
   /// Invalidate cached conversations, forcing a fresh API fetch.
   Future<Either<Failure, void>> clearConversationsCache();
+
+  // ─── Realtime streams (Firestore) ────────────────────────────────────────────
+
+  /// Realtime stream of conversations for the current user.
+  ///
+  /// Firestore is the source of truth for [unreadCount], [lastMessagePreview],
+  /// and [lastMessageAt]. Isar provides metadata (title, avatarUrl).
+  /// [type] — when non-null, filters to a specific [ConversationType].
+  Stream<List<ConversationEntity>> watchConversations({
+    ConversationType? type,
+  });
+
+  /// Lightweight per-type unread sum — reads Firestore only, no Isar merge.
+  /// Use this in badge cubits to avoid duplicating the full stream pipeline.
+  Stream<int> watchUnreadCountForType(ConversationType type);
+
+  /// Realtime stream of total unread count across all conversations.
+  Stream<int> watchTotalUnreadCount();
 }

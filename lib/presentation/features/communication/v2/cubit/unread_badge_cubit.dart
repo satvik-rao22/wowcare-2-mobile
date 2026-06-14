@@ -1,81 +1,95 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import 'unread_badge_state.dart';
 
-/// Manages the aggregate unread counts used for navigation drawer badges.
+/// Manages aggregate unread counts for navigation badges (drawer + bottom nav).
 ///
-/// Counts are keyed by [ConversationType.toApiString()] so the state is
-/// role-agnostic — the UI reads [UnreadBadgeState.totalForRole] or the
-/// per-type helpers to show the right badge for the active user.
+/// Uses [WatchUnreadCountForTypeUseCase] which reads directly from Firestore
+/// without the Isar merge pipeline — so it never duplicates or races with
+/// [ConversationListCubit]'s stream.
 class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   UnreadBadgeCubit({
+    required WatchUnreadCountForTypeUseCase watchUnreadCountForTypeUseCase,
     required GetUnreadAggregatesUseCase getUnreadAggregatesUseCase,
-  })  : _getUnreadAggregatesUseCase = getUnreadAggregatesUseCase,
+  })  : _watchUnreadCountForTypeUseCase = watchUnreadCountForTypeUseCase,
+        _getUnreadAggregatesUseCase = getUnreadAggregatesUseCase,
         super(const UnreadBadgeState.initial());
 
+  final WatchUnreadCountForTypeUseCase _watchUnreadCountForTypeUseCase;
   final GetUnreadAggregatesUseCase _getUnreadAggregatesUseCase;
 
-  int _refreshRequestId = 0;
+  final Map<String, StreamSubscription<int>> _subscriptions = {};
+  final Map<String, int> _counts = {};
 
-  // ─── Public API ─────────────────────────────────────────────────────────────
+  // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
-  /// Load unread counts on initial screen entry or app resume.
+  @override
+  Future<void> close() {
+    for (final sub in _subscriptions.values) {
+      sub.cancel();
+    }
+    return super.close();
+  }
+
+  // ─── Public API ──────────────────────────────────────────────────────────────
+
+  /// Start one lightweight Firestore stream per conversation type.
+  void startWatching() {
+    for (final type in ConversationType.values) {
+      _subscribeToType(type);
+    }
+  }
+
+  /// Fallback: load counts once from REST API.
   Future<void> loadUnreadCounts() async {
     if (state.isLoading || state.isRefreshing) return;
     emit(state.copyWith(isLoading: true, clearError: true));
-    await _fetch();
+    await _fetchFromApi();
   }
 
-  /// Explicit pull-to-refresh or post-message-send refresh.
-  Future<void> refreshUnreadCounts() async {
-    final int requestId = ++_refreshRequestId;
-    emit(state.copyWith(isRefreshing: true, clearError: true));
-    await _fetchWithId(requestId);
+  // ─── Private ─────────────────────────────────────────────────────────────────
+
+  void _subscribeToType(ConversationType type) {
+    final key = type.toApiString();
+    _subscriptions[key]?.cancel();
+
+    _subscriptions[key] = _watchUnreadCountForTypeUseCase(type).listen(
+      (count) {
+        if (isClosed) return;
+        _counts[key] = count;
+        _emit();
+      },
+      onError: (_) => unawaited(_fetchFromApi()),
+    );
   }
 
-  /// Decrement the count for a specific conversation type after the user reads
-  /// a conversation. Clamped to zero — no negative badges.
-  void decrementFor(String conversationTypeApiString, {int by = 1}) {
-    final updated = Map<String, int>.from(state.countsByType);
-    final current = updated[conversationTypeApiString] ?? 0;
-    updated[conversationTypeApiString] = (current - by).clamp(0, 999999);
-    emit(state.copyWith(countsByType: updated));
+  void _emit() {
+    if (!isClosed) {
+      emit(UnreadBadgeState(
+        countsByType: Map.unmodifiable(_counts),
+        isLoading: false,
+        isRefreshing: false,
+      ));
+    }
   }
 
-  /// Zero out the count for one conversation type (e.g. after marking all read).
-  void clearFor(String conversationTypeApiString) {
-    final updated = Map<String, int>.from(state.countsByType);
-    updated[conversationTypeApiString] = 0;
-    emit(state.copyWith(countsByType: updated));
-  }
-
-  // ─── Private helpers ─────────────────────────────────────────────────────────
-
-  Future<void> _fetch() async {
-    final requestId = _refreshRequestId;
-    await _fetchWithId(requestId);
-  }
-
-  Future<void> _fetchWithId(int requestId) async {
+  Future<void> _fetchFromApi() async {
     final result = await _getUnreadAggregatesUseCase();
-
-    if (isClosed || requestId != _refreshRequestId) return;
-
+    if (isClosed) return;
     result.fold(
-      (failure) => emit(
-        state.copyWith(
-          isLoading: false,
-          isRefreshing: false,
-          errorMessage: failure.message ?? 'Failed to load unread counts.',
-        ),
-      ),
-      (counts) => emit(
-        UnreadBadgeState(
-          countsByType: counts,
-          isLoading: false,
-          isRefreshing: false,
-        ),
-      ),
+      (failure) => emit(state.copyWith(
+        isLoading: false,
+        isRefreshing: false,
+        errorMessage: failure.message ?? 'Failed to load unread counts.',
+      )),
+      (counts) {
+        _counts.addAll(counts);
+        _emit();
+      },
     );
   }
 }

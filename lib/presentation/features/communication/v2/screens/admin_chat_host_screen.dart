@@ -55,12 +55,13 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     super.initState();
     _cubit = ConversationListCubit(
       conversationType: ConversationType.adminChat,
+      watchConversationsUseCase: serviceLocator(),
       getConversationsUseCase: serviceLocator(),
       getCachedConversationsUseCase: serviceLocator(),
     );
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
-    unawaited(_cubit.loadInitial());
+    unawaited(_cubit.startWatching());
   }
 
   @override
@@ -76,11 +77,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients) return;
-    final threshold = _scrollController.position.maxScrollExtent - 200;
-    if (_scrollController.offset >= threshold) {
-      unawaited(_cubit.loadNextPage());
-    }
+    // Firestore stream auto-loads; no manual pagination needed.
   }
 
   void _onSearchChanged() => setState(() {});
@@ -489,7 +486,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               message: state.errorMessage!,
                               onRetry: () => context
                                   .read<ConversationListCubit>()
-                                  .loadInitial(),
+                                  .startWatching(),
                             ),
                           ),
 
@@ -748,11 +745,11 @@ class _ConversationTile extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0984E3),
+                    color: const Color(0xFF00B894),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF0984E3).withValues(alpha: 0.3),
+                        color: const Color(0xFF00B894).withValues(alpha: 0.35),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
