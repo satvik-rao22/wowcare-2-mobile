@@ -7,7 +7,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/billing/cubit/create_invoice_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/selected_students_receipt_screen.dart';
-import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
@@ -168,147 +168,75 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       value: _cubit,
       child: BlocBuilder<CreateInvoiceCubit, CreateInvoiceState>(
         builder: (context, state) {
-    final responsive = ResponsiveHelper(context);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = responsive.isTablet;
-    final isLargeTablet = responsive.isLargeTablet;
-    final containerWidth = isLargeTablet
-        ? (screenWidth * 0.8).clamp(800.0, 1200.0)
-        : isTablet
-            ? screenWidth * 0.9
-            : screenWidth - 32.0;
-    final horizontalSpacing = isLargeTablet
-        ? (screenWidth * 0.1).clamp(32.0, 64.0)
-        : isTablet
-            ? 32.0
-            : 16.0;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 16.0;
+          final responsive = ResponsiveHelper(context);
+          final isTablet = responsive.isTablet;
 
-    return GestureDetector(
-      onTap: () => FocusScope.of(context).unfocus(),
-      child: Scaffold(
-        backgroundColor: AppColors.billingCardColor,
-        appBar: const CustomAppBar(hasBackButton: true),
-        body: Stack(
-          children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-            Column(
+          return StaffFormLayout(
+            title: 'Create Invoice',
+            bottomBar: _buildBottomBar(responsive),
+            child: ListView(
+              padding: EdgeInsets.zero,
               children: [
-                const SizedBox(height: 16),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: horizontalSpacing),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Create Invoice',
-                      style: AppTextStyles.title.copyWith(
-                        fontSize: responsive.titleFontSize,
-                        color: AppColors.billingTextColor,
-                      ),
-                    ),
-                  ),
-                ),
-                SizedBox(height: isTablet ? 32.0 : 20.0),
-                Expanded(
-                  child: Container(
-                    width: containerWidth,
-                    margin: EdgeInsets.symmetric(horizontal: horizontalSpacing),
-                    padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.billingCardColor,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.billingShadowColorLight,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        Expanded(
-                          child: ListView(
-                            padding: EdgeInsets.zero,
-                            children: [
-                              _SelectedStudentsBanner(students: widget.selectedStudents),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildDueDatePicker(responsive, isTablet),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildServiceDateRange(responsive, isTablet),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildInvoiceItemsSection(responsive, isTablet),
-                              SizedBox(height: responsive.verticalSpacing),
-                              _buildInternalNoteField(responsive),
-                              SizedBox(height: responsive.verticalSpacing),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
+                _SelectedStudentsBanner(students: widget.selectedStudents),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildDueDatePicker(responsive, isTablet),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildServiceDateRange(responsive, isTablet),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildInvoiceItemsSection(responsive, isTablet),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildInternalNoteField(responsive),
+                SizedBox(height: responsive.verticalSpacing),
               ],
             ),
-          ],
-        ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
-          decoration: BoxDecoration(
-            color: AppColors.billingCardColor,
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.billingShadowColorLight,
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
-          ),
-          child: ValueListenableBuilder<bool>(
-            valueListenable: _isSubmitting,
-            builder: (context, isSubmitting, _) => Container(
-              height: responsive.buttonHeight,
-              decoration: BoxDecoration(
-                gradient:
-                    isSubmitting ? null : AppColors.buildPrimaryGradient(),
-                color: isSubmitting ? AppColors.billingButtonDisabled : null,
-                borderRadius:
-                    BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-              ),
-              child: TextButton(
-                onPressed: isSubmitting ? null : _handleSubmit,
-                child: Text(
-                  'Save Invoice (UI Only)',
-                  style: AppTextStyles.button(color: AppColors.billingCardColor)
-                      .copyWith(
-                    fontSize: responsive.buttonFontSize,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+          );
+        },
       ),
     );
-        },
+  }
+
+  Widget _buildBottomBar(ResponsiveHelper responsive) {
+    final safeAreaBottom = MediaQuery.of(context).padding.bottom > 0
+        ? MediaQuery.of(context).padding.bottom
+        : 16.0;
+    return Container(
+      padding:
+          EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+      decoration: BoxDecoration(
+        color: AppColors.billingCardColor,
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.billingShadowColorLight,
+            offset: const Offset(0, -4),
+            blurRadius: 16,
+          ),
+        ],
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+        ),
+      ),
+      child: ValueListenableBuilder<bool>(
+        valueListenable: _isSubmitting,
+        builder: (context, isSubmitting, _) => Container(
+          height: responsive.buttonHeight,
+          decoration: BoxDecoration(
+            gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
+            color: isSubmitting ? AppColors.billingButtonDisabled : null,
+            borderRadius:
+                BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+          ),
+          child: TextButton(
+            onPressed: isSubmitting ? null : _handleSubmit,
+            child: Text(
+              'Save Invoice (UI Only)',
+              style: AppTextStyles.button(color: AppColors.billingCardColor)
+                  .copyWith(
+                fontSize: responsive.buttonFontSize,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
