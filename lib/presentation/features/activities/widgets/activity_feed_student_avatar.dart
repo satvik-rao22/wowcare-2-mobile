@@ -5,14 +5,25 @@ import '../../../../app/theme/fonts.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 
 /// Bottom sheet listing students on an activity card (tap initials stack).
+///
+/// [studentCodes] (when provided) is index-aligned with [studentNames] and lets
+/// the avatar resolve the real profile photo instead of falling back to initials.
 Future<void> showActivityStudentListSheet(
   BuildContext context,
-  List<String> studentNames,
-) async {
-  final names = studentNames
-      .map((s) => s.trim())
-      .where((s) => s.isNotEmpty)
-      .toList();
+  List<String> studentNames, {
+  List<String?>? studentCodes,
+}) async {
+  final names = <String>[];
+  final codes = <String?>[];
+  for (var i = 0; i < studentNames.length; i++) {
+    final n = studentNames[i].trim();
+    if (n.isEmpty) continue;
+    names.add(n);
+    final c = (studentCodes != null && i < studentCodes.length)
+        ? (studentCodes[i] ?? '').trim()
+        : '';
+    codes.add(c.isEmpty ? null : c);
+  }
   if (names.isEmpty) return;
 
   await showModalBottomSheet<void>(
@@ -78,6 +89,7 @@ Future<void> showActivityStudentListSheet(
                             DocumentImageWidget(
                               fileUuid: '',
                               name: n,
+                              studentCode: codes[i],
                               size: 40,
                               fontSize: 14,
                             ),
@@ -130,15 +142,54 @@ Future<void> showActivityStudentListSheet(
   );
 }
 
-/// Overlapping student circles (initials) for activity feed cards.
+/// Overlapping student circles for activity feed cards. [studentCodes] (when
+/// provided) is index-aligned with [students] so the avatars can show the real
+/// profile photo instead of initials.
 Widget activityFeedStudentAvatarStack(
   List<String> students, {
+  List<String?>? studentCodes,
   VoidCallback? onOpenStudentList,
 }) {
   if (students.isEmpty) {
     return const SizedBox(height: 32);
   }
+  String? codeAt(int i) {
+    if (studentCodes == null || i >= studentCodes.length) return null;
+    final c = (studentCodes[i] ?? '').trim();
+    return c.isEmpty ? null : c;
+  }
   const size = 28.0;
+
+  // Single-student activity: show the name beside the avatar instead of a
+  // lone initials circle.
+  if (students.length == 1) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DocumentImageWidget(
+          fileUuid: '',
+          name: students.first,
+          studentCode: codeAt(0),
+          size: size,
+          fontSize: 10,
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            students.first,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: Fonts.manrope,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
   final overlap = students.length >= 2 ? 16.0 : 20.0;
   const maxShow = 4;
   final stack = SizedBox(
@@ -152,6 +203,7 @@ Widget activityFeedStudentAvatarStack(
             child: DocumentImageWidget(
               fileUuid: '',
               name: students[i],
+              studentCode: codeAt(i),
               size: size,
               fontSize: 10,
             ),

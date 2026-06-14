@@ -1862,7 +1862,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                 final primaryName = primaryCode.isNotEmpty
                     ? _classroomNameByCode[primaryCode]
                     : null;
-                _selectdClassroom = primaryName ?? _classroomOptions.first;
+                // If the primary classroom is Office (filtered out of the
+                // selectable list) or otherwise unavailable, fall back to the
+                // top sorted classroom.
+                _selectdClassroom =
+                    (primaryName != null && _classroomOptions.contains(primaryName))
+                        ? primaryName
+                        : _classroomOptions.first;
               }
               // Keep multi-select UI in sync with default classroom.
               if (_selectdClassroom != null &&
@@ -1928,7 +1934,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         final primaryCode = (_primaryClassroomCode ?? '').trim();
         final primaryName =
             primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
-        _selectdClassroom = primaryName ?? _classroomOptions.first;
+        // If the primary classroom is Office (filtered out of the selectable
+        // list) or otherwise unavailable, fall back to the top sorted classroom.
+        _selectdClassroom =
+            (primaryName != null && _classroomOptions.contains(primaryName))
+                ? primaryName
+                : _classroomOptions.first;
       }
       // Keep multi-select UI in sync with default classroom.
       if (_selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
@@ -3490,10 +3501,18 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
                                                             activityFeedStudentAvatarStack(
                                                             students,
+                                                            studentCodes:
+                                                                feedStudentCodesForNames(
+                                                              activity,
+                                                            ),
                                                             onOpenStudentList: () =>
                                                                 showActivityStudentListSheet(
                                                               context,
                                                               students,
+                                                              studentCodes:
+                                                                  feedStudentCodesForNames(
+                                                                activity,
+                                                              ),
                                                             ),
                                                           ),
                                                             const SizedBox(height: 10),

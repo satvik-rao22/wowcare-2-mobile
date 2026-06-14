@@ -1,119 +1,120 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/cubit/family_summary_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
-import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/family_summary_list.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
 class TransactionsSection extends StatefulWidget {
-  const TransactionsSection({super.key});
+  const TransactionsSection({super.key, this.onRegisterRefresh});
+
+  /// Lets the parent (Billing page) trigger a pull-to-refresh of this tab.
+  final void Function(Future<void> Function())? onRegisterRefresh;
 
   @override
   State<TransactionsSection> createState() => _TransactionsSectionState();
 }
 
 class _TransactionsSectionState extends State<TransactionsSection> {
-  late final TransactionsCubit _cubit = TransactionsCubit();
+  late final TransactionsCubit _cubit = serviceLocator<TransactionsCubit>();
+  late final FamilySummaryCubit _familyCubit =
+      serviceLocator<FamilySummaryCubit>();
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _cubit.loadOverview();
+    _familyCubit.load();
+    widget.onRegisterRefresh?.call(_refresh);
+  }
+
+  /// Reloads the overview totals and the family list together.
+  Future<void> _refresh() async {
+    await Future.wait([_cubit.loadOverview(), _familyCubit.load()]);
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
     _cubit.close();
+    _familyCubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<TransactionsCubit>.value(
-      value: _cubit,
-      child: BlocBuilder<TransactionsCubit, TransactionsState>(
-        builder: (context, state) {
-    final List<TransactionRecord> visibleTransactions =
-        state.visibleTransactions;
-    final double totalInvoiced = state.totalInvoiced;
-    final double paidPercent = state.paidPercent;
-    final double inProcessPercent = state.inProcessPercent;
-    final double unpaidPercent = state.unpaidPercent;
-    final double refundPercent = state.refundPercent;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        const SizedBox(height: 4),
-        // Text(
-        //   'Transactions',
-        //   style: const TextStyle(
-        //     fontFamily: 'Manrope',
-        //     fontSize: 17,
-        //     fontWeight: FontWeight.w600,
-        //     color: AppColors.primaryColor,
-        //   ),
-        // ),
-        // const SizedBox(height: 16),
-        const AccountingDateRangeSelector(),
-        const SizedBox(height: 12),
-        AmountInvoicedStatBar(
-          totalAmount: totalInvoiced,
-          paidPercentage: paidPercent,
-          inProcessPercentage: inProcessPercent,
-          unpaidPercentage: unpaidPercent,
-          refundPercentage: refundPercent,
-        ),
-        const SizedBox(height: 12),
-        _buildSearchBar(context),
-        const SizedBox(height: 16),
-        if (visibleTransactions.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                'No transactions match your filters.',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-            ),
-          )
-        else
-          Column(
-            children: visibleTransactions
-                .map(
-                  (TransactionRecord record) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: BillingTransactionCard(
-                      transaction: record.item,
-                      onView: () => _openViewInvoice(record.item),
-                      onViewReceipt: () => _openViewReceipt(record.item, 'receipt'),
-                      onSendInvoice: () => _openSendInvoice(record.item),
-                      onReceivePayment: () => _openReceivePayment(record.item),
-                      onIssueRefund: () => _openIssueRefund(record.item),
-                      onBillingProfile: () => _openTransactionDetails(record.item),
-                      onDelete: () => _showActionFeedback('Delete confirmed'),
-                      onLongPress: () => _openTransactionDetails(record.item),
-                    ),
-                  ),
-                )
-                .toList(),
-          ),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<TransactionsCubit>.value(value: _cubit),
+        BlocProvider<FamilySummaryCubit>.value(value: _familyCubit),
       ],
-    );
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<TransactionsCubit, TransactionsState>(
+            listenWhen: (p, c) =>
+                p.errorMessage != c.errorMessage && c.errorMessage != null,
+            listener: (context, state) => CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.errorMessage!,
+              isError: true,
+            ),
+          ),
+          BlocListener<FamilySummaryCubit, FamilySummaryState>(
+            listenWhen: (p, c) =>
+                p.errorMessage != c.errorMessage && c.errorMessage != null,
+            listener: (context, state) => CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.errorMessage!,
+              isError: true,
+            ),
+          ),
+        ],
+        child: BlocBuilder<TransactionsCubit, TransactionsState>(
+          builder: (context, state) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              const SizedBox(height: 4),
+              AccountingDateRangeSelector(
+                initialStartDate: state.dateFrom,
+                initialEndDate: state.dateTo,
+                onRangeChanged: (start, end) => _cubit.setDateRange(start, end),
+              ),
+              const SizedBox(height: 12),
+              AmountInvoicedStatBar(
+                totalAmount: state.totalInvoiced,
+                paidPercentage: state.paidPercent,
+                grossPaidPercentage: state.grossPaidPercent,
+                inProcessPercentage: state.inProcessPercent,
+                unpaidPercentage: state.unpaidPercent,
+                refundPercentage: state.refundPercent,
+              ),
+              const SizedBox(height: 12),
+              _buildSearchBar(context),
+              const SizedBox(height: 16),
+              BlocBuilder<FamilySummaryCubit, FamilySummaryState>(
+                builder: (context, familyState) {
+                  return FamilySummaryList(
+                    families: familyState.filteredFamilies,
+                    isLoading: familyState.isLoading,
+                    errorMessage: familyState.errorMessage,
+                  );
+                },
+              ),
+            ],
+          );
         },
+        ),
       ),
     );
   }
@@ -129,8 +130,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
               Expanded(
                 child: CustomSearchBar(
                   controller: _searchController,
-                  hintText: 'Search by student, ID, or description',
-                  onChanged: (value) => _cubit.setSearchQuery(value),
+                  hintText: 'Search by family or guardian',
+                  onChanged: (value) => _familyCubit.setSearchQuery(value),
                 ),
               ),
               const SizedBox(width: 8),
@@ -170,75 +171,6 @@ class _TransactionsSectionState extends State<TransactionsSection> {
 
   void _clearSearch() {
     _searchController.clear();
-    _cubit.clearSearch();
-  }
-
-  void _showActionFeedback(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label tapped (UI only).'),
-      ),
-    );
-  }
-
-  void _openSendInvoice(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) => SendInvoiceScreen(transaction: item),
-      ),
-    );
-  }
-
-  void _openReceivePayment(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) =>
-            ReceivePaymentIssueRefundScreen(transaction: item),
-      ),
-    );
-  }
-
-  void _openIssueRefund(TransactionItem item) {
-    Navigator.of(context).push<bool>(
-      MaterialPageRoute<bool>(
-        builder: (context) => ReceivePaymentIssueRefundScreen(
-          transaction: item,
-          isRefund: true,
-        ),
-      ),
-    );
-  }
-
-  void _openTransactionDetails(TransactionItem item) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => TransactionDetailsScreen(
-          transaction: item,
-        ),
-      ),
-    );
-  }
-
-  void _openViewReceipt(TransactionItem item, String viewType) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ViewReceiptScreen(
-          transaction: item,
-          viewType: viewType,
-        ),
-      ),
-    );
-  }
-
-  void _openViewInvoice(TransactionItem item) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ViewInvoiceScreen(
-          transaction: item,
-        ),
-      ),
-    );
+    _familyCubit.clearSearch();
   }
 }
-
-

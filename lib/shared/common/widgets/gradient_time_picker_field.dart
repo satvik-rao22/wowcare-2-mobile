@@ -117,7 +117,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 class GradientTimePickerField extends StatelessWidget {
   const GradientTimePickerField({
     super.key,
-    required this.label,
+    this.label,
     required this.time,
     required this.onTimeSelected,
     this.errorText,
@@ -126,7 +126,10 @@ class GradientTimePickerField extends StatelessWidget {
     this.onClear,
   });
 
-  final String label;
+  /// Optional in-field label rendered above the picker. When null or empty,
+  /// no label row is drawn — useful where the caller already renders its own
+  /// label (e.g. the attendance forms use `AppText.label('Time')`).
+  final String? label;
   final String? errorText;
   final TimeOfDay? time;
   final ValueChanged<TimeOfDay> onTimeSelected;
@@ -209,32 +212,35 @@ class GradientTimePickerField extends StatelessWidget {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
+    final hasLabel = label != null && label!.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
-            children: [
-              if (isRequired)
-                const TextSpan(
-                  text: ' *',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.w700,
+        if (hasLabel) ...[
+          RichText(
+            text: TextSpan(
+              text: label,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primaryColor,
+              ),
+              children: [
+                if (isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-
-        const SizedBox(height: 6),
+          const SizedBox(height: 6),
+        ],
 
         GestureDetector(
           onTap: enabled ? () => _pickTime(context) : null,

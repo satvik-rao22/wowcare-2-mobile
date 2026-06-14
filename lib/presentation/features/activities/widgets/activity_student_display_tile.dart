@@ -10,16 +10,28 @@ class ActivityStudentDisplayTile extends StatelessWidget {
   const ActivityStudentDisplayTile({
     super.key,
     required this.name,
+    this.studentCode,
     this.backgroundColor,
+    this.onRemove,
   });
 
   final String name;
+
+  /// Optional student code — when set, the avatar resolves the real profile
+  /// photo (falling back to initials when none is available).
+  final String? studentCode;
+
   /// Defaults to white; use selected tint when mirroring a selected row elsewhere.
   final Color? backgroundColor;
+
+  /// When provided, a trash button is shown so the student can be removed
+  /// (used in the create flow). Omit for display-only view/edit.
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
     final display = name.trim().isEmpty ? 'Student' : name.trim();
+    final code = (studentCode ?? '').trim();
     return Container(
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
@@ -33,6 +45,7 @@ class ActivityStudentDisplayTile extends StatelessWidget {
             DocumentImageWidget(
               fileUuid: '',
               name: display,
+              studentCode: code.isEmpty ? null : code,
               size: 28,
               fontSize: 12,
             ),
@@ -40,7 +53,7 @@ class ActivityStudentDisplayTile extends StatelessWidget {
             Expanded(
               child: EllipsisTooltipText(
                 text: display,
-                maxLines: 1,
+                maxLines: 2,
                 style: const TextStyle(
                   color: AppColors.primaryColor,
                   fontSize: 12,
@@ -49,6 +62,19 @@ class ActivityStudentDisplayTile extends StatelessWidget {
                 ),
               ),
             ),
+            if (onRemove != null)
+              GestureDetector(
+                onTap: onRemove,
+                behavior: HitTestBehavior.opaque,
+                child: const Padding(
+                  padding: EdgeInsets.only(left: 4),
+                  child: Icon(
+                    Icons.delete_outline,
+                    size: 24,
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+              ),
           ],
         ),
       ),

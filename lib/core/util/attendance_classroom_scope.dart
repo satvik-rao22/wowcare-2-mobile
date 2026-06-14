@@ -236,6 +236,29 @@ Future<String?> resolveStaffPrimaryClassroomCode({
   }
 }
 
+/// Like [resolveStaffPrimaryClassroomCode] but resolves the staff member's
+/// primary classroom for ANY persona — including admins, whose classroom lists
+/// are not attendance-scoped. Use this to pre-select the primary classroom on
+/// screens that show it to admins too (daily/custom/classroom). Returns null
+/// when unavailable; callers should fall back to the top sorted classroom (and
+/// must ignore it when it resolves to a non-selectable room like Office).
+Future<String?> resolveStaffPrimaryClassroomCodeAnyPersona() async {
+  try {
+    final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+    if (staffCode.isEmpty) return null;
+
+    final repo = serviceLocator<StaffRepository>();
+    final profile = await repo.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+    final primary = profile.primaryClassroomCode.trim();
+    return primary.isNotEmpty ? primary : null;
+  } catch (_) {
+    return null;
+  }
+}
+
 /// Returns true when logged-in persona is a non-admin staff user, for whom
 /// classroom lists should be scoped to `allowedClassroomCodes`.
 Future<bool> isAttendanceScopedStaffPersona({

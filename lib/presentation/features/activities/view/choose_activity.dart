@@ -7,7 +7,6 @@ import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/activities/cubit/choose_activity_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -191,18 +190,19 @@ class _ChooseActivityState extends State<ChooseActivity> {
     });
   }
 
-  Future<void> _onNextPressed(
+  /// Tapping an activity navigates directly to its create screen — there is no
+  /// separate "Next" button. Guards against concurrent taps while the activity
+  /// type details are being fetched.
+  Future<void> _onActivitySelected(
     BuildContext context,
     ChooseActivityState state,
+    String activityKey,
   ) async {
-    if (_selectedActivity == null) {
-      _showWarningMessage('Select an activity.');
-      return;
-    }
+    if (_isLoadingNext) return;
 
     // Always hit: GET /api/v1/activity-types/{code}
     final selectedApiName =
-        state.activityDisplayNameByKey[_selectedActivity!] ?? _selectedActivity!;
+        state.activityDisplayNameByKey[activityKey] ?? activityKey;
     final code = state.activityTypeCodeByName[selectedApiName.toLowerCase()];
     if (code == null || code.trim().isEmpty) {
       _showWarningMessage('Unable to resolve activity code.');
@@ -210,6 +210,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
     }
 
     setState(() {
+      _selectedActivity = activityKey;
       _isLoadingNext = true;
     });
 
@@ -224,7 +225,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
       return;
     }
 
-    final destinationBuilder = ChooseActivity.activityRoutes[_selectedActivity!];
+    final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null && context.mounted) {
       final nextScreen = destinationBuilder(widget.selectedStudents);
       Navigator.of(context).push(
@@ -257,8 +258,6 @@ class _ChooseActivityState extends State<ChooseActivity> {
   }
 
   Widget _buildScaffold(BuildContext context, ChooseActivityState state) {
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
     return StaffFormLayout(
       title: 'Choose Activity',
       child: Column(
@@ -305,11 +304,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                 onTap: isDisabled
                                     ? () => _showDisabledActivityTooltip(
                                         tileContext, activityName)
-                                    : () {
-                                        setState(() {
-                                          _selectedActivity = activityKey;
-                                        });
-                                      },
+                                    : () => _onActivitySelected(
+                                        context, state, activityKey),
                                 child: Container(
                                   padding:
                                       const EdgeInsets.symmetric(horizontal: 12),
@@ -371,16 +367,8 @@ class _ChooseActivityState extends State<ChooseActivity> {
           ),
         ],
       ),
-      bottomBar: Padding(
-        padding: EdgeInsets.only(bottom: safeAreaBottom),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Next',
-          cancelButtonLabel: 'Cancel',
-          onPressedCancel: () => Navigator.of(context).pop(),
-          onPressedConfirm:
-              _isLoadingNext ? null : () => _onNextPressed(context, state),
-        ),
-      ),
+      // Tapping an activity navigates directly — no Next/Cancel buttons.
+      bottomBar: const SizedBox.shrink(),
     );
   }
 }

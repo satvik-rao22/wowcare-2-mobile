@@ -50,14 +50,50 @@ const List<String> _attachmentUrlKeys = [
   'originalDownloadUrl',
 ];
 
-/// First non-empty URL on the row (same preference order as the activity feed card).
-String _attachmentPrimaryDeliveryUrl(Map<String, dynamic> row) {
+/// Best usable URL for an attachment row, including processed **variant**
+/// artifact URLs.
+///
+/// The backend can leave the top-level `deliveryUrl`/`thumbnailUrl` null while
+/// `status` is still `PROCESSING`, even though the processed variants are
+/// already servable (their `artifactUrl` is populated). We therefore fall back
+/// to the variants — preferring the default (primary) rendition — before
+/// treating the attachment as not-yet-ready.
+String attachmentUsableDeliveryUrl(Map<String, dynamic> row) {
   for (final key in _attachmentUrlKeys) {
     final d = (row[key] ?? '').toString().trim();
     if (d.isNotEmpty) return d;
   }
+  final variants = row['variants'];
+  if (variants is List) {
+    for (final v in variants) {
+      if (v is! Map) continue;
+      final isDefault =
+          (v['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+      if (!isDefault) continue;
+      for (final key in _attachmentUrlKeys) {
+        final u = (v[key] ?? '').toString().trim();
+        if (u.isNotEmpty) return u;
+      }
+    }
+    for (final v in variants) {
+      if (v is! Map) continue;
+      for (final key in _attachmentUrlKeys) {
+        final u = (v[key] ?? '').toString().trim();
+        if (u.isNotEmpty) return u;
+      }
+    }
+  }
   return '';
 }
+
+/// True when an attachment row already has a servable image/video URL (incl.
+/// processed variants), i.e. it is no longer effectively "processing".
+bool attachmentRowHasUsableMedia(Map<String, dynamic> row) =>
+    attachmentUsableDeliveryUrl(row).isNotEmpty;
+
+/// First non-empty URL on the row (same preference order as the activity feed card).
+String _attachmentPrimaryDeliveryUrl(Map<String, dynamic> row) =>
+    attachmentUsableDeliveryUrl(row);
 
 bool _attachmentRowUrlsIntersectRemaining(
   Map<String, dynamic> row,

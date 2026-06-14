@@ -238,9 +238,11 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
     if (attachments == null || attachments.isEmpty) return false;
     for (final row in attachments) {
       final status = (row['status'] ?? '').toString().trim().toUpperCase();
-      if (status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING') {
-        return true;
-      }
+      final isProcessing =
+          status == 'PROCESSING' || status == 'UPLOADED' || status == 'PENDING';
+      if (!isProcessing) continue;
+      // Already servable (processed variants live) → not actually processing.
+      if (!attachmentRowHasUsableMedia(row)) return true;
     }
     return false;
   }

@@ -80,7 +80,15 @@ class ApiPathsUat {
     // Newsletter MS — resource root is plural `newsletters`.
     ApiMicroservices.newsLatter: {'newsletters'},
     // Billing MS — UAT segment `accounts`, resource roots.
-    ApiMicroservices.billing: {'ledgers', 'ledger-transactions', 'discount'},
+    ApiMicroservices.billing: {
+      'ledgers',
+      'ledger-transactions',
+      'discount',
+      'subsidy',
+      'fee-structure',
+      'other-fees',
+      'invoices',
+    },
   };
 
   static String _uatSegmentForMicroservice(String microserviceKey) {
