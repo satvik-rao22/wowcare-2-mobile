@@ -1,23 +1,17 @@
-import 'dart:io';
+import 'dart:async';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
-import 'package:thumbnailer/thumbnailer.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/attachment_widget.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
-import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
-import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/jwt_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -26,6 +20,9 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import '../widgets/chat_input_bar.dart';
+import '../widgets/chat_thread_shimmer.dart';
+import '../widgets/message_attachment_bottom_sheet.dart';
 import '../widgets/message_bubble_widget.dart';
 
 class StaffMessagingThread extends StatefulWidget {
@@ -79,27 +76,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
 
       final storage = serviceLocator<StorageService>();
 
-      // PRIMARY: JWT `sub` saved at login (new sessions).
-      String jwtSub = (await storage.getString(StorageKeys.authUserId) ?? '').trim();
-
-      // For existing sessions that pre-date the authUserId storage key, decode
-      // the stored access token on-the-fly and cache the result immediately.
-      if (jwtSub.isEmpty) {
-        final token = await storage.getString(StorageKeys.accessToken);
-        final decoded = extractJwtSub(token);
-        if (decoded != null && decoded.isNotEmpty) {
-          jwtSub = decoded;
-          await storage.saveString(StorageKeys.authUserId, jwtSub);
-        }
-      }
-
-      // FALLBACK chain (should never be needed after the JWT decode above,
-      // but keeps the app working even if the token is unavailable).
+      // senderUserCode from the backend is the USR-/STF-... userCode, not the
+      // JWT sub UUID. Use userCode for ownership comparison.
       final storedUserCode = (await storage.getString(StorageKeys.userCode) ?? '').trim();
 
-      _currentUserCode = jwtSub.isNotEmpty
-          ? jwtSub
-          : userCodeFromAuth.isNotEmpty
+      _currentUserCode = userCodeFromAuth.isNotEmpty
           ? userCodeFromAuth
           : storedUserCode.isNotEmpty
           ? storedUserCode
@@ -107,7 +88,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
 
       AppLogger.d(
         '[CHAT OWNERSHIP] initState identity resolution:\n'
-        '  jwtSub (authUserId)    → "$jwtSub"\n'
         '  loginResponse.userCode → "$userCodeFromAuth"\n'
         '  storage.userCode       → "$storedUserCode"\n'
         '  resolved               → "$_currentUserCode"\n'
@@ -391,9 +371,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
         }
       },
       builder: (context, state) {
-        // final screenHeight = MediaQuery.of(context).size.height;
         final bool isLandscape =
             MediaQuery.of(context).orientation == Orientation.landscape;
+
+        if (state is CommunicationLoading && _messages.isEmpty) {
+          return GlobalScaffold(
+            hasBackButton: true,
+            showCustomNavigationBar: !isLandscape,
+            body: const ChatThreadShimmer(),
+          );
+        }
+
         return GlobalScaffold(
           hasBackButton: true,
           showCustomNavigationBar: !isLandscape,
@@ -833,279 +821,39 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
 
   Widget _buildMessageInput() {
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (_quotedMessage != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Color.fromRGBO(89, 120, 247, 0.1),
-                      Color.fromRGBO(156, 132, 255, 0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: CustomTextWidget(
-                        text: _quotedMessage?.text,
-                        fontSize: 14,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () {
-                        setState(() {
-                          _quotedMessage = null;
-                          _quotedMessageCode = null;
-                        });
-                      },
-                    ),
-                  ],
-                ),
-              ),
-
-            if (_pendingAttachments.isNotEmpty)
-              Container(
-                constraints: const BoxConstraints(maxHeight: 90),
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _pendingAttachments.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final att = _pendingAttachments[index];
-
-                    return SizedBox(
-                      width: 80,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ShowFullScreenMediaView(
-                                imageFile: File(att.localPath!),
-                                title: att.name,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Stack(
-                          fit: StackFit.loose,
-                          children: [
-                            ClipRRect(
-                              clipBehavior: Clip.none,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Thumbnail(
-                                mimeType: att.mimeType,
-                                dataResolver: () async {
-                                  return await File(
-                                    att.localPath!,
-                                  ).readAsBytes();
-                                },
-                                widgetSize: 80,
-                                decoration: WidgetDecoration(
-                                  backgroundColor: Colors.white,
-                                  iconColor: AppColors.primaryColor,
-                                  textColor: AppColors.primaryColor,
-                                  wrapperBgColor: Colors.transparent,
-                                  wrapperSize: 84,
-                                ),
-                                errorBuilder: (context, error) => Container(
-                                  color: Colors.grey[200],
-                                  child: Center(
-                                    child: Icon(
-                                      att.isImage
-                                          ? Icons.image
-                                          : Icons.picture_as_pdf,
-                                      size: 40,
-                                      color: AppColors.primaryColor,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            Positioned(
-                              top: -2.5,
-                              right: -2.5,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _pendingAttachments.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                    border: Border.fromBorderSide(
-                                      BorderSide(color: Colors.white, width: 2),
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            if (!att.isImage)
-                              Positioned(
-                                bottom: 4,
-                                left: 4,
-                                right: 4,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    att.name.length > 15
-                                        ? '${att.name.substring(0, 12)}...'
-                                        : att.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Color.fromRGBO(89, 120, 247, 0.1),
-                          Color.fromRGBO(156, 132, 255, 0.1),
-                        ],
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            minLines: 1,
-                            maxLines: 10,
-                            textCapitalization: TextCapitalization.sentences,
-                            maxLength: 2000,
-                            decoration: InputDecoration(
-                              hintText: "Type your message here...",
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 5,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            buildCounter:
-                                (
-                                  context, {
-                                  required currentLength,
-                                  required isFocused,
-                                  maxLength,
-                                }) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      '$currentLength / $maxLength',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: currentLength >= maxLength!
-                                            ? Colors.red
-                                            : Colors.grey,
-                                      ),
-                                    ),
-                                  );
-                                },
-                          ),
-                        ),
-
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 12,
-                          ),
-                          child: AttachmentWidget(
-                            iconWidget: GradientAddButton(
-                              wantedButtonSize: 28,
-                              isRectangle: false,
-                            ),
-                            onAttachmentsSelected: (attachments) {
-                              setState(() {
-                                _pendingAttachments.addAll(attachments);
-                              });
-                            },
-                          ),
-                          // child: GradientAddButton(
-                          //   onTap: () {},
-                          //   wantedButtonSize: 26,
-                          //   isRectangle: false,
-                          // ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CustomClearAllChip(
-                  onTap: () {
-                    _sendMessage();
-                  },
-                  label: 'Send',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  borderRadius: 8,
-                ),
-              ],
-            ),
-          ],
-        ),
+      child: ChatInputBar(
+        controller: _controller,
+        onSend: _sendMessage,
+        onAttachmentTap: _showAttachmentPicker,
+        isSending: false,
+        pendingAttachments: _pendingAttachments,
+        quotedMessage: _quotedMessage,
+        onCancelQuote: () => setState(() {
+          _quotedMessage = null;
+          _quotedMessageCode = null;
+        }),
+        onRemoveAttachment: (i) => setState(() => _pendingAttachments.removeAt(i)),
       ),
     );
+  }
+
+  void _showAttachmentPicker() {
+    unawaited(MessageAttachmentBottomSheet.show(
+      context,
+      onAttachmentsSelected: (attachments) {
+        setState(() => _pendingAttachments.addAll(attachments));
+      },
+      onEmojiSelected: (emoji) {
+        final pos = _controller.selection.isValid
+            ? _controller.selection.baseOffset
+            : _controller.text.length;
+        final text = _controller.text;
+        _controller.value = _controller.value.copyWith(
+          text: text.substring(0, pos) + emoji + text.substring(pos),
+          selection: TextSelection.collapsed(offset: pos + emoji.length),
+        );
+      },
+    ));
   }
 
   Widget _buildDateChip(DateTime date) {

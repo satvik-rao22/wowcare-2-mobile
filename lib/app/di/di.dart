@@ -1,6 +1,7 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -296,10 +297,16 @@ import '../../data/features/communication/repositories/conversation_entity_repos
 import '../../data/features/communication/repositories/message_entity_repository_impl.dart';
 import '../../domain/features/communication/repositories/conversation_entity_repository.dart';
 import '../../domain/features/communication/repositories/message_entity_repository.dart';
-
+import '../../data/features/communication/realtime/conversation_realtime_data_source.dart';
+import '../../data/features/communication/realtime/message_realtime_data_source.dart';
+import '../../data/features/communication/realtime/firebase_token_data_source.dart';
+import '../../domain/features/communication/usecases/watch_conversations_usecase.dart';
+import '../../domain/features/communication/usecases/watch_total_unread_count_usecase.dart';
+import '../../domain/features/communication/usecases/watch_messages_usecase.dart';
+import '../../domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
+import '../../domain/features/communication/usecases/register_firebase_token_usecase.dart';
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
 import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
-
 import '../../data/features/newsletter/datasources/newsletter_remote_datasource.dart';
 import '../../data/features/newsletter/repositories/newsletter_repository_impl.dart';
 import '../../domain/features/newsletter/repositories/newsletter_repository.dart';
@@ -380,12 +387,13 @@ import '../../domain/features/billing/usecases/reactivate_discount_usecase.dart'
 import '../../presentation/features/billing/cubit/discount_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_form_cubit.dart';
 
-
 final GetIt serviceLocator = GetIt.instance;
 
 Future<void> configureDependencies({String? baseUrl}) async {
   if (serviceLocator.isRegistered<StorageService>()) {
-    AppLogger.d('configureDependencies called but StorageService is already registered. Skipping initialization.');
+    AppLogger.d(
+      'configureDependencies called but StorageService is already registered. Skipping initialization.',
+    );
     return;
   }
   // Initialize SharedPreferences
@@ -570,29 +578,42 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
+  // ===== COMMUNICATION V2.1 — REALTIME DATA SOURCES (Firestore) =====
+  serviceLocator.registerLazySingleton<ConversationRealtimeDataSource>(
+    () => FirebaseConversationRealtimeDataSource(
+      firestore: FirebaseFirestore.instance,
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<MessageRealtimeDataSource>(
+    () => FirebaseMessageRealtimeDataSource(
+      firestore: FirebaseFirestore.instance,
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<FirebaseTokenDataSource>(
+    () => FirebaseTokenDataSourceImpl(
+      apiClient: serviceLocator(),
+      messaging: FirebaseMessaging.instance,
+      prefs: serviceLocator(),
+    ),
+  );
+
   // ===== COMMUNICATION V2.1 — DATA SOURCES (Phase 1B) =====
   serviceLocator.registerLazySingleton<ConversationEntityRemoteDataSource>(
-    () => ConversationEntityRemoteDataSourceImpl(
-      apiClient: serviceLocator(),
-    ),
+    () => ConversationEntityRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<ConversationEntityLocalDataSource>(
-    () => ConversationEntityLocalDataSourceImpl(
-      cacheService: serviceLocator(),
-    ),
+    () => ConversationEntityLocalDataSourceImpl(cacheService: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<MessageEntityRemoteDataSource>(
-    () => MessageEntityRemoteDataSourceImpl(
-      apiClient: serviceLocator(),
-    ),
+    () => MessageEntityRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<MessageEntityLocalDataSource>(
-    () => MessageEntityLocalDataSourceImpl(
-      cacheService: serviceLocator(),
-    ),
+    () => MessageEntityLocalDataSourceImpl(cacheService: serviceLocator()),
   );
 
   // ===== COMMUNICATION V2.1 — REPOSITORIES (Phase 1B) =====
@@ -601,6 +622,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       remoteDataSource: serviceLocator(),
       localDataSource: serviceLocator(),
       storageService: serviceLocator(),
+      realtimeDataSource: serviceLocator(),
     ),
   );
 
@@ -609,6 +631,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       remoteDataSource: serviceLocator(),
       localDataSource: serviceLocator(),
       storageService: serviceLocator(),
+      realtimeDataSource: serviceLocator(),
     ),
   );
 
@@ -1174,6 +1197,22 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SyncPendingOperationsUseCase>(
     () => SyncPendingOperationsUseCase(serviceLocator()),
   );
+  // Realtime (Firestore) use cases
+  serviceLocator.registerFactory<WatchConversationsUseCase>(
+    () => WatchConversationsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchTotalUnreadCountUseCase>(
+    () => WatchTotalUnreadCountUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchMessagesUseCase>(
+    () => WatchMessagesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchUnreadCountForTypeUseCase>(
+    () => WatchUnreadCountForTypeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RegisterFirebaseTokenUseCase>(
+    () => RegisterFirebaseTokenUseCase(serviceLocator()),
+  );
 
   serviceLocator.registerFactory<GetStaffShiftsUseCase>(
     () => GetStaffShiftsUseCase(serviceLocator<StaffShiftRepository>()),
@@ -1264,13 +1303,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => DashboardCubitFactory(serviceLocator),
   );
   serviceLocator.registerFactory<ParentDashboardCoordinatorCubit>(
-    () => serviceLocator<DashboardCubitFactory>().createParentDashboardCoordinator(),
+    () => serviceLocator<DashboardCubitFactory>()
+        .createParentDashboardCoordinator(),
   );
   serviceLocator.registerFactory<StaffDashboardCoordinatorCubit>(
-    () => serviceLocator<DashboardCubitFactory>().createStaffDashboardCoordinator(),
+    () => serviceLocator<DashboardCubitFactory>()
+        .createStaffDashboardCoordinator(),
   );
   serviceLocator.registerFactory<AdminDashboardCoordinatorCubit>(
-    () => serviceLocator<DashboardCubitFactory>().createAdminDashboardCoordinator(),
+    () => serviceLocator<DashboardCubitFactory>()
+        .createAdminDashboardCoordinator(),
   );
   serviceLocator.registerFactory<MyDayCubit>(
     () => MyDayCubit(
@@ -1624,16 +1666,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => FcmRegistrationRepositoryImpl(serviceLocator()),
   );
   serviceLocator.registerFactory<RegisterDeviceFcmTokenUseCase>(
-    () => RegisterDeviceFcmTokenUseCase(
-      serviceLocator(),
-      serviceLocator(),
-    ),
+    () => RegisterDeviceFcmTokenUseCase(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerFactory<UnregisterDeviceFcmTokenUseCase>(
-    () => UnregisterDeviceFcmTokenUseCase(
-      serviceLocator(),
-      serviceLocator(),
-    ),
+    () => UnregisterDeviceFcmTokenUseCase(serviceLocator(), serviceLocator()),
   );
   serviceLocator.registerLazySingleton<PushNotificationRepository>(
     () => PushNotificationRepositoryImpl(serviceLocator()),
@@ -1726,7 +1762,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // Data layer - Repository implementations
   serviceLocator.registerSingleton<KioskAttendanceRepository>(
-    KioskAttendanceRepositoryImpl(serviceLocator<KioskAttendanceRemoteDataSource>()),
+    KioskAttendanceRepositoryImpl(
+      serviceLocator<KioskAttendanceRemoteDataSource>(),
+    ),
   );
 
   // Domain layer - Use cases
@@ -1782,11 +1820,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<LedgerTransactionRemoteDataSource>(
     () => LedgerTransactionRemoteDataSourceImpl(
-        serviceLocator<ApiClient>().client),
+      serviceLocator<ApiClient>().client,
+    ),
   );
   serviceLocator.registerLazySingleton<LedgerTransactionRepository>(
     () => LedgerTransactionRepositoryImpl(
-        serviceLocator<LedgerTransactionRemoteDataSource>()),
+      serviceLocator<LedgerTransactionRemoteDataSource>(),
+    ),
   );
   serviceLocator.registerFactory<GetLedgersUseCase>(
     () => GetLedgersUseCase(serviceLocator<LedgerRepository>()),
@@ -1811,11 +1851,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetLedgerTransactionsUseCase>(
     () => GetLedgerTransactionsUseCase(
-        serviceLocator<LedgerTransactionRepository>()),
+      serviceLocator<LedgerTransactionRepository>(),
+    ),
   );
   serviceLocator.registerFactory<AddLedgerTransactionUseCase>(
     () => AddLedgerTransactionUseCase(
-        serviceLocator<LedgerTransactionRepository>()),
+      serviceLocator<LedgerTransactionRepository>(),
+    ),
   );
   serviceLocator.registerFactory<GeneralLedgerCubit>(
     () => GeneralLedgerCubit(

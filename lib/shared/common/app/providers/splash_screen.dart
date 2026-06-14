@@ -14,6 +14,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -178,6 +179,15 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         AppLogger.d('[Splash] Kiosk user detected - redirecting to /kiosk');
         context.go('/kiosk');
         return;
+      }
+
+      // Non-kiosk cached session: clear any stale kiosk flag from storage and
+      // the static in-memory cache so GoRouter never sees a false positive.
+      try {
+        await serviceLocator<KioskAccessControl>().deactivateKioskMode();
+        AppLogger.d('[Splash] Non-kiosk cached session — kiosk state cleared');
+      } catch (_) {
+        KioskAccessControl.clearCacheForNonKioskLogin();
       }
 
       await context.read<RoleCubit>().refreshAccessFromServer(force: true);

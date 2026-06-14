@@ -133,4 +133,16 @@ abstract class MessageEntityRepository {
 
   /// Invalidate cached messages for a conversation.
   Future<Either<Failure, void>> clearMessagesCache(String conversationCode);
+
+  // ─── Realtime streams (Firestore) ────────────────────────────────────────────
+
+  /// Realtime stream of messages for a conversation, oldest-first.
+  ///
+  /// Falls back to an empty stream if Firestore has no messages subcollection
+  /// for this conversation — callers must handle empty gracefully and load
+  /// from the API path instead.
+  Stream<List<MessageEntity>> watchMessages({
+    required String conversationCode,
+    int limit = 100,
+  });
 }

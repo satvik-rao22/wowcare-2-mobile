@@ -111,7 +111,11 @@ class _MessageBubbleState extends State<MessageBubble>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final reactions = widget.message.reactions.entries.map((e) {
-        return Reaction(emoji: e.value, userId: e.key, timestamp: DateTime.now());
+        return Reaction(
+          emoji: e.value,
+          userId: e.key,
+          timestamp: DateTime.now(),
+        );
       }).toList();
       widget.reactionsController.loadReactions(widget.message.code, reactions);
     });

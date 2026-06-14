@@ -237,7 +237,7 @@ final GoRouter appRouter = GoRouter(
 
       // Allow kiosk routes only
       if (!allowed) {
-        AppLogger.w(
+        AppLogger.d(
           '[KioskAccess] Blocking access to $currentRoute - kiosk user, redirecting to /kiosk',
         );
         return '/kiosk';
@@ -954,6 +954,8 @@ final GoRouter appRouter = GoRouter(
                     final isKiosk = extra?['isKiosk'] as bool? ?? false;
                     final guardianCode = extra?['guardianCode'] as String?;
                     final pin = extra?['pin'] as String?;
+                    final isQrScan = extra?['isQrScan'] as bool? ?? false;
+                    final qrToken = extra?['qrToken'] as String? ?? '';
                     return _fastPage(
                       state,
                       StudentSelectionSignInForm(
@@ -962,6 +964,8 @@ final GoRouter appRouter = GoRouter(
                         isKiosk: isKiosk,
                         guardianCode: guardianCode,
                         pin: pin,
+                        isQrScan: isQrScan,
+                        qrToken: qrToken,
                       ),
                     );
                   },
@@ -977,6 +981,8 @@ final GoRouter appRouter = GoRouter(
                     final isKiosk = extra?['isKiosk'] as bool? ?? false;
                     final guardianCode = extra?['guardianCode'] as String?;
                     final pin = extra?['pin'] as String?;
+                    final isQrScan = extra?['isQrScan'] as bool? ?? false;
+                    final qrToken = extra?['qrToken'] as String? ?? '';
                     return _fastPage(
                       state,
                       StudentSelectionSignOutForm(
@@ -985,6 +991,8 @@ final GoRouter appRouter = GoRouter(
                         isKiosk: isKiosk,
                         guardianCode: guardianCode,
                         pin: pin,
+                        isQrScan: isQrScan,
+                        qrToken: qrToken,
                       ),
                     );
                   },
@@ -999,6 +1007,8 @@ final GoRouter appRouter = GoRouter(
                         extra?['signedOutCodes'] as List<String>? ?? [];
                     final guardianCode = extra?['guardianCode'] as String?;
                     final pin = extra?['pin'] as String?;
+                    final isQrScan = extra?['isQrScan'] as bool? ?? false;
+                    final qrToken = extra?['qrToken'] as String? ?? '';
                     return _fastPage(
                       state,
                       StudentSignInOutSelectionScreen(
@@ -1006,6 +1016,8 @@ final GoRouter appRouter = GoRouter(
                         signedOutCodes: signedOutCodes,
                         guardianCode: guardianCode,
                         pin: pin,
+                        isQrScan: isQrScan,
+                        qrToken: qrToken,
                       ),
                     );
                   },
