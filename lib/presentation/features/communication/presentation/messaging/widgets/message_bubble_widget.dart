@@ -34,6 +34,7 @@ class MessageBubble extends StatefulWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onInfo;
   final void Function(String emoji)? onReactionAdded;
+  final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
   final bool isParentMessaging;
   final bool isInactive;
@@ -52,6 +53,7 @@ class MessageBubble extends StatefulWidget {
     this.onDelete,
     this.onInfo,
     this.onReactionAdded,
+    this.onRemoveReaction,
     this.onReactionTap,
     this.isParentMessaging = false,
     this.isInactive = false,
@@ -296,7 +298,12 @@ class _MessageBubbleState extends State<MessageBubble>
                               ? Alignment.centerRight
                               : Alignment.centerLeft,
                           onReactionAdded: (emoji) {
-                            widget.onReactionAdded?.call(emoji);
+                            final myReaction = widget.message.reactions[widget.currentUserCode ?? 'me'];
+                            if (myReaction == emoji) {
+                              widget.onRemoveReaction?.call(emoji);
+                            } else {
+                              widget.onReactionAdded?.call(emoji);
+                            }
                           },
                           onMenuItemTapped: _handleMenuItemTap,
                           child: _buildBubble(isMe),
@@ -334,10 +341,10 @@ class _MessageBubbleState extends State<MessageBubble>
                                   : const Color.fromRGBO(65, 65, 78, 0.5),
                             ),
                           ],
-                          if (widget.isParentMessaging == true) ...[
+                          if (widget.message.isPrivate) ...[
                             const SizedBox(width: 4),
                             const Icon(
-                              Icons.private_connectivity,
+                              Icons.visibility_off,
                               color: Colors.red,
                               size: 20,
                             ),
@@ -564,86 +571,90 @@ class _MessageBubbleState extends State<MessageBubble>
         widget.isDeleted ||
         message.text.contains('This Message Has Been Deleted');
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-      margin: EdgeInsets.only(left: isMe ? 60 : 0, right: isMe ? 0 : 60),
-      decoration: BoxDecoration(
-        color: isMe ? null : const Color.fromRGBO(220, 230, 255, 1),
-        gradient: isMe ? AppColors.buildPrimaryGradient() : null,
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(isMe ? 70 : 50),
-          topLeft: Radius.circular(isMe ? 50 : 70),
-          bottomLeft: Radius.circular(isMe ? 50 : 0),
-          bottomRight: Radius.circular(isMe ? 0 : 50),
-        ),
-      ),
+    return Material(
+      color: Colors.transparent,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: isDeleted
-            ? const Text(
-                '🚫 This Message Has Been Deleted',
-                style: TextStyle(
-                  color: Color.fromRGBO(87, 51, 83, 1),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Quoted preview
-                  if (message.quotedMessageId != null &&
-                      widget.quotedMessage != null)
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: _buildQuotePreview(isMe),
-                    ),
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+        margin: EdgeInsets.only(left: isMe ? 60 : 0, right: isMe ? 0 : 60),
+        decoration: BoxDecoration(
+          color: isMe ? null : const Color.fromRGBO(220, 230, 255, 1),
+          gradient: isMe ? AppColors.buildPrimaryGradient() : null,
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(isMe ? 70 : 50),
+            topLeft: Radius.circular(isMe ? 50 : 70),
+            bottomLeft: Radius.circular(isMe ? 50 : 0),
+            bottomRight: Radius.circular(isMe ? 0 : 50),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: isDeleted
+              ? const Text(
+                  '🚫 This Message Has Been Deleted',
+                  style: TextStyle(
+                    color: Color.fromRGBO(87, 51, 83, 1),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Quoted preview
+                    if (message.quotedMessageId != null &&
+                        widget.quotedMessage != null)
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _buildQuotePreview(isMe),
+                      ),
 
-                  // Attachments
-                  if (message.hasAttachments) ...[
-                    _buildAttachmentsPreview(),
+                    // Attachments
+                    if (message.hasAttachments) ...[
+                      _buildAttachmentsPreview(),
+                      if (message.text.trim().isNotEmpty)
+                        const SizedBox(height: 6),
+                    ],
+
+                    // Message text
                     if (message.text.trim().isNotEmpty)
-                      const SizedBox(height: 6),
-                  ],
-
-                  // Message text
-                  if (message.text.trim().isNotEmpty)
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: _StableHtml(
-                        data: message.text,
-                        style: {
-                          'body': html.Style(
-                            margin: html.Margins.zero,
-                            padding: html.HtmlPaddings.zero,
-                            fontSize: html.FontSize(15.5),
-                            fontFamily: 'Manrope',
-                            color: isMe ? Colors.white : AppColors.primaryColor,
-                          ),
-                          'p': html.Style(
-                            margin: html.Margins.zero,
-                            padding: html.HtmlPaddings.zero,
-                          ),
-                        },
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _StableHtml(
+                          data: message.text,
+                          style: {
+                            'body': html.Style(
+                              margin: html.Margins.zero,
+                              padding: html.HtmlPaddings.zero,
+                              fontSize: html.FontSize(15.5),
+                              fontFamily: 'Manrope',
+                              color: isMe ? Colors.white : AppColors.primaryColor,
+                            ),
+                            'p': html.Style(
+                              margin: html.Margins.zero,
+                              padding: html.HtmlPaddings.zero,
+                            ),
+                          },
+                        ),
                       ),
-                    ),
 
-                  // Edited status check
-                  if (message.editedAt != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Edited',
-                      style: TextStyle(
-                        color: isMe
-                            ? Colors.white.withOpacity(0.7)
-                            : Colors.grey,
-                        fontSize: 12,
+                    // Edited status check
+                    if (message.editedAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Edited',
+                        style: TextStyle(
+                          color: isMe
+                              ? Colors.white.withValues(alpha: 0.7)
+                              : Colors.grey,
+                          fontSize: 12,
+                          decoration: TextDecoration.none,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
-              ),
+                ),
+        ),
       ),
     );
   }
@@ -1074,4 +1085,3 @@ class _StableHtmlState extends State<_StableHtml> {
     );
   }
 }
-

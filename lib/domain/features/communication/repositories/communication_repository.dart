@@ -40,6 +40,11 @@ abstract class CommunicationRepository {
     String messageCode,
     String content,
   );
+  Future<Either<Failure, void>> deleteMessage(String messageCode);
+  Future<Either<Failure, void>> removeReaction(
+    String messageCode,
+    String emoji,
+  );
   Future<Either<Failure, void>> clearMessagesCache(String threadId);
   Future<Either<Failure, void>> clearConversationsCache();
 }

@@ -40,6 +40,9 @@ class ChatInputBar extends StatefulWidget {
     this.hintText = 'Type a message…',
     this.maxLength = 2000,
     this.showCharCounter = false,
+    this.focusNode,
+    this.editingMessage,
+    this.onCancelEdit,
   });
 
   final TextEditingController controller;
@@ -53,6 +56,9 @@ class ChatInputBar extends StatefulWidget {
   final String hintText;
   final int maxLength;
   final bool showCharCounter;
+  final FocusNode? focusNode;
+  final Message? editingMessage;
+  final VoidCallback? onCancelEdit;
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -118,12 +124,17 @@ class _ChatInputBarState extends State<ChatInputBar> {
           message: widget.quotedMessage,
           onCancel: widget.onCancelQuote,
         ),
+        _EditPreview(
+          message: widget.editingMessage,
+          onCancel: widget.onCancelEdit,
+        ),
         _AttachmentPreviewStrip(
           attachments: widget.pendingAttachments,
           onRemove: widget.onRemoveAttachment,
         ),
         _InputRow(
           controller: widget.controller,
+          focusNode: widget.focusNode,
           hintText: widget.hintText,
           maxLength: widget.maxLength,
           showCharCounter: widget.showCharCounter,
@@ -204,6 +215,71 @@ class _QuotePreview extends StatelessWidget {
                       fontWeight: FontWeight.w700,
                       color: AppColors.primaryColor,
                     ),
+                  ),
+                  const SizedBox(height: 2),
+                  CustomTextWidget(
+                    text: message!.text,
+                    fontSize: 13,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    fontColor: const Color(0xFF4A5568),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: const Color(0xFF94A3B8),
+            onPressed: onCancel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditPreview extends StatelessWidget {
+  const _EditPreview({this.message, this.onCancel});
+
+  final Message? message;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (message == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(color: Colors.amber.shade600, width: 3),
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.edit, size: 14, color: AppColors.primaryColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Editing Message',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 2),
                   CustomTextWidget(
@@ -335,6 +411,7 @@ class _AttachmentPreviewStrip extends StatelessWidget {
 class _InputRow extends StatelessWidget {
   const _InputRow({
     required this.controller,
+    this.focusNode,
     required this.hintText,
     required this.maxLength,
     required this.showCharCounter,
@@ -347,6 +424,7 @@ class _InputRow extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final String hintText;
   final int maxLength;
   final bool showCharCounter;
@@ -406,6 +484,7 @@ class _InputRow extends StatelessWidget {
                   Expanded(
                     child: TextField(
                       controller: controller,
+                      focusNode: focusNode,
                       minLines: 1,
                       maxLines: 6,
                       maxLength: maxLength,

@@ -26,6 +26,8 @@ abstract class CommunicationRemoteDataSource {
     int size = 20,
   });
   Future<void> addReaction(String messageCode, String emoji);
+  Future<void> deleteMessage(String messageCode);
+  Future<void> removeReaction(String messageCode, String emoji);
 }
 
 class CommunicationRemoteDataSourceImpl
@@ -225,5 +227,23 @@ class CommunicationRemoteDataSourceImpl
     );
 
     await apiClient.client.post(endpoint, data: {'emoji': emoji});
+  }
+
+  @override
+  Future<void> deleteMessage(String messageCode) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.messagingMessages}/$messageCode',
+      ApiConstants.communicationBaseUrl,
+    );
+    await apiClient.client.delete(endpoint);
+  }
+
+  @override
+  Future<void> removeReaction(String messageCode, String emoji) async {
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.messagingMessages}/$messageCode/reactions/${Uri.encodeComponent(emoji)}',
+      ApiConstants.communicationBaseUrl,
+    );
+    await apiClient.client.delete(endpoint);
   }
 }

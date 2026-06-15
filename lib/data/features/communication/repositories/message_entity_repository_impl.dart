@@ -212,6 +212,18 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required String messageCode,
     required String newText,
   }) async {
+    final cached = await _local.getMessage(messageCode);
+    final originalEntity = cached?.toEntity();
+
+    if (cached != null) {
+      final updatedLocal = cached.toEntity().copyWith(
+            text: newText,
+            isEdited: true,
+            editedAt: DateTime.now(),
+          );
+      await _local.saveMessage(updatedLocal);
+    }
+
     try {
       final dto = await _remote.editMessage(
         messageCode: messageCode,
@@ -221,6 +233,9 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       await _local.saveMessage(updated);
       return Right(updated);
     } catch (e) {
+      if (originalEntity != null) {
+        await _local.saveMessage(originalEntity);
+      }
       // Queue for offline retry
       final org = await _orgCode;
       final school = await _schoolCode;
@@ -237,11 +252,20 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
 
   @override
   Future<Either<Failure, void>> deleteMessage(String messageCode) async {
+    final cached = await _local.getMessage(messageCode);
+    final originalEntity = cached?.toEntity();
+
+    if (cached != null) {
+      await _local.deleteMessage(messageCode);
+    }
+
     try {
       await _remote.deleteMessage(messageCode);
-      await _local.deleteMessage(messageCode);
       return const Right(null);
     } catch (e) {
+      if (originalEntity != null) {
+        await _local.saveMessage(originalEntity);
+      }
       final org = await _orgCode;
       final school = await _schoolCode;
       await _queueOperation(
@@ -262,10 +286,24 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required String messageCode,
     required String emoji,
   }) async {
+    final cached = await _local.getMessage(messageCode);
+    final originalEntity = cached?.toEntity();
+    final currentUser = await _currentUserCode;
+
+    if (cached != null) {
+      final entity = cached.toEntity();
+      final updatedReactions = Map<String, String>.from(entity.reactions);
+      updatedReactions[currentUser] = emoji;
+      await _local.saveMessage(entity.copyWith(reactions: updatedReactions));
+    }
+
     try {
       await _remote.addReaction(messageCode: messageCode, emoji: emoji);
       return const Right(null);
     } catch (e) {
+      if (originalEntity != null) {
+        await _local.saveMessage(originalEntity);
+      }
       final org = await _orgCode;
       final school = await _schoolCode;
       await _queueOperation(
@@ -284,10 +322,24 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required String messageCode,
     required String emoji,
   }) async {
+    final cached = await _local.getMessage(messageCode);
+    final originalEntity = cached?.toEntity();
+    final currentUser = await _currentUserCode;
+
+    if (cached != null) {
+      final entity = cached.toEntity();
+      final updatedReactions = Map<String, String>.from(entity.reactions);
+      updatedReactions.remove(currentUser);
+      await _local.saveMessage(entity.copyWith(reactions: updatedReactions));
+    }
+
     try {
       await _remote.removeReaction(messageCode: messageCode, emoji: emoji);
       return const Right(null);
     } catch (e) {
+      if (originalEntity != null) {
+        await _local.saveMessage(originalEntity);
+      }
       final org = await _orgCode;
       final school = await _schoolCode;
       await _queueOperation(

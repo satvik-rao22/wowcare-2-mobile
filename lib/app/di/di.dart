@@ -269,6 +269,8 @@ import '../../domain/features/communication/usecases/get_cached_messages_usecase
 import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_usecase.dart';
 import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
+import '../../domain/features/communication/usecases/delete_message_usecase.dart';
+import '../../domain/features/communication/usecases/remove_reaction_legacy_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 // Communication v2.1 — Phase 1B
@@ -1137,6 +1139,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<EditMessageUseCase>(
     () => EditMessageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<DeleteMessageUseCase>(
+    () => DeleteMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RemoveReactionLegacyUseCase>(
+    () => RemoveReactionLegacyUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<ClearMessagesCacheUseCase>(
     () => ClearMessagesCacheUseCase(serviceLocator()),
   );
@@ -1539,6 +1547,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getCachedMessagesUseCase: serviceLocator<GetCachedMessagesUseCase>(),
       addReactionUseCase: serviceLocator<AddReactionUseCase>(),
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
+      deleteMessageUseCase: serviceLocator<DeleteMessageUseCase>(),
+      removeReactionLegacyUseCase: serviceLocator<RemoveReactionLegacyUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
       clearConversationsCacheUseCase:
           serviceLocator<ClearConversationsCacheUseCase>(),

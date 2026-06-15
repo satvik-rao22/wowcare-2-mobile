@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
+import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -55,6 +59,7 @@ class StaffAttendanceTabbedView extends StatefulWidget {
 
 class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  late final UnreadBadgeCubit _unreadBadgeCubit;
   late final TabController _tabController;
   bool _isParentRole = false;
   bool? _isTeacherStaffPersona;
@@ -72,6 +77,11 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   @override
   void initState() {
     super.initState();
+    _unreadBadgeCubit = UnreadBadgeCubit(
+      watchUnreadCountForTypeUseCase:
+          serviceLocator<WatchUnreadCountForTypeUseCase>(),
+      getUnreadAggregatesUseCase: serviceLocator<GetUnreadAggregatesUseCase>(),
+    )..startWatching();
     _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
     _tabController.addListener(_onTabChanged);
     _initPersonaFlags();
@@ -167,6 +177,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   void dispose() {
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    _unreadBadgeCubit.close();
     super.dispose();
   }
 
@@ -193,7 +204,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     // similar to how GradientAddButton is aligned in StaffScreen.
     final floatingButtonRight = contentPadding.right;
     
-    return Stack(
+    return BlocProvider<UnreadBadgeCubit>.value(
+      value: _unreadBadgeCubit,
+      child: Stack(
       children: [
         Container(
           decoration: const BoxDecoration(
@@ -313,6 +326,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
             ),
           ),
       ],
+      ),
     );
   }
 

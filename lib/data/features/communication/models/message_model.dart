@@ -23,6 +23,7 @@ class MessageModel extends Message {
     super.attachments,
     super.senderName,
     super.receivers,
+    super.isPrivate = false,
   }) : super(senderUserCode: senderUserCode);
 
   factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
@@ -77,6 +78,7 @@ class MessageModel extends Message {
           ? json['senderDisplayName'] as String
           : json['senderName'] as String?,
       receivers: const [],
+      isPrivate: json['isPrivate'] as bool? ?? false,
     );
   }
 

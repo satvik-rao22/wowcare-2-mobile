@@ -17,6 +17,7 @@ class Message extends Equatable {
   final String? senderName;
   final List<String> receivers;
   final String? senderUserCode;
+  final bool isPrivate;
 
   const Message({
     required this.id,
@@ -35,6 +36,7 @@ class Message extends Equatable {
     this.senderName,
     this.receivers = const [],
     this.senderUserCode,
+    this.isPrivate = false,
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
@@ -74,6 +76,7 @@ class Message extends Equatable {
         senderName,
         receivers,
         senderUserCode,
+        isPrivate,
       ];
 }
 

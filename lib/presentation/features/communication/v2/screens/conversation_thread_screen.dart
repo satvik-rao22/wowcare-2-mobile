@@ -1,22 +1,29 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_thread_shimmer.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_bubble_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
@@ -42,9 +49,24 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
   String _organizationCode = '';
   String _schoolCode = '';
 
+  late final ReactionsController _reactionsController;
+  MessageEntity? _quotedMessage;
+  MessageEntity? _editingMessage;
+  final FocusNode _inputFocusNode = FocusNode();
+
   @override
   void initState() {
     super.initState();
+
+    final authState = context.read<AuthCubit>().state;
+    final userCodeFromAuth = authState is AuthLoaded
+        ? authState.loginResponse.userCode.trim()
+        : '';
+
+    _reactionsController = ReactionsController(
+      currentUserId: userCodeFromAuth.isNotEmpty ? userCodeFromAuth : 'me',
+    );
+
     _cubit = ConversationThreadCubit(
       conversationCode: widget.conversation.code,
       watchMessagesUseCase: serviceLocator(),
@@ -62,16 +84,17 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
 
   Future<void> _loadSenderInfo() async {
     final storage = serviceLocator<StorageService>();
-    final userCode =
-        (await storage.getString(StorageKeys.userCode) ?? '').trim();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
+    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
+        .trim();
     final orgCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    final rolesRaw =
-        (await storage.getString(StorageKeys.roles) ?? '').trim().toUpperCase();
+    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
+    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '')
+        .trim()
+        .toUpperCase();
 
     if (!mounted) return;
     setState(() {
@@ -88,6 +111,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
     unawaited(_cubit.close());
     _inputController.dispose();
     _scrollController.dispose();
+    _reactionsController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -127,26 +152,53 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
   // ── Attachment sheet ──────────────────────────────────────────────────────
 
   void _showAttachmentSheet() {
-    unawaited(MessageAttachmentBottomSheet.show(
-      context,
-      onAttachmentsSelected: (_) {},
-      onEmojiSelected: (emoji) {
-        final pos = _inputController.selection.isValid
-            ? _inputController.selection.baseOffset
-            : _inputController.text.length;
-        final text = _inputController.text;
-        _inputController.value = _inputController.value.copyWith(
-          text: text.substring(0, pos) + emoji + text.substring(pos),
-          selection: TextSelection.collapsed(offset: pos + emoji.length),
-        );
-      },
-      onViewParticipants: _showParticipantsDialog,
-    ));
+    unawaited(
+      MessageAttachmentBottomSheet.show(
+        context,
+        onAttachmentsSelected: (_) {},
+        onEmojiSelected: (emoji) {
+          final pos = _inputController.selection.isValid
+              ? _inputController.selection.baseOffset
+              : _inputController.text.length;
+          final text = _inputController.text;
+          _inputController.value = _inputController.value.copyWith(
+            text: text.substring(0, pos) + emoji + text.substring(pos),
+            selection: TextSelection.collapsed(offset: pos + emoji.length),
+          );
+        },
+        onViewParticipants: _showParticipantsDialog,
+      ),
+    );
   }
 
   Future<void> _sendMessage() async {
     final text = _inputController.text.trim();
     if (text.isEmpty || _senderCode.isEmpty) return;
+
+    if (_editingMessage != null) {
+      final messageCode = _editingMessage!.code;
+      _inputController.clear();
+      final originalEditMsg = _editingMessage!;
+      setState(() {
+        _editingMessage = null;
+      });
+
+      if (text != originalEditMsg.text) {
+        await _cubit.editMessage(
+          messageCode: messageCode,
+          newText: text,
+        );
+        if (mounted) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Message updated successfully',
+            isSuccess: true,
+          );
+        }
+      }
+      return;
+    }
+
     _inputController.clear();
     await _cubit.sendMessage(
       text: text,
@@ -155,7 +207,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
       senderRole: _senderRole,
       organizationCode: _organizationCode,
       schoolCode: _schoolCode,
+      threadParentCode: _quotedMessage?.code,
     );
+    setState(() {
+      _quotedMessage = null;
+    });
     _scrollToBottom();
   }
 
@@ -165,10 +221,22 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
     final tz = SchoolTimezoneResolver.lastKnownTimeZone;
     final d = SchoolZoneDateTime.dateTimeFromInstantInSchool(date, tz);
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-        DateTime.now().toUtc(), tz);
+      DateTime.now().toUtc(),
+      tz,
+    );
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
     if (d.year == now.year && d.month == now.month && d.day == now.day) {
       return 'Today, ${d.day} ${months[d.month - 1]} ${d.year}';
@@ -227,8 +295,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.transparent,
-        border:
-            Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Column(
@@ -272,8 +339,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
               Tooltip(
                 message: 'View Participants',
                 child: IconButton(
-                  icon: const Icon(Icons.info_outline_rounded,
-                      color: AppColors.primaryColor),
+                  icon: const Icon(
+                    Icons.info_outline_rounded,
+                    color: AppColors.primaryColor,
+                  ),
                   onPressed: _showParticipantsDialog,
                 ),
               ),
@@ -289,34 +358,32 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
                 separatorBuilder: (_, __) => const SizedBox(width: 6),
                 itemBuilder: (context, index) {
                   final p = participants[index];
-                  final roleStr =
-                      p.role.toApiString().toUpperCase() == 'PARENT'
-                          ? 'GUARDIAN'
-                          : p.role.toApiString().toUpperCase();
+                  final roleStr = p.role.toApiString().toUpperCase() == 'PARENT'
+                      ? 'GUARDIAN'
+                      : p.role.toApiString().toUpperCase();
                   // Always show display name — never fall back to userCode
                   final name = p.userName.isNotEmpty
                       ? p.userName
                       : _roleFallbackName(roleStr);
-                  final initial =
-                      name.isNotEmpty ? name[0].toUpperCase() : '?';
+                  final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
                   final color = _roleColor(roleStr);
 
                   return Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 3),
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: color.withValues(alpha: 0.3)),
+                      border: Border.all(color: color.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CircleAvatar(
                           radius: 8,
-                          backgroundColor:
-                              color.withValues(alpha: 0.25),
+                          backgroundColor: color.withValues(alpha: 0.25),
                           child: Text(
                             initial,
                             style: TextStyle(
@@ -338,7 +405,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
                         const SizedBox(width: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 1),
+                            horizontal: 4,
+                            vertical: 1,
+                          ),
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
@@ -378,9 +447,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.cloud_off_rounded,
-                  size: 48,
-                  color: AppColors.primaryColor.withValues(alpha: 0.3)),
+              Icon(
+                Icons.cloud_off_rounded,
+                size: 48,
+                color: AppColors.primaryColor.withValues(alpha: 0.3),
+              ),
               const SizedBox(height: 12),
               Text(
                 state.errorMessage!,
@@ -421,12 +492,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
           // reverse: true means index 0 = last message
           final msg = messages[messages.length - 1 - index];
           final prevIndex = messages.length - 2 - index;
-          final isMe = msg.senderCode == _senderCode;
 
           bool showDateHeader;
           if (prevIndex >= 0) {
-            showDateHeader =
-                _isDifferentDay(msg.sentAt, messages[prevIndex].sentAt);
+            showDateHeader = _isDifferentDay(
+              msg.sentAt,
+              messages[prevIndex].sentAt,
+            );
           } else {
             showDateHeader = true;
           }
@@ -447,7 +519,102 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
                   ),
                 ),
               ],
-              _ThreadMessageBubble(message: msg, isMe: isMe),
+              (() {
+                final message = _mapEntityToMessage(msg, _senderCode);
+                Message? quotedMessage;
+                if (msg.threadParentCode != null) {
+                  final parentMatches = messages.where(
+                    (m) => m.code == msg.threadParentCode,
+                  );
+                  if (parentMatches.isNotEmpty) {
+                    quotedMessage = _mapEntityToMessage(
+                      parentMatches.first,
+                      _senderCode,
+                    );
+                  }
+                }
+                return MessageBubble(
+                  message: message,
+                  quotedMessage: quotedMessage,
+                  currentUserCode: _senderCode,
+                  reactionsController: _reactionsController,
+                  onScrollToQuoted: (quoteId) {
+                    final matchIndex = messages.indexWhere(
+                      (m) => m.code == quoteId || m.id == quoteId,
+                    );
+                    if (matchIndex != -1) {
+                      _scrollController.animateTo(
+                        (_scrollController.position.maxScrollExtent /
+                                messages.length) *
+                            (messages.length - 1 - matchIndex),
+                        duration: const Duration(milliseconds: 600),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                  },
+                  onReply: () {
+                    setState(() {
+                      _quotedMessage = msg;
+                    });
+                  },
+                  onReplyFromMenu: () {
+                    setState(() {
+                      _quotedMessage = msg;
+                    });
+                  },
+                  onCopy: () {
+                    Clipboard.setData(ClipboardData(text: msg.text));
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Message copied successfully',
+                      isSuccess: true,
+                    );
+                  },
+                  onEdit: () {
+                    setState(() {
+                      _editingMessage = msg;
+                      _inputController.text = msg.text;
+                    });
+                    _inputFocusNode.requestFocus();
+                  },
+                  onDelete: () async {
+                    await _cubit.deleteMessage(msg.code);
+                    if (context.mounted) {
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: 'Message deleted successfully',
+                        isSuccess: true,
+                      );
+                    }
+                  },
+                  onReactionAdded: (emoji) {
+                    final myReaction = msg.reactions[_senderCode];
+                    if (myReaction == emoji) {
+                      _cubit.removeReaction(
+                        messageCode: msg.code,
+                        emoji: emoji,
+                        currentUserCode: _senderCode,
+                      );
+                    } else {
+                      _cubit.addReaction(
+                        messageCode: msg.code,
+                        emoji: emoji,
+                        currentUserCode: _senderCode,
+                      );
+                    }
+                  },
+                  onRemoveReaction: (emoji) {
+                    _cubit.removeReaction(
+                      messageCode: msg.code,
+                      emoji: emoji,
+                      currentUserCode: _senderCode,
+                    );
+                  },
+                  onReactionTap: () => _showEmojiPicker(context, msg),
+                  isParentMessaging: _senderRole == ParticipantRole.parent,
+                  isDeleted: msg.isDeleted,
+                );
+              })(),
             ],
           );
         },
@@ -492,7 +659,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: const BorderRadius.vertical(
-                                  bottom: Radius.circular(12)),
+                                bottom: Radius.circular(12),
+                              ),
                               boxShadow: [
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.05),
@@ -503,9 +671,29 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
                             ),
                             child: ChatInputBar(
                               controller: _inputController,
+                              focusNode: _inputFocusNode,
                               isSending: state.isSending,
                               onSend: () => unawaited(_sendMessage()),
                               onAttachmentTap: _showAttachmentSheet,
+                              quotedMessage: _quotedMessage != null
+                                  ? _mapEntityToMessage(
+                                      _quotedMessage!,
+                                      _senderCode,
+                                    )
+                                  : null,
+                              onCancelQuote: () => setState(() {
+                                _quotedMessage = null;
+                              }),
+                              editingMessage: _editingMessage != null
+                                  ? _mapEntityToMessage(
+                                      _editingMessage!,
+                                      _senderCode,
+                                    )
+                                  : null,
+                              onCancelEdit: () => setState(() {
+                                _editingMessage = null;
+                                _inputController.clear();
+                              }),
                             ),
                           ),
                         ],
@@ -520,163 +708,84 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
       ),
     );
   }
-}
 
-// ─── Message bubble (matches parent messaging design) ─────────────────────────
-
-class _ThreadMessageBubble extends StatelessWidget {
-  const _ThreadMessageBubble({required this.message, required this.isMe});
-
-  final MessageEntity message;
-  final bool isMe;
-
-  String _formatTime(DateTime dt) {
-    final tz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final local = SchoolZoneDateTime.dateTimeFromInstantInSchool(dt, tz);
-    return '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  Message _mapEntityToMessage(MessageEntity entity, String currentUserCode) {
+    return Message(
+      id: entity.id,
+      code: entity.code,
+      text: entity.text,
+      isSentByMe: entity.senderCode == currentUserCode,
+      time: entity.sentAt,
+      editedAt: entity.editedAt,
+      reactions: entity.reactions,
+      senderName: entity.senderName,
+      senderUserCode: entity.senderCode,
+      quotedMessageId: entity.threadParentCode,
+      isPrivate: entity.isPrivate,
+      attachments: entity.attachments
+          .map(
+            (a) => ChatAttachment(
+              name: a.fileName,
+              type: a.attachmentType == AttachmentType.image ? 'image' : 'file',
+              sizeBytes: a.fileSizeBytes,
+              mimeType: a.mimeType,
+              remoteUrl: a.fileUrl,
+              localPath: a.localFilePath,
+            ),
+          )
+          .toList(),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final isDeleted = message.isDeleted;
-    final isPending = message.isPending;
-    final senderInitial = message.senderName.isNotEmpty
-        ? message.senderName[0].toUpperCase()
-        : '?';
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-      child: SizedBox(
-        width: double.infinity,
-        child: Align(
-          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment:
-                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              // ── Avatar row ──────────────────────────────────────────
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment:
-                    isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 10,
-                    backgroundColor:
-                        AppColors.primaryColor.withValues(alpha: 0.15),
-                    child: Text(
-                      senderInitial,
-                      style: const TextStyle(
-                        fontSize: 9,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primaryColor,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-              ),
-              const SizedBox(height: 8),
-
-              // ── Sender name ──────────────────────────────────────────
-              if (message.senderName.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(
-                    isMe ? 'You' : message.senderName,
-                    style: const TextStyle(
-                      color: Color.fromRGBO(87, 51, 83, 0.7),
-                      fontWeight: FontWeight.w500,
-                      fontSize: 14,
-                    ),
-                  ),
-                ),
-
-              // ── Bubble ────────────────────────────────────────────────
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: MediaQuery.of(context).size.width * 0.72,
-                ),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 12, horizontal: 16),
-                  margin: EdgeInsets.only(
-                      left: isMe ? 60 : 0, right: isMe ? 0 : 60),
-                  decoration: BoxDecoration(
-                    color: isDeleted
-                        ? const Color(0xFFF1F3F5)
-                        : isMe
-                            ? null
-                            : const Color.fromRGBO(220, 230, 255, 1),
-                    gradient: (!isDeleted && isMe)
-                        ? AppColors.buildPrimaryGradient()
-                        : null,
-                    borderRadius: BorderRadius.only(
-                      topRight: Radius.circular(isMe ? 70 : 50),
-                      topLeft: Radius.circular(isMe ? 50 : 70),
-                      bottomLeft: Radius.circular(isMe ? 50 : 0),
-                      bottomRight: Radius.circular(isMe ? 0 : 50),
-                    ),
-                  ),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 8),
-                    child: isDeleted
-                        ? const Text(
-                            '🚫 This Message Has Been Deleted',
-                            style: TextStyle(
-                              color: Color.fromRGBO(87, 51, 83, 1),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          )
-                        : Text(
-                            message.text,
-                            style: TextStyle(
-                              color: isMe
-                                  ? Colors.white
-                                  : AppColors.primaryColor,
-                              fontSize: 15.5,
-                              fontFamily: 'Manrope',
-                            ),
-                          ),
-                  ),
-                ),
-              ),
-
-              // ── Time + status ────────────────────────────────────────
-              const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    _formatTime(message.sentAt),
-                    style: const TextStyle(
-                      color: Color.fromRGBO(65, 65, 78, 0.5),
-                      fontSize: 15,
-                    ),
-                  ),
-                  if (isMe) ...[
-                    const SizedBox(width: 4),
-                    Icon(
-                      isPending
-                          ? Icons.access_time_rounded
-                          : message.isFailed
-                              ? Icons.error_outline_rounded
-                              : Icons.done_all,
-                      size: 16,
-                      color: message.isFailed
-                          ? Colors.red
-                          : const Color.fromRGBO(65, 65, 78, 0.5),
-                    ),
-                  ],
-                ],
-              ),
-            ],
+  void _showEmojiPicker(BuildContext context, MessageEntity message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          height: 380 + MediaQuery.of(context).padding.bottom,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-        ),
-      ),
+          child: EmojiPicker(
+            onEmojiSelected: (category, emoji) {
+              Navigator.pop(context); // close picker
+              final myReaction = message.reactions[_senderCode];
+              if (myReaction == emoji.emoji) {
+                _cubit.removeReaction(
+                  messageCode: message.code,
+                  emoji: emoji.emoji,
+                  currentUserCode: _senderCode,
+                );
+              } else {
+                _cubit.addReaction(
+                  messageCode: message.code,
+                  emoji: emoji.emoji,
+                  currentUserCode: _senderCode,
+                );
+              }
+            },
+            config: const Config(
+              checkPlatformCompatibility: true,
+              emojiSet: null,
+              locale: Locale('en'),
+              emojiTextStyle: null,
+              customBackspaceIcon: null,
+              customSearchIcon: null,
+              viewOrderConfig: ViewOrderConfig(),
+              emojiViewConfig: EmojiViewConfig(),
+              skinToneConfig: SkinToneConfig(enabled: true),
+              categoryViewConfig: CategoryViewConfig(
+                recentTabBehavior: RecentTabBehavior.RECENT,
+              ),
+              bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+              searchViewConfig: SearchViewConfig(),
+            ),
+          ),
+        );
+      },
     );
   }
 }

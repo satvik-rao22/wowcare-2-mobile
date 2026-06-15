@@ -47,7 +47,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   Message? _quotedMessage = null;
   String? _quotedMessageId;
   List<ChatAttachment> _pendingAttachments = [];
-  String _currentSender = '';
+  String? _currentUserCode;
+  String? _currentSender;
+  Message? _editingMessage;
+  final FocusNode _inputFocusNode = FocusNode();
 
   bool isPrivateModeEnabled(Map<String, dynamic> parentInfo) {
     final privateParents =
@@ -103,6 +106,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           : null;
       final currentUserId = (authUserCode?.isNotEmpty ?? false) ? authUserCode : (storedUserCode.isNotEmpty ? storedUserCode : null);
       if (!mounted) return;
+      setState(() {
+        _currentUserCode = currentUserId;
+      });
       final convCode = widget.parentInfo['code'] as String;
       AppLogger.d(
         '[ParentThread] loading messages for $convCode '
@@ -123,6 +129,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     _parent1Controller.dispose();
     _parent2Controller.dispose();
     _tabController?.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -147,6 +154,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
   void _sendMessage() {
     final text = _controller.text.trim();
+    if (_editingMessage != null) {
+      if (text.isNotEmpty && text != _editingMessage!.text) {
+        context.read<CommunicationCubit>().editMessage(
+              widget.parentInfo['code'] as String,
+              _editingMessage!.code,
+              text,
+            );
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Message updated successfully',
+          isSuccess: true,
+        );
+      }
+      setState(() {
+        _editingMessage = null;
+        _controller.clear();
+      });
+      return;
+    }
+
     final hasText = text.isNotEmpty;
     final hasAttachments = _pendingAttachments.isNotEmpty;
 
@@ -168,7 +195,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       );
     }
 
-    final now = DateTime.now();
     final authState = context.read<AuthCubit>().state;
     final senderName = authState is AuthLoaded
         ? authState.loginResponse.displayName
@@ -356,18 +382,19 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           _showMessageStatusDialog(context, message);
           break;
         case 'edit':
-          _showEditDialog(context, message);
+          _startEditing(message);
           break;
 
         case 'delete':
-          setState(() {
-            _activeMessages.removeWhere((m) => m.id == message.id);
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Message deleted successfully',
-              isSuccess: true,
-            );
-          });
+          context.read<CommunicationCubit>().deleteMessage(
+                widget.parentInfo['code'] as String,
+                message.code,
+              );
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Message deleted successfully',
+            isSuccess: true,
+          );
           break;
         case 'react':
           _showEmojiPicker(context, message);
@@ -391,7 +418,20 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           child: EmojiPicker(
             onEmojiSelected: (category, emoji) {
               Navigator.pop(context); // close picker
-              // _onReactionAdded(message, emoji.emoji);
+              final myReaction = message.reactions[_currentUserCode ?? 'me'];
+              if (myReaction == emoji.emoji) {
+                context.read<CommunicationCubit>().removeReaction(
+                      widget.parentInfo['code'] as String,
+                      message.code,
+                      emoji.emoji,
+                    );
+              } else {
+                context.read<CommunicationCubit>().addReaction(
+                      widget.parentInfo['code'] as String,
+                      message.code,
+                      emoji.emoji,
+                    );
+              }
             },
             config: const Config(
               //height: 380,
@@ -416,154 +456,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  void _showEditDialog(BuildContext context, Message message) {
-    final TextEditingController editingController = TextEditingController(
-      text: message.text,
-    );
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
-
-        title: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-          //height: 60,
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
-              ],
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              CustomTextWidget(text: 'Edit message'),
-              IconButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                icon: Icon(Icons.clear, color: AppColors.primaryColor),
-              ),
-            ],
-          ),
-        ),
-        content: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: TextField(
-            controller: editingController,
-            autofocus: true,
-            minLines: 3,
-            maxLines: 8,
-            decoration: InputDecoration(
-              hintText: 'Edit your message...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Colors.redAccent,
-                  width: 1.5,
-                ),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-              ),
-              //border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            width: double.infinity,
-            height: 60,
-            //padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: TextButton(
-              onPressed: () {
-                final newText = editingController.text.trim();
-                if (newText.isNotEmpty && newText != message.text) {
-                  if (!mounted) return;
-                  setState(() {
-                    final _messages = _activeMessages;
-                    final idx = _messages.indexWhere((m) => m.id == message.id);
-                    if (idx != -1) {
-                      _messages[idx] = Message(
-                        id: message.id,
-                        code: message.code,
-                        text: newText,
-                        senderName: _currentSender,
-                        isSentByMe: message.isSentByMe,
-                        time: message.time,
-                        deliveredAt: message.deliveredAt,
-                        readAt: message.readAt,
-                        deliveredTo: message.deliveredTo,
-                        readBy: message.readBy,
-                        attachments: message.attachments,
-                        reactions: message.reactions,
-                      );
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Message updated successfully',
-                        isSuccess: true,
-                      );
-                    }
-                  });
-                }
-                Navigator.pop(dialogContext);
-              },
-              style: TextButton.styleFrom(overlayColor: Colors.transparent),
-              child: Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  void _startEditing(Message message) {
+    setState(() {
+      _editingMessage = message;
+      _controller.text = message.text;
+    });
+    _inputFocusNode.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
     final bool isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
     final tabNames = _privateModeEnabled
@@ -705,6 +607,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
                                                 MessageBubble(
                                                   message: message,
+                                                  currentUserCode: _currentUserCode,
                                                   reactionsController:
                                                       _reactionsController,
                                                   isParentMessaging: true,
@@ -729,19 +632,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       isSuccess: true,
                                                     );
                                                   },
-                                                  onEdit: () => _showEditDialog(
-                                                    context,
+                                                  onEdit: () => _startEditing(
                                                     message,
                                                   ),
                                                   onDelete: () {
-                                                    setState(() {
-                                                      _activeMessages
-                                                          .removeWhere(
-                                                            (m) =>
-                                                                m.id ==
-                                                                message.id,
-                                                          );
-                                                    });
+                                                    context.read<CommunicationCubit>().deleteMessage(
+                                                          widget.parentInfo['code'] as String,
+                                                          message.code,
+                                                        );
                                                     CoreUtils.showTopSnackBar(
                                                       context: context,
                                                       message:
@@ -757,6 +655,33 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   onScrollToQuoted: (quoteId) {
                                                     _scrollToMessage(quoteId);
                                                   },
+                                                  onReactionAdded: (emoji) {
+                                                    final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                    if (myReaction == emoji) {
+                                                      context.read<CommunicationCubit>().removeReaction(
+                                                            widget.parentInfo['code'] as String,
+                                                            message.code,
+                                                            emoji,
+                                                          );
+                                                    } else {
+                                                      context.read<CommunicationCubit>().addReaction(
+                                                            widget.parentInfo['code'] as String,
+                                                            message.code,
+                                                            emoji,
+                                                          );
+                                                    }
+                                                  },
+                                                  onRemoveReaction: (emoji) {
+                                                    context.read<CommunicationCubit>().removeReaction(
+                                                          widget.parentInfo['code'] as String,
+                                                          message.code,
+                                                          emoji,
+                                                        );
+                                                  },
+                                                  onReactionTap: () => _showEmojiPicker(
+                                                    context,
+                                                    message,
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -846,6 +771,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
                                                 MessageBubble(
                                                   message: message,
+                                                  currentUserCode: _currentUserCode,
                                                   reactionsController:
                                                       _reactionsController,
                                                   isParentMessaging: true,
@@ -870,19 +796,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       isSuccess: true,
                                                     );
                                                   },
-                                                  onEdit: () => _showEditDialog(
-                                                    context,
+                                                  onEdit: () => _startEditing(
                                                     message,
                                                   ),
                                                   onDelete: () {
-                                                    setState(() {
-                                                      _activeMessages
-                                                          .removeWhere(
-                                                            (m) =>
-                                                                m.id ==
-                                                                message.id,
-                                                          );
-                                                    });
+                                                    context.read<CommunicationCubit>().deleteMessage(
+                                                          widget.parentInfo['code'] as String,
+                                                          message.code,
+                                                        );
                                                     CoreUtils.showTopSnackBar(
                                                       context: context,
                                                       message:
@@ -898,6 +819,33 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   onScrollToQuoted: (quoteId) {
                                                     _scrollToMessage(quoteId);
                                                   },
+                                                  onReactionAdded: (emoji) {
+                                                    final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                    if (myReaction == emoji) {
+                                                      context.read<CommunicationCubit>().removeReaction(
+                                                            widget.parentInfo['code'] as String,
+                                                            message.code,
+                                                            emoji,
+                                                          );
+                                                    } else {
+                                                      context.read<CommunicationCubit>().addReaction(
+                                                            widget.parentInfo['code'] as String,
+                                                            message.code,
+                                                            emoji,
+                                                          );
+                                                    }
+                                                  },
+                                                  onRemoveReaction: (emoji) {
+                                                    context.read<CommunicationCubit>().removeReaction(
+                                                          widget.parentInfo['code'] as String,
+                                                          message.code,
+                                                          emoji,
+                                                        );
+                                                  },
+                                                  onReactionTap: () => _showEmojiPicker(
+                                                    context,
+                                                    message,
+                                                  ),
                                                 ),
                                               ],
                                             ),
@@ -927,15 +875,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                           //   messageId,
                                           //   () => GlobalKey(),
                                           // );
-                                          Message? quotedMessage;
-                                          if (message.quotedMessageId != null) {
-                                            quotedMessage = _messages
-                                                .firstWhere(
-                                                  (m) =>
-                                                      m.id ==
-                                                      message.quotedMessageId,
-                                                ); // ?? null;
-                                          }
+                                          // Message? quotedMessage;
+                                          // if (message.quotedMessageId != null) {
+                                          //   quotedMessage = _messages
+                                          //       .firstWhere(
+                                          //         (m) =>
+                                          //             m.id ==
+                                          //             message.quotedMessageId,
+                                          //       ); // ?? null;
+                                          // }
                                           bool showDateHeader = false;
                                           final prevListIndex =
                                               _messages.length - 2 - index;
@@ -1058,8 +1006,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                 ),
                               ],
                             ),
-                            child: ChatInputBar(
+                             child: ChatInputBar(
                               controller: _controller,
+                              focusNode: _inputFocusNode,
                               onSend: _sendMessage,
                               onAttachmentTap: _showAttachmentSheet,
                               pendingAttachments: _pendingAttachments,
@@ -1070,6 +1019,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               }),
                               onRemoveAttachment: (i) => setState(() {
                                 _pendingAttachments.removeAt(i);
+                              }),
+                              editingMessage: _editingMessage,
+                              onCancelEdit: () => setState(() {
+                                _editingMessage = null;
+                                _controller.clear();
                               }),
                             ),
                           ),
@@ -1184,8 +1138,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         _prevDate.year ||
                                                     _currDate.month !=
                                                         _prevDate.month ||
-                                                    _currDate.day !=
-                                                        _prevDate.day;
+                                                    _currDate.day != _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1220,6 +1173,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
                                                     MessageBubble(
                                                       message: message,
+                                                      currentUserCode: _currentUserCode,
                                                       reactionsController:
                                                           _reactionsController,
                                                       isParentMessaging: true,
@@ -1246,20 +1200,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           isSuccess: true,
                                                         );
                                                       },
-                                                      onEdit: () =>
-                                                          _showEditDialog(
-                                                            context,
-                                                            message,
-                                                          ),
-                                                      onDelete: () {
+                                                      onEdit: () {
                                                         setState(() {
-                                                          _activeMessages
-                                                              .removeWhere(
-                                                                (m) =>
-                                                                    m.id ==
-                                                                    message.id,
-                                                              );
+                                                          _editingMessage = message;
+                                                          _controller.text = message.text;
+                                                          _inputFocusNode.requestFocus();
                                                         });
+                                                      },
+                                                      onDelete: () {
+                                                        context.read<CommunicationCubit>().deleteMessage(
+                                                              widget.parentInfo['code'] as String,
+                                                              message.code,
+                                                            );
                                                         CoreUtils.showTopSnackBar(
                                                           context: context,
                                                           message:
@@ -1277,6 +1229,33 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _scrollToMessage(
                                                                 quoteId,
                                                               ),
+                                                      onReactionAdded: (emoji) {
+                                                        final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                        if (myReaction == emoji) {
+                                                          context.read<CommunicationCubit>().removeReaction(
+                                                                widget.parentInfo['code'] as String,
+                                                                message.code,
+                                                                emoji,
+                                                              );
+                                                        } else {
+                                                          context.read<CommunicationCubit>().addReaction(
+                                                                widget.parentInfo['code'] as String,
+                                                                message.code,
+                                                                emoji,
+                                                              );
+                                                        }
+                                                      },
+                                                      onRemoveReaction: (emoji) {
+                                                        context.read<CommunicationCubit>().removeReaction(
+                                                              widget.parentInfo['code'] as String,
+                                                              message.code,
+                                                              emoji,
+                                                            );
+                                                      },
+                                                      onReactionTap: () => _showEmojiPicker(
+                                                        context,
+                                                        message,
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
@@ -1341,8 +1320,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         _prevDate.year ||
                                                     _currDate.month !=
                                                         _prevDate.month ||
-                                                    _currDate.day !=
-                                                        _prevDate.day;
+                                                    _currDate.day != _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1377,6 +1355,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
                                                     MessageBubble(
                                                       message: message,
+                                                      currentUserCode: _currentUserCode,
                                                       reactionsController:
                                                           _reactionsController,
                                                       isParentMessaging: true,
@@ -1403,20 +1382,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           isSuccess: true,
                                                         );
                                                       },
-                                                      onEdit: () =>
-                                                          _showEditDialog(
-                                                            context,
-                                                            message,
-                                                          ),
-                                                      onDelete: () {
+                                                      onEdit: () {
                                                         setState(() {
-                                                          _activeMessages
-                                                              .removeWhere(
-                                                                (m) =>
-                                                                    m.id ==
-                                                                    message.id,
-                                                              );
+                                                          _editingMessage = message;
+                                                          _controller.text = message.text;
+                                                          _inputFocusNode.requestFocus();
                                                         });
+                                                      },
+                                                      onDelete: () {
+                                                        context.read<CommunicationCubit>().deleteMessage(
+                                                              widget.parentInfo['code'] as String,
+                                                              message.code,
+                                                            );
                                                         CoreUtils.showTopSnackBar(
                                                           context: context,
                                                           message:
@@ -1434,6 +1411,33 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _scrollToMessage(
                                                                 quoteId,
                                                               ),
+                                                      onReactionAdded: (emoji) {
+                                                        final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                        if (myReaction == emoji) {
+                                                          context.read<CommunicationCubit>().removeReaction(
+                                                                widget.parentInfo['code'] as String,
+                                                                message.code,
+                                                                emoji,
+                                                              );
+                                                        } else {
+                                                          context.read<CommunicationCubit>().addReaction(
+                                                                widget.parentInfo['code'] as String,
+                                                                message.code,
+                                                                emoji,
+                                                              );
+                                                        }
+                                                      },
+                                                      onRemoveReaction: (emoji) {
+                                                        context.read<CommunicationCubit>().removeReaction(
+                                                              widget.parentInfo['code'] as String,
+                                                              message.code,
+                                                              emoji,
+                                                            );
+                                                      },
+                                                      onReactionTap: () => _showEmojiPicker(
+                                                        context,
+                                                        message,
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
@@ -1500,8 +1504,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         _prevDate.year ||
                                                     _currDate.month !=
                                                         _prevDate.month ||
-                                                    _currDate.day !=
-                                                        _prevDate.day;
+                                                    _currDate.day != _prevDate.day;
                                               } else {
                                                 showDateHeader = true;
                                               }
@@ -1536,6 +1539,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
                                                     MessageBubble(
                                                       message: message,
+                                                      currentUserCode: _currentUserCode,
                                                       reactionsController:
                                                           _reactionsController,
                                                       isParentMessaging: true,
@@ -1562,20 +1566,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           isSuccess: true,
                                                         );
                                                       },
-                                                      onEdit: () =>
-                                                          _showEditDialog(
-                                                            context,
-                                                            message,
-                                                          ),
-                                                      onDelete: () {
+                                                      onEdit: () {
                                                         setState(() {
-                                                          _activeMessages
-                                                              .removeWhere(
-                                                                (m) =>
-                                                                    m.id ==
-                                                                    message.id,
-                                                              );
+                                                          _editingMessage = message;
+                                                          _controller.text = message.text;
+                                                          _inputFocusNode.requestFocus();
                                                         });
+                                                      },
+                                                      onDelete: () {
+                                                        context.read<CommunicationCubit>().deleteMessage(
+                                                              widget.parentInfo['code'] as String,
+                                                              message.code,
+                                                            );
                                                         CoreUtils.showTopSnackBar(
                                                           context: context,
                                                           message:
@@ -1593,6 +1595,33 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _scrollToMessage(
                                                                 quoteId,
                                                               ),
+                                                      onReactionAdded: (emoji) {
+                                                        final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                        if (myReaction == emoji) {
+                                                          context.read<CommunicationCubit>().removeReaction(
+                                                                widget.parentInfo['code'] as String,
+                                                                message.code,
+                                                                emoji,
+                                                              );
+                                                        } else {
+                                                          context.read<CommunicationCubit>().addReaction(
+                                                                widget.parentInfo['code'] as String,
+                                                                message.code,
+                                                                emoji,
+                                                              );
+                                                        }
+                                                      },
+                                                      onRemoveReaction: (emoji) {
+                                                        context.read<CommunicationCubit>().removeReaction(
+                                                              widget.parentInfo['code'] as String,
+                                                              message.code,
+                                                              emoji,
+                                                            );
+                                                      },
+                                                      onReactionTap: () => _showEmojiPicker(
+                                                        context,
+                                                        message,
+                                                      ),
                                                     ),
                                                   ],
                                                 ),
@@ -1619,8 +1648,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             ),
                           ],
                         ),
-                        child: ChatInputBar(
+                         child: ChatInputBar(
                           controller: _controller,
+                          focusNode: _inputFocusNode,
                           onSend: _sendMessage,
                           onAttachmentTap: _showAttachmentSheet,
                           pendingAttachments: _pendingAttachments,
@@ -1631,6 +1661,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           }),
                           onRemoveAttachment: (i) => setState(() {
                             _pendingAttachments.removeAt(i);
+                          }),
+                          editingMessage: _editingMessage,
+                          onCancelEdit: () => setState(() {
+                            _editingMessage = null;
+                            _controller.clear();
                           }),
                         ),
                       ),

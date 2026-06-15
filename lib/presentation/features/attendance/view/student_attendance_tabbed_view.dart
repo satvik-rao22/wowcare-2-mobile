@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
+import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
@@ -46,6 +50,8 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     with TickerProviderStateMixin {
   late final TabController _tabController;
 
+  late final UnreadBadgeCubit _unreadBadgeCubit;
+
   // Hide the floating add button while the drawer is open so it isn't painted
   // on top of (and brighter than) the drawer's dim scrim.
   bool _isDrawerOpen = false;
@@ -57,6 +63,11 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
   @override
   void initState() {
     super.initState();
+    _unreadBadgeCubit = UnreadBadgeCubit(
+      watchUnreadCountForTypeUseCase:
+          serviceLocator<WatchUnreadCountForTypeUseCase>(),
+      getUnreadAggregatesUseCase: serviceLocator<GetUnreadAggregatesUseCase>(),
+    )..startWatching();
     _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
     _tabController.addListener(_onTabChanged);
 
@@ -88,6 +99,7 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _refreshNotifier.dispose();
+    _unreadBadgeCubit.close();
     super.dispose();
   }
 
@@ -113,7 +125,9 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     // similar to how GradientAddButton is aligned in StaffScreen.
     final floatingButtonRight = contentPadding.right;
     
-    return Stack(
+    return BlocProvider<UnreadBadgeCubit>.value(
+      value: _unreadBadgeCubit,
+      child: Stack(
       children: [
         Container(
           decoration: const BoxDecoration(
@@ -254,6 +268,7 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
             ),
           ),
       ],
+      ),
     );
   }
 
