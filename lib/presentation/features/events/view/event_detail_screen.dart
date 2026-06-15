@@ -6,9 +6,11 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_rsvp_bar.dart';
+import 'package:wowcare/presentation/features/events/widgets/event_rsvp_summary.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_type_chip.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -22,7 +24,7 @@ class EventDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isParent = context.watch<RoleCubit>().isParent;
+    final roles = context.watch<RoleCubit>();
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -39,12 +41,26 @@ class EventDetailScreen extends StatelessWidget {
               ),
             );
           }
+          // Admins manage any event; staff only their own; parents none.
+          final canManage = EventAccess.canManageEvent(
+            roles: roles,
+            event: event,
+            userCode: state.currentUserCode,
+            staffCode: state.currentStaffCode,
+          );
+          final canRsvp = EventAccess.canRsvp(
+            roles: roles,
+            event: event,
+            userCode: state.currentUserCode,
+            staffCode: state.currentStaffCode,
+          );
+          final canSeeSummary = EventAccess.canSeeRsvpSummary(roles);
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _headerRow(context, event, isParent),
+                _headerRow(context, event, canManage),
                 const SizedBox(height: 12),
                 _whenCard(event),
                 if (event.description.trim().isNotEmpty) ...[
@@ -68,8 +84,17 @@ class EventDetailScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   _attachmentCard(context, event),
                 ],
-                const SizedBox(height: 10),
-                _rsvpCard(context, state, event, isParent),
+                if (canRsvp || canSeeSummary) ...[
+                  const SizedBox(height: 10),
+                  _rsvpCard(
+                    context,
+                    state,
+                    event,
+                    isParent: roles.isParent,
+                    canRsvp: canRsvp,
+                    canSeeSummary: canSeeSummary,
+                  ),
+                ],
                 const SizedBox(height: 14),
                 _footer(event),
               ],
@@ -80,7 +105,7 @@ class EventDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _headerRow(BuildContext context, Event event, bool isParent) {
+  Widget _headerRow(BuildContext context, Event event, bool canManage) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -101,7 +126,7 @@ class EventDetailScreen extends StatelessWidget {
             ],
           ),
         ),
-        if (!isParent) ...[
+        if (canManage) ...[
           IconButton(
             tooltip: 'Edit event',
             icon: const Icon(Icons.edit_outlined,
@@ -249,32 +274,34 @@ class EventDetailScreen extends StatelessWidget {
   Widget _rsvpCard(
     BuildContext context,
     EventsState state,
-    Event event,
-    bool isParent,
-  ) {
+    Event event, {
+    required bool isParent,
+    required bool canRsvp,
+    required bool canSeeSummary,
+  }) {
     final myRsvp = event.rsvpFor(state.currentUserCode);
     return _sectionCard(
-      title: 'Your RSVP',
-      trailing: !isParent && event.rsvps.isNotEmpty
-          ? EventRsvpCounts(event: event)
-          : null,
+      title: canRsvp ? 'Your RSVP' : 'RSVP',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          EventRsvpBar(
-            selected: myRsvp?.status,
-            onChanged: (status) {
-              context.read<EventsCubit>().respond(
-                    eventCode: event.code,
-                    status: status,
-                    userType: isParent ? 'PARENT' : 'STAFF',
-                  );
-            },
-          ),
-          if (event.rsvps.isNotEmpty && !isParent) ...[
-            const SizedBox(height: 12),
-            const Divider(height: 1),
-            const SizedBox(height: 10),
+          if (canRsvp)
+            EventRsvpBar(
+              selected: myRsvp?.status,
+              onChanged: (status) {
+                context.read<EventsCubit>().respond(
+                      eventCode: event.code,
+                      status: status,
+                      userType: isParent ? 'PARENT' : 'STAFF',
+                    );
+              },
+            ),
+          if (canSeeSummary) ...[
+            if (canRsvp) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+            ],
             const Text(
               'Responses',
               style: TextStyle(
@@ -283,34 +310,9 @@ class EventDetailScreen extends StatelessWidget {
                 color: Colors.black54,
               ),
             ),
-            const SizedBox(height: 6),
-            for (final rsvp in event.rsvps) _rsvpRow(rsvp),
+            const SizedBox(height: 8),
+            EventRsvpSummary(event: event),
           ],
-        ],
-      ),
-    );
-  }
-
-  Widget _rsvpRow(EventRsvp rsvp) {
-    final color = EventUiUtils.rsvpColor(rsvp.status);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(EventUiUtils.rsvpIcon(rsvp.status), size: 15, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              rsvp.userName.isNotEmpty ? rsvp.userName : rsvp.userCode,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 12.5, color: Colors.black87),
-            ),
-          ),
-          Text(
-            _toTitle(rsvp.userType),
-            style: const TextStyle(fontSize: 11, color: Colors.black45),
-          ),
         ],
       ),
     );
@@ -429,11 +431,4 @@ class EventDetailScreen extends StatelessWidget {
       );
     }
   }
-}
-
-/// Title-cases RSVP user types (STAFF -> Staff).
-String _toTitle(String raw) {
-  final lower = raw.trim().toLowerCase();
-  if (lower.isEmpty) return raw;
-  return lower[0].toUpperCase() + lower.substring(1);
 }

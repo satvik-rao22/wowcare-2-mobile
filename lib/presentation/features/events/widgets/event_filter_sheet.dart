@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// Bottom-drawer filter panel (mobile counterpart of the web design's
 /// filter dropdowns): event types, classrooms and a date range. Changes
@@ -74,6 +75,30 @@ class _EventFilterSheet extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
+                // Scope toggle (FR-SC-07). Parents always see their own
+                // feed, so the toggle would be meaningless for them.
+                if (!context.watch<RoleCubit>().isParent) ...[
+                  _sectionLabel('Showing'),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      _chip(
+                        label: 'All events',
+                        color: AppColors.themeColor,
+                        selected: !state.showMineOnly,
+                        onTap: () => cubit.setShowMineOnly(false),
+                      ),
+                      _chip(
+                        label: 'My events',
+                        color: AppColors.themeColor,
+                        selected: state.showMineOnly,
+                        onTap: () => cubit.setShowMineOnly(true),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 _sectionLabel('Event Types'),
                 Wrap(
                   spacing: 6,

@@ -7,9 +7,11 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 /// Create/edit form for an event. A single scrollable mobile form replaces
@@ -54,7 +56,11 @@ class _EventFormScreenState extends State<EventFormScreen> {
   @override
   void initState() {
     super.initState();
-    _date = _dateOnly(widget.initialDate ?? DateTime.now());
+    // New events cannot be scheduled in the past (PRD VR-EV-03); a past day
+    // tapped on the calendar falls back to today. Editing keeps past dates.
+    final today = _dateOnly(DateTime.now());
+    final initial = _dateOnly(widget.initialDate ?? today);
+    _date = initial.isBefore(today) ? today : initial;
     final code = widget.eventCode?.trim() ?? '';
     if (code.isNotEmpty) {
       final event = context.read<EventsCubit>().state.eventByCode(code);
@@ -200,11 +206,15 @@ class _EventFormScreenState extends State<EventFormScreen> {
   // ---------------------------------------------------------------- type
 
   Widget _typeSelector() {
+    // Staff cannot create school-wide events (PRD §5.1); keep the chip
+    // visible when editing one so the form still renders correctly.
+    final types = EventAccess.creatableTypes(context.watch<RoleCubit>());
+    if (_isEditing && !types.contains(_type)) types.add(_type);
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: [
-        for (final type in EventType.values)
+        for (final type in types)
           ChoiceChip(
             label: Text(type.label),
             avatar: Icon(
@@ -278,6 +288,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
           const SizedBox(height: 8),
           _staffPicker(),
         ];
+      case EventType.individual:
+        return [_studentPicker(), const SizedBox(height: 8), _staffPicker()];
     }
   }
 
@@ -447,7 +459,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
         final picked = await showDatePicker(
           context: context,
           initialDate: _date,
-          firstDate: DateTime(DateTime.now().year - 1),
+          // Past dates are only reachable when editing (PRD VR-EV-03).
+          firstDate: _isEditing
+              ? DateTime(DateTime.now().year - 1)
+              : _dateOnly(DateTime.now()),
           lastDate: DateTime(DateTime.now().year + 3),
         );
         if (picked != null) setState(() => _date = _dateOnly(picked));
@@ -571,17 +586,23 @@ class _EventFormScreenState extends State<EventFormScreen> {
       return;
     }
 
-    // The school is closed on observed holidays — block scheduling there.
-    final holidays =
-        context.read<EventsCubit>().state.holidaysOn(_date);
-    if (holidays.isNotEmpty) {
+    final today = _dateOnly(DateTime.now());
+    if (!_isEditing && _date.isBefore(today)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:
-            'Cannot schedule an event on ${holidays.first.name} (holiday)',
+        message: 'Event date cannot be in the past',
         isWarning: true,
       );
       return;
+    }
+
+    // The school is closed on observed holidays — confirm before
+    // scheduling there.
+    final holidays =
+        context.read<EventsCubit>().state.holidaysOn(_date);
+    if (holidays.isNotEmpty) {
+      final proceed = await _confirmHolidayDate(holidays.first.name);
+      if (proceed != true || !mounted) return;
     }
 
     // School events snapshot every active classroom as the audience.
@@ -614,8 +635,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
       startTime: _allDay ? '' : _formatTime(_startTime),
       endTime: _allDay ? '' : _formatTime(_endTime),
       description: _descriptionController.text.trim(),
-      classrooms: _type == EventType.staff ? const [] : classrooms,
-      students: (_type == EventType.student || _type == EventType.custom)
+      classrooms:
+          (_type == EventType.staff || _type == EventType.individual)
+              ? const []
+              : classrooms,
+      students: (_type == EventType.student ||
+              _type == EventType.custom ||
+              _type == EventType.individual)
           ? _students
           : const [],
       staff: _staff,
@@ -664,10 +690,39 @@ class _EventFormScreenState extends State<EventFormScreen> {
         if (_classrooms.isEmpty && _students.isEmpty && _staff.isEmpty) {
           return 'Select at least one attendee';
         }
+      case EventType.individual:
+        if (_students.isEmpty && _staff.isEmpty) {
+          return 'Select at least one attendee';
+        }
       case EventType.school:
         break;
     }
     return null;
+  }
+
+  /// Holidays no longer hard-block scheduling; the user confirms instead.
+  Future<bool?> _confirmHolidayDate(String holidayName) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Schedule on a holiday?'),
+        content: Text(
+          '${DateFormat('EEE, MMM d, yyyy').format(_date)} falls on '
+          '"$holidayName". Do you want to '
+          '${_isEditing ? 'keep' : 'create'} the event on this date anyway?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(_isEditing ? 'Save anyway' : 'Create anyway'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ------------------------------------------------------------ helpers

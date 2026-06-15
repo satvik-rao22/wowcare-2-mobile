@@ -10,7 +10,7 @@ import cloud_firestore
 import connectivity_plus
 import device_info_plus
 import emoji_picker_flutter
-import ffmpeg_kit_flutter_new_https
+import ffmpeg_kit_flutter_new
 import file_picker
 import file_selector_macos
 import firebase_core

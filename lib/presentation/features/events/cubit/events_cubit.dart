@@ -39,6 +39,10 @@ class EventsCubit extends Cubit<EventsState> {
   final DeleteHolidayUseCase _deleteHoliday;
   final StorageService _storageService;
 
+  /// The "My Events" default is derived from the persona once per cubit
+  /// lifetime so later loads don't clobber the user's own toggle choice.
+  bool _audienceDefaultApplied = false;
+
   Future<void> load({bool silent = false}) async {
     if (!silent) {
       emit(state.copyWith(isLoading: true, errorMessage: () => null));
@@ -50,14 +54,32 @@ class EventsCubit extends Cubit<EventsState> {
       final userName =
           (await _storageService.getString(StorageKeys.displayName) ?? '')
               .trim();
+      // Cached by the staff-code resolver elsewhere; empty for guardians
+      // or before first resolution — access checks degrade gracefully.
+      final staffCode =
+          (await _storageService.getString(StorageKeys.staffCode) ?? '')
+              .trim();
+      var showMineOnly = state.showMineOnly;
+      if (!_audienceDefaultApplied) {
+        _audienceDefaultApplied = true;
+        // Staff/teacher personas default to "My Events" (PRD FR-SC-07);
+        // admins and guardians default to all events.
+        final role =
+            (await _storageService.getString(StorageKeys.activeSchoolRole) ??
+                    '')
+                .toUpperCase();
+        showMineOnly = role.contains('STAFF') || role.contains('TEACHER');
+      }
       final events = await _getEvents();
       final holidays = await _getHolidays();
       emit(state.copyWith(
+        showMineOnly: showMineOnly,
         events: events,
         holidays: holidays,
         isLoading: false,
         currentUserCode: userCode,
         currentUserName: userName,
+        currentStaffCode: staffCode,
         errorMessage: () => null,
       ));
     } catch (e) {
@@ -72,6 +94,11 @@ class EventsCubit extends Cubit<EventsState> {
 
   void setSearchQuery(String query) {
     emit(state.copyWith(searchQuery: query.trim()));
+  }
+
+  /// "All Events" vs "My Events" scope (FR-SC-07).
+  void setShowMineOnly(bool mineOnly) {
+    emit(state.copyWith(showMineOnly: mineOnly));
   }
 
   void toggleTypeFilter(EventType type) {

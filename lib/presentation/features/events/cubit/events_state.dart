@@ -8,11 +8,13 @@ class EventsState extends Equatable {
     required this.isSaving,
     required this.typeFilter,
     required this.classroomFilter,
+    this.showMineOnly = false,
     this.dateFrom,
     this.dateTo,
     required this.searchQuery,
     required this.currentUserCode,
     required this.currentUserName,
+    this.currentStaffCode = '',
     this.errorMessage,
   });
 
@@ -23,11 +25,13 @@ class EventsState extends Equatable {
         isSaving = false,
         typeFilter = const <EventType>{},
         classroomFilter = const <String>{},
+        showMineOnly = false,
         dateFrom = null,
         dateTo = null,
         searchQuery = '',
         currentUserCode = '',
         currentUserName = '',
+        currentStaffCode = '',
         errorMessage = null;
 
   final List<Event> events;
@@ -40,11 +44,21 @@ class EventsState extends Equatable {
 
   /// Classroom codes; an event matches when it targets any of them.
   final Set<String> classroomFilter;
+
+  /// "My Events" scope (FR-SC-07): only events the current user created,
+  /// is a staff attendee of, or that are school-wide. Defaults to true for
+  /// staff personas, false otherwise.
+  final bool showMineOnly;
   final DateTime? dateFrom;
   final DateTime? dateTo;
   final String searchQuery;
   final String currentUserCode;
   final String currentUserName;
+
+  /// Staff code of the logged-in user (differs from [currentUserCode]);
+  /// empty for guardians or when not resolved yet. Used to match the user
+  /// against event staff attendees / `createdBy`.
+  final String currentStaffCode;
   final String? errorMessage;
 
   bool get isSearching => searchQuery.length >= 2;
@@ -59,6 +73,7 @@ class EventsState extends Equatable {
   /// filter-aware while a query is being typed).
   List<Event> get filteredEvents {
     return events.where((event) {
+      if (showMineOnly && !_isMine(event)) return false;
       if (typeFilter.isNotEmpty && !typeFilter.contains(event.type)) {
         return false;
       }
@@ -76,6 +91,18 @@ class EventsState extends Equatable {
       if (dateTo != null && event.date.isAfter(dateTo!)) return false;
       return true;
     }).toList();
+  }
+
+  /// Whether [event] belongs to the current user's "My Events" scope:
+  /// created by them, invites them as staff, or is school-wide. Permissive
+  /// when the user identity hasn't resolved yet.
+  bool _isMine(Event event) {
+    final codes = <String>{currentUserCode, currentStaffCode}
+      ..removeWhere((code) => code.isEmpty);
+    if (codes.isEmpty) return true;
+    if (event.type == EventType.school) return true;
+    if (codes.contains(event.createdBy)) return true;
+    return event.staff.any((s) => codes.contains(s.code));
   }
 
   /// Filtered events matching the search query in name or description.
@@ -146,11 +173,13 @@ class EventsState extends Equatable {
     bool? isSaving,
     Set<EventType>? typeFilter,
     Set<String>? classroomFilter,
+    bool? showMineOnly,
     DateTime? Function()? dateFrom,
     DateTime? Function()? dateTo,
     String? searchQuery,
     String? currentUserCode,
     String? currentUserName,
+    String? currentStaffCode,
     String? Function()? errorMessage,
   }) {
     return EventsState(
@@ -160,11 +189,13 @@ class EventsState extends Equatable {
       isSaving: isSaving ?? this.isSaving,
       typeFilter: typeFilter ?? this.typeFilter,
       classroomFilter: classroomFilter ?? this.classroomFilter,
+      showMineOnly: showMineOnly ?? this.showMineOnly,
       dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
       dateTo: dateTo != null ? dateTo() : this.dateTo,
       searchQuery: searchQuery ?? this.searchQuery,
       currentUserCode: currentUserCode ?? this.currentUserCode,
       currentUserName: currentUserName ?? this.currentUserName,
+      currentStaffCode: currentStaffCode ?? this.currentStaffCode,
       errorMessage:
           errorMessage != null ? errorMessage() : this.errorMessage,
     );
@@ -178,11 +209,13 @@ class EventsState extends Equatable {
         isSaving,
         typeFilter,
         classroomFilter,
+        showMineOnly,
         dateFrom,
         dateTo,
         searchQuery,
         currentUserCode,
         currentUserName,
+        currentStaffCode,
         errorMessage,
       ];
 }

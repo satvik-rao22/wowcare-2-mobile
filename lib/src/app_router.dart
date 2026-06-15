@@ -465,7 +465,13 @@ final GoRouter appRouter = GoRouter(
                           ),
                           BlocProvider<ClassroomCubit>(
                             create: (_) => serviceLocator<ClassroomCubit>()
-                              ..loadActiveClassrooms(onlyTypeClassroom: false),
+                              // Scoped staff only see their allowed
+                              // classrooms in the attendee picker (PRD
+                              // §5.1); admins stay unrestricted.
+                              ..loadActiveClassrooms(
+                                onlyTypeClassroom: false,
+                                applyAttendanceStaffScope: true,
+                              ),
                           ),
                           BlocProvider<StaffCubit>(
                             create: (_) =>

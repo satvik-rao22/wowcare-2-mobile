@@ -12,7 +12,7 @@ class EventGridCard extends StatelessWidget {
     required this.event,
     required this.onTap,
     required this.myRsvp,
-    required this.onRsvp,
+    this.onRsvp,
     this.showRsvpCounts = false,
     super.key,
   });
@@ -20,7 +20,10 @@ class EventGridCard extends StatelessWidget {
   final Event event;
   final VoidCallback onTap;
   final EventRsvpStatus? myRsvp;
-  final ValueChanged<EventRsvpStatus> onRsvp;
+
+  /// Null when the current user may not RSVP to this event (e.g. a parent
+  /// on an event without "invite parents"); hides the RSVP bar.
+  final ValueChanged<EventRsvpStatus>? onRsvp;
   final bool showRsvpCounts;
 
   @override
@@ -95,8 +98,11 @@ class EventGridCard extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              EventRsvpBar(selected: myRsvp, onChanged: onRsvp, dense: true),
+              if (onRsvp != null) ...[
+                const SizedBox(height: 8),
+                EventRsvpBar(
+                    selected: myRsvp, onChanged: onRsvp!, dense: true),
+              ],
               if (showRsvpCounts && event.rsvps.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 EventRsvpCounts(event: event),

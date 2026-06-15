@@ -7,6 +7,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
@@ -51,7 +52,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isParent = context.watch<RoleCubit>().isParent;
+    final roles = context.watch<RoleCubit>();
 
     return GlobalScaffold(
       hasBackButton: false,
@@ -63,14 +64,14 @@ class _EventsScreenState extends State<EventsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _header(context, isParent),
+                _header(context, roles),
                 const SizedBox(height: 10),
                 _tabSwitcher(),
                 const SizedBox(height: 10),
                 if (_tabIndex == 0)
-                  Expanded(child: _eventsTab(context, state, isParent))
+                  Expanded(child: _eventsTab(context, state, roles))
                 else
-                  Expanded(child: _holidaysTab(context, state, isParent)),
+                  Expanded(child: _holidaysTab(context, state, roles)),
               ],
             ),
           );
@@ -81,7 +82,11 @@ class _EventsScreenState extends State<EventsScreen> {
 
   // ------------------------------------------------------------ header
 
-  Widget _header(BuildContext context, bool isParent) {
+  Widget _header(BuildContext context, RoleCubit roles) {
+    // Staff may add events but not holidays; parents may add neither.
+    final canAdd = _tabIndex == 0
+        ? EventAccess.canCreateEvents(roles)
+        : EventAccess.canManageHolidays(roles);
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -110,7 +115,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 ),
                 child: const Text('Today'),
               ),
-            if (!isParent) ...[
+            if (canAdd) ...[
               const SizedBox(width: 4),
               GradientAddButton(
                 onTap: () {
@@ -187,7 +192,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
   // -------------------------------------------------------- events tab
 
-  Widget _eventsTab(BuildContext context, EventsState state, bool isParent) {
+  Widget _eventsTab(BuildContext context, EventsState state, RoleCubit roles) {
     if (state.isLoading) {
       return const Center(child: PrimaryCircularLoader());
     }
@@ -197,7 +202,7 @@ class _EventsScreenState extends State<EventsScreen> {
         _toolbar(context, state),
         const SizedBox(height: 10),
         if (state.isSearching)
-          Expanded(child: _searchResults(context, state, isParent))
+          Expanded(child: _searchResults(context, state, roles))
         else ...[
           switch (_viewMode) {
             _EventsViewMode.calendar => Expanded(
@@ -206,14 +211,14 @@ class _EventsScreenState extends State<EventsScreen> {
                   children: [
                     _calendarCard(context, state),
                     const SizedBox(height: 10),
-                    Expanded(child: _dayList(context, state, isParent)),
+                    Expanded(child: _dayList(context, state, roles)),
                   ],
                 ),
               ),
             _EventsViewMode.grid =>
-              Expanded(child: _gridView(context, state, isParent)),
+              Expanded(child: _gridView(context, state, roles)),
             _EventsViewMode.list =>
-              Expanded(child: _listView(context, state, isParent)),
+              Expanded(child: _listView(context, state, roles)),
           },
         ],
       ],
@@ -489,7 +494,7 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  Widget _dayList(BuildContext context, EventsState state, bool isParent) {
+  Widget _dayList(BuildContext context, EventsState state, RoleCubit roles) {
     final dayEvents = state.eventsOn(_selectedDay);
     final dayHolidays = state.holidaysOn(_selectedDay);
     return Column(
@@ -522,7 +527,8 @@ class _EventsScreenState extends State<EventsScreen> {
                       for (final event in dayEvents) ...[
                         EventCard(
                           event: event,
-                          showRsvpCounts: !isParent,
+                          showRsvpCounts:
+                              EventAccess.canSeeRsvpSummary(roles),
                           onTap: () => _openDetail(context, event),
                         ),
                         const SizedBox(height: 8),
@@ -577,7 +583,7 @@ class _EventsScreenState extends State<EventsScreen> {
 
   // --------------------------------------------------- grid & list view
 
-  Widget _gridView(BuildContext context, EventsState state, bool isParent) {
+  Widget _gridView(BuildContext context, EventsState state, RoleCubit roles) {
     final events = _upcomingFirst(state.filteredEvents);
     if (events.isEmpty) {
       return _emptyState('No events match the current filters');
@@ -597,19 +603,28 @@ class _EventsScreenState extends State<EventsScreen> {
         itemCount: events.length,
         itemBuilder: (context, index) {
           final event = events[index];
+          final canRsvp = EventAccess.canRsvp(
+            roles: roles,
+            event: event,
+            userCode: state.currentUserCode,
+            staffCode: state.currentStaffCode,
+          );
           return EventGridCard(
             event: event,
             myRsvp: event.rsvpFor(state.currentUserCode)?.status,
-            showRsvpCounts: !isParent,
+            showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
             onTap: () => _openDetail(context, event),
-            onRsvp: (status) => _respond(context, event, status, isParent),
+            onRsvp: canRsvp
+                ? (status) =>
+                    _respond(context, event, status, roles.isParent)
+                : null,
           );
         },
       ),
     );
   }
 
-  Widget _listView(BuildContext context, EventsState state, bool isParent) {
+  Widget _listView(BuildContext context, EventsState state, RoleCubit roles) {
     final events = _upcomingFirst(state.filteredEvents);
     if (events.isEmpty) {
       return _emptyState('No events match the current filters');
@@ -645,7 +660,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: EventCard(
                   event: event,
-                  showRsvpCounts: !isParent,
+                  showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
                   onTap: () => _openDetail(context, event),
                 ),
               ),
@@ -659,7 +674,7 @@ class _EventsScreenState extends State<EventsScreen> {
   Widget _searchResults(
     BuildContext context,
     EventsState state,
-    bool isParent,
+    RoleCubit roles,
   ) {
     final results = _upcomingFirst(state.searchResults);
     return Column(
@@ -682,7 +697,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     final event = results[index];
                     return EventCard(
                       event: event,
-                      showRsvpCounts: !isParent,
+                      showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
                       onTap: () => _openDetail(context, event),
                     );
                   },
@@ -697,7 +712,7 @@ class _EventsScreenState extends State<EventsScreen> {
   Widget _holidaysTab(
     BuildContext context,
     EventsState state,
-    bool isParent,
+    RoleCubit roles,
   ) {
     if (state.isLoading) {
       return const Center(child: PrimaryCircularLoader());
@@ -705,6 +720,8 @@ class _EventsScreenState extends State<EventsScreen> {
     if (state.holidays.isEmpty) {
       return _emptyState('No holidays added yet');
     }
+    // Staff and parents see the holiday list read-only (PRD FR-HL-12).
+    final canManage = EventAccess.canManageHolidays(roles);
     final cubit = context.read<EventsCubit>();
     final school = state.holidays
         .where((h) => h.type == HolidayType.school)
@@ -726,13 +743,13 @@ class _EventsScreenState extends State<EventsScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: HolidayCard(
                   holiday: holiday,
-                  onEdit: isParent
-                      ? null
-                      : () =>
-                          showHolidayFormSheet(context, holiday: holiday),
-                  onDelete: isParent
-                      ? null
-                      : () => _confirmDeleteHoliday(context, holiday),
+                  onEdit: canManage
+                      ? () =>
+                          showHolidayFormSheet(context, holiday: holiday)
+                      : null,
+                  onDelete: canManage
+                      ? () => _confirmDeleteHoliday(context, holiday)
+                      : null,
                 ),
               ),
           ],
@@ -743,10 +760,10 @@ class _EventsScreenState extends State<EventsScreen> {
                 padding: const EdgeInsets.only(bottom: 8),
                 child: HolidayCard(
                   holiday: holiday,
-                  onStatusChanged: isParent
-                      ? null
-                      : (status) =>
-                          cubit.setHolidayStatus(holiday.code, status),
+                  onStatusChanged: canManage
+                      ? (status) =>
+                          cubit.setHolidayStatus(holiday.code, status)
+                      : null,
                 ),
               ),
           ],

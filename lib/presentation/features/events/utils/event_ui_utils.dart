@@ -20,6 +20,8 @@ class EventUiUtils {
         return const Color(0xFF4CAF50); // green
       case EventType.custom:
         return const Color(0xFF26A69A); // teal
+      case EventType.individual:
+        return const Color(0xFFF57C00); // orange
     }
   }
 
@@ -38,6 +40,8 @@ class EventUiUtils {
         return Icons.school_outlined;
       case EventType.custom:
         return Icons.auto_awesome_outlined;
+      case EventType.individual:
+        return Icons.person_outline;
     }
   }
 

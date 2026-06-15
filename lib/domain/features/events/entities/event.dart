@@ -7,7 +7,8 @@ enum EventType {
   classroom('CLASSROOM'),
   student('STUDENT'),
   staff('STAFF'),
-  custom('CUSTOM');
+  custom('CUSTOM'),
+  individual('INDIVIDUAL');
 
   const EventType(this.value);
 
@@ -25,6 +26,8 @@ enum EventType {
         return 'Staff';
       case EventType.custom:
         return 'Custom';
+      case EventType.individual:
+        return 'Individual';
     }
   }
 

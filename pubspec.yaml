@@ -101,7 +101,10 @@ dependencies:
   scroll_to_index: ^3.0.1
   thumbnailer: ^3.2.0
   better_player_plus: ^1.1.5
-  ffmpeg_kit_flutter_new_https: ^2.1.0
+  ffmpeg_kit_flutter_new:
+    git:
+      url: https://github.com/maickonn/ffmpeg_kit_flutter.git
+      ref: fix/ios-simulator-arm64
   gal: ^2.3.2
   go_router: ^17.2.3
 
