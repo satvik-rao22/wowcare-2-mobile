@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -1112,12 +1111,15 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: responsive.isTablet ? 16 : 12,
                   mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 50,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   return ActivityStudentDisplayTile(
                     name: _selectedStudents[index],
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
                   );
                 },
               )
@@ -1130,14 +1132,17 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   final String name = _selectedStudents[index];
-                  return SelectedStudentTile(
+                  return ActivityStudentDisplayTile(
                     name: name,
-                    onTap: () => _removeStudent(name),
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
+                    onRemove: () => _removeStudent(name),
                   );
                 },
               ),
@@ -1234,6 +1239,7 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                 label: 'Requires Admin Approval',
                 isToggled: _requireAdminApproval,
                 labelOnLeftSide: true,
+                enabled: !_layoutAsEdit,
                 onToggle: (value) {
                   setState(() {
                     _requireAdminApproval = value;
@@ -1248,8 +1254,8 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
-                limit: widget.isEdit ? 1 : 2,
-                autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
+                limit: 2,
+                autoReplaceFirstPhotoWhenMaxReached: false,
                 label: 'Upload Photo',
                 initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                     ? List<String>.from(_remainingExistingPhotoUrls)

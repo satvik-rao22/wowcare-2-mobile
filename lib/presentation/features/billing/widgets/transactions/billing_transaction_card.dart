@@ -26,6 +26,7 @@ class BillingTransactionCard extends StatefulWidget {
     this.onView,
     this.onViewReceipt,
     this.onIssueRefund,
+    this.onCancel,
     this.onDelete,
     this.onLongPress,
   });
@@ -44,6 +45,7 @@ class BillingTransactionCard extends StatefulWidget {
   final VoidCallback? onView;
   final VoidCallback? onViewReceipt;
   final VoidCallback? onIssueRefund;
+  final VoidCallback? onCancel;
   final VoidCallback? onDelete;
   final VoidCallback? onLongPress;
 
@@ -88,6 +90,14 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     }
   }
 
+  /// Picks the invoice action set from the invoice status.
+  BillingInvoiceMenuVariant _invoiceVariant() {
+    final String s = widget.transaction.status.toUpperCase();
+    if (s.contains('CANCEL')) return BillingInvoiceMenuVariant.cancelled;
+    if (s == 'PAID' || s == 'COMPLETED') return BillingInvoiceMenuVariant.paid;
+    return BillingInvoiceMenuVariant.draftOrSent;
+  }
+
   void _showActionsMenu(BuildContext context, BillingPopupType popupType) {
     showDialog(
       context: context,
@@ -95,6 +105,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       barrierColor: AppColors.billingTransparentColor,
       builder: (BuildContext dialogContext) {
         bool showMoreOptions = false;
+        final BillingInvoiceMenuVariant? invoiceVariant =
+            popupType == BillingPopupType.invoice ? _invoiceVariant() : null;
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return Align(
@@ -109,22 +121,28 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                         padding: const EdgeInsets.only(right: 8),
                         child: BillingMoreOptionsPopup(
                           popupType: popupType,
+                          invoiceVariant: invoiceVariant,
                           transaction: widget.transaction,
                           onMessageTap: _dialogCallback(dialogContext, widget.onMessage),
                           onBillingProfileTap: _dialogCallback(dialogContext, widget.onBillingProfile),
-                          onCancelTap: popupType == BillingPopupType.invoice
-                              ? _dialogCallback(dialogContext, widget.onDelete ?? widget.onLongPress)
-                              : null,
+                          onCancelTap:
+                              _dialogCallback(dialogContext, widget.onCancel),
+                          onDeleteTap:
+                              _dialogCallback(dialogContext, widget.onDelete),
                         ),
                       ),
                     BillingStudentVerticalPopUp(
                       popupType: popupType,
+                      invoiceVariant: invoiceVariant,
                       transaction: widget.transaction,
                       onViewTap: _dialogCallback(dialogContext, _viewActionFor(popupType)),
                       onEditTap: _dialogCallback(dialogContext, widget.onEditInvoice),
                       onResendTap: _dialogCallback(dialogContext, widget.onSendInvoice),
                       onReceivePaymentTap: _dialogCallback(dialogContext, widget.onReceivePayment),
                       onIssueRefundTap: _dialogCallback(dialogContext, widget.onIssueRefund),
+                      onDeleteTap: _dialogCallback(dialogContext, widget.onDelete),
+                      onBillingProfileTap:
+                          _dialogCallback(dialogContext, widget.onBillingProfile),
                       onMoreTap: () {
                         widget.onMore?.call();
                         setDialogState(() {

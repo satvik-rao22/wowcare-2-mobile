@@ -248,10 +248,14 @@ class ActivityStudentSelectionCubit
     required Map<String, String> codeByName,
     required Map<String, String> nameByCode,
   }) {
-    // Default classroom: primary (if allowed), else first option.
+    // Default classroom: primary (if allowed and selectable), else top option.
+    // If the primary classroom is Office (filtered out of the selectable list)
+    // or otherwise unavailable, fall back to the top sorted classroom.
     final primaryCode = (_primaryClassroomCode ?? '').trim();
     final primaryName = primaryCode.isNotEmpty ? nameByCode[primaryCode] : null;
-    final defaultName = primaryName ?? (names.isNotEmpty ? names.first : null);
+    final defaultName = (primaryName != null && names.contains(primaryName))
+        ? primaryName
+        : (names.isNotEmpty ? names.first : null);
     _safeEmit(state.copyWith(
       classroomOptions: names,
       classroomCodeByName: codeByName,

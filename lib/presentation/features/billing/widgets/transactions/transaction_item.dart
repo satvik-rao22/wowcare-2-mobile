@@ -1,3 +1,5 @@
+import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
+
 class TransactionItem {
   TransactionItem({
     required this.id,
@@ -8,6 +10,7 @@ class TransactionItem {
     required this.description,
     required this.studentName,
     required this.classroom,
+    this.invoiceCode,
     this.studentId,
     this.studentPhotoUuid,
     this.refTable,
@@ -20,6 +23,10 @@ class TransactionItem {
   });
 
   final int id;
+
+  /// Backend invoice code (the real identifier). `id` is only a display/list
+  /// key — invoices are addressed by [invoiceCode] in API calls.
+  final String? invoiceCode;
   final String transactionType;
   final DateTime date;
   final double amount;
@@ -63,6 +70,39 @@ class TransactionItem {
       paymentMode: map['paymentMode'] as String?,
       studentOpenBalance:
           (firstStudent?['balance'] as num?)?.toDouble(),
+    );
+  }
+
+  /// Maps an invoice row from the list API onto the card model. [id] is the
+  /// invoice's absolute position in the loaded list (a stable display key);
+  /// the real identifier travels in [invoiceCode].
+  factory TransactionItem.fromInvoice(
+    InvoiceListItemEntity invoice, {
+    required int id,
+  }) {
+    final firstItemDesc =
+        invoice.items.isNotEmpty ? invoice.items.first.description : '';
+    final ownerLabel = invoice.studentCode.isNotEmpty
+        ? invoice.studentCode
+        : invoice.subjectOwnerCode;
+    final status =
+        invoice.invoiceStatus.isNotEmpty ? invoice.invoiceStatus : invoice.status;
+
+    return TransactionItem(
+      id: id,
+      invoiceCode: invoice.code,
+      transactionType: 'Invoice',
+      date: invoice.issueDate ?? invoice.createdDate ?? DateTime.now(),
+      amount: invoice.total,
+      status: status,
+      description:
+          firstItemDesc.isNotEmpty ? firstItemDesc : 'Invoice ${invoice.code}',
+      studentName: ownerLabel.isNotEmpty ? ownerLabel : 'Unknown',
+      classroom: '',
+      refTable: 'Invoice',
+      balance: invoice.balance,
+      endDate: invoice.dueDate?.toIso8601String(),
+      studentOpenBalance: invoice.balance,
     );
   }
 

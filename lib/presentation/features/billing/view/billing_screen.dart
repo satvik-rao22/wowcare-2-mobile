@@ -9,6 +9,10 @@ import 'package:wowcare/presentation/features/billing/view/Accounting/students.d
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_action_dialog.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transactions_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/analytics/analytics_section.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/create_ledger_screen.dart';
@@ -44,6 +48,8 @@ class _BillingScreenState extends State<BillingScreen>
   TabController? _tabController;
 
   Future<void> Function()? _ledgerRefreshFn;
+  Future<void> Function()? _studentsRefreshFn;
+  Future<void> Function()? _transactionsRefreshFn;
   VoidCallback? _ledgerLoadNextFn;
   VoidCallback? _discountLoadNextFn;
 
@@ -83,6 +89,27 @@ class _BillingScreenState extends State<BillingScreen>
     }
   }
 
+  /// Builds a minimal [TransactionItem] from the selected student(s) so the
+  /// Receive Payment screen can be opened for a fresh (zero-balance) payment.
+  TransactionItem _buildReceivePaymentTransaction(List<Student> students) {
+    final Student first = students.first;
+    final String name = students.length > 1
+        ? '${first.fullName} +${students.length - 1}'
+        : first.fullName;
+    return TransactionItem(
+      id: 0,
+      transactionType: 'Payment',
+      date: DateTime.now(),
+      amount: 0,
+      status: '',
+      description: 'Receive Payment',
+      studentName: name,
+      classroom: first.roomName ?? '',
+      balance: 0,
+      studentOpenBalance: 0,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
@@ -102,8 +129,17 @@ class _BillingScreenState extends State<BillingScreen>
                 Expanded(
                   child: CustomRefreshIndicator(
                     onRefresh: () async {
-                      if (controller.index == 2) {
-                        await _ledgerRefreshFn?.call();
+                      // Refresh the data for whichever tab is currently shown.
+                      switch (controller.index) {
+                        case 0:
+                          await _studentsRefreshFn?.call();
+                          break;
+                        case 1:
+                          await _transactionsRefreshFn?.call();
+                          break;
+                        case 2:
+                          await _ledgerRefreshFn?.call();
+                          break;
                       }
                     },
                     child: SingleChildScrollView(
@@ -153,6 +189,52 @@ class _BillingScreenState extends State<BillingScreen>
                                           _ledgerCreationNotifier.value =
                                               result;
                                         }
+                                        return;
+                                      }
+                                      final bool isTransactionsTab =
+                                          controller.index ==
+                                              _tabs.indexOf('Transactions');
+                                      if (isTransactionsTab) {
+                                        showDialog<void>(
+                                          context: context,
+                                          builder: (ctx) =>
+                                              TransactionActionDialog(
+                                            onSelectCreateInvoice: () {
+                                              unawaited(Navigator.of(ctx)
+                                                  .maybePop());
+                                              unawaited(Navigator.of(context)
+                                                  .push(MaterialPageRoute(
+                                                builder: (_) =>
+                                                    const SelectStudentsScreen(),
+                                              )));
+                                            },
+                                            onSelectReceivePayment: () {
+                                              unawaited(Navigator.of(ctx)
+                                                  .maybePop());
+                                              unawaited(Navigator.of(context)
+                                                  .push(MaterialPageRoute(
+                                                builder: (_) =>
+                                                    SelectStudentsScreen(
+                                                  onNext: (selCtx, students) {
+                                                    Navigator.of(selCtx)
+                                                        .pushReplacement(
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            ReceivePaymentIssueRefundScreen(
+                                                          transaction:
+                                                              _buildReceivePaymentTransaction(
+                                                                  students),
+                                                          studentCode: students
+                                                              .first.code,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              )));
+                                            },
+                                          ),
+                                        );
                                         return;
                                       }
                                       showDialog<void>(
@@ -268,14 +350,18 @@ class _BillingScreenState extends State<BillingScreen>
                               final int current = controller.index;
                               Widget content;
                               if (current == 0) {
-                                content = const StudentsAccountingSection(
-                                  totalAmountInvoiced: 100750,
-                                  paidPercentage: 85,
-                                  inProcessPercentage: 10,
-                                  unpaidPercentage: 5,
+                                content = StudentsAccountingSection(
+                                  onRegisterRefresh: (fn) {
+                                    _studentsRefreshFn = fn;
+                                  },
                                 );
                               } else if (current == 1) {
-                                content = const TransactionsSection();
+                                content = TransactionsSection(
+                                  scrollController: _scrollController,
+                                  onRegisterRefresh: (fn) {
+                                    _transactionsRefreshFn = fn;
+                                  },
+                                );
                               } else if (current == 2) {
                                 content = GeneralLedgerSection(
                                   ledgerCreationNotifier:

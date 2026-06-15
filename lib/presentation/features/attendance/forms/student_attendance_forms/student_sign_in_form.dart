@@ -8,7 +8,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -866,7 +866,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                       const SizedBox(height: 8),
                       IgnorePointer(
                         ignoring: !(_isStaffAdminPersona ?? false),
-                        child: SimpleTimePickerField(
+                        child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {
                             setState(() {

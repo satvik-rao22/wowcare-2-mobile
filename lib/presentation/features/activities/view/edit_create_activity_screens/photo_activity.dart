@@ -9,7 +9,6 @@ import 'package:wowcare/presentation/features/activities/widgets/staff_present_w
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -1334,12 +1333,15 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     crossAxisCount: responsive.isTablet ? 3 : 2,
                     crossAxisSpacing: responsive.isTablet ? 16 : 12,
                     mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                    mainAxisExtent: 50,
+                    mainAxisExtent: 64,
                   ),
                   itemCount: _selectedStudents.length,
                   itemBuilder: (context, index) {
                     return ActivityStudentDisplayTile(
                       name: _selectedStudents[index],
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode'] as String?
+                          : null,
                     );
                   },
                 )
@@ -1352,14 +1354,17 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     crossAxisCount: responsive.isTablet ? 3 : 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                    mainAxisExtent: 64,
                   ),
                   itemCount: _selectedStudents.length,
                   itemBuilder: (context, index) {
                     final name = _selectedStudents[index];
-                    return SelectedStudentTile(
+                    return ActivityStudentDisplayTile(
                       name: name,
-                      onTap: () => setState(() {
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode'] as String?
+                          : null,
+                      onRemove: () => setState(() {
                         _selectedStudents.remove(name);
                         _selectedStudentsData.removeWhere(
                           (m) => (m['name'] as String?) == name,
@@ -1543,6 +1548,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   label: 'Requires Admin Approval',
                   isToggled: _requireAdminApproval,
                   labelOnLeftSide: true,
+                  enabled: !_layoutAsEdit,
                   onToggle: (value) {
                     setState(() {
                       _requireAdminApproval = value;

@@ -24,7 +24,7 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
@@ -558,7 +558,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             const SizedBox(height: 8),
                             IgnorePointer(
                               ignoring: _isStaffAdminPersona == false,
-                              child: SimpleTimePickerField(
+                              child: GradientTimePickerField(
                                 time: _selectedTransferTime,
                                 onTimeSelected: (t) {
                                   setState(() {

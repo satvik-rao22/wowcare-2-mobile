@@ -66,11 +66,14 @@ import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 import '../util/activity_parent_feed_merge.dart';
 import '../utils/activity_staff_display.dart';
+import '../utils/activity_patch_attachments.dart';
 import 'activity_feed_card_permissions.dart';
 import 'activity_item.dart';
 
 export 'activity_item.dart';
 export 'activity_feed_card_permissions.dart';
+export '../utils/activity_patch_attachments.dart'
+    show attachmentUsableDeliveryUrl, attachmentRowHasUsableMedia;
 
 bool activityHasMediaOrProcessing(ActivityItem activity) {
   final photo = (activity.photoUrl ?? '').trim();
@@ -656,7 +659,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 final primaryCode = (_primaryClassroomCode ?? '').trim();
                 final primaryName =
                     primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
-                _selectdClassroom = primaryName ?? _classroomOptions.first;
+                // If the primary classroom is Office (filtered out of the
+                // selectable list) or otherwise unavailable, fall back to the
+                // top sorted classroom.
+                _selectdClassroom =
+                    (primaryName != null && _classroomOptions.contains(primaryName))
+                        ? primaryName
+                        : _classroomOptions.first;
               }
               // Keep multi-select UI in sync with default classroom.
               if (_selectdClassroom != null &&
@@ -740,7 +749,13 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             final primaryCode = (_primaryClassroomCode ?? '').trim();
             final primaryName =
                 primaryCode.isNotEmpty ? _classroomNameByCode[primaryCode] : null;
-            _selectdClassroom = primaryName ?? _classroomOptions.first;
+            // If the primary classroom is Office (filtered out of the
+            // selectable list) or otherwise unavailable, fall back to the
+            // top sorted classroom.
+            _selectdClassroom =
+                (primaryName != null && _classroomOptions.contains(primaryName))
+                    ? primaryName
+                    : _classroomOptions.first;
           }
           // Keep multi-select UI in sync with default classroom.
           if (_selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
@@ -3539,10 +3554,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
                                                           activityFeedStudentAvatarStack(
                                                             students,
+                                                            studentCodes:
+                                                                feedStudentCodesForNames(
+                                                              activity,
+                                                            ),
                                                             onOpenStudentList: () =>
                                                                 showActivityStudentListSheet(
                                                               context,
                                                               students,
+                                                              studentCodes:
+                                                                  feedStudentCodesForNames(
+                                                                activity,
+                                                              ),
                                                             ),
                                                           ),
                                                           const SizedBox(height: 10),
@@ -5174,10 +5197,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
                                                             activityFeedStudentAvatarStack(
                                                             students,
+                                                            studentCodes:
+                                                                feedStudentCodesForNames(
+                                                              activity,
+                                                            ),
                                                             onOpenStudentList: () =>
                                                                 showActivityStudentListSheet(
                                                               context,
                                                               students,
+                                                              studentCodes:
+                                                                  feedStudentCodesForNames(
+                                                                activity,
+                                                              ),
                                                             ),
                                                           ),
                                                             const SizedBox(height: 10),
@@ -6055,6 +6086,30 @@ List<Map<String, dynamic>> studentDataMapsForActivityEdit(ActivityItem activity)
   return maps;
 }
 
+/// Student codes aligned (by index) to [activity.studentList], so feed-card
+/// avatars can resolve the real profile photo instead of showing initials.
+/// Uses [ActivityItem.studentActivityRefs] (name→code), falling back to the
+/// single `studentCode` for single-student activities.
+List<String?> feedStudentCodesForNames(ActivityItem activity) {
+  final refs = activity.studentActivityRefs;
+  final byName = <String, String>{};
+  if (refs != null) {
+    for (final r in refs) {
+      final n = (r['name'] ?? '').trim();
+      final c = (r['studentCode'] ?? '').trim();
+      if (n.isNotEmpty && c.isNotEmpty) byName[n] = c;
+    }
+  }
+  final fallback = (activity.studentCode ?? '').trim();
+  final single = activity.studentList.length == 1;
+  return activity.studentList.map<String?>((name) {
+    final c = byName[name.trim()];
+    if (c != null && c.isNotEmpty) return c;
+    if (single && fallback.isNotEmpty) return fallback;
+    return null;
+  }).toList();
+}
+
 /// Option code → label for activity type definitions (`GET …/activity-types/{code}`).
 final Map<String, Map<String, String>> _activityFeedOptionLabelCache = {};
 
@@ -6229,7 +6284,9 @@ ActivityItem activityItemFromFeedRow(
   String? videoUrl;
   for (final a in row.attachments) {
     final mt = (a['mediaType'] ?? '').toString().toLowerCase();
-    final u = (a['deliveryUrl'] ?? a['thumbnailUrl'] ?? '').toString().trim();
+    // Fall back to processed variant URLs so images already render even while
+    // the backend still reports status == PROCESSING (deliveryUrl null).
+    final u = attachmentUsableDeliveryUrl(a);
     if (u.isEmpty) continue;
     if (mt.contains('video') ||
         u.toLowerCase().endsWith('.mp4') ||

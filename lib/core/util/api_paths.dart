@@ -236,6 +236,10 @@ class ApiPaths {
       case 'kiosk':
         return ApiMicroservices.attendance;
       case 'discount':
+      case 'subsidy':
+      case 'fee-structure':
+      case 'other-fees':
+      case 'invoices':
       case 'ledgers':
       case 'ledger-transactions':
         return ApiMicroservices.billing;
@@ -885,6 +889,24 @@ class ApiPaths {
 
   // —— Billing MS ——
   static const String discounts = '/api/v1/discount';
+  static const String subsidies = '/api/v1/subsidy';
+  static const String feeStructures = '/api/v1/fee-structure';
+  static const String otherFees = '/api/v1/other-fees';
+  static const String invoices = '/api/v1/invoices';
+  static const String invoicesOverview = '/api/v1/invoices/overview';
+  static const String invoicesFamilySummary = '/api/v1/invoices/family-summary';
+  static const String invoicePayments = '/api/v1/invoices/payments';
+  static const String invoiceRefunds = '/api/v1/invoices/refunds';
+
+  /// Paginated invoice list for an organization. Note: same URL shape as
+  /// [invoiceByCode] but a GET that returns a page — keep them distinct.
+  static String invoicesByOrganization(String organizationCode) =>
+      '/api/v1/invoices/${Uri.encodeComponent(organizationCode.trim())}';
+  static String invoiceByCode(String code) =>
+      '/api/v1/invoices/${Uri.encodeComponent(code.trim())}';
+  static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';
+  static String invoiceIssue(String code) => '${invoiceByCode(code)}/issue';
+  static String invoiceResend(String code) => '${invoiceByCode(code)}/resend';
   static String discountByCode(String code) =>
       '/api/v1/discount/${Uri.encodeComponent(code.trim())}';
   static String discountDeactivate(String code) =>
