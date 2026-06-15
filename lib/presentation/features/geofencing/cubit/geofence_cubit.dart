@@ -167,6 +167,14 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     await _notifications.init();
   }
 
+  /// Ensures the local-notification plugin is initialised regardless of whether
+  /// the user was already permissioned (so `_requestAllPermissions` was skipped).
+  Future<void> _ensureNotificationsInitialised() async {
+    try {
+      await _notifications.init();
+    } catch (_) {}
+  }
+
   Future<void> _checkAndStartMonitoring({required String schoolCode}) async {
     try {
       final permCheck = await _checkPerm();
@@ -182,6 +190,10 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           emit(state.copyWith(status: GeofenceCubitStatus.permissionDenied));
           return;
         }
+      } else {
+        // Permission already granted — _requestAllPermissions was skipped, so
+        // the notification plugin may not have been initialised yet.
+        unawaited(_ensureNotificationsInitialised());
       }
 
       emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
@@ -480,12 +492,13 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           isInside ? GeofenceStatus.within : GeofenceStatus.outside,
         );
       }
-    } catch (_) {
-      // High-accuracy fix failed — leave state as-is; stream will eventually
-      // deliver an authoritative fix when the user moves.
-      if (!isClosed && state.status == GeofenceCubitStatus.checking) {
-        emit(state.copyWith(status: GeofenceCubitStatus.outsideRange));
-      }
+    } catch (e) {
+      // High-accuracy fix failed (timeout or hardware error).
+      // Do NOT emit outsideRange — that would lock the button even when the
+      // user is physically inside the zone. Leave the state as 'checking' so
+      // the Dart position stream and the native CLRegion callback can still
+      // resolve it when the next GPS fix arrives.
+      AppLogger.d('[GeofenceCubit] High-accuracy refinement failed: $e — keeping checking state');
     }
   }
 
@@ -493,15 +506,20 @@ class GeofenceCubit extends Cubit<GeofenceState> {
   /// from Wi-Fi/cell towers in under a second on most devices.
   /// Falls back to the last known position if the timed request fails.
   Future<Position?> _fetchPositionQuickly() async {
+    // iOS GPS cold start needs up to 15 s to get a first fix; 8 s caused
+    // frequent timeouts that left state as 'checking' and then got incorrectly
+    // resolved to 'outsideRange' by the native-sync guard.
+    // Android WiFi/cell-tower fixes resolve in 1-3 s so 12 s is still fast.
+    // LocationAccuracy.high → kCLLocationAccuracyNearestTenMeters on iOS (≈10 m).
+    final timeout = Platform.isIOS
+        ? const Duration(seconds: 15)
+        : const Duration(seconds: 8);
+
     try {
       return await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          // LocationAccuracy.medium maps to kCLLocationAccuracyKilometer on iOS
-          // (≈1 km), which is too coarse to determine inside/outside reliably.
-          // LocationAccuracy.high maps to kCLLocationAccuracyHundredMeters (≈100 m)
-          // and resolves from WiFi/cell within seconds on both platforms.
+        locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 8),
+          timeLimit: timeout,
         ),
       );
     } catch (_) {

@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+
 abstract class GeofencingLocalDataSource {
   Future<bool> hasLocationPermission();
   Future<bool> requestLocationPermission();
@@ -53,28 +54,43 @@ class GeofencingLocalDataSourceImpl implements GeofencingLocalDataSource {
   );
 
   @override
-  Stream<Position> getPositionStream() => Geolocator.getPositionStream(
-    locationSettings: const LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 3,
-      // Do NOT set timeLimit on a stream — it causes a TimeoutException after
-      // the duration, killing the stream and disabling the sign-in button.
-      // timeLimit is only valid for one-shot getCurrentPosition() calls.
-    ),
-  ).where((position) {
-    // Security: reject mocked / fake GPS
-    if (position.isMocked) return false;
+  Stream<Position> getPositionStream() {
+    // iOS requires AppleSettings with allowBackgroundLocationUpdates: true so
+    // the stream keeps delivering positions after the app is backgrounded.
+    // Without this the stream silently dies when the screen locks, leaving the
+    // sign-in button stuck on whatever state it had in the foreground.
+    // Android uses the generic LocationSettings path (no background flag needed
+    // because the Android side uses OS-level GeofencingClient, not this stream).
+    final LocationSettings settings = Platform.isIOS
+        ? AppleSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 3,
+            allowBackgroundLocationUpdates: true,
+            showBackgroundLocationIndicator: true,
+            activityType: ActivityType.other,
+            pauseLocationUpdatesAutomatically: false,
+          )
+        : const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            distanceFilter: 3,
+          );
 
-    // Security: reject implausible accuracy (0 = faked; >500 m = unusable for geofencing).
-    // iOS WiFi/cell fixes commonly report 200–400 m accuracy; a 150 m ceiling silently
-    // dropped all those positions, making the stream appear dead on iOS devices.
-    // The cubit's hysteresis logic already handles coarse positions correctly.
-    if (position.accuracy <= 0 || position.accuracy > 500) return false;
+    return Geolocator.getPositionStream(locationSettings: settings).where(
+      (position) {
+        // Security: reject mocked / fake GPS (Android only — iOS never sets isMocked).
+        if (position.isMocked) return false;
 
-    // Security: reject stale cached positions older than 60 seconds
-    final age = DateTime.now().toUtc().difference(position.timestamp);
-    if (age.inSeconds > 60) return false;
+        // Reject implausible accuracy: 0 = faked; >500 m = too coarse for geofencing.
+        // iOS WiFi/cell fixes commonly report 200–400 m accuracy, so 500 m ceiling
+        // keeps those positions in. The cubit's hysteresis logic handles coarse fixes.
+        if (position.accuracy <= 0 || position.accuracy > 500) return false;
 
-    return true;
-  });
+        // Reject stale cached positions older than 60 seconds.
+        final age = DateTime.now().toUtc().difference(position.timestamp);
+        if (age.inSeconds > 60) return false;
+
+        return true;
+      },
+    );
+  }
 }

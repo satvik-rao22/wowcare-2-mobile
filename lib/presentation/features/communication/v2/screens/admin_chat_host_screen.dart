@@ -379,59 +379,59 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                       ),
                       const SizedBox(width: 8),
                       // Filter icon — always visible, highlights when active
-                      GestureDetector(
-                        onTap: _showFilterSheet,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              height: 44,
-                              width: 44,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                color: _hasActiveFilters
-                                    ? AppColors.primaryColor.withValues(
-                                        alpha: 0.15,
-                                      )
-                                    : const Color(0x33B1AFE9),
-                                border: Border.all(
-                                  color: _hasActiveFilters
-                                      ? AppColors.primaryColor.withValues(
-                                          alpha: 0.5,
-                                        )
-                                      : Colors.transparent,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.tune_rounded,
-                                color: _hasActiveFilters
-                                    ? AppColors.primaryColor
-                                    : AppColors.primaryColor.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                size: 22,
-                              ),
-                            ),
-                            if (_hasActiveFilters)
-                              Positioned(
-                                top: -3,
-                                right: -3,
-                                child: Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryColor,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                      // GestureDetector(
+                      //   onTap: _showFilterSheet,
+                      //   child: Stack(
+                      //     clipBehavior: Clip.none,
+                      //     children: [
+                      //       Container(
+                      //         height: 44,
+                      //         width: 44,
+                      //         decoration: BoxDecoration(
+                      //           borderRadius: BorderRadius.circular(12),
+                      //           color: _hasActiveFilters
+                      //               ? AppColors.primaryColor.withValues(
+                      //                   alpha: 0.15,
+                      //                 )
+                      //               : const Color(0x33B1AFE9),
+                      //           border: Border.all(
+                      //             color: _hasActiveFilters
+                      //                 ? AppColors.primaryColor.withValues(
+                      //                     alpha: 0.5,
+                      //                   )
+                      //                 : Colors.transparent,
+                      //           ),
+                      //         ),
+                      //         child: Icon(
+                      //           Icons.tune_rounded,
+                      //           color: _hasActiveFilters
+                      //               ? AppColors.primaryColor
+                      //               : AppColors.primaryColor.withValues(
+                      //                   alpha: 0.5,
+                      //                 ),
+                      //           size: 22,
+                      //         ),
+                      //       ),
+                      //       if (_hasActiveFilters)
+                      //         Positioned(
+                      //           top: -3,
+                      //           right: -3,
+                      //           child: Container(
+                      //             width: 10,
+                      //             height: 10,
+                      //             decoration: BoxDecoration(
+                      //               color: AppColors.primaryColor,
+                      //               shape: BoxShape.circle,
+                      //               border: Border.all(
+                      //                 color: Colors.white,
+                      //                 width: 1.5,
+                      //               ),
+                      //             ),
+                      //           ),
+                      //         ),
+                      //     ],
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),

@@ -611,8 +611,7 @@ class _MessageBubbleState extends State<MessageBubble>
                   if (message.text.trim().isNotEmpty)
                     Flexible(
                       fit: FlexFit.loose,
-                      child: html.Html(
-                        key: ValueKey('msg-text-${message.id}-$isMe'),
+                      child: _StableHtml(
                         data: message.text,
                         style: {
                           'body': html.Style(
@@ -671,8 +670,7 @@ class _MessageBubbleState extends State<MessageBubble>
             ),
           ),
         ),
-        child: html.Html(
-          key: ValueKey('quote-text-${widget.message.id}-$isMe'),
+        child: _StableHtml(
           data: quoted.text.length > 120
               ? '${quoted.text.substring(0, 120)}…'
               : quoted.text,
@@ -1041,3 +1039,39 @@ class _MessageBubbleState extends State<MessageBubble>
     return '${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}';
   }
 }
+
+// Wraps html.Html so each mounted instance owns its own _anchorKey GlobalKey.
+// flutter_html creates a HtmlParser(key: _anchorKey) inside _HtmlState.build().
+// If _anchorKey is shared (e.g. via MessageBubble State fields) and the same
+// widget tree is mounted in two places simultaneously (original bubble + the
+// reactions-dialog preview), two HtmlParser widgets get the same GlobalKey →
+// crash. Owning the key in THIS State means each placement gets its own key.
+class _StableHtml extends StatefulWidget {
+  final String data;
+  final Map<String, html.Style> style;
+
+  const _StableHtml({required this.data, required this.style});
+
+  @override
+  State<_StableHtml> createState() => _StableHtmlState();
+}
+
+class _StableHtmlState extends State<_StableHtml> {
+  final GlobalKey _anchorKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    // Wrap with decoration:none to prevent the dialog context's DefaultTextStyle
+    // (no Material/Scaffold wrapper in HeroDialogRoute) from leaking yellow
+    // underlines into flutter_html's text span rendering.
+    return DefaultTextStyle.merge(
+      style: const TextStyle(decoration: TextDecoration.none),
+      child: html.Html(
+        anchorKey: _anchorKey,
+        data: widget.data,
+        style: widget.style,
+      ),
+    );
+  }
+}
+

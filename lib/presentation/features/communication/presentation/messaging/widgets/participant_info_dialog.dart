@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../../shared/common/widgets/custom_button_layout.dart';
 
 /// Normalized participant data — works for both ConversationParticipant
 /// (used in ParentMessagingThread) and ParticipantEntity (ConversationThreadScreen).
@@ -58,10 +61,9 @@ class ParticipantInfoDialog extends StatelessWidget {
   // ── Grouping ───────────────────────────────────────────────────────────────
 
   List<ParticipantDisplayData> _group(String role) {
-    final result = participants
-        .where((p) => p.role.toUpperCase() == role)
-        .toList()
-      ..sort((a, b) => a.displayName.compareTo(b.displayName));
+    final result =
+        participants.where((p) => p.role.toUpperCase() == role).toList()
+          ..sort((a, b) => a.displayName.compareTo(b.displayName));
     return result;
   }
 
@@ -169,8 +171,7 @@ class ParticipantInfoDialog extends StatelessWidget {
 
                   // Guardians/Parents
                   if (guardians.isNotEmpty) ...[
-                    _SectionHeader(
-                        label: 'PARENTS', count: guardians.length),
+                    _SectionHeader(label: 'PARENTS', count: guardians.length),
                     const Divider(height: 8, color: Color(0xFFE2E8F0)),
                     const SizedBox(height: 4),
                     ...guardians.map((p) => _ParticipantTile(data: p)),
@@ -180,27 +181,31 @@ class ParticipantInfoDialog extends StatelessWidget {
             ),
 
             // ── Close button ─────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                height: 48,
-                child: OutlinedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primaryColor,
-                    side: BorderSide(
-                        color: AppColors.primaryColor, width: 1.5),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                  ),
-                  child: const Text(
-                    'Close',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
+            // Padding(
+            //   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            //   child: SizedBox(
+            //     width: double.infinity,
+            //     height: 48,
+            //     child: OutlinedButton(
+            //       onPressed: () => Navigator.of(context).pop(),
+            //       style: OutlinedButton.styleFrom(
+            //         foregroundColor: AppColors.primaryColor,
+            //         side: BorderSide(color: AppColors.themeColor, width: 1.5),
+            //         shape: RoundedRectangleBorder(
+            //           borderRadius: BorderRadius.circular(12),
+            //         ),
+            //       ),
+            //       child: const Text(
+            //         'Close',
+            //         style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+            //       ),
+            //     ),
+            //   ),
+            // ),
+            CustomButtonLayout(
+              showCancelButton: false,
+              confirmButtonLabel: 'Close',
+              onPressedConfirm: () => Navigator.of(context).pop(),
             ),
           ],
         ),
@@ -245,8 +250,11 @@ class _DialogHeader extends StatelessWidget {
                 shape: BoxShape.circle,
                 border: Border.all(color: const Color(0xFFCBD5E1)),
               ),
-              child: const Icon(Icons.close_rounded,
-                  size: 18, color: Color(0xFF64748B)),
+              child: const Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: Color(0xFF64748B),
+              ),
             ),
           ),
         ],
@@ -340,12 +348,12 @@ class _ParticipantTile extends StatelessWidget {
     final initials = data.displayName.trim().isEmpty
         ? '?'
         : data.displayName
-            .trim()
-            .split(' ')
-            .where((w) => w.isNotEmpty)
-            .take(2)
-            .map((w) => w[0].toUpperCase())
-            .join();
+              .trim()
+              .split(' ')
+              .where((w) => w.isNotEmpty)
+              .take(2)
+              .map((w) => w[0].toUpperCase())
+              .join();
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -384,13 +392,13 @@ class _ParticipantTile extends StatelessWidget {
                     color: Color(0xFF1E293B),
                   ),
                 ),
-                Text(
-                  role,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
+                // Text(
+                //   role,
+                //   style: const TextStyle(
+                //     fontSize: 11,
+                //     color: Color(0xFF94A3B8),
+                //   ),
+                // ),
               ],
             ),
           ),
