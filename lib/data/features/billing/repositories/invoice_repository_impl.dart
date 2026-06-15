@@ -2,6 +2,7 @@ import 'package:wowcare/data/features/billing/datasources/invoice_remote_datasou
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
 import 'package:wowcare/domain/features/billing/repositories/invoice_repository.dart';
 
 class InvoiceRepositoryImpl implements InvoiceRepository {
@@ -36,6 +37,28 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       inProcess: m.inProcess,
       outstanding: m.outstanding,
     );
+  }
+
+  @override
+  Future<PaginatedInvoicesEntity> listInvoices({
+    required String organizationCode,
+    required String school,
+    int page = 0,
+    int size = 20,
+    String? search,
+    String? status,
+    String? invoiceStatus,
+  }) async {
+    final m = await _dataSource.listInvoices(
+      organizationCode: organizationCode,
+      school: school,
+      page: page,
+      size: size,
+      search: search,
+      status: status,
+      invoiceStatus: invoiceStatus,
+    );
+    return m.toEntity();
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/billing/models/family_summary_models.dart';
+import 'package:wowcare/data/features/billing/models/invoice_list_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_overview_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
 
@@ -11,6 +12,15 @@ abstract class InvoiceRemoteDataSource {
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
+  });
+  Future<PaginatedInvoicesModel> listInvoices({
+    required String organizationCode,
+    required String school,
+    int page,
+    int size,
+    String? search,
+    String? status,
+    String? invoiceStatus,
   });
   Future<List<FamilySummaryModel>> getFamilySummary({
     required String organizationCode,
@@ -60,6 +70,31 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       },
     );
     return InvoiceOverviewModel.fromJson(response.data ?? {});
+  }
+
+  @override
+  Future<PaginatedInvoicesModel> listInvoices({
+    required String organizationCode,
+    required String school,
+    int page = 0,
+    int size = 20,
+    String? search,
+    String? status,
+    String? invoiceStatus,
+  }) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesByOrganization(organizationCode)),
+      queryParameters: <String, dynamic>{
+        'school': school,
+        'page': page,
+        'size': size,
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+        if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
+        if (invoiceStatus != null && invoiceStatus.trim().isNotEmpty)
+          'invoiceStatus': invoiceStatus.trim(),
+      },
+    );
+    return PaginatedInvoicesModel.fromJson(response.data ?? {});
   }
 
   @override

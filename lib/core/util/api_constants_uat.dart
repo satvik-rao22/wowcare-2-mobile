@@ -35,6 +35,8 @@ class ApiConstantsUat {
   //     'https://4hn0k1dg-8087.inc1.devtunnels.ms';
 
   // ─── Per-service base URLs ─────────────────────────────────────────────────
+  // Single gateway: the microservice segment lives in the PATH
+  // (`<_host>/api/v1/<ms>/...`), not the host — so every base URL is just [_host].
   static const String baseUrl = _host;
   static const String staffBaseUrl = _host;
   static const String studentBaseUrl = _host;

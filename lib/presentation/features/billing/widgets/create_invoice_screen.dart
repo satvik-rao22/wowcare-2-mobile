@@ -83,12 +83,16 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     String? type,
     String? description,
     String? amount,
+    String? value,
+    String? valueType,
   }) {
     _cubit.updateItem(
       index,
       type: type,
       description: description,
       amount: amount,
+      value: value,
+      valueType: valueType,
     );
   }
 
@@ -496,6 +500,52 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               onChanged: (value) =>
                   _updateInvoiceItem(index, description: value),
             ),
+          // Discount / subsidy: enter a value and choose % or flat — the amount
+          // is computed (% of the fee total, or the flat value).
+          if (InvoiceItemTypes.isDeduction(item.type)) ...[
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _ItemTextField(
+                    responsive: responsive,
+                    label: 'Value',
+                    controller: item.valueController,
+                    enabled: !_isFormLocked,
+                    hintText: '0',
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) =>
+                        _updateInvoiceItem(index, value: value),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: CustomDropdown(
+                    label: 'Type',
+                    showAsterisk: false,
+                    hintText: '%',
+                    items: const ['%', 'Flat'],
+                    selectedItem: item.valueType == 'PERCENT' ? '%' : 'Flat',
+                    isEnabled: !_isFormLocked,
+                    labelStyle: labelStyle,
+                    labelBottomSpacing: labelBottomSpacing,
+                    prependHintAsSelectableItem: false,
+                    onSelect: (value) {
+                      if (value != null) {
+                        _updateInvoiceItem(
+                          index,
+                          valueType: value == '%' ? 'PERCENT' : 'FLAT',
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 12),
           // Catalog types auto-fill the amount from the chosen entry. It's
           // read-only (not editable) but kept white — not greyed out.
