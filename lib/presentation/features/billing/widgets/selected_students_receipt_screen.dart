@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
-import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -53,42 +53,8 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
     final items = invoiceData['invoiceItems'] as List<dynamic>? ?? const [];
     final totalAmount = _computeTotalAmount();
 
-    // School header (UI-only; uses initials avatar)
-    final schoolHeader = Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DocumentImageWidget(
-          fileUuid: 'demo-school', // UI only
-          name: 'Demo School',
-          size: 56,
-          fontSize: 18,
-        ),
-        const SizedBox(width: 12),
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Demo School',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-              SizedBox(height: 2),
-              Text(
-                'The Ultimate Childcare Platform!',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+    // Real school header (name + tagline + address).
+    const schoolHeader = BillingSchoolHeader();
 
     String? dueDateString;
     final dueDate = invoiceData['dueDate'] is DateTime
@@ -399,170 +365,60 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600;
-    final isLargeTablet = screenWidth > 900;
-    final containerWidth = isLargeTablet
-        ? (screenWidth * 0.95).clamp(800.0, 1400.0)
-        : isTablet
-            ? screenWidth * 0.95
-            : screenWidth - 16.0;
-    final horizontalSpacing = isLargeTablet
-        ? (screenWidth * 0.025).clamp(16.0, 32.0)
-        : isTablet
-            ? 16.0
-            : 8.0;
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom > 0 ? MediaQuery.of(context).padding.bottom : 16.0;
-
-    return Scaffold(
-      backgroundColor: AppColors.billingCardColor,
-      appBar: const CustomAppBar(hasBackButton: true),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildScaffoldGradient(),
-              ),
-              child: Image.asset(
-                MediaRes.wowcareMobileBg,
-                fit: BoxFit.cover,
-                alignment: Alignment.topCenter,
-              ),
-            ),
-          ),
-          SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: isTablet ? 8.0 : 4.0, vertical: isTablet ? 16.0 : 8.0),
-            child: Center(
-              child: Container(
-                width: containerWidth,
-                margin: EdgeInsets.symmetric(horizontal: horizontalSpacing),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Row(
-                        children: [
-                          Text(
-                            'Invoice Receipt',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: AppColors.primaryColor,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildInvoiceDetails(responsive),
-                            const SizedBox(height: 15),
-                            _buildSelectedStudents(),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
-        decoration: BoxDecoration(
-          color: AppColors.billingCardColor,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.billingShadowColorLight,
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
+    return StaffFormLayout(
+      title: 'Invoice Receipt',
+      bottomBar: _buildBottomBar(),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildInvoiceDetails(responsive),
+            const SizedBox(height: 15),
+            _buildSelectedStudents(),
           ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(isTablet ? 40.0 : 24.0),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    Widget gradientButton(String label, VoidCallback onPressed) {
+      return DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: AppColors.buildPrimaryGradient(),
+        ),
+        child: TextButton(
+          onPressed: onPressed,
+          style: TextButton.styleFrom(
+            minimumSize: const Size.fromHeight(52),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: AppColors.billingCardColor,
+            ),
           ),
         ),
+      );
+    }
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
         child: widget.isConfirmation
-            ? Container(
-                height: isTablet ? 56.0 : 48.0,
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(isTablet ? 16.0 : 8.0),
-                ),
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(
-                    'Done',
-                    style: TextStyle(
-                      fontFamily: 'Manrope',
-                      fontSize: isTablet ? 20.0 : 16.0,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.billingCardColor,
-                    ),
-                  ),
-                ),
-              )
+            ? gradientButton('Done', () => Navigator.of(context).pop())
             : Row(
                 children: [
-                  Expanded(
-                    child: Container(
-                      height: isTablet ? 56.0 : 48.0,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius:
-                            BorderRadius.circular(isTablet ? 16.0 : 8.0),
-                      ),
-                      child: TextButton(
-                        onPressed: _onSave,
-                        child: Text(
-                          'Save',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: isTablet ? 20.0 : 16.0,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.billingCardColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  Expanded(child: gradientButton('Save', _onSave)),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      height: isTablet ? 56.0 : 48.0,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius:
-                            BorderRadius.circular(isTablet ? 16.0 : 8.0),
-                      ),
-                      child: TextButton(
-                        onPressed: _onSaveAndSend,
-                        child: Text(
-                          'Save & Send',
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: isTablet ? 20.0 : 16.0,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.billingCardColor,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+                  Expanded(child: gradientButton('Save & Send', _onSaveAndSend)),
                 ],
               ),
       ),

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
@@ -5,7 +7,11 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/cancel_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/delete_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_invoice_overview_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_invoices_usecase.dart';
 
 import '../widgets/transactions/transaction_item.dart';
 
@@ -20,33 +26,70 @@ class TransactionRecord {
   final TransactionStatus status;
 }
 
-/// Owns the Transactions tab's list + search state and the invoice overview
-/// totals (amount invoiced / net paid / outstanding …) fetched from the
-/// billing API. The transaction list itself is still demo data; swap
-/// [seedTransactions] for a repository call when that endpoint lands.
+/// Owns the Transactions tab's paginated invoice list, search state, and the
+/// invoice overview totals (amount invoiced / net paid / outstanding …).
+///
+/// - List rows come from `GET /api/v1/invoices/{organizationCode}` (paginated,
+///   server-side search). Page 0 is loaded by [loadInvoices]; [loadNextPage]
+///   appends subsequent pages for infinite scroll / "load more".
+/// - Overview totals (stat bar) come from `GET /api/v1/invoices/overview` and
+///   are the only thing the date range filters — the list endpoint has no date
+///   filter, so [setDateRange] refreshes the overview only.
 class TransactionsCubit extends Cubit<TransactionsState> {
   TransactionsCubit({
     required GetInvoiceOverviewUseCase getOverview,
+    required GetInvoicesUseCase getInvoices,
+    required CancelInvoiceUseCase cancelInvoice,
+    required DeleteInvoiceUseCase deleteInvoice,
     required StorageService storage,
   })  : _getOverview = getOverview,
+        _getInvoices = getInvoices,
+        _cancelInvoice = cancelInvoice,
+        _deleteInvoice = deleteInvoice,
         _storage = storage,
         super(TransactionsState.initial());
 
   final GetInvoiceOverviewUseCase _getOverview;
+  final GetInvoicesUseCase _getInvoices;
+  final CancelInvoiceUseCase _cancelInvoice;
+  final DeleteInvoiceUseCase _deleteInvoice;
   final StorageService _storage;
 
+  static const int _pageSize = 20;
+  static const Duration _searchDebounce = Duration(milliseconds: 400);
+
+  /// Generation guard: a fresh [loadInvoices] (page 0 / search change)
+  /// invalidates any in-flight [loadNextPage] so a stale batch is never
+  /// appended.
+  int _listRequestId = 0;
+  Timer? _searchDebounceTimer;
+
+  String _org = '';
+  String _school = '';
+
+  /// Resolves and caches the org/school context. Returns false when either is
+  /// missing (not signed in / not selected), in which case callers no-op.
+  Future<bool> _ensureContext() async {
+    if (_org.isNotEmpty && _school.isNotEmpty) return true;
+    _org = (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    _school = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    return _org.isNotEmpty && _school.isNotEmpty;
+  }
+
+  /// Loads page 0 of the invoice list and the overview totals. Call from the
+  /// view's initState and from pull-to-refresh.
+  Future<void> load() async {
+    await Future.wait<void>([loadInvoices(), loadOverview()]);
+  }
+
   /// Loads the invoice overview for the current (optional) date range. Silent
-  /// on failure — the stat bar just falls back to the seed totals.
+  /// on success; surfaces errors so the stat bar can fall back to zeros.
   Future<void> loadOverview({DateTime? dateFrom, DateTime? dateTo}) async {
+    if (!await _ensureContext()) return;
     try {
-      final org =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (org.isEmpty || school.isEmpty) return;
       final overview = await _getOverview(
-        organizationCode: org,
-        school: school,
+        organizationCode: _org,
+        school: _school,
         dateFrom: dateFrom ?? state.dateFrom,
         dateTo: dateTo ?? state.dateTo,
       );
@@ -54,151 +97,170 @@ class TransactionsCubit extends Cubit<TransactionsState> {
       emit(state.copyWith(overview: () => overview));
     } catch (e) {
       if (isClosed) return;
-      // Totals fall back to zero; surface the error to the view.
       emit(state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
-  /// Applies a date range and refetches the overview for it.
+  /// Fetches the first page of invoices, replacing the current list. Used for
+  /// the initial load, search changes, and refresh.
+  Future<void> loadInvoices() async {
+    if (!await _ensureContext()) return;
+    final int requestId = ++_listRequestId;
+    emit(state.copyWith(isLoadingList: true));
+    try {
+      final pageData = await _getInvoices(
+        organizationCode: _org,
+        school: _school,
+        page: 0,
+        size: _pageSize,
+        search: state.searchQuery,
+      );
+      if (isClosed || requestId != _listRequestId) return;
+      emit(
+        state.copyWith(
+          transactions: _toRecords(pageData.items, startIndex: 0),
+          page: 0,
+          hasMore: pageData.hasMore,
+          isLoadingList: false,
+          isLoadingMore: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed || requestId != _listRequestId) return;
+      emit(
+        state.copyWith(
+          isLoadingList: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
+    }
+  }
+
+  /// Appends the next page to the list. No-ops while a page/refresh is in
+  /// flight or when there is nothing more to load.
+  Future<void> loadNextPage() async {
+    if (state.isLoadingMore || state.isLoadingList || !state.hasMore) return;
+    if (!await _ensureContext()) return;
+
+    // Bind to the active list generation; a concurrent refresh discards this.
+    final int requestId = _listRequestId;
+    emit(state.copyWith(isLoadingMore: true));
+    try {
+      final pageData = await _getInvoices(
+        organizationCode: _org,
+        school: _school,
+        page: state.page + 1,
+        size: _pageSize,
+        search: state.searchQuery,
+      );
+      if (isClosed || requestId != _listRequestId) return;
+      emit(
+        state.copyWith(
+          transactions: <TransactionRecord>[
+            ...state.transactions,
+            ..._toRecords(pageData.items, startIndex: state.transactions.length),
+          ],
+          page: pageData.page,
+          hasMore: pageData.hasMore,
+          isLoadingMore: false,
+        ),
+      );
+    } catch (e) {
+      if (isClosed || requestId != _listRequestId) return;
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
+    }
+  }
+
+  /// Applies a date range and refetches the overview for it. The list endpoint
+  /// has no date filter, so the rows are unaffected.
   Future<void> setDateRange(DateTime? from, DateTime? to) async {
     emit(state.copyWith(dateFrom: () => from, dateTo: () => to));
     await loadOverview(dateFrom: from, dateTo: to);
   }
 
+  /// Cancels an invoice (`PATCH /api/v1/invoices/{code}/cancel`) then refreshes
+  /// the list + totals so the new status is reflected.
+  Future<void> cancelInvoice(String code) async {
+    if (code.trim().isEmpty) return;
+    try {
+      await _cancelInvoice(code);
+      if (isClosed) return;
+      emit(state.copyWith(successMessage: 'Invoice cancelled'));
+      await loadInvoices();
+      await loadOverview();
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  /// Deletes an invoice (`DELETE /api/v1/invoices/{code}`) then refreshes the
+  /// list + totals.
+  Future<void> deleteInvoice(String code) async {
+    if (code.trim().isEmpty) return;
+    try {
+      await _deleteInvoice(code);
+      if (isClosed) return;
+      emit(state.copyWith(successMessage: 'Invoice deleted'));
+      await loadInvoices();
+      await loadOverview();
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
   void setSearchQuery(String query) {
     emit(state.copyWith(searchQuery: query));
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(_searchDebounce, loadInvoices);
   }
 
   void clearSearch() {
+    _searchDebounceTimer?.cancel();
     emit(state.copyWith(searchQuery: ''));
+    loadInvoices();
   }
 
-  static List<TransactionRecord> seedTransactions() => <TransactionRecord>[
-        TransactionRecord(
-          status: TransactionStatus.paid,
-          item: TransactionItem(
-            id: 1001,
-            transactionType: 'Invoice',
-            date: DateTime(2025, 11, 2, 9, 30),
-            amount: 275.0,
-            status: 'Sent',
-            description: 'Tuition Invoice November',
-            studentName: 'John Doe',
-            classroom: 'Grade 5 - A',
-            studentId: 201,
-            refTable: 'Invoice',
-            refTableId: 5001,
-            paymentMode: 'Bank Transfer',
-            balance: 0,
-            note: 'Paid in full',
-            endDate: '2025-11-10',
-            studentOpenBalance: 0,
-          ),
-        ),
-        TransactionRecord(
-          status: TransactionStatus.inProcess,
-          item: TransactionItem(
-            id: 1002,
-            transactionType: 'Invoice',
-            date: DateTime(2025, 11, 4, 14, 10),
-            amount: 190.0,
-            status: 'In-Process',
-            description: 'After School Activities',
-            studentName: 'Emily Carter',
-            classroom: 'Grade 3 - B',
-            studentId: 202,
-            refTable: 'Invoice',
-            refTableId: 5002,
-            paymentMode: 'Credit Card',
-            balance: 90.0,
-            note: 'Awaiting payment confirmation',
-            endDate: '2025-11-12',
-            studentOpenBalance: 90.0,
-          ),
-        ),
-        TransactionRecord(
-          status: TransactionStatus.unpaid,
-          item: TransactionItem(
-            id: 1003,
-            transactionType: 'Payment',
-            date: DateTime(2025, 11, 4, 16, 45),
-            amount: 210.0,
-            status: 'Draft',
-            description: 'Transportation Plan',
-            studentName: 'Liam Johnson',
-            classroom: 'Grade 1 - C',
-            studentId: 203,
-            refTable: 'Payment',
-            refTableId: 6001,
-            paymentMode: 'ACH',
-            balance: 210.0,
-            note: 'Parent requested ACH',
-            endDate: '2025-11-18',
-            studentOpenBalance: 210.0,
-          ),
-        ),
-        TransactionRecord(
-          status: TransactionStatus.paid,
-          item: TransactionItem(
-            id: 1004,
-            transactionType: 'Payment',
-            date: DateTime(2025, 11, 6, 10, 5),
-            amount: 320.0,
-            status: 'Success',
-            description: 'Meal Plan - Quarter 4',
-            studentName: 'Sophia Martinez',
-            classroom: 'Grade 4 - A',
-            studentId: 204,
-            refTable: 'Payment',
-            refTableId: 6002,
-            paymentMode: 'Cash',
-            balance: 0,
-            note: 'Payment received at front desk',
-            endDate: '2025-11-15',
-            studentOpenBalance: 0,
-          ),
-        ),
-        TransactionRecord(
-          status: TransactionStatus.refund,
-          item: TransactionItem(
-            id: 1005,
-            transactionType: 'Refund',
-            date: DateTime(2025, 11, 7, 11, 20),
-            amount: 85.0,
-            status: 'Success',
-            description: 'Activity Refund',
-            studentName: 'Mason Lee',
-            classroom: 'Pre-K - Butterflies',
-            studentId: 205,
-            refTable: 'Refund',
-            refTableId: 7001,
-            paymentMode: 'Credit Card',
-            balance: 0,
-            note: 'Refund processed to card',
-            endDate: '2025-11-09',
-            studentOpenBalance: 0,
-          ),
-        ),
-        TransactionRecord(
-          status: TransactionStatus.failed,
-          item: TransactionItem(
-            id: 1006,
-            transactionType: 'Payment',
-            date: DateTime(2025, 11, 7, 18, 30),
-            amount: 145.0,
-            status: 'Failed',
-            description: 'Late Fee Payment',
-            studentName: 'Ava Patel',
-            classroom: 'Grade 2 - A',
-            studentId: 206,
-            refTable: 'Payment',
-            refTableId: 6003,
-            paymentMode: 'Credit Card',
-            balance: 145.0,
-            note: 'Card declined',
-            endDate: '2025-11-14',
-            studentOpenBalance: 145.0,
-          ),
-        ),
-      ];
+  List<TransactionRecord> _toRecords(
+    List<InvoiceListItemEntity> invoices, {
+    required int startIndex,
+  }) {
+    return List<TransactionRecord>.generate(invoices.length, (i) {
+      final invoice = invoices[i];
+      return TransactionRecord(
+        status: _statusFor(invoice),
+        item: TransactionItem.fromInvoice(invoice, id: startIndex + i + 1),
+      );
+    });
+  }
+
+  TransactionStatus _statusFor(InvoiceListItemEntity invoice) {
+    final raw = (invoice.invoiceStatus.isNotEmpty
+            ? invoice.invoiceStatus
+            : invoice.status)
+        .toUpperCase();
+    if (raw.contains('REFUND')) return TransactionStatus.refund;
+    if (raw == 'PAID') return TransactionStatus.paid;
+    if (raw.contains('PARTIAL') ||
+        raw.contains('PROCESS') ||
+        raw.contains('PENDING')) {
+      return TransactionStatus.inProcess;
+    }
+    if (raw.contains('FAIL') || raw.contains('CANCEL')) {
+      return TransactionStatus.failed;
+    }
+    return TransactionStatus.unpaid;
+  }
+
+  @override
+  Future<void> close() {
+    _searchDebounceTimer?.cancel();
+    return super.close();
+  }
 }

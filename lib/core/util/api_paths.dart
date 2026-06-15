@@ -876,6 +876,11 @@ class ApiPaths {
   static const String invoicesFamilySummary = '/api/v1/invoices/family-summary';
   static const String invoicePayments = '/api/v1/invoices/payments';
   static const String invoiceRefunds = '/api/v1/invoices/refunds';
+
+  /// Paginated invoice list for an organization. Note: same URL shape as
+  /// [invoiceByCode] but a GET that returns a page — keep them distinct.
+  static String invoicesByOrganization(String organizationCode) =>
+      '/api/v1/invoices/${Uri.encodeComponent(organizationCode.trim())}';
   static String invoiceByCode(String code) =>
       '/api/v1/invoices/${Uri.encodeComponent(code.trim())}';
   static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';

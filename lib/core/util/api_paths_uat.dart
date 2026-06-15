@@ -184,6 +184,10 @@ class ApiPathsUat {
       case 'accounts':
       case 'ledger-transactions':
       case 'discount':
+      case 'subsidy':
+      case 'fee-structure':
+      case 'other-fees':
+      case 'invoices':
         return ApiMicroservices.billing;
       case 'admin':
         // v2 activity moderation endpoints:

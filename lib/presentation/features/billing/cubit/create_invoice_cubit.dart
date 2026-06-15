@@ -220,15 +220,30 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
                 label: f.description.trim(), amount: f.cost, code: f.code),
       ];
 
+  /// Normalizes a catalog `discountType` to the API value type the invoice
+  /// payload expects (`PERCENT` / `FLAT`).
+  static String _normalizeValueType(String? raw) {
+    final v = (raw ?? '').trim().toUpperCase();
+    if (v == 'PERCENT' || v == 'PERCENTAGE' || v == '%') return 'PERCENT';
+    return 'FLAT';
+  }
+
   List<InvoiceCatalogOption> _discountOptions(List<DiscountEntity> discounts) =>
       [
         for (final d in discounts)
           if (d.name.trim().isNotEmpty)
-            InvoiceCatalogOption(
-              label: d.name.trim(),
-              amount: d.deductionAmount ?? d.price ?? 0,
-              code: d.code,
-            ),
+            () {
+              final valueType = _normalizeValueType(d.discountType);
+              return InvoiceCatalogOption(
+                label: d.name.trim(),
+                amount: d.deductionAmount ?? d.price ?? 0,
+                code: d.code,
+                valueType: valueType,
+                valueInput: valueType == 'PERCENT'
+                    ? d.percentage
+                    : (d.deductionAmount ?? d.price ?? 0),
+              );
+            }(),
       ];
 
   List<InvoiceCatalogOption> _subsidyOptions(List<SubsidyEntity> subsidies) => [
@@ -238,6 +253,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
               label: s.name.trim(),
               amount: s.deductionAmount ?? s.price ?? 0,
               code: s.code,
+              valueType: _normalizeValueType(s.discountType),
+              valueInput: s.deductionAmount ?? s.price ?? 0,
             ),
       ];
 
@@ -268,6 +285,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     String? type,
     String? description,
     String? amount,
+    String? value,
+    String? valueType,
   }) {
     if (index < 0 || index >= state.items.length) return;
     final item = state.items[index];
@@ -275,12 +294,14 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     if (type != null && type != item.type) {
       item.type = type;
       // Switching type clears the previous selection so a stale catalog label
-      // / amount / source code can't leak across types.
+      // / amount / source code / discount value can't leak across types.
       item.description = '';
       item.descriptionController.text = '';
       item.amount = '';
       item.amountController.text = '';
       item.sourceCode = null;
+      item.valueType = null;
+      item.valueController.clear();
     }
 
     if (description != null) {
@@ -288,16 +309,34 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       if (item.descriptionController.text != description) {
         item.descriptionController.text = description;
       }
-      // Catalog-backed types auto-fill the amount + source code from the entry.
+      // Catalog-backed types auto-fill source code (+ amount or discount value)
+      // from the chosen entry.
       if (InvoiceItemTypes.catalogTypes.contains(item.type)) {
         final option = _optionForLabel(item.type, description);
         if (option != null) {
-          final filled = option.amount.toStringAsFixed(2);
-          item.amount = filled;
-          item.amountController.text = filled;
           item.sourceCode = option.code;
+          if (InvoiceItemTypes.isDeduction(item.type)) {
+            // Discount/subsidy: seed the value + type; amount is computed.
+            item.valueType = option.valueType ?? 'FLAT';
+            final seed = option.valueInput ?? option.amount;
+            item.valueController.text = _formatValue(seed);
+          } else {
+            final filled = option.amount.toStringAsFixed(2);
+            item.amount = filled;
+            item.amountController.text = filled;
+          }
         }
       }
+    }
+
+    if (value != null) {
+      if (item.valueController.text != value) {
+        item.valueController.text = value;
+      }
+    }
+
+    if (valueType != null) {
+      item.valueType = valueType;
     }
 
     if (amount != null) {
@@ -307,8 +346,45 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       }
     }
 
+    // Discount/subsidy amounts derive from their value + the fee base, so
+    // recompute them after any change (a fee edit changes a PERCENT result).
+    _recomputeDeductions();
+
     emit(state.copyWith(revision: state.revision + 1));
   }
+
+  /// Sum of the non-deduction item amounts — the base a PERCENT discount or
+  /// subsidy is applied against.
+  double _feeBase() {
+    double base = 0;
+    for (final item in state.items) {
+      if (InvoiceItemTypes.isDeduction(item.type)) continue;
+      base += double.tryParse(item.amountController.text.trim().isEmpty
+              ? item.amount
+              : item.amountController.text.trim()) ??
+          0;
+    }
+    return base;
+  }
+
+  /// Recomputes each discount/subsidy row's amount from its value + type:
+  /// `PERCENT` → value% of the fee base, `FLAT` → the value itself.
+  void _recomputeDeductions() {
+    final base = _feeBase();
+    for (final item in state.items) {
+      if (!InvoiceItemTypes.isDeduction(item.type)) continue;
+      final value = double.tryParse(item.valueController.text.trim()) ?? 0;
+      final computed =
+          (item.valueType ?? 'FLAT') == 'PERCENT' ? base * value / 100 : value;
+      final filled = computed.toStringAsFixed(2);
+      item.amount = filled;
+      item.amountController.text = filled;
+    }
+  }
+
+  /// Formats a seeded discount value without trailing zeros (e.g. `12`, `2.5`).
+  String _formatValue(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
 
   InvoiceCatalogOption? _optionForLabel(String type, String label) {
     final options = state.catalog[type];
@@ -386,12 +462,17 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
           ? item.description.trim()
           : item.descriptionController.text.trim();
       if (description.isEmpty) continue;
+      final isDeduction = InvoiceItemTypes.isDeduction(item.type);
       result.add(CreateInvoiceItemParams(
         itemType: InvoiceItemTypes.apiCode(item.type),
         description: description,
         amount: amount,
         quantity: 1,
         sourceCode: item.sourceCode,
+        valueType: isDeduction ? (item.valueType ?? 'FLAT') : null,
+        valueInput: isDeduction
+            ? (double.tryParse(item.valueController.text.trim()) ?? 0)
+            : null,
       ));
     }
     return result;
@@ -412,14 +493,21 @@ class InvoiceCatalogOption extends Equatable {
     required this.label,
     required this.amount,
     this.code,
+    this.valueType,
+    this.valueInput,
   });
 
   final String label;
   final double amount;
   final String? code;
 
+  /// For discount/subsidy entries: the default value type (`PERCENT`/`FLAT`)
+  /// and the value (e.g. `12` for 12%). Null for plain fee entries.
+  final String? valueType;
+  final double? valueInput;
+
   @override
-  List<Object?> get props => [label, amount, code];
+  List<Object?> get props => [label, amount, code, valueType, valueInput];
 }
 
 class InvoiceItemFormData {
@@ -448,6 +536,11 @@ class InvoiceItemFormData {
   /// other fee / discount / subsidy code) sent to the API as `sourceCode`.
   String? sourceCode;
 
+  /// For discount/subsidy rows: `PERCENT` or `FLAT`. The `valueController`
+  /// holds the value (e.g. `12`); the [amount] is computed from it.
+  String? valueType;
+  final TextEditingController valueController = TextEditingController();
+
   final bool isPrimary;
 
   final TextEditingController descriptionController;
@@ -456,6 +549,7 @@ class InvoiceItemFormData {
   void dispose() {
     descriptionController.dispose();
     amountController.dispose();
+    valueController.dispose();
   }
 }
 

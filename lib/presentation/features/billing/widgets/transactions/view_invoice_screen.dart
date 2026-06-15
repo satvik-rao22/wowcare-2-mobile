@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class ViewInvoiceScreen extends StatefulWidget {
@@ -17,367 +19,246 @@ class ViewInvoiceScreen extends StatefulWidget {
 }
 
 class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
-  // Dummy data for UI
-  Map<String, dynamic>? _addressEntity;
-  List<Map<String, dynamic>>? _invoiceItems;
+  static final DateFormat _dateFormat = DateFormat('MMM dd, yyyy');
+
+  String _formatDate(DateTime date) => _dateFormat.format(date);
+
+  String? get _dueDateLabel {
+    final raw = widget.transaction.endDate;
+    if (raw != null && raw.trim().isNotEmpty) {
+      final parsed = DateTime.tryParse(raw.trim());
+      if (parsed != null) return _formatDate(parsed);
+    }
+    return null;
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _initializeDummyData();
-  }
-
-  void _initializeDummyData() {
-    // Set once during init (no rebuild needed: build runs after initState).
-    _addressEntity = {
-      'line': '123 Main Street',
-      'city': 'New York',
-      'state': 'NY',
-      'country': 'USA',
-      'zipcode': '10001',
-    };
-
-    // Generate dummy invoice items
-    _invoiceItems = [
-      {
-        'type': 'item',
-        'description': widget.transaction.description,
-        'amount': widget.transaction.amount,
-        'deductionAmt': 0,
-      },
-      if (widget.transaction.amount > 200) ...[
-        {
-          'type': 'discount',
-          'description': 'Early Payment Discount',
-          'amount': 0,
-          'deductionAmt': widget.transaction.amount * 0.1,
-        },
-      ],
-    ];
-  }
-
-  // Helper method to get formatted amount with proper sign
-  String _getFormattedAmount(Map<String, dynamic> item) {
-    final type = item['type']?.toString().toLowerCase() ?? '';
-    final amount = (item['amount'] as num?)?.toDouble() ?? 0.0;
-    final deductionAmt = (item['deductionAmt'] as num?)?.toDouble();
-
-    if (type.contains('discount') || type.contains('subsidy')) {
-      // For discounts/subsidies, show as negative
-      final displayAmount = deductionAmt ?? amount;
-      return '-\$${displayAmount.toStringAsFixed(2)}';
-    } else {
-      // For regular items, show as positive
-      return '\$${amount.toStringAsFixed(2)}';
-    }
-  }
-
-  // Helper method to get item description with type indicator
-  String _getItemDescription(Map<String, dynamic> item) {
-    final description = item['description']?.toString() ?? '';
-    final type = item['type']?.toString().toLowerCase() ?? '';
-
-    if (description.isEmpty) {
-      return type.contains('discount') ? 'Discount' : type.contains('subsidy') ? 'Subsidy' : 'Item';
-    }
-    return description;
-  }
-
-  Widget _buildCurrentSchoolDetail() {
-    // Dummy school data
-    const schoolName = 'WowCare School';
-    const schoolDescription = 'Excellence in Education';
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DocumentImageWidget(
-          fileUuid: '',
-          size: 60,
-          name: schoolName,
-          fontSize: 18,
+  Widget build(BuildContext context) {
+    return StaffFormLayout(
+      title: 'View Invoice',
+      bottomBar: _buildBottomBar(),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const BillingSchoolHeader(),
+            const SizedBox(height: 20),
+            _buildBilledForRow(),
+            const SizedBox(height: 16),
+            _buildInvoiceMeta(),
+            const SizedBox(height: 12),
+            _buildItemsTable(),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          schoolName,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        Text(
-          schoolDescription,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        if (_addressEntity != null)
-          Text(
-            '${_addressEntity!['line']}, ${_addressEntity!['city']}, ${_addressEntity!['state']}, ${_addressEntity!['country']}, ${_addressEntity!['zipcode']}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
-          ),
-      ],
+      ),
     );
   }
 
   Widget _buildBilledForRow() {
+    final classroom = widget.transaction.classroom.trim();
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Text(
-          'Billed For : ',
+          'Billed for : ',
           style: TextStyle(
             color: AppColors.primaryColor,
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w500,
           ),
         ),
         DocumentImageWidget(
           fileUuid: widget.transaction.studentPhotoUuid ?? '',
           name: widget.transaction.studentName,
-          size: 32,
-          fontSize: 14,
+          size: 34,
+          fontSize: 13,
         ),
-        const SizedBox(width: 5),
-        Text(
-          widget.transaction.studentName,
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 14,
-            fontWeight: FontWeight.bold,
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                widget.transaction.studentName,
+                style: const TextStyle(
+                  color: AppColors.primaryColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+              if (classroom.isNotEmpty)
+                Text(
+                  classroom,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildPaymentDetailContainer() {
+  Widget _buildInvoiceMeta() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _metaRow('Invoice Date', _formatDate(widget.transaction.date)),
+        if (_dueDateLabel != null) ...[
+          const SizedBox(height: 6),
+          _metaRow('Due Date', _dueDateLabel!),
+        ],
+      ],
+    );
+  }
+
+  Widget _metaRow(String label, String value) {
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$label : ',
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.6),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          TextSpan(
+            text: value,
+            style: const TextStyle(
+              color: AppColors.primaryColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemsTable() {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.billingGreyLight,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(12),
       ),
-      padding: const EdgeInsets.all(8.0),
+      padding: const EdgeInsets.all(12),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Invoice items table (simple format like receipt screen)
           Row(
-            mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Expanded(
                 flex: 4,
                 child: Text(
                   'Description',
                   style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.billingGreyMedium,
-                  ),
-                  textAlign: TextAlign.start,
-                ),
-              ),
-              const Expanded(
-                child: SizedBox(
-                  height: 20,
-                  child: VerticalDivider(
-                    width: 2,
-                    thickness: 1,
-                    color: Colors.grey,
+                    fontSize: 14,
+                    color: AppColors.primaryColor.withValues(alpha: 0.6),
                   ),
                 ),
               ),
               Text(
                 'Amount',
                 style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey.shade500,
+                  fontSize: 14,
+                  color: AppColors.primaryColor.withValues(alpha: 0.6),
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),
-          Divider(
-            thickness: 0.5,
-            color: AppColors.billingGreyTransparent,
-          ),
-
-          // Show invoice items if available, otherwise show basic invoice info
-          if (_invoiceItems != null && _invoiceItems!.isNotEmpty) ...[
-            // Show each invoice item (filter out discounts/subsidies)
-            ..._invoiceItems!
-                .where((item) {
-                  final type = item['type']?.toString().toLowerCase() ?? '';
-                  return !type.contains('discount') && !type.contains('subsidy');
-                })
-                .map((item) {
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 4,
-                        child: Text(
-                          _getItemDescription(item),
-                          style: const TextStyle(
-                            color: AppColors.primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          textAlign: TextAlign.start,
-                        ),
-                      ),
-                      const Expanded(
-                        child: SizedBox(
-                          height: 20,
-                          child: VerticalDivider(
-                            width: 2,
-                            thickness: 1,
-                            color: AppColors.billingGrey,
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _getFormattedAmount(item),
-                        style: const TextStyle(
-                          color: AppColors.primaryColor,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  );
-                })
-                .toList(),
-          ] else ...[
-            // Fallback to basic invoice info
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 4,
-                  child: Text(
-                    widget.transaction.displayDescription,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    textAlign: TextAlign.start,
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
+          Row(
+            children: [
+              Expanded(
+                flex: 4,
+                child: Text(
+                  widget.transaction.displayDescription,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const Expanded(
-                  child: SizedBox(
-                    height: 20,
-                    child: VerticalDivider(
-                      width: 2,
-                      thickness: 1,
-                      color: AppColors.billingGrey,
-                    ),
+              ),
+              Text(
+                '\$${widget.transaction.amount.toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: AppColors.primaryColor,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Total Amount',
+                  style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
                 Text(
                   '\$${widget.transaction.amount.toStringAsFixed(2)}',
                   style: const TextStyle(
                     color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ],
             ),
-          ],
-
-          Divider(
-            thickness: 0.5,
-            color: AppColors.billingGreyTransparent,
           ),
-
-          // Total Amount
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text(
-                'Total Amount : \$${widget.transaction.amount.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 20,
-                  fontWeight: FontWeight.w500,
-                ),
-              )
-            ],
-          )
         ],
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: SingleChildScrollView(
-        child: Container(
-          child: Column(
-            children: [
-              const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Row(
-                  children: [
-                    Text(
-                      'View Invoice',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppColors.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+  Widget _buildBottomBar() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: AppColors.buildPrimaryGradient(),
+          ),
+          child: TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            style: TextButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: AppColors.primaryColor.withOpacity(0.1),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: 8,
-                          top: 8,
-                        ),
-                        child: _buildCurrentSchoolDetail(),
-                      ),
-                      const SizedBox(height: 15),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: _buildBilledForRow(),
-                      ),
-                      const SizedBox(height: 15),
-                      _buildPaymentDetailContainer(),
-                    ],
-                  ),
-                ),
+            ),
+            child: Text(
+              'Send Invoice',
+              style: TextStyle(
+                color: AppColors.billingButtonTextColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
               ),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 }
-
