@@ -116,12 +116,16 @@ class TasksState extends Equatable {
   int countWithStatus(TaskStatus status) =>
       filteredTasks.where((t) => t.status == status).length;
 
-  /// Whether [task] is assigned to or created by the current user.
+  /// Whether [task] is assigned to the current user. "My Tasks" shows only
+  /// tasks assigned to the current user (PRD FR-TK-19) — note this is the
+  /// *view* scope and is intentionally narrower than manage-ownership in
+  /// `TaskAccess` (which also covers tasks the staff member created).
+  /// Permissive while the user identity hasn't resolved yet.
   bool _isMine(Task task) {
     final codes = <String>{currentUserCode, currentStaffCode}
       ..removeWhere((code) => code.isEmpty);
     if (codes.isEmpty) return true;
-    return codes.contains(task.assigneeCode) || codes.contains(task.createdBy);
+    return codes.contains(task.assigneeCode);
   }
 
   /// Distinct assignees referenced by any task — offline-safe options for the

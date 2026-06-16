@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
@@ -45,8 +46,16 @@ class TasksCubit extends Cubit<TasksState> {
       final userName =
           (await _storageService.getString(StorageKeys.displayName) ?? '')
               .trim();
-      final staffCode =
+      var staffCode =
           (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
+      // Ownership ("own tasks") and the "My Tasks" scope match on the staff
+      // code, so resolve it once on a cold cache (deep link / fresh session)
+      // instead of relying on another screen having cached it first.
+      if (staffCode.isEmpty) {
+        try {
+          staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+        } catch (_) {}
+      }
       var showMineOnly = state.showMineOnly;
       if (!_audienceDefaultApplied) {
         _audienceDefaultApplied = true;

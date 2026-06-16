@@ -36,6 +36,7 @@ import 'package:wowcare/presentation/features/events/view/events_screen.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
 import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
@@ -539,10 +540,16 @@ final GoRouter appRouter = GoRouter(
                             value: serviceLocator<TasksCubit>(),
                           ),
                           // Assignee picker shows ACTIVE staff only
-                          // (PRD BR-ATT-01 / FR-TK-02).
+                          // (PRD BR-ATT-01 / FR-TK-02), scoped to the
+                          // creator's allowed classrooms for non-admin staff
+                          // (PRD §5.2 "assign to staff in allowed classes
+                          // only"). Admins stay unrestricted.
                           BlocProvider<StaffCubit>(
-                            create: (_) =>
-                                serviceLocator<StaffCubit>()..loadInitial(),
+                            create: (_) {
+                              final cubit = serviceLocator<StaffCubit>();
+                              loadAssignableStaff(cubit);
+                              return cubit;
+                            },
                           ),
                         ],
                         child: TaskFormScreen(
