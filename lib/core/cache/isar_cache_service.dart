@@ -5,6 +5,7 @@ import 'package:wowcare/data/features/communication/models/conversation_collecti
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
 import 'package:wowcare/data/features/events/models/event_collection.dart';
 import 'package:wowcare/data/features/events/models/holiday_collection.dart';
+import 'package:wowcare/data/features/tasks/models/task_collection.dart';
 
 class IsarCacheService implements CacheService {
   late Isar _isar;
@@ -16,6 +17,7 @@ class IsarCacheService implements CacheService {
       ConversationCollectionSchema,
       EventCollectionSchema,
       HolidayCollectionSchema,
+      TaskCollectionSchema,
     ], directory: dir.path);
   }
 

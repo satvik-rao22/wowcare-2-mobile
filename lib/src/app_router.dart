@@ -33,6 +33,10 @@ import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
 import 'package:wowcare/presentation/features/events/view/events_screen.dart';
+import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
@@ -490,6 +494,64 @@ final GoRouter appRouter = GoRouter(
                     );
                   },
                 ),
+                // Tasks: board/list plus detail and form drill-downs. All
+                // three share the singleton TasksCubit so status/priority
+                // edits reflect everywhere without a refetch. Guardians/
+                // parents are redirected away — the Tasks module is hidden
+                // from them entirely (PRD §5.2).
+                GoRoute(
+                  path: 'tasks',
+                  redirect: _blockParentsFromTasks,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<TasksCubit>.value(
+                      value: serviceLocator<TasksCubit>()..load(silent: true),
+                      child: const TasksScreen(),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: 'tasks/detail',
+                  redirect: _blockParentsFromTasks,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<TasksCubit>.value(
+                        value: serviceLocator<TasksCubit>(),
+                        child: TaskDetailScreen(
+                          taskCode: args?['taskCode'] as String? ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'tasks/form',
+                  redirect: _blockParentsFromTasks,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      MultiBlocProvider(
+                        providers: [
+                          BlocProvider<TasksCubit>.value(
+                            value: serviceLocator<TasksCubit>(),
+                          ),
+                          // Assignee picker shows ACTIVE staff only
+                          // (PRD BR-ATT-01 / FR-TK-02).
+                          BlocProvider<StaffCubit>(
+                            create: (_) =>
+                                serviceLocator<StaffCubit>()..loadInitial(),
+                          ),
+                        ],
+                        child: TaskFormScreen(
+                          taskCode: args?['taskCode'] as String?,
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 GoRoute(
                   path: 'future-availability',
                   pageBuilder: (context, state) =>
@@ -792,6 +854,13 @@ final GoRouter appRouter = GoRouter(
     ),
   ],
 );
+
+/// Keeps guardians/parents out of every Tasks route — the module and all its
+/// data are hidden from them (PRD §5.2). Returns the dashboard path to bounce
+/// a parent who reaches a task deep link; null lets admins/staff through.
+String? _blockParentsFromTasks(BuildContext context, GoRouterState state) {
+  return context.read<RoleCubit>().isParent ? AppRoutes.dashboard : null;
+}
 
 Widget _editProfileDetailsScreen(Object? extra) {
   final args = extra as Map<String, dynamic>?;

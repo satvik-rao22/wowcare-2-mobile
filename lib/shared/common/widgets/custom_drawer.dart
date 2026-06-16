@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/events/view/events_screen.dart';
+import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -1072,6 +1073,22 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Navigator.pop(context);
                             if (_currentRoute != EventsScreen.routeName) {
                               context.go(EventsScreen.routeName);
+                            }
+                          },
+                        ),
+                        // Tasks — admin/staff only. This sits in the
+                        // non-parent branch so guardians never see the
+                        // module, its navigation, or any task data
+                        // (PRD §5.2).
+                        _CustomExpansionTile(
+                          title: 'Tasks',
+                          icon: MediaRes.tasksIcon,
+                          isCurrentRoute:
+                              _currentRoute == TasksScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != TasksScreen.routeName) {
+                              context.go(TasksScreen.routeName);
                             }
                           },
                         ),

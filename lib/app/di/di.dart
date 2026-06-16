@@ -47,6 +47,15 @@ import '../../domain/features/events/usecases/save_holiday_usecase.dart';
 import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
 import '../../domain/features/events/usecases/update_event_usecase.dart';
 import '../../presentation/features/events/cubit/events_cubit.dart';
+import '../../data/features/tasks/datasources/task_local_datasource.dart';
+import '../../data/features/tasks/datasources/task_seed_datasource.dart';
+import '../../data/features/tasks/repositories/task_repository_impl.dart';
+import '../../domain/features/tasks/repositories/task_repository.dart';
+import '../../domain/features/tasks/usecases/create_task_usecase.dart';
+import '../../domain/features/tasks/usecases/delete_task_usecase.dart';
+import '../../domain/features/tasks/usecases/get_tasks_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_usecase.dart';
+import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
 import '../../data/features/attendance/datasources/attendance_remote_datasource.dart';
 import '../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../data/features/availability/datasources/availability_remote_datasource.dart';
@@ -431,6 +440,45 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<GetHolidaysUseCase>(),
       serviceLocator<SaveHolidayUseCase>(),
       serviceLocator<DeleteHolidayUseCase>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+
+  // Tasks (local-first: Isar persistence seeded from bundled mock JSON
+  // until the tasks backend is available — mirrors the Events module).
+  serviceLocator.registerLazySingleton<TaskLocalDataSource>(
+    () => TaskLocalDataSourceImpl(serviceLocator<CacheService>()),
+  );
+  serviceLocator.registerLazySingleton<TaskSeedDataSource>(
+    () => TaskSeedDataSourceImpl(),
+  );
+  serviceLocator.registerLazySingleton<TaskRepository>(
+    () => TaskRepositoryImpl(
+      serviceLocator<TaskLocalDataSource>(),
+      serviceLocator<TaskSeedDataSource>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetTasksUseCase>(
+    () => GetTasksUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CreateTaskUseCase>(
+    () => CreateTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskUseCase>(
+    () => UpdateTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteTaskUseCase>(
+    () => DeleteTaskUseCase(serviceLocator()),
+  );
+  // Singleton so the tasks board, detail and form screens (separate routes)
+  // share one state and edits reflect everywhere without refetching.
+  serviceLocator.registerLazySingleton<TasksCubit>(
+    () => TasksCubit(
+      serviceLocator<GetTasksUseCase>(),
+      serviceLocator<CreateTaskUseCase>(),
+      serviceLocator<UpdateTaskUseCase>(),
+      serviceLocator<DeleteTaskUseCase>(),
       serviceLocator<StorageService>(),
     ),
   );
