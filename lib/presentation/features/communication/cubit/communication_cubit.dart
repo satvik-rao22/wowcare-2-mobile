@@ -279,11 +279,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   Future<void> addReaction(
     String threadId,
     String messageCode,
-    String emoji,
-  ) async {
+    String emoji, {
+    String? currentUserCode,
+  }) async {
     if (state is! CommunicationLoaded) return;
     final currentState = state as CommunicationLoaded;
     final originalThreads = currentState.threads;
+    final reactionKey = currentUserCode ?? 'me';
 
     // Optimistically update the UI
     final updatedThreads = Map<String, List<Message>>.from(
@@ -294,7 +296,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
         final newReactions = Map<String, String>.from(m.reactions);
-        newReactions['me'] = emoji;
+        newReactions[reactionKey] = emoji;
         return Message(
           id: m.id,
           code: m.code,
@@ -436,11 +438,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   Future<void> removeReaction(
     String threadId,
     String messageCode,
-    String emoji,
-  ) async {
+    String emoji, {
+    String? currentUserCode,
+  }) async {
     if (state is! CommunicationLoaded) return;
     final currentState = state as CommunicationLoaded;
     final originalThreads = currentState.threads;
+    final reactionKey = currentUserCode ?? 'me';
 
     // Optimistically remove reaction from UI
     final updatedThreads = Map<String, List<Message>>.from(
@@ -451,7 +455,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
         final newReactions = Map<String, String>.from(m.reactions)
-          ..remove('me');
+          ..remove(reactionKey);
         return Message(
           id: m.id,
           code: m.code,

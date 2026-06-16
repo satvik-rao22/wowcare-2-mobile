@@ -2,8 +2,11 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
@@ -21,16 +24,22 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     required WatchConversationsUseCase watchConversationsUseCase,
     required GetConversationsEntityUseCase getConversationsUseCase,
     required GetCachedConversationsEntityUseCase getCachedConversationsUseCase,
+    required ConversationEntityRepository conversationRepository,
+    required StorageService storageService,
   })  : _conversationType = conversationType,
         _watchConversationsUseCase = watchConversationsUseCase,
         _getConversationsUseCase = getConversationsUseCase,
         _getCachedConversationsUseCase = getCachedConversationsUseCase,
+        _conversationRepo = conversationRepository,
+        _storageService = storageService,
         super(ConversationListState.initial(conversationType: conversationType));
 
   final ConversationType _conversationType;
   final WatchConversationsUseCase _watchConversationsUseCase;
   final GetConversationsEntityUseCase _getConversationsUseCase;
   final GetCachedConversationsEntityUseCase _getCachedConversationsUseCase;
+  final ConversationEntityRepository _conversationRepo;
+  final StorageService _storageService;
 
   StreamSubscription<List<ConversationEntity>>? _firestoreSubscription;
   StreamSubscription<String>? _markedReadSubscription;
@@ -97,6 +106,49 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     _markedReadSubscription = MessagingEventService
         .instance.onConversationMarkedRead
         .listen((code) => _zeroBadgeLocally(code));
+  }
+
+  /// Search the staff directory by name fragment.
+  ///
+  /// Results are stored in [ConversationListState.staffSearchResults] so the
+  /// screen can render a "Staff Directory" section below existing conversations.
+  /// Clears results when [query] is empty.
+  Future<void> searchStaffDirectory(String query) async {
+    if (isClosed) return;
+
+    if (query.trim().isEmpty) {
+      emit(state.copyWith(
+        staffSearchResults: const [],
+        isSearchingStaff: false,
+      ));
+      return;
+    }
+
+    emit(state.copyWith(isSearchingStaff: true));
+
+    final orgCode =
+        (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+            .trim();
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    if (isClosed) return;
+
+    final result = await _conversationRepo.searchStaffForMessaging(
+      query: query.trim(),
+      organizationCode: orgCode,
+      schoolCode: schoolCode,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (_) => emit(state.copyWith(isSearchingStaff: false)),
+      (staff) => emit(state.copyWith(
+        staffSearchResults: staff,
+        isSearchingStaff: false,
+      )),
+    );
   }
 
   /// Pull-to-refresh: forces a REST API fetch regardless of Firestore state.

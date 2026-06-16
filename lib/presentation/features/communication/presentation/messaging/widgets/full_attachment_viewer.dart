@@ -33,9 +33,9 @@ class FullAttachmentViewer extends StatelessWidget {
                   if (att.isImage && source != null)
                     AspectRatio(
                       aspectRatio: 4 / 3,
-                      child: att.remoteUrl != null
+                      child: att.remoteUrl.isNotEmpty
                           ? Image.network(
-                              att.remoteUrl!,
+                              att.remoteUrl,
                               fit: BoxFit.cover,
                               width: double.infinity,
                               loadingBuilder:

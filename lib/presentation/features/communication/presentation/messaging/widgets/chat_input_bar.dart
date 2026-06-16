@@ -147,7 +147,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         ),
         if (_emojiPickerVisible)
           SizedBox(
-            height: 280,
+            height: (MediaQuery.of(context).size.height * 0.35).clamp(160.0, 280.0),
             child: EmojiPicker(
               onEmojiSelected: _onEmojiSelected,
               config: Config(

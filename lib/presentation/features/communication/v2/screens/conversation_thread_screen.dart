@@ -69,6 +69,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
 
     _cubit = ConversationThreadCubit(
       conversationCode: widget.conversation.code,
+      currentUserCode: userCodeFromAuth,
       watchMessagesUseCase: serviceLocator(),
       getMessagesUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
@@ -503,6 +504,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
             showDateHeader = true;
           }
 
+          final prevMsg = prevIndex >= 0 ? messages[prevIndex] : null;
+          final isGrouped =
+              !showDateHeader && _isSameSender(prevMsg, msg);
+
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -613,6 +618,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
                   onReactionTap: () => _showEmojiPicker(context, msg),
                   isParentMessaging: _senderRole == ParticipantRole.parent,
                   isDeleted: msg.isDeleted,
+                  isGrouped: isGrouped,
                 );
               })(),
             ],
@@ -737,14 +743,29 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
     );
   }
 
+  bool _isSameSender(MessageEntity? prev, MessageEntity current) {
+    if (prev == null) return false;
+    final prevCode = prev.senderCode;
+    final currCode = current.senderCode;
+    if (prevCode.isNotEmpty && currCode.isNotEmpty) {
+      return prevCode == currCode &&
+          current.sentAt.difference(prev.sentAt).inMinutes <= 5;
+    }
+    return (prev.senderCode == _senderCode) == (current.senderCode == _senderCode) &&
+        current.sentAt.difference(prev.sentAt).inMinutes <= 5;
+  }
+
   void _showEmojiPicker(BuildContext context, MessageEntity message) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (context) {
+        final sheetHeight =
+            (MediaQuery.of(context).size.height * 0.55).clamp(240.0, 400.0) +
+            MediaQuery.of(context).padding.bottom;
         return Container(
-          height: 380 + MediaQuery.of(context).padding.bottom,
+          height: sheetHeight,
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),

@@ -144,7 +144,7 @@ void main() {
         expect(result.fileName, 'report.xlsx');
       });
 
-      test('caches report and returns from cache on second call', () async {
+      test('does not cache report and calls API on second call', () async {
         var apiCallCount = 0;
         fakeDataSource.generateReportResponse = () async {
           apiCallCount++;
@@ -165,9 +165,9 @@ void main() {
         await repository.generateReport(params);
         expect(apiCallCount, 1);
 
-        // Second call - should be from cache
+        // Second call - should also call API (no cache)
         await repository.generateReport(params);
-        expect(apiCallCount, 1);
+        expect(apiCallCount, 2);
       });
 
       test('propagates API errors', () async {
@@ -347,7 +347,7 @@ void main() {
         expect(result, isEmpty);
       });
 
-      test('returns cached results on second call', () async {
+      test('does not cache recent reports and fetches from API every time', () async {
         var apiCallCount = 0;
         fakeDataSource.recentStudentAttendanceResponse = () async {
           apiCallCount++;
@@ -364,11 +364,12 @@ void main() {
         fakeDataSource.recentStudentManagementResponse = () async => [];
 
         await repository.getRecentReports();
-        final firstResult = await repository.getRecentReports();
+        final secondResult = await repository.getRecentReports();
 
-        // API should be called only once for each source
-        expect(apiCallCount, 1);
-        expect(firstResult, hasLength(1));
+        // API should be called twice since caching is disabled
+        expect(apiCallCount, 2);
+        expect(secondResult, hasLength(1));
+        expect(secondResult[0].reportId, 'report-2');
       });
 
       test('propagates errors from API', () async {
@@ -424,45 +425,24 @@ void main() {
     });
 
     group('Cache behavior', () {
-      test('respects 30-minute cache duration for generated reports', () async {
-        fakeDataSource.generateReportResponse = () async => ReportResponseModel(
-          reportId: 'report-123',
-          reportType: 'STUDENT_DAILY_ATTENDANCE',
-          generatedAt: '2026-01-15T10:30:00Z',
-        );
-
-        final params = ReportRequestParams(
-          reportType: ReportType.studentDailyAttendance,
-          startDate: DateTime(2026, 1, 15),
-          endDate: DateTime(2026, 1, 15),
-        );
+      test('respects 30-minute cache duration for tags', () async {
+        fakeDataSource.tagsResponse = () async => ['VIP', 'SCHOLARSHIP'];
 
         // Cache should be used within 30 minutes
-        await repository.generateReport(params);
-        final cachedResult = await repository.generateReport(params);
+        await repository.getStudentTags();
+        final cachedResult = await repository.getStudentTags();
 
-        expect(cachedResult.reportId, 'report-123');
+        expect(cachedResult, containsAll(['VIP', 'SCHOLARSHIP']));
       });
 
-      test('uses feature_resource_cache pattern for cache keys', () async {
-        fakeDataSource.generateReportResponse = () async => ReportResponseModel(
-          reportId: 'report-123',
-          reportType: 'STUDENT_DAILY_ATTENDANCE',
-          generatedAt: '2026-01-15T10:30:00Z',
-        );
+      test('uses feature_resource_cache pattern for tag cache keys', () async {
+        fakeDataSource.tagsResponse = () async => ['VIP', 'SCHOLARSHIP'];
 
-        final params = ReportRequestParams(
-          reportType: ReportType.studentDailyAttendance,
-          startDate: DateTime(2026, 1, 15),
-          endDate: DateTime(2026, 1, 15),
-        );
-
-        await repository.generateReport(params);
+        await repository.getStudentTags();
 
         // Verify storage was called with proper pattern
-        // The cache key should follow: reports_generated_cache_{identifier}
         expect(fakeStorageService._storage.keys.any(
-          (key) => key.startsWith('reports_generated_cache_'),
+          (key) => key.startsWith('reports_tags_cache_'),
         ), isTrue);
       });
     });

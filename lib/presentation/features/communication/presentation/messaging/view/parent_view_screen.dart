@@ -145,6 +145,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     return _parent1Controller;
   }
 
+  // ignore: unused_element
   String? _getOtherParent() {
     if (_privateModeEnabled) return null;
     return currentSender == parent2Name ? parent1Name : parent2Name;
@@ -157,6 +158,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     return _parent1Messages;
   }
 
+  // ignore: unused_element
   List<Message> get _messages => _activeMessages;
 
   void _sendMessage() {
@@ -310,6 +312,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     );
   }
 
+  // ignore: unused_element
   void _onReactionAdded(Message message, String emoji) {
     final currentUserId = _currentUserCode ?? 'me';
     setState(() {
@@ -1844,8 +1847,9 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                               clipBehavior: Clip.none,
                               borderRadius: BorderRadius.circular(12),
                               child: Thumbnail(
-                                mimeType:
-                                    att.mimeType ?? 'application/octet-stream',
+                                mimeType: att.mimeType.isNotEmpty
+                                    ? att.mimeType
+                                    : 'application/octet-stream',
                                 dataResolver: () async {
                                   return await File(
                                     att.localPath!,

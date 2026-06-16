@@ -26,7 +26,19 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
 
   private func configure() {
     locationManager.delegate = self
-    locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
+    // kCLLocationAccuracyNearestTenMeters (≈10 m) gives reliable requestState()
+    // results for small geofences without draining the battery as fast as Best.
+    // HundredMeters was too coarse — requestState could return .unknown for zones
+    // smaller than the accuracy radius, so the initial state was never resolved.
+    locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
+    // allowsBackgroundLocationUpdates MUST only be set when the app actually has
+    // "Always" authorization. Setting it on a .notDetermined or .authorizedWhenInUse
+    // CLLocationManager raises an NSInternalInconsistencyException on some iOS
+    // versions and can silently prevent location updates from starting.
+    // We apply it in handleAuthorizationChange() once "Always" is confirmed.
+    // Background region-crossing events still work with "When In Use" in the
+    // foreground; "Always" is required only for background + killed-app delivery.
+    locationManager.pausesLocationUpdatesAutomatically = false
 
     // Request location + notification permissions at app launch so the system
     // prompts appear immediately, not delayed until school data loads.
@@ -168,14 +180,27 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       return
     }
 
+    // Clamp radius: iOS minimum is 1 m, maximum is locationManager.maximumRegionMonitoringDistance.
+    let clampedRadius = max(1.0, min(radiusMeters, locationManager.maximumRegionMonitoringDistance))
+    if clampedRadius != radiusMeters {
+      print("[iOS GEOFENCE] ⚠️ Radius clamped: \(radiusMeters)m → \(clampedRadius)m (device limit)")
+    }
+
     let center = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-    let region = CLCircularRegion(center: center, radius: radiusMeters, identifier: identifier)
+    let region = CLCircularRegion(center: center, radius: clampedRadius, identifier: identifier)
     region.notifyOnEntry = true
     region.notifyOnExit = true
 
+    // Reset retry counter each time a new region is registered so a fresh
+    // series of .unknown retries can run if GPS is cold on this session.
+    regionStateRetryCount = 0
+
     locationManager.startMonitoring(for: region)
+    // requestState fires didDetermineState immediately so Flutter gets an
+    // authoritative inside/outside reading right after registration,
+    // without waiting for the user to cross the boundary.
     locationManager.requestState(for: region)
-    print("[iOS GEOFENCE] ✅ Monitoring started: \(identifier) radius=\(radiusMeters)m")
+    print("[iOS GEOFENCE] ✅ Monitoring started: \(identifier) radius=\(clampedRadius)m")
   }
 
   // MARK: - CLLocationManagerDelegate
@@ -200,7 +225,9 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       print("[iOS LOCATION] Got When In Use → requesting Always for background geofencing")
       locationManager.requestAlwaysAuthorization()
     case .authorizedAlways:
-      print("[iOS LOCATION] ✅ Got Always authorization — restarting region monitoring")
+      print("[iOS LOCATION] ✅ Got Always authorization — enabling background updates and restarting region monitoring")
+      // Safe to enable background updates now that "Always" is confirmed.
+      locationManager.allowsBackgroundLocationUpdates = true
       restartMonitoringWithPersistedConfig()
     case .denied:
       print("[iOS LOCATION] ❌ Authorization denied — geofencing disabled")
@@ -245,14 +272,62 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       print("[iOS GEOFENCE] didDetermineState: outside \(region.identifier)")
       handleRegionEvent(isInside: false, shouldNotify: false)
     case .unknown:
-      print("[iOS GEOFENCE] didDetermineState: unknown \(region.identifier)")
+      // .unknown fires when GPS hasn't locked yet or authorization is only
+      // "When In Use" and the system can't evaluate the region in the
+      // background. Rather than giving up, request a one-shot location fix
+      // to warm up the GPS, then re-evaluate the region state after a short
+      // delay so the user isn't permanently stuck with an indeterminate state.
+      print("[iOS GEOFENCE] didDetermineState: unknown \(region.identifier) — scheduling GPS warm-up + retry in 6 s")
+      scheduleRegionStateRetry(for: region)
     @unknown default:
       break
     }
   }
 
+  // MARK: - Region state retry (unknown recovery)
+
+  /// Requests a one-shot GPS fix so the system can warm up the location
+  /// engine, then calls requestState again after [delaySeconds].
+  /// Limited to [maxRetries] attempts to avoid an infinite loop if GPS is
+  /// genuinely unavailable (e.g. airplane mode, indoor with no signal).
+  private var regionStateRetryCount = 0
+  private let maxRegionStateRetries = 3
+
+  private func scheduleRegionStateRetry(for region: CLRegion) {
+    guard regionStateRetryCount < maxRegionStateRetries else {
+      print("[iOS GEOFENCE] ⚠️ Max retry attempts reached for \(region.identifier) — giving up on state determination")
+      return
+    }
+    regionStateRetryCount += 1
+    let attempt = regionStateRetryCount
+    let delay: Double = Double(attempt) * 6.0   // 6 s, 12 s, 18 s back-off
+
+    // Request a one-shot location fix. This warms up the GPS chip so the
+    // next requestState() can return .inside / .outside instead of .unknown.
+    locationManager.requestLocation()
+    print("[iOS GEOFENCE] 🛰 Requested one-shot location fix (attempt \(attempt)/\(maxRegionStateRetries))")
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+      guard let self = self else { return }
+      print("[iOS GEOFENCE] 🔄 Retrying requestState for \(region.identifier) (attempt \(attempt)/\(self.maxRegionStateRetries))")
+      self.locationManager.requestState(for: region)
+    }
+  }
+
   func locationManager(_ manager: CLLocationManager, monitoringDidFailFor region: CLRegion?, withError error: Error) {
     print("[iOS GEOFENCE] ❌ Monitoring failed for \(region?.identifier ?? "unknown"): \(error.localizedDescription)")
+  }
+
+  // Required by CLLocationManagerDelegate when requestLocation() is used.
+  func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+    guard let loc = locations.last else { return }
+    print("[iOS LOCATION] One-shot fix: lat=\(loc.coordinate.latitude) lon=\(loc.coordinate.longitude) accuracy=±\(loc.horizontalAccuracy)m")
+    // requestState will now have a valid location context and should resolve
+    // to .inside or .outside instead of .unknown on the scheduled retry.
+  }
+
+  func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+    print("[iOS LOCATION] ❌ Location update failed: \(error.localizedDescription)")
   }
 
   // MARK: - Region event handling

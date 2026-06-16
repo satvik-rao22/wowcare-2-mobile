@@ -86,7 +86,19 @@ class GeofenceCubit extends Cubit<GeofenceState> {
   // ── Public API ─────────────────────────────────────────────────────────────
 
   Future<void> initForSchool({required String schoolCode}) async {
+    debugPrint('╔══════════════════════════════════════════════════╗');
+    debugPrint('║  GEOFENCE initForSchool CALLED                   ║');
+    debugPrint('╠══════════════════════════════════════════════════╣');
+    debugPrint('║  schoolCode : "$schoolCode"');
+    debugPrint('║  currentStatus : ${state.status}');
+    debugPrint('║  currentSchoolCode : "${state.schoolCode}"');
+    debugPrint('╚══════════════════════════════════════════════════╝');
     AppLogger.d('[GeofenceCubit] initForSchool: $schoolCode');
+
+    if (schoolCode.isEmpty) {
+      debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — schoolCode is empty! Check StorageKeys.schoolCode in storage.');
+      return;
+    }
 
     // Always ensure the staff sign-in status is refreshed on initialization
     await checkStaffSignInStatus();
@@ -101,6 +113,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
             state.status == GeofenceCubitStatus.gpsDisabledByAdmin ||
             state.status == GeofenceCubitStatus.checking ||
             state.status == GeofenceCubitStatus.fetchingSchoolLocation)) {
+      debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — already monitoring "$schoolCode" in state ${state.status} — skipping re-init');
       AppLogger.d('[GeofenceCubit] Already monitoring, skipping re-init');
       return;
     }
@@ -177,20 +190,29 @@ class GeofenceCubit extends Cubit<GeofenceState> {
 
   Future<void> _checkAndStartMonitoring({required String schoolCode}) async {
     try {
+      debugPrint('[GeofenceCubit] ▶ _checkAndStartMonitoring start — schoolCode="$schoolCode"');
+
       final permCheck = await _checkPerm();
+      debugPrint('[GeofenceCubit] permCheck → serviceEnabled=${permCheck.serviceEnabled} hasPermission=${permCheck.hasPermission}');
 
       if (!permCheck.serviceEnabled) {
+        debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — location service is DISABLED on device. User must enable in Settings > Privacy > Location Services.');
         emit(state.copyWith(status: GeofenceCubitStatus.locationDisabled));
         return;
       }
       if (!permCheck.hasPermission) {
+        debugPrint('[GeofenceCubit] No location permission — requesting now...');
         await _requestAllPermissions();
         final recheck = await _checkPerm();
+        debugPrint('[GeofenceCubit] recheck after request → serviceEnabled=${recheck.serviceEnabled} hasPermission=${recheck.hasPermission}');
         if (!recheck.hasPermission) {
+          debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — location permission DENIED after request. User tapped "Don\'t Allow".');
           emit(state.copyWith(status: GeofenceCubitStatus.permissionDenied));
           return;
         }
+        debugPrint('[GeofenceCubit] ✅ Permission granted after request');
       } else {
+        debugPrint('[GeofenceCubit] ✅ Permission already granted — skipping request');
         // Permission already granted — _requestAllPermissions was skipped, so
         // the notification plugin may not have been initialised yet.
         unawaited(_ensureNotificationsInitialised());
@@ -202,12 +224,11 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       // This way both complete at the same time instead of one after the other.
       final positionFuture = _fetchPositionQuickly();
 
-      debugPrint(
-        '[GeofenceCubit] ▶ calling getSchoolLocation for "$schoolCode"',
-      );
+      debugPrint('[GeofenceCubit] ▶ calling getSchoolLocation API for "$schoolCode"...');
       // Fetches school lat/lon AND attendance-settings (radius + gpsSignInEnabled)
       // in a single call — the repository fans out both API calls in parallel.
       _config = await _getSchoolLocation(schoolCode: schoolCode);
+      debugPrint('[GeofenceCubit] ✅ getSchoolLocation API returned successfully');
 
       // ── DEBUG: print geofence values to terminal ──────────────────────────
       debugPrint('╔══════════════════════════════════════════════════╗');
@@ -289,17 +310,39 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           }
         }
 
+        // ── Comprehensive GPS diagnostic log ──────────────────────────────
+        debugPrint('╔══════════════════════════════════════════════════════╗');
+        debugPrint('║  GPS POSITION CHECK                                  ║');
+        debugPrint('╠══════════════════════════════════════════════════════╣');
+        debugPrint('║  Device lat      : ${position.latitude}');
+        debugPrint('║  Device lon      : ${position.longitude}');
+        debugPrint('║  School lat      : ${_config!.latitude}');
+        debugPrint('║  School lon      : ${_config!.longitude}');
+        debugPrint('║  Distance        : ${distance.toStringAsFixed(1)} m');
+        debugPrint('║  Allowed radius  : ${_config!.radiusMeters} m');
+        debugPrint('║  GPS accuracy    : ±${accuracy.toStringAsFixed(1)} m');
+        debugPrint('║  Is inside       : $isInside');
+        debugPrint('║  Confidently out : $confidentlyOutside');
+        debugPrint('║  → Status        : $immediateStatus');
+        debugPrint('╚══════════════════════════════════════════════════════╝');
+
         AppLogger.d(
           '[GeofenceCubit] GPS check — '
+          'deviceLat=${position.latitude} deviceLon=${position.longitude} '
+          'schoolLat=${_config!.latitude} schoolLon=${_config!.longitude} '
           'distance=${distance.toStringAsFixed(1)}m '
           'accuracy=±${accuracy.toStringAsFixed(1)}m '
           'radius=${_config!.radiusMeters}m '
+          'isInside=$isInside confidentlyOutside=$confidentlyOutside '
           'status=$immediateStatus',
         );
       } else {
         // GPS unavailable — fall back to last-known persisted status.
         final restored = await _restoreLastKnownStatus();
         immediateStatus = restored ?? GeofenceCubitStatus.checking;
+        debugPrint('[GeofenceCubit] ⚠️ GPS position unavailable — using '
+            'persisted status: $immediateStatus');
+        AppLogger.d('[GeofenceCubit] GPS unavailable — restored=$restored → $immediateStatus');
       }
 
       emit(
@@ -339,8 +382,30 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       }
 
       // ── iOS: sync authoritative inside/outside from native on cold start ──
+      //
+      // We sync TWICE, mirroring the Android pattern:
+      //
+      //   • Immediately (positiveOnly=true): Only trust isInside=true from
+      //     UserDefaults. A stale isInside=false default must NOT downgrade
+      //     a GPS-pending 'checking' state — the user might be physically
+      //     inside the zone but UserDefaults hasn't been updated yet because
+      //     didDetermineState hasn't fired.
+      //
+      //   • After 5 s: CLLocationManager.requestState fires
+      //     didDetermineState asynchronously (typically 1–5 s after
+      //     startMonitoring + requestState). The 5-second delay ensures
+      //     UserDefaults has been written by the time we read it, giving us
+      //     an authoritative inside/outside reading. Without this delay the
+      //     first sync always reads the stale default (isInside=false) and
+      //     the sign-in button stays disabled even when the user is physically
+      //     inside the school zone.
       if (Platform.isIOS) {
-        unawaited(_syncFromNativeGeofenceStatusIOS());
+        unawaited(_syncFromNativeGeofenceStatusIOS(positiveOnly: true));
+        unawaited(
+          Future.delayed(const Duration(seconds: 5), () {
+            if (!isClosed) unawaited(_syncFromNativeGeofenceStatusIOS());
+          }),
+        );
       }
     } catch (e, st) {
       debugPrint('╔══════════════════════════════════════════════════╗');
@@ -515,17 +580,42 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         ? const Duration(seconds: 15)
         : const Duration(seconds: 8);
 
+    AppLogger.d('[GeofenceCubit] Fetching GPS position (timeout=${timeout.inSeconds}s, platform=${Platform.operatingSystem})');
+
     try {
-      return await Geolocator.getCurrentPosition(
+      final pos = await Geolocator.getCurrentPosition(
         locationSettings: LocationSettings(
           accuracy: LocationAccuracy.high,
           timeLimit: timeout,
         ),
       );
-    } catch (_) {
+      AppLogger.d(
+        '[GeofenceCubit] GPS fix obtained — '
+        'lat=${pos.latitude} lon=${pos.longitude} '
+        'accuracy=±${pos.accuracy.toStringAsFixed(1)}m '
+        'isMocked=${pos.isMocked}',
+      );
+      debugPrint('[GeofenceCubit] 📍 GPS fix: lat=${pos.latitude} lon=${pos.longitude} accuracy=±${pos.accuracy.toStringAsFixed(1)}m');
+      return pos;
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] getCurrentPosition failed ($e) — trying getLastKnownPosition');
+      debugPrint('[GeofenceCubit] ⚠️ getCurrentPosition timed out or failed: $e');
       try {
-        return await Geolocator.getLastKnownPosition();
+        final last = await Geolocator.getLastKnownPosition();
+        if (last != null) {
+          AppLogger.d(
+            '[GeofenceCubit] Using last known position — '
+            'lat=${last.latitude} lon=${last.longitude} '
+            'accuracy=±${last.accuracy.toStringAsFixed(1)}m '
+            'age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s',
+          );
+          debugPrint('[GeofenceCubit] 📍 Last known position: lat=${last.latitude} lon=${last.longitude} accuracy=±${last.accuracy.toStringAsFixed(1)}m age=${DateTime.now().toUtc().difference(last.timestamp).inSeconds}s');
+        } else {
+          debugPrint('[GeofenceCubit] ⚠️ No last known position available');
+        }
+        return last;
       } catch (_) {
+        debugPrint('[GeofenceCubit] ⚠️ getLastKnownPosition also failed');
         return null;
       }
     }
@@ -577,7 +667,19 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     }
   }
 
-  Future<void> _syncFromNativeGeofenceStatusIOS() async {
+  /// Reads the native iOS `geofence_last_notified_inside` UserDefaults value
+  /// and syncs it to the cubit state.
+  ///
+  /// [positiveOnly]: when true, only apply the sync result if native reports
+  /// `isInside=true`. A stale `false` default (fresh install, or user was
+  /// outside last session) must not downgrade a GPS-pending 'checking' state
+  /// to 'outsideRange' before CLLocationManager.didDetermineState has fired.
+  /// Use positiveOnly=true for the immediate call and false for the 5-second
+  /// delayed call (by which time didDetermineState has already updated
+  /// UserDefaults with the real value).
+  Future<void> _syncFromNativeGeofenceStatusIOS({
+    bool positiveOnly = false,
+  }) async {
     try {
       final raw = await _nativeGeofenceChannel.invokeMethod<dynamic>(
         'getGeofenceStatus',
@@ -586,7 +688,22 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       if (map == null || isClosed) return;
       final isInside = map['isInside'] == true;
 
-      // Don't downgrade GPS-confirmed withinRange with a native default=false.
+      AppLogger.d(
+        '[GeofenceCubit] iOS native sync — isInside=$isInside '
+        'positiveOnly=$positiveOnly currentStatus=${state.status}',
+      );
+
+      // Immediate (positiveOnly) call: ignore stale false to avoid incorrectly
+      // resolving a GPS-pending 'checking' state to 'outsideRange'.
+      if (positiveOnly && !isInside) {
+        AppLogger.d(
+          '[GeofenceCubit] iOS immediate sync skipped — '
+          'native=false may be stale default (didDetermineState not yet fired)',
+        );
+        return;
+      }
+
+      // Never downgrade a GPS-confirmed withinRange with a native false.
       if (!isInside && state.status == GeofenceCubitStatus.withinRange) {
         AppLogger.d(
           '[GeofenceCubit] iOS native sync skipped — GPS already confirmed withinRange',
@@ -598,7 +715,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           ? GeofenceCubitStatus.withinRange
           : GeofenceCubitStatus.outsideRange;
       AppLogger.d(
-        '[GeofenceCubit] iOS native sync — isInside=$isInside → $syncedStatus',
+        '[GeofenceCubit] iOS native sync applying — $syncedStatus',
       );
       if (state.status != syncedStatus) {
         emit(state.copyWith(status: syncedStatus));

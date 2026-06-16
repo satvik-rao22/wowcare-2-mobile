@@ -1,13 +1,13 @@
+import 'dart:async';
 import 'dart:io';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_usecase.dart';
 
@@ -30,8 +30,16 @@ class BulkMessagingCompositionState extends Equatable {
   final String conversationType;
   final bool isLoading;
   final bool isSuccess;
+
+  /// True the instant the background bulk job is launched — UI should
+  /// navigate away immediately and show a processing snackbar.
+  final bool isBulkStarted;
   final String? errorMessage;
   final String progressMessage;
+
+  /// Recipients that failed to receive the message in the last bulk send.
+  /// Non-empty after the job completes with at least one failure.
+  final List<Map<String, dynamic>> failedRecipients;
 
   const BulkMessagingCompositionState({
     this.selectedRecipients = const [],
@@ -42,13 +50,17 @@ class BulkMessagingCompositionState extends Equatable {
     this.conversationType = 'ROOM_CHAT',
     this.isLoading = false,
     this.isSuccess = false,
+    this.isBulkStarted = false,
     this.errorMessage,
     this.progressMessage = '',
+    this.failedRecipients = const [],
   });
 
   int get charCount => messageText.length;
   bool get canSend =>
-      !isLoading && (messageText.trim().isNotEmpty || attachments.isNotEmpty);
+      !isLoading &&
+      !isBulkStarted &&
+      (messageText.trim().isNotEmpty || attachments.isNotEmpty);
 
   BulkMessagingCompositionState copyWith({
     List<Map<String, dynamic>>? selectedRecipients,
@@ -59,8 +71,10 @@ class BulkMessagingCompositionState extends Equatable {
     String? conversationType,
     bool? isLoading,
     bool? isSuccess,
+    bool? isBulkStarted,
     String? errorMessage,
     String? progressMessage,
+    List<Map<String, dynamic>>? failedRecipients,
   }) {
     return BulkMessagingCompositionState(
       selectedRecipients: selectedRecipients ?? this.selectedRecipients,
@@ -72,8 +86,10 @@ class BulkMessagingCompositionState extends Equatable {
       conversationType: conversationType ?? this.conversationType,
       isLoading: isLoading ?? this.isLoading,
       isSuccess: isSuccess ?? this.isSuccess,
-      errorMessage: errorMessage, // Reset error if not provided
+      isBulkStarted: isBulkStarted ?? this.isBulkStarted,
+      errorMessage: errorMessage,
       progressMessage: progressMessage ?? this.progressMessage,
+      failedRecipients: failedRecipients ?? this.failedRecipients,
     );
   }
 
@@ -87,8 +103,10 @@ class BulkMessagingCompositionState extends Equatable {
     conversationType,
     isLoading,
     isSuccess,
+    isBulkStarted,
     errorMessage,
     progressMessage,
+    failedRecipients,
   ];
 }
 
@@ -97,6 +115,7 @@ class BulkMessagingCompositionCubit
   final CreateConversationUseCase _createConversationUseCase;
   final SendMessageUseCase _sendMessageUseCase;
   final StorageService _storageService;
+  final ConversationEntityRepository _conversationRepo;
 
   BulkMessagingCompositionCubit({
     required List<Map<String, dynamic>> initialRecipients,
@@ -104,10 +123,12 @@ class BulkMessagingCompositionCubit
     required CreateConversationUseCase createConversationUseCase,
     required SendMessageUseCase sendMessageUseCase,
     required StorageService storageService,
+    required ConversationEntityRepository conversationRepository,
     String conversationType = 'ROOM_CHAT',
   }) : _createConversationUseCase = createConversationUseCase,
        _sendMessageUseCase = sendMessageUseCase,
        _storageService = storageService,
+       _conversationRepo = conversationRepository,
        super(
          BulkMessagingCompositionState(
            isStaff: isStaff,
@@ -161,82 +182,143 @@ class BulkMessagingCompositionCubit
     );
   }
 
+  /// Starts the bulk send job in the background.
+  ///
+  /// Emits [isBulkStarted] = true immediately so the UI can navigate away and
+  /// show a progress snackbar. The actual work runs fire-and-forget and never
+  /// blocks the caller.
   Future<void> sendMessages(BuildContext context) async {
     if (!state.canSend) return;
 
-    emit(
-      state.copyWith(
-        isLoading: true,
-        isSuccess: false,
-        errorMessage: null,
-        progressMessage: 'Initializing...',
+    // Collect everything from storage before firing the background job so we
+    // don't need the BuildContext after this point.
+    final orgCode =
+        (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+            .trim();
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    if (isClosed) return;
+
+    if (orgCode.isEmpty || schoolCode.isEmpty) {
+      emit(
+        state.copyWith(errorMessage: 'Organization or School code not found.'),
+      );
+      return;
+    }
+
+    final senderCode =
+        (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
+    final senderUserCode =
+        (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
+    final actualSenderCode = senderCode.isNotEmpty
+        ? senderCode
+        : senderUserCode;
+
+    if (isClosed) return;
+
+    // Snapshot state before going async — it won't change under us.
+    final recipients = List<Map<String, dynamic>>.from(
+      state.selectedRecipients,
+    );
+    final messageText = state.messageText.trim();
+    final isStaff = state.isStaff;
+    final conversationType = state.conversationType;
+
+    // Signal the UI immediately so it can navigate back.
+    emit(state.copyWith(isBulkStarted: true));
+
+    // Fire-and-forget — do not await.
+    unawaited(
+      _runBulkJob(
+        orgCode: orgCode,
+        schoolCode: schoolCode,
+        senderUserCode: senderUserCode,
+        actualSenderCode: actualSenderCode,
+        recipients: recipients,
+        messageText: messageText,
+        isStaff: isStaff,
+        conversationType: conversationType,
       ),
     );
+  }
+
+  /// Re-runs the bulk job for only the recipients that failed in the previous
+  /// attempt. Clears [failedRecipients] on completion.
+  Future<void> retryFailed({
+    required String orgCode,
+    required String schoolCode,
+    required String senderUserCode,
+    required String actualSenderCode,
+  }) async {
+    if (isClosed || state.failedRecipients.isEmpty) return;
+    final toRetry = List<Map<String, dynamic>>.from(state.failedRecipients);
+    emit(state.copyWith(failedRecipients: const [], isBulkStarted: true));
+    unawaited(_runBulkJob(
+      orgCode: orgCode,
+      schoolCode: schoolCode,
+      senderUserCode: senderUserCode,
+      actualSenderCode: actualSenderCode,
+      recipients: toRetry,
+      messageText: state.messageText,
+      isStaff: state.isStaff,
+      conversationType: state.conversationType,
+    ));
+  }
+
+  Future<void> _runBulkJob({
+    required String orgCode,
+    required String schoolCode,
+    required String senderUserCode,
+    required String actualSenderCode,
+    required List<Map<String, dynamic>> recipients,
+    required String messageText,
+    required bool isStaff,
+    required String conversationType,
+  }) async {
+    final failed = <Map<String, dynamic>>[];
 
     try {
-      final orgCode =
-          await _storageService.getString(StorageKeys.organizationCode) ?? '';
-      if (isClosed) return;
-      final schoolCode =
-          await _storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (isClosed) return;
-
-      if (orgCode.isEmpty || schoolCode.isEmpty) {
-        emit(
-          state.copyWith(
-            isLoading: false,
-            errorMessage: 'Organization or School code not found.',
-          ),
-        );
-        return;
-      }
-
-      final senderCode =
-          (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
-      final senderUserCode =
-          (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
-      final actualSenderCode = senderCode.isNotEmpty
-          ? senderCode
-          : senderUserCode;
-
-      if (isClosed) return;
-      final messageText = state.messageText.trim();
-
-      if (state.isStaff) {
-        // Staff: One-to-One chat for each recipient
-        int successCount = 0;
-        for (var i = 0; i < state.selectedRecipients.length; i++) {
+      if (isStaff) {
+        for (final recipient in recipients) {
           if (isClosed) return;
-          final recipient = state.selectedRecipients[i];
           final recipientCode = _recipientCode(recipient);
           final recipientName = (recipient['name'] ?? 'recipient').toString();
           if (recipientCode.isEmpty) continue;
 
-          emit(
-            state.copyWith(
-              progressMessage:
-                  'Sending to $recipientName (${i + 1}/${state.selectedRecipients.length})...',
-            ),
-          );
+          try {
+            // ── Find-or-create: reuse existing STAFF_DIRECT thread ────────
+            String conversationCode;
 
-          final request = CreateConversationRequest(
-            title: recipientName,
-            type: 'STAFF_DIRECT',
-            description: messageText,
-            organizationCode: orgCode,
-            schoolCode: schoolCode,
-            participants: [
-              {'userCode': actualSenderCode, 'participantType': 'STAFF'},
-              {'userCode': recipientCode, 'participantType': 'STAFF'},
-            ],
-          );
+            final existing = await _conversationRepo
+                .findStaffDirectConversation(recipientCode);
+            final existingConv = existing.fold((_) => null, (c) => c);
 
-          final result = await _createConversationUseCase(request);
-          if (isClosed) return;
+            if (existingConv != null) {
+              conversationCode = existingConv.code;
+            } else {
+              final request = CreateConversationRequest(
+                title: recipientName,
+                type: 'STAFF_DIRECT',
+                description: messageText,
+                organizationCode: orgCode,
+                schoolCode: schoolCode,
+                participants: [
+                  {'userCode': actualSenderCode, 'participantType': 'STAFF'},
+                  {'userCode': recipientCode, 'participantType': 'STAFF'},
+                ],
+              );
+              final created = await _createConversationUseCase(request);
+              final conv = created.fold((_) => null, (c) => c);
+              if (conv == null) {
+                failed.add(recipient);
+                continue;
+              }
+              conversationCode = conv.code;
+            }
 
-          await result.fold((_) async {}, (conversation) async {
-            successCount++;
-            // Backend ignores initialMessage field — send as a real message.
+            if (isClosed) return;
+
             if (messageText.isNotEmpty) {
               final msg = Message(
                 id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
@@ -248,68 +330,29 @@ class BulkMessagingCompositionCubit
                     : actualSenderCode,
                 time: DateTime.now(),
               );
-              await _sendMessageUseCase(conversation.code, msg);
+              await _sendMessageUseCase(conversationCode, msg);
             }
-          });
-          if (isClosed) return;
-        }
-
-        if (successCount == state.selectedRecipients.length) {
-          if (context.mounted) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              isSuccess: true,
-              message: 'All messages sent successfully!',
-            );
+          } catch (_) {
+            failed.add(recipient);
           }
-          emit(state.copyWith(isLoading: false, isSuccess: true));
-        } else if (successCount > 0) {
-          if (context.mounted) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              isSuccess: true,
-              message:
-                  'Sent $successCount of ${state.selectedRecipients.length} messages.',
-            );
-          }
-          emit(state.copyWith(isLoading: false, isSuccess: true));
-        } else {
-          emit(
-            state.copyWith(
-              isLoading: false,
-              errorMessage: 'Failed to send messages.',
-            ),
-          );
         }
       } else {
-        // Parents/Students: Group Chat with all recipients
-        emit(state.copyWith(progressMessage: 'Creating group chat...'));
-
-        final recipientCodes = state.selectedRecipients
+        final recipientCodes = recipients
             .map(_recipientCode)
             .where((code) => code.isNotEmpty)
             .toSet()
             .toList();
 
-        if (recipientCodes.isEmpty) {
-          emit(
-            state.copyWith(
-              isLoading: false,
-              errorMessage: 'No valid recipients found.',
-            ),
-          );
-          return;
-        }
+        if (recipientCodes.isEmpty) return;
 
-        final isAdminChat = state.conversationType == 'ADMIN_CHAT';
-        // ADMIN_CHAT must only have ADMIN + GUARDIAN participants — no STAFF.
+        final isAdminChat = conversationType == 'ADMIN_CHAT';
         final filteredRecipientCodes = isAdminChat
             ? recipientCodes.where((c) => !c.startsWith('STF_')).toList()
             : recipientCodes;
 
         final request = CreateConversationRequest(
-          title: (state.selectedRecipients.first['name'] as String? ?? '').trim(),
-          type: state.conversationType,
+          title: (recipients.first['name'] as String? ?? '').trim(),
+          type: conversationType,
           description: messageText,
           organizationCode: orgCode,
           schoolCode: schoolCode,
@@ -334,14 +377,10 @@ class BulkMessagingCompositionCubit
         if (isClosed) return;
 
         await result.fold(
-          (failure) async => emit(
-            state.copyWith(
-              isLoading: false,
-              errorMessage: failure.message ?? 'Failed to send message.',
-            ),
-          ),
+          (_) {
+            failed.addAll(recipients);
+          },
           (conversation) async {
-            // Backend ignores initialMessage field — send as a real message.
             if (messageText.isNotEmpty) {
               final msg = Message(
                 id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
@@ -355,25 +394,27 @@ class BulkMessagingCompositionCubit
               );
               await _sendMessageUseCase(conversation.code, msg);
             }
-            if (context.mounted) {
-              CoreUtils.showTopSnackBar(
-                context: context,
-                isSuccess: true,
-                message: 'Group message sent successfully!',
-              );
-            }
-            emit(state.copyWith(isLoading: false, isSuccess: true));
           },
         );
       }
-    } catch (e) {
-      if (isClosed) return;
-      emit(
-        state.copyWith(
-          isLoading: false,
-          errorMessage: 'An unexpected error occurred: $e',
-        ),
-      );
+
+      if (!isClosed) {
+        emit(state.copyWith(
+          isSuccess: failed.isEmpty,
+          failedRecipients: failed,
+          progressMessage: failed.isEmpty
+              ? ''
+              : '${failed.length} message(s) failed to send. Tap retry.',
+        ));
+      }
+    } catch (_) {
+      // Catastrophic failure — mark all recipients as failed so retry is offered.
+      if (!isClosed) {
+        emit(state.copyWith(
+          failedRecipients: recipients,
+          progressMessage: 'Bulk send failed. Tap retry.',
+        ));
+      }
     }
   }
 

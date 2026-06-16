@@ -1,5 +1,6 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/notification_payload.dart';
+import 'package:wowcare/core/firebase/firebase_config_factory.dart';
 import 'dart:io';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -37,7 +38,7 @@ import 'src/app_router.dart';
 /// act on data-only messages which Android silently drops without this handler.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: FirebaseConfigFactory.currentPlatform);
 
   AppLogger.d('[FCM] ════════ Background notification received ════════');
   AppLogger.d('[FCM] messageId : ${message.messageId}');
@@ -171,7 +172,7 @@ Future<void> main() async {
   // absent, this is a fresh install → wipe the Keychain so the app opens clean.
   await _resetSecureStoreOnFreshInstall();
 
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: FirebaseConfigFactory.currentPlatform);
 
   // iOS foreground notifications: without this call FCM messages received while
   // the app is open show NO banner, sound, or badge — they only fire onMessage.

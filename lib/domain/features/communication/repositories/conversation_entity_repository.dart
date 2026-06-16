@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
 
 /// Repository contract for conversation data in the communication v2.1 module.
@@ -46,6 +47,26 @@ abstract class ConversationEntityRepository {
   Future<Either<Failure, ConversationEntity?>> getCachedConversation(
     String conversationCode,
   );
+
+  // ─── Staff-direct helpers ────────────────────────────────────────────────────
+
+  /// Returns the existing STAFF_DIRECT conversation between the current user
+  /// and [recipientUserCode], or null when none exists.
+  ///
+  /// Use this before [createConversation] to avoid duplicate 1:1 threads.
+  Future<Either<Failure, ConversationEntity?>> findStaffDirectConversation(
+    String recipientUserCode,
+  );
+
+  /// Search active and upcoming staff by name fragment.
+  ///
+  /// Used by the Staff Messaging inbox to start a new conversation with a
+  /// staff member who has no existing thread with the current user.
+  Future<Either<Failure, List<MessagingStaffResult>>> searchStaffForMessaging({
+    required String query,
+    required String organizationCode,
+    required String schoolCode,
+  });
 
   // ─── Student-scoped helpers ─────────────────────────────────────────────────
 

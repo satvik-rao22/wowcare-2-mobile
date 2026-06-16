@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
@@ -27,6 +28,7 @@ import 'conversation_thread_state.dart';
 class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   ConversationThreadCubit({
     required String conversationCode,
+    required String currentUserCode,
     required WatchMessagesUseCase watchMessagesUseCase,
     required GetMessagesEntityUseCase getMessagesUseCase,
     required SendMessageEntityUseCase sendMessageUseCase,
@@ -35,7 +37,8 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required AddReactionEntityUseCase addReactionUseCase,
     required RemoveReactionUseCase removeReactionUseCase,
     required MarkConversationReadUseCase markConversationReadUseCase,
-  })  : _watchMessagesUseCase = watchMessagesUseCase,
+  })  : _currentUserCode = currentUserCode,
+        _watchMessagesUseCase = watchMessagesUseCase,
         _getMessagesUseCase = getMessagesUseCase,
         _sendMessageUseCase = sendMessageUseCase,
         _editMessageUseCase = editMessageUseCase,
@@ -45,6 +48,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         _markConversationReadUseCase = markConversationReadUseCase,
         super(ConversationThreadState.initial(conversationCode: conversationCode));
 
+  final String _currentUserCode;
   final WatchMessagesUseCase _watchMessagesUseCase;
   final GetMessagesEntityUseCase _getMessagesUseCase;
   final SendMessageEntityUseCase _sendMessageUseCase;
@@ -293,6 +297,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required String messageCode,
     required String newText,
   }) async {
+    final target = state.messages.firstWhere(
+      (m) => m.code == messageCode,
+      orElse: () => throw StateError('Message not found'),
+    );
+    if (target.senderCode != _currentUserCode) {
+      emit(state.copyWith(
+        errorMessage: const AuthorizationFailure('You can only edit your own messages.').message,
+      ));
+      return;
+    }
+
     // Optimistic update
     final optimistic = state.messages.map((m) {
       if (m.code != messageCode) return m;
@@ -327,6 +342,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   // ─── Delete ──────────────────────────────────────────────────────────────────
 
   Future<void> deleteMessage(String messageCode) async {
+    final target = state.messages.firstWhere(
+      (m) => m.code == messageCode,
+      orElse: () => throw StateError('Message not found'),
+    );
+    if (target.senderCode != _currentUserCode) {
+      emit(state.copyWith(
+        errorMessage: const AuthorizationFailure('You can only delete your own messages.').message,
+      ));
+      return;
+    }
+
     // Optimistic: mark deleted locally
     final optimistic = state.messages.map((m) {
       if (m.code != messageCode) return m;
@@ -389,6 +415,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required String emoji,
     required String currentUserCode,
   }) async {
+    if (currentUserCode != _currentUserCode) {
+      emit(state.copyWith(
+        errorMessage: const AuthorizationFailure('You can only remove your own reactions.').message,
+      ));
+      return;
+    }
+
     final optimistic = _removeReactionLocally(
       state.messages,
       messageCode,
@@ -565,7 +598,7 @@ extension _MessageEntityX on MessageEntity {
         isPrivate: isPrivate,
         isEdited: isEdited,
         isDeleted: true,
-        deletedPlaceholder: 'This message was deleted.',
+        deletedPlaceholder: 'This message has been deleted.',
         editedAt: editedAt,
         deletedAt: DateTime.now(),
         attachments: attachments,

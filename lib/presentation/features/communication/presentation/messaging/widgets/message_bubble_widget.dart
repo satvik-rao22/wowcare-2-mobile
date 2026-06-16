@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:open_filex/open_filex.dart' as open_filex;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,7 @@ import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
@@ -39,6 +39,9 @@ class MessageBubble extends StatefulWidget {
   final bool isParentMessaging;
   final bool isInactive;
   final bool isDeleted;
+  /// When true, the sender avatar and name header are hidden because this
+  /// message is a continuation from the same sender as the one above it.
+  final bool isGrouped;
 
   const MessageBubble({
     required this.message,
@@ -58,6 +61,7 @@ class MessageBubble extends StatefulWidget {
     this.isParentMessaging = false,
     this.isInactive = false,
     this.isDeleted = false,
+    this.isGrouped = false,
     super.key,
   });
 
@@ -201,12 +205,25 @@ class _MessageBubbleState extends State<MessageBubble>
   Widget build(BuildContext context) {
     final isMe = _isMe;
     final screenWidth = MediaQuery.of(context).size.width;
+    // Resolve sender display name once before the widget tree.
+    final senderLabel = isMe
+        ? 'You'
+        : MessageContentProcessor.senderDisplay(
+            widget.message.senderName,
+            widget.message.senderUserCode,
+          );
 
     return GestureDetector(
       onHorizontalDragUpdate: widget.onReply != null ? _onDragUpdate : null,
       onHorizontalDragEnd: widget.onReply != null ? _onDragEnd : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+        // Grouped messages get reduced top spacing — feels like a continuation.
+        padding: EdgeInsets.only(
+          top: widget.isGrouped ? 2.0 : 8.0,
+          bottom: 8.0,
+          left: 12.0,
+          right: 12.0,
+        ),
         child: SizedBox(
           width: double.infinity,
           child: Stack(
@@ -224,7 +241,7 @@ class _MessageBubbleState extends State<MessageBubble>
                       child: Container(
                         padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryColor.withOpacity(0.12),
+                          color: AppColors.primaryColor.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -248,8 +265,8 @@ class _MessageBubbleState extends State<MessageBubble>
                         ? CrossAxisAlignment.end
                         : CrossAxisAlignment.start,
                     children: [
-                      // Avatar row (above bubble)
-                      if (widget.isParentMessaging) ...[
+                      // Avatar row (above bubble) — hidden when grouped
+                      if (widget.isParentMessaging && !widget.isGrouped) ...[
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: isMe
@@ -268,13 +285,12 @@ class _MessageBubbleState extends State<MessageBubble>
                         const SizedBox(height: 8.0),
                       ],
 
-                      // Sender Name header (above bubble)
-                      if (widget.message.senderName != null &&
-                          widget.message.senderName!.isNotEmpty)
+                      // Sender Name header — hidden when grouped
+                      if (!widget.isGrouped)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
                           child: Text(
-                            isMe ? 'You' : widget.message.senderName!,
+                            senderLabel,
                             style: const TextStyle(
                               color: Color.fromRGBO(87, 51, 83, 0.7),
                               fontWeight: FontWeight.w500,
@@ -352,10 +368,7 @@ class _MessageBubbleState extends State<MessageBubble>
                           if (isMe &&
                               widget.onDelete != null &&
                               !widget.isInactive &&
-                              !(widget.isDeleted ||
-                                  widget.message.text.contains(
-                                    'This Message Has Been Deleted',
-                                  ))) ...[
+                              !widget.isDeleted) ...[
                             const SizedBox(width: 8),
                             GestureDetector(
                               onTap: () {
@@ -567,9 +580,7 @@ class _MessageBubbleState extends State<MessageBubble>
 
   Widget _buildBubble(bool isMe) {
     final message = widget.message;
-    final isDeleted =
-        widget.isDeleted ||
-        message.text.contains('This Message Has Been Deleted');
+    final isDeleted = widget.isDeleted;
 
     return Material(
       color: Colors.transparent,
@@ -589,12 +600,14 @@ class _MessageBubbleState extends State<MessageBubble>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: isDeleted
-              ? const Text(
-                  '🚫 This Message Has Been Deleted',
+              ? Text(
+                  'This message has been deleted.',
                   style: TextStyle(
-                    color: Color.fromRGBO(87, 51, 83, 1),
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.75)
+                        : const Color.fromRGBO(87, 51, 83, 0.6),
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontStyle: FontStyle.italic,
                   ),
                 )
               : Column(
@@ -616,12 +629,14 @@ class _MessageBubbleState extends State<MessageBubble>
                         const SizedBox(height: 6),
                     ],
 
-                    // Message text
+                    // Message text — enriched HTML with auto-linked URLs/emails
                     if (message.text.trim().isNotEmpty)
                       Flexible(
                         fit: FlexFit.loose,
                         child: _StableHtml(
-                          data: message.text,
+                          data: MessageContentProcessor.enrich(message.text),
+                          linkColor: isMe ? Colors.white : AppColors.primaryColor,
+                          onLinkTap: MessageContentProcessor.launchLink,
                           style: {
                             'body': html.Style(
                               margin: html.Margins.zero,
@@ -803,7 +818,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                   ),
                                 ),
                                 child: Thumbnail(
-                                  mimeType: att.mimeType ?? 'application/pdf',
+                                  mimeType: att.mimeType.isNotEmpty ? att.mimeType : 'application/pdf',
                                   dataResolver: () async {
                                     if (att.remoteUrl.isNotEmpty) {
                                       try {
@@ -893,7 +908,7 @@ class _MessageBubbleState extends State<MessageBubble>
                 borderRadius: BorderRadius.circular(12),
                 child: displayImages.first.displaySource != null
                     ? Thumbnail(
-                        mimeType: displayImages.first.mimeType ?? 'image/jpeg',
+                        mimeType: displayImages.first.mimeType.isNotEmpty ? displayImages.first.mimeType : 'image/jpeg',
                         dataResolver: () async {
                           final src = displayImages.first.displaySource!;
                           if (displayImages.first.remoteUrl.isNotEmpty) {
@@ -978,7 +993,7 @@ class _MessageBubbleState extends State<MessageBubble>
                         borderRadius: BorderRadius.circular(12),
                         child: att.displaySource != null
                             ? Thumbnail(
-                                mimeType: att.mimeType ?? 'image/jpeg',
+                                mimeType: att.mimeType.isNotEmpty ? att.mimeType : 'image/jpeg',
                                 dataResolver: () async {
                                   final src = att.displaySource!;
                                   if (att.remoteUrl.isNotEmpty) {
@@ -1047,7 +1062,9 @@ class _MessageBubbleState extends State<MessageBubble>
       dt,
       schoolTz,
     );
-    return '${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}';
+    final hhMM =
+        '${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}';
+    return MessageContentProcessor.smartBubbleTime(dt, hhMM);
   }
 }
 
@@ -1060,8 +1077,17 @@ class _MessageBubbleState extends State<MessageBubble>
 class _StableHtml extends StatefulWidget {
   final String data;
   final Map<String, html.Style> style;
+  /// Called when a link (`<a href>`) inside the HTML is tapped.
+  final void Function(String? href)? onLinkTap;
+  /// Color used for `<a>` tags. Defaults to [AppColors.primaryColor].
+  final Color? linkColor;
 
-  const _StableHtml({required this.data, required this.style});
+  const _StableHtml({
+    required this.data,
+    required this.style,
+    this.onLinkTap,
+    this.linkColor,
+  });
 
   @override
   State<_StableHtml> createState() => _StableHtmlState();
@@ -1072,6 +1098,20 @@ class _StableHtmlState extends State<_StableHtml> {
 
   @override
   Widget build(BuildContext context) {
+    final linkColor = widget.linkColor ?? AppColors.primaryColor;
+
+    // Merge caller styles with the <a> tag style so links are always
+    // visually distinguishable (underlined, same color as message text).
+    final mergedStyle = {
+      ...widget.style,
+      'a': html.Style(
+        color: linkColor,
+        textDecoration: TextDecoration.underline,
+        textDecorationColor: linkColor,
+        fontWeight: FontWeight.w600,
+      ),
+    };
+
     // Wrap with decoration:none to prevent the dialog context's DefaultTextStyle
     // (no Material/Scaffold wrapper in HeroDialogRoute) from leaking yellow
     // underlines into flutter_html's text span rendering.
@@ -1080,7 +1120,10 @@ class _StableHtmlState extends State<_StableHtml> {
       child: html.Html(
         anchorKey: _anchorKey,
         data: widget.data,
-        style: widget.style,
+        style: mergedStyle,
+        onLinkTap: widget.onLinkTap != null
+            ? (url, _, __) => widget.onLinkTap!(url)
+            : null,
       ),
     );
   }

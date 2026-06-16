@@ -59,7 +59,12 @@ class FakeDio extends Fake implements Dio {
   }
 }
 
-class FakeStorageService extends Fake implements StorageService {}
+class FakeStorageService extends Fake implements StorageService {
+  @override
+  Future<String?> getString(String key) async {
+    return 'school-123';
+  }
+}
 
 void main() {
   late FakeDio fakeDio;
@@ -86,7 +91,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/attendance/student-attendance/reports/generate') {
+          if (path.endsWith('/api/v1/student-attendance/reports/generate')) {
             return responseData;
           }
           return null;
@@ -108,7 +113,7 @@ void main() {
         final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/attendance/student-attendance/reports/generate') {
+          if (path.endsWith('/api/v1/student-attendance/reports/generate')) {
             return {
               'reportId': 'report-789',
               'reportType': 'STUDENT_ABSENT',
@@ -131,7 +136,7 @@ void main() {
         final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/attendance/staff-attendance/reports/generate') {
+          if (path.endsWith('/api/v1/staff-attendance/reports/generate')) {
             return {
               'reportId': 'report-555',
               'reportType': 'STAFF_ABSENT',
@@ -154,7 +159,7 @@ void main() {
         final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/staff/staff/reports/generate') {
+          if (path.endsWith('/api/v1/staff/reports/generate')) {
             return {
               'reportId': 'report-dir-1',
               'reportType': 'STAFF_DETAILS',
@@ -177,7 +182,7 @@ void main() {
         final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/student/student/reports/generate') {
+          if (path.endsWith('/api/v1/student/reports/generate')) {
             return {
               'reportId': 'report-family-1',
               'reportType': 'STUDENTS_AND_FAMILY',
@@ -200,7 +205,7 @@ void main() {
         final requestBody = <String, dynamic>{};
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/student/student/reports/generate') {
+          if (path.endsWith('/api/v1/student/reports/generate')) {
             return {
               'reportId': 'report-emergency-1',
               'reportType': 'EMERGENCY_CONTACTS',
@@ -223,7 +228,7 @@ void main() {
         final requestBody = <String, dynamic>{'studentCodes': ['STU-1']};
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/student/settings/immunization/report') {
+          if (path.endsWith('/api/v1/student/settings/immunization/report')) {
             return {
               'reportId': 'report-immun-1',
               'reportType': 'IMMUNIZATION',
@@ -308,7 +313,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/attendance/student-attendance/reports/recent') {
+          if (path.endsWith('/api/v1/student-attendance/reports/recent')) {
             return responseData;
           }
           return null;
@@ -319,6 +324,32 @@ void main() {
         expect(result, hasLength(2));
         expect(result[0].reportId, 'recent-1');
         expect(result[1].reportId, 'recent-2');
+      });
+
+      test('returns list of recent student attendance reports with nested data.reports format', () async {
+        final responseData = {
+          'data': {
+            'reports': [
+              {
+                'reportId': 'recent-nested-1',
+                'reportType': 'STUDENT_DAILY_ATTENDANCE',
+                'generatedAt': '2026-01-15T10:30:00Z',
+              },
+            ],
+          },
+        };
+
+        fakeDio.responseBuilder = (path) {
+          if (path.endsWith('/api/v1/student-attendance/reports/recent')) {
+            return responseData;
+          }
+          return null;
+        };
+
+        final result = await dataSource.getRecentStudentAttendanceReports();
+
+        expect(result, hasLength(1));
+        expect(result[0].reportId, 'recent-nested-1');
       });
 
       test('handles empty reports list', () async {
@@ -359,7 +390,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/attendance/staff-attendance/reports/recent') {
+          if (path.endsWith('/api/v1/staff-attendance/reports/recent')) {
             return responseData;
           }
           return null;
@@ -393,7 +424,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/staff/staff/reports/recent') {
+          if (path.endsWith('/api/v1/staff/reports/recent')) {
             return responseData;
           }
           return null;
@@ -424,7 +455,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/student/student/reports/recent') {
+          if (path.endsWith('/api/v1/student/reports/recent')) {
             return responseData;
           }
           return null;
@@ -445,7 +476,7 @@ void main() {
         };
 
         fakeDio.responseBuilder = (path) {
-          if (path == '/api/v1/student/tags') {
+          if (path.endsWith('/api/v1/student-tags')) {
             return responseData;
           }
           return null;
