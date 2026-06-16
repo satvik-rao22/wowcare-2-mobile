@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/data/features/billing/models/family_ledger_models.dart';
 import 'package:wowcare/data/features/billing/models/family_summary_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_list_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_overview_models.dart';
@@ -25,6 +26,12 @@ abstract class InvoiceRemoteDataSource {
   Future<List<FamilySummaryModel>> getFamilySummary({
     required String organizationCode,
     required String school,
+  });
+  Future<FamilyLedgerModel> getFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String ownerType,
+    required String ownerCode,
   });
   Future<InvoicePaymentResultModel> createPayment(
       InvoicePaymentRequestModel request);
@@ -110,6 +117,25 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       },
     );
     return FamilySummaryModel.listFromJson(response.data ?? {});
+  }
+
+  @override
+  Future<FamilyLedgerModel> getFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String ownerType,
+    required String ownerCode,
+  }) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesFamilyLedger),
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'school': school,
+        if (ownerType.trim().isNotEmpty) 'ownerType': ownerType,
+        'ownerCode': ownerCode,
+      },
+    );
+    return FamilyLedgerModel.fromJson(response.data ?? {});
   }
 
   @override

@@ -12,6 +12,7 @@ class TransactionDetailsState extends Equatable {
     required this.isLoadingFamily,
     required this.familyChildren,
     required this.familyParents,
+    required this.familyName,
     required this.familyError,
     required this.hasMoreData,
     required this.isLoadingMore,
@@ -28,6 +29,7 @@ class TransactionDetailsState extends Equatable {
         isLoadingFamily = false,
         familyChildren = const [],
         familyParents = const [],
+        familyName = '',
         familyError = '',
         hasMoreData = false,
         isLoadingMore = false;
@@ -42,6 +44,7 @@ class TransactionDetailsState extends Equatable {
   final bool isLoadingFamily;
   final List<Map<String, dynamic>> familyChildren;
   final List<Map<String, dynamic>> familyParents;
+  final String familyName;
   final String familyError;
   final bool hasMoreData;
   final bool isLoadingMore;
@@ -70,6 +73,7 @@ class TransactionDetailsState extends Equatable {
     bool? isLoadingFamily,
     List<Map<String, dynamic>>? familyChildren,
     List<Map<String, dynamic>>? familyParents,
+    String? familyName,
     String? familyError,
     bool? hasMoreData,
     bool? isLoadingMore,
@@ -85,6 +89,7 @@ class TransactionDetailsState extends Equatable {
       isLoadingFamily: isLoadingFamily ?? this.isLoadingFamily,
       familyChildren: familyChildren ?? this.familyChildren,
       familyParents: familyParents ?? this.familyParents,
+      familyName: familyName ?? this.familyName,
       familyError: familyError ?? this.familyError,
       hasMoreData: hasMoreData ?? this.hasMoreData,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
@@ -103,6 +108,7 @@ class TransactionDetailsState extends Equatable {
         isLoadingFamily,
         familyChildren,
         familyParents,
+        familyName,
         familyError,
         hasMoreData,
         isLoadingMore,

@@ -367,11 +367,13 @@ import '../../domain/features/billing/usecases/resend_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_overview_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoices_usecase.dart';
 import '../../domain/features/billing/usecases/get_family_summary_usecase.dart';
+import '../../domain/features/billing/usecases/get_family_ledger_usecase.dart';
 import '../../domain/features/billing/usecases/create_payment_usecase.dart';
 import '../../domain/features/billing/usecases/create_refund_usecase.dart';
 import '../../presentation/features/billing/cubit/create_invoice_cubit.dart';
 import '../../presentation/features/billing/cubit/transactions_cubit.dart';
 import '../../presentation/features/billing/cubit/family_summary_cubit.dart';
+import '../../presentation/features/billing/cubit/transaction_details_cubit.dart';
 import '../../presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
 import '../../domain/features/billing/usecases/create_discount_usecase.dart';
 import '../../domain/features/billing/usecases/update_discount_usecase.dart';
@@ -1927,10 +1929,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetFamilySummaryUseCase>(
     () => GetFamilySummaryUseCase(serviceLocator<InvoiceRepository>()),
   );
+  serviceLocator.registerFactory<GetFamilyLedgerUseCase>(
+    () => GetFamilyLedgerUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<TransactionDetailsCubit>(
+    () => TransactionDetailsCubit(
+      getFamilyLedger: serviceLocator<GetFamilyLedgerUseCase>(),
+      cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
+      deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
   serviceLocator.registerFactory<TransactionsCubit>(
     () => TransactionsCubit(
       getOverview: serviceLocator<GetInvoiceOverviewUseCase>(),
-      getInvoices: serviceLocator<GetInvoicesUseCase>(),
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
       storage: serviceLocator<StorageService>(),
@@ -1963,6 +1975,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getSubsidies: serviceLocator<GetSubsidiesUseCase>(),
       createInvoice: serviceLocator<CreateInvoiceUseCase>(),
       issueInvoice: serviceLocator<IssueInvoiceUseCase>(),
+      updateInvoice: serviceLocator<UpdateInvoiceUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

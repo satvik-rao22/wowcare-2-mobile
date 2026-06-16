@@ -874,6 +874,7 @@ class ApiPaths {
   static const String invoices = '/api/v1/invoices';
   static const String invoicesOverview = '/api/v1/invoices/overview';
   static const String invoicesFamilySummary = '/api/v1/invoices/family-summary';
+  static const String invoicesFamilyLedger = '/api/v1/invoices/family-ledger';
   static const String invoicePayments = '/api/v1/invoices/payments';
   static const String invoiceRefunds = '/api/v1/invoices/refunds';
 

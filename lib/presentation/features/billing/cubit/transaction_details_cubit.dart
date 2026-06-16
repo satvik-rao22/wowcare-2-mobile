@@ -1,16 +1,182 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/cancel_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/delete_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_family_ledger_usecase.dart';
+
 import '../widgets/transactions/transaction_item.dart';
 
 part 'transaction_details_state.dart';
 
-/// Owns the family/sibling transaction-details screen state: the sibling list,
-/// family members, summary totals, date range, and loading/error flags. Data is
-/// dummy today; swap the `_generate*` helpers for repository calls when billing
-/// has a backend.
+/// Owns the family billing-profile screen state: the transaction list, family
+/// members (students/guardians), summary totals, date range, and loading/error
+/// flags. Real data comes from `GET /api/v1/invoices/family-ledger` via
+/// [loadFamilyLedger]; [initialize] keeps demo data for callers without a
+/// family code (e.g. opening from a single transaction).
 class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
-  TransactionDetailsCubit() : super(const TransactionDetailsState.initial());
+  TransactionDetailsCubit({
+    required GetFamilyLedgerUseCase getFamilyLedger,
+    required CancelInvoiceUseCase cancelInvoice,
+    required DeleteInvoiceUseCase deleteInvoice,
+    required StorageService storage,
+  })  : _getFamilyLedger = getFamilyLedger,
+        _cancelInvoice = cancelInvoice,
+        _deleteInvoice = deleteInvoice,
+        _storage = storage,
+        super(const TransactionDetailsState.initial());
+
+  final GetFamilyLedgerUseCase _getFamilyLedger;
+  final CancelInvoiceUseCase _cancelInvoice;
+  final DeleteInvoiceUseCase _deleteInvoice;
+  final StorageService _storage;
+
+  String _ownerType = 'FAMILY';
+  String _ownerCode = '';
+
+  /// Cancels an invoice then refreshes the ledger. Returns true on success.
+  Future<bool> cancelInvoice(String code) async {
+    if (code.trim().isEmpty) return false;
+    try {
+      await _cancelInvoice(code);
+      if (_ownerCode.isNotEmpty) {
+        await loadFamilyLedger(ownerCode: _ownerCode, ownerType: _ownerType);
+      }
+      return true;
+    } catch (e) {
+      if (isClosed) return false;
+      emit(state.copyWith(
+          hasError: true, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      return false;
+    }
+  }
+
+  /// Deletes an invoice then refreshes the ledger. Returns true on success.
+  Future<bool> deleteInvoice(String code) async {
+    if (code.trim().isEmpty) return false;
+    try {
+      await _deleteInvoice(code);
+      if (_ownerCode.isNotEmpty) {
+        await loadFamilyLedger(ownerCode: _ownerCode, ownerType: _ownerType);
+      }
+      return true;
+    } catch (e) {
+      if (isClosed) return false;
+      emit(state.copyWith(
+          hasError: true, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      return false;
+    }
+  }
+
+  /// Loads a family's ledger and maps it onto the screen's state shape.
+  Future<void> loadFamilyLedger({
+    required String ownerCode,
+    String ownerType = 'FAMILY',
+  }) async {
+    _ownerType = ownerType.trim().isEmpty ? 'FAMILY' : ownerType.trim();
+    _ownerCode = ownerCode.trim();
+    if (_ownerCode.isEmpty) return;
+
+    emit(state.copyWith(
+      isLoadingSiblings: true,
+      isLoadingFamily: true,
+      hasError: false,
+      errorMessage: '',
+      familyError: '',
+    ));
+    try {
+      final org =
+          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      final school =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (org.isEmpty || school.isEmpty) {
+        if (isClosed) return;
+        emit(state.copyWith(
+          isLoadingSiblings: false,
+          isLoadingFamily: false,
+          hasError: true,
+          errorMessage: 'Missing organization/school context.',
+        ));
+        return;
+      }
+
+      final ledger = await _getFamilyLedger(
+        organizationCode: org,
+        school: school,
+        ownerCode: _ownerCode,
+        ownerType: _ownerType,
+      );
+      if (isClosed) return;
+      emit(state.copyWith(
+        siblingSummary: <String, dynamic>{
+          'netAmountPaid': ledger.netPaid,
+          'amountUnpaid': ledger.unpaid,
+          'amountInProcess': ledger.inProcess,
+          'amountRefund': ledger.refunded,
+          'amountPaid': ledger.paid,
+          'openBalance': ledger.openBalance,
+        },
+        siblingTransactions: _mapTransactions(ledger.transactions),
+        familyChildren: _mapPeople(ledger.students),
+        familyParents: _mapPeople(ledger.guardians),
+        familyName: ledger.familyName,
+        isLoadingSiblings: false,
+        isLoadingFamily: false,
+        hasError: false,
+        hasMoreData: false,
+      ));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        isLoadingSiblings: false,
+        isLoadingFamily: false,
+        hasError: true,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        familyError: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
+  List<Map<String, dynamic>> _mapPeople(List<FamilyLedgerPersonEntity> people) {
+    return people
+        .map((p) => <String, dynamic>{
+              'code': p.code,
+              'fullName': p.fullName,
+              'role': p.role,
+              'outstanding': p.outstanding,
+              'photoUuid': null,
+            })
+        .toList();
+  }
+
+  List<TransactionItem> _mapTransactions(
+      List<FamilyLedgerTransactionEntity> txns) {
+    return List<TransactionItem>.generate(txns.length, (i) {
+      final t = txns[i];
+      return TransactionItem(
+        id: i + 1,
+        invoiceCode: t.invoiceCode.isNotEmpty ? t.invoiceCode : null,
+        transactionType:
+            t.transactionType.isNotEmpty ? t.transactionType : 'Invoice',
+        date: t.date ?? DateTime.now(),
+        amount: t.amount,
+        status: t.status,
+        description: t.description.isNotEmpty
+            ? t.description
+            : (t.items.isNotEmpty ? t.items.first : ''),
+        studentName: t.studentName.isNotEmpty ? t.studentName : t.studentCode,
+        classroom: '',
+        refTable: t.transactionType,
+        balance: t.balance,
+        paymentMode: t.method.isNotEmpty ? t.method : null,
+        studentOpenBalance: t.balance,
+      );
+    });
+  }
 
   // Data is static/dummy today, so there is nothing to wait for — populate
   // synchronously and keep pagination disabled (no "Loading more..." / spinner).
@@ -59,10 +225,16 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
     if (state.isLoadingMore || !state.hasMoreData) return;
   }
 
-  /// Applies a new date range and reloads the sibling transactions.
+  /// Applies a new date range. When viewing a real family ledger, refetch it
+  /// (the endpoint has no date filter, so this is a plain refresh); otherwise
+  /// reload the demo transactions.
   Future<void> applyDateRange(DateTime? start, DateTime? end) async {
     emit(state.copyWith(startDate: () => start, endDate: () => end));
-    await loadSiblingTransactions(refresh: true);
+    if (_ownerCode.isNotEmpty) {
+      await loadFamilyLedger(ownerCode: _ownerCode, ownerType: _ownerType);
+    } else {
+      await loadSiblingTransactions(refresh: true);
+    }
   }
 
   List<TransactionItem> _generateDummyTransactions() {

@@ -357,7 +357,6 @@ class _BillingScreenState extends State<BillingScreen>
                                 );
                               } else if (current == 1) {
                                 content = TransactionsSection(
-                                  scrollController: _scrollController,
                                   onRegisterRefresh: (fn) {
                                     _transactionsRefreshFn = fn;
                                   },

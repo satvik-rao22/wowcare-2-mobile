@@ -111,7 +111,7 @@ class _SignInScreenState extends State<SignInScreen>
   Future<void> _saveCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
     final secureStore = serviceLocator<SecureCredentialStore>();
-    final username = emailController.text.trim();
+    final username = emailController.text.trim().toLowerCase();
     final password = passwordController.text.trim();
 
     AppLogger.d(
@@ -151,11 +151,13 @@ class _SignInScreenState extends State<SignInScreen>
 
   Future<void> _handleSignIn(BuildContext context) async {
     if (formKey.currentState!.validate()) {
+      // Emails are case-insensitive; normalise so an upper-case entry doesn't
+      // get rejected as invalid credentials.
       await _saveCredentials();
 
       final authCubit = context.read<AuthCubit>();
       await authCubit.login(
-        username: emailController.text.trim(),
+        username: emailController.text.trim().toLowerCase(),
         password: passwordController.text.trim(),
       );
     }

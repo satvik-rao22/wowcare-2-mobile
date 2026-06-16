@@ -85,6 +85,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
         return BillingPopupType.invoice;
       case 'payment':
         return BillingPopupType.payment;
+      case 'refund':
+        return BillingPopupType.refund;
       default:
         return null;
     }
@@ -95,7 +97,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     final String s = widget.transaction.status.toUpperCase();
     if (s.contains('CANCEL')) return BillingInvoiceMenuVariant.cancelled;
     if (s == 'PAID' || s == 'COMPLETED') return BillingInvoiceMenuVariant.paid;
-    return BillingInvoiceMenuVariant.draftOrSent;
+    if (s.contains('DRAFT')) return BillingInvoiceMenuVariant.draft;
+    return BillingInvoiceMenuVariant.sent;
   }
 
   void _showActionsMenu(BuildContext context, BillingPopupType popupType) {
@@ -140,6 +143,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                       onResendTap: _dialogCallback(dialogContext, widget.onSendInvoice),
                       onReceivePaymentTap: _dialogCallback(dialogContext, widget.onReceivePayment),
                       onIssueRefundTap: _dialogCallback(dialogContext, widget.onIssueRefund),
+                      onCancelTap: _dialogCallback(dialogContext, widget.onCancel),
                       onDeleteTap: _dialogCallback(dialogContext, widget.onDelete),
                       onBillingProfileTap:
                           _dialogCallback(dialogContext, widget.onBillingProfile),
@@ -172,7 +176,8 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   }
 
   VoidCallback? _viewActionFor(BillingPopupType popupType) {
-    if (popupType == BillingPopupType.payment) {
+    if (popupType == BillingPopupType.payment ||
+        popupType == BillingPopupType.refund) {
       return widget.onViewReceipt ?? widget.onView;
     }
     return widget.onView;
