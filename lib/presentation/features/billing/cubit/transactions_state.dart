@@ -4,10 +4,6 @@ class TransactionsState extends Equatable {
   const TransactionsState({
     required this.transactions,
     required this.searchQuery,
-    required this.page,
-    required this.hasMore,
-    required this.isLoadingList,
-    required this.isLoadingMore,
     this.overview,
     this.dateFrom,
     this.dateTo,
@@ -15,13 +11,9 @@ class TransactionsState extends Equatable {
     this.successMessage,
   });
 
-  const TransactionsState.initial()
-      : transactions = const <TransactionRecord>[],
+  TransactionsState.initial()
+      : transactions = TransactionsCubit.seedTransactions(),
         searchQuery = '',
-        page = 0,
-        hasMore = false,
-        isLoadingList = false,
-        isLoadingMore = false,
         overview = null,
         dateFrom = null,
         dateTo = null,
@@ -30,18 +22,6 @@ class TransactionsState extends Equatable {
 
   final List<TransactionRecord> transactions;
   final String searchQuery;
-
-  /// Last loaded 0-indexed page of the invoice list.
-  final int page;
-
-  /// Whether more pages are available to [TransactionsCubit.loadNextPage].
-  final bool hasMore;
-
-  /// True while page 0 (initial / refresh / search) is loading.
-  final bool isLoadingList;
-
-  /// True while a subsequent page is being appended.
-  final bool isLoadingMore;
 
   /// Real billing totals from the overview API; null until loaded. When absent
   /// (not loaded yet or the request failed) the stat bar shows zeros.
@@ -57,11 +37,26 @@ class TransactionsState extends Equatable {
   /// snackbar by the view.
   final String? successMessage;
 
-  /// Search is performed server-side, so the loaded rows are already filtered.
-  List<TransactionRecord> get visibleTransactions => transactions;
+  List<TransactionRecord> get visibleTransactions {
+    final query = searchQuery.trim().toLowerCase();
+    return transactions.where((record) {
+      final item = record.item;
+      return query.isEmpty ||
+          item.studentName.toLowerCase().contains(query) ||
+          item.id.toString().contains(query) ||
+          item.description.toLowerCase().contains(query);
+    }).toList();
+  }
 
   // Live overview totals only; zeros when not loaded / on failure (never demo).
   double get totalInvoiced => overview?.amountInvoiced ?? 0;
+
+  // Actual dollar amounts from the overview API (shown verbatim in the cards).
+  double get netPaidAmount => overview?.netPaid ?? 0;
+  double get paidAmount => overview?.paid ?? 0;
+  double get refundedAmount => overview?.refunded ?? 0;
+  double get inProcessAmount => overview?.inProcess ?? 0;
+  double get outstandingAmount => overview?.outstanding ?? 0;
 
   /// "Net Paid" share of the invoiced amount.
   double get paidPercent => overview?.netPaidPercent ?? 0;
@@ -78,10 +73,6 @@ class TransactionsState extends Equatable {
   TransactionsState copyWith({
     List<TransactionRecord>? transactions,
     String? searchQuery,
-    int? page,
-    bool? hasMore,
-    bool? isLoadingList,
-    bool? isLoadingMore,
     InvoiceOverviewEntity? Function()? overview,
     DateTime? Function()? dateFrom,
     DateTime? Function()? dateTo,
@@ -91,10 +82,6 @@ class TransactionsState extends Equatable {
     return TransactionsState(
       transactions: transactions ?? this.transactions,
       searchQuery: searchQuery ?? this.searchQuery,
-      page: page ?? this.page,
-      hasMore: hasMore ?? this.hasMore,
-      isLoadingList: isLoadingList ?? this.isLoadingList,
-      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       overview: overview != null ? overview() : this.overview,
       dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
       dateTo: dateTo != null ? dateTo() : this.dateTo,
@@ -107,10 +94,6 @@ class TransactionsState extends Equatable {
   List<Object?> get props => [
         transactions,
         searchQuery,
-        page,
-        hasMore,
-        isLoadingList,
-        isLoadingMore,
         overview,
         dateFrom,
         dateTo,

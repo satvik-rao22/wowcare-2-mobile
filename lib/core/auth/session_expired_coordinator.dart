@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/util/api_paths.dart';
@@ -87,10 +88,11 @@ class SessionExpiredCoordinator {
           message: userMessage,
           isError: true,
         );
-        Navigator.of(ctx, rootNavigator: true).pushAndRemoveUntil(
-          MaterialPageRoute<void>(builder: (_) => const SignInScreen()),
-          (_) => false,
-        );
+        // Navigate via go_router (the app's router). An imperative
+        // Navigator.pushAndRemoveUntil doesn't stick here because go_router
+        // re-syncs to its configured location, leaving the user on the
+        // previous (logged-in) screen.
+        ctx.go(SignInScreen.routeName);
       }
     } finally {
       _busy = false;

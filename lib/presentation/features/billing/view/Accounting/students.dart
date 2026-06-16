@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.d
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/family_summary_list.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
@@ -98,11 +99,11 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
               const SizedBox(height: 8),
               AmountInvoicedStatBar(
                 totalAmount: overview.totalInvoiced,
-                paidPercentage: overview.paidPercent,
-                grossPaidPercentage: overview.grossPaidPercent,
-                inProcessPercentage: overview.inProcessPercent,
-                unpaidPercentage: overview.unpaidPercent,
-                refundPercentage: overview.refundPercent,
+                netPaidAmount: overview.netPaidAmount,
+                paidAmount: overview.paidAmount,
+                inProcessAmount: overview.inProcessAmount,
+                outstandingAmount: overview.outstandingAmount,
+                refundedAmount: overview.refundedAmount,
               ),
               const SizedBox(height: 8),
               CustomSectionCard(
@@ -190,6 +191,15 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
                         families: familyState.filteredFamilies,
                         isLoading: familyState.isLoading,
                         errorMessage: familyState.errorMessage,
+                        onBillingProfile: (family) => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => TransactionDetailsScreen(
+                              ownerType: family.ownerType,
+                              ownerCode: family.ownerCode,
+                              familyName: family.familyName,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   );

@@ -7,25 +7,28 @@ import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 
 class AmountInvoicedStatBar extends StatefulWidget {
+  /// Actual amounts straight from the billing overview API. The label values
+  /// are shown verbatim (no clamping) so negatives and >100% shares display
+  /// correctly; percentages are derived as `amount / totalAmount` and only
+  /// clamped for the progress-bar segment widths.
   final double totalAmount;
-  final double paidPercentage;
+  final double netPaidAmount;
 
-  /// Gross paid share (before refunds), shown as the "Paid" item in the
-  /// expanded view. Defaults to [paidPercentage] when not provided.
-  final double? grossPaidPercentage;
-  final double inProcessPercentage;
-  final double unpaidPercentage;
-  final double refundPercentage;
+  /// Gross paid (before refunds), shown as the "Paid" item in the expanded view.
+  final double paidAmount;
+  final double inProcessAmount;
+  final double outstandingAmount;
+  final double refundedAmount;
   final String title;
 
   const AmountInvoicedStatBar({
     super.key,
     required this.totalAmount,
-    required this.paidPercentage,
-    this.grossPaidPercentage,
-    required this.inProcessPercentage,
-    required this.unpaidPercentage,
-    this.refundPercentage = 0,
+    required this.netPaidAmount,
+    required this.paidAmount,
+    required this.inProcessAmount,
+    required this.outstandingAmount,
+    this.refundedAmount = 0,
     this.title = 'Amount Invoiced',
   });
 
@@ -52,59 +55,49 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       child: BlocBuilder<BoolToggleCubit, bool>(
         builder: (context, _) {
     final numberFormat = NumberFormat('#,##0');
-    String formatAmount(double value) => '\$${numberFormat.format(value)}';
+    String formatAmount(double value) {
+      final sign = value < 0 ? '-' : '';
+      return '$sign\$${numberFormat.format(value.abs())}';
+    }
 
-    final double paidAmt = (widget.totalAmount *
-            (widget.paidPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
-    final double inProcessAmt = (widget.totalAmount *
-            (widget.inProcessPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
-    final double unpaidAmt = (widget.totalAmount *
-            (widget.unpaidPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
+    // Share of the invoiced amount; shown verbatim in labels.
+    double pct(double value) =>
+        widget.totalAmount <= 0 ? 0 : (value / widget.totalAmount) * 100;
+    String pctText(double value) => '${pct(value).toStringAsFixed(1)}%';
+    // Clamped only for the progress-bar segment width.
+    double barValue(double value) => pct(value).clamp(0, 100).toDouble();
+
+    String labelFor(String name, double amount) =>
+        '$name\n${formatAmount(amount)} (${pctText(amount)})';
 
     // Keep Net Paid and Outstanding as the first-row items
     final netPaidItem = ProgressItemHelper(
-      label:
-          'Net Paid\n${formatAmount(paidAmt)} (${widget.paidPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.paidPercentage.clamp(0, 100).toDouble(),
+      label: labelFor('Net Paid', widget.netPaidAmount),
+      value: barValue(widget.netPaidAmount),
       color: Colors.greenAccent.shade100,
     );
 
     final outstandingItem = ProgressItemHelper(
-      label:
-          'Outstanding\n${formatAmount(unpaidAmt)} (${widget.unpaidPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.unpaidPercentage.clamp(0, 100).toDouble(),
+      label: labelFor('Outstanding', widget.outstandingAmount),
+      value: barValue(widget.outstandingAmount),
       color: Colors.redAccent.shade100,
     );
 
     final inProcessItem = ProgressItemHelper(
-      label:
-          'In Process\n${formatAmount(inProcessAmt)} (${widget.inProcessPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.inProcessPercentage.clamp(0, 100).toDouble(),
+      label: labelFor('In Process', widget.inProcessAmount),
+      value: barValue(widget.inProcessAmount),
       color: Colors.yellow,
     );
 
-    final double refundAmt = widget.totalAmount *
-        (widget.refundPercentage.clamp(0, 100) / 100);
-
     final refundItem = ProgressItemHelper(
-      label:
-          'Refund\n${formatAmount(refundAmt)} (${widget.refundPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.refundPercentage.clamp(0, 100).toDouble(),
+      label: labelFor('Refund', widget.refundedAmount),
+      value: barValue(widget.refundedAmount),
       color: AppColors.refundLegendColor,
     );
 
-    final double grossPaidPct = widget.grossPaidPercentage ?? widget.paidPercentage;
-    final double grossPaidAmt = (widget.totalAmount *
-            (grossPaidPct.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
-
     final paidItem = ProgressItemHelper(
-      label:
-          'Paid\n${formatAmount(grossPaidAmt)} (${grossPaidPct.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: grossPaidPct.clamp(0, 100).toDouble(),
+      label: labelFor('Paid', widget.paidAmount),
+      value: barValue(widget.paidAmount),
       color: AppColors.paidLegendColor,
     );
 
@@ -128,9 +121,8 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       inProcessItem,
     ];
 
-    final outstandingAmountText = formatAmount(unpaidAmt);
-    final outstandingPercentage =
-        widget.unpaidPercentage.clamp(0, 100).toStringAsFixed(1);
+    final outstandingAmountText = formatAmount(widget.outstandingAmount);
+    final outstandingPercentage = pct(widget.outstandingAmount).toStringAsFixed(1);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

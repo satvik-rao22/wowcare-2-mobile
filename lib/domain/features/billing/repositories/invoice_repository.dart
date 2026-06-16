@@ -1,3 +1,4 @@
+import '../entities/family_ledger_entity.dart';
 import '../entities/family_summary_entity.dart';
 import '../entities/invoice_entity.dart';
 import '../entities/invoice_list_entity.dart';
@@ -24,6 +25,15 @@ abstract class InvoiceRepository {
   Future<List<FamilySummaryEntity>> getFamilySummary({
     required String organizationCode,
     required String school,
+  });
+
+  /// A family's full billing ledger
+  /// (`GET /api/v1/invoices/family-ledger`).
+  Future<FamilyLedgerEntity> getFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String ownerType,
+    required String ownerCode,
   });
   Future<InvoicePaymentResultEntity> createPayment(InvoicePaymentParams params);
   Future<InvoicePaymentResultEntity> createRefund(InvoicePaymentParams params);
