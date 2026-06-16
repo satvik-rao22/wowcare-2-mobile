@@ -300,11 +300,12 @@ class ApiPaths {
       '$schoolNamesByOrg/$orgCode';
   static const String organizationNames = '/api/v1/organizations/names';
 
-  /// GET /api/v1/school/{schoolCode}/regular-schedule
+  /// Legacy regular-schedule list (prefer [schoolByCode] + `childcareSchedule`).
   static String schoolRegularSchedule(String schoolCode) =>
       '/api/v1/school/$schoolCode/regular-schedule';
 
-  /// School entity root (gateway: school host).
+  /// School settings (`data.childcareSchedule`, timezone, address, …).
+  /// UAT: `/api/v1/organization/schools/{schoolCode}`.
   static const String schools = '/api/v1/schools';
   static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
 

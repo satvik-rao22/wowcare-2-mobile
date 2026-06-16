@@ -2,28 +2,53 @@ import 'package:flutter/material.dart';
 
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 
-/// Resolved open/close window for the schedule calendar (`hh:mm:ss a`).
+/// Resolved school-day windows from `childcareSchedule` for one weekday.
 class SchoolDayHours {
   const SchoolDayHours({
+    required this.label,
+    required this.type,
     required this.startTime,
     required this.endTime,
+    this.halfDay,
     this.durationMinutes,
-    this.startTimeOfDay,
-    this.endTimeOfDay,
+    required this.startTimeOfDay,
+    required this.endTimeOfDay,
+    required this.scheduleMonitorStartTimeOfDay,
+    required this.scheduleMonitorEndTimeOfDay,
+    required this.ratioMonitorStartTimeOfDay,
+    required this.ratioMonitorEndTimeOfDay,
   });
 
+  /// e.g. `Mon Schedule`
+  final String label;
+
+  /// e.g. `REGULAR`
+  final String type;
+
+  /// School open/close for calendar display (`hh:mm:ss a`).
   final String startTime;
   final String endTime;
 
-  /// Monitoring block size in minutes for forecast APIs.
+  /// Half-day cutoff (`hh:mm:ss a`) when configured.
+  final String? halfDay;
+
+  /// Monitoring block size in minutes (`duration` from API).
   final int? durationMinutes;
 
-  /// 24h bounds used when building forecast requests.
-  final TimeOfDay? startTimeOfDay;
-  final TimeOfDay? endTimeOfDay;
+  /// School operating hours (timeline axis).
+  final TimeOfDay startTimeOfDay;
+  final TimeOfDay endTimeOfDay;
+
+  /// Schedule-monitoring window used for forecast API requests.
+  final TimeOfDay scheduleMonitorStartTimeOfDay;
+  final TimeOfDay scheduleMonitorEndTimeOfDay;
+
+  /// Ratio-monitoring window (compliance checks).
+  final TimeOfDay ratioMonitorStartTimeOfDay;
+  final TimeOfDay ratioMonitorEndTimeOfDay;
 }
 
-/// Maps school regular-schedule API rows to calendar time bounds per weekday.
+/// Maps `childcareSchedule` rows to calendar / forecast time bounds per weekday.
 class SchoolHoursResolver {
   const SchoolHoursResolver(this._byDay);
 
@@ -54,34 +79,55 @@ class SchoolHoursResolver {
   SchoolRegularScheduleDay? dayFor(DateTime date) =>
       _byDay[dayOfWeekKey(date)];
 
-  /// Returns calendar bounds for [date], or null if the school has no hours that day.
+  /// Returns resolved bounds for [date], or null when the school is closed.
   SchoolDayHours? hoursFor(DateTime date) {
     final day = dayFor(date);
     if (day == null) return null;
+    if (day.status != null && !day.isActive) return null;
+    if (!day.isRegular) return null;
+
     final startTod = _parse24hTime(day.startTime);
     final endTod = _parse24hTime(day.endTime);
-    final start = _toShiftClockString(day.startTime);
-    final end = _toShiftClockString(day.endTime);
-    if (start.isEmpty || end.isEmpty || startTod == null || endTod == null) {
-      return null;
-    }
+    if (startTod == null || endTod == null) return null;
+
+    final scheduleStart = _parse24hTime(day.scheduleMonitorStartTime) ?? startTod;
+    final scheduleEnd = _parse24hTime(day.scheduleMonitorEndTime) ?? endTod;
+    final ratioStart = _parse24hTime(day.ratioMonitorStartTime) ?? scheduleStart;
+    final ratioEnd = _parse24hTime(day.ratioMonitorEndTime) ?? scheduleEnd;
+
+    final startLabel = _toShiftClockString(day.startTime);
+    final endLabel = _toShiftClockString(day.endTime);
+    if (startLabel.isEmpty || endLabel.isEmpty) return null;
+
+    final halfDayRaw = day.halfDay?.trim();
+    final halfDayLabel =
+        halfDayRaw != null && halfDayRaw.isNotEmpty
+            ? _toShiftClockString(halfDayRaw)
+            : null;
+
     final blockDuration = (day.durationMinutes ?? 30).clamp(1, 24 * 60);
+
     return SchoolDayHours(
-      startTime: start,
-      endTime: end,
+      label: day.label?.trim() ?? day.dayOfWeek,
+      type: day.type?.trim() ?? 'REGULAR',
+      startTime: startLabel,
+      endTime: endLabel,
+      halfDay: halfDayLabel?.isNotEmpty == true ? halfDayLabel : null,
       durationMinutes: blockDuration,
       startTimeOfDay: startTod,
       endTimeOfDay: endTod,
+      scheduleMonitorStartTimeOfDay: scheduleStart,
+      scheduleMonitorEndTimeOfDay: scheduleEnd,
+      ratioMonitorStartTimeOfDay: ratioStart,
+      ratioMonitorEndTimeOfDay: ratioEnd,
     );
   }
 
   /// Total open minutes for [date] (school hours span).
   int? totalMinutesFor(DateTime date) {
     final hours = hoursFor(date);
-    if (hours?.startTimeOfDay == null || hours?.endTimeOfDay == null) {
-      return null;
-    }
-    return _minutesBetween(hours!.startTimeOfDay!, hours.endTimeOfDay!);
+    if (hours == null) return null;
+    return _minutesBetween(hours.startTimeOfDay, hours.endTimeOfDay);
   }
 
   static int _minutesBetween(TimeOfDay start, TimeOfDay end) {
@@ -90,8 +136,8 @@ class SchoolHoursResolver {
     return (endMin - startMin).clamp(0, 24 * 60);
   }
 
-  static TimeOfDay? _parse24hTime(String raw) {
-    final trimmed = raw.trim();
+  static TimeOfDay? _parse24hTime(String? raw) {
+    final trimmed = raw?.trim() ?? '';
     if (trimmed.isEmpty) return null;
     final parts = trimmed.split(':');
     if (parts.length < 2) return null;

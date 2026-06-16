@@ -455,6 +455,8 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         organizationCode: organizationCode,
         dateFrom: day,
         dateTo: day,
+        shiftStatus:
+            _isStaffPersonaScope ? const <String>['PUBLISHED'] : const <String>[],
       );
 
       if (isClosed) return;

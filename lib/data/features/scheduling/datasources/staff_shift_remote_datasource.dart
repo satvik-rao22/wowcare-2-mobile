@@ -23,6 +23,7 @@ abstract class StaffShiftRemoteDataSource {
     required String dateFrom,
     required String dateTo,
     String? classroomCode,
+    List<String> shiftStatus = const <String>[],
   });
 
   Future<StaffShiftModel> getStaffShiftByCode({required String shiftCode});
@@ -134,6 +135,7 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
     required String dateFrom,
     required String dateTo,
     String? classroomCode,
+    List<String> shiftStatus = const <String>[],
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffShifts,
@@ -149,6 +151,13 @@ class StaffShiftRemoteDataSourceImpl implements StaffShiftRemoteDataSource {
     final code = classroomCode?.trim();
     if (code != null && code.isNotEmpty) {
       queryParameters['classroomCode'] = code;
+    }
+    final statuses = shiftStatus
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList(growable: false);
+    if (statuses.isNotEmpty) {
+      queryParameters['shiftStatus'] = statuses;
     }
 
     final response = await _client.get<dynamic>(

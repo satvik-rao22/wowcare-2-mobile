@@ -235,25 +235,33 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     if (codes.isEmpty && base.isEmpty) return base;
 
     final schoolHours = _schoolHoursResolver?.hoursFor(day);
-    if (schoolHours?.startTimeOfDay == null ||
-        schoolHours?.endTimeOfDay == null) {
+    if (schoolHours == null) {
       return base;
     }
 
-    final start = schoolHours!.startTimeOfDay!;
-    final end = schoolHours.endTimeOfDay!;
+    final displayStart = schoolHours.startTimeOfDay;
+    final displayEnd = schoolHours.endTimeOfDay;
+    final forecastStart = schoolHours.scheduleMonitorStartTimeOfDay;
+    final forecastEnd = schoolHours.scheduleMonitorEndTimeOfDay;
     final blockMinutes = schoolHours.durationMinutes ?? 30;
-    final windowStart = ForecastSlotMapper.minutesOf(start);
-    final windowEnd = ForecastSlotMapper.minutesOf(end);
+    final windowStart = ForecastSlotMapper.minutesOf(displayStart);
+    final windowEnd = ForecastSlotMapper.minutesOf(displayEnd);
 
     if (codes.isEmpty) {
       codes.addAll(
         base.map((c) => c.classroomCode).where((c) => c.isNotEmpty),
       );
     }
-    if (codes.isEmpty) return base;
+    if (codes.isEmpty) {
+      return _applyDaySchoolHoursShell(
+        classrooms: base,
+        day: day,
+        shifts: shifts,
+        schoolHours: schoolHours,
+      );
+    }
 
-    List<ClassroomForecastBlock> forecastBlocks;
+    List<ClassroomForecastBlock> forecastBlocks = const [];
     try {
       if (state.viewMode == SchedulingViewMode.week) {
         forecastBlocks = await _getClassroomForecastRangeUseCase(
@@ -261,8 +269,8 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           organizationCode: organizationCode,
           startDate: day,
           endDate: day,
-          startTime: start,
-          endTime: end,
+          startTime: forecastStart,
+          endTime: forecastEnd,
           durationMinutes: blockMinutes,
           classroomCodes: codes,
         );
@@ -271,14 +279,14 @@ class SchedulingCubit extends Cubit<SchedulingState> {
           schoolCode: schoolCode,
           organizationCode: organizationCode,
           date: day,
-          startTime: start,
-          endTime: end,
+          startTime: forecastStart,
+          endTime: forecastEnd,
           durationMinutes: blockMinutes,
           classroomCodes: codes,
         );
       }
     } catch (_) {
-      return base;
+      // Keep empty forecast blocks; still paint the school-hours timeline.
     }
 
     final blocksByClassroom = <String, List<ClassroomForecastBlock>>{};
@@ -490,6 +498,35 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     );
   }
 
+  /// Paints the day-view Gantt axis from school settings even when forecast
+  /// data is unavailable (no classroom codes or empty forecast response).
+  List<ClassroomDaySchedule> _applyDaySchoolHoursShell({
+    required List<ClassroomDaySchedule> classrooms,
+    required DateTime day,
+    required List<StaffShift> shifts,
+    required SchoolDayHours schoolHours,
+  }) {
+    if (state.viewMode != SchedulingViewMode.day) return classrooms;
+
+    final windowStart = ForecastSlotMapper.minutesOf(schoolHours.startTimeOfDay);
+    final windowEnd = ForecastSlotMapper.minutesOf(schoolHours.endTimeOfDay);
+    final blockMinutes = schoolHours.durationMinutes ?? 30;
+
+    return classrooms
+        .map(
+          (c) => _applyDayForecast(
+            classroom: c,
+            blocks: const [],
+            shifts: shifts,
+            day: day,
+            windowStart: windowStart,
+            windowEnd: windowEnd,
+            blockMinutes: blockMinutes,
+          ),
+        )
+        .toList(growable: false);
+  }
+
   void setClassroomFilter(String? name) {
     final trimmed = name?.trim();
     final next =
@@ -564,22 +601,6 @@ class SchedulingCubit extends Cubit<SchedulingState> {
     if (_lastShifts.isNotEmpty || _allClassroomCodes.isNotEmpty) {
       load();
     }
-  }
-
-  static int? _parseClockMinutes(String raw) {
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-    final parts = trimmed.split(' ');
-    final timePart = parts.first;
-    final period = parts.length > 1 ? parts[1].toUpperCase() : '';
-    final segments = timePart.split(':');
-    if (segments.length < 2) return null;
-    var hour = int.tryParse(segments[0]);
-    final minute = int.tryParse(segments[1]);
-    if (hour == null || minute == null) return null;
-    if (period == 'PM' && hour < 12) hour += 12;
-    if (period == 'AM' && hour == 12) hour = 0;
-    return hour * 60 + minute;
   }
 
   List<ClassroomDaySchedule> _groupShiftsByClassroom(

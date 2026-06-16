@@ -13,6 +13,8 @@ class Newsletter {
     required this.createdAt,
     required this.recipientCount,
     required this.classroomCodes,
+    this.recipientNames = const <String>[],
+    this.recipients = const <NewsletterRecipientSummary>[],
     this.createdByName = '',
     this.bodyHtml = '',
     this.colorTheme = '',
@@ -31,12 +33,24 @@ class Newsletter {
   final DateTime? createdAt;
   final int recipientCount;
   final List<String> classroomCodes;
+  final List<String> recipientNames;
+  final List<NewsletterRecipientSummary> recipients;
   final String createdByName;
   final String bodyHtml;
   final String colorTheme;
   final String backgroundPattern;
   final List<NewsletterComponent> components;
   final List<NewsletterAttachment> attachments;
+}
+
+class NewsletterRecipientSummary {
+  const NewsletterRecipientSummary({
+    required this.displayName,
+    required this.userCode,
+  });
+
+  final String displayName;
+  final String userCode;
 }
 
 class NewsletterPage {
