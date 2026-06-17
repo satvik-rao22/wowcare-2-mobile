@@ -28,7 +28,7 @@ class TransactionDetailsScreen extends StatefulWidget {
 
   /// Family/owner to load the ledger for (when opened from a student/family
   /// card). When [ownerCode] is set, the screen fetches the real family ledger;
-  /// otherwise it falls back to demo data.
+  /// otherwise the screen stays empty (no demo data).
   final String? ownerType;
   final String? ownerCode;
   final String? familyName;
@@ -328,12 +328,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
-      body: RefreshIndicator(
+      body: CustomRefreshIndicator(
         onRefresh: () async {
-          await Future.wait([
-            _cubit.loadSiblingTransactions(refresh: true),
-            _cubit.initialize(),
-          ]);
+          await _cubit.refresh();
         },
         child: SingleChildScrollView(
           controller: _scrollController,
@@ -496,7 +493,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _cubit.loadSiblingTransactions(refresh: true),
+                  onPressed: () => _cubit.refresh(),
                   child: const Text('Retry'),
                 ),
               ],
@@ -543,7 +540,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _cubit.loadSiblingTransactions(refresh: true),
+                  onPressed: () => _cubit.refresh(),
                   child: const Text('Retry'),
                 ),
               ],
