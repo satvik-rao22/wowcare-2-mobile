@@ -41,6 +41,12 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   }
 
   @override
+  Future<InvoiceListItemEntity> getInvoiceByCode(String code) async {
+    final m = await _dataSource.getInvoiceByCode(code);
+    return m.toEntity();
+  }
+
+  @override
   Future<PaginatedInvoicesEntity> listInvoices({
     required String organizationCode,
     required String school,

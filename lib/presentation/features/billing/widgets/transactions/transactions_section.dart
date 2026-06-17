@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
@@ -219,30 +220,16 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     );
   }
 
-  /// Opens the invoice in edit mode (Create Invoice screen, PATCH on save),
-  /// pre-filled from the available row data.
+  /// Opens the invoice in edit mode (Create Invoice screen). The form is
+  /// hydrated from `GET /invoices/by-code/{code}` and PATCHes on save.
   void _openEditInvoice(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final dueDate = (item.endDate != null && item.endDate!.trim().isNotEmpty)
-        ? DateTime.tryParse(item.endDate!.trim())
-        : null;
     Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => CreateInvoiceScreen(
           selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: <String, dynamic>{
-            'invoiceCode': code,
-            'invoiceItems': [
-              {
-                'description': item.description,
-                'amount': item.amount.toStringAsFixed(2),
-              },
-            ],
-            'invoiceDate': item.date,
-            'dueDate': dueDate,
-            'internalNote': item.note ?? '',
-          },
+          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
         ),
       ),
     );
@@ -262,57 +249,49 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     return code;
   }
 
-  Future<void> _confirmCancel(TransactionItem item) async {
+  void _confirmCancel(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final confirmed = await _confirmAction(
-      title: 'Cancel invoice?',
-      message: 'This will cancel the invoice. This action cannot be undone.',
-      confirmLabel: 'Cancel invoice',
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_cancel',
+      action: () => _cubit.cancelInvoice(code),
     );
-    if (confirmed) await _cubit.cancelInvoice(code);
   }
 
-  Future<void> _confirmDelete(TransactionItem item) async {
+  void _confirmDelete(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final confirmed = await _confirmAction(
-      title: 'Delete invoice?',
-      message: 'This will permanently delete the invoice.',
-      confirmLabel: 'Delete',
-      isDestructive: true,
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_delete',
+      action: () => _cubit.deleteInvoice(code),
     );
-    if (confirmed) await _cubit.deleteInvoice(code);
   }
 
-  Future<bool> _confirmAction({
-    required String title,
-    required String message,
-    required String confirmLabel,
-    bool isDestructive = false,
-  }) async {
-    final result = await showDialog<bool>(
+  /// Confirms a cancel/delete via the shared bottom sheet; the cubit emits the
+  /// success/error message which the BlocListener surfaces.
+  void _showInvoiceActionSheet({
+    required TransactionItem item,
+    required String type,
+    required Future<void> Function() action,
+  }) {
+    final name =
+        item.description.trim().isNotEmpty ? item.description : item.studentName;
+    showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor:
-                  isDestructive ? AppColors.errorColor : AppColors.primaryColor,
-            ),
-            child: Text(confirmLabel),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => DeleteConfirmationBottomSheet(
+        name: name,
+        type: type,
+        onDelete: () async {
+          await action();
+          if (mounted) Navigator.of(sheetCtx).pop();
+        },
+        onCancel: () => Navigator.of(sheetCtx).pop(),
       ),
     );
-    return result ?? false;
   }
 
   void _openSendInvoice(TransactionItem item) {

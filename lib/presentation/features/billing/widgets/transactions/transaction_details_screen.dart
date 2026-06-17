@@ -17,6 +17,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
@@ -188,30 +189,17 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
         isWarning: true,
       );
 
-  /// Opens the invoice in edit mode (Create Invoice screen, PATCH on save),
-  /// pre-filled from the available row data, then reloads the ledger on save.
+  /// Opens the invoice in edit mode (Create Invoice screen). The form is
+  /// hydrated from `GET /invoices/by-code/{code}` and PATCHes on save; the
+  /// ledger reloads afterwards.
   Future<void> _openEditInvoice(TransactionItem item) async {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final dueDate = (item.endDate != null && item.endDate!.trim().isNotEmpty)
-        ? DateTime.tryParse(item.endDate!.trim())
-        : null;
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => CreateInvoiceScreen(
           selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: <String, dynamic>{
-            'invoiceCode': code,
-            'invoiceItems': [
-              {
-                'description': item.description,
-                'amount': item.amount.toStringAsFixed(2),
-              },
-            ],
-            'invoiceDate': item.date,
-            'dueDate': dueDate,
-            'internalNote': item.note ?? '',
-          },
+          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
         ),
       ),
     );
@@ -239,92 +227,81 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     return code;
   }
 
-  Future<void> _confirmCancel(TransactionItem item) async {
+  void _confirmCancel(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final ok = await _confirmAction(
-      title: 'Cancel invoice?',
-      message: 'This will cancel the invoice. This action cannot be undone.',
-      confirmLabel: 'Cancel invoice',
-    );
-    if (!ok) return;
-    final success = await _cubit.cancelInvoice(code);
-    if (!mounted) return;
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: success ? 'Invoice cancelled' : _cubit.state.errorMessage,
-      isError: !success,
-      isSuccess: success,
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_cancel',
+      action: () => _cubit.cancelInvoice(code),
+      successMessage: 'Invoice cancelled',
     );
   }
 
-  Future<void> _confirmDelete(TransactionItem item) async {
+  void _confirmDelete(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final ok = await _confirmAction(
-      title: 'Delete invoice?',
-      message: 'This will permanently delete the invoice.',
-      confirmLabel: 'Delete',
-      isDestructive: true,
-    );
-    if (!ok) return;
-    final success = await _cubit.deleteInvoice(code);
-    if (!mounted) return;
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: success ? 'Invoice deleted' : _cubit.state.errorMessage,
-      isError: !success,
-      isSuccess: success,
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_delete',
+      action: () => _cubit.deleteInvoice(code),
+      successMessage: 'Invoice deleted',
     );
   }
 
-  Future<bool> _confirmAction({
-    required String title,
-    required String message,
-    required String confirmLabel,
-    bool isDestructive = false,
-  }) async {
-    final result = await showDialog<bool>(
+  /// Confirms a cancel/delete via the shared bottom sheet. The action runs while
+  /// the sheet shows its loading state, then the sheet closes and the result is
+  /// surfaced as a top snackbar.
+  void _showInvoiceActionSheet({
+    required TransactionItem item,
+    required String type,
+    required Future<bool> Function() action,
+    required String successMessage,
+  }) {
+    final name =
+        item.description.trim().isNotEmpty ? item.description : item.studentName;
+    showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor:
-                  isDestructive ? AppColors.errorColor : AppColors.primaryColor,
-            ),
-            child: Text(confirmLabel),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => DeleteConfirmationBottomSheet(
+        name: name,
+        type: type,
+        onDelete: () async {
+          final success = await action();
+          if (mounted) Navigator.of(sheetCtx).pop();
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: success ? successMessage : _cubit.state.errorMessage,
+            isError: !success,
+            isSuccess: success,
+          );
+        },
+        onCancel: () => Navigator.of(sheetCtx).pop(),
       ),
     );
-    return result ?? false;
   }
 
-  /// Minimal zero-balance [TransactionItem] for a fresh family payment.
+  /// [TransactionItem] for a fresh family payment, pre-filled with the family's
+  /// outstanding balance so Receive Payment shows the amount to collect.
   TransactionItem _buildReceivePaymentTransaction(List<Student> students) {
     final Student first = students.first;
     final String name = students.length > 1
         ? '${first.fullName} +${students.length - 1}'
         : first.fullName;
+    final double outstanding = _cubit.state.openBalance;
     return TransactionItem(
       id: 0,
       transactionType: 'Payment',
       date: DateTime.now(),
-      amount: 0,
+      amount: outstanding,
       status: '',
       description: 'Receive Payment',
       studentName: name,
       classroom: first.roomName ?? '',
-      balance: 0,
-      studentOpenBalance: 0,
+      balance: outstanding,
+      studentOpenBalance: outstanding,
     );
   }
 

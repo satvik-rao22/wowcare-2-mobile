@@ -14,6 +14,7 @@ abstract class InvoiceRemoteDataSource {
     DateTime? dateFrom,
     DateTime? dateTo,
   });
+  Future<InvoiceListItemModel> getInvoiceByCode(String code);
   Future<PaginatedInvoicesModel> listInvoices({
     required String organizationCode,
     required String school,
@@ -77,6 +78,15 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       },
     );
     return InvoiceOverviewModel.fromJson(response.data ?? {});
+  }
+
+  @override
+  Future<InvoiceListItemModel> getInvoiceByCode(String code) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoiceDetailByCode(code)),
+    );
+    final data = response.data?['data'] as Map<String, dynamic>? ?? {};
+    return InvoiceListItemModel.fromJson(data);
   }
 
   @override

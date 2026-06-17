@@ -145,6 +145,10 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to reactivate this Ledger -\n"${widget.name}" ?'
         : widget.type == 'ledger_delete'
         ? 'Do you want to delete this Ledger -\n"${widget.name}" ?'
+        : widget.type == 'invoice_cancel'
+        ? 'Do you want to cancel this Invoice -\n"${widget.name}" ?\nThis action cannot be undone.'
+        : widget.type == 'invoice_delete'
+        ? 'Do you want to delete this Invoice -\n"${widget.name}" ?'
         : '';
 
     String buttonText = widget.type == 'complete_purchase'
@@ -160,6 +164,10 @@ class _DeleteConfirmationBottomSheetState
               widget.type == 'ledger_reactivate')
         ? 'Reactivate'
         : widget.type == 'ledger_delete'
+        ? 'Delete'
+        : widget.type == 'invoice_cancel'
+        ? 'Cancel Invoice'
+        : widget.type == 'invoice_delete'
         ? 'Delete'
         : widget.type == 'order_purchase'
         ? 'Mark as Ordered'

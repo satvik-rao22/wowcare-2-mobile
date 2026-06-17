@@ -884,6 +884,10 @@ class ApiPaths {
       '/api/v1/invoices/${Uri.encodeComponent(organizationCode.trim())}';
   static String invoiceByCode(String code) =>
       '/api/v1/invoices/${Uri.encodeComponent(code.trim())}';
+
+  /// Full invoice detail (incl. line items) for the edit form.
+  static String invoiceDetailByCode(String code) =>
+      '/api/v1/invoices/by-code/${Uri.encodeComponent(code.trim())}';
   static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';
   static String invoiceIssue(String code) => '${invoiceByCode(code)}/issue';
   static String invoiceResend(String code) => '${invoiceByCode(code)}/resend';

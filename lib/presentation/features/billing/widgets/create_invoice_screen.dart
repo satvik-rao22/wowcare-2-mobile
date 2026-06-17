@@ -48,7 +48,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   void initState() {
     super.initState();
     _students = List<Student>.of(widget.selectedStudents);
-    _cubit.initialize(widget.initialInvoiceData);
+    final editCode =
+        widget.initialInvoiceData?['invoiceCode']?.toString().trim() ?? '';
+    if (editCode.isNotEmpty) {
+      // Edit: fetch the real invoice (by-code) and hydrate the form.
+      _cubit.loadInvoiceForEdit(editCode);
+    } else {
+      _cubit.initialize(widget.initialInvoiceData);
+    }
     final note = widget.initialInvoiceData?['internalNote'];
     if (note is String) _internalNoteController.text = note;
   }

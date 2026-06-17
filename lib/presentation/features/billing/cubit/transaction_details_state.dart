@@ -59,6 +59,10 @@ class TransactionDetailsState extends Equatable {
   double get amountUnpaid => summaryDouble('amountUnpaid');
   double get amountInProcess => summaryDouble('amountInProcess');
   double get amountRefund => summaryDouble('amountRefund');
+
+  /// The family's outstanding balance (from the ledger), shown as the amount
+  /// to collect in Receive Payment.
+  double get openBalance => summaryDouble('openBalance');
   double get familyTotalInvoiced =>
       netPaidAmount + amountUnpaid + amountInProcess;
 
