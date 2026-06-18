@@ -151,7 +151,8 @@ class ApiConstants {
   /// Set with: `--dart-define=ENVIRONMENT=UAT` (otherwise defaults to LOCAL).
   static const String _environment = String.fromEnvironment(
     'ENVIRONMENT',
-    defaultValue: 'LOCAL',
+    defaultValue: 'UAT',// 'LOCAL',
+    // defaultValue: 'LOCAL',
   );
 
   static bool get isUat => _environment.toUpperCase() == 'UAT';

@@ -122,6 +122,7 @@ import '../../domain/features/staff_classroom/usecases/assign_staff_to_classroom
 import '../../data/features/staff_classroom/datasources/staff_classroom_remote_datasource.dart';
 import '../../data/features/staff_classroom/repositories/staff_classroom_repository_impl.dart';
 import '../../domain/features/attendance/repositories/attendance_repository.dart';
+import '../../modules/attendance_v2/di/attendance_v2_di.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../domain/features/availability/repositories/availability_repository.dart';
 import '../../domain/features/availability/usecases/create_individual_movement_usecase.dart';
@@ -412,6 +413,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator(),
     ),
   );
+  // Attendance V2 module (staff overtime detail) — reuses AttendanceRepository.
+  registerAttendanceV2(serviceLocator);
   serviceLocator.registerLazySingleton<AvailabilityRepository>(
     () => AvailabilityRepositoryImpl(serviceLocator(), serviceLocator()),
   );

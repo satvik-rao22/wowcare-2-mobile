@@ -9,7 +9,7 @@ import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dar
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
-import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
+import 'package:wowcare/modules/attendance_v2/presentation/screens/staff_detail_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart' show FilterData;
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
@@ -622,11 +622,9 @@ final GoRouter appRouter = GoRouter(
                     final q = state.uri.queryParameters;
                     return _fastPage(
                       state,
-                      StaffAttendanceProfile(
+                      StaffDetailScreen(
                         staffCode: q['code'] ?? '',
-                        staffId: 0,
-                        staffName: q['name'] ?? '-',
-                        roomName: '-',
+                        staffName: q['name'] ?? '',
                       ),
                     );
                   },
@@ -799,14 +797,13 @@ Widget _studentAttendanceProfileScreen(Object? extra) {
 }
 
 Widget _staffAttendanceProfileScreen(Object? extra) {
+  // Attendance V2: staff selection opens the new overtime detail module,
+  // which self-loads everything from the staff code. The legacy
+  // StaffAttendanceProfile screen is kept in the codebase for rollback.
   final args = extra as Map<String, dynamic>? ?? const {};
-  return StaffAttendanceProfile(
+  return StaffDetailScreen(
     staffCode: args['staffCode'] as String? ?? '',
-    staffId: args['staffId'] as int? ?? 0,
-    staffName: args['staffName'] as String? ?? '-',
-    staffPhotoUuid: args['staffPhotoUuid'] as String?,
-    designationName: args['designationName'] as String? ?? '',
-    roomName: args['roomName'] as String? ?? '-',
+    staffName: args['staffName'] as String? ?? '',
   );
 }
 

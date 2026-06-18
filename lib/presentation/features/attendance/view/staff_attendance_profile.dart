@@ -30,6 +30,8 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/modules/attendance_v2/core/config/av2_config.dart';
+import 'package:wowcare/modules/attendance_v2/presentation/screens/staff_detail_screen.dart';
 
 enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
 
@@ -413,6 +415,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   @override
   void initState() {
     super.initState();
+    // Attendance V2: the new module owns the detail screen and self-loads.
+    // Skip the legacy data fetches when it's enabled.
+    if (Av2Config.enabled) return;
     final now = DateTime.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
@@ -791,6 +796,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
   @override
   Widget build(BuildContext context) {
+    // Attendance V2: render the new overtime detail module. The legacy UI
+    // below is preserved for rollback (flip Av2Config.enabled to false).
+    if (Av2Config.enabled) {
+      return StaffDetailScreen(
+        staffCode: widget.staffCode,
+        staffName: widget.staffName,
+      );
+    }
+
     final contentPadding = ResponsiveSizing.contentPadding(context);
 
     return GlobalScaffold(

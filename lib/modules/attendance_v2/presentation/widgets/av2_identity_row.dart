@@ -1,0 +1,95 @@
+import 'package:flutter/material.dart';
+import '../../core/theme/av2_colors.dart';
+import '../../core/theme/av2_spacing.dart';
+import '../../core/theme/av2_text_styles.dart';
+import '../../domain/entities/staff_overtime_profile.dart';
+import 'av2_pill.dart';
+
+/// Avatar + name + designation·classroom + today-status pill. Used in the
+/// detail header (mobile) and beside the date controls (desktop).
+class Av2IdentityRow extends StatelessWidget {
+  const Av2IdentityRow({super.key, required this.profile, this.avatarSize = 48});
+
+  final StaffOvertimeProfile profile;
+  final double avatarSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _avatar(),
+        const SizedBox(width: Av2Spacing.sm),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                profile.staffName,
+                style: Av2Text.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              Text(
+                '${profile.designation} · ${profile.classroomName}',
+                style: Av2Text.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: Av2Spacing.xs),
+        _statusPill(),
+      ],
+    );
+  }
+
+  Widget _avatar() {
+    return Container(
+      width: avatarSize,
+      height: avatarSize,
+      alignment: Alignment.center,
+      decoration: const BoxDecoration(
+        color: Av2Colors.avatarBg,
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        profile.initials,
+        style: Av2Text.bodyMedium.copyWith(
+          color: Av2Colors.avatarText,
+          fontSize: avatarSize * 0.36,
+        ),
+      ),
+    );
+  }
+
+  Widget _statusPill() {
+    switch (profile.todayStatus) {
+      case TodayStatus.present:
+        return const Av2Pill(
+          text: 'Present today',
+          fill: Av2Colors.successFill,
+          textColor: Av2Colors.success,
+        );
+      case TodayStatus.signedOut:
+        return const Av2Pill(
+          text: 'Signed out',
+          fill: Av2Colors.regularFill,
+          textColor: Av2Colors.regular,
+        );
+      case TodayStatus.absent:
+        return const Av2Pill(
+          text: 'Absent',
+          fill: Av2Colors.dangerFill,
+          textColor: Av2Colors.danger,
+        );
+      case TodayStatus.notMarked:
+        return const Av2Pill(
+          text: 'Not marked',
+          fill: Av2Colors.neutralFill,
+          textColor: Av2Colors.neutral,
+        );
+    }
+  }
+}

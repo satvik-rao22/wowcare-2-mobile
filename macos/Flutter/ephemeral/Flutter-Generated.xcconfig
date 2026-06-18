@@ -1,6 +1,6 @@
 // This is a generated file; do not edit or check into version control.
-FLUTTER_ROOT=/opt/homebrew/share/flutter
-FLUTTER_APPLICATION_PATH=/Users/supercoolcoder/Downloads/WowCare/wowcare2-mobile
+FLUTTER_ROOT=/Users/deepaksingh/Documents/Flutter/flutter_sdk
+FLUTTER_APPLICATION_PATH=/Users/deepaksingh/Documents/Flutter/projects/wowcare2-mobile
 COCOAPODS_PARALLEL_CODE_SIGN=true
 FLUTTER_BUILD_DIR=build
 FLUTTER_BUILD_NAME=1.0.0
