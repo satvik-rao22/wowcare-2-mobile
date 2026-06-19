@@ -41,8 +41,12 @@ class RoleState extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      <Object?>[role, modulesWithRead, modulesWithWrite, granularModuleAccess];
+  List<Object?> get props => <Object?>[
+    role,
+    modulesWithRead,
+    modulesWithWrite,
+    granularModuleAccess,
+  ];
 }
 
 /// Bloc replacement for the old `RoleCubit` (a `ChangeNotifier`).
@@ -150,8 +154,8 @@ class RoleCubit extends Cubit<RoleState> {
     if (_initialized && !force) return;
     _initialized = true;
     final storage = serviceLocator<StorageService>();
-    final accessToken =
-        (await storage.getString(StorageKeys.accessToken) ?? '').trim();
+    final accessToken = (await storage.getString(StorageKeys.accessToken) ?? '')
+        .trim();
     if (accessToken.isEmpty) {
       return;
     }
@@ -177,8 +181,8 @@ class RoleCubit extends Cubit<RoleState> {
 
   Future<String> _computeFallbackRole(StorageService storage) async {
     // Fallback derives role from API-provided roles only.
-    final roleJson =
-        (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final roleJson = (await storage.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
     if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
       return 'parent';
     } else if (roleJson.contains('STAFF') || roleJson.contains('TEACHER')) {
@@ -193,10 +197,10 @@ class RoleCubit extends Cubit<RoleState> {
   ) async {
     final modulesWithRead = <String>{};
     final modulesWithWrite = <String>{};
-    final org =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     final candidates = <Map<String, dynamic>>[];
     for (final user in users) {
@@ -211,8 +215,10 @@ class RoleCubit extends Cubit<RoleState> {
         final schoolMap = Map<String, dynamic>.from(s);
         final schoolCode = (schoolMap['schoolCode'] ?? '').toString().trim();
         if (school.isNotEmpty && schoolCode != school) continue;
-        final status =
-            (schoolMap['status'] ?? 'ACTIVE').toString().toUpperCase().trim();
+        final status = (schoolMap['status'] ?? 'ACTIVE')
+            .toString()
+            .toUpperCase()
+            .trim();
         if (status.isNotEmpty && status != 'ACTIVE') continue;
         if ((schoolMap['role'] ?? '').toString().trim().isEmpty) continue;
         candidates.add(schoolMap);
@@ -223,8 +229,8 @@ class RoleCubit extends Cubit<RoleState> {
       return RoleState(role: await _computeFallbackRole(storage));
     }
 
-    final active =
-        (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+    final active = (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+        .trim();
     final activeUpper = active.toUpperCase();
 
     Map<String, dynamic>? matchedSchool;
@@ -267,8 +273,9 @@ class RoleCubit extends Cubit<RoleState> {
       for (final p in permissions) {
         if (p is! Map) continue;
         final permissionMap = Map<String, dynamic>.from(p);
-        final module =
-            _normalizeModule((permissionMap['module'] ?? '').toString());
+        final module = _normalizeModule(
+          (permissionMap['module'] ?? '').toString(),
+        );
         if (module.isEmpty) continue;
         if (permissionMap['read'] == true) {
           modulesWithRead.add(module);

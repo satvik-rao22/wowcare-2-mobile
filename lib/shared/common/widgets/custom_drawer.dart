@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/events/view/events_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
+import 'package:wowcare/presentation/features/assessments/view/assessments_home_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -871,7 +872,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(ParentNewsletterScreen.routeName);
+                                    context.go(
+                                      ParentNewsletterScreen.routeName,
+                                    );
                                   },
                                 ),
                             ],
@@ -1089,6 +1092,22 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             Navigator.pop(context);
                             if (_currentRoute != TasksScreen.routeName) {
                               context.go(TasksScreen.routeName);
+                            }
+                          },
+                        ),
+                        // Assessments — admin/staff only. Sits in the
+                        // non-parent branch so guardians never see the module,
+                        // its navigation, or any assessment data (PRD §3.2).
+                        _CustomExpansionTile(
+                          title: 'Assessments',
+                          icon: MediaRes.documents_drawer_Icon,
+                          isCurrentRoute:
+                              _currentRoute == AssessmentsHomeScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute !=
+                                AssessmentsHomeScreen.routeName) {
+                              context.go(AssessmentsHomeScreen.routeName);
                             }
                           },
                         ),
@@ -1365,10 +1384,7 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                   widget.icon,
                   colorFilter: widget.preserveIconColors
                       ? null
-                      : ColorFilter.mode(
-                          _getIconColor(),
-                          BlendMode.srcIn,
-                        ),
+                      : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
                 ),
                 iconColor: AppColors.themeColor,
                 collapsedIconColor: Colors.white,

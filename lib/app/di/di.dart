@@ -56,6 +56,23 @@ import '../../domain/features/tasks/usecases/delete_task_usecase.dart';
 import '../../domain/features/tasks/usecases/get_tasks_usecase.dart';
 import '../../domain/features/tasks/usecases/update_task_usecase.dart';
 import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
+import '../../data/features/assessments/datasources/assessment_local_datasource.dart';
+import '../../data/features/assessments/datasources/assessment_seed_datasource.dart';
+import '../../data/features/assessments/repositories/assessment_repository_impl.dart';
+import '../../domain/features/assessments/repositories/assessment_repository.dart';
+import '../../domain/features/assessments/usecases/get_assessment_domains_usecase.dart';
+import '../../domain/features/assessments/usecases/save_assessment_domain_usecase.dart';
+import '../../domain/features/assessments/usecases/deactivate_assessment_domain_usecase.dart';
+import '../../domain/features/assessments/usecases/save_assessment_subdomain_usecase.dart';
+import '../../domain/features/assessments/usecases/deactivate_assessment_subdomain_usecase.dart';
+import '../../domain/features/assessments/usecases/save_assessment_milestone_usecase.dart';
+import '../../domain/features/assessments/usecases/deactivate_assessment_milestone_usecase.dart';
+import '../../domain/features/assessments/usecases/update_milestone_classrooms_usecase.dart';
+import '../../domain/features/assessments/usecases/get_assessments_usecase.dart';
+import '../../domain/features/assessments/usecases/bulk_upsert_assessments_usecase.dart';
+import '../../domain/features/assessments/usecases/get_assessment_classrooms_usecase.dart';
+import '../../domain/features/assessments/usecases/get_assessment_students_usecase.dart';
+import '../../presentation/features/assessments/cubit/assessments_cubit.dart';
 import '../../data/features/attendance/datasources/attendance_remote_datasource.dart';
 import '../../data/features/attendance/repositories/attendance_repository_impl.dart';
 import '../../data/features/availability/datasources/availability_remote_datasource.dart';
@@ -480,6 +497,78 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<UpdateTaskUseCase>(),
       serviceLocator<DeleteTaskUseCase>(),
       serviceLocator<StorageService>(),
+    ),
+  );
+
+  // Assessments (local-first: Isar persistence seeded from bundled mock JSON
+  // until the assessments backend is available — mirrors Events/Tasks).
+  serviceLocator.registerLazySingleton<AssessmentLocalDataSource>(
+    () => AssessmentLocalDataSourceImpl(serviceLocator<CacheService>()),
+  );
+  serviceLocator.registerLazySingleton<AssessmentSeedDataSource>(
+    () => AssessmentSeedDataSourceImpl(),
+  );
+  serviceLocator.registerLazySingleton<AssessmentRepository>(
+    () => AssessmentRepositoryImpl(
+      serviceLocator<AssessmentLocalDataSource>(),
+      serviceLocator<AssessmentSeedDataSource>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetAssessmentDomainsUseCase>(
+    () => GetAssessmentDomainsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveAssessmentDomainUseCase>(
+    () => SaveAssessmentDomainUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateAssessmentDomainUseCase>(
+    () => DeactivateAssessmentDomainUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveAssessmentSubdomainUseCase>(
+    () => SaveAssessmentSubdomainUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateAssessmentSubdomainUseCase>(
+    () => DeactivateAssessmentSubdomainUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveAssessmentMilestoneUseCase>(
+    () => SaveAssessmentMilestoneUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateAssessmentMilestoneUseCase>(
+    () => DeactivateAssessmentMilestoneUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateMilestoneClassroomsUseCase>(
+    () => UpdateMilestoneClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAssessmentsUseCase>(
+    () => GetAssessmentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<BulkUpsertAssessmentsUseCase>(
+    () => BulkUpsertAssessmentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAssessmentClassroomsUseCase>(
+    () => GetAssessmentClassroomsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAssessmentStudentsUseCase>(
+    () => GetAssessmentStudentsUseCase(serviceLocator()),
+  );
+  // Singleton so Parameter Management, Student/Classroom/School assessment
+  // screens (separate routes) share one state and edits reflect everywhere
+  // without refetching.
+  serviceLocator.registerLazySingleton<AssessmentsCubit>(
+    () => AssessmentsCubit(
+      getDomains: serviceLocator(),
+      saveDomain: serviceLocator(),
+      deactivateDomain: serviceLocator(),
+      saveSubdomain: serviceLocator(),
+      deactivateSubdomain: serviceLocator(),
+      saveMilestone: serviceLocator(),
+      deactivateMilestone: serviceLocator(),
+      updateMilestoneClassrooms: serviceLocator(),
+      getAssessments: serviceLocator(),
+      bulkUpsertAssessments: serviceLocator(),
+      getClassrooms: serviceLocator(),
+      getStudents: serviceLocator(),
+      storageService: serviceLocator(),
     ),
   );
 

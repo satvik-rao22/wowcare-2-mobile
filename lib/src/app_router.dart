@@ -34,6 +34,10 @@ import 'package:wowcare/presentation/features/events/view/event_detail_screen.da
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
 import 'package:wowcare/presentation/features/events/view/events_screen.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
+import 'package:wowcare/presentation/features/assessments/view/assessments_home_screen.dart';
+import 'package:wowcare/presentation/features/assessments/view/classroom_assessment_profile_screen.dart';
+import 'package:wowcare/presentation/features/assessments/view/student_assessment_profile_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
@@ -559,6 +563,56 @@ final GoRouter appRouter = GoRouter(
                     );
                   },
                 ),
+                // Assessments: home (tabbed) plus student/classroom profile
+                // drill-downs. All three share the singleton AssessmentsCubit
+                // so parameter edits and saved scores reflect everywhere
+                // without refetching. Guardians/parents are redirected away —
+                // the module and all its data are hidden from them (PRD §3.2).
+                GoRoute(
+                  path: 'assessments',
+                  redirect: _blockParentsFromAssessments,
+                  pageBuilder: (context, state) => _fastPage(
+                    state,
+                    BlocProvider<AssessmentsCubit>.value(
+                      value: serviceLocator<AssessmentsCubit>()
+                        ..load(silent: true),
+                      child: const AssessmentsHomeScreen(),
+                    ),
+                  ),
+                ),
+                GoRoute(
+                  path: 'assessments/student',
+                  redirect: _blockParentsFromAssessments,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<AssessmentsCubit>.value(
+                        value: serviceLocator<AssessmentsCubit>(),
+                        child: StudentAssessmentProfileScreen(
+                          studentCode: args?['studentCode'] as String? ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'assessments/classroom',
+                  redirect: _blockParentsFromAssessments,
+                  pageBuilder: (context, state) {
+                    final args = state.extra as Map<String, dynamic>?;
+                    return _fastPage(
+                      state,
+                      BlocProvider<AssessmentsCubit>.value(
+                        value: serviceLocator<AssessmentsCubit>(),
+                        child: ClassroomAssessmentProfileScreen(
+                          classroomCode:
+                              args?['classroomCode'] as String? ?? '',
+                        ),
+                      ),
+                    );
+                  },
+                ),
                 GoRoute(
                   path: 'future-availability',
                   pageBuilder: (context, state) =>
@@ -866,6 +920,13 @@ final GoRouter appRouter = GoRouter(
 /// data are hidden from them (PRD §5.2). Returns the dashboard path to bounce
 /// a parent who reaches a task deep link; null lets admins/staff through.
 String? _blockParentsFromTasks(BuildContext context, GoRouterState state) {
+  return context.read<RoleCubit>().isParent ? AppRoutes.dashboard : null;
+}
+
+/// Keeps guardians/parents out of every Assessments route — the module and all
+/// its data are hidden from them this release (PRD §3.2 / §5). Returns the
+/// dashboard path to bounce a parent; null lets admins/staff through.
+String? _blockParentsFromAssessments(BuildContext context, GoRouterState state) {
   return context.read<RoleCubit>().isParent ? AppRoutes.dashboard : null;
 }
 

@@ -31,6 +31,7 @@ abstract final class AppAccessModules {
   /// Backend spelling per API contract (not "INDIVIDUAL").
   static const String individualMovements = 'INDIVISUAL_MOVEMENTS';
   static const String tasks = 'TASKS';
+  static const String assessments = 'ASSESSMENTS';
 }
 
 /// Read/write UI gates backed by [RoleCubit] for **every** persona.

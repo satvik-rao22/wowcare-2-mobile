@@ -6,6 +6,9 @@ import 'package:wowcare/data/features/communication/models/message_collection.da
 import 'package:wowcare/data/features/events/models/event_collection.dart';
 import 'package:wowcare/data/features/events/models/holiday_collection.dart';
 import 'package:wowcare/data/features/tasks/models/task_collection.dart';
+import 'package:wowcare/data/features/assessments/models/assessment_domain_collection.dart';
+import 'package:wowcare/data/features/assessments/models/assessment_collection.dart';
+import 'package:wowcare/data/features/assessments/models/assessment_reference_collection.dart';
 
 class IsarCacheService implements CacheService {
   late Isar _isar;
@@ -18,6 +21,10 @@ class IsarCacheService implements CacheService {
       EventCollectionSchema,
       HolidayCollectionSchema,
       TaskCollectionSchema,
+      AssessmentDomainCollectionSchema,
+      AssessmentCollectionSchema,
+      AssessmentClassroomCollectionSchema,
+      AssessmentStudentCollectionSchema,
     ], directory: dir.path);
   }
 
