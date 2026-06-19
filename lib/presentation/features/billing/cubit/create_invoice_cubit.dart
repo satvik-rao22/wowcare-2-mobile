@@ -9,7 +9,9 @@ import 'package:wowcare/domain/features/billing/entities/discount_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_catalog_entities.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/update_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_discounts_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_fee_structures_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_other_fees_usecase.dart';
@@ -63,6 +65,22 @@ class InvoiceItemTypes {
         return 'NEW_ITEM';
     }
   }
+
+  /// Maps an API `itemType` enum value back to a display type (for the edit form).
+  static String fromApiCode(String? code) {
+    switch ((code ?? '').toUpperCase()) {
+      case 'TUITION_FEE':
+        return tuitionFee;
+      case 'OTHER_FEE':
+        return otherFee;
+      case 'DISCOUNT':
+        return discount;
+      case 'SUBSIDY':
+        return subsidy;
+      default:
+        return newItem;
+    }
+  }
 }
 
 /// Outcome of [CreateInvoiceCubit.submitInvoices].
@@ -93,6 +111,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required GetSubsidiesUseCase getSubsidies,
     required CreateInvoiceUseCase createInvoice,
     required IssueInvoiceUseCase issueInvoice,
+    required UpdateInvoiceUseCase updateInvoice,
+    required GetInvoiceByCodeUseCase getInvoiceByCode,
     required StorageService storage,
   })  : _getFeeStructures = getFeeStructures,
         _getOtherFees = getOtherFees,
@@ -100,6 +120,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
         _getSubsidies = getSubsidies,
         _createInvoice = createInvoice,
         _issueInvoice = issueInvoice,
+        _updateInvoice = updateInvoice,
+        _getInvoiceByCode = getInvoiceByCode,
         _storage = storage,
         super(CreateInvoiceState.initial());
 
@@ -109,12 +131,23 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
   final GetSubsidiesUseCase _getSubsidies;
   final CreateInvoiceUseCase _createInvoice;
   final IssueInvoiceUseCase _issueInvoice;
+  final UpdateInvoiceUseCase _updateInvoice;
+  final GetInvoiceByCodeUseCase _getInvoiceByCode;
   final StorageService _storage;
+
+  /// When editing an existing invoice, its code — set from `initialize` data.
+  /// Drives [submitInvoices] to PATCH instead of POST.
+  String? _editingInvoiceCode;
+
+  bool get isEditing =>
+      _editingInvoiceCode != null && _editingInvoiceCode!.isNotEmpty;
 
   /// Hydrates items + dates from a previously-built invoice payload, then kicks
   /// off the (silent) catalog prefetch.
   void initialize(Map<String, dynamic>? data) {
     if (data != null) {
+      final rawCode = data['invoiceCode']?.toString().trim();
+      _editingInvoiceCode = (rawCode != null && rawCode.isNotEmpty) ? rawCode : null;
       var items = state.items;
       if (data['invoiceItems'] is List) {
         final raw = data['invoiceItems'] as List<dynamic>;
@@ -147,6 +180,48 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     }
 
     loadCatalog();
+  }
+
+  /// Fetches the full invoice (`GET /invoices/by-code/{code}`) and hydrates the
+  /// form with its real line items + dates, so editing PATCHes the true state
+  /// rather than a summarized row. Falls back to leaving the form as-is on error.
+  Future<void> loadInvoiceForEdit(String code) async {
+    _editingInvoiceCode = code.trim();
+    loadCatalog();
+    if (_editingInvoiceCode!.isEmpty) return;
+    try {
+      final invoice = await _getInvoiceByCode(_editingInvoiceCode!);
+      if (isClosed) return;
+      for (final item in state.items) {
+        item.dispose();
+      }
+      final items = invoice.items.isEmpty
+          ? [InvoiceItemFormData.initial(isPrimary: true)]
+          : invoice.items.mapIndexed((index, it) {
+              final amount =
+                  it.totalPrice != 0 ? it.totalPrice : it.unitPrice;
+              final fd = InvoiceItemFormData(
+                type: InvoiceItemTypes.fromApiCode(it.itemType),
+                description: it.description,
+                amount: amount == 0 ? '' : amount.toStringAsFixed(2),
+                isPrimary: index == 0,
+              );
+              fd.sourceCode = it.sourceCode;
+              fd.valueType = it.valueType;
+              if (it.valueInput != null) {
+                fd.valueController.text = it.valueInput!.toStringAsFixed(2);
+              }
+              return fd;
+            }).toList();
+      emit(state.copyWith(
+        items: items,
+        invoiceDate: () => invoice.issueDate ?? state.invoiceDate,
+        dueDate: () => invoice.dueDate ?? state.dueDate,
+        revision: state.revision + 1,
+      ));
+    } catch (_) {
+      // Keep the (default) form; the user can still edit manually.
+    }
   }
 
   /// Prefetches the four catalogs in parallel. Failures are swallowed per-call
@@ -420,12 +495,29 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     }
 
     try {
+      final shouldIssue = mode == 'send';
+
+      // Edit mode: PATCH the existing invoice (single), then optionally issue it.
+      if (isEditing) {
+        await _updateInvoice(
+          code: _editingInvoiceCode!,
+          params: UpdateInvoiceParams(
+            issueDate: issueDate,
+            dueDate: dueDate,
+            items: _buildUpdateItemParams(),
+          ),
+        );
+        if (shouldIssue) {
+          await _issueInvoice(_editingInvoiceCode!);
+        }
+        return const InvoiceSubmitResult(success: true, created: 1);
+      }
+
       final org =
           (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
       final school =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-      final shouldIssue = mode == 'send';
       var created = 0;
       for (final student in students) {
         final result = await _createInvoice(CreateInvoiceParams(
@@ -449,6 +541,29 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       return InvoiceSubmitResult(
           success: false, error: ApiErrorHandler.extractErrorMessage(e));
     }
+  }
+
+  /// Items for the update (PATCH) payload — the API's update item shape only
+  /// carries description/quantity/unit/total.
+  List<UpdateInvoiceItemParams> _buildUpdateItemParams() {
+    final result = <UpdateInvoiceItemParams>[];
+    for (final item in state.items) {
+      final amount = double.tryParse(item.amountController.text.isEmpty
+              ? item.amount
+              : item.amountController.text) ??
+          0;
+      final description = item.descriptionController.text.trim().isEmpty
+          ? item.description.trim()
+          : item.descriptionController.text.trim();
+      if (description.isEmpty) continue;
+      result.add(UpdateInvoiceItemParams(
+        description: description,
+        quantity: 1,
+        unitPrice: amount,
+        totalPrice: amount,
+      ));
+    }
+    return result;
   }
 
   List<CreateInvoiceItemParams> _buildItemParams() {

@@ -364,6 +364,37 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                     value:
                                         '\$${widget.openBalance.toStringAsFixed(0)}',
                                   ),
+                                  if (widget.onBillingProfile != null) ...[
+                                    const SizedBox(height: 16),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 40,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          gradient:
+                                              AppColors.buildPrimaryGradient(),
+                                        ),
+                                        child: TextButton(
+                                          onPressed: widget.onBillingProfile,
+                                          style: TextButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          child: const Text(
+                                            'View',
+                                            style: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              height: 16 / 16,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

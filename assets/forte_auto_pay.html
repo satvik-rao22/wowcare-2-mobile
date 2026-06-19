@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auto Payment</title>
+    <style>
+      :root {
+        --primary: #573353;
+        --primary-light: #b1afe9;
+        --danger: #e53e3e;
+        --info-bg: #fff3e0;
+        --border-color: rgba(87, 51, 83, 0.14);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+          Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+        background: #f6f7fb;
+        color: #3b3553;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+      }
+
+      .dialog {
+        width: 100%;
+        max-width: 600px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 16px 40px rgba(87, 51, 83, 0.15);
+        overflow: hidden;
+      }
+
+      .dialog-header {
+        padding: 16px 20px;
+        background: linear-gradient(135deg, #7d51ff 0%, #b765ff 100%);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .dialog-header h2 {
+        margin: 0;
+        font-size: 18px;
+        font-weight: 600;
+      }
+
+      .dialog-body {
+        padding: 20px 24px 16px;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+      }
+
+      .form-row {
+        display: flex;
+        gap: 12px;
+      }
+
+      .flex-1 {
+        flex: 1;
+      }
+
+      .form-label {
+        display: block;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--primary);
+        margin-bottom: 4px;
+      }
+
+      .required-asterisk {
+        color: #e53e3e;
+        margin-left: 2px;
+      }
+
+      .custom-input,
+      .custom-select {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        font-size: 14px;
+        outline: none;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .custom-input:focus,
+      .custom-select:focus {
+        border-color: var(--primary-light);
+        box-shadow: 0 0 0 1px rgba(177, 175, 233, 0.4);
+      }
+
+      .custom-input::placeholder {
+        color: #a0aec0;
+      }
+
+      .convenience-fee-container {
+        margin-top: 8px;
+      }
+
+      .convenience-fee-message {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        background: #fffaf0;
+        border: 1px solid rgba(255, 159, 64, 0.25);
+        font-size: 12px;
+        color: #c05621;
+      }
+
+      .convenience-fee-message i {
+        color: #dd6b20;
+      }
+
+      .auto-payment-info-message {
+        margin-top: 8px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--info-bg);
+        border: 1px solid rgba(253, 184, 19, 0.3);
+        font-size: 12px;
+        color: #d97706;
+      }
+
+      .auto-payment-info-message span {
+        vertical-align: middle;
+      }
+
+      .button-container {
+        margin-top: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: stretch;
+      }
+
+      .pay-button {
+        width: 100%;
+        border: none;
+        border-radius: 999px;
+        padding: 10px 16px;
+        background: linear-gradient(135deg, #7d51ff 0%, #b765ff 100%);
+        color: #fff;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .pay-button[disabled] {
+        opacity: 0.6;
+        cursor: not-allowed;
+        background: #e2e8f0;
+        color: #a0aec0;
+      }
+
+      .payment-warning-msg {
+        font-size: 12px;
+        color: #718096;
+        text-align: center;
+      }
+
+      .spinner {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 2px solid rgba(255, 255, 255, 0.5);
+        border-top-color: #fff;
+        animation: spin 1s linear infinite;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .status-text {
+        margin-top: 8px;
+        font-size: 13px;
+        text-align: center;
+      }
+
+      .status-text.error {
+        color: #e53e3e;
+      }
+
+      .status-text.success {
+        color: #0f9d58;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="dialog">
+      <div class="dialog-header">
+        <h2 id="dialog-title">Set Auto Payment</h2>
+      </div>
+      <div class="dialog-body">
+        <form id="autoPayForm">
+          <div class="form-group">
+            <label class="form-label">
+              Payment Method<span class="required-asterisk">*</span>
+            </label>
+            <select
+              id="cardType"
+              class="custom-select"
+              name="cardType"
+              required
+            >
+              <option value="">Select Payment Method</option>
+              <option value="visa">Visa</option>
+              <option value="mast">MasterCard</option>
+              <option value="disc">Discover</option>
+              <option value="echeck">ACH</option>
+            </select>
+
+            <div
+              id="feeMessageContainer"
+              class="convenience-fee-container"
+              style="display: none"
+            >
+              <div class="convenience-fee-message">
+                <i>!</i>
+                <span id="feeMessageText"></span>
+              </div>
+            </div>
+          </div>
+
+          <div id="cardFields" style="display: none">
+            <div class="form-group">
+              <label class="form-label">
+                Card Number<span class="required-asterisk">*</span>
+              </label>
+              <input
+                id="cardNumber"
+                type="text"
+                maxlength="19"
+                class="custom-input"
+                placeholder="Enter card number"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label class="form-label">
+                  Expiration Month<span class="required-asterisk">*</span>
+                </label>
+                <select
+                  id="expMonth"
+                  class="custom-select"
+                  autocomplete="off"
+                >
+                  <option value="">Month</option>
+                </select>
+              </div>
+              <div class="form-group flex-1">
+                <label class="form-label">
+                  Expiration Year<span class="required-asterisk">*</span>
+                </label>
+                <select
+                  id="expYear"
+                  class="custom-select"
+                  autocomplete="off"
+                >
+                  <option value="">Year</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                CVV<span class="required-asterisk">*</span>
+              </label>
+              <input
+                id="cvv"
+                type="text"
+                maxlength="4"
+                class="custom-input"
+                placeholder="Enter CVV"
+                autocomplete="off"
+              />
+            </div>
+          </div>
+
+          <div id="echeckFields" style="display: none">
+            <div class="form-group">
+              <label class="form-label">
+                Account Number<span class="required-asterisk">*</span>
+              </label>
+              <input
+                id="accountNumber"
+                type="text"
+                maxlength="17"
+                class="custom-input"
+                placeholder="Enter account number"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                Routing Number<span class="required-asterisk">*</span>
+              </label>
+              <input
+                id="routingNumber"
+                type="text"
+                maxlength="9"
+                class="custom-input"
+                placeholder="Enter routing number"
+                autocomplete="off"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">
+                Account Type<span class="required-asterisk">*</span>
+              </label>
+              <select
+                id="accountType"
+                class="custom-select"
+                autocomplete="off"
+              >
+                <option value="">Select Account Type</option>
+                <option value="checking">Checking</option>
+                <option value="savings">Savings</option>
+              </select>
+            </div>
+          </div>
+
+          <div
+            id="autoInfo"
+            class="auto-payment-info-message"
+            style="display: none"
+          >
+            <span>
+              Your current outstanding balance will be deducted automatically.
+            </span>
+          </div>
+
+          <div class="button-container">
+            <button
+              id="submitButton"
+              type="submit"
+              class="pay-button"
+              disabled
+            >
+              <span id="buttonSpinner" class="spinner" style="display: none"></span>
+              <span id="buttonLabel">Save details</span>
+            </button>
+            <div
+              id="processingMessage"
+              class="payment-warning-msg"
+              style="display: none"
+            >
+              Please wait... Processing your payment information.
+            </div>
+            <div id="statusText" class="status-text"></div>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      let forteReady = false;
+      let loadedEnv = '';
+      let config = {
+        env: 'qa',
+        apiLoginId: '',
+      };
+
+      function log(message, ...rest) {
+        console.log('[AutoPay]', message, ...rest);
+      }
+
+      function setLoading(isLoading) {
+        const btn = document.getElementById('submitButton');
+        const spinner = document.getElementById('buttonSpinner');
+        const label = document.getElementById('buttonLabel');
+        const processingMsg = document.getElementById('processingMessage');
+        if (isLoading) {
+          btn.disabled = true;
+          spinner.style.display = 'inline-block';
+          label.textContent = 'Saving...';
+          processingMsg.style.display = 'block';
+        } else {
+          spinner.style.display = 'none';
+          label.textContent = 'Save details';
+          processingMsg.style.display = 'none';
+          updateSubmitDisabled();
+        }
+      }
+
+      function setStatus(message, type) {
+        const statusEl = document.getElementById('statusText');
+        statusEl.textContent = message || '';
+        statusEl.className = 'status-text';
+        if (type === 'error') statusEl.classList.add('error');
+        if (type === 'success') statusEl.classList.add('success');
+      }
+
+      function sendToFlutter(payload) {
+        try {
+          if (window.flutter_inappwebview) {
+            window.flutter_inappwebview.callHandler(
+              'autopayTokenCallback',
+              payload
+            );
+            return;
+          }
+          if (
+            window.webkit &&
+            window.webkit.messageHandlers &&
+            window.webkit.messageHandlers.autopayTokenCallback
+          ) {
+            window.webkit.messageHandlers.autopayTokenCallback.postMessage(
+              payload
+            );
+            return;
+          }
+          window.parent.postMessage(
+            { type: 'autopayTokenCallback', data: payload },
+            '*'
+          );
+        } catch (err) {
+          console.error('Failed to post message to Flutter', err);
+        }
+      }
+
+      function loadForteScript(env) {
+        if (forteReady && loadedEnv === env && window.forte) return;
+
+        const base =
+          env === 'prod'
+            ? 'https://api.forte.net'
+            : 'https://sandbox.forte.net/api';
+        const src = base + '/js/v1';
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => {
+          loadedEnv = env;
+          if (window.forte) {
+            forteReady = true;
+            log('Forte script loaded for env:', env);
+          } else {
+            log('Forte script loaded but window.forte is not available yet');
+          }
+        };
+        script.onerror = () => {
+          setLoading(false);
+          setStatus(
+            'Unable to load payment system. Please refresh and try again.',
+            'error'
+          );
+          sendToFlutter({
+            success: false,
+            error: 'Unable to load Forte payment library',
+          });
+        };
+        document.head.appendChild(script);
+      }
+
+      function populateExpirationOptions() {
+        const monthSelect = document.getElementById('expMonth');
+        const yearSelect = document.getElementById('expYear');
+        for (let m = 1; m <= 12; m++) {
+          const v = m.toString().padStart(2, '0');
+          const opt = document.createElement('option');
+          opt.value = v;
+          opt.textContent = v;
+          monthSelect.appendChild(opt);
+        }
+        const currentYear = new Date().getFullYear();
+        for (let i = 0; i < 20; i++) {
+          const y = (currentYear + i).toString();
+          const opt = document.createElement('option');
+          opt.value = y;
+          opt.textContent = y;
+          yearSelect.appendChild(opt);
+        }
+      }
+
+      function updateSubmitDisabled() {
+        const btn = document.getElementById('submitButton');
+        const value = document.getElementById('cardType').value;
+        if (!value) {
+          btn.disabled = true;
+          return;
+        }
+        const isCard = value !== 'echeck';
+        if (isCard) {
+          const cardNumber = document.getElementById('cardNumber').value.trim();
+          const expMonth = document.getElementById('expMonth').value;
+          const expYear = document.getElementById('expYear').value;
+          const cvv = document.getElementById('cvv').value.trim();
+          btn.disabled = !cardNumber || !expMonth || !expYear || !cvv;
+        } else {
+          const account = document
+            .getElementById('accountNumber')
+            .value.trim();
+          const routing = document
+            .getElementById('routingNumber')
+            .value.trim();
+          const type = document.getElementById('accountType').value;
+          btn.disabled = !account || !routing || !type;
+        }
+      }
+
+      function getFeeMessage(cardType) {
+        if (!cardType) return null;
+        if (cardType === 'echeck') {
+          return 'ACH (Bank Transfer) - $1.00 convenience fee will be applied';
+        }
+        const map = {
+          visa: 'Visa',
+          mast: 'MasterCard',
+          disc: 'Discover',
+        };
+        const label = map[cardType] || 'Card';
+        return `${label} - 3% convenience fee will be applied`;
+      }
+
+      function handleCardTypeChange() {
+        const cardType = document.getElementById('cardType').value;
+        const cardFields = document.getElementById('cardFields');
+        const echeckFields = document.getElementById('echeckFields');
+        const info = document.getElementById('autoInfo');
+        const feeContainer = document.getElementById('feeMessageContainer');
+        const feeText = document.getElementById('feeMessageText');
+
+        if (!cardType) {
+          cardFields.style.display = 'none';
+          echeckFields.style.display = 'none';
+          info.style.display = 'none';
+          feeContainer.style.display = 'none';
+          updateSubmitDisabled();
+          return;
+        }
+
+        const isCard = cardType !== 'echeck';
+        cardFields.style.display = isCard ? 'block' : 'none';
+        echeckFields.style.display = isCard ? 'none' : 'block';
+        info.style.display = 'block';
+
+        const msg = getFeeMessage(cardType);
+        if (msg) {
+          feeText.textContent = msg;
+          feeContainer.style.display = 'block';
+        } else {
+          feeContainer.style.display = 'none';
+        }
+
+        updateSubmitDisabled();
+      }
+
+      function buildForteData() {
+        const cardType = document.getElementById('cardType').value;
+        const isCard = cardType && cardType !== 'echeck';
+        if (isCard) {
+          return {
+            api_login_id: config.apiLoginId,
+            card_number: document.getElementById('cardNumber').value.trim(),
+            expire_month: document.getElementById('expMonth').value,
+            expire_year: document.getElementById('expYear').value,
+            cvv: document.getElementById('cvv').value.trim(),
+            account_number: '',
+            routing_number: '',
+            account_type: '',
+          };
+        } else {
+          // Convert account type: checking -> 'c', savings -> 's'
+          let accountType = document.getElementById('accountType').value.toLowerCase();
+          if (accountType === 'checking') {
+            accountType = 'c';
+          } else if (accountType === 'savings') {
+            accountType = 's';
+          }
+          
+          return {
+            api_login_id: config.apiLoginId,
+            account_number: document
+              .getElementById('accountNumber')
+              .value.trim(),
+            routing_number: document
+              .getElementById('routingNumber')
+              .value.trim(),
+            account_type: accountType,
+            card_number: '',
+            expire_month: '',
+            expire_year: '',
+            cvv: '',
+          };
+        }
+      }
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        setStatus('', '');
+        if (!window.forte) {
+          setStatus(
+            'Payment system not loaded. Please close and reopen Auto Pay.',
+            'error'
+          );
+          loadForteScript(config.env);
+          return;
+        }
+        const cardType = document.getElementById('cardType').value;
+        if (!cardType) {
+          setStatus('Please select a payment method.', 'error');
+          return;
+        }
+        setLoading(true);
+        const data = buildForteData();
+        log('Creating token with Forte...', data);
+        try {
+          console.log(
+            '[AutoPay] Forte token request body:',
+            JSON.stringify(data)
+          );
+        } catch (e) {
+          console.warn('[AutoPay] Could not stringify Forte payload', e);
+        }
+        window.forte
+          .createToken(data)
+          .success((response) => {
+            log('Token created successfully', response);
+
+            // Card type mismatch validation (only for card payments, not ACH)
+            if (cardType && cardType !== 'echeck') {
+              const selectedCardType = cardType.toLowerCase();
+              const responseCardType =
+                (response.card_type || '').toString().toLowerCase();
+
+              if (
+                responseCardType &&
+                selectedCardType &&
+                selectedCardType !== responseCardType
+              ) {
+                const labelMap = {
+                  visa: 'Visa',
+                  mast: 'MasterCard',
+                  disc: 'Discover',
+                  echeck: 'ACH',
+                };
+                const selectedLabel =
+                  labelMap[selectedCardType] || selectedCardType.toUpperCase();
+                const responseLabel =
+                  labelMap[responseCardType] ||
+                  responseCardType.toUpperCase();
+
+                const msg = `The card you entered is a ${responseLabel}, but you selected ${selectedLabel}. Please select the correct card type.`;
+
+                setLoading(false);
+                setStatus(msg, 'error');
+
+                // Also inform Flutter so the app can show the same error banner
+                sendToFlutter({
+                  success: false,
+                  error: {
+                    event: 'card_type_mismatch',
+                    response_description: msg,
+                    selected_type: selectedCardType,
+                    response_type: responseCardType,
+                  },
+                });
+                return;
+              }
+            }
+
+            setLoading(false);
+            setStatus('Secure token created successfully.', 'success');
+            sendToFlutter({
+              success: true,
+              paymentType: cardType === 'echeck' ? 'echeck' : 'card',
+              data: response,
+            });
+          })
+          .error((error) => {
+            console.error('Token creation failed', error);
+            setLoading(false);
+            setStatus(
+              error?.response_description ||
+                error?.response_text ||
+                'Tokenization failed. Please try again.',
+              'error'
+            );
+            sendToFlutter({
+              success: false,
+              error: error,
+            });
+          });
+      }
+
+      window.initializeAutoPay = function (payloadJson) {
+        try {
+          const payload =
+            typeof payloadJson === 'string'
+              ? JSON.parse(payloadJson)
+              : payloadJson;
+          config.env = payload.env || 'qa';
+          config.apiLoginId = payload.apiLoginId || config.apiLoginId;
+          if (payload.isAutoPayEnabled) {
+            document.getElementById('dialog-title').textContent =
+              'Edit Auto Payment';
+          }
+          loadForteScript(config.env);
+        } catch (err) {
+          console.error('Failed to initialize autopay', err);
+          setStatus('Invalid payment configuration.', 'error');
+          sendToFlutter({
+            success: false,
+            error: err?.message ?? 'Invalid payload',
+          });
+        }
+      };
+
+      // Initial setup
+      document
+        .getElementById('autoPayForm')
+        .addEventListener('submit', handleSubmit);
+      document
+        .getElementById('cardType')
+        .addEventListener('change', handleCardTypeChange);
+
+      ['cardNumber', 'expMonth', 'expYear', 'cvv', 'accountNumber', 'routingNumber', 'accountType'].forEach(
+        (id) => {
+          const el = document.getElementById(id);
+          if (el) {
+            el.addEventListener('input', updateSubmitDisabled);
+            el.addEventListener('change', updateSubmitDisabled);
+          }
+        }
+      );
+
+      populateExpirationOptions();
+      updateSubmitDisabled();
+    </script>
+  </body>
+</html>
+

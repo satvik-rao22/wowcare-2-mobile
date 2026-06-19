@@ -1,5 +1,6 @@
 import 'package:wowcare/data/features/billing/datasources/invoice_remote_datasource.dart';
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
+import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
@@ -37,6 +38,12 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       inProcess: m.inProcess,
       outstanding: m.outstanding,
     );
+  }
+
+  @override
+  Future<InvoiceListItemEntity> getInvoiceByCode(String code) async {
+    final m = await _dataSource.getInvoiceByCode(code);
+    return m.toEntity();
   }
 
   @override
@@ -89,6 +96,22 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   }
 
   @override
+  Future<FamilyLedgerEntity> getFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String ownerType,
+    required String ownerCode,
+  }) async {
+    final m = await _dataSource.getFamilyLedger(
+      organizationCode: organizationCode,
+      school: school,
+      ownerType: ownerType,
+      ownerCode: ownerCode,
+    );
+    return m.toEntity();
+  }
+
+  @override
   Future<InvoiceResultEntity> updateInvoice({
     required String code,
     required UpdateInvoiceParams params,
@@ -108,6 +131,21 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<InvoicePaymentResultEntity> createRefund(
       InvoicePaymentParams params) async {
     final m = await _dataSource.createRefund(_toPaymentRequest(params));
+    return _mapPaymentResult(m);
+  }
+
+  @override
+  Future<InvoicePaymentResultEntity> createCredit(
+      CreateCreditParams params) async {
+    final m = await _dataSource.createCredit(CreateCreditRequestModel(
+      schoolCode: params.schoolCode,
+      amount: params.amount,
+      ownerType: params.ownerType,
+      ownerCode: params.ownerCode,
+      studentCode: params.studentCode,
+      reason: params.reason,
+      description: params.description,
+    ));
     return _mapPaymentResult(m);
   }
 

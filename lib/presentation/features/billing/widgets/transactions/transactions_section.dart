@@ -8,6 +8,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
+import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
@@ -16,22 +18,15 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 
 class TransactionsSection extends StatefulWidget {
-  const TransactionsSection({
-    super.key,
-    this.onRegisterRefresh,
-    this.scrollController,
-  });
+  const TransactionsSection({super.key, this.onRegisterRefresh});
 
   /// Lets the parent (Billing page) trigger a pull-to-refresh of this tab.
   final void Function(Future<void> Function())? onRegisterRefresh;
-
-  /// The Billing page's scroll controller. When provided, the list auto-loads
-  /// the next page as the user nears the bottom (infinite scroll).
-  final ScrollController? scrollController;
 
   @override
   State<TransactionsSection> createState() => _TransactionsSectionState();
@@ -44,29 +39,17 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   @override
   void initState() {
     super.initState();
-    _cubit.load();
+    _cubit.loadOverview();
     widget.onRegisterRefresh?.call(_refresh);
-    widget.scrollController?.addListener(_onScroll);
   }
 
-  /// Reloads the invoice list (page 0) and the overview totals for this tab.
+  /// Reloads the overview totals (stat bar) for this tab.
   Future<void> _refresh() async {
-    await _cubit.load();
-  }
-
-  /// Auto-loads the next page when the user scrolls within 300px of the bottom.
-  void _onScroll() {
-    final controller = widget.scrollController;
-    if (controller == null || !controller.hasClients) return;
-    final position = controller.position;
-    if (position.pixels >= position.maxScrollExtent - 300) {
-      _cubit.loadNextPage();
-    }
+    await _cubit.loadOverview();
   }
 
   @override
   void dispose() {
-    widget.scrollController?.removeListener(_onScroll);
     _searchController.dispose();
     _cubit.close();
     super.dispose();
@@ -113,25 +96,16 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                 const SizedBox(height: 12),
                 AmountInvoicedStatBar(
                   totalAmount: state.totalInvoiced,
-                  paidPercentage: state.paidPercent,
-                  grossPaidPercentage: state.grossPaidPercent,
-                  inProcessPercentage: state.inProcessPercent,
-                  unpaidPercentage: state.unpaidPercent,
-                  refundPercentage: state.refundPercent,
+                  netPaidAmount: state.netPaidAmount,
+                  paidAmount: state.paidAmount,
+                  inProcessAmount: state.inProcessAmount,
+                  outstandingAmount: state.outstandingAmount,
+                  refundedAmount: state.refundedAmount,
                 ),
                 const SizedBox(height: 12),
                 _buildSearchBar(context),
                 const SizedBox(height: 16),
-                if (state.isLoadingList && visibleTransactions.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 32),
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primaryColor,
-                      ),
-                    ),
-                  )
-                else if (visibleTransactions.isEmpty)
+                if (visibleTransactions.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
@@ -146,7 +120,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       ),
                     ),
                   )
-                else ...<Widget>[
+                else
                   Column(
                     children: visibleTransactions
                         .map(
@@ -161,7 +135,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                               onReceivePayment: () =>
                                   _openReceivePayment(record.item),
                               onIssueRefund: () => _openIssueRefund(record.item),
-                              onEditInvoice: _showEditUnavailable,
+                              onEditInvoice: () =>
+                                  _openEditInvoice(record.item),
                               onBillingProfile: () =>
                                   _openTransactionDetails(record.item),
                               onMessage: _showMessageUnavailable,
@@ -174,55 +149,12 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                         )
                         .toList(),
                   ),
-                  _buildPaginationFooter(state),
-                ],
               ],
             );
           },
         ),
       ),
     );
-  }
-
-  /// Bottom-of-list affordance: a spinner while a page is appending, or a
-  /// "Load More" button when more pages remain (a fallback for when the
-  /// content doesn't fill the screen / the scroll controller is absent).
-  Widget _buildPaginationFooter(TransactionsState state) {
-    if (state.isLoadingMore) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16),
-        child: Center(
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2.5,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ),
-      );
-    }
-    if (state.hasMore) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Center(
-          child: TextButton(
-            onPressed: () => _cubit.loadNextPage(),
-            child: const Text(
-              'Load More',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-    return const SizedBox(height: 8);
   }
 
   Widget _buildSearchBar(BuildContext context) {
@@ -288,11 +220,18 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     );
   }
 
-  void _showEditUnavailable() {
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Editing invoices is not available yet.',
-      isWarning: true,
+  /// Opens the invoice in edit mode (Create Invoice screen). The form is
+  /// hydrated from `GET /invoices/by-code/{code}` and PATCHes on save.
+  void _openEditInvoice(TransactionItem item) {
+    final code = _invoiceCodeOrWarn(item);
+    if (code == null) return;
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => CreateInvoiceScreen(
+          selectedStudents: [Student(code: '', fullName: item.studentName)],
+          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
+        ),
+      ),
     );
   }
 
@@ -310,57 +249,49 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     return code;
   }
 
-  Future<void> _confirmCancel(TransactionItem item) async {
+  void _confirmCancel(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final confirmed = await _confirmAction(
-      title: 'Cancel invoice?',
-      message: 'This will cancel the invoice. This action cannot be undone.',
-      confirmLabel: 'Cancel invoice',
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_cancel',
+      action: () => _cubit.cancelInvoice(code),
     );
-    if (confirmed) await _cubit.cancelInvoice(code);
   }
 
-  Future<void> _confirmDelete(TransactionItem item) async {
+  void _confirmDelete(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final confirmed = await _confirmAction(
-      title: 'Delete invoice?',
-      message: 'This will permanently delete the invoice.',
-      confirmLabel: 'Delete',
-      isDestructive: true,
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_delete',
+      action: () => _cubit.deleteInvoice(code),
     );
-    if (confirmed) await _cubit.deleteInvoice(code);
   }
 
-  Future<bool> _confirmAction({
-    required String title,
-    required String message,
-    required String confirmLabel,
-    bool isDestructive = false,
-  }) async {
-    final result = await showDialog<bool>(
+  /// Confirms a cancel/delete via the shared bottom sheet; the cubit emits the
+  /// success/error message which the BlocListener surfaces.
+  void _showInvoiceActionSheet({
+    required TransactionItem item,
+    required String type,
+    required Future<void> Function() action,
+  }) {
+    final name =
+        item.description.trim().isNotEmpty ? item.description : item.studentName;
+    showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor:
-                  isDestructive ? AppColors.errorColor : AppColors.primaryColor,
-            ),
-            child: Text(confirmLabel),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => DeleteConfirmationBottomSheet(
+        name: name,
+        type: type,
+        onDelete: () async {
+          await action();
+          if (mounted) Navigator.of(sheetCtx).pop();
+        },
+        onCancel: () => Navigator.of(sheetCtx).pop(),
       ),
     );
-    return result ?? false;
   }
 
   void _openSendInvoice(TransactionItem item) {

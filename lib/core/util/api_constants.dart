@@ -30,6 +30,15 @@ class ApiConstants {
 
   static bool get isUat => _environment.toUpperCase() == 'UAT';
 
+  /// Forte tokenization environment passed into the auto-pay webview.
+  ///
+  /// The Forte JS SDK is loaded from `sandbox.forte.net` for any value other
+  /// than `'prod'`, and from `api.forte.net` for `'prod'`. We use the sandbox
+  /// gateway for both LOCAL and UAT today; flip this to `'prod'` (or branch on
+  /// a future PROD environment) when the production Forte gateway is wired.
+  static String get forteEnv =>
+      isUat ? ApiConstantsUat.forteEnv : 'sandbox';
+
 
   static const _LocalDev _activeDev = _LocalDev.sairam;
 

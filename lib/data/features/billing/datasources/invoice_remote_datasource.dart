@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/data/features/billing/models/family_ledger_models.dart';
 import 'package:wowcare/data/features/billing/models/family_summary_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_list_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_overview_models.dart';
@@ -13,6 +14,7 @@ abstract class InvoiceRemoteDataSource {
     DateTime? dateFrom,
     DateTime? dateTo,
   });
+  Future<InvoiceListItemModel> getInvoiceByCode(String code);
   Future<PaginatedInvoicesModel> listInvoices({
     required String organizationCode,
     required String school,
@@ -26,10 +28,18 @@ abstract class InvoiceRemoteDataSource {
     required String organizationCode,
     required String school,
   });
+  Future<FamilyLedgerModel> getFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String ownerType,
+    required String ownerCode,
+  });
   Future<InvoicePaymentResultModel> createPayment(
       InvoicePaymentRequestModel request);
   Future<InvoicePaymentResultModel> createRefund(
       InvoicePaymentRequestModel request);
+  Future<InvoicePaymentResultModel> createCredit(
+      CreateCreditRequestModel request);
   Future<InvoiceResultModel> updateInvoice(
       String code, UpdateInvoiceRequestModel request);
   Future<void> deleteInvoice(String code);
@@ -73,6 +83,15 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   }
 
   @override
+  Future<InvoiceListItemModel> getInvoiceByCode(String code) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoiceDetailByCode(code)),
+    );
+    final data = response.data?['data'] as Map<String, dynamic>? ?? {};
+    return InvoiceListItemModel.fromJson(data);
+  }
+
+  @override
   Future<PaginatedInvoicesModel> listInvoices({
     required String organizationCode,
     required String school,
@@ -113,6 +132,25 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   }
 
   @override
+  Future<FamilyLedgerModel> getFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String ownerType,
+    required String ownerCode,
+  }) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesFamilyLedger),
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'school': school,
+        if (ownerType.trim().isNotEmpty) 'ownerType': ownerType,
+        'ownerCode': ownerCode,
+      },
+    );
+    return FamilyLedgerModel.fromJson(response.data ?? {});
+  }
+
+  @override
   Future<InvoicePaymentResultModel> createPayment(
       InvoicePaymentRequestModel request) async {
     final response = await _client.post<Map<String, dynamic>>(
@@ -127,6 +165,16 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       InvoicePaymentRequestModel request) async {
     final response = await _client.post<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.invoiceRefunds),
+      data: request.toJson(),
+    );
+    return InvoicePaymentResultModel.fromJson(response.data ?? {});
+  }
+
+  @override
+  Future<InvoicePaymentResultModel> createCredit(
+      CreateCreditRequestModel request) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoiceCredits),
       data: request.toJson(),
     );
     return InvoicePaymentResultModel.fromJson(response.data ?? {});

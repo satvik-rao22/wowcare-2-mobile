@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/resend_invoice_usecase.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -151,19 +156,49 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     super.dispose();
   }
 
+  bool _isSending = false;
+
+  /// A draft is issued (POST /issue); an already-issued invoice is re-sent
+  /// (PATCH /resend).
+  bool get _isDraft => widget.transaction.status.toUpperCase().contains('DRAFT');
+
   Future<void> _sendInvoice() async {
-    if (!mounted) return;
+    if (_isSending) return;
+    final code = widget.transaction.invoiceCode?.trim();
+    if (code == null || code.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'This invoice cannot be sent.',
+        isWarning: true,
+      );
+      return;
+    }
 
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invoice sent successfully!'),
-        backgroundColor: AppColors.billingSuccessColor,
-      ),
-    );
-
-    // Navigate back
-    Navigator.pop(context, true);
+    setState(() => _isSending = true);
+    try {
+      if (_isDraft) {
+        await serviceLocator<IssueInvoiceUseCase>()(code);
+      } else {
+        await serviceLocator<ResendInvoiceUseCase>()(code);
+      }
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: _isDraft
+            ? 'Invoice sent successfully.'
+            : 'Invoice re-sent successfully.',
+        isSuccess: true,
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSending = false);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
   }
 
   Widget _buildBilledForRow() {
@@ -427,21 +462,30 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             gradient: AppColors.buildPrimaryGradient(),
           ),
           child: TextButton(
-            onPressed: _sendInvoice,
+            onPressed: _isSending ? null : _sendInvoice,
             style: TextButton.styleFrom(
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: Text(
-              'Send Invoice',
-              style: TextStyle(
-                color: AppColors.billingButtonTextColor,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            child: _isSending
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    _isDraft ? 'Send Invoice' : 'Resend Invoice',
+                    style: TextStyle(
+                      color: AppColors.billingButtonTextColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ),
       ),

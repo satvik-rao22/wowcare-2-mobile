@@ -7,6 +7,10 @@ class InvoiceListLineItemEntity extends Equatable {
     required this.quantity,
     required this.unitPrice,
     required this.totalPrice,
+    this.itemType,
+    this.sourceCode,
+    this.valueType,
+    this.valueInput,
   });
 
   final String description;
@@ -14,8 +18,24 @@ class InvoiceListLineItemEntity extends Equatable {
   final double unitPrice;
   final double totalPrice;
 
+  /// Detail-only fields (present on `GET /invoices/by-code/{code}`, used to
+  /// rebuild the edit form): NEW_ITEM / TUITION_FEE / DISCOUNT / …
+  final String? itemType;
+  final String? sourceCode;
+  final String? valueType;
+  final double? valueInput;
+
   @override
-  List<Object?> get props => [description, quantity, unitPrice, totalPrice];
+  List<Object?> get props => [
+        description,
+        quantity,
+        unitPrice,
+        totalPrice,
+        itemType,
+        sourceCode,
+        valueType,
+        valueInput,
+      ];
 }
 
 /// One invoice row from `GET /api/v1/invoices/{organizationCode}`

@@ -1,0 +1,92 @@
+import 'package:wowcare/data/features/billing/datasources/auto_pay_remote_datasource.dart';
+import 'package:wowcare/data/features/billing/models/auto_pay_models.dart';
+import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
+import 'package:wowcare/domain/features/billing/repositories/auto_pay_repository.dart';
+
+class AutoPayRepositoryImpl implements AutoPayRepository {
+  AutoPayRepositoryImpl(this._dataSource);
+
+  final AutoPayRemoteDataSource _dataSource;
+
+  @override
+  Future<SchoolForteConfigEntity?> getSchoolForteConfig({
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final model = await _dataSource.getSchoolForteConfig(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
+    return model?.toEntity();
+  }
+
+  @override
+  Future<AutoPayStatusEntity> getAutoPayStatus(
+      GuardianScopeParams params) async {
+    final model = await _dataSource.getAutoPayStatus(
+      organizationCode: params.organizationCode,
+      schoolCode: params.schoolCode,
+      guardianCode: params.guardianCode,
+    );
+    return model.toEntity();
+  }
+
+  @override
+  Future<AutoPayStatusEntity> setAutoPayStatus({
+    required GuardianScopeParams scope,
+    required bool autopayEnabled,
+  }) async {
+    final model = await _dataSource.setAutoPayStatus(
+      organizationCode: scope.organizationCode,
+      schoolCode: scope.schoolCode,
+      guardianCode: scope.guardianCode,
+      autopayEnabled: autopayEnabled,
+    );
+    return model.toEntity();
+  }
+
+  @override
+  Future<List<PaymentMethodEntity>> getPaymentMethods(
+      GuardianScopeParams params) async {
+    final models = await _dataSource.getPaymentMethods(
+      organizationCode: params.organizationCode,
+      schoolCode: params.schoolCode,
+      guardianCode: params.guardianCode,
+    );
+    return models.map((m) => m.toEntity()).toList();
+  }
+
+  @override
+  Future<PaymentMethodEntity> addPaymentMethod(
+      AddPaymentMethodParams params) async {
+    final model = await _dataSource.addPaymentMethod(
+      AddPaymentMethodRequestModel(
+        organizationCode: params.organizationCode,
+        schoolCode: params.schoolCode,
+        guardianCode: params.guardianCode,
+        oneTimeToken: params.oneTimeToken,
+        methodType: params.methodType.apiValue,
+        firstName: params.firstName,
+        lastName: params.lastName,
+        label: params.label,
+        makePrimary: params.makePrimary,
+        makeAutopay: params.makeAutopay,
+      ),
+    );
+    return model.toEntity();
+  }
+
+  @override
+  Future<PaymentMethodEntity> setPrimaryPaymentMethod({
+    required String paymentMethodCode,
+    required GuardianScopeParams scope,
+  }) async {
+    final model = await _dataSource.setPrimaryPaymentMethod(
+      paymentMethodCode: paymentMethodCode,
+      organizationCode: scope.organizationCode,
+      schoolCode: scope.schoolCode,
+      guardianCode: scope.guardianCode,
+    );
+    return model.toEntity();
+  }
+}

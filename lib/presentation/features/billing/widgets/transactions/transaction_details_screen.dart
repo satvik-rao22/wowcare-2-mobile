@@ -1,24 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
+import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/add_credit_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_action_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
+import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
-  final TransactionItem transaction;
+  /// Optional source transaction (when opened from a transaction card).
+  final TransactionItem? transaction;
+
+  /// Family/owner to load the ledger for (when opened from a student/family
+  /// card). When [ownerCode] is set, the screen fetches the real family ledger;
+  /// otherwise the screen stays empty (no demo data).
+  final String? ownerType;
+  final String? ownerCode;
+  final String? familyName;
 
   const TransactionDetailsScreen({
     super.key,
-    required this.transaction,
+    this.transaction,
+    this.ownerType,
+    this.ownerCode,
+    this.familyName,
   });
 
   @override
@@ -26,7 +47,8 @@ class TransactionDetailsScreen extends StatefulWidget {
 }
 
 class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
-  late final TransactionDetailsCubit _cubit = TransactionDetailsCubit();
+  late final TransactionDetailsCubit _cubit =
+      serviceLocator<TransactionDetailsCubit>();
   final ScrollController _scrollController = ScrollController();
 
   // Read-only proxies onto the cubit state so the build helpers stay unchanged.
@@ -49,15 +71,14 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   double get _amountRefund => _cubit.state.amountRefund;
   double get _familyTotalInvoiced => _cubit.state.familyTotalInvoiced;
 
-  double _percentage(double value, double total) {
-    if (total <= 0) return 0;
-    return (value / total) * 100;
-  }
-
   String get _familyDisplayName {
+    final ledgerName = _cubit.state.familyName.trim();
+    if (ledgerName.isNotEmpty) return ledgerName;
+    final passedName = widget.familyName?.trim() ?? '';
+    if (passedName.isNotEmpty) return passedName;
     String? familyName = _extractFamilyNameFromList(_familyParents);
     familyName ??= _extractFamilyNameFromList(_familyChildren);
-    familyName ??= _extractFamilyName(widget.transaction.studentName);
+    familyName ??= _extractFamilyName(widget.transaction?.studentName);
     return (familyName?.isNotEmpty ?? false) ? familyName! : 'Family';
   }
 
@@ -80,7 +101,15 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _cubit.initialize();
+    final ownerCode = widget.ownerCode?.trim() ?? '';
+    if (ownerCode.isNotEmpty) {
+      _cubit.loadFamilyLedger(
+        ownerCode: ownerCode,
+        ownerType: widget.ownerType ?? 'FAMILY',
+      );
+    } else {
+      _cubit.initialize();
+    }
   }
 
   @override
@@ -106,8 +135,193 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     }
   }
 
+  /// This family's students mapped to the [Student] shape that Create Invoice /
+  /// Receive Payment consume — so they're pre-selected (no re-selection step).
+  List<Student> _familyStudents() {
+    return _familyChildren
+        .map((c) => Student(
+              code: (c['code'] ?? '').toString(),
+              fullName: (c['fullName'] ?? '').toString(),
+              photoUuid: c['photoUuid'] as String?,
+            ))
+        .where((s) => s.code.isNotEmpty)
+        .toList();
+  }
+
+  void _showNewTransactionMenu() {
+    final students = _familyStudents();
+    if (students.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No students found for this family.')),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => TransactionActionDialog(
+        onSelectCreateInvoice: () {
+          Navigator.of(ctx).maybePop();
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => CreateInvoiceScreen(selectedStudents: students),
+            ),
+          );
+        },
+        onSelectReceivePayment: () {
+          Navigator.of(ctx).maybePop();
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ReceivePaymentIssueRefundScreen(
+                transaction: _buildReceivePaymentTransaction(students),
+                studentCode: students.first.code,
+                ownerType: widget.ownerType,
+                ownerCode: widget.ownerCode,
+              ),
+            ),
+          );
+        },
+        onSelectAddCredit: () {
+          Navigator.of(ctx).maybePop();
+          Navigator.of(context).push<bool>(
+            MaterialPageRoute<bool>(
+              builder: (_) => AddCreditScreen(
+                ownerType: widget.ownerType,
+                ownerCode: widget.ownerCode,
+                familyName: _familyDisplayName,
+              ),
+            ),
+          ).then((added) {
+            if (added == true) _cubit.refresh();
+          });
+        },
+      ),
+    );
+  }
+
+  void _showMessageUnavailable() => CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Messaging is not available yet.',
+        isWarning: true,
+      );
+
+  /// Opens the invoice in edit mode (Create Invoice screen). The form is
+  /// hydrated from `GET /invoices/by-code/{code}` and PATCHes on save; the
+  /// ledger reloads afterwards.
+  Future<void> _openEditInvoice(TransactionItem item) async {
+    final code = _invoiceCodeOrWarn(item);
+    if (code == null) return;
+    final result = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => CreateInvoiceScreen(
+          selectedStudents: [Student(code: '', fullName: item.studentName)],
+          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
+        ),
+      ),
+    );
+    if (result == true && mounted) {
+      final ownerCode = widget.ownerCode?.trim() ?? '';
+      if (ownerCode.isNotEmpty) {
+        _cubit.loadFamilyLedger(
+          ownerCode: ownerCode,
+          ownerType: widget.ownerType ?? 'FAMILY',
+        );
+      }
+    }
+  }
+
+  String? _invoiceCodeOrWarn(TransactionItem item) {
+    final code = item.invoiceCode?.trim();
+    if (code == null || code.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'This invoice cannot be modified.',
+        isWarning: true,
+      );
+      return null;
+    }
+    return code;
+  }
+
+  void _confirmCancel(TransactionItem item) {
+    final code = _invoiceCodeOrWarn(item);
+    if (code == null) return;
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_cancel',
+      action: () => _cubit.cancelInvoice(code),
+      successMessage: 'Invoice cancelled',
+    );
+  }
+
+  void _confirmDelete(TransactionItem item) {
+    final code = _invoiceCodeOrWarn(item);
+    if (code == null) return;
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_delete',
+      action: () => _cubit.deleteInvoice(code),
+      successMessage: 'Invoice deleted',
+    );
+  }
+
+  /// Confirms a cancel/delete via the shared bottom sheet. The action runs while
+  /// the sheet shows its loading state, then the sheet closes and the result is
+  /// surfaced as a top snackbar.
+  void _showInvoiceActionSheet({
+    required TransactionItem item,
+    required String type,
+    required Future<bool> Function() action,
+    required String successMessage,
+  }) {
+    final name =
+        item.description.trim().isNotEmpty ? item.description : item.studentName;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => DeleteConfirmationBottomSheet(
+        name: name,
+        type: type,
+        onDelete: () async {
+          final success = await action();
+          if (mounted) Navigator.of(sheetCtx).pop();
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: success ? successMessage : _cubit.state.errorMessage,
+            isError: !success,
+            isSuccess: success,
+          );
+        },
+        onCancel: () => Navigator.of(sheetCtx).pop(),
+      ),
+    );
+  }
+
+  /// [TransactionItem] for a fresh family payment, pre-filled with the family's
+  /// outstanding balance so Receive Payment shows the amount to collect.
+  TransactionItem _buildReceivePaymentTransaction(List<Student> students) {
+    final Student first = students.first;
+    final String name = students.length > 1
+        ? '${first.fullName} +${students.length - 1}'
+        : first.fullName;
+    final double outstanding = _cubit.state.openBalance;
+    return TransactionItem(
+      id: 0,
+      transactionType: 'Payment',
+      date: DateTime.now(),
+      amount: outstanding,
+      status: '',
+      description: 'Receive Payment',
+      studentName: name,
+      classroom: first.roomName ?? '',
+      balance: outstanding,
+      studentOpenBalance: outstanding,
+    );
+  }
+
   void _openTransactionDetails(TransactionItem item) {
-    if (item.id == widget.transaction.id) {
+    if (item.id == widget.transaction?.id) {
       return;
     }
     // Replace, don't stack — otherwise tapping multiple siblings builds up
@@ -129,12 +343,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
-      body: RefreshIndicator(
+      body: CustomRefreshIndicator(
         onRefresh: () async {
-          await Future.wait([
-            _cubit.loadSiblingTransactions(refresh: true),
-            _cubit.initialize(),
-          ]);
+          await _cubit.refresh();
         },
         child: SingleChildScrollView(
           controller: _scrollController,
@@ -148,107 +359,30 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      '${_familyDisplayName} Family Transactions',
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
+                    Expanded(
+                      child: Text(
+                        '${_familyDisplayName} Family Transactions',
+                        style: const TextStyle(
+                          color: AppColors.primaryColor,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    GradientAddButton(onTap: _showNewTransactionMenu),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
-              // Date range selector
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: AppColors.primaryColor.withOpacity(0.1),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Select Date Range',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.primaryColor.withOpacity(0.5),
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: GestureDetector(
-                        onTap: () async {
-                          try {
-                            final start = _startDate ??
-                                DateTime.now().subtract(const Duration(days: 7));
-                            final end = _endDate ?? DateTime.now();
-                            final result = await showDialog<Map<String, dynamic>>(
-                              context: context,
-                              builder: (context) => CalendarDialog(
-                                isRangePicker: true,
-                                isTimePicker: false,
-                                initialDate: start,
-                                initialEndDate: end.isAfter(start) ? end : null,
-                              ),
-                            );
-                            if (result != null) {
-                              await _cubit.applyDateRange(
-                                result['startDate'] as DateTime?,
-                                result['endDate'] as DateTime?,
-                              );
-                            }
-                          } catch (_) {}
-                        },
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0x1AB1AFE9),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  (_startDate != null && _endDate != null)
-                                      ? '${DateFormat('MMM d, yyyy').format(_startDate!)} - ${DateFormat('MMM d, yyyy').format(_endDate!)}'
-                                      : 'Select Date Range',
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.billingTextColor,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(
-                                Icons.calendar_today_outlined,
-                                color: Color(0xFF573353),
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              // Date range selector (shared white-card UI with the SVG calendar
+              // icon, matching the other billing screens).
+              AccountingDateRangeSelector(
+                initialStartDate: _startDate,
+                initialEndDate: _endDate,
+                onRangeChanged: (start, end) =>
+                    _cubit.applyDateRange(start, end),
               ),
               const SizedBox(height: 12),
               // Compact family info box
@@ -292,7 +426,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _cubit.loadSiblingTransactions(refresh: true),
+                  onPressed: () => _cubit.refresh(),
                   child: const Text('Retry'),
                 ),
               ],
@@ -339,7 +473,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _cubit.loadSiblingTransactions(refresh: true),
+                  onPressed: () => _cubit.refresh(),
                   child: const Text('Retry'),
                 ),
               ],
@@ -407,7 +541,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
               Column(
                 children: _siblingTransactions.map((transaction) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8.0, vertical: 6.0),
                     child: BillingTransactionCard(
                       transaction: transaction,
                       onView: () {
@@ -429,27 +564,36 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                           ),
                         );
                       },
-                      onSendInvoice: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Send Invoice tapped (UI only)')),
-                        );
-                      },
-                      onReceivePayment: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Receive Payment tapped (UI only)')),
-                        );
-                      },
-                      onIssueRefund: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Issue Refund tapped (UI only)')),
-                        );
-                      },
+                      onSendInvoice: () => Navigator.of(context).push(
+                        MaterialPageRoute<bool>(
+                          builder: (_) =>
+                              SendInvoiceScreen(transaction: transaction),
+                        ),
+                      ),
+                      onReceivePayment: () => Navigator.of(context).push(
+                        MaterialPageRoute<bool>(
+                          builder: (_) => ReceivePaymentIssueRefundScreen(
+                            transaction: transaction,
+                            ownerType: widget.ownerType,
+                            ownerCode: widget.ownerCode,
+                          ),
+                        ),
+                      ),
+                      onIssueRefund: () => Navigator.of(context).push(
+                        MaterialPageRoute<bool>(
+                          builder: (_) => ReceivePaymentIssueRefundScreen(
+                            transaction: transaction,
+                            isRefund: true,
+                            ownerType: widget.ownerType,
+                            ownerCode: widget.ownerCode,
+                          ),
+                        ),
+                      ),
+                      onEditInvoice: () => _openEditInvoice(transaction),
+                      onMessage: _showMessageUnavailable,
                       onBillingProfile: () => _openTransactionDetails(transaction),
-                      onDelete: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Delete tapped (UI only)')),
-                        );
-                      },
+                      onCancel: () => _confirmCancel(transaction),
+                      onDelete: () => _confirmDelete(transaction),
                     ),
                   );
                 }).toList(),
@@ -522,17 +666,13 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
       );
     }
 
-    final paidPercent = _percentage(_netPaidAmount, total);
-    final unpaidPercent = _percentage(_amountUnpaid, total);
-    final inProcessPercent = _percentage(_amountInProcess, total);
-    final refundPercent = _percentage(_amountRefund, total);
-
     return AmountInvoicedStatBar(
       totalAmount: total,
-      paidPercentage: paidPercent,
-      inProcessPercentage: inProcessPercent,
-      unpaidPercentage: unpaidPercent,
-      refundPercentage: refundPercent,
+      netPaidAmount: _netPaidAmount,
+      paidAmount: _netPaidAmount,
+      inProcessAmount: _amountInProcess,
+      outstandingAmount: _amountUnpaid,
+      refundedAmount: _amountRefund,
       title: 'Invoiced Amount',
     );
   }

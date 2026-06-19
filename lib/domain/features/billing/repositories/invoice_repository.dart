@@ -1,3 +1,4 @@
+import '../entities/family_ledger_entity.dart';
 import '../entities/family_summary_entity.dart';
 import '../entities/invoice_entity.dart';
 import '../entities/invoice_list_entity.dart';
@@ -10,6 +11,9 @@ abstract class InvoiceRepository {
     DateTime? dateFrom,
     DateTime? dateTo,
   });
+
+  /// Full invoice detail (`GET /api/v1/invoices/by-code/{code}`).
+  Future<InvoiceListItemEntity> getInvoiceByCode(String code);
 
   /// Paginated invoice list (`GET /api/v1/invoices/{organizationCode}`).
   Future<PaginatedInvoicesEntity> listInvoices({
@@ -25,8 +29,18 @@ abstract class InvoiceRepository {
     required String organizationCode,
     required String school,
   });
+
+  /// A family's full billing ledger
+  /// (`GET /api/v1/invoices/family-ledger`).
+  Future<FamilyLedgerEntity> getFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String ownerType,
+    required String ownerCode,
+  });
   Future<InvoicePaymentResultEntity> createPayment(InvoicePaymentParams params);
   Future<InvoicePaymentResultEntity> createRefund(InvoicePaymentParams params);
+  Future<InvoicePaymentResultEntity> createCredit(CreateCreditParams params);
   Future<InvoiceResultEntity> updateInvoice({
     required String code,
     required UpdateInvoiceParams params,
