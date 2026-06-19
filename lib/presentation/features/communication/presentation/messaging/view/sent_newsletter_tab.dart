@@ -418,6 +418,9 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                             createdBy: createdBy,
                                             recipientCount:
                                                 letter.recipientCount,
+                                            recipientNames:
+                                                letter.recipientNames,
+                                            recipients: letter.recipients,
                                             primaryAttachmentAssetCode:
                                                 primaryAssetCode,
                                             primaryAttachmentMimeType: () {

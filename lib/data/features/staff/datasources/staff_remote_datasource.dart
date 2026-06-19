@@ -267,7 +267,7 @@ abstract class StaffRemoteDataSource {
   Future<({List<StaffProfileWorkScheduleModel> workSchedules, List<StaffProfileBreakScheduleModel> breakSchedules})>
       getStaffSchedules({required String staffCode});
 
-  /// `GET /api/v1/organization/school/{schoolCode}/regular-schedule`
+  /// `GET /api/v1/organization/schools/{schoolCode}` (`data.childcareSchedule`).
   Future<SchoolRegularScheduleListModel> getSchoolRegularSchedules({
     required String schoolCode,
   });
@@ -1129,13 +1129,12 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
   Future<SchoolRegularScheduleListModel> getSchoolRegularSchedules({
     required String schoolCode,
   }) async {
-    final path = ApiPaths.schoolRegularSchedule(schoolCode);
-    final endpoint = ApiPaths.url(path);
+    final endpoint = ApiPaths.url(ApiPaths.schoolByCode(schoolCode));
 
     final response = await _client.get<dynamic>(endpoint);
 
     if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected regular-schedule API response format');
+      throw Exception('Unexpected school settings API response format');
     }
 
     return SchoolRegularScheduleListModel.fromResponse(

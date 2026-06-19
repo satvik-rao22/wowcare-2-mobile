@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class NewsletterListItemModel {
@@ -11,6 +13,8 @@ class NewsletterListItemModel {
     required this.sentDate,
     required this.createdBy,
     required this.recipientCount,
+    this.recipientNames = const <String>[],
+    this.recipients = const <NewsletterRecipientSummary>[],
     this.primaryAttachmentAssetCode,
     this.primaryAttachmentDirectUrl,
     this.primaryAttachmentMimeType,
@@ -22,6 +26,8 @@ class NewsletterListItemModel {
   final String sentDate;
   final String createdBy;
   final int recipientCount;
+  final List<String> recipientNames;
+  final List<NewsletterRecipientSummary> recipients;
   final String? primaryAttachmentAssetCode;
   final String? primaryAttachmentDirectUrl;
   final String? primaryAttachmentMimeType;
@@ -110,6 +116,8 @@ class NewsletterSentListCard extends StatelessWidget {
                         if (showRecipientCount)
                           _RecipientCountBadge(
                             count: newsLetter.recipientCount,
+                            recipientNames: newsLetter.recipientNames,
+                            recipients: newsLetter.recipients,
                           ),
                       ],
                     ),
@@ -179,31 +187,288 @@ class _DateMetaRow extends StatelessWidget {
 }
 
 class _RecipientCountBadge extends StatelessWidget {
-  const _RecipientCountBadge({required this.count});
+  const _RecipientCountBadge({
+    required this.count,
+    required this.recipientNames,
+    required this.recipients,
+  });
 
   final int count;
+  final List<String> recipientNames;
+  final List<NewsletterRecipientSummary> recipients;
+
+  List<NewsletterRecipientSummary> _recipientItems() {
+    if (recipients.isNotEmpty) {
+      final seen = <String>{};
+      final items = recipients.where((NewsletterRecipientSummary recipient) {
+        final displayName = recipient.displayName.trim();
+        if (displayName.isEmpty) return false;
+        final code = recipient.userCode.trim();
+        final key = code.isNotEmpty ? code : displayName.toLowerCase();
+        return seen.add(key);
+      }).toList()
+        ..sort(
+          (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
+              a.displayName.toLowerCase().compareTo(
+                    b.displayName.toLowerCase(),
+                  ),
+        );
+      return items;
+    }
+
+    return recipientNames
+        .map((String name) => name.trim())
+        .where((String name) => name.isNotEmpty)
+        .toSet()
+        .map(
+          (String name) => NewsletterRecipientSummary(
+            displayName: name,
+            userCode: '',
+          ),
+        )
+        .toList()
+      ..sort(
+        (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
+            a.displayName.toLowerCase().compareTo(
+                  b.displayName.toLowerCase(),
+                ),
+      );
+  }
+
+  void _showRecipients(BuildContext context) {
+    final items = _recipientItems();
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (BuildContext sheetContext) {
+        return SafeArea(
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(20, 12, 12, 16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        AppColors.primaryGradientColors.first.withValues(
+                          alpha: 0.12,
+                        ),
+                        AppColors.primaryGradientColors.last.withValues(
+                          alpha: 0.08,
+                        ),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(24),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 42,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.18,
+                            ),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Container(
+                            width: 38,
+                            height: 38,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.08,
+                                ),
+                              ),
+                            ),
+                            child: Icon(
+                              Icons.groups_2_outlined,
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.78,
+                              ),
+                              size: 22,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Recipients',
+                                  style: TextStyle(
+                                    color: AppColors.primaryColor,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  '$count ${count == 1 ? 'recipient' : 'recipients'}',
+                                  style: TextStyle(
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.66,
+                                    ),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                            color: AppColors.primaryColor,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(sheetContext).size.height * 0.55,
+                    ),
+                    child: items.isEmpty
+                        ? const Padding(
+                            padding: EdgeInsets.symmetric(
+                              vertical: 30,
+                              horizontal: 20,
+                            ),
+                            child: Center(
+                              child: Text(
+                                'Recipient names are not available.',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: AppColors.primaryColor,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+                            itemCount: items.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.08,
+                              ),
+                            ),
+                            itemBuilder: (BuildContext context, int index) {
+                              final recipient = items[index];
+                              return _RecipientListTile(recipient: recipient);
+                            },
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.account_circle_outlined,
-            size: 18,
-            color: AppColors.primaryColor.withValues(alpha: 0.62),
+      child: Material(
+        color: AppColors.fieldBackgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: () => _showRecipients(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.account_circle_outlined,
+                  size: 18,
+                  color: AppColors.primaryColor.withValues(alpha: 0.68),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  '$count',
+                  maxLines: 1,
+                  softWrap: false,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(width: 3),
-          Text(
-            '$count',
-            maxLines: 1,
-            softWrap: false,
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.78),
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+class _RecipientListTile extends StatelessWidget {
+  const _RecipientListTile({required this.recipient});
+
+  final NewsletterRecipientSummary recipient;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = recipient.displayName.trim();
+    final code = recipient.userCode.trim();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        children: [
+          DocumentImageWidget(
+            fileUuid: code.isNotEmpty ? code : name,
+            name: name,
+            studentCode: code.isNotEmpty ? code : null,
+            size: 40,
+            disableAttendanceStatusLookup: true,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: AppColors.primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],

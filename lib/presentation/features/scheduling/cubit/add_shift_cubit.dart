@@ -59,6 +59,9 @@ class AddShiftCubit extends Cubit<AddShiftState> {
   /// refreshed once the school timezone resolves.
   bool _hasExplicitInitialDate = false;
 
+  String _prefillKey(String? staffCode, DateTime date) =>
+      '${staffCode ?? ''}|${date.toIso8601String().substring(0, 10)}';
+
   // ─── Bootstrap ─────────────────────────────────────────────────────────────
 
   /// Seeds the form from the screen's constructor arguments, then kicks off the
@@ -67,15 +70,25 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     DateTime? initialDate,
     String? initialClassroomCode,
     String? initialStaffCode,
+    TimeOfDay? initialShiftStart,
+    TimeOfDay? initialShiftEnd,
     bool initialPublish = false,
     bool prefillStaff = true,
   }) {
     _hasExplicitInitialDate = initialDate != null;
+    final seededDate = initialDate ?? schedulingSchoolToday();
+    final hasExplicitTimes =
+        initialShiftStart != null || initialShiftEnd != null;
+    if (hasExplicitTimes && initialStaffCode != null) {
+      _lastPrefilledKey = _prefillKey(initialStaffCode, seededDate);
+    }
     emit(
       state.copyWith(
-        date: initialDate ?? schedulingSchoolToday(),
+        date: seededDate,
         selectedClassroomCode: initialClassroomCode,
         selectedStaffCode: prefillStaff ? initialStaffCode : null,
+        shiftStart: initialShiftStart,
+        shiftEnd: initialShiftEnd,
         publish: initialPublish,
       ),
     );
@@ -265,8 +278,7 @@ class AddShiftCubit extends Cubit<AddShiftState> {
   /// work + break schedules for the selected date's weekday. If the staff has
   /// no entry for that weekday, both shift and break are cleared.
   void prefillTimesFromSchedule(StaffMember? staff) {
-    final key =
-        '${staff?.code ?? ''}|${state.date.toIso8601String().substring(0, 10)}';
+    final key = _prefillKey(staff?.code, state.date);
     _lastPrefilledKey = key;
 
     if (staff == null) {
@@ -298,8 +310,7 @@ class AddShiftCubit extends Cubit<AddShiftState> {
   /// Whether the build-time fallback prefill should fire for [staff] — true
   /// when we haven't already prefilled for this (staffCode + date) combo.
   bool shouldPrefillFor(StaffMember staff) {
-    final key =
-        '${staff.code}|${state.date.toIso8601String().substring(0, 10)}';
+    final key = _prefillKey(staff.code, state.date);
     return _lastPrefilledKey != key;
   }
 

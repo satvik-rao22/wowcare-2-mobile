@@ -17,6 +17,7 @@ class StaffDayScheduleCalendar extends StatefulWidget {
     required this.schoolEndTime,
     this.classroomResolver,
     this.onShiftTap,
+    this.onEmptySlotTap,
     this.highlightShiftCode,
   });
 
@@ -37,6 +38,10 @@ class StaffDayScheduleCalendar extends StatefulWidget {
   /// Fires when the user taps a non-break shift block. Break blocks are not
   /// considered an editable shift, so they ignore taps.
   final ValueChanged<Shift>? onShiftTap;
+
+  /// Fires when the user taps an empty hourly slot in the schedule column.
+  /// The value is snapped to the start of the tapped hour.
+  final ValueChanged<TimeOfDay>? onEmptySlotTap;
 
   @override
   State<StaffDayScheduleCalendar> createState() =>
@@ -94,6 +99,35 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     final start = _parseTime(startTime);
     final end = _parseTime(endTime);
     return end.difference(start).inMinutes / 60.0;
+  }
+
+  int _minutesOf(DateTime time) => time.hour * 60 + time.minute;
+
+  TimeOfDay _timeOfDayFromMinutes(int minutes) {
+    final normalized = minutes.clamp(0, (24 * 60) - 1);
+    return TimeOfDay(hour: normalized ~/ 60, minute: normalized % 60);
+  }
+
+  bool _tapOverlapsExistingShift(double dy) {
+    final gridStart = _minutesOf(_parseTime(_slotGridStartLabel()));
+    final tappedMinutes = gridStart + ((dy / cellHeightRow) * 60).floor();
+    for (final shift in _shifts) {
+      final start = _minutesOf(_parseTime(shift.start));
+      final end = _minutesOf(_parseTime(shift.end));
+      if (tappedMinutes >= start && tappedMinutes < end) return true;
+    }
+    return false;
+  }
+
+  void _handleScheduleTap(TapDownDetails details) {
+    final callback = widget.onEmptySlotTap;
+    if (callback == null) return;
+    final dy = details.localPosition.dy;
+    if (dy < 0 || _tapOverlapsExistingShift(dy)) return;
+
+    final gridStart = _minutesOf(_parseTime(_slotGridStartLabel()));
+    final tappedHour = (dy / cellHeightRow).floor();
+    callback(_timeOfDayFromMinutes(gridStart + tappedHour * 60));
   }
 
   /// Returns the school start rounded DOWN to the hour, formatted as
@@ -448,23 +482,29 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
           border: Border.all(color: Colors.grey.shade300),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            ...workShifts.map(_buildTimeContainer),
-            ...breakShifts.map(_buildTimeContainer),
-            if (_shifts.isEmpty)
-              const Center(
-                child: Text(
-                  'No Shifts for Today',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 20,
-                    color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w600,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTapDown: _handleScheduleTap,
+          child: Stack(
+            children: [
+              ...workShifts.map(_buildTimeContainer),
+              ...breakShifts.map(_buildTimeContainer),
+              if (_shifts.isEmpty)
+                const Center(
+                  child: IgnorePointer(
+                    child: Text(
+                      'No Shifts for Today',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 20,
+                        color: AppColors.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

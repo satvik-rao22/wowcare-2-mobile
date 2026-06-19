@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 
 class NewsletterComponentModel extends Equatable {
   const NewsletterComponentModel({
@@ -97,17 +98,34 @@ class NewsletterRecipientModel extends Equatable {
     this.id = 0,
     this.classroomCode = '',
     this.studentCode = '',
+    this.userName = '',
   });
 
   final int id;
   final String classroomCode;
   final String studentCode;
+  final String userName;
 
   factory NewsletterRecipientModel.fromJson(Map<String, dynamic> json) {
+    final firstName = (json['firstName'] ?? '').toString().trim();
+    final lastName = (json['lastName'] ?? '').toString().trim();
+    final composedName = <String>[firstName, lastName]
+        .where((String part) => part.isNotEmpty)
+        .join(' ');
     return NewsletterRecipientModel(
       id: json['id'] as int? ?? 0,
       classroomCode: (json['classroomCode'] as String? ?? '').trim(),
-      studentCode: (json['studentCode'] as String? ?? '').trim(),
+      studentCode: (json['studentCode'] ?? json['userCode'] ?? '')
+          .toString()
+          .trim(),
+      userName: (json['userName'] ??
+              json['studentName'] ??
+              json['recipientName'] ??
+              json['guardianName'] ??
+              json['name'] ??
+              composedName)
+          .toString()
+          .trim(),
     );
   }
 
@@ -115,10 +133,11 @@ class NewsletterRecipientModel extends Equatable {
         'id': id,
         'classroomCode': classroomCode,
         'studentCode': studentCode,
+        'userName': userName,
       };
 
   @override
-  List<Object?> get props => [id, classroomCode, studentCode];
+  List<Object?> get props => [id, classroomCode, studentCode, userName];
 }
 
 class NewsletterModel extends Equatable {
@@ -186,7 +205,9 @@ class NewsletterModel extends Equatable {
       organizationCode: (json['organizationCode'] as String? ?? '').trim(),
       schoolCode: (json['schoolCode'] as String? ?? '').trim(),
       title: (json['title'] as String? ?? '').trim(),
-      subtitle: subtitle.isNotEmpty ? subtitle : _summaryFromComponents(components),
+      subtitle: subtitle.isNotEmpty
+          ? subtitle
+          : _summaryFromComponents(components),
       layoutJson: (json['layoutJson'] as String? ?? '').trim(),
       colorTheme: (json['colorTheme'] as String? ?? '').trim(),
       backgroundPattern:
@@ -266,6 +287,46 @@ class NewsletterModel extends Equatable {
         .where((String c) => c.isNotEmpty)
         .toSet()
         .toList();
+  }
+
+  List<String> get recipientNames {
+    return recipientSummaries
+        .map((NewsletterRecipientSummary r) => r.displayName.trim())
+        .where((String name) => name.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort(
+        (String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()),
+      );
+  }
+
+  List<NewsletterRecipientSummary> get recipientSummaries {
+    final summaries = recipients
+        .map((NewsletterRecipientModel r) {
+          final name = r.userName.trim();
+          final code = r.studentCode.trim();
+          final displayName = name.isNotEmpty ? name : code;
+          if (displayName.isEmpty) return null;
+          return NewsletterRecipientSummary(
+            displayName: displayName,
+            userCode: code,
+          );
+        })
+        .whereType<NewsletterRecipientSummary>()
+        .toList()
+      ..sort(
+        (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
+            a.displayName.toLowerCase().compareTo(
+                  b.displayName.toLowerCase(),
+                ),
+      );
+    final seen = <String>{};
+    return summaries.where((summary) {
+      final key = summary.userCode.isNotEmpty
+          ? summary.userCode
+          : summary.displayName.toLowerCase();
+      return seen.add(key);
+    }).toList();
   }
 
   @override
