@@ -9,6 +9,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -759,7 +760,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
                       ? null
                       : () => setState(() => _quotedMessage = msg),
                   onCopy: () {
-                    Clipboard.setData(ClipboardData(text: msg.text));
+                    Clipboard.setData(ClipboardData(
+                      text: MessageContentProcessor.stripHtmlTags(msg.text),
+                    ));
                     CoreUtils.showTopSnackBar(
                       context: context,
                       message: 'Message copied successfully',
@@ -769,7 +772,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen> {
                   onEdit: () {
                     setState(() {
                       _editingMessage = msg;
-                      _inputController.text = msg.text;
+                      _inputController.text =
+                          MessageContentProcessor.stripHtmlTags(msg.text);
                     });
                     _inputFocusNode.requestFocus();
                   },

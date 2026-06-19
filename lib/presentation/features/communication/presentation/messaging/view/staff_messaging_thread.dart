@@ -8,6 +8,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../util/message_content_processor.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -251,7 +252,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
 
   void _showEditDialog(BuildContext context, Message message) {
     final TextEditingController editingController = TextEditingController(
-      text: message.text,
+      text: MessageContentProcessor.stripHtmlTags(message.text),
     );
     showDialog(
       context: context,
@@ -522,7 +523,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                         },
                                         onCopy: () {
                                           Clipboard.setData(
-                                            ClipboardData(text: message.text),
+                                            ClipboardData(text: MessageContentProcessor.stripHtmlTags(message.text)),
                                           );
                                           CoreUtils.showTopSnackBar(
                                             context: context,
@@ -1040,7 +1041,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                     border: Border.all(color: AppColors.primaryColor, width: 1),
                   ),
                   child: CustomTextWidget(
-                    text: message.text,
+                    text: MessageContentProcessor.stripHtmlTags(message.text),
                     fontSize: 15,
                     unlimitedLines: true,
                     overflow: TextOverflow.visible,

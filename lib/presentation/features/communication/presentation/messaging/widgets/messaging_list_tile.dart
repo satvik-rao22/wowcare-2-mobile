@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
@@ -157,7 +158,7 @@ class MessagingListTile extends StatelessWidget {
                 child: Text(
                   conversation.lastMessagePreview.isEmpty
                       ? 'Start a new conversation'
-                      : conversation.lastMessagePreview,
+                      : MessageContentProcessor.previewText(conversation.lastMessagePreview),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

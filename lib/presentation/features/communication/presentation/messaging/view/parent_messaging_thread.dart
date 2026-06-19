@@ -13,6 +13,7 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../util/message_content_processor.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
@@ -358,7 +359,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   void _startEditing(Message message) {
     setState(() {
       _editingMessage = message;
-      _controller.text = message.text;
+      _controller.text = MessageContentProcessor.stripHtmlTags(message.text);
     });
     _inputFocusNode.requestFocus();
   }
@@ -526,7 +527,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 onCopy: () {
                                                   Clipboard.setData(
                                                     ClipboardData(
-                                                      text: message.text,
+                                                      text: MessageContentProcessor.stripHtmlTags(message.text),
                                                     ),
                                                   );
                                                   CoreUtils.showTopSnackBar(
@@ -724,7 +725,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 onCopy: () {
                                                   Clipboard.setData(
                                                     ClipboardData(
-                                                      text: message.text,
+                                                      text: MessageContentProcessor.stripHtmlTags(message.text),
                                                     ),
                                                   );
                                                   CoreUtils.showTopSnackBar(
@@ -923,7 +924,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 onCopy: () {
                                                   Clipboard.setData(
                                                     ClipboardData(
-                                                      text: message.text,
+                                                      text: MessageContentProcessor.stripHtmlTags(message.text),
                                                     ),
                                                   );
                                                   CoreUtils.showTopSnackBar(
@@ -1233,7 +1234,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     onCopy: () {
                                                       Clipboard.setData(
                                                         ClipboardData(
-                                                          text: message.text,
+                                                          text: MessageContentProcessor.stripHtmlTags(message.text),
                                                         ),
                                                       );
                                                       CoreUtils.showTopSnackBar(
@@ -1248,7 +1249,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         _editingMessage =
                                                             message;
                                                         _controller.text =
-                                                            message.text;
+                                                            MessageContentProcessor.stripHtmlTags(message.text);
                                                         _inputFocusNode
                                                             .requestFocus();
                                                       });
@@ -1452,7 +1453,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     onCopy: () {
                                                       Clipboard.setData(
                                                         ClipboardData(
-                                                          text: message.text,
+                                                          text: MessageContentProcessor.stripHtmlTags(message.text),
                                                         ),
                                                       );
                                                       CoreUtils.showTopSnackBar(
@@ -1467,7 +1468,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         _editingMessage =
                                                             message;
                                                         _controller.text =
-                                                            message.text;
+                                                            MessageContentProcessor.stripHtmlTags(message.text);
                                                         _inputFocusNode
                                                             .requestFocus();
                                                       });
@@ -1673,7 +1674,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     onCopy: () {
                                                       Clipboard.setData(
                                                         ClipboardData(
-                                                          text: message.text,
+                                                          text: MessageContentProcessor.stripHtmlTags(message.text),
                                                         ),
                                                       );
                                                       CoreUtils.showTopSnackBar(
@@ -1688,7 +1689,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         _editingMessage =
                                                             message;
                                                         _controller.text =
-                                                            message.text;
+                                                            MessageContentProcessor.stripHtmlTags(message.text);
                                                         _inputFocusNode
                                                             .requestFocus();
                                                       });
@@ -2097,7 +2098,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     border: Border.all(color: AppColors.primaryColor, width: 1),
                   ),
                   child: CustomTextWidget(
-                    text: message.text,
+                    text: MessageContentProcessor.stripHtmlTags(message.text),
                     fontSize: 15,
                     unlimitedLines: true,
                     overflow: TextOverflow.visible,

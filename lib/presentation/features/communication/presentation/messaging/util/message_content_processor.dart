@@ -136,6 +136,57 @@ class MessageContentProcessor {
     }
   }
 
+  // ── Plain-text extraction ──────────────────────────────────────────────────
+
+  /// Strips all HTML tags from [html] and decodes common HTML entities,
+  /// returning plain text suitable for clipboard copy, list-tile previews,
+  /// reply/quote previews, and edit-mode text fields.
+  ///
+  /// Examples:
+  ///   `<b>Hello</b> <i>World</i>` → `Hello World`
+  ///   `<p>Line 1</p><p>Line 2</p>` → `Line 1\nLine 2`
+  ///   `&amp;lt;b&gt;` → `<b>`
+  static String stripHtmlTags(String input) {
+    if (input.isEmpty) return input;
+
+    // Block-level tags that should become newlines rather than disappearing.
+    var result = input
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</p>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</div>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'</li>', caseSensitive: false), '\n')
+        .replaceAll(RegExp(r'<li[^>]*>', caseSensitive: false), '• ');
+
+    // Remove all remaining tags.
+    result = result.replaceAll(RegExp(r'<[^>]+>'), '');
+
+    // Decode the five XML/HTML character references that appear most often
+    // in rich-text content.
+    result = result
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&nbsp;', ' ');
+
+    // Collapse runs of blank lines into a single newline, then trim.
+    result = result.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+    return result;
+  }
+
+  /// Returns a single-line plain-text preview suitable for conversation-list
+  /// tiles, notification text, and search results.  Never longer than
+  /// [maxLength] characters; appends '…' when truncated.
+  static String previewText(String rawContent, {int maxLength = 120}) {
+    final plain = stripHtmlTags(rawContent)
+        .replaceAll('\n', ' ')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
+        .trim();
+    if (plain.length <= maxLength) return plain;
+    return '${plain.substring(0, maxLength)}…';
+  }
+
   // ── Smart bubble timestamp ─────────────────────────────────────────────────
 
   /// Returns a human-friendly timestamp for a chat bubble.

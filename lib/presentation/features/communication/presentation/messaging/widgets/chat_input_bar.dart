@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -280,7 +281,7 @@ class _QuotePreview extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   CustomTextWidget(
-                    text: message!.text,
+                    text: MessageContentProcessor.previewText(message!.text),
                     fontSize: 13,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -345,7 +346,7 @@ class _EditPreview extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   CustomTextWidget(
-                    text: message!.text,
+                    text: MessageContentProcessor.previewText(message!.text),
                     fontSize: 13,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
