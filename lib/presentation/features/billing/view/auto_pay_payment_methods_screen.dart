@@ -31,8 +31,7 @@ class _AutoPayPaymentMethodsScreenState
   static const Color _autopayTagFg = Color(0xFF6F52FF);
 
   final AutoPayMethodsCubit _cubit = serviceLocator<AutoPayMethodsCubit>();
-  final PageController _pageController =
-      PageController(viewportFraction: 0.86);
+  final PageController _pageController = PageController(viewportFraction: 0.95);
   int _currentPage = 0;
   bool _positionedToPrimary = false;
 
@@ -65,7 +64,6 @@ class _AutoPayPaymentMethodsScreenState
           );
         },
         builder: (context, state) {
-          // Once methods load, center the carousel on the primary method.
           _maybePositionToPrimary(state);
           return StaffFormLayout(
             title: 'AutoPay Settings',
@@ -78,8 +76,8 @@ class _AutoPayPaymentMethodsScreenState
                   _buildSectionHeader(),
                   const SizedBox(height: 16),
                   _buildMethodsArea(state),
-                  const SizedBox(height: 20),
-                  _buildAddButtons(state),
+                  const SizedBox(height: 16),
+                  _buildAddButton(state),
                 ],
               ),
             ),
@@ -135,8 +133,7 @@ class _AutoPayPaymentMethodsScreenState
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
-                        color:
-                            enabled ? AppColors.successColor : Colors.grey,
+                        color: enabled ? AppColors.successColor : Colors.grey,
                       ),
                     ),
                   ),
@@ -219,9 +216,9 @@ class _AutoPayPaymentMethodsScreenState
   Widget _buildMethodsArea(AutoPayMethodsState state) {
     if (state.isLoading) {
       return ShimmerLoader(
-        height: 230,
+        height: 290,
         width: double.infinity,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       );
     }
     if (!state.hasMethods) return _buildEmptyState();
@@ -230,7 +227,7 @@ class _AutoPayPaymentMethodsScreenState
     return Column(
       children: [
         SizedBox(
-          height: 230,
+          height: 290,
           child: Stack(
             alignment: Alignment.center,
             children: [
@@ -238,7 +235,7 @@ class _AutoPayPaymentMethodsScreenState
                 controller: _pageController,
                 itemCount: methods.length,
                 onPageChanged: (i) => setState(() => _currentPage = i),
-                itemBuilder: (_, i) => _buildCarouselCard(state, methods[i]),
+                itemBuilder: (_, i) => _buildMethodCard(state, methods[i]),
               ),
               if (methods.length > 1) ...[
                 Align(
@@ -331,7 +328,8 @@ class _AutoPayPaymentMethodsScreenState
   void _maybePositionToPrimary(AutoPayMethodsState state) {
     if (_positionedToPrimary || state.isLoading || !state.hasMethods) return;
     _positionedToPrimary = true;
-    final idx = state.methods.indexWhere((m) => m.code == state.selectedMethodCode);
+    final idx =
+        state.methods.indexWhere((m) => m.code == state.selectedMethodCode);
     final target = idx >= 0 ? idx : 0;
     if (target == 0) {
       _currentPage = 0;
@@ -344,17 +342,16 @@ class _AutoPayPaymentMethodsScreenState
     });
   }
 
-  Widget _buildCarouselCard(AutoPayMethodsState state, PaymentMethodEntity m) {
+  // ── Method card (rich visual) ────────────────────────────────────────────
+
+  Widget _buildMethodCard(AutoPayMethodsState state, PaymentMethodEntity m) {
     final selected = state.selectedMethodCode == m.code;
-    final last4 = m.isEcheck
-        ? (m.echeck?.last4 ?? m.last4 ?? '••••')
-        : (m.card?.last4 ?? m.last4 ?? '••••');
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: selected ? _accent : Colors.grey.shade200,
           width: selected ? 2 : 1,
@@ -368,19 +365,9 @@ class _AutoPayPaymentMethodsScreenState
         ],
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _brandMark(m),
-              const Spacer(),
-              if (m.isEcheck)
-                Padding(
-                  padding: const EdgeInsets.only(right: 6, top: 2),
-                  child: _tag('ACH', const Color(0xFFEDEFF5),
-                      const Color(0xFF4A4A68)),
-                ),
               Radio<String>(
                 value: m.code,
                 groupValue: state.selectedMethodCode,
@@ -389,69 +376,48 @@ class _AutoPayPaymentMethodsScreenState
                 visualDensity: VisualDensity.compact,
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _brandLabel(m),
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              const Text('••••  ', style: TextStyle(letterSpacing: 1)),
-              Text(
-                last4,
-                style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+              const SizedBox(width: 4),
+              Expanded(
+                child: GestureDetector(
+                  onTap: () => _cubit.selectMethod(m.code),
+                  child: Text(
+                    _methodTitle(m),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                    ),
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          ..._buildCardSubDetails(m),
-          const Spacer(),
-          Row(
-            children: [
               if (m.primary)
-                _tag('Primary', const Color(0xFFE8FFF1),
-                    AppColors.successColor),
-              if (m.primary && state.autopayEnabled) ...[
-                const SizedBox(width: 6),
-                _tag('AutoPay', _autopayTagBg, _autopayTagFg),
-              ],
-              const Spacer(),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8FFF1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Auto Pay',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.successColor,
+                    ),
+                  ),
+                ),
               _cardActions(state, m),
             ],
+          ),
+          const SizedBox(height: 6),
+          GestureDetector(
+            onTap: () => _cubit.selectMethod(m.code),
+            child: m.isEcheck ? _buildEcheckCard(m) : _buildCreditCard(m),
           ),
         ],
       ),
     );
-  }
-
-  List<Widget> _buildCardSubDetails(PaymentMethodEntity m) {
-    final style = TextStyle(fontSize: 12, color: Colors.grey.shade600);
-    if (m.isEcheck) {
-      return [
-        Text(_echeckAccountTypeLabel(m.echeck?.accountType), style: style),
-        Text('ACH Payment Method', style: style),
-      ];
-    }
-    final card = m.card;
-    final exp = (card?.expireMonth != null && card?.expireYear != null)
-        ? 'Expires ${card!.expireMonth.toString().padLeft(2, '0')}/${card.expireYear}'
-        : 'Expires --/--';
-    final holder = (card?.nameOnCard ?? '').trim();
-    return [
-      Text(exp, style: style),
-      if (holder.isNotEmpty) Text(holder, style: style),
-    ];
   }
 
   Widget _cardActions(AutoPayMethodsState state, PaymentMethodEntity m) {
@@ -471,7 +437,6 @@ class _AutoPayPaymentMethodsScreenState
           const Color(0xFF667EEA),
           busy ? null : () => _openEditMethod(m),
         ),
-        const SizedBox(width: 4),
         _iconAction(
           Icons.delete_outline,
           const Color(0xFFE53E3E),
@@ -492,88 +457,168 @@ class _AutoPayPaymentMethodsScreenState
     );
   }
 
-  Widget _tag(String text, Color bg, Color fg) {
+  Widget _buildCreditCard(PaymentMethodEntity m) {
+    final card = m.card;
+    final last4 = card?.last4 ?? m.last4 ?? '••••';
+    final type = (card?.cardType ?? m.methodType.apiValue).toUpperCase();
+    final gradient = _cardGradient(type);
+    final exp = (card?.expireMonth != null && card?.expireYear != null)
+        ? '${card!.expireMonth.toString().padLeft(2, '0')}/${card.expireYear}'
+        : '--/--';
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 480, minHeight: 180),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
+        gradient: gradient,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
-      child: Text(
-        text,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildChip(),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  type,
+                  textAlign: TextAlign.right,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
+              children: [
+                const Text(
+                  '•••• •••• ••••',
+                  style: TextStyle(
+                    color: Colors.white,
+                    letterSpacing: 2,
+                    fontSize: 16,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  last4,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    letterSpacing: 2,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: _detailGroup(
+                  'Card Holder',
+                  (card?.nameOnCard ?? '').trim().isEmpty
+                      ? '—'
+                      : card!.nameOnCard!.toUpperCase(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _detailGroup('Expires', exp),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _brandMark(PaymentMethodEntity m) {
-    if (m.isEcheck) {
-      return Container(
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: const Color(0xFFEFF2FF),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Icon(Icons.account_balance,
-            color: Color(0xFF3B5BDB), size: 22),
-      );
-    }
-    final t = (m.card?.cardType ?? m.methodType.apiValue).toLowerCase();
-    if (t.contains('visa')) {
-      return _brandText('VISA', const Color(0xFF1A1F71), italic: true);
-    }
-    if (t.contains('mast') || t.contains('master')) {
-      return SizedBox(
-        width: 44,
-        height: 30,
-        child: Stack(
-          children: [
-            _brandCircle(const Color(0xFFEB001B), 0),
-            _brandCircle(const Color(0xFFF79E1B), 16),
-          ],
-        ),
-      );
-    }
-    if (t.contains('disc')) {
-      return _brandText('DISC', const Color(0xFFFF6000));
-    }
-    return const Icon(Icons.credit_card, size: 28, color: Color(0xFF667EEA));
-  }
-
-  Widget _brandCircle(Color color, double left) {
-    return Positioned(
-      left: left,
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.9),
-          shape: BoxShape.circle,
-        ),
+  Widget _buildEcheckCard(PaymentMethodEntity m) {
+    final e = m.echeck;
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 480, minHeight: 180),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F4FC),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFB8DAEF)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'eCheck',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF334455),
+                ),
+              ),
+              Text(
+                _echeckAccountTypeLabel(e?.accountType),
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: _detailGroup(
+                  'Account Holder Name',
+                  e?.accountHolder ?? '—',
+                  isDark: false,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _detailGroup(
+                  'Routing Number',
+                  e?.routingNumber ?? '—',
+                  isDark: false,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _detailGroup(
+            'Last Four',
+            e?.last4 ?? m.last4 ?? '—',
+            isDark: false,
+          ),
+        ],
       ),
     );
   }
 
-  Widget _brandText(String text, Color color, {bool italic = false}) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 18,
-        fontWeight: FontWeight.w900,
-        color: color,
-        letterSpacing: 0.5,
-        fontStyle: italic ? FontStyle.italic : FontStyle.normal,
-      ),
-    );
-  }
-
-  String _brandLabel(PaymentMethodEntity m) {
+  String _methodTitle(PaymentMethodEntity m) {
     if (m.label != null && m.label!.trim().isNotEmpty) return m.label!.trim();
-    if (m.isEcheck) {
-      final holder = (m.echeck?.accountHolder ?? '').trim();
-      return holder.isNotEmpty ? holder : 'Bank Account';
-    }
+    if (m.isEcheck) return 'eCheck account';
     switch (m.methodType) {
       case PaymentMethodType.visa:
         return 'Visa';
@@ -583,17 +628,96 @@ class _AutoPayPaymentMethodsScreenState
         return 'Discover';
       default:
         final ct = (m.card?.cardType ?? '').trim();
-        return ct.isNotEmpty ? ct : 'Card';
+        return ct.isNotEmpty ? '$ct card' : 'Card';
     }
   }
-
-  String _methodTitle(PaymentMethodEntity m) => _brandLabel(m);
 
   String _echeckAccountTypeLabel(String? accountType) {
     final lower = (accountType ?? '').toLowerCase();
     if (lower == 'c' || lower.contains('checking')) return 'Checking';
     if (lower == 's' || lower.contains('saving')) return 'Savings';
     return accountType ?? 'Bank Account';
+  }
+
+  LinearGradient _cardGradient(String cardType) {
+    final type = cardType.toLowerCase();
+    if (type.contains('visa')) {
+      return const LinearGradient(
+        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+    if (type.contains('mast') || type.contains('master')) {
+      return const LinearGradient(
+        colors: [Color(0xFFF093FB), Color(0xFFF5576C)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+    if (type.contains('disc')) {
+      return const LinearGradient(
+        colors: [Color(0xFFFF9966), Color(0xFFFF5E62)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+    return const LinearGradient(
+      colors: [Color(0xFF5B5B5B), Color(0xFF1A1A1A)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
+  Widget _buildChip() {
+    return Container(
+      width: 40,
+      height: 28,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        gradient: const LinearGradient(
+          colors: [Color(0xFFD1D1D1), Color(0xFFFCFCFC)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailGroup(String label, String value, {bool isDark = true}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? Colors.white70 : Colors.black54,
+            letterSpacing: 0.2,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildEmptyState() {
@@ -610,7 +734,7 @@ class _AutoPayPaymentMethodsScreenState
           Icon(Icons.credit_card_off_outlined, size: 36, color: Colors.grey),
           SizedBox(height: 8),
           Text(
-            'No saved payment methods yet.\nAdd a card or bank account below.',
+            'No saved payment methods yet.\nAdd a payment method below.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Colors.black54),
           ),
@@ -619,73 +743,37 @@ class _AutoPayPaymentMethodsScreenState
     );
   }
 
-  // ── Add buttons ────────────────────────────────────────────────────────
+  // ── Add button ───────────────────────────────────────────────────────────
 
-  Widget _buildAddButtons(AutoPayMethodsState state) {
+  Widget _buildAddButton(AutoPayMethodsState state) {
     final canAdd = state.canAddMore && state.hasForteConfig && !state.isSaving;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _addButton(
-                Icons.credit_card,
-                'Add Credit or Debit Card',
-                canAdd ? () => _openAddMethod(ach: false) : null,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _addButton(
-                Icons.account_balance,
-                'Add Bank Account (ACH)',
-                canAdd ? () => _openAddMethod(ach: true) : null,
-              ),
-            ),
-          ],
-        ),
-        if (!state.canAddMore) ...[
-          const SizedBox(height: 8),
-          Text(
-            'Maximum of ${AutoPayMethodsState.maxMethods} payment methods reached.',
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _addButton(IconData icon, String label, VoidCallback? onTap) {
-    final enabled = onTap != null;
     return Opacity(
-      opacity: enabled ? 1 : 0.5,
+      opacity: canAdd ? 1 : 0.6,
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        onTap: canAdd ? _openAddMethod : null,
+        borderRadius: BorderRadius.circular(14),
         child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           decoration: BoxDecoration(
             color: const Color(0xFFF7F6FD),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: _autopayTagFg.withValues(alpha: 0.35),
-            ),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: _autopayTagFg.withValues(alpha: 0.35)),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: _autopayTagFg),
+              const Icon(Icons.add_circle_outline,
+                  size: 20, color: _autopayTagFg),
               const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: _autopayTagFg,
-                  ),
+              Text(
+                state.canAddMore
+                    ? 'Add new payment method'
+                    : 'Maximum of ${AutoPayMethodsState.maxMethods} methods reached',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: canAdd ? _autopayTagFg : Colors.grey,
                 ),
               ),
             ],
@@ -695,7 +783,7 @@ class _AutoPayPaymentMethodsScreenState
     );
   }
 
-  // ── Bottom bar (Save + secure note) ──────────────────────────────────────
+  // ── Bottom bar (Save) ────────────────────────────────────────────────────
 
   Widget _buildBottomBar(AutoPayMethodsState state) {
     final canSave = state.canSave;
@@ -722,65 +810,46 @@ class _AutoPayPaymentMethodsScreenState
           topRight: Radius.circular(24),
         ),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSaveButton(state, canSave),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
-              const SizedBox(width: 6),
-              Text(
-                'Your payment information is secure and encrypted.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSaveButton(AutoPayMethodsState state, bool canSave) {
-    return Opacity(
-      opacity: canSave ? 1 : 0.5,
-      child: InkWell(
-        onTap: canSave ? _handleSave : null,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          height: 54,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Center(
-            child: state.isSettingPrimary
-                ? const SizedBox(
-                    height: 22,
-                    width: 22,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2.5,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                    ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.save_outlined, color: Colors.white, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Save AutoPay Settings',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
+      child: Opacity(
+        opacity: canSave ? 1 : 0.5,
+        child: InkWell(
+          onTap: canSave ? _handleSave : null,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            height: 54,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: AppColors.buildPrimaryGradient(),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Center(
+              child: state.isSettingPrimary
+                  ? const SizedBox(
+                      height: 22,
+                      width: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
-                    ],
-                  ),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.save_outlined,
+                            color: Colors.white, size: 20),
+                        SizedBox(width: 8),
+                        Text(
+                          'Save AutoPay Settings',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
           ),
         ),
       ),
@@ -887,13 +956,9 @@ class _AutoPayPaymentMethodsScreenState
     return (token: token, type: type);
   }
 
-  /// Adds a new saved payment method. [ach] true preselects the bank-account
-  /// (ACH) form in the webview.
-  Future<void> _openAddMethod({required bool ach}) async {
-    final res = await _runForteWebview(
-      ach ? 'Add Bank Account' : 'Add Card',
-      defaultMethod: ach ? 'echeck' : null,
-    );
+  /// Adds a new saved payment method via the Forte webview.
+  Future<void> _openAddMethod() async {
+    final res = await _runForteWebview('Add Payment Method');
     if (res == null || !mounted) return;
     final ok = await _cubit.addPaymentMethodFromToken(
       oneTimeToken: res.token,
