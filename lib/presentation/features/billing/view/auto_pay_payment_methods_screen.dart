@@ -10,7 +10,10 @@ import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cub
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class AutoPayPaymentMethodsScreen extends StatefulWidget {
   const AutoPayPaymentMethodsScreen({super.key});
@@ -146,7 +149,7 @@ class _AutoPayPaymentMethodsScreenState
           CustomToggle(
             label: '',
             isToggled: enabled,
-            onToggle: (value) => unawaited(_cubit.toggleAutoPay(value)),
+            onToggle: _cubit.toggleAutoPay,
           ),
           const SizedBox(width: 12),
           Container(
@@ -216,24 +219,17 @@ class _AutoPayPaymentMethodsScreenState
   }
 
   Widget _buildLoadingTile() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            height: 24,
-            width: 24,
-            child: CircularProgressIndicator(strokeWidth: 3),
+    return Column(
+      children: List.generate(
+        2,
+        (_) => Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: ShimmerLoader(
+            height: 220,
+            width: double.infinity,
+            borderRadius: BorderRadius.circular(20),
           ),
-          SizedBox(width: 12),
-          Text('Loading saved payment methods...'),
-        ],
+        ),
       ),
     );
   }
@@ -304,6 +300,7 @@ class _AutoPayPaymentMethodsScreenState
                     ),
                   ),
                 ),
+              _buildDeleteAction(state, m),
             ],
           ),
           GestureDetector(
@@ -323,6 +320,24 @@ class _AutoPayPaymentMethodsScreenState
     if (m.isEcheck) return 'eCheck account';
     final type = m.card?.cardType ?? m.methodType.apiValue;
     return '$type card';
+  }
+
+  Widget _buildDeleteAction(
+      AutoPayMethodsState state, PaymentMethodEntity m) {
+    final isDeletingThis = state.deletingMethodCode == m.code;
+    if (isDeletingThis) {
+      return const Padding(
+        padding: EdgeInsets.all(10),
+        child: PrimaryCircularLoader(size: 20, strokeWidth: 2),
+      );
+    }
+    // Disable all delete buttons while any delete is in flight.
+    final canDelete = state.deletingMethodCode == null;
+    return IconButton(
+      tooltip: 'Remove',
+      icon: const Icon(Icons.delete_outline, color: Color(0xFFE53E3E)),
+      onPressed: canDelete ? () => _confirmAndDelete(m) : null,
+    );
   }
 
   Widget _buildAddMethodTile(AutoPayMethodsState state) {
@@ -614,16 +629,41 @@ class _AutoPayPaymentMethodsScreenState
   }
 
   Future<void> _handleSave() async {
-    final ok = await _cubit.saveSelectedAsPrimary();
+    final ok = await _cubit.save();
     if (!mounted) return;
     if (ok) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Auto Pay method updated',
+        message: 'Auto Pay settings saved',
         isSuccess: true,
       );
       Navigator.of(context).pop(true);
     }
+  }
+
+  Future<void> _confirmAndDelete(PaymentMethodEntity m) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => DeleteConfirmationBottomSheet(
+        name: _methodTitle(m),
+        type: 'payment_method',
+        onCancel: () => Navigator.of(sheetCtx).pop(),
+        onDelete: () async {
+          final ok = await _cubit.deletePaymentMethod(m.code);
+          if (sheetCtx.mounted) Navigator.of(sheetCtx).pop();
+          if (!mounted) return;
+          if (ok) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Payment method removed',
+              isSuccess: true,
+            );
+          }
+        },
+      ),
+    );
   }
 
   /// Opens the Forte tokenization webview, then posts the resulting one-time

@@ -1,6 +1,5 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_constants.dart';
@@ -13,6 +12,7 @@ import 'package:wowcare/domain/features/billing/usecases/set_autopay_status_usec
 import 'package:wowcare/domain/features/billing/usecases/get_payment_methods_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_school_forte_config_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/set_primary_payment_method_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/delete_payment_method_usecase.dart';
 
 part 'auto_pay_methods_state.dart';
 
@@ -31,6 +31,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     required GetPaymentMethodsUseCase getMethods,
     required AddPaymentMethodUseCase addMethod,
     required SetPrimaryPaymentMethodUseCase setPrimary,
+    required DeletePaymentMethodUseCase deleteMethod,
     required StorageService storage,
   })  : _getForteConfig = getForteConfig,
         _getStatus = getStatus,
@@ -38,6 +39,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         _getMethods = getMethods,
         _addMethod = addMethod,
         _setPrimary = setPrimary,
+        _deleteMethod = deleteMethod,
         _storage = storage,
         super(const AutoPayMethodsState());
 
@@ -47,6 +49,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   final GetPaymentMethodsUseCase _getMethods;
   final AddPaymentMethodUseCase _addMethod;
   final SetPrimaryPaymentMethodUseCase _setPrimary;
+  final DeletePaymentMethodUseCase _deleteMethod;
   final StorageService _storage;
 
   String _organizationCode = '';
@@ -90,10 +93,12 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
 
       if (isClosed) return;
       final primaryCode = _primaryCodeOf(methods);
+      final enabled = status?.autopayEnabled ?? false;
       emit(state.copyWith(
         isLoading: false,
         apiLoginId: config?.apiLoginId ?? '',
-        autopayEnabled: status?.autopayEnabled ?? false,
+        autopayEnabled: enabled,
+        initialAutopayEnabled: enabled,
         methods: methods,
         selectedMethodCode: () => primaryCode,
       ));
@@ -106,45 +111,11 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     }
   }
 
-  /// Enables/disables auto-pay (`PUT /payment-gateway/autopay/status`).
-  ///
-  /// Optimistically flips the toggle, then reverts if the call fails so the UI
-  /// never shows a state the backend didn't accept.
-  Future<void> toggleAutoPay(bool value) async {
-    debugPrint('[AUTOPAY][TOGGLE] tapped -> $value '
-        '(isToggling=${state.isTogglingAutoPay}, hasScope=$hasScope)');
-    if (state.isTogglingAutoPay) return;
-    if (!hasScope) {
-      emit(state.copyWith(
-        errorMessage: () => 'Account context unavailable. Please try again.',
-      ));
-      return;
-    }
-    final previous = state.autopayEnabled;
-    emit(state.copyWith(
-      autopayEnabled: value,
-      isTogglingAutoPay: true,
-      errorMessage: () => null,
-    ));
-    try {
-      debugPrint('[AUTOPAY][TOGGLE] PUT autopay/status -> $value');
-      final status =
-          await _setStatus(scope: _scope, autopayEnabled: value);
-      if (isClosed) return;
-      debugPrint('[AUTOPAY][TOGGLE] PUT ok -> ${status.autopayEnabled}');
-      emit(state.copyWith(
-        isTogglingAutoPay: false,
-        autopayEnabled: status.autopayEnabled,
-      ));
-    } catch (e) {
-      if (isClosed) return;
-      debugPrint('[AUTOPAY][TOGGLE] PUT failed: $e');
-      emit(state.copyWith(
-        isTogglingAutoPay: false,
-        autopayEnabled: previous,
-        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
-      ));
-    }
+  /// Flips the auto-pay toggle locally only. The change is committed to the
+  /// backend by [save] (the Save button), not immediately — so the user can
+  /// toggle and pick a method, then save once.
+  void toggleAutoPay(bool value) {
+    emit(state.copyWith(autopayEnabled: value, errorMessage: () => null));
   }
 
   void selectMethod(String code) {
@@ -214,28 +185,88 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     }
   }
 
-  /// Marks the currently-selected method as primary (the auto-pay method).
-  Future<bool> saveSelectedAsPrimary() async {
-    final code = state.selectedMethodCode;
-    if (code == null || code.isEmpty) return false;
+  /// Commits the pending auto-pay changes (the Save button):
+  /// - if the toggle changed → `PUT /autopay/status`;
+  /// - if a different primary method was picked (and auto-pay is on)
+  ///   → `PUT /payment-methods/{code}/primary`.
+  /// Then refreshes from the server. Returns true on success (or no-op).
+  Future<bool> save() async {
     if (state.isSettingPrimary) return false;
-    if (state.primaryMethod?.code == code) return true;
+    if (!state.autopayChanged && !state.primaryChanged) return true;
+    if (!hasScope) {
+      emit(state.copyWith(
+        errorMessage: () => 'Account context unavailable. Please try again.',
+      ));
+      return false;
+    }
 
     emit(state.copyWith(isSettingPrimary: true, errorMessage: () => null));
     try {
-      await _setPrimary(paymentMethodCode: code, scope: _scope);
+      if (state.autopayChanged) {
+        await _setStatus(scope: _scope, autopayEnabled: state.autopayEnabled);
+      }
+      if (state.primaryChanged) {
+        await _setPrimary(
+          paymentMethodCode: state.selectedMethodCode!,
+          scope: _scope,
+        );
+      }
+
+      // Re-sync from the server so UI reflects the committed truth.
+      final status = await _getStatus(_scope);
       final methods = await _getMethods(_scope);
       if (isClosed) return true;
       emit(state.copyWith(
         isSettingPrimary: false,
+        autopayEnabled: status.autopayEnabled,
+        initialAutopayEnabled: status.autopayEnabled,
         methods: methods,
-        selectedMethodCode: () => _primaryCodeOf(methods) ?? code,
+        selectedMethodCode: () =>
+            _primaryCodeOf(methods) ?? state.selectedMethodCode,
       ));
       return true;
     } catch (e) {
       if (isClosed) return false;
       emit(state.copyWith(
         isSettingPrimary: false,
+        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+      ));
+      return false;
+    }
+  }
+
+  /// Deletes a saved payment method, then refreshes the list. Returns true on
+  /// success.
+  Future<bool> deletePaymentMethod(String code) async {
+    if (state.deletingMethodCode != null) return false;
+    if (!hasScope) {
+      emit(state.copyWith(
+        errorMessage: () => 'Account context unavailable. Please try again.',
+      ));
+      return false;
+    }
+    emit(state.copyWith(
+      deletingMethodCode: () => code,
+      errorMessage: () => null,
+    ));
+    try {
+      await _deleteMethod(paymentMethodCode: code, scope: _scope);
+      final methods = await _getMethods(_scope);
+      if (isClosed) return true;
+      final primaryCode = _primaryCodeOf(methods);
+      // Keep the current selection unless it was the deleted method.
+      final nextSelected =
+          state.selectedMethodCode == code ? primaryCode : state.selectedMethodCode;
+      emit(state.copyWith(
+        deletingMethodCode: () => null,
+        methods: methods,
+        selectedMethodCode: () => nextSelected,
+      ));
+      return true;
+    } catch (e) {
+      if (isClosed) return false;
+      emit(state.copyWith(
+        deletingMethodCode: () => null,
         errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
       ));
       return false;

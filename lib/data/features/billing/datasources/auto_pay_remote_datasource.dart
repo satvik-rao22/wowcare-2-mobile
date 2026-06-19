@@ -31,6 +31,12 @@ abstract class AutoPayRemoteDataSource {
     required String schoolCode,
     required String guardianCode,
   });
+  Future<void> deletePaymentMethod({
+    required String paymentMethodCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String guardianCode,
+  });
 }
 
 class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
@@ -160,6 +166,23 @@ class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
     final data = response.data?['data'];
     return PaymentMethodModel.fromJson(
       data is Map<String, dynamic> ? data : <String, dynamic>{},
+    );
+  }
+
+  @override
+  Future<void> deletePaymentMethod({
+    required String paymentMethodCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String guardianCode,
+  }) async {
+    await _client.delete<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.paymentGatewayMethodByCode(paymentMethodCode)),
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+        'guardianCode': guardianCode,
+      },
     );
   }
 }

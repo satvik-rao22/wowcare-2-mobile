@@ -29,4 +29,10 @@ abstract class AutoPayRepository {
     required String paymentMethodCode,
     required GuardianScopeParams scope,
   });
+
+  /// Removes a saved payment method.
+  Future<void> deletePaymentMethod({
+    required String paymentMethodCode,
+    required GuardianScopeParams scope,
+  });
 }
