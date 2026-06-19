@@ -6,7 +6,6 @@ import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
@@ -377,9 +376,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         final _messages = _activeMessages;
         if (state is CommunicationLoading && _messages.isEmpty) {
           if (!widget.showOwnScaffold) return const ChatThreadShimmer();
-          return const GlobalScaffold(
-            hasBackButton: true,
-            body: ChatThreadShimmer(),
+          return Scaffold(
+            body: const ChatThreadShimmer(),
           );
         }
         final threadBody = GestureDetector(
@@ -508,7 +506,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 ),
                                               if (showDateHeader)
                                                 const SizedBox(height: 10),
-
+                                              // Spacing: compact for grouped, normal for new group
+                                              SizedBox(height: isGrouped ? 2.0 : 8.0),
                                               MessageBubble(
                                                 message: message,
                                                 currentUserCode:
@@ -706,7 +705,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 ),
                                               if (showDateHeader)
                                                 const SizedBox(height: 10),
-
+                                              // Spacing: compact for grouped, normal for new group
+                                              SizedBox(height: isGrouped ? 2.0 : 8.0),
                                               MessageBubble(
                                                 message: message,
                                                 currentUserCode:
@@ -905,7 +905,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 ),
                                               if (showDateHeader)
                                                 const SizedBox(height: 10),
-
+                                              // Spacing: compact for grouped, normal for new group
+                                              SizedBox(height: isGrouped ? 2.0 : 8.0),
                                               MessageBubble(
                                                 message: message,
                                                 currentUserCode:
@@ -1088,10 +1089,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   mainAxisSize: MainAxisSize.max,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (widget.showOwnScaffold) ...[
-                      CustomTextWidget(text: 'Messaging', fontSize: 16),
-                      const SizedBox(height: 10),
-                    ],
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
@@ -1829,10 +1826,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           ), // Padding
         ); // GestureDetector
         if (!widget.showOwnScaffold) return threadBody;
-        return GlobalScaffold(
-          hasBackButton: true,
-          showCustomNavigationBar: !isLandscape,
-          body: threadBody,
+        return Scaffold(
+          body: SafeArea(
+            child: threadBody,
+          ),
         );
       },
     );
@@ -1898,12 +1895,28 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.transparent,
+        color: Colors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
       child: Row(
         children: [
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_back_rounded,
+                size: 18,
+                color: AppColors.primaryColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
           DocumentImageWidget(
             fileUuid: widget.parentInfo['avatar'] as String? ?? '',
             name: title,

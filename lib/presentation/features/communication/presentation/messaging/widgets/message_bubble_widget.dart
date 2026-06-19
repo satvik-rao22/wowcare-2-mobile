@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
@@ -40,6 +41,7 @@ class MessageBubble extends StatefulWidget {
   final bool isParentMessaging;
   final bool isInactive;
   final bool isDeleted;
+
   /// When true, the sender avatar and name header are hidden because this
   /// message is a continuation from the same sender as the one above it.
   final bool isGrouped;
@@ -208,12 +210,97 @@ class _MessageBubbleState extends State<MessageBubble>
         widget.onEdit?.call();
         break;
       case 'Delete':
-        widget.onDelete?.call();
+        _showDeleteBottomSheet();
         break;
       case 'Info':
         widget.onInfo?.call();
         break;
     }
+  }
+
+  void _showDeleteBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Delete Message',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF573353),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Are you sure you want to delete this message?',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color.fromRGBO(87, 51, 83, 0.7),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onDelete?.call();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF7175F4), Color(0xFF9287F4)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Delete',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFF573353),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -331,7 +418,9 @@ class _MessageBubbleState extends State<MessageBubble>
                               ? Alignment.centerRight
                               : Alignment.centerLeft,
                           onReactionAdded: (emoji) {
-                            final myReaction = widget.message.reactions[widget.currentUserCode ?? 'me'];
+                            final myReaction = widget
+                                .message
+                                .reactions[widget.currentUserCode ?? 'me'];
                             if (myReaction == emoji) {
                               widget.onRemoveReaction?.call(emoji);
                             } else {
@@ -343,214 +432,7 @@ class _MessageBubbleState extends State<MessageBubble>
                         ),
                       ),
 
-                      // Time + delivery status row below bubble (MessageBox style)
-                      const SizedBox(height: 4.0),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: isMe
-                            ? MainAxisAlignment.end
-                            : MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            _formatTime(widget.message.time),
-                            style: const TextStyle(
-                              color: Color.fromRGBO(65, 65, 78, 0.5),
-                              fontSize: 15.0,
-                            ),
-                          ),
-                          if (isMe) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              widget.message.isRead
-                                  ? Icons.done_all
-                                  : widget.message.isDelivered
-                                  ? Icons.done_all
-                                  : Icons.done,
-                              size: 16,
-                              color: widget.message.isRead
-                                  ? Colors.blue
-                                  : widget.message.isDelivered
-                                  ? Colors.grey
-                                  : const Color.fromRGBO(65, 65, 78, 0.5),
-                            ),
-                          ],
-                          if (widget.message.isPrivate) ...[
-                            const SizedBox(width: 4),
-                            const Icon(
-                              Icons.visibility_off,
-                              color: Colors.red,
-                              size: 20,
-                            ),
-                          ],
-                          if (isMe &&
-                              widget.onDelete != null &&
-                              !widget.isInactive &&
-                              !widget.isDeleted) ...[
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) {
-                                    return Dialog(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      insetPadding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 24,
-                                      ),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 16,
-                                            ),
-                                            decoration: const BoxDecoration(
-                                              color: Color(0xFFF2F2FF),
-                                              borderRadius: BorderRadius.only(
-                                                topLeft: Radius.circular(16),
-                                                topRight: Radius.circular(16),
-                                              ),
-                                            ),
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .spaceBetween,
-                                              children: [
-                                                const Text(
-                                                  'Delete Message',
-                                                  style: TextStyle(
-                                                    fontSize: 18,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Color(0xFF573353),
-                                                  ),
-                                                ),
-                                                IconButton(
-                                                  icon: const Icon(
-                                                    Icons.close,
-                                                    color: Color(0xFF573353),
-                                                  ),
-                                                  onPressed: () =>
-                                                      Navigator.pop(context),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 24),
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                            ),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Text(
-                                                  'Are you sure you want to delete this message?',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    color: Color(0xFF573353),
-                                                  ),
-                                                  textAlign: TextAlign.center,
-                                                ),
-                                                const SizedBox(height: 24),
-                                                GestureDetector(
-                                                  onTap: () {
-                                                    widget.onDelete?.call();
-                                                    Navigator.pop(context);
-                                                  },
-                                                  child: Container(
-                                                    width: double.infinity,
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 16,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      gradient:
-                                                          const LinearGradient(
-                                                            colors: [
-                                                              Color(0xFF7175F4),
-                                                              Color(0xFF9287F4),
-                                                            ],
-                                                            begin: Alignment
-                                                                .centerLeft,
-                                                            end: Alignment
-                                                                .centerRight,
-                                                          ),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            12,
-                                                          ),
-                                                    ),
-                                                    alignment: Alignment.center,
-                                                    child: const Text(
-                                                      'Delete',
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 12),
-                                                GestureDetector(
-                                                  onTap: () =>
-                                                      Navigator.pop(context),
-                                                  child: Container(
-                                                    width: double.infinity,
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 16,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color:
-                                                          Colors.grey.shade200,
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            12,
-                                                          ),
-                                                    ),
-                                                    alignment: Alignment.center,
-                                                    child: const Text(
-                                                      'Cancel',
-                                                      style: TextStyle(
-                                                        color: Color(
-                                                          0xFF573353,
-                                                        ),
-                                                        fontSize: 16,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 16),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                );
-                              },
-                              child: const Icon(
-                                Icons.delete,
-                                color: Colors.red,
-                                size: 18,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-
-                      // Stacked reactions badge below the bubble/time
+                      // Stacked reactions badge below the bubble
                       AnimatedBuilder(
                         animation: widget.reactionsController,
                         builder: (context, _) {
@@ -562,7 +444,7 @@ class _MessageBubbleState extends State<MessageBubble>
                           if (counts.isEmpty) return const SizedBox.shrink();
 
                           return Padding(
-                            padding: const EdgeInsets.only(top: 4, bottom: 4),
+                            padding: const EdgeInsets.only(top: 6),
                             child: GestureDetector(
                               onTap: widget.onReactionTap,
                               child: SingleChildScrollView(
@@ -570,7 +452,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                 child: StackedReactions(
                                   messageId: messageId,
                                   controller: widget.reactionsController,
-                                  size: 22,
+                                  size: 24,
                                   stackedValue: 3,
                                   direction: isMe
                                       ? TextDirection.rtl
@@ -598,24 +480,35 @@ class _MessageBubbleState extends State<MessageBubble>
   Widget _buildBubble(bool isMe) {
     final message = widget.message;
     final isDeleted = widget.isDeleted;
+    final hasOnlyEmoji =
+        message.text.trim().length <= 3 &&
+        message.text.trim().runes.every(
+          (r) =>
+              (r >= 0x1F300 && r <= 0x1F9FF) || // Emojis
+              (r >= 0x2600 && r <= 0x27BF) || // Emoji variations
+              (r == 0x20),
+        ); // Space
 
     return Material(
       color: Colors.transparent,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
         margin: EdgeInsets.only(left: isMe ? 60 : 0, right: isMe ? 0 : 60),
         decoration: BoxDecoration(
           color: isMe ? null : const Color.fromRGBO(220, 230, 255, 1),
           gradient: isMe ? AppColors.buildPrimaryGradient() : null,
-          borderRadius: BorderRadius.only(
-            topRight: Radius.circular(isMe ? 70 : 50),
-            topLeft: Radius.circular(isMe ? 50 : 70),
-            bottomLeft: Radius.circular(isMe ? 50 : 0),
-            bottomRight: Radius.circular(isMe ? 0 : 50),
-          ),
+          borderRadius: _buildBubbleBorderRadius(isMe),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Padding(
+          padding: hasOnlyEmoji
+              ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+              : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: isDeleted
               ? Text(
                   'This message has been deleted.',
@@ -627,107 +520,181 @@ class _MessageBubbleState extends State<MessageBubble>
                     fontStyle: FontStyle.italic,
                   ),
                 )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Quoted preview
-                    if (message.quotedMessageId != null &&
-                        widget.quotedMessage != null)
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: _buildQuotePreview(isMe),
-                      ),
+              : IntrinsicWidth(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Quoted preview
+                      if (message.quotedMessageId != null &&
+                          widget.quotedMessage != null)
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: _buildQuotePreview(isMe),
+                        ),
 
-                    // Attachments
-                    if (message.hasAttachments) ...[
-                      _buildAttachmentsPreview(),
+                      // Attachments
+                      if (message.hasAttachments) ...[
+                        _buildAttachmentsPreview(),
+                        if (message.text.trim().isNotEmpty)
+                          const SizedBox(height: 8),
+                      ],
+
+                      // Message text — enriched HTML with auto-linked URLs/emails
                       if (message.text.trim().isNotEmpty)
-                        const SizedBox(height: 6),
-                    ],
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: _StableHtml(
+                            data: MessageContentProcessor.enrich(message.text),
+                            linkColor: isMe
+                                ? Colors.white
+                                : AppColors.primaryColor,
+                            onLinkTap: MessageContentProcessor.launchLink,
+                            style: {
+                              'body': html.Style(
+                                margin: html.Margins.zero,
+                                padding: html.HtmlPaddings.zero,
+                                fontSize: html.FontSize(15.5),
+                                fontFamily: 'Manrope',
+                                color: isMe
+                                    ? Colors.white
+                                    : AppColors.primaryColor,
+                              ),
+                              'p': html.Style(
+                                margin: html.Margins.zero,
+                                padding: html.HtmlPaddings.zero,
+                              ),
+                            },
+                          ),
+                        ),
 
-                    // Message text — enriched HTML with auto-linked URLs/emails
-                    if (message.text.trim().isNotEmpty)
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: _StableHtml(
-                          data: MessageContentProcessor.enrich(message.text),
-                          linkColor: isMe ? Colors.white : AppColors.primaryColor,
-                          onLinkTap: MessageContentProcessor.launchLink,
-                          style: {
-                            'body': html.Style(
-                              margin: html.Margins.zero,
-                              padding: html.HtmlPaddings.zero,
-                              fontSize: html.FontSize(15.5),
-                              fontFamily: 'Manrope',
-                              color: isMe ? Colors.white : AppColors.primaryColor,
-                            ),
-                            'p': html.Style(
-                              margin: html.Margins.zero,
-                              padding: html.HtmlPaddings.zero,
-                            ),
+                      // Link preview card — shown for the first URL found in the
+                      // message text. Only rendered for non-deleted messages that
+                      // actually contain an http/https URL.
+                      if (!isDeleted) ...[
+                        Builder(
+                          builder: (_) {
+                            final previewUrl = extractFirstUrl(message.text);
+                            if (previewUrl == null)
+                              return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: LinkPreviewCard(
+                                url: previewUrl,
+                                isMe: isMe,
+                              ),
+                            );
                           },
                         ),
-                      ),
+                      ],
 
-                    // Link preview card — shown for the first URL found in the
-                    // message text. Only rendered for non-deleted messages that
-                    // actually contain an http/https URL.
-                    if (!isDeleted) ...[
-                      Builder(builder: (_) {
-                        final previewUrl = extractFirstUrl(message.text);
-                        if (previewUrl == null) return const SizedBox.shrink();
-                        return LinkPreviewCard(url: previewUrl, isMe: isMe);
-                      }),
-                    ],
-
-                    // Edited status check
-                    if (message.editedAt != null) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        'Edited',
-                        style: TextStyle(
-                          color: isMe
-                              ? Colors.white.withValues(alpha: 0.7)
-                              : Colors.grey,
-                          fontSize: 12,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ],
-
-                    // Private message label chip (PRD AC7)
-                    if (message.isPrivate) ...[
-                      const SizedBox(height: 6),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.visibility_off_outlined,
-                            size: 12,
+                      // Edited status check
+                      if (message.editedAt != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'Edited',
+                          style: TextStyle(
                             color: isMe
-                                ? Colors.white.withValues(alpha: 0.85)
-                                : const Color(0xFFD63031),
+                                ? Colors.white.withValues(alpha: 0.7)
+                                : Colors.grey,
+                            fontSize: 12,
+                            decoration: TextDecoration.none,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Private Message',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
+                        ),
+                      ],
+
+                      // Private message label chip (PRD AC7)
+                      if (message.isPrivate) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.visibility_off_outlined,
+                              size: 12,
                               color: isMe
                                   ? Colors.white.withValues(alpha: 0.85)
                                   : const Color(0xFFD63031),
                             ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Private Message',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isMe
+                                    ? Colors.white.withValues(alpha: 0.85)
+                                    : const Color(0xFFD63031),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+
+                      // Time and delivery status at bottom of bubble
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: isMe
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                        children: [
+                          Text(
+                            _formatTime(widget.message.time),
+                            style: TextStyle(
+                              color: isMe
+                                  ? Colors.white.withValues(alpha: 0.7)
+                                  : Colors.grey[600],
+                              fontSize: 12.0,
+                              fontWeight: FontWeight.w400,
+                            ),
                           ),
+                          if (isMe) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              widget.message.isRead
+                                  ? Icons.done_all
+                                  : widget.message.isDelivered
+                                  ? Icons.done_all
+                                  : Icons.done,
+                              size: 14,
+                              color: widget.message.isRead
+                                  ? Colors.blue
+                                  : Colors.white.withValues(alpha: 0.7),
+                            ),
+                          ],
                         ],
                       ),
                     ],
-                  ],
+                  ),
                 ),
         ),
       ),
     );
+  }
+
+  /// Build asymmetric border radius for WhatsApp-style tail effect.
+  /// Sent (right): Large radius on top-left, bottom-left, top-right; small on bottom-right.
+  /// Received (left): Large radius on top-right, bottom-right, top-left; small on bottom-left.
+  BorderRadius _buildBubbleBorderRadius(bool isMe) {
+    const double largeRadius = 18.0;
+    const double tailRadius = 4.0;
+
+    if (isMe) {
+      return BorderRadius.only(
+        topLeft: const Radius.circular(largeRadius),
+        topRight: const Radius.circular(largeRadius),
+        bottomLeft: const Radius.circular(largeRadius),
+        bottomRight: const Radius.circular(tailRadius),
+      );
+    } else {
+      return BorderRadius.only(
+        topLeft: const Radius.circular(largeRadius),
+        topRight: const Radius.circular(largeRadius),
+        bottomRight: const Radius.circular(largeRadius),
+        bottomLeft: const Radius.circular(tailRadius),
+      );
+    }
   }
 
   // ── Quoted message preview ────────────────────────────────────────────────
@@ -738,15 +705,15 @@ class _MessageBubbleState extends State<MessageBubble>
       onTap: () =>
           widget.onScrollToQuoted?.call(widget.message.quotedMessageId!),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: isMe ? 0.18 : 0.55),
-          borderRadius: BorderRadius.circular(10),
+          color: Colors.white.withValues(alpha: isMe ? 0.15 : 0.60),
+          borderRadius: BorderRadius.circular(8),
           border: Border(
             left: BorderSide(
               color: isMe
-                  ? Colors.white.withValues(alpha: 0.8)
+                  ? Colors.white.withValues(alpha: 0.85)
                   : AppColors.primaryColor,
               width: 3,
             ),
@@ -760,10 +727,10 @@ class _MessageBubbleState extends State<MessageBubble>
             'body': html.Style(
               margin: html.Margins.zero,
               padding: html.HtmlPaddings.zero,
-              fontSize: html.FontSize(13),
+              fontSize: html.FontSize(13.5),
               fontFamily: 'Manrope',
               color: isMe
-                  ? Colors.white.withValues(alpha: 0.9)
+                  ? Colors.white.withValues(alpha: 0.92)
                   : AppColors.primaryColor,
             ),
             'p': html.Style(
@@ -874,7 +841,9 @@ class _MessageBubbleState extends State<MessageBubble>
                                   ),
                                 ),
                                 child: Thumbnail(
-                                  mimeType: att.mimeType.isNotEmpty ? att.mimeType : 'application/pdf',
+                                  mimeType: att.mimeType.isNotEmpty
+                                      ? att.mimeType
+                                      : 'application/pdf',
                                   dataResolver: () async {
                                     if (att.remoteUrl.isNotEmpty) {
                                       try {
@@ -964,7 +933,9 @@ class _MessageBubbleState extends State<MessageBubble>
                 borderRadius: BorderRadius.circular(12),
                 child: displayImages.first.displaySource != null
                     ? Thumbnail(
-                        mimeType: displayImages.first.mimeType.isNotEmpty ? displayImages.first.mimeType : 'image/jpeg',
+                        mimeType: displayImages.first.mimeType.isNotEmpty
+                            ? displayImages.first.mimeType
+                            : 'image/jpeg',
                         dataResolver: () async {
                           final src = displayImages.first.displaySource!;
                           if (displayImages.first.remoteUrl.isNotEmpty) {
@@ -1049,7 +1020,9 @@ class _MessageBubbleState extends State<MessageBubble>
                         borderRadius: BorderRadius.circular(12),
                         child: att.displaySource != null
                             ? Thumbnail(
-                                mimeType: att.mimeType.isNotEmpty ? att.mimeType : 'image/jpeg',
+                                mimeType: att.mimeType.isNotEmpty
+                                    ? att.mimeType
+                                    : 'image/jpeg',
                                 dataResolver: () async {
                                   final src = att.displaySource!;
                                   if (att.remoteUrl.isNotEmpty) {
@@ -1133,8 +1106,10 @@ class _MessageBubbleState extends State<MessageBubble>
 class _StableHtml extends StatefulWidget {
   final String data;
   final Map<String, html.Style> style;
+
   /// Called when a link (`<a href>`) inside the HTML is tapped.
   final void Function(String? href)? onLinkTap;
+
   /// Color used for `<a>` tags. Defaults to [AppColors.primaryColor].
   final Color? linkColor;
 

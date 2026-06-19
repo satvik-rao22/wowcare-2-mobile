@@ -4,13 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../util/message_content_processor.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
-import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -395,32 +394,27 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
             MediaQuery.of(context).orientation == Orientation.landscape;
 
         if (state is CommunicationLoading && _messages.isEmpty) {
-          return GlobalScaffold(
-            hasBackButton: true,
-            showCustomNavigationBar: !isLandscape,
-            body: const ChatThreadShimmer(),
-          );
+          return Scaffold(body: const ChatThreadShimmer());
         }
 
-        return GlobalScaffold(
-          hasBackButton: true,
-          showCustomNavigationBar: !isLandscape,
-          body: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: () => FocusScope.of(context).unfocus(),
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: isLandscape
-                  ? Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Flexible(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: const Color(0xFFF4F7FD),
-                            ),
-                            child: ListView.builder(
+        return Scaffold(
+          body: SafeArea(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: isLandscape
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Flexible(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: const Color(0xFFF4F7FD),
+                              ),
+                              child: ListView.builder(
                               controller: _scrollController,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
@@ -500,6 +494,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                         ),
                                       if (showDateHeader)
                                         const SizedBox(height: 10),
+                                      // Spacing: compact for grouped, normal for new group
+                                      SizedBox(height: isGrouped ? 2.0 : 8.0),
                                       MessageBubble(
                                         message: message,
                                         quotedMessage: quotedMessage,
@@ -523,7 +519,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                         },
                                         onCopy: () {
                                           Clipboard.setData(
-                                            ClipboardData(text: MessageContentProcessor.stripHtmlTags(message.text)),
+                                            ClipboardData(
+                                              text:
+                                                  MessageContentProcessor.stripHtmlTags(
+                                                    message.text,
+                                                  ),
+                                            ),
                                           );
                                           CoreUtils.showTopSnackBar(
                                             context: context,
@@ -593,8 +594,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                       mainAxisSize: MainAxisSize.max,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        CustomTextWidget(text: 'Messaging', fontSize: 16),
-                        const SizedBox(height: 10),
                         Expanded(
                           child: Container(
                             decoration: BoxDecoration(
@@ -602,10 +601,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                               color: const Color(0xFFF4F7FD),
                             ),
                             child: Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
                                 Container(
                                   decoration: BoxDecoration(
-                                    color: Colors.transparent,
+                                    color: Colors.white,
                                     border: const Border(
                                       bottom: BorderSide(
                                         color: Color(0xFFE9ECEF),
@@ -622,6 +622,24 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                       mainAxisAlignment:
                                           MainAxisAlignment.start,
                                       children: [
+                                        GestureDetector(
+                                          onTap: () =>
+                                              Navigator.of(context).pop(),
+                                          child: Container(
+                                            padding: const EdgeInsets.all(4),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primaryColor
+                                                  .withValues(alpha: 0.1),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              Icons.arrow_back_rounded,
+                                              size: 20,
+                                              color: AppColors.primaryColor,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
                                         Stack(
                                           children: [
                                             DocumentImageWidget(
@@ -663,10 +681,173 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                                         ),
                                         const SizedBox(width: 10),
                                         Flexible(
-                                          child: CustomTextWidget(
-                                            text: widget.staffInfo['name'],
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 20,
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: CustomTextWidget(
+                                                  text:
+                                                      widget.staffInfo['name'],
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 20,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              GestureDetector(
+                                                onTap: () {
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (context) => AlertDialog(
+                                                      title: CustomTextWidget(
+                                                        text: widget
+                                                            .staffInfo['name'],
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 18,
+                                                      ),
+                                                      content: Column(
+                                                        mainAxisSize:
+                                                            MainAxisSize.min,
+                                                        crossAxisAlignment:
+                                                            CrossAxisAlignment
+                                                                .start,
+                                                        children: [
+                                                          if (widget
+                                                                  .staffInfo['code'] !=
+                                                              null)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    vertical: 4,
+                                                                  ),
+                                                              child: RichText(
+                                                                text: TextSpan(
+                                                                  children: [
+                                                                    const TextSpan(
+                                                                      text:
+                                                                          'Code: ',
+                                                                      style: TextStyle(
+                                                                        fontWeight:
+                                                                            FontWeight.w600,
+                                                                        color: Colors
+                                                                            .black87,
+                                                                      ),
+                                                                    ),
+                                                                    TextSpan(
+                                                                      text: widget
+                                                                          .staffInfo['code']
+                                                                          .toString(),
+                                                                      style: const TextStyle(
+                                                                        color: Colors
+                                                                            .black54,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          if (widget
+                                                                  .staffInfo['designation'] !=
+                                                              null)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    vertical: 4,
+                                                                  ),
+                                                              child: RichText(
+                                                                text: TextSpan(
+                                                                  children: [
+                                                                    const TextSpan(
+                                                                      text:
+                                                                          'Designation: ',
+                                                                      style: TextStyle(
+                                                                        fontWeight:
+                                                                            FontWeight.w600,
+                                                                        color: Colors
+                                                                            .black87,
+                                                                      ),
+                                                                    ),
+                                                                    TextSpan(
+                                                                      text: widget
+                                                                          .staffInfo['designation']
+                                                                          .toString(),
+                                                                      style: const TextStyle(
+                                                                        color: Colors
+                                                                            .black54,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                          if (widget
+                                                                  .staffInfo['email'] !=
+                                                              null)
+                                                            Padding(
+                                                              padding:
+                                                                  const EdgeInsets.symmetric(
+                                                                    vertical: 4,
+                                                                  ),
+                                                              child: RichText(
+                                                                text: TextSpan(
+                                                                  children: [
+                                                                    const TextSpan(
+                                                                      text:
+                                                                          'Email: ',
+                                                                      style: TextStyle(
+                                                                        fontWeight:
+                                                                            FontWeight.w600,
+                                                                        color: Colors
+                                                                            .black87,
+                                                                      ),
+                                                                    ),
+                                                                    TextSpan(
+                                                                      text: widget
+                                                                          .staffInfo['email']
+                                                                          .toString(),
+                                                                      style: const TextStyle(
+                                                                        color: Colors
+                                                                            .black54,
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                              ),
+                                                            ),
+                                                        ],
+                                                      ),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () =>
+                                                              Navigator.of(
+                                                                context,
+                                                              ).pop(),
+                                                          child: const Text(
+                                                            'Close',
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                },
+                                                child: Container(
+                                                  padding: const EdgeInsets.all(
+                                                    4,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: AppColors
+                                                        .primaryColor
+                                                        .withValues(alpha: 0.1),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: Icon(
+                                                    Icons.info_outline_rounded,
+                                                    size: 18,
+                                                    color:
+                                                        AppColors.primaryColor,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
@@ -856,6 +1037,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread> {
                         ),
                       ],
                     ),
+              ),
             ),
           ),
         );
