@@ -250,6 +250,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     });
   }
 
+  Message? _findQuotedMessage(List<Message> messages, String? id) {
+    if (id == null) return null;
+    for (final m in messages) {
+      if (m.id == id) return m;
+    }
+    return null;
+  }
+
   int? _getReversedIndex(String messageId) {
     final index = _activeMessages.indexWhere((m) => m.id == messageId);
     if (index == -1) return null;
@@ -285,14 +293,19 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   void _showEmojiPicker(BuildContext context, Message message) {
+    // Capture cubit before entering the bottom sheet route so it's reachable
+    // even though the sheet's BuildContext has no CommunicationCubit ancestor.
+    final cubit = context.read<CommunicationCubit>();
+    final convCode = widget.parentInfo['code'] as String;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) {
+      builder: (sheetContext) {
         final sheetHeight =
-            (MediaQuery.of(context).size.height * 0.55).clamp(240.0, 400.0) +
-            MediaQuery.of(context).padding.bottom;
+            (MediaQuery.of(sheetContext).size.height * 0.55).clamp(240.0, 400.0) +
+            MediaQuery.of(sheetContext).padding.bottom;
         return Container(
           height: sheetHeight,
           decoration: const BoxDecoration(
@@ -301,18 +314,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           ),
           child: EmojiPicker(
             onEmojiSelected: (category, emoji) {
-              Navigator.pop(context); // close picker
+              Navigator.pop(sheetContext); // close picker
               final myReaction = message.reactions[_currentUserCode ?? 'me'];
               if (myReaction == emoji.emoji) {
-                context.read<CommunicationCubit>().removeReaction(
-                  widget.parentInfo['code'] as String,
+                cubit.removeReaction(
+                  convCode,
                   message.code,
                   emoji.emoji,
                   currentUserCode: _currentUserCode,
                 );
               } else {
-                context.read<CommunicationCubit>().addReaction(
-                  widget.parentInfo['code'] as String,
+                cubit.addReaction(
+                  convCode,
                   message.code,
                   emoji.emoji,
                   currentUserCode: _currentUserCode,
@@ -428,10 +441,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                         // );
                                         Message? quotedMessage;
                                         if (message.quotedMessageId != null) {
-                                          quotedMessage = _messages.firstWhere(
-                                            (m) =>
-                                                m.id == message.quotedMessageId,
-                                          ); // ?? null;
+                                          quotedMessage = _findQuotedMessage(
+                                            _messages,
+                                            message.quotedMessageId,
+                                          );
                                         }
                                         bool showDateHeader = false;
                                         final prevListIndex =
@@ -626,10 +639,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
                                         Message? quotedMessage;
                                         if (message.quotedMessageId != null) {
-                                          quotedMessage = _messages.firstWhere(
-                                            (m) =>
-                                                m.id == message.quotedMessageId,
-                                          ); // ?? null;
+                                          quotedMessage = _findQuotedMessage(
+                                            _messages,
+                                            message.quotedMessageId,
+                                          );
                                         }
                                         bool showDateHeader = false;
                                         final prevListIndex =
@@ -825,9 +838,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                         final messageId = message.id;
                                         Message? quotedMessage;
                                         if (message.quotedMessageId != null) {
-                                          quotedMessage = _messages.firstWhere(
-                                            (m) =>
-                                                m.id == message.quotedMessageId,
+                                          quotedMessage = _findQuotedMessage(
+                                            _messages,
+                                            message.quotedMessageId,
                                           );
                                         }
                                         bool showDateHeader = false;
@@ -1074,8 +1087,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   mainAxisSize: MainAxisSize.max,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CustomTextWidget(text: 'Messaging', fontSize: 16),
-                    const SizedBox(height: 10),
+                    if (widget.showOwnScaffold) ...[
+                      CustomTextWidget(text: 'Messaging', fontSize: 16),
+                      const SizedBox(height: 10),
+                    ],
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
@@ -1129,12 +1144,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             Message? quotedMessage;
                                             if (message.quotedMessageId !=
                                                 null) {
-                                              quotedMessage = _messages
-                                                  .firstWhere(
-                                                    (m) =>
-                                                        m.id ==
-                                                        message.quotedMessageId,
-                                                  ); // ?? null;
+                                              quotedMessage =
+                                                  _findQuotedMessage(
+                                                    _messages,
+                                                    message.quotedMessageId,
+                                                  );
                                             }
                                             bool showDateHeader = false;
                                             final prevListIndex =
@@ -1349,12 +1363,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             Message? quotedMessage;
                                             if (message.quotedMessageId !=
                                                 null) {
-                                              quotedMessage = _messages
-                                                  .firstWhere(
-                                                    (m) =>
-                                                        m.id ==
-                                                        message.quotedMessageId,
-                                                  ); // ?? null;
+                                              quotedMessage =
+                                                  _findQuotedMessage(
+                                                    _messages,
+                                                    message.quotedMessageId,
+                                                  );
                                             }
                                             bool showDateHeader = false;
                                             final prevListIndex =
@@ -1571,12 +1584,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             Message? quotedMessage;
                                             if (message.quotedMessageId !=
                                                 null) {
-                                              quotedMessage = _messages
-                                                  .firstWhere(
-                                                    (m) =>
-                                                        m.id ==
-                                                        message.quotedMessageId,
-                                                  ); // ?? null;
+                                              quotedMessage =
+                                                  _findQuotedMessage(
+                                                    _messages,
+                                                    message.quotedMessageId,
+                                                  );
                                             }
                                             bool showDateHeader = false;
                                             final prevListIndex =
@@ -1833,18 +1845,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     return [];
   }
 
-  Color _roleColor(String role) {
-    switch (role.toUpperCase()) {
-      case 'GUARDIAN':
-        return const Color(0xFF6C63FF);
-      case 'STAFF':
-        return const Color(0xFF00897B);
-      case 'ADMIN':
-        return const Color(0xFFE65100);
-      default:
-        return AppColors.primaryColor;
-    }
-  }
 
   List<ParticipantDisplayData> get _participantDisplayData =>
       _participants.map((p) {
@@ -1900,129 +1900,61 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         color: Colors.transparent,
         border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+      child: Row(
         children: [
-          // ── Title row ──────────────────────────────────────────────
-          Row(
-            children: [
-              DocumentImageWidget(
-                fileUuid: widget.parentInfo['avatar'] as String? ?? '',
-                name: title,
-                size: 36,
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CustomTextWidget(
-                      text: title,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                    ),
-                    if (count != null)
-                      Text(
-                        '$count participant${count == 1 ? '' : 's'}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF636E72),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Tooltip(
-                message: 'View Participants',
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.info_outline_rounded,
-                    color: AppColors.primaryColor,
-                  ),
-                  onPressed: _showParticipantsDialog,
-                ),
-              ),
-            ],
+          DocumentImageWidget(
+            fileUuid: widget.parentInfo['avatar'] as String? ?? '',
+            name: title,
+            size: 34,
           ),
-
-          // ── Participant chips ───────────────────────────────────────
-          if (participants.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 28,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                itemCount: participants.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 6),
-                itemBuilder: (context, index) {
-                  final p = participants[index];
-                  final roleColor = _roleColor(p.role);
-                  final initial = p.userName.isNotEmpty
-                      ? p.userName[0].toUpperCase()
-                      : '?';
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomTextWidget(
+                  text: title,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+                if (count != null)
+                  Text(
+                    '$count participant${count == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF636E72),
                     ),
-                    decoration: BoxDecoration(
-                      color: roleColor.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: roleColor.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
-                          radius: 8,
-                          backgroundColor: roleColor.withValues(alpha: 0.25),
-                          child: Text(
-                            initial,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: roleColor,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          p.userName,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: roleColor,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: roleColor.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            p.role,
-                            style: TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: roleColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                  ),
+              ],
+            ),
+          ),
+          // Private mode toggle inline with the title row
+          if (_privateModeEnabled)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Tooltip(
+                message: 'Private Mode ON',
+                child: Icon(
+                  Icons.visibility_off,
+                  size: 18,
+                  color: Colors.red.shade400,
+                ),
               ),
             ),
-          ],
+          Tooltip(
+            message: 'View Participants',
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.info_outline_rounded,
+                color: AppColors.primaryColor,
+                size: 20,
+              ),
+              onPressed: _showParticipantsDialog,
+            ),
+          ),
         ],
       ),
     );

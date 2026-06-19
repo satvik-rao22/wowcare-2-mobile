@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
 /// WhatsApp-style composable chat input bar.
@@ -43,6 +46,9 @@ class ChatInputBar extends StatefulWidget {
     this.focusNode,
     this.editingMessage,
     this.onCancelEdit,
+    /// When true a formatting toolbar (B/I/U/S/Bullet/Numbered) is shown
+    /// above the keyboard whenever the text field has focus.
+    this.showRichTextToolbar = true,
   });
 
   final TextEditingController controller;
@@ -59,6 +65,7 @@ class ChatInputBar extends StatefulWidget {
   final FocusNode? focusNode;
   final Message? editingMessage;
   final VoidCallback? onCancelEdit;
+  final bool showRichTextToolbar;
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -67,22 +74,66 @@ class ChatInputBar extends StatefulWidget {
 class _ChatInputBarState extends State<ChatInputBar> {
   bool _emojiPickerVisible = false;
   bool _hasText = false;
+  bool _hasFocus = false;
+
+  // Link preview state
+  String? _detectedUrl;
+  bool _linkPreviewDismissed = false;
+  Timer? _urlDetectDebounce;
+
+  late final FocusNode _internalFocusNode;
+
+  FocusNode get _effectiveFocusNode =>
+      widget.focusNode ?? _internalFocusNode;
 
   @override
   void initState() {
     super.initState();
+    _internalFocusNode = FocusNode();
     widget.controller.addListener(_onTextChanged);
+    _effectiveFocusNode.addListener(_onFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(ChatInputBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      _effectiveFocusNode.removeListener(_onFocusChanged);
+      _effectiveFocusNode.addListener(_onFocusChanged);
+    }
   }
 
   @override
   void dispose() {
+    _urlDetectDebounce?.cancel();
     widget.controller.removeListener(_onTextChanged);
+    _effectiveFocusNode.removeListener(_onFocusChanged);
+    _internalFocusNode.dispose();
     super.dispose();
   }
 
   void _onTextChanged() {
     final hasText = widget.controller.text.trim().isNotEmpty;
     if (hasText != _hasText) setState(() => _hasText = hasText);
+
+    // Debounce URL detection to avoid spamming on every keystroke.
+    _urlDetectDebounce?.cancel();
+    _urlDetectDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      final url = extractFirstUrl(widget.controller.text);
+      if (url != _detectedUrl) {
+        setState(() {
+          _detectedUrl = url;
+          // Reset dismiss flag whenever the URL changes.
+          if (url != null) _linkPreviewDismissed = false;
+        });
+      }
+    });
+  }
+
+  void _onFocusChanged() {
+    final focused = _effectiveFocusNode.hasFocus;
+    if (focused != _hasFocus) setState(() => _hasFocus = focused);
   }
 
   void _toggleEmojiPicker() {
@@ -132,9 +183,20 @@ class _ChatInputBarState extends State<ChatInputBar> {
           attachments: widget.pendingAttachments,
           onRemove: widget.onRemoveAttachment,
         ),
+        // Composer link preview strip — shown when a URL is detected in the
+        // draft and the user has not dismissed it.
+        if (_detectedUrl != null && !_linkPreviewDismissed)
+          ComposerLinkPreview(
+            url: _detectedUrl!,
+            onDismiss: () => setState(() => _linkPreviewDismissed = true),
+          ),
+        // Rich-text formatting toolbar — visible when field is focused or text
+        // already contains formatted content (indicated by _hasText).
+        if (widget.showRichTextToolbar && (_hasFocus || _hasText))
+          RichTextToolbar(controller: widget.controller),
         _InputRow(
           controller: widget.controller,
-          focusNode: widget.focusNode,
+          focusNode: _effectiveFocusNode,
           hintText: widget.hintText,
           maxLength: widget.maxLength,
           showCharCounter: widget.showCharCounter,

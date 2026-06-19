@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
@@ -120,16 +122,45 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildScaffold(BuildContext context) {
     final coordinator = context.read<AdminDashboardCoordinatorCubit>();
-    return GlobalScaffold(
-      showCustomNavigationBar: true,
-      bodyPadding: EdgeInsets.zero,
-      body: Material(
-        type: MaterialType.transparency,
-        child: CustomRefreshIndicator(
-          onRefresh: () => coordinator.refresh(),
-          child: _DashboardCardList(
-            cardFor: _cardFor,
-            buildHeader: _buildHeader,
+    return BlocListener<AdminDashboardCoordinatorCubit, DashboardState>(
+      listenWhen: (prev, curr) {
+        if (curr.isFailure && !prev.isFailure) return true;
+        if (curr.isPartialError && !prev.isPartialError) return true;
+        if (prev.isRefreshing && curr.isReady) return true;
+        return false;
+      },
+      listener: (context, state) {
+        if (state.isFailure) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.errorMessage ?? 'Unable to load dashboard data. Please try again.',
+            isError: true,
+          );
+        } else if (state.isPartialError) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Some sections could not be loaded. Pull down to retry.',
+            isWarning: true,
+          );
+        } else if (state.isReady) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Dashboard refreshed successfully.',
+            isSuccess: true,
+          );
+        }
+      },
+      child: GlobalScaffold(
+        showCustomNavigationBar: true,
+        bodyPadding: EdgeInsets.zero,
+        body: Material(
+          type: MaterialType.transparency,
+          child: CustomRefreshIndicator(
+            onRefresh: () => coordinator.refresh(),
+            child: _DashboardCardList(
+              cardFor: _cardFor,
+              buildHeader: _buildHeader,
+            ),
           ),
         ),
       ),

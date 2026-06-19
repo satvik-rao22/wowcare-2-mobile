@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
@@ -281,7 +282,9 @@ class BulkMessagingCompositionCubit
     try {
       if (isStaff) {
         for (final recipient in recipients) {
-          if (isClosed) return;
+          // Do NOT check isClosed here — the cubit is closed when the compose
+          // screen is disposed (immediately after isBulkStarted fires), but the
+          // job must continue to completion regardless of widget lifecycle.
           final recipientCode = _recipientCode(recipient);
           final recipientName = (recipient['name'] ?? 'recipient').toString();
           if (recipientCode.isEmpty) continue;
@@ -316,8 +319,6 @@ class BulkMessagingCompositionCubit
               }
               conversationCode = conv.code;
             }
-
-            if (isClosed) return;
 
             if (messageText.isNotEmpty) {
               final msg = Message(
@@ -374,7 +375,6 @@ class BulkMessagingCompositionCubit
         );
 
         final result = await _createConversationUseCase(request);
-        if (isClosed) return;
 
         await result.fold(
           (_) {
@@ -398,6 +398,14 @@ class BulkMessagingCompositionCubit
         );
       }
 
+      // Notify the conversation list to refresh now that all conversations and
+      // messages have been created. The cubit may be closed at this point
+      // (compose screen was disposed when isBulkStarted fired), so we emit
+      // only if still open but ALWAYS broadcast the list-changed event.
+      MessagingEventService.instance.notifyConversationListChanged(
+        conversationType,
+      );
+
       if (!isClosed) {
         emit(state.copyWith(
           isSuccess: failed.isEmpty,
@@ -409,6 +417,9 @@ class BulkMessagingCompositionCubit
       }
     } catch (_) {
       // Catastrophic failure — mark all recipients as failed so retry is offered.
+      MessagingEventService.instance.notifyConversationListChanged(
+        conversationType,
+      );
       if (!isClosed) {
         emit(state.copyWith(
           failedRecipients: recipients,

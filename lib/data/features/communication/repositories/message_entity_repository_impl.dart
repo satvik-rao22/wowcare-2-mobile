@@ -388,7 +388,11 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
 
       final lowerQuery = query.toLowerCase();
       final results = all
-          .where((m) => m.textPlain.toLowerCase().contains(lowerQuery))
+          .where(
+            (m) =>
+                !m.isDeleted &&
+                m.textPlain.toLowerCase().contains(lowerQuery),
+          )
           .take(limit)
           .map((m) => m.toEntity())
           .toList();

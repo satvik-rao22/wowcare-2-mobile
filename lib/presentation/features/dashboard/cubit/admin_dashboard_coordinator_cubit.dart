@@ -144,11 +144,12 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
         emit(state.copyWith(status: DashboardStatus.loading));
       }
     } else if (isAllError) {
-      emit(state.copyWith(status: DashboardStatus.failure, errorMessage: "Failed to load admin dashboard data"));
+      emit(state.copyWith(status: DashboardStatus.failure, errorMessage: 'Unable to load dashboard data. Please try again.'));
     } else if (isAnyError) {
       emit(state.copyWith(status: DashboardStatus.partialError));
-    } else if (isAllLoaded || (statusLoaded || ratioLoaded || movementsLoaded || availabilityLoaded || shiftsLoaded || attentionLoaded || myDayLoaded)) {
-      emit(state.copyWith(status: DashboardStatus.ready));
+    } else if (isAllLoaded) {
+      // Clear any stale error from a previous failed load cycle.
+      emit(state.copyWith(status: DashboardStatus.ready, clearErrorMessage: true));
     } else {
       emit(state.copyWith(status: DashboardStatus.initial));
     }
@@ -165,6 +166,7 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
       await Future.wait([
         schoolStatusCubit.loadSchoolStatus(schoolCode: schoolCode, forceRefresh: true),
         ratioMonitoringCubit.loadRatioMonitoring(schoolCode: schoolCode, forceRefresh: true),
+        classroomShiftsCubit.load(DateTime.now()),
         movementsCubit.refresh(),
         availabilityCubit.refresh(
           date: availabilityCubit.state.selectedDate ?? DateTime.now(),
@@ -175,6 +177,7 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
       ]);
     } else {
       await Future.wait([
+        classroomShiftsCubit.load(DateTime.now()),
         movementsCubit.refresh(),
         availabilityCubit.refresh(
           date: availabilityCubit.state.selectedDate ?? DateTime.now(),
@@ -184,8 +187,8 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
         myDayCubit.refresh(),
       ]);
     }
-
-    _updateState();
+    // No explicit _updateState() here — child cubit stream subscriptions
+    // trigger _updateState() reactively as each cubit completes.
   }
 
   @override

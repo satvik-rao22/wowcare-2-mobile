@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
@@ -128,7 +129,8 @@ class _MessageBubbleState extends State<MessageBubble>
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
-    if (widget.onReply == null) return;
+    // Swipe-to-reply is disabled for deleted messages.
+    if (widget.onReply == null || widget.isDeleted) return;
     setState(() {
       _dragOffset = (_dragOffset + details.delta.dx).clamp(
         0.0,
@@ -156,11 +158,26 @@ class _MessageBubbleState extends State<MessageBubble>
           widget.currentUserCode == widget.message.senderUserCode);
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
+    // Deleted messages expose NO actions — no reactions, no menu items.
+    if (widget.isDeleted) {
+      return const ChatReactionsConfig(
+        availableReactions: [],
+        menuItems: [],
+        enableLongPress: false,
+        enableDoubleTap: false,
+        showAddReactionButton: false,
+        showContextMenu: false,
+        enableHapticFeedback: false,
+        reactionSize: 24,
+      );
+    }
+
     return ChatReactionsConfig(
       availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '😡', '➕'],
       menuItems: [
-        if (isMe) const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
-        if (isMe)
+        if (isMe && !widget.isInactive)
+          const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
+        if (isMe && !widget.isInactive)
           const MenuItem(
             label: 'Delete',
             icon: Icons.delete_outline,
@@ -653,6 +670,17 @@ class _MessageBubbleState extends State<MessageBubble>
                         ),
                       ),
 
+                    // Link preview card — shown for the first URL found in the
+                    // message text. Only rendered for non-deleted messages that
+                    // actually contain an http/https URL.
+                    if (!isDeleted) ...[
+                      Builder(builder: (_) {
+                        final previewUrl = extractFirstUrl(message.text);
+                        if (previewUrl == null) return const SizedBox.shrink();
+                        return LinkPreviewCard(url: previewUrl, isMe: isMe);
+                      }),
+                    ],
+
                     // Edited status check
                     if (message.editedAt != null) ...[
                       const SizedBox(height: 4),
@@ -665,6 +693,34 @@ class _MessageBubbleState extends State<MessageBubble>
                           fontSize: 12,
                           decoration: TextDecoration.none,
                         ),
+                      ),
+                    ],
+
+                    // Private message label chip (PRD AC7)
+                    if (message.isPrivate) ...[
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.visibility_off_outlined,
+                            size: 12,
+                            color: isMe
+                                ? Colors.white.withValues(alpha: 0.85)
+                                : const Color(0xFFD63031),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Private Message',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isMe
+                                  ? Colors.white.withValues(alpha: 0.85)
+                                  : const Color(0xFFD63031),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ],
@@ -685,12 +741,12 @@ class _MessageBubbleState extends State<MessageBubble>
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(isMe ? 0.18 : 0.55),
+          color: Colors.white.withValues(alpha: isMe ? 0.18 : 0.55),
           borderRadius: BorderRadius.circular(10),
           border: Border(
             left: BorderSide(
               color: isMe
-                  ? Colors.white.withOpacity(0.8)
+                  ? Colors.white.withValues(alpha: 0.8)
                   : AppColors.primaryColor,
               width: 3,
             ),
@@ -707,7 +763,7 @@ class _MessageBubbleState extends State<MessageBubble>
               fontSize: html.FontSize(13),
               fontFamily: 'Manrope',
               color: isMe
-                  ? Colors.white.withOpacity(0.9)
+                  ? Colors.white.withValues(alpha: 0.9)
                   : AppColors.primaryColor,
             ),
             'p': html.Style(
@@ -1032,7 +1088,7 @@ class _MessageBubbleState extends State<MessageBubble>
                       if (hasMoreImages && isLast)
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.55),
+                            color: Colors.black.withValues(alpha: 0.55),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Center(

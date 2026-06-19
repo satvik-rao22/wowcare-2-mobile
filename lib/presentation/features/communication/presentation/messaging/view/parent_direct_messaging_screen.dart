@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
@@ -12,8 +13,8 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
-
 import '../../../../../../domain/features/communication/entities/conversation.dart';
 
 /// Parent/Guardian messaging entry point.
@@ -22,6 +23,9 @@ import '../../../../../../domain/features/communication/entities/conversation.da
 /// selected student. A dropdown at the top lets the parent switch children.
 /// Each student switch destroys and recreates the thread widget so messages
 /// reload cleanly for the new conversation.
+///
+/// The `+` button lets the parent start a new Room Chat conversation when
+/// no conversation exists yet for their student.
 class ParentDirectMessagingScreen extends StatefulWidget {
   const ParentDirectMessagingScreen({super.key});
 
@@ -34,6 +38,10 @@ class _ParentDirectMessagingScreenState
     extends State<ParentDirectMessagingScreen> {
   late final ConversationListCubit _listCubit;
   ConversationEntity? _selectedConversation;
+
+  // Used only when no conversation exists yet — keeps the input bar visible.
+  final TextEditingController _emptyInputController = TextEditingController();
+  final FocusNode _emptyInputFocus = FocusNode();
 
   @override
   void initState() {
@@ -53,12 +61,40 @@ class _ParentDirectMessagingScreenState
   @override
   void dispose() {
     _listCubit.close();
+    _emptyInputController.dispose();
+    _emptyInputFocus.dispose();
     super.dispose();
   }
 
-  void _onConversationSelected(ConversationEntity conversation) {
-    if (_selectedConversation?.code == conversation.code) return;
-    setState(() => _selectedConversation = conversation);
+  /// Syncs the selected conversation to [child] by matching [studentCode].
+  ///
+  /// When [explicit] is true (user tapped the app-bar dropdown) the view
+  /// always switches — clearing to null if the child has no conversation yet.
+  /// When [explicit] is false (initial load) a [fallback] is used so the first
+  /// available conversation is shown rather than the empty state.
+  void _syncToChild(
+    ParentChildRef? child,
+    List<ConversationEntity> conversations, {
+    ConversationEntity? fallback,
+    bool explicit = false,
+  }) {
+    ConversationEntity? match;
+    if (child != null) {
+      for (final c in conversations) {
+        if (c.studentCode == child.code) {
+          match = c;
+          break;
+        }
+      }
+    }
+
+    final next = match ?? (explicit ? null : fallback);
+
+    // Always update when the child was explicitly switched so the screen
+    // clears to the empty state if the child has no conversation yet.
+    if (explicit || next?.code != _selectedConversation?.code) {
+      setState(() => _selectedConversation = next);
+    }
   }
 
   /// Converts a v2 [ConversationEntity] into the legacy [parentInfo] map that
@@ -107,64 +143,78 @@ class _ParentDirectMessagingScreenState
   Widget build(BuildContext context) {
     return BlocProvider<ConversationListCubit>.value(
       value: _listCubit,
-      child: BlocConsumer<ConversationListCubit, ConversationListState>(
-        listener: (context, state) {
-          // Auto-select the first conversation when conversations first arrive.
-          if (_selectedConversation == null && state.conversations.isNotEmpty) {
-            setState(() => _selectedConversation = state.conversations.first);
-          }
-        },
-        builder: (context, state) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildStudentDropdown(state.conversations),
-              Expanded(child: _buildThreadArea(state)),
-            ],
+      child: BlocListener<ParentChildCubit, ParentChildState>(
+        listenWhen: (prev, curr) =>
+            prev.selectedChild?.code != curr.selectedChild?.code,
+        listener: (context, childState) {
+          _syncToChild(
+            childState.selectedChild,
+            _listCubit.state.conversations,
+            explicit: true,
           );
         },
+        child: BlocConsumer<ConversationListCubit, ConversationListState>(
+          listener: (context, state) {
+            if (_selectedConversation == null &&
+                state.conversations.isNotEmpty) {
+              final child = context
+                  .read<ParentChildCubit>()
+                  .state
+                  .selectedChild;
+              _syncToChild(
+                child,
+                state.conversations,
+                fallback: state.conversations.first,
+              );
+            }
+          },
+          builder: (context, state) {
+            return RefreshIndicator(
+              onRefresh: _listCubit.refresh,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (state.errorMessage != null)
+                    _buildErrorBanner(state.errorMessage!),
+                  Expanded(child: _buildThreadArea(state)),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildStudentDropdown(List<ConversationEntity> conversations) {
-    if (conversations.isEmpty) return const SizedBox.shrink();
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-        decoration: BoxDecoration(
-          color: const Color(0x33B1AFE9),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<String>(
-            value: _selectedConversation?.code ?? conversations.first.code,
-            isExpanded: true,
-            icon: const Icon(
-              Icons.keyboard_arrow_down_rounded,
-              color: AppColors.primaryColor,
+  Widget _buildErrorBanner(String message) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3F3),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFFFCDD2)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.error_outline, color: Color(0xFFE53935), size: 18),
+          const SizedBox(width: 8),
+          Expanded(
+            child: CustomTextWidget(
+              text: message,
+              fontSize: 12,
+              fontColor: const Color(0xFFB71C1C),
+              unlimitedLines: true,
             ),
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF241631),
-            ),
-            items: conversations.map((conv) {
-              return DropdownMenuItem<String>(
-                value: conv.code,
-                child: Text(conv.title, overflow: TextOverflow.ellipsis),
-              );
-            }).toList(),
-            onChanged: (code) {
-              if (code == null) return;
-              final conv = conversations.firstWhere((c) => c.code == code);
-              _onConversationSelected(conv);
-            },
           ),
-        ),
+          const SizedBox(width: 8),
+          CustomTextWidget(
+            text: 'Pull to retry',
+            fontSize: 11,
+            fontColor: const Color(0xFFE53935),
+          ),
+        ],
       ),
     );
   }
@@ -176,24 +226,35 @@ class _ParentDirectMessagingScreenState
       if (state.isLoading) {
         return const ChatThreadShimmer();
       }
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.chat_bubble_outline_rounded,
-              size: 56,
-              color: Colors.grey.withValues(alpha: 0.35),
-            ),
-            const SizedBox(height: 12),
-            const CustomTextWidget(
-              text: 'No conversations found',
-              fontSize: 15,
-              fontColor: Colors.grey,
-            ),
-          ],
-        ),
-      );
+      if (state.errorMessage != null) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.wifi_off_rounded,
+                size: 56,
+                color: Colors.grey.withValues(alpha: 0.35),
+              ),
+              const SizedBox(height: 12),
+              const CustomTextWidget(
+                text: 'Could not load conversations',
+                fontSize: 15,
+                fontColor: Colors.grey,
+              ),
+              const SizedBox(height: 8),
+              const CustomTextWidget(
+                text: 'Pull down to try again',
+                fontSize: 13,
+                fontColor: Colors.grey,
+              ),
+            ],
+          ),
+        );
+      }
+      // No conversation yet for this child — show the same card layout as the
+      // active thread but with a "no conversation" placeholder instead of bubbles.
+      return _buildNoConversationThread(context);
     }
 
     // Provide a dedicated CommunicationCubit for the thread so its state
@@ -205,6 +266,136 @@ class _ParentDirectMessagingScreenState
         parentInfo: _buildParentInfo(selected),
         showOwnScaffold: false,
       ),
+    );
+  }
+
+  /// Shows the same card layout as the active thread but with a centered
+  /// "not yet created" placeholder in the message area.
+  Widget _buildNoConversationThread(BuildContext context) {
+    final childName =
+        context.read<ParentChildCubit>().state.selectedChild?.name ?? '';
+    return Column(
+      mainAxisSize: MainAxisSize.max,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFFF4F7FD),
+            ),
+            child: Column(
+              children: [
+                // Header — mirrors _buildParticipantHeader in the thread
+                Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.transparent,
+                    border: Border(
+                      bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
+                    ),
+                  ),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 17,
+                        backgroundColor:
+                            AppColors.primaryColor.withValues(alpha: 0.12),
+                        child: Text(
+                          childName.isNotEmpty
+                              ? childName[0].toUpperCase()
+                              : '?',
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: CustomTextWidget(
+                          text: childName.isNotEmpty ? childName : 'Student',
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Tab bar placeholder
+                Container(
+                  alignment: Alignment.centerLeft,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: Text(
+                    'Group',
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+                const Divider(height: 1, color: Color(0xFFE9ECEF)),
+                // Centered empty state
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          size: 56,
+                          color: Colors.grey.withValues(alpha: 0.35),
+                        ),
+                        const SizedBox(height: 12),
+                        const CustomTextWidget(
+                          text: 'Room Chat not yet created',
+                          fontSize: 15,
+                          fontColor: Colors.grey,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SafeArea(
+          top: false,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 6,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: ChatInputBar(
+              controller: _emptyInputController,
+              focusNode: _emptyInputFocus,
+              onSend: () {},
+              onAttachmentTap: () {},
+              pendingAttachments: const [],
+              quotedMessage: null,
+              onCancelQuote: () {},
+              onRemoveAttachment: (_) {},
+              editingMessage: null,
+              onCancelEdit: () {},
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
