@@ -232,7 +232,7 @@
   </head>
   <body>
     <div class="app-header">
-      <h2 id="dialog-title">Set Auto Payment</h2>
+      <h2 id="dialog-title">Add Payment Method</h2>
     </div>
     <div class="page">
       <form id="autoPayForm" autocomplete="off">
@@ -663,6 +663,15 @@
           .createToken(data)
           .success((response) => {
             log('Token created successfully', response);
+            log('one_time_token:', response && response.onetime_token);
+            try {
+              console.log(
+                '[AutoPay] Forte token response:',
+                JSON.stringify(response)
+              );
+            } catch (e) {
+              console.warn('[AutoPay] Could not stringify Forte response', e);
+            }
 
             // Card type mismatch validation (only for card payments, not ACH)
             if (cardType && cardType !== 'echeck') {
@@ -738,9 +747,13 @@
               : payloadJson;
           config.env = payload.env || 'qa';
           config.apiLoginId = payload.apiLoginId || config.apiLoginId;
-          if (payload.isAutoPayEnabled) {
-            document.getElementById('dialog-title').textContent =
-              'Edit Auto Payment';
+          if (payload.title) {
+            document.getElementById('dialog-title').textContent = payload.title;
+          }
+          if (payload.defaultMethod) {
+            const sel = document.getElementById('cardType');
+            sel.value = payload.defaultMethod;
+            handleCardTypeChange();
           }
           loadForteScript(config.env);
         } catch (err) {

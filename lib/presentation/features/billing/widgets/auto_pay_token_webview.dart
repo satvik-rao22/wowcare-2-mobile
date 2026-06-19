@@ -56,6 +56,15 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
   }
 
   void _handleCallback(dynamic data) {
+    // Surface the Forte-side response (incl. onetime_token) in app logs.
+    debugPrint('[AUTOPAY][WEBVIEW] autopayTokenCallback: $data');
+    if (data is Map) {
+      final tokenData = data['data'];
+      final token = tokenData is Map
+          ? (tokenData['onetime_token'] ?? tokenData['onetimeToken'])
+          : null;
+      debugPrint('[AUTOPAY][WEBVIEW] one_time_token: $token');
+    }
     if (_hasPopped || !mounted) return;
     _hasPopped = true;
     unawaited(Navigator.of(context).maybePop(data ?? {'success': false}));
@@ -101,6 +110,11 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
               },
               onLoadStop: (_, __) async {
                 await _injectPayload();
+              },
+              onConsoleMessage: (controller, consoleMessage) {
+                // Forwards the HTML's `[AutoPay]` logs (incl. the Forte token
+                // response) into the Flutter console.
+                debugPrint('[AUTOPAY][WEBVIEW][JS] ${consoleMessage.message}');
               },
               onPermissionRequest: (controller, request) async {
                 return PermissionResponse(

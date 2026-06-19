@@ -122,12 +122,32 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     emit(state.copyWith(selectedMethodCode: () => code));
   }
 
-  /// Payload for the Forte tokenization webview.
-  Map<String, dynamic> buildWebviewPayload() => <String, dynamic>{
+  /// Payload for the Forte tokenization webview. [title] sets the header shown
+  /// in the HTML; [defaultMethod] preselects the method type (e.g. 'echeck'
+  /// for the "Add Bank Account" entry point).
+  Map<String, dynamic> buildWebviewPayload({
+    String? title,
+    String? defaultMethod,
+  }) =>
+      <String, dynamic>{
         'env': ApiConstants.forteEnv,
         'apiLoginId': state.apiLoginId,
-        'isAutoPayEnabled': state.autopayEnabled,
+        'title': title ?? 'Add Payment Method',
+        if (defaultMethod != null) 'defaultMethod': defaultMethod,
       };
+
+  Future<(String, String)> _guardianNames() async {
+    final firstName =
+        (await _storage.getString(StorageKeys.guardianProfileFirstName) ?? '')
+            .trim();
+    final lastName =
+        (await _storage.getString(StorageKeys.guardianProfileLastName) ?? '')
+            .trim();
+    return (
+      firstName.isEmpty ? 'Guardian' : firstName,
+      lastName.isEmpty ? 'Guardian' : lastName,
+    );
+  }
 
   /// Adds a payment method from the Forte one-time token returned by the
   /// webview, then refreshes the list. Returns true on success.
@@ -145,12 +165,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     }
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
-      final firstName =
-          (await _storage.getString(StorageKeys.guardianProfileFirstName) ?? '')
-              .trim();
-      final lastName =
-          (await _storage.getString(StorageKeys.guardianProfileLastName) ?? '')
-              .trim();
+      final (firstName, lastName) = await _guardianNames();
 
       await _addMethod(AddPaymentMethodParams(
         organizationCode: _organizationCode,
@@ -158,8 +173,8 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         guardianCode: _guardianCode,
         oneTimeToken: oneTimeToken,
         methodType: methodType,
-        firstName: firstName.isEmpty ? 'Guardian' : firstName,
-        lastName: lastName.isEmpty ? 'Guardian' : lastName,
+        firstName: firstName,
+        lastName: lastName,
         label: label,
         // Per product requirement: never auto-set primary/autopay on create.
         makePrimary: false,
@@ -173,6 +188,67 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         methods: methods,
         selectedMethodCode: () =>
             state.selectedMethodCode ?? _primaryCodeOf(methods),
+      ));
+      return true;
+    } catch (e) {
+      if (isClosed) return false;
+      emit(state.copyWith(
+        isSaving: false,
+        errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+      ));
+      return false;
+    }
+  }
+
+  /// "Edits" a saved method. Forte tokens are immutable (no update endpoint),
+  /// so this re-tokenizes: adds the new method, preserves primary if the old
+  /// one was primary, then removes the old method. Returns true on success.
+  Future<bool> replacePaymentMethod({
+    required String oldCode,
+    required bool oldWasPrimary,
+    required String oneTimeToken,
+    required PaymentMethodType methodType,
+    String? label,
+  }) async {
+    if (state.isSaving) return false;
+    if (!hasScope) {
+      emit(state.copyWith(
+        errorMessage: () => 'Account context unavailable. Please try again.',
+      ));
+      return false;
+    }
+    emit(state.copyWith(isSaving: true, errorMessage: () => null));
+    try {
+      final (firstName, lastName) = await _guardianNames();
+
+      final created = await _addMethod(AddPaymentMethodParams(
+        organizationCode: _organizationCode,
+        schoolCode: _schoolCode,
+        guardianCode: _guardianCode,
+        oneTimeToken: oneTimeToken,
+        methodType: methodType,
+        firstName: firstName,
+        lastName: lastName,
+        label: label,
+        makePrimary: false,
+        makeAutopay: false,
+      ));
+
+      // Carry the auto-pay (primary) flag over to the replacement method.
+      if (oldWasPrimary && created.code.isNotEmpty) {
+        await _setPrimary(paymentMethodCode: created.code, scope: _scope);
+      }
+
+      // Remove the method being replaced.
+      await _deleteMethod(paymentMethodCode: oldCode, scope: _scope);
+
+      final methods = await _getMethods(_scope);
+      if (isClosed) return true;
+      emit(state.copyWith(
+        isSaving: false,
+        methods: methods,
+        selectedMethodCode: () =>
+            _primaryCodeOf(methods) ?? state.selectedMethodCode,
       ));
       return true;
     } catch (e) {

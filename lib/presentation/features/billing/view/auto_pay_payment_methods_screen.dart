@@ -9,7 +9,6 @@ import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -27,7 +26,15 @@ class AutoPayPaymentMethodsScreen extends StatefulWidget {
 
 class _AutoPayPaymentMethodsScreenState
     extends State<AutoPayPaymentMethodsScreen> {
+  static const Color _accent = Color(0xFF6F8CFF);
+  static const Color _autopayTagBg = Color(0xFFEEE9FF);
+  static const Color _autopayTagFg = Color(0xFF6F52FF);
+
   final AutoPayMethodsCubit _cubit = serviceLocator<AutoPayMethodsCubit>();
+  final PageController _pageController =
+      PageController(viewportFraction: 0.86);
+  int _currentPage = 0;
+  bool _positionedToPrimary = false;
 
   @override
   void initState() {
@@ -37,6 +44,7 @@ class _AutoPayPaymentMethodsScreenState
 
   @override
   void dispose() {
+    _pageController.dispose();
     unawaited(_cubit.close());
     super.dispose();
   }
@@ -57,17 +65,21 @@ class _AutoPayPaymentMethodsScreenState
           );
         },
         builder: (context, state) {
+          // Once methods load, center the carousel on the primary method.
+          _maybePositionToPrimary(state);
           return StaffFormLayout(
-            title: 'Auto Payment',
+            title: 'AutoPay Settings',
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAutoPayToggle(state),
-                  const SizedBox(height: 16),
+                  _buildAutoPayHeader(state),
                   const Divider(height: 32),
+                  _buildSectionHeader(),
                   const SizedBox(height: 16),
-                  _buildSavedPaymentMethods(state),
+                  _buildMethodsArea(state),
+                  const SizedBox(height: 20),
+                  _buildAddButtons(state),
                 ],
               ),
             ),
@@ -78,6 +90,613 @@ class _AutoPayPaymentMethodsScreenState
     );
   }
 
+  // ── Header (AutoPay toggle) ────────────────────────────────────────────
+
+  Widget _buildAutoPayHeader(AutoPayMethodsState state) {
+    final enabled = state.autopayEnabled;
+    return Row(
+      children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: const BoxDecoration(
+            color: _autopayTagBg,
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(Icons.autorenew, color: _autopayTagFg, size: 24),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Text(
+                    'AutoPay',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: enabled
+                          ? const Color(0xFFE8FFF1)
+                          : Colors.grey.shade200,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      enabled ? 'ON' : 'OFF',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color:
+                            enabled ? AppColors.successColor : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              const Text(
+                'Automatically pay invoices using a saved payment method.',
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        CustomToggle(
+          label: '',
+          isToggled: enabled,
+          onToggle: _cubit.toggleAutoPay,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Select payment method for AutoPay',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            _secureChip(),
+          ],
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          "Choose the payment method you'd like to use for automatic payments.",
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+      ],
+    );
+  }
+
+  Widget _secureChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F0FB),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.verified_user_outlined, size: 14, color: _autopayTagFg),
+          SizedBox(width: 6),
+          Text(
+            'Secure & Encrypted',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF4A4A68),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Methods carousel ───────────────────────────────────────────────────
+
+  Widget _buildMethodsArea(AutoPayMethodsState state) {
+    if (state.isLoading) {
+      return ShimmerLoader(
+        height: 230,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(16),
+      );
+    }
+    if (!state.hasMethods) return _buildEmptyState();
+
+    final methods = state.methods;
+    return Column(
+      children: [
+        SizedBox(
+          height: 230,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              PageView.builder(
+                controller: _pageController,
+                itemCount: methods.length,
+                onPageChanged: (i) => setState(() => _currentPage = i),
+                itemBuilder: (_, i) => _buildCarouselCard(state, methods[i]),
+              ),
+              if (methods.length > 1) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _arrowButton(
+                    Icons.chevron_left,
+                    _currentPage > 0 ? () => _animateTo(_currentPage - 1) : null,
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: _arrowButton(
+                    Icons.chevron_right,
+                    _currentPage < methods.length - 1
+                        ? () => _animateTo(_currentPage + 1)
+                        : null,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        if (methods.length > 1) _buildDots(methods.length),
+        if (state.isSaving) ...[
+          const SizedBox(height: 12),
+          const Center(
+            child: Text(
+              'Saving your payment method...',
+              style: TextStyle(color: Color(0xFF718096), fontSize: 12),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildDots(int count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(count, (i) {
+        final active = i == _currentPage;
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 3),
+          width: active ? 18 : 7,
+          height: 7,
+          decoration: BoxDecoration(
+            color: active ? _accent : Colors.grey.shade300,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+      }),
+    );
+  }
+
+  Widget _arrowButton(IconData icon, VoidCallback? onTap) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: Opacity(
+        opacity: onTap == null ? 0.35 : 1,
+        child: Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          elevation: 3,
+          shadowColor: Colors.black26,
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(4),
+              child: Icon(icon, size: 22, color: Colors.black54),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _animateTo(int page) {
+    unawaited(
+      _pageController.animateToPage(
+        page,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOut,
+      ),
+    );
+  }
+
+  void _maybePositionToPrimary(AutoPayMethodsState state) {
+    if (_positionedToPrimary || state.isLoading || !state.hasMethods) return;
+    _positionedToPrimary = true;
+    final idx = state.methods.indexWhere((m) => m.code == state.selectedMethodCode);
+    final target = idx >= 0 ? idx : 0;
+    if (target == 0) {
+      _currentPage = 0;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_pageController.hasClients) return;
+      _pageController.jumpToPage(target);
+      setState(() => _currentPage = target);
+    });
+  }
+
+  Widget _buildCarouselCard(AutoPayMethodsState state, PaymentMethodEntity m) {
+    final selected = state.selectedMethodCode == m.code;
+    final last4 = m.isEcheck
+        ? (m.echeck?.last4 ?? m.last4 ?? '••••')
+        : (m.card?.last4 ?? m.last4 ?? '••••');
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: selected ? _accent : Colors.grey.shade200,
+          width: selected ? 2 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: selected ? 0.08 : 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _brandMark(m),
+              const Spacer(),
+              if (m.isEcheck)
+                Padding(
+                  padding: const EdgeInsets.only(right: 6, top: 2),
+                  child: _tag('ACH', const Color(0xFFEDEFF5),
+                      const Color(0xFF4A4A68)),
+                ),
+              Radio<String>(
+                value: m.code,
+                groupValue: state.selectedMethodCode,
+                onChanged: (_) => _cubit.selectMethod(m.code),
+                activeColor: _accent,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _brandLabel(m),
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Text('••••  ', style: TextStyle(letterSpacing: 1)),
+              Text(
+                last4,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          ..._buildCardSubDetails(m),
+          const Spacer(),
+          Row(
+            children: [
+              if (m.primary)
+                _tag('Primary', const Color(0xFFE8FFF1),
+                    AppColors.successColor),
+              if (m.primary && state.autopayEnabled) ...[
+                const SizedBox(width: 6),
+                _tag('AutoPay', _autopayTagBg, _autopayTagFg),
+              ],
+              const Spacer(),
+              _cardActions(state, m),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildCardSubDetails(PaymentMethodEntity m) {
+    final style = TextStyle(fontSize: 12, color: Colors.grey.shade600);
+    if (m.isEcheck) {
+      return [
+        Text(_echeckAccountTypeLabel(m.echeck?.accountType), style: style),
+        Text('ACH Payment Method', style: style),
+      ];
+    }
+    final card = m.card;
+    final exp = (card?.expireMonth != null && card?.expireYear != null)
+        ? 'Expires ${card!.expireMonth.toString().padLeft(2, '0')}/${card.expireYear}'
+        : 'Expires --/--';
+    final holder = (card?.nameOnCard ?? '').trim();
+    return [
+      Text(exp, style: style),
+      if (holder.isNotEmpty) Text(holder, style: style),
+    ];
+  }
+
+  Widget _cardActions(AutoPayMethodsState state, PaymentMethodEntity m) {
+    final isDeletingThis = state.deletingMethodCode == m.code;
+    if (isDeletingThis) {
+      return const Padding(
+        padding: EdgeInsets.all(6),
+        child: PrimaryCircularLoader(size: 18, strokeWidth: 2),
+      );
+    }
+    final busy = state.isSaving || state.deletingMethodCode != null;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _iconAction(
+          Icons.edit_outlined,
+          const Color(0xFF667EEA),
+          busy ? null : () => _openEditMethod(m),
+        ),
+        const SizedBox(width: 4),
+        _iconAction(
+          Icons.delete_outline,
+          const Color(0xFFE53E3E),
+          busy ? null : () => _confirmAndDelete(m),
+        ),
+      ],
+    );
+  }
+
+  Widget _iconAction(IconData icon, Color color, VoidCallback? onTap) {
+    return InkWell(
+      onTap: onTap,
+      customBorder: const CircleBorder(),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: Icon(icon, size: 18, color: onTap == null ? Colors.grey : color),
+      ),
+    );
+  }
+
+  Widget _tag(String text, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
+      ),
+    );
+  }
+
+  Widget _brandMark(PaymentMethodEntity m) {
+    if (m.isEcheck) {
+      return Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: const Color(0xFFEFF2FF),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: const Icon(Icons.account_balance,
+            color: Color(0xFF3B5BDB), size: 22),
+      );
+    }
+    final t = (m.card?.cardType ?? m.methodType.apiValue).toLowerCase();
+    if (t.contains('visa')) {
+      return _brandText('VISA', const Color(0xFF1A1F71), italic: true);
+    }
+    if (t.contains('mast') || t.contains('master')) {
+      return SizedBox(
+        width: 44,
+        height: 30,
+        child: Stack(
+          children: [
+            _brandCircle(const Color(0xFFEB001B), 0),
+            _brandCircle(const Color(0xFFF79E1B), 16),
+          ],
+        ),
+      );
+    }
+    if (t.contains('disc')) {
+      return _brandText('DISC', const Color(0xFFFF6000));
+    }
+    return const Icon(Icons.credit_card, size: 28, color: Color(0xFF667EEA));
+  }
+
+  Widget _brandCircle(Color color, double left) {
+    return Positioned(
+      left: left,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.9),
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+
+  Widget _brandText(String text, Color color, {bool italic = false}) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w900,
+        color: color,
+        letterSpacing: 0.5,
+        fontStyle: italic ? FontStyle.italic : FontStyle.normal,
+      ),
+    );
+  }
+
+  String _brandLabel(PaymentMethodEntity m) {
+    if (m.label != null && m.label!.trim().isNotEmpty) return m.label!.trim();
+    if (m.isEcheck) {
+      final holder = (m.echeck?.accountHolder ?? '').trim();
+      return holder.isNotEmpty ? holder : 'Bank Account';
+    }
+    switch (m.methodType) {
+      case PaymentMethodType.visa:
+        return 'Visa';
+      case PaymentMethodType.mast:
+        return 'Mastercard';
+      case PaymentMethodType.discover:
+        return 'Discover';
+      default:
+        final ct = (m.card?.cardType ?? '').trim();
+        return ct.isNotEmpty ? ct : 'Card';
+    }
+  }
+
+  String _methodTitle(PaymentMethodEntity m) => _brandLabel(m);
+
+  String _echeckAccountTypeLabel(String? accountType) {
+    final lower = (accountType ?? '').toLowerCase();
+    if (lower == 'c' || lower.contains('checking')) return 'Checking';
+    if (lower == 's' || lower.contains('saving')) return 'Savings';
+    return accountType ?? 'Bank Account';
+  }
+
+  Widget _buildEmptyState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: const Column(
+        children: [
+          Icon(Icons.credit_card_off_outlined, size: 36, color: Colors.grey),
+          SizedBox(height: 8),
+          Text(
+            'No saved payment methods yet.\nAdd a card or bank account below.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Add buttons ────────────────────────────────────────────────────────
+
+  Widget _buildAddButtons(AutoPayMethodsState state) {
+    final canAdd = state.canAddMore && state.hasForteConfig && !state.isSaving;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _addButton(
+                Icons.credit_card,
+                'Add Credit or Debit Card',
+                canAdd ? () => _openAddMethod(ach: false) : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _addButton(
+                Icons.account_balance,
+                'Add Bank Account (ACH)',
+                canAdd ? () => _openAddMethod(ach: true) : null,
+              ),
+            ),
+          ],
+        ),
+        if (!state.canAddMore) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Maximum of ${AutoPayMethodsState.maxMethods} payment methods reached.',
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _addButton(IconData icon, String label, VoidCallback? onTap) {
+    final enabled = onTap != null;
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF7F6FD),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: _autopayTagFg.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 18, color: _autopayTagFg),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _autopayTagFg,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Bottom bar (Save + secure note) ──────────────────────────────────────
+
   Widget _buildBottomBar(AutoPayMethodsState state) {
     final canSave = state.canSave;
     return Container(
@@ -87,7 +706,7 @@ class _AutoPayPaymentMethodsScreenState
             : 16,
         left: 16,
         right: 16,
-        top: 8,
+        top: 10,
       ),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -103,530 +722,72 @@ class _AutoPayPaymentMethodsScreenState
           topRight: Radius.circular(24),
         ),
       ),
-      child: AbsorbPointer(
-        absorbing: !canSave,
-        child: Opacity(
-          opacity: canSave ? 1 : 0.6,
-          child: CustomButtonLayout(
-            confirmButtonLabel: 'Save',
-            onPressedConfirm: _handleSave,
-            showCancelButton: false,
-            isForm: false,
-            isLoading: state.isSettingPrimary,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAutoPayToggle(AutoPayMethodsState state) {
-    final enabled = state.autopayEnabled;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          const Text(
-            'Auto Payment',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const Spacer(),
-          CustomToggle(
-            label: '',
-            isToggled: enabled,
-            onToggle: _cubit.toggleAutoPay,
-          ),
-          const SizedBox(width: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: enabled ? const Color(0xFFE8FFF1) : Colors.grey.shade200,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              enabled ? 'Enabled' : 'Disabled',
-              style: TextStyle(
-                color: enabled ? AppColors.successColor : Colors.grey,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSavedPaymentMethods(AutoPayMethodsState state) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Saved Payment Methods',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: Colors.black87,
-              ),
-            ),
-            Text(
-              '${state.methods.length}/${AutoPayMethodsState.maxMethods}',
-              style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.black45,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (state.isLoading)
-          _buildLoadingTile()
-        else if (!state.hasMethods)
-          _buildEmptyState()
-        else
-          ...state.methods.map((m) => _buildMethodTile(state, m)),
-        const SizedBox(height: 4),
-        _buildAddMethodTile(state),
-        if (state.isSaving) ...[
-          const SizedBox(height: 12),
-          const Center(
-            child: Text(
-              'Saving your payment method...',
-              style: TextStyle(color: Color(0xFF718096), fontSize: 12),
-            ),
-          ),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildLoadingTile() {
-    return Column(
-      children: List.generate(
-        2,
-        (_) => Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: ShimmerLoader(
-            height: 220,
-            width: double.infinity,
-            borderRadius: BorderRadius.circular(20),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMethodTile(AutoPayMethodsState state, PaymentMethodEntity m) {
-    final enabled = state.autopayEnabled;
-    final isSelected = state.selectedMethodCode == m.code && enabled;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isSelected ? const Color(0xFFF0FFF4) : const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isSelected ? AppColors.successColor : Colors.transparent,
-          width: 2,
-        ),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: AppColors.successColor.withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  spreadRadius: 1,
-                ),
-              ]
-            : null,
-      ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
+          _buildSaveButton(state, canSave),
+          const SizedBox(height: 10),
           Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              if (enabled)
-                Radio<String>(
-                  value: m.code,
-                  groupValue: state.selectedMethodCode,
-                  onChanged: (_) => _cubit.selectMethod(m.code),
-                  activeColor: AppColors.successColor,
-                )
-              else
-                const SizedBox(width: 40),
-              Expanded(
-                child: GestureDetector(
-                  onTap: enabled ? () => _cubit.selectMethod(m.code) : null,
-                  child: Text(
-                    _methodTitle(m),
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: enabled ? Colors.black87 : Colors.grey,
-                    ),
-                  ),
-                ),
+              Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
+              const SizedBox(width: 6),
+              Text(
+                'Your payment information is secure and encrypted.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
-              if (m.primary)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8FFF1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Auto Pay',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.successColor,
-                    ),
-                  ),
-                ),
-              _buildDeleteAction(state, m),
             ],
           ),
-          GestureDetector(
-            onTap: enabled ? () => _cubit.selectMethod(m.code) : null,
-            child: Opacity(
-              opacity: enabled ? 1 : 0.7,
-              child: m.isEcheck ? _buildEcheckCard(m) : _buildCreditCard(m),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  String _methodTitle(PaymentMethodEntity m) {
-    if (m.label != null && m.label!.trim().isNotEmpty) return m.label!.trim();
-    if (m.isEcheck) return 'eCheck account';
-    final type = m.card?.cardType ?? m.methodType.apiValue;
-    return '$type card';
-  }
-
-  Widget _buildDeleteAction(
-      AutoPayMethodsState state, PaymentMethodEntity m) {
-    final isDeletingThis = state.deletingMethodCode == m.code;
-    if (isDeletingThis) {
-      return const Padding(
-        padding: EdgeInsets.all(10),
-        child: PrimaryCircularLoader(size: 20, strokeWidth: 2),
-      );
-    }
-    // Disable all delete buttons while any delete is in flight.
-    final canDelete = state.deletingMethodCode == null;
-    return IconButton(
-      tooltip: 'Remove',
-      icon: const Icon(Icons.delete_outline, color: Color(0xFFE53E3E)),
-      onPressed: canDelete ? () => _confirmAndDelete(m) : null,
-    );
-  }
-
-  Widget _buildAddMethodTile(AutoPayMethodsState state) {
-    final canAdd =
-        state.canAddMore && state.hasForteConfig && !state.isSaving;
+  Widget _buildSaveButton(AutoPayMethodsState state, bool canSave) {
     return Opacity(
-      opacity: canAdd ? 1 : 0.6,
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F9FA),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: InkWell(
-          onTap: canAdd ? _openAddMethod : null,
-          child: Row(
-            children: [
-              const Icon(Icons.add_circle_outline, color: Color(0xFF667EEA)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  state.canAddMore
-                      ? 'Use new payment method'
-                      : 'Maximum of ${AutoPayMethodsState.maxMethods} methods reached',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: canAdd ? Colors.black87 : Colors.grey,
+      opacity: canSave ? 1 : 0.5,
+      child: InkWell(
+        onTap: canSave ? _handleSave : null,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          height: 54,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: AppColors.buildPrimaryGradient(),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Center(
+            child: state.isSettingPrimary
+                ? const SizedBox(
+                    height: 22,
+                    width: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.save_outlined, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'Save AutoPay Settings',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ),
-            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCreditCard(PaymentMethodEntity m) {
-    final card = m.card;
-    final last4 = card?.last4 ?? m.last4 ?? '••••';
-    final type = (card?.cardType ?? m.methodType.apiValue).toUpperCase();
-    final gradient = _cardGradient(type);
-    final exp = (card?.expireMonth != null && card?.expireYear != null)
-        ? '${card!.expireMonth}/${card.expireYear}'
-        : '--/--';
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 320, minHeight: 170),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: gradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildChip(),
-              Text(
-                type,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1,
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              const Text(
-                '•••• •••• ••••',
-                style: TextStyle(
-                  color: Colors.white,
-                  letterSpacing: 2,
-                  fontSize: 16,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                last4,
-                style: const TextStyle(
-                  color: Colors.white,
-                  letterSpacing: 2,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _detailGroup(
-                'Card Holder',
-                (card?.nameOnCard ?? '').toUpperCase().isEmpty
-                    ? '—'
-                    : card!.nameOnCard!.toUpperCase(),
-              ),
-              _detailGroup('Expires', exp),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildEcheckCard(PaymentMethodEntity m) {
-    final e = m.echeck;
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 320, minHeight: 170),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE8F4FC),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFB8DAEF)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'eCheck',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF334455),
-                ),
-              ),
-              Text(
-                _echeckAccountTypeLabel(e?.accountType),
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _detailGroup(
-                  'Account Holder Name',
-                  e?.accountHolder ?? '—',
-                  isDark: false,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _detailGroup(
-                  'Routing Number',
-                  e?.routingNumber ?? '—',
-                  isDark: false,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _detailGroup(
-            'Last Four',
-            e?.last4 ?? m.last4 ?? '—',
-            isDark: false,
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _echeckAccountTypeLabel(String? accountType) {
-    final lower = (accountType ?? '').toLowerCase();
-    if (lower == 'c' || lower.contains('checking')) return 'Checking';
-    if (lower == 's' || lower.contains('saving')) return 'Savings';
-    return accountType ?? '';
-  }
-
-  Widget _buildEmptyState() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: const Column(
-        children: [
-          Icon(Icons.credit_card, size: 36, color: Colors.grey),
-          SizedBox(height: 8),
-          Text(
-            'No saved payment methods found',
-            style: TextStyle(color: Colors.black54),
-          ),
-        ],
-      ),
-    );
-  }
-
-  LinearGradient _cardGradient(String cardType) {
-    final type = cardType.toLowerCase();
-    if (type.contains('visa')) {
-      return const LinearGradient(
-        colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    if (type.contains('mast') || type.contains('master')) {
-      return const LinearGradient(
-        colors: [Color(0xFFF093FB), Color(0xFFF5576C)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    if (type.contains('disc')) {
-      return const LinearGradient(
-        colors: [Color(0xFFFF9966), Color(0xFFFF5E62)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    return const LinearGradient(
-      colors: [Color(0xFF5B5B5B), Color(0xFF1A1A1A)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-  }
-
-  Widget _buildChip() {
-    return Container(
-      width: 40,
-      height: 28,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(6),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFD1D1D1), Color(0xFFFCFCFC)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _detailGroup(String label, String value, {bool isDark = true}) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? Colors.white70 : Colors.black54,
-            letterSpacing: 0.2,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w700,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-      ],
-    );
-  }
+  // ── Actions ──────────────────────────────────────────────────────────────
 
   Future<void> _handleSave() async {
     final ok = await _cubit.save();
@@ -634,7 +795,7 @@ class _AutoPayPaymentMethodsScreenState
     if (ok) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Auto Pay settings saved',
+        message: 'AutoPay settings saved',
         isSuccess: true,
       );
       Navigator.of(context).pop(true);
@@ -666,16 +827,25 @@ class _AutoPayPaymentMethodsScreenState
     );
   }
 
-  /// Opens the Forte tokenization webview, then posts the resulting one-time
-  /// token to create the saved payment method.
-  Future<void> _openAddMethod() async {
+  /// Opens the Forte tokenization webview and returns the one-time token +
+  /// method type, or null if cancelled/failed (showing the error). Shared by
+  /// the add and edit flows.
+  Future<({String token, PaymentMethodType type})?> _runForteWebview(
+    String title, {
+    String? defaultMethod,
+  }) async {
     final result = await Navigator.of(context).push<dynamic>(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (_) => AutoPayTokenWebView(payload: _cubit.buildWebviewPayload()),
+        builder: (_) => AutoPayTokenWebView(
+          payload: _cubit.buildWebviewPayload(
+            title: title,
+            defaultMethod: defaultMethod,
+          ),
+        ),
       ),
     );
-    if (!mounted || result is! Map) return;
+    if (!mounted || result is! Map) return null;
 
     if (result['success'] != true) {
       final error = result['error'];
@@ -683,46 +853,81 @@ class _AutoPayPaymentMethodsScreenState
           ? (error['response_description'] ??
                   error['response_text'] ??
                   error['error_message'] ??
-                  'Unable to add payment method. Please try again.')
+                  'Unable to process payment method. Please try again.')
               .toString()
           : (error?.toString() ??
-              'Unable to add payment method. Please try again.');
+              'Unable to process payment method. Please try again.');
       CoreUtils.showTopSnackBar(
         context: context,
         message: message,
         isError: true,
       );
-      return;
+      return null;
     }
 
     final tokenData = result['data'];
     final data = tokenData is Map ? tokenData : const {};
-    final oneTimeToken =
+    final token =
         (data['onetime_token'] ?? data['onetimeToken'])?.toString() ?? '';
-    if (oneTimeToken.isEmpty) {
+    if (token.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Invalid payment token received from Forte. Please try again.',
         isError: true,
       );
-      return;
+      return null;
     }
 
     final isEcheck =
         (result['paymentType']?.toString().toLowerCase() ?? '') == 'echeck';
-    final methodType = isEcheck
+    final type = isEcheck
         ? PaymentMethodType.echeck
         : PaymentMethodTypeX.fromApi(data['card_type']?.toString());
+    debugPrint('[AUTOPAY] one_time_token=$token (type=${type.apiValue})');
+    return (token: token, type: type);
+  }
 
+  /// Adds a new saved payment method. [ach] true preselects the bank-account
+  /// (ACH) form in the webview.
+  Future<void> _openAddMethod({required bool ach}) async {
+    final res = await _runForteWebview(
+      ach ? 'Add Bank Account' : 'Add Card',
+      defaultMethod: ach ? 'echeck' : null,
+    );
+    if (res == null || !mounted) return;
     final ok = await _cubit.addPaymentMethodFromToken(
-      oneTimeToken: oneTimeToken,
-      methodType: methodType,
+      oneTimeToken: res.token,
+      methodType: res.type,
     );
     if (!mounted) return;
     if (ok) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Payment method added',
+        isSuccess: true,
+      );
+    }
+  }
+
+  /// Edits a saved method by re-tokenizing (Forte tokens are immutable): the
+  /// new details replace the old method, preserving its auto-pay (primary) flag.
+  Future<void> _openEditMethod(PaymentMethodEntity m) async {
+    final res = await _runForteWebview(
+      'Edit Payment Method',
+      defaultMethod: m.isEcheck ? 'echeck' : null,
+    );
+    if (res == null || !mounted) return;
+    final ok = await _cubit.replacePaymentMethod(
+      oldCode: m.code,
+      oldWasPrimary: m.primary,
+      oneTimeToken: res.token,
+      methodType: res.type,
+    );
+    if (!mounted) return;
+    if (ok) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Payment method updated',
         isSuccess: true,
       );
     }
