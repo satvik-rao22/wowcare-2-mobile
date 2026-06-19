@@ -196,6 +196,38 @@ class InvoicePaymentParams extends Equatable {
       ];
 }
 
+/// Params for a credit (`POST /api/v1/invoices/credits`).
+class CreateCreditParams extends Equatable {
+  const CreateCreditParams({
+    required this.schoolCode,
+    required this.amount,
+    this.ownerType,
+    this.ownerCode,
+    this.studentCode,
+    this.reason,
+    this.description,
+  });
+
+  final String schoolCode;
+  final double amount;
+  final String? ownerType;
+  final String? ownerCode;
+  final String? studentCode;
+  final String? reason;
+  final String? description;
+
+  @override
+  List<Object?> get props => [
+        schoolCode,
+        amount,
+        ownerType,
+        ownerCode,
+        studentCode,
+        reason,
+        description,
+      ];
+}
+
 class InvoicePaymentResultEntity extends Equatable {
   const InvoicePaymentResultEntity({
     this.ledgerCode,

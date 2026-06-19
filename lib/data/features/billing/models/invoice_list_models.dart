@@ -7,12 +7,20 @@ class InvoiceListLineItemModel {
     required this.quantity,
     required this.unitPrice,
     required this.totalPrice,
+    this.itemType,
+    this.sourceCode,
+    this.valueType,
+    this.valueInput,
   });
 
   final String description;
   final int quantity;
   final double unitPrice;
   final double totalPrice;
+  final String? itemType;
+  final String? sourceCode;
+  final String? valueType;
+  final double? valueInput;
 
   factory InvoiceListLineItemModel.fromJson(Map<String, dynamic> json) {
     return InvoiceListLineItemModel(
@@ -20,6 +28,10 @@ class InvoiceListLineItemModel {
       quantity: (json['quantity'] as num?)?.toInt() ?? 0,
       unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0,
       totalPrice: (json['totalPrice'] as num?)?.toDouble() ?? 0,
+      itemType: json['itemType'] as String?,
+      sourceCode: json['sourceCode'] as String?,
+      valueType: json['valueType'] as String?,
+      valueInput: (json['valueInput'] as num?)?.toDouble(),
     );
   }
 
@@ -28,6 +40,10 @@ class InvoiceListLineItemModel {
         quantity: quantity,
         unitPrice: unitPrice,
         totalPrice: totalPrice,
+        itemType: itemType,
+        sourceCode: sourceCode,
+        valueType: valueType,
+        valueInput: valueInput,
       );
 }
 

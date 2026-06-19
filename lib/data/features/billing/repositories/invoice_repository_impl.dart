@@ -41,6 +41,12 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   }
 
   @override
+  Future<InvoiceListItemEntity> getInvoiceByCode(String code) async {
+    final m = await _dataSource.getInvoiceByCode(code);
+    return m.toEntity();
+  }
+
+  @override
   Future<PaginatedInvoicesEntity> listInvoices({
     required String organizationCode,
     required String school,
@@ -125,6 +131,21 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<InvoicePaymentResultEntity> createRefund(
       InvoicePaymentParams params) async {
     final m = await _dataSource.createRefund(_toPaymentRequest(params));
+    return _mapPaymentResult(m);
+  }
+
+  @override
+  Future<InvoicePaymentResultEntity> createCredit(
+      CreateCreditParams params) async {
+    final m = await _dataSource.createCredit(CreateCreditRequestModel(
+      schoolCode: params.schoolCode,
+      amount: params.amount,
+      ownerType: params.ownerType,
+      ownerCode: params.ownerCode,
+      studentCode: params.studentCode,
+      reason: params.reason,
+      description: params.description,
+    ));
     return _mapPaymentResult(m);
   }
 

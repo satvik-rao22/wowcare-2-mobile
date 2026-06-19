@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/billing/entities/discount_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_catalog_entities.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/update_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_discounts_usecase.dart';
@@ -64,6 +65,22 @@ class InvoiceItemTypes {
         return 'NEW_ITEM';
     }
   }
+
+  /// Maps an API `itemType` enum value back to a display type (for the edit form).
+  static String fromApiCode(String? code) {
+    switch ((code ?? '').toUpperCase()) {
+      case 'TUITION_FEE':
+        return tuitionFee;
+      case 'OTHER_FEE':
+        return otherFee;
+      case 'DISCOUNT':
+        return discount;
+      case 'SUBSIDY':
+        return subsidy;
+      default:
+        return newItem;
+    }
+  }
 }
 
 /// Outcome of [CreateInvoiceCubit.submitInvoices].
@@ -95,6 +112,7 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required CreateInvoiceUseCase createInvoice,
     required IssueInvoiceUseCase issueInvoice,
     required UpdateInvoiceUseCase updateInvoice,
+    required GetInvoiceByCodeUseCase getInvoiceByCode,
     required StorageService storage,
   })  : _getFeeStructures = getFeeStructures,
         _getOtherFees = getOtherFees,
@@ -103,6 +121,7 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
         _createInvoice = createInvoice,
         _issueInvoice = issueInvoice,
         _updateInvoice = updateInvoice,
+        _getInvoiceByCode = getInvoiceByCode,
         _storage = storage,
         super(CreateInvoiceState.initial());
 
@@ -113,6 +132,7 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
   final CreateInvoiceUseCase _createInvoice;
   final IssueInvoiceUseCase _issueInvoice;
   final UpdateInvoiceUseCase _updateInvoice;
+  final GetInvoiceByCodeUseCase _getInvoiceByCode;
   final StorageService _storage;
 
   /// When editing an existing invoice, its code — set from `initialize` data.
@@ -160,6 +180,48 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     }
 
     loadCatalog();
+  }
+
+  /// Fetches the full invoice (`GET /invoices/by-code/{code}`) and hydrates the
+  /// form with its real line items + dates, so editing PATCHes the true state
+  /// rather than a summarized row. Falls back to leaving the form as-is on error.
+  Future<void> loadInvoiceForEdit(String code) async {
+    _editingInvoiceCode = code.trim();
+    loadCatalog();
+    if (_editingInvoiceCode!.isEmpty) return;
+    try {
+      final invoice = await _getInvoiceByCode(_editingInvoiceCode!);
+      if (isClosed) return;
+      for (final item in state.items) {
+        item.dispose();
+      }
+      final items = invoice.items.isEmpty
+          ? [InvoiceItemFormData.initial(isPrimary: true)]
+          : invoice.items.mapIndexed((index, it) {
+              final amount =
+                  it.totalPrice != 0 ? it.totalPrice : it.unitPrice;
+              final fd = InvoiceItemFormData(
+                type: InvoiceItemTypes.fromApiCode(it.itemType),
+                description: it.description,
+                amount: amount == 0 ? '' : amount.toStringAsFixed(2),
+                isPrimary: index == 0,
+              );
+              fd.sourceCode = it.sourceCode;
+              fd.valueType = it.valueType;
+              if (it.valueInput != null) {
+                fd.valueController.text = it.valueInput!.toStringAsFixed(2);
+              }
+              return fd;
+            }).toList();
+      emit(state.copyWith(
+        items: items,
+        invoiceDate: () => invoice.issueDate ?? state.invoiceDate,
+        dueDate: () => invoice.dueDate ?? state.dueDate,
+        revision: state.revision + 1,
+      ));
+    } catch (_) {
+      // Keep the (default) form; the user can still edit manually.
+    }
   }
 
   /// Prefetches the four catalogs in parallel. Failures are swallowed per-call

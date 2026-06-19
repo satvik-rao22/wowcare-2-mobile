@@ -12,6 +12,9 @@ abstract class InvoiceRepository {
     DateTime? dateTo,
   });
 
+  /// Full invoice detail (`GET /api/v1/invoices/by-code/{code}`).
+  Future<InvoiceListItemEntity> getInvoiceByCode(String code);
+
   /// Paginated invoice list (`GET /api/v1/invoices/{organizationCode}`).
   Future<PaginatedInvoicesEntity> listInvoices({
     required String organizationCode,
@@ -37,6 +40,7 @@ abstract class InvoiceRepository {
   });
   Future<InvoicePaymentResultEntity> createPayment(InvoicePaymentParams params);
   Future<InvoicePaymentResultEntity> createRefund(InvoicePaymentParams params);
+  Future<InvoicePaymentResultEntity> createCredit(CreateCreditParams params);
   Future<InvoiceResultEntity> updateInvoice({
     required String code,
     required UpdateInvoiceParams params,

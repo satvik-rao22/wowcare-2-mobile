@@ -242,6 +242,8 @@ class ApiPaths {
       case 'invoices':
       case 'ledgers':
       case 'ledger-transactions':
+      case 'school-forte-configs':
+      case 'payment-gateway':
         return ApiMicroservices.billing;
       default:
         return ApiMicroservices.user;
@@ -898,6 +900,7 @@ class ApiPaths {
   static const String invoicesFamilyLedger = '/api/v1/invoices/family-ledger';
   static const String invoicePayments = '/api/v1/invoices/payments';
   static const String invoiceRefunds = '/api/v1/invoices/refunds';
+  static const String invoiceCredits = '/api/v1/invoices/credits';
 
   /// Paginated invoice list for an organization. Note: same URL shape as
   /// [invoiceByCode] but a GET that returns a page — keep them distinct.
@@ -905,6 +908,10 @@ class ApiPaths {
       '/api/v1/invoices/${Uri.encodeComponent(organizationCode.trim())}';
   static String invoiceByCode(String code) =>
       '/api/v1/invoices/${Uri.encodeComponent(code.trim())}';
+
+  /// Full invoice detail (incl. line items) for the edit form.
+  static String invoiceDetailByCode(String code) =>
+      '/api/v1/invoices/by-code/${Uri.encodeComponent(code.trim())}';
   static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';
   static String invoiceIssue(String code) => '${invoiceByCode(code)}/issue';
   static String invoiceResend(String code) => '${invoiceByCode(code)}/resend';
@@ -928,4 +935,21 @@ class ApiPaths {
 
   // —— Ledger Transactions (Billing MS) ——
   static const String ledgerTransactions = '/api/v1/ledger-transactions';
+
+  // —— Auto Pay / Forte payment methods (Billing MS) ——
+  /// School-level Forte config (returns `apiLoginId`).
+  static const String schoolForteConfigs = '/api/v1/school-forte-configs';
+
+  /// Whether auto-pay is enabled for a guardian.
+  static const String autopayStatus =
+      '/api/v1/payment-gateway/autopay/status';
+
+  /// List/create saved payment methods (up to 4 per guardian).
+  static const String paymentGatewayMethods =
+      '/api/v1/payment-gateway/payment-methods';
+
+  /// Mark a saved payment method as primary (the auto-pay method).
+  static String paymentGatewayMethodPrimary(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}/primary';
 }

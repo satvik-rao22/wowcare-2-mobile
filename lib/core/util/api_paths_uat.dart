@@ -88,6 +88,8 @@ class ApiPathsUat {
       'fee-structure',
       'other-fees',
       'invoices',
+      'school-forte-configs',
+      'payment-gateway',
     },
   };
 
@@ -188,6 +190,8 @@ class ApiPathsUat {
       case 'fee-structure':
       case 'other-fees':
       case 'invoices':
+      case 'school-forte-configs':
+      case 'payment-gateway':
         return ApiMicroservices.billing;
       case 'admin':
         // v2 activity moderation endpoints:

@@ -178,6 +178,38 @@ class InvoicePaymentRequestModel {
       };
 }
 
+class CreateCreditRequestModel {
+  const CreateCreditRequestModel({
+    required this.schoolCode,
+    required this.amount,
+    this.ownerType,
+    this.ownerCode,
+    this.studentCode,
+    this.reason,
+    this.description,
+  });
+
+  final String schoolCode;
+  final double amount;
+  final String? ownerType;
+  final String? ownerCode;
+  final String? studentCode;
+  final String? reason;
+  final String? description;
+
+  Map<String, dynamic> toJson() => {
+        if (ownerType != null && ownerType!.isNotEmpty) 'ownerType': ownerType,
+        if (ownerCode != null && ownerCode!.isNotEmpty) 'ownerCode': ownerCode,
+        if (studentCode != null && studentCode!.isNotEmpty)
+          'studentCode': studentCode,
+        'schoolCode': schoolCode,
+        'amount': amount,
+        if (reason != null && reason!.isNotEmpty) 'reason': reason,
+        if (description != null && description!.isNotEmpty)
+          'description': description,
+      };
+}
+
 class InvoicePaymentResultModel {
   const InvoicePaymentResultModel({
     this.ledgerCode,

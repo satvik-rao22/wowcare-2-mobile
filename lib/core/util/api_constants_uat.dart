@@ -50,6 +50,11 @@ class ApiConstantsUat {
   static const String billingBaseUrl = _host;
   static const String newsLatterBaseUrl = _host;
 
+  // ─── Forte (auto-pay tokenization) ─────────────────────────────────────────
+  /// Forte environment used by the auto-pay webview in UAT. `'sandbox'` loads
+  /// the Forte sandbox SDK; change to `'prod'` once UAT points at live Forte.
+  static const String forteEnv = 'sandbox';
+
   // ─── Microservice router ───────────────────────────────────────────────────
 
   static String baseUrlForMicroservice(String microserviceKey) {

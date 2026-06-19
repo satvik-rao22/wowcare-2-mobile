@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/add_credit_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
@@ -17,8 +18,9 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
@@ -27,7 +29,7 @@ class TransactionDetailsScreen extends StatefulWidget {
 
   /// Family/owner to load the ledger for (when opened from a student/family
   /// card). When [ownerCode] is set, the screen fetches the real family ledger;
-  /// otherwise it falls back to demo data.
+  /// otherwise the screen stays empty (no demo data).
   final String? ownerType;
   final String? ownerCode;
   final String? familyName;
@@ -178,6 +180,20 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             ),
           );
         },
+        onSelectAddCredit: () {
+          Navigator.of(ctx).maybePop();
+          Navigator.of(context).push<bool>(
+            MaterialPageRoute<bool>(
+              builder: (_) => AddCreditScreen(
+                ownerType: widget.ownerType,
+                ownerCode: widget.ownerCode,
+                familyName: _familyDisplayName,
+              ),
+            ),
+          ).then((added) {
+            if (added == true) _cubit.refresh();
+          });
+        },
       ),
     );
   }
@@ -188,30 +204,17 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
         isWarning: true,
       );
 
-  /// Opens the invoice in edit mode (Create Invoice screen, PATCH on save),
-  /// pre-filled from the available row data, then reloads the ledger on save.
+  /// Opens the invoice in edit mode (Create Invoice screen). The form is
+  /// hydrated from `GET /invoices/by-code/{code}` and PATCHes on save; the
+  /// ledger reloads afterwards.
   Future<void> _openEditInvoice(TransactionItem item) async {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final dueDate = (item.endDate != null && item.endDate!.trim().isNotEmpty)
-        ? DateTime.tryParse(item.endDate!.trim())
-        : null;
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => CreateInvoiceScreen(
           selectedStudents: [Student(code: '', fullName: item.studentName)],
-          initialInvoiceData: <String, dynamic>{
-            'invoiceCode': code,
-            'invoiceItems': [
-              {
-                'description': item.description,
-                'amount': item.amount.toStringAsFixed(2),
-              },
-            ],
-            'invoiceDate': item.date,
-            'dueDate': dueDate,
-            'internalNote': item.note ?? '',
-          },
+          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
         ),
       ),
     );
@@ -239,92 +242,81 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     return code;
   }
 
-  Future<void> _confirmCancel(TransactionItem item) async {
+  void _confirmCancel(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final ok = await _confirmAction(
-      title: 'Cancel invoice?',
-      message: 'This will cancel the invoice. This action cannot be undone.',
-      confirmLabel: 'Cancel invoice',
-    );
-    if (!ok) return;
-    final success = await _cubit.cancelInvoice(code);
-    if (!mounted) return;
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: success ? 'Invoice cancelled' : _cubit.state.errorMessage,
-      isError: !success,
-      isSuccess: success,
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_cancel',
+      action: () => _cubit.cancelInvoice(code),
+      successMessage: 'Invoice cancelled',
     );
   }
 
-  Future<void> _confirmDelete(TransactionItem item) async {
+  void _confirmDelete(TransactionItem item) {
     final code = _invoiceCodeOrWarn(item);
     if (code == null) return;
-    final ok = await _confirmAction(
-      title: 'Delete invoice?',
-      message: 'This will permanently delete the invoice.',
-      confirmLabel: 'Delete',
-      isDestructive: true,
-    );
-    if (!ok) return;
-    final success = await _cubit.deleteInvoice(code);
-    if (!mounted) return;
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: success ? 'Invoice deleted' : _cubit.state.errorMessage,
-      isError: !success,
-      isSuccess: success,
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_delete',
+      action: () => _cubit.deleteInvoice(code),
+      successMessage: 'Invoice deleted',
     );
   }
 
-  Future<bool> _confirmAction({
-    required String title,
-    required String message,
-    required String confirmLabel,
-    bool isDestructive = false,
-  }) async {
-    final result = await showDialog<bool>(
+  /// Confirms a cancel/delete via the shared bottom sheet. The action runs while
+  /// the sheet shows its loading state, then the sheet closes and the result is
+  /// surfaced as a top snackbar.
+  void _showInvoiceActionSheet({
+    required TransactionItem item,
+    required String type,
+    required Future<bool> Function() action,
+    required String successMessage,
+  }) {
+    final name =
+        item.description.trim().isNotEmpty ? item.description : item.studentName;
+    showModalBottomSheet<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Keep'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            style: TextButton.styleFrom(
-              foregroundColor:
-                  isDestructive ? AppColors.errorColor : AppColors.primaryColor,
-            ),
-            child: Text(confirmLabel),
-          ),
-        ],
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => DeleteConfirmationBottomSheet(
+        name: name,
+        type: type,
+        onDelete: () async {
+          final success = await action();
+          if (mounted) Navigator.of(sheetCtx).pop();
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: success ? successMessage : _cubit.state.errorMessage,
+            isError: !success,
+            isSuccess: success,
+          );
+        },
+        onCancel: () => Navigator.of(sheetCtx).pop(),
       ),
     );
-    return result ?? false;
   }
 
-  /// Minimal zero-balance [TransactionItem] for a fresh family payment.
+  /// [TransactionItem] for a fresh family payment, pre-filled with the family's
+  /// outstanding balance so Receive Payment shows the amount to collect.
   TransactionItem _buildReceivePaymentTransaction(List<Student> students) {
     final Student first = students.first;
     final String name = students.length > 1
         ? '${first.fullName} +${students.length - 1}'
         : first.fullName;
+    final double outstanding = _cubit.state.openBalance;
     return TransactionItem(
       id: 0,
       transactionType: 'Payment',
       date: DateTime.now(),
-      amount: 0,
+      amount: outstanding,
       status: '',
       description: 'Receive Payment',
       studentName: name,
       classroom: first.roomName ?? '',
-      balance: 0,
-      studentOpenBalance: 0,
+      balance: outstanding,
+      studentOpenBalance: outstanding,
     );
   }
 
@@ -351,12 +343,9 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
-      body: RefreshIndicator(
+      body: CustomRefreshIndicator(
         onRefresh: () async {
-          await Future.wait([
-            _cubit.loadSiblingTransactions(refresh: true),
-            _cubit.initialize(),
-          ]);
+          await _cubit.refresh();
         },
         child: SingleChildScrollView(
           controller: _scrollController,
@@ -387,95 +376,13 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Date range selector
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: AppColors.primaryColor.withOpacity(0.1),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Select Date Range',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.primaryColor.withOpacity(0.5),
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: GestureDetector(
-                        onTap: () async {
-                          try {
-                            final start = _startDate ??
-                                DateTime.now().subtract(const Duration(days: 7));
-                            final end = _endDate ?? DateTime.now();
-                            final result = await showDialog<Map<String, dynamic>>(
-                              context: context,
-                              builder: (context) => CalendarDialog(
-                                isRangePicker: true,
-                                isTimePicker: false,
-                                initialDate: start,
-                                initialEndDate: end.isAfter(start) ? end : null,
-                              ),
-                            );
-                            if (result != null) {
-                              await _cubit.applyDateRange(
-                                result['startDate'] as DateTime?,
-                                result['endDate'] as DateTime?,
-                              );
-                            }
-                          } catch (_) {}
-                        },
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0x1AB1AFE9),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  (_startDate != null && _endDate != null)
-                                      ? '${DateFormat('MMM d, yyyy').format(_startDate!)} - ${DateFormat('MMM d, yyyy').format(_endDate!)}'
-                                      : 'Select Date Range',
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.billingTextColor,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(
-                                Icons.calendar_today_outlined,
-                                color: Color(0xFF573353),
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              // Date range selector (shared white-card UI with the SVG calendar
+              // icon, matching the other billing screens).
+              AccountingDateRangeSelector(
+                initialStartDate: _startDate,
+                initialEndDate: _endDate,
+                onRangeChanged: (start, end) =>
+                    _cubit.applyDateRange(start, end),
               ),
               const SizedBox(height: 12),
               // Compact family info box
@@ -519,7 +426,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _cubit.loadSiblingTransactions(refresh: true),
+                  onPressed: () => _cubit.refresh(),
                   child: const Text('Retry'),
                 ),
               ],
@@ -566,7 +473,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _cubit.loadSiblingTransactions(refresh: true),
+                  onPressed: () => _cubit.refresh(),
                   child: const Text('Retry'),
                 ),
               ],
