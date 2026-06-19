@@ -19,20 +19,8 @@ class ReportsRepositoryImpl implements ReportsRepository {
   final CacheManager _cacheManager;
   final StorageService _storageService;
 
-  // Cache duration: 30 minutes for recent reports
-  static const Duration _recentReportsCacheDuration = Duration(minutes: 30);
-
   // Cache duration: 30 minutes for tags
   static const Duration _tagsCacheDuration = Duration(minutes: 30);
-
-  /// Build cache key for recent reports by type.
-  static String _buildRecentReportsCacheKey(String reportSourceType) {
-    return CacheManager.buildCacheKey(
-      feature: 'reports',
-      resource: 'recent',
-      identifier: reportSourceType,
-    );
-  }
 
   /// Build cache key for tags.
   static String _buildTagsCacheKey() {
@@ -45,15 +33,20 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
   @override
   Future<ReportEntity> generateReport(ReportParams params) async {
-    AppLogger.d('[REPORTS-REPO] generateReport called: ${params.reportType.backendValue}');
+    AppLogger.d(
+      '[REPORTS-REPO] generateReport called: ${params.reportType.backendValue}',
+    );
 
     // Build request body with required fields
     var requestBody = params.toRequestBody();
 
     // Add required fields from storage to all report payloads
-    final schoolCode = await _storageService.getString(StorageKeys.schoolCode) ?? '';
-    final organizationCode = await _storageService.getString(StorageKeys.organizationCode) ?? '';
-    final userCode = await _storageService.getString(StorageKeys.userCode) ?? '';
+    final schoolCode =
+        await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    final organizationCode =
+        await _storageService.getString(StorageKeys.organizationCode) ?? '';
+    final userCode =
+        await _storageService.getString(StorageKeys.userCode) ?? '';
 
     requestBody['schoolCode'] = schoolCode;
     requestBody['organizationCode'] = organizationCode;
@@ -67,7 +60,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
       requestBody: requestBody,
     );
 
-    AppLogger.i('[REPORTS-REPO] API response received: ID=${response.reportId}, File=${response.fileName}');
+    AppLogger.i(
+      '[REPORTS-REPO] API response received: ID=${response.reportId}, File=${response.fileName}',
+    );
 
     return _mapResponseModelToEntity(response);
   }
@@ -78,32 +73,39 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
     // Fetch from all 4 sources in parallel with eagerError: false
     // so that if some fail, we still get results from successful ones
-    final results = await Future.wait<List<RecentReportModel>>(
-      [
-        _getRecentWithCache('student_attendance'),
-        _getRecentWithCache('staff_attendance'),
-        _getRecentWithCache('staff'),
-        _getRecentWithCache('student_management'),
-      ],
-      eagerError: false,
-    );
+    final results = await Future.wait<List<RecentReportModel>>([
+      _remoteDataSource.getRecentStudentAttendanceReports(),
+      _remoteDataSource.getRecentStaffAttendanceReports(),
+      _remoteDataSource.getRecentStaffReports(),
+      _remoteDataSource.getRecentStudentManagementReports(),
+    ], eagerError: false);
 
-    AppLogger.d('[REPORTS] Student Attendance Reports Count: ${results[0].length}');
-    AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${results[1].length}');
+    AppLogger.d(
+      '[REPORTS] Student Attendance Reports Count: ${results[0].length}',
+    );
+    AppLogger.d(
+      '[REPORTS] Staff Attendance Reports Count: ${results[1].length}',
+    );
     AppLogger.d('[REPORTS] Staff Reports Count: ${results[2].length}');
-    AppLogger.d('[REPORTS] Student Management Reports Count: ${results[3].length}');
+    AppLogger.d(
+      '[REPORTS] Student Management Reports Count: ${results[3].length}',
+    );
 
     // Flatten all results
     final allReports = results.expand((x) => x).toList();
     AppLogger.d('[REPORTS] Total Merged Reports Count: ${allReports.length}');
 
-    // Convert all models to entities (no deduplication - show every generated report)
-    final entities = allReports
-        .map((report) => _mapRecentModelToEntity(report))
-        .toList();
+    // Deduplicate by reportId (keep last occurrence)
+    final unique = <String, ReportMetadataEntity>{};
+    for (final model in allReports) {
+      final entity = _mapRecentModelToEntity(model);
+      unique[entity.reportId] = entity;
+    }
+
+    AppLogger.d('[REPORTS] After dedup: ${unique.length}');
 
     // Sort by date descending (most recent first)
-    final sorted = entities
+    final sorted = unique.values.toList()
       ..sort((a, b) => b.generatedAt.compareTo(a.generatedAt));
 
     AppLogger.d('[REPORTS] Final List Length: ${sorted.length}');
@@ -112,45 +114,6 @@ class ReportsRepositoryImpl implements ReportsRepository {
     }
 
     return sorted;
-  }
-
-  /// Get recent reports from a specific source with caching.
-  Future<List<RecentReportModel>> _getRecentWithCache(String sourceType) async {
-    final cacheKey = _buildRecentReportsCacheKey(sourceType);
-
-    // Check cache first (30-minute validity)
-    final cachedPayload = await _cacheManager.loadCache(
-      cacheKey,
-      validFor: _recentReportsCacheDuration,
-    );
-
-    if (cachedPayload != null) {
-      final reportsList = (cachedPayload['reports'] as List?) ?? [];
-      return reportsList
-          .map(
-            (item) => RecentReportModel.fromJson(item as Map<String, dynamic>),
-          )
-          .toList();
-    }
-
-    // Fetch from API based on source type
-    final models = switch (sourceType) {
-      'student_attendance' =>
-        await _remoteDataSource.getRecentStudentAttendanceReports(),
-      'staff_attendance' =>
-        await _remoteDataSource.getRecentStaffAttendanceReports(),
-      'staff' => await _remoteDataSource.getRecentStaffReports(),
-      'student_management' =>
-        await _remoteDataSource.getRecentStudentManagementReports(),
-      _ => <RecentReportModel>[],
-    };
-
-    // Cache result
-    await _cacheManager.saveCache(cacheKey, {
-      'reports': models.map((m) => m.toJson()).toList(),
-    });
-
-    return models;
   }
 
   @override

@@ -28,7 +28,6 @@ import '../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../classroom/cubit/classroom_cubit.dart';
 import '../../../staff/cubit/staff_cubit.dart';
-import '../../cubit/communication_cubit.dart';
 import '../../presentation/messaging/view/staff_or_student_selection_bulk_messaging.dart';
 
 /// Standalone full-page Admin Chat screen with GlobalScaffold.
@@ -58,6 +57,8 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       watchConversationsUseCase: serviceLocator(),
       getConversationsUseCase: serviceLocator(),
       getCachedConversationsUseCase: serviceLocator(),
+      conversationRepository: serviceLocator(),
+      storageService: serviceLocator(),
     );
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
@@ -102,6 +103,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     );
   }
 
+  // ignore: unused_element
   void _showFilterSheet() {
     // Use a local copy so we can preview changes before applying.
     bool pendingUnread = _showUnreadOnly;
@@ -379,59 +381,59 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                       ),
                       const SizedBox(width: 8),
                       // Filter icon — always visible, highlights when active
-                      GestureDetector(
-                        onTap: _showFilterSheet,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Container(
-                              height: 44,
-                              width: 44,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(12),
-                                color: _hasActiveFilters
-                                    ? AppColors.primaryColor.withValues(
-                                        alpha: 0.15,
-                                      )
-                                    : const Color(0x33B1AFE9),
-                                border: Border.all(
-                                  color: _hasActiveFilters
-                                      ? AppColors.primaryColor.withValues(
-                                          alpha: 0.5,
-                                        )
-                                      : Colors.transparent,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.tune_rounded,
-                                color: _hasActiveFilters
-                                    ? AppColors.primaryColor
-                                    : AppColors.primaryColor.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                size: 22,
-                              ),
-                            ),
-                            if (_hasActiveFilters)
-                              Positioned(
-                                top: -3,
-                                right: -3,
-                                child: Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: AppColors.primaryColor,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.white,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                      // GestureDetector(
+                      //   onTap: _showFilterSheet,
+                      //   child: Stack(
+                      //     clipBehavior: Clip.none,
+                      //     children: [
+                      //       Container(
+                      //         height: 44,
+                      //         width: 44,
+                      //         decoration: BoxDecoration(
+                      //           borderRadius: BorderRadius.circular(12),
+                      //           color: _hasActiveFilters
+                      //               ? AppColors.primaryColor.withValues(
+                      //                   alpha: 0.15,
+                      //                 )
+                      //               : const Color(0x33B1AFE9),
+                      //           border: Border.all(
+                      //             color: _hasActiveFilters
+                      //                 ? AppColors.primaryColor.withValues(
+                      //                     alpha: 0.5,
+                      //                   )
+                      //                 : Colors.transparent,
+                      //           ),
+                      //         ),
+                      //         child: Icon(
+                      //           Icons.tune_rounded,
+                      //           color: _hasActiveFilters
+                      //               ? AppColors.primaryColor
+                      //               : AppColors.primaryColor.withValues(
+                      //                   alpha: 0.5,
+                      //                 ),
+                      //           size: 22,
+                      //         ),
+                      //       ),
+                      //       if (_hasActiveFilters)
+                      //         Positioned(
+                      //           top: -3,
+                      //           right: -3,
+                      //           child: Container(
+                      //             width: 10,
+                      //             height: 10,
+                      //             decoration: BoxDecoration(
+                      //               color: AppColors.primaryColor,
+                      //               shape: BoxShape.circle,
+                      //               border: Border.all(
+                      //                 color: Colors.white,
+                      //                 width: 1.5,
+                      //               ),
+                      //             ),
+                      //           ),
+                      //         ),
+                      //     ],
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),

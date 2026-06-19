@@ -184,12 +184,17 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       final storage = serviceLocator<StorageService>();
       final schoolCode =
           (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-      if (schoolCode.isEmpty || !mounted) return;
+      debugPrint('[MyChildsDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted');
+      if (schoolCode.isEmpty) {
+        debugPrint('[MyChildsDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.');
+        return;
+      }
+      if (!mounted) return;
 
       // Initialize GPS geofencing with the school code
       await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
-    } catch (_) {
-      // Silently fail - GPS is optional
+    } catch (e, st) {
+      debugPrint('[MyChildsDayCard] ❌ _initializeGeofencing error: $e\n$st');
     }
   }
 

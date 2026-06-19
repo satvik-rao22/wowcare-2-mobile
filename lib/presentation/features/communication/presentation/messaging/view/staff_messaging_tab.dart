@@ -1,9 +1,9 @@
-import 'dart:async' show unawaited;
-
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
@@ -37,6 +37,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   Map<String, List<String>> _currentFilters = {};
   bool _showUnread = false;
   static const int _conversationPageSize = 50;
+
+  /// Fires after a background bulk-send job completes, so the new conversation
+  /// appears without requiring a manual pull-to-refresh.
+  StreamSubscription<String>? _conversationListChangedSub;
 
   String get _conversationType =>
       widget.isStaffMessaging ? 'STAFF_DIRECT' : 'ROOM_CHAT';
@@ -75,10 +79,26 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     });
 
     _searchController.addListener(_applyFilters);
+
+    // Reload the conversation list when the background bulk-send job finishes.
+    // The job runs fire-and-forget after the compose screen is dismissed, so
+    // refreshConversations() in MessagingTab fires before the job completes.
+    // This subscription catches the job-done signal and does the real refresh.
+    _conversationListChangedSub = MessagingEventService
+        .instance.onConversationListChanged
+        .listen((changedType) {
+      if (!mounted) return;
+      if (changedType != _conversationType) return;
+      context.read<CommunicationCubit>().loadConversations(
+        type: _conversationType,
+        size: _conversationPageSize,
+      );
+    });
   }
 
   @override
   void dispose() {
+    _conversationListChangedSub?.cancel();
     _searchController.removeListener(_applyFilters);
     _searchController.dispose();
     super.dispose();
@@ -359,16 +379,18 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 ),
                         ),
                       );
-                      unawaited(Navigator.of(context).push(route).then((_) async {
-                        if (mounted) {
-                          await context
-                              .read<CommunicationCubit>()
-                              .refreshConversations(
-                                type: _conversationType,
-                                size: _conversationPageSize,
-                              );
-                        }
-                      }));
+                      unawaited(
+                        Navigator.of(context).push(route).then((_) async {
+                          if (mounted) {
+                            await context
+                                .read<CommunicationCubit>()
+                                .refreshConversations(
+                                  type: _conversationType,
+                                  size: _conversationPageSize,
+                                );
+                          }
+                        }),
+                      );
                     },
                   );
                 }, childCount: conversationsToDisplay.length),

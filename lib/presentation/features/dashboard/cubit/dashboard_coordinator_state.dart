@@ -28,10 +28,14 @@ class DashboardState extends Equatable {
   DashboardState copyWith({
     DashboardStatus? status,
     String? errorMessage,
+    bool clearErrorMessage = false,
   }) {
     return DashboardState(
       status: status ?? this.status,
-      errorMessage: errorMessage ?? this.errorMessage,
+      // Allow explicit null to clear a stale error after a successful refresh.
+      // Pass clearErrorMessage: true instead of null to distinguish "not set"
+      // from "intentionally cleared".
+      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
     );
   }
 

@@ -259,35 +259,101 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     String messageCode,
     String emoji,
   ) async {
+    final results = await cacheService.getByField<MessageCollection>(
+      'code',
+      messageCode,
+    );
+    MessageCollection? originalCollection;
+    List<MessageReactionCollection>? originalReactions;
+
+    if (results.isNotEmpty) {
+      originalCollection = results.first;
+      originalReactions = List<MessageReactionCollection>.from(
+        originalCollection.reactions ?? [],
+      );
+
+      final list = List<MessageReactionCollection>.from(originalReactions);
+      final idx = list.indexWhere((r) => r.userId == 'me');
+      if (idx != -1) {
+        list[idx].emoji = emoji;
+      } else {
+        list.add(
+          MessageReactionCollection()
+            ..userId = 'me'
+            ..emoji = emoji,
+        );
+      }
+      originalCollection.reactions = list;
+      await cacheService.put(originalCollection);
+    }
+
     try {
       await remoteDataSource.addReaction(messageCode, emoji);
-
-      // Update local Isar cache
-      final results = await cacheService.getByField<MessageCollection>(
-        'code',
-        messageCode,
-      );
-      if (results.isNotEmpty) {
-        final messageCollection = results.first;
-        final list = List<MessageReactionCollection>.from(
-          messageCollection.reactions ?? [],
-        );
-        final idx = list.indexWhere((r) => r.userId == 'me');
-        if (idx != -1) {
-          list[idx].emoji = emoji;
-        } else {
-          list.add(
-            MessageReactionCollection()
-              ..userId = 'me'
-              ..emoji = emoji,
-          );
-        }
-        messageCollection.reactions = list;
-        await cacheService.put(messageCollection);
-      }
-
       return const Right(null);
     } catch (e) {
+      if (originalCollection != null) {
+        originalCollection.reactions = originalReactions;
+        await cacheService.put(originalCollection);
+      }
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteMessage(String messageCode) async {
+    final results = await cacheService.getByField<MessageCollection>(
+      'code',
+      messageCode,
+    );
+    MessageCollection? originalCollection;
+    if (results.isNotEmpty) {
+      originalCollection = results.first;
+      await cacheService.delete<MessageCollection>(originalCollection.isarId);
+    }
+
+    try {
+      await remoteDataSource.deleteMessage(messageCode);
+      return const Right(null);
+    } catch (e) {
+      if (originalCollection != null) {
+        await cacheService.put(originalCollection);
+      }
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> removeReaction(
+    String messageCode,
+    String emoji,
+  ) async {
+    final results = await cacheService.getByField<MessageCollection>(
+      'code',
+      messageCode,
+    );
+    MessageCollection? originalCollection;
+    List<MessageReactionCollection>? originalReactions;
+
+    if (results.isNotEmpty) {
+      originalCollection = results.first;
+      originalReactions = List<MessageReactionCollection>.from(
+        originalCollection.reactions ?? [],
+      );
+
+      final list = List<MessageReactionCollection>.from(originalReactions)
+        ..removeWhere((r) => r.userId == 'me');
+      originalCollection.reactions = list;
+      await cacheService.put(originalCollection);
+    }
+
+    try {
+      await remoteDataSource.removeReaction(messageCode, emoji);
+      return const Right(null);
+    } catch (e) {
+      if (originalCollection != null) {
+        originalCollection.reactions = originalReactions;
+        await cacheService.put(originalCollection);
+      }
       return Left(ServerFailure(e.toString()));
     }
   }
@@ -323,6 +389,24 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     String messageCode,
     String content,
   ) async {
+    final results = await cacheService.getByField<MessageCollection>(
+      'code',
+      messageCode,
+    );
+    MessageCollection? originalCollection;
+    String? originalText;
+    DateTime? originalEditedAt;
+
+    if (results.isNotEmpty) {
+      originalCollection = results.first;
+      originalText = originalCollection.text;
+      originalEditedAt = originalCollection.editedAt;
+
+      originalCollection.text = content;
+      originalCollection.editedAt = DateTime.now();
+      await cacheService.put(originalCollection);
+    }
+
     try {
       final editedMessage = await remoteDataSource.editMessage(
         messageCode,
@@ -330,19 +414,19 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       );
 
       // Update cache
-      final results = await cacheService.getByField<MessageCollection>(
-        'code',
-        messageCode,
-      );
-      if (results.isNotEmpty) {
-        final messageCollection = results.first;
-        messageCollection.text = content;
-        messageCollection.editedAt = DateTime.now();
-        await cacheService.put(messageCollection);
+      if (originalCollection != null) {
+        await cacheService.put(
+          MessageCollection.fromEntity(editedMessage, originalCollection.threadId),
+        );
       }
 
       return Right(editedMessage);
     } catch (e) {
+      if (originalCollection != null) {
+        originalCollection.text = originalText!;
+        originalCollection.editedAt = originalEditedAt;
+        await cacheService.put(originalCollection);
+      }
       return Left(ServerFailure(e.toString()));
     }
   }

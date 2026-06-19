@@ -24,6 +24,55 @@ val flutterProguardRules: java.io.File =
         rootProject.file("$sdk/packages/flutter_tools/gradle/flutter_proguard_rules.pro")
     }
 
+// ---------------------------------------------------------------------------
+// Firebase multi-environment: decode --dart-define=ENVIRONMENT passed by Flutter.
+// Flutter encodes each dart-define as a base64 string, comma-separated, in the
+// "dart.defines" Gradle property. We decode and extract ENVIRONMENT, defaulting
+// to "uat" so a bare `./gradlew` still builds a valid variant.
+// ---------------------------------------------------------------------------
+val dartEnvironment: String by lazy {
+    val encoded = (project.findProperty("dart.defines") as? String) ?: ""
+    if (encoded.isBlank()) return@lazy "uat"
+    val env = encoded.split(",")
+        .filter { it.isNotBlank() }
+        .mapNotNull { entry ->
+            try {
+                String(java.util.Base64.getDecoder().decode(entry.trim()))
+            } catch (_: Exception) {
+                null
+            }
+        }
+        .firstOrNull { it.startsWith("ENVIRONMENT=") }
+        ?.removePrefix("ENVIRONMENT=")
+        ?: "uat"
+    env.lowercase()
+}
+
+// Copy the environment-specific google-services.json into the position the
+// google-services plugin expects before it runs.
+val copyGoogleServices by tasks.registering(Copy::class) {
+    val src = file("firebase/$dartEnvironment/google-services.json")
+    val dst = file("google-services.json")
+    doFirst {
+        require(src.exists()) {
+            "Missing android/app/firebase/$dartEnvironment/google-services.json\n" +
+                "Download it from the Firebase console for the '$dartEnvironment' project and place it there."
+        }
+    }
+    from(src)
+    into(dst.parentFile)
+    rename { dst.name }
+}
+
+afterEvaluate {
+    // Wire copyGoogleServices before any task whose name matches the google-services pattern.
+    tasks.matching { t ->
+        t.name.startsWith("process") && t.name.endsWith("GoogleServices")
+    }.configureEach {
+        dependsOn(copyGoogleServices)
+    }
+}
+
 android {
     namespace = "com.wiseowl.wowcareapp"
     compileSdk = 36

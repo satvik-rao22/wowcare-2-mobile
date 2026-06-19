@@ -99,6 +99,7 @@ class _MessageAttachmentBottomSheetState
     await _processFiles([File(path)], isPhoto: false);
   }
 
+  // ignore: unused_element
   Future<void> _pickVideo() async {
     Navigator.of(context).pop();
     final file = await _picker.pickVideo(source: ImageSource.gallery);
@@ -106,6 +107,7 @@ class _MessageAttachmentBottomSheetState
     await _processFiles([File(file.path)], isPhoto: false);
   }
 
+  // ignore: unused_element
   Future<void> _notImplemented(String feature) async {
     Navigator.of(context).pop();
     if (!mounted) return;

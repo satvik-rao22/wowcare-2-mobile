@@ -257,12 +257,17 @@ class _MyDayCardState extends State<MyDayCard> {
       final storage = serviceLocator<StorageService>();
       final schoolCode =
           (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-      if (schoolCode.isEmpty || !mounted) return;
+      debugPrint('[MyDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted');
+      if (schoolCode.isEmpty) {
+        debugPrint('[MyDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.');
+        return;
+      }
+      if (!mounted) return;
 
       // Initialize GPS geofencing with the school code
       await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
-    } catch (_) {
-      // Silently fail - GPS is optional
+    } catch (e, st) {
+      debugPrint('[MyDayCard] ❌ _initializeGeofencing error: $e\n$st');
     }
   }
 
@@ -456,7 +461,6 @@ class _MyDayCardState extends State<MyDayCard> {
         : DateTime.now();
 
     final todayWeekday = now.weekday; // 1 = Monday, 7 = Sunday
-    final todayDateKey = _getDayName(todayWeekday); // "Monday", "Tuesday", etc.
 
     // debugPrint('[MyDayCard] Computing countdown: '
     //     'schoolTimezone=$schoolTimeZone, '

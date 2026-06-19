@@ -111,8 +111,65 @@ class MessageEntity extends Equatable {
     return counts;
   }
 
-  bool hasReacted(String userCode) => reactions.containsKey(userCode);
-  String? getReaction(String userCode) => reactions[userCode];
+  MessageEntity copyWith({
+    String? id,
+    String? code,
+    String? conversationCode,
+    String? senderCode,
+    String? senderName,
+    ParticipantRole? senderRole,
+    String? senderAvatarUrl,
+    String? text,
+    MessageType? messageType,
+    MessageStatus? status,
+    DateTime? sentAt,
+    String? organizationCode,
+    String? schoolCode,
+    bool? isPrivate,
+    bool? isEdited,
+    bool? isDeleted,
+    String? deletedPlaceholder,
+    DateTime? editedAt,
+    DateTime? deletedAt,
+    List<AttachmentEntity>? attachments,
+    Map<String, String>? reactions,
+    List<ReadReceiptEntity>? readReceipts,
+    String? threadParentCode,
+    String? threadParentSenderCode,
+    String? threadParentSenderName,
+    String? threadParentText,
+    String? localTempCode,
+  }) {
+    return MessageEntity(
+      id: id ?? this.id,
+      code: code ?? this.code,
+      conversationCode: conversationCode ?? this.conversationCode,
+      senderCode: senderCode ?? this.senderCode,
+      senderName: senderName ?? this.senderName,
+      senderRole: senderRole ?? this.senderRole,
+      senderAvatarUrl: senderAvatarUrl ?? this.senderAvatarUrl,
+      text: text ?? this.text,
+      messageType: messageType ?? this.messageType,
+      status: status ?? this.status,
+      sentAt: sentAt ?? this.sentAt,
+      organizationCode: organizationCode ?? this.organizationCode,
+      schoolCode: schoolCode ?? this.schoolCode,
+      isPrivate: isPrivate ?? this.isPrivate,
+      isEdited: isEdited ?? this.isEdited,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedPlaceholder: deletedPlaceholder ?? this.deletedPlaceholder,
+      editedAt: editedAt ?? this.editedAt,
+      deletedAt: deletedAt ?? this.deletedAt,
+      attachments: attachments ?? this.attachments,
+      reactions: reactions ?? this.reactions,
+      readReceipts: readReceipts ?? this.readReceipts,
+      threadParentCode: threadParentCode ?? this.threadParentCode,
+      threadParentSenderCode: threadParentSenderCode ?? this.threadParentSenderCode,
+      threadParentSenderName: threadParentSenderName ?? this.threadParentSenderName,
+      threadParentText: threadParentText ?? this.threadParentText,
+      localTempCode: localTempCode ?? this.localTempCode,
+    );
+  }
 
   @override
   List<Object?> get props => [

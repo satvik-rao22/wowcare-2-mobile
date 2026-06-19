@@ -7,6 +7,7 @@ import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../domain/features/communication/entities/message.dart'
@@ -144,6 +145,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     return _parent1Controller;
   }
 
+  // ignore: unused_element
   String? _getOtherParent() {
     if (_privateModeEnabled) return null;
     return currentSender == parent2Name ? parent1Name : parent2Name;
@@ -156,6 +158,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     return _parent1Messages;
   }
 
+  // ignore: unused_element
   List<Message> get _messages => _activeMessages;
 
   void _sendMessage() {
@@ -309,6 +312,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
     );
   }
 
+  // ignore: unused_element
   void _onReactionAdded(Message message, String emoji) {
     final currentUserId = _currentUserCode ?? 'me';
     setState(() {
@@ -335,6 +339,61 @@ class _ParentViewScreenState extends State<ParentViewScreen>
         );
       }
     });
+  }
+
+  void _showEmojiPicker(BuildContext context, Message message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          height: 380 + MediaQuery.of(context).padding.bottom,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: EmojiPicker(
+            onEmojiSelected: (category, emoji) {
+              Navigator.pop(context); // close picker
+              final conversationCode = parentInfo['code'] as String? ?? '';
+              if (conversationCode.isNotEmpty) {
+                final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                if (myReaction == emoji.emoji) {
+                  context.read<CommunicationCubit>().removeReaction(
+                        conversationCode,
+                        message.code,
+                        emoji.emoji,
+                      );
+                } else {
+                  context.read<CommunicationCubit>().addReaction(
+                        conversationCode,
+                        message.code,
+                        emoji.emoji,
+                      );
+                }
+              }
+            },
+            config: const Config(
+              checkPlatformCompatibility: true,
+              emojiSet: null,
+              locale: Locale('en'),
+              emojiTextStyle: null,
+              customBackspaceIcon: null,
+              customSearchIcon: null,
+              viewOrderConfig: ViewOrderConfig(),
+              emojiViewConfig: EmojiViewConfig(),
+              skinToneConfig: SkinToneConfig(enabled: true),
+              categoryViewConfig: CategoryViewConfig(
+                recentTabBehavior: RecentTabBehavior.RECENT,
+              ),
+              bottomActionBarConfig: BottomActionBarConfig(enabled: false),
+              searchViewConfig: SearchViewConfig(),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showEditDialog(BuildContext context, Message message) {
@@ -436,31 +495,19 @@ class _ParentViewScreenState extends State<ParentViewScreen>
               onPressed: () {
                 final newText = editingController.text.trim();
                 if (newText.isNotEmpty && newText != message.text) {
-                  setState(() {
-                    final _messages = _activeMessages;
-                    final idx = _messages.indexWhere((m) => m.id == message.id);
-                    if (idx != -1) {
-                      _messages[idx] = Message(
-                        id: message.id,
-                        text: newText,
-                        senderName: currentSender,
-                        isSentByMe: message.isSentByMe,
-                        time: message.time,
-                        deliveredAt: message.deliveredAt,
-                        readAt: message.readAt,
-                        deliveredTo: message.deliveredTo,
-                        readBy: message.readBy,
-                        attachments: message.attachments,
-                        reactions: message.reactions,
-                        code: message.code,
-                      );
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Message updated successfully',
-                        isSuccess: true,
-                      );
-                    }
-                  });
+                  final conversationCode = parentInfo['code'] as String? ?? '';
+                  if (conversationCode.isNotEmpty) {
+                    context.read<CommunicationCubit>().editMessage(
+                          conversationCode,
+                          message.code,
+                          newText,
+                        );
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Message updated successfully',
+                      isSuccess: true,
+                    );
+                  }
                 }
                 Navigator.pop(dialogContext);
               },
@@ -950,27 +997,57 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                               message,
                                             ),
                                             onDelete: () {
-                                              setState(() {
-                                                _activeMessages.removeWhere(
-                                                  (m) => m.id == message.id,
+                                              final conversationCode = parentInfo['code'] as String? ?? '';
+                                              if (conversationCode.isNotEmpty) {
+                                                context.read<CommunicationCubit>().deleteMessage(
+                                                      conversationCode,
+                                                      message.code,
+                                                    );
+                                                CoreUtils.showTopSnackBar(
+                                                  context: context,
+                                                  message: 'Message deleted successfully',
+                                                  isSuccess: true,
                                                 );
-                                              });
-                                              CoreUtils.showTopSnackBar(
-                                                context: context,
-                                                message: 'Message deleted',
-                                                isSuccess: true,
-                                              );
+                                              }
                                             },
                                             onInfo: () =>
                                                 _showMessageStatusDialog(
                                                   context,
                                                   message,
                                                 ),
-                                            onReactionAdded: (emoji) =>
-                                                _onReactionAdded(
-                                                  message,
-                                                  emoji,
-                                                ),
+                                            onReactionAdded: (emoji) {
+                                              final conversationCode = parentInfo['code'] as String? ?? '';
+                                              if (conversationCode.isNotEmpty) {
+                                                final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                if (myReaction == emoji) {
+                                                  context.read<CommunicationCubit>().removeReaction(
+                                                        conversationCode,
+                                                        message.code,
+                                                        emoji,
+                                                      );
+                                                } else {
+                                                  context.read<CommunicationCubit>().addReaction(
+                                                        conversationCode,
+                                                        message.code,
+                                                        emoji,
+                                                      );
+                                                }
+                                              }
+                                            },
+                                            onRemoveReaction: (emoji) {
+                                              final conversationCode = parentInfo['code'] as String? ?? '';
+                                              if (conversationCode.isNotEmpty) {
+                                                context.read<CommunicationCubit>().removeReaction(
+                                                      conversationCode,
+                                                      message.code,
+                                                      emoji,
+                                                    );
+                                              }
+                                            },
+                                            onReactionTap: () => _showEmojiPicker(
+                                              context,
+                                              message,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -1077,27 +1154,57 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                               message,
                                             ),
                                             onDelete: () {
-                                              setState(() {
-                                                _activeMessages.removeWhere(
-                                                  (m) => m.id == message.id,
+                                              final conversationCode = parentInfo['code'] as String? ?? '';
+                                              if (conversationCode.isNotEmpty) {
+                                                context.read<CommunicationCubit>().deleteMessage(
+                                                      conversationCode,
+                                                      message.code,
+                                                    );
+                                                CoreUtils.showTopSnackBar(
+                                                  context: context,
+                                                  message: 'Message deleted successfully',
+                                                  isSuccess: true,
                                                 );
-                                              });
-                                              CoreUtils.showTopSnackBar(
-                                                context: context,
-                                                message: 'Message deleted',
-                                                isSuccess: true,
-                                              );
+                                              }
                                             },
                                             onInfo: () =>
                                                 _showMessageStatusDialog(
                                                   context,
                                                   message,
                                                 ),
-                                            onReactionAdded: (emoji) =>
-                                                _onReactionAdded(
-                                                  message,
-                                                  emoji,
-                                                ),
+                                            onReactionAdded: (emoji) {
+                                              final conversationCode = parentInfo['code'] as String? ?? '';
+                                              if (conversationCode.isNotEmpty) {
+                                                final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                if (myReaction == emoji) {
+                                                  context.read<CommunicationCubit>().removeReaction(
+                                                        conversationCode,
+                                                        message.code,
+                                                        emoji,
+                                                      );
+                                                } else {
+                                                  context.read<CommunicationCubit>().addReaction(
+                                                        conversationCode,
+                                                        message.code,
+                                                        emoji,
+                                                      );
+                                                }
+                                              }
+                                            },
+                                            onRemoveReaction: (emoji) {
+                                              final conversationCode = parentInfo['code'] as String? ?? '';
+                                              if (conversationCode.isNotEmpty) {
+                                                context.read<CommunicationCubit>().removeReaction(
+                                                      conversationCode,
+                                                      message.code,
+                                                      emoji,
+                                                    );
+                                              }
+                                            },
+                                            onReactionTap: () => _showEmojiPicker(
+                                              context,
+                                              message,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -1383,8 +1490,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                               MessageBubble(
                                                 message: message,
                                                 isParentMessaging: true,
-                                                currentUserCode:
-                                                    _currentUserCode,
+                                                currentUserCode: _currentUserCode,
                                                 quotedMessage: quotedMessage,
                                                 reactionsController:
                                                     _reactionsController,
@@ -1394,12 +1500,10 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                   _quotedMessageId = message.id;
                                                   _quotedMessage = message;
                                                 }),
-                                                onReplyFromMenu: () =>
-                                                    setState(() {
-                                                      _quotedMessageId =
-                                                          message.id;
-                                                      _quotedMessage = message;
-                                                    }),
+                                                onReplyFromMenu: () => setState(() {
+                                                  _quotedMessageId = message.id;
+                                                  _quotedMessage = message;
+                                                }),
                                                 onCopy: () {
                                                   Clipboard.setData(
                                                     ClipboardData(
@@ -1418,27 +1522,57 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                   message,
                                                 ),
                                                 onDelete: () {
-                                                  setState(() {
-                                                    _activeMessages.removeWhere(
-                                                      (m) => m.id == message.id,
+                                                  final conversationCode = parentInfo['code'] as String? ?? '';
+                                                  if (conversationCode.isNotEmpty) {
+                                                    context.read<CommunicationCubit>().deleteMessage(
+                                                          conversationCode,
+                                                          message.code,
+                                                        );
+                                                    CoreUtils.showTopSnackBar(
+                                                      context: context,
+                                                      message: 'Message deleted successfully',
+                                                      isSuccess: true,
                                                     );
-                                                  });
-                                                  CoreUtils.showTopSnackBar(
-                                                    context: context,
-                                                    message: 'Message deleted',
-                                                    isSuccess: true,
-                                                  );
+                                                  }
                                                 },
                                                 onInfo: () =>
                                                     _showMessageStatusDialog(
                                                       context,
                                                       message,
                                                     ),
-                                                onReactionAdded: (emoji) =>
-                                                    _onReactionAdded(
-                                                      message,
-                                                      emoji,
-                                                    ),
+                                                onReactionAdded: (emoji) {
+                                                  final conversationCode = parentInfo['code'] as String? ?? '';
+                                                  if (conversationCode.isNotEmpty) {
+                                                    final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                    if (myReaction == emoji) {
+                                                      context.read<CommunicationCubit>().removeReaction(
+                                                            conversationCode,
+                                                            message.code,
+                                                            emoji,
+                                                          );
+                                                    } else {
+                                                      context.read<CommunicationCubit>().addReaction(
+                                                            conversationCode,
+                                                            message.code,
+                                                            emoji,
+                                                          );
+                                                    }
+                                                  }
+                                                },
+                                                onRemoveReaction: (emoji) {
+                                                  final conversationCode = parentInfo['code'] as String? ?? '';
+                                                  if (conversationCode.isNotEmpty) {
+                                                    context.read<CommunicationCubit>().removeReaction(
+                                                          conversationCode,
+                                                          message.code,
+                                                          emoji,
+                                                        );
+                                                  }
+                                                },
+                                                onReactionTap: () => _showEmojiPicker(
+                                                  context,
+                                                  message,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -1517,8 +1651,7 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                               MessageBubble(
                                                 message: message,
                                                 isParentMessaging: true,
-                                                currentUserCode:
-                                                    _currentUserCode,
+                                                currentUserCode: _currentUserCode,
                                                 quotedMessage: quotedMessage,
                                                 reactionsController:
                                                     _reactionsController,
@@ -1528,12 +1661,10 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                   _quotedMessageId = message.id;
                                                   _quotedMessage = message;
                                                 }),
-                                                onReplyFromMenu: () =>
-                                                    setState(() {
-                                                      _quotedMessageId =
-                                                          message.id;
-                                                      _quotedMessage = message;
-                                                    }),
+                                                onReplyFromMenu: () => setState(() {
+                                                  _quotedMessageId = message.id;
+                                                  _quotedMessage = message;
+                                                }),
                                                 onCopy: () {
                                                   Clipboard.setData(
                                                     ClipboardData(
@@ -1552,27 +1683,57 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                                                   message,
                                                 ),
                                                 onDelete: () {
-                                                  setState(() {
-                                                    _activeMessages.removeWhere(
-                                                      (m) => m.id == message.id,
+                                                  final conversationCode = parentInfo['code'] as String? ?? '';
+                                                  if (conversationCode.isNotEmpty) {
+                                                    context.read<CommunicationCubit>().deleteMessage(
+                                                          conversationCode,
+                                                          message.code,
+                                                        );
+                                                    CoreUtils.showTopSnackBar(
+                                                      context: context,
+                                                      message: 'Message deleted successfully',
+                                                      isSuccess: true,
                                                     );
-                                                  });
-                                                  CoreUtils.showTopSnackBar(
-                                                    context: context,
-                                                    message: 'Message deleted',
-                                                    isSuccess: true,
-                                                  );
+                                                  }
                                                 },
                                                 onInfo: () =>
                                                     _showMessageStatusDialog(
                                                       context,
                                                       message,
                                                     ),
-                                                onReactionAdded: (emoji) =>
-                                                    _onReactionAdded(
-                                                      message,
-                                                      emoji,
-                                                    ),
+                                                onReactionAdded: (emoji) {
+                                                  final conversationCode = parentInfo['code'] as String? ?? '';
+                                                  if (conversationCode.isNotEmpty) {
+                                                    final myReaction = message.reactions[_currentUserCode ?? 'me'];
+                                                    if (myReaction == emoji) {
+                                                      context.read<CommunicationCubit>().removeReaction(
+                                                            conversationCode,
+                                                            message.code,
+                                                            emoji,
+                                                          );
+                                                    } else {
+                                                      context.read<CommunicationCubit>().addReaction(
+                                                            conversationCode,
+                                                            message.code,
+                                                            emoji,
+                                                          );
+                                                    }
+                                                  }
+                                                },
+                                                onRemoveReaction: (emoji) {
+                                                  final conversationCode = parentInfo['code'] as String? ?? '';
+                                                  if (conversationCode.isNotEmpty) {
+                                                    context.read<CommunicationCubit>().removeReaction(
+                                                          conversationCode,
+                                                          message.code,
+                                                          emoji,
+                                                        );
+                                                  }
+                                                },
+                                                onReactionTap: () => _showEmojiPicker(
+                                                  context,
+                                                  message,
+                                                ),
                                               ),
                                             ],
                                           ),
@@ -1686,8 +1847,9 @@ class _ParentViewScreenState extends State<ParentViewScreen>
                               clipBehavior: Clip.none,
                               borderRadius: BorderRadius.circular(12),
                               child: Thumbnail(
-                                mimeType:
-                                    att.mimeType ?? 'application/octet-stream',
+                                mimeType: att.mimeType.isNotEmpty
+                                    ? att.mimeType
+                                    : 'application/octet-stream',
                                 dataResolver: () async {
                                   return await File(
                                     att.localPath!,

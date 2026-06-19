@@ -8,6 +8,8 @@ import '../../../../domain/features/communication/usecases/get_cached_messages_u
 import '../../../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../../../domain/features/communication/usecases/send_message_usecase.dart';
 import '../../../../domain/features/communication/usecases/edit_message_usecase.dart';
+import '../../../../domain/features/communication/usecases/delete_message_usecase.dart';
+import '../../../../domain/features/communication/usecases/remove_reaction_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import 'communication_state.dart';
 
@@ -19,6 +21,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final GetCachedMessagesUseCase getCachedMessagesUseCase;
   final AddReactionUseCase addReactionUseCase;
   final EditMessageUseCase editMessageUseCase;
+  final DeleteMessageUseCase deleteMessageUseCase;
+  final RemoveReactionLegacyUseCase removeReactionLegacyUseCase;
   final ClearMessagesCacheUseCase clearMessagesCacheUseCase;
   final ClearConversationsCacheUseCase clearConversationsCacheUseCase;
 
@@ -30,6 +34,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.getCachedMessagesUseCase,
     required this.addReactionUseCase,
     required this.editMessageUseCase,
+    required this.deleteMessageUseCase,
+    required this.removeReactionLegacyUseCase,
     required this.clearMessagesCacheUseCase,
     required this.clearConversationsCacheUseCase,
   }) : super(CommunicationInitial());
@@ -273,10 +279,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   Future<void> addReaction(
     String threadId,
     String messageCode,
-    String emoji,
-  ) async {
+    String emoji, {
+    String? currentUserCode,
+  }) async {
     if (state is! CommunicationLoaded) return;
     final currentState = state as CommunicationLoaded;
+    final originalThreads = currentState.threads;
+    final reactionKey = currentUserCode ?? 'me';
 
     // Optimistically update the UI
     final updatedThreads = Map<String, List<Message>>.from(
@@ -287,7 +296,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
         final newReactions = Map<String, String>.from(m.reactions);
-        newReactions['me'] = emoji;
+        newReactions[reactionKey] = emoji;
         return Message(
           id: m.id,
           code: m.code,
@@ -312,8 +321,15 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     updatedThreads[threadId] = updatedMessages;
     emit(currentState.copyWith(threads: updatedThreads));
 
-    // Persist reaction in the background
-    await addReactionUseCase(threadId, messageCode, emoji);
+    final result = await addReactionUseCase(threadId, messageCode, emoji);
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(currentState.copyWith(threads: originalThreads));
+      },
+      (_) {},
+    );
   }
 
   Future<void> editMessage(
@@ -323,6 +339,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   ) async {
     if (state is! CommunicationLoaded) return;
     final currentState = state as CommunicationLoaded;
+    final originalThreads = currentState.threads;
 
     // Optimistically update the UI
     final updatedThreads = Map<String, List<Message>>.from(
@@ -356,7 +373,121 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     updatedThreads[threadId] = updatedMessages;
     emit(currentState.copyWith(threads: updatedThreads));
 
-    // Persist edit in the background
-    await editMessageUseCase(messageCode, content);
+    final result = await editMessageUseCase(messageCode, content);
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(currentState.copyWith(threads: originalThreads));
+      },
+      (_) {},
+    );
+  }
+
+  Future<void> deleteMessage(
+    String threadId,
+    String messageCode,
+  ) async {
+    if (state is! CommunicationLoaded) return;
+    final currentState = state as CommunicationLoaded;
+    final originalThreads = currentState.threads;
+
+    // Optimistically replace with deleted placeholder in the UI
+    final updatedThreads = Map<String, List<Message>>.from(
+      currentState.threads,
+    );
+    final threadMessages = List<Message>.from(updatedThreads[threadId] ?? []);
+
+    final updatedMessages = threadMessages.map((m) {
+      if (m.code == messageCode) {
+        return Message(
+          id: m.id,
+          code: m.code,
+          text: '🚫 This Message Has Been Deleted',
+          isSentByMe: m.isSentByMe,
+          time: m.time,
+          deliveredAt: m.deliveredAt,
+          readAt: m.readAt,
+          editedAt: m.editedAt,
+          deliveredTo: m.deliveredTo,
+          readBy: m.readBy,
+          reactions: const {},
+          quotedMessageId: m.quotedMessageId,
+          attachments: const [],
+          senderName: m.senderName,
+          receivers: m.receivers,
+        );
+      }
+      return m;
+    }).toList();
+
+    updatedThreads[threadId] = updatedMessages;
+    emit(currentState.copyWith(threads: updatedThreads));
+
+    final result = await deleteMessageUseCase(messageCode);
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(currentState.copyWith(threads: originalThreads));
+      },
+      (_) {},
+    );
+  }
+
+  Future<void> removeReaction(
+    String threadId,
+    String messageCode,
+    String emoji, {
+    String? currentUserCode,
+  }) async {
+    if (state is! CommunicationLoaded) return;
+    final currentState = state as CommunicationLoaded;
+    final originalThreads = currentState.threads;
+    final reactionKey = currentUserCode ?? 'me';
+
+    // Optimistically remove reaction from UI
+    final updatedThreads = Map<String, List<Message>>.from(
+      currentState.threads,
+    );
+    final threadMessages = List<Message>.from(updatedThreads[threadId] ?? []);
+
+    final updatedMessages = threadMessages.map((m) {
+      if (m.code == messageCode) {
+        final newReactions = Map<String, String>.from(m.reactions)
+          ..remove(reactionKey);
+        return Message(
+          id: m.id,
+          code: m.code,
+          text: m.text,
+          isSentByMe: m.isSentByMe,
+          time: m.time,
+          deliveredAt: m.deliveredAt,
+          readAt: m.readAt,
+          editedAt: m.editedAt,
+          deliveredTo: m.deliveredTo,
+          readBy: m.readBy,
+          reactions: newReactions,
+          quotedMessageId: m.quotedMessageId,
+          attachments: m.attachments,
+          senderName: m.senderName,
+          receivers: m.receivers,
+        );
+      }
+      return m;
+    }).toList();
+
+    updatedThreads[threadId] = updatedMessages;
+    emit(currentState.copyWith(threads: updatedThreads));
+
+    final result = await removeReactionLegacyUseCase(messageCode: messageCode, emoji: emoji);
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(currentState.copyWith(threads: originalThreads));
+      },
+      (_) {},
+    );
   }
 }

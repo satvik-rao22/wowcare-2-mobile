@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 
 class ConversationListState extends Equatable {
   const ConversationListState({
@@ -12,6 +13,8 @@ class ConversationListState extends Equatable {
     required this.hasMore,
     required this.page,
     this.errorMessage,
+    this.staffSearchResults = const [],
+    this.isSearchingStaff = false,
   });
 
   const ConversationListState.initial({required ConversationType conversationType})
@@ -22,7 +25,9 @@ class ConversationListState extends Equatable {
         isFromCache = false,
         hasMore = true,
         page = 0,
-        errorMessage = null;
+        errorMessage = null,
+        staffSearchResults = const [],
+        isSearchingStaff = false;
 
   const ConversationListState.loaded({
     required ConversationType conversationType,
@@ -37,7 +42,9 @@ class ConversationListState extends Equatable {
         isFromCache = isFromCache,
         hasMore = hasMore,
         page = page,
-        errorMessage = null;
+        errorMessage = null,
+        staffSearchResults = const [],
+        isSearchingStaff = false;
 
   final ConversationType conversationType;
   final List<ConversationEntity> conversations;
@@ -47,6 +54,13 @@ class ConversationListState extends Equatable {
   final bool hasMore;
   final int page;
   final String? errorMessage;
+
+  /// Results from the staff directory API while the user is typing a search
+  /// query. Empty when no search is active.
+  final List<MessagingStaffResult> staffSearchResults;
+
+  /// True while the staff directory API call is in flight.
+  final bool isSearchingStaff;
 
   bool get hasConversations => conversations.isNotEmpty;
 
@@ -59,6 +73,8 @@ class ConversationListState extends Equatable {
     int? page,
     String? errorMessage,
     bool clearError = false,
+    List<MessagingStaffResult>? staffSearchResults,
+    bool? isSearchingStaff,
   }) {
     return ConversationListState(
       conversationType: conversationType,
@@ -69,6 +85,8 @@ class ConversationListState extends Equatable {
       hasMore: hasMore ?? this.hasMore,
       page: page ?? this.page,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      staffSearchResults: staffSearchResults ?? this.staffSearchResults,
+      isSearchingStaff: isSearchingStaff ?? this.isSearchingStaff,
     );
   }
 
@@ -82,5 +100,7 @@ class ConversationListState extends Equatable {
         hasMore,
         page,
         errorMessage,
+        staffSearchResults,
+        isSearchingStaff,
       ];
 }

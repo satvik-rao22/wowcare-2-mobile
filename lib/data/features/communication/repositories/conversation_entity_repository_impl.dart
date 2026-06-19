@@ -7,6 +7,7 @@ import 'package:wowcare/data/features/communication/datasources/conversation_ent
 import 'package:wowcare/data/features/communication/realtime/conversation_realtime_data_source.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 
@@ -120,6 +121,39 @@ class ConversationEntityRepositoryImpl
       return Right(cached?.toEntity());
     } catch (e) {
       return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<MessagingStaffResult>>> searchStaffForMessaging({
+    required String query,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    try {
+      final results = await _remote.searchStaffForMessaging(
+        query: query,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
+      return Right(results);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ConversationEntity?>> findStaffDirectConversation(
+    String recipientUserCode,
+  ) async {
+    try {
+      final dto = await _remote.findStaffDirectConversation(recipientUserCode);
+      if (dto == null) return const Right(null);
+      final entity = dto.toEntity();
+      await _local.saveConversation(entity);
+      return Right(entity);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
     }
   }
 

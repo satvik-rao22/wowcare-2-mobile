@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:open_filex/open_filex.dart' as open_filex;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,6 +6,8 @@ import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
@@ -34,10 +35,14 @@ class MessageBubble extends StatefulWidget {
   final VoidCallback? onDelete;
   final VoidCallback? onInfo;
   final void Function(String emoji)? onReactionAdded;
+  final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
   final bool isParentMessaging;
   final bool isInactive;
   final bool isDeleted;
+  /// When true, the sender avatar and name header are hidden because this
+  /// message is a continuation from the same sender as the one above it.
+  final bool isGrouped;
 
   const MessageBubble({
     required this.message,
@@ -52,10 +57,12 @@ class MessageBubble extends StatefulWidget {
     this.onDelete,
     this.onInfo,
     this.onReactionAdded,
+    this.onRemoveReaction,
     this.onReactionTap,
     this.isParentMessaging = false,
     this.isInactive = false,
     this.isDeleted = false,
+    this.isGrouped = false,
     super.key,
   });
 
@@ -122,7 +129,8 @@ class _MessageBubbleState extends State<MessageBubble>
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
-    if (widget.onReply == null) return;
+    // Swipe-to-reply is disabled for deleted messages.
+    if (widget.onReply == null || widget.isDeleted) return;
     setState(() {
       _dragOffset = (_dragOffset + details.delta.dx).clamp(
         0.0,
@@ -150,11 +158,26 @@ class _MessageBubbleState extends State<MessageBubble>
           widget.currentUserCode == widget.message.senderUserCode);
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
+    // Deleted messages expose NO actions — no reactions, no menu items.
+    if (widget.isDeleted) {
+      return const ChatReactionsConfig(
+        availableReactions: [],
+        menuItems: [],
+        enableLongPress: false,
+        enableDoubleTap: false,
+        showAddReactionButton: false,
+        showContextMenu: false,
+        enableHapticFeedback: false,
+        reactionSize: 24,
+      );
+    }
+
     return ChatReactionsConfig(
       availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '😡', '➕'],
       menuItems: [
-        if (isMe) const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
-        if (isMe)
+        if (isMe && !widget.isInactive)
+          const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
+        if (isMe && !widget.isInactive)
           const MenuItem(
             label: 'Delete',
             icon: Icons.delete_outline,
@@ -199,12 +222,25 @@ class _MessageBubbleState extends State<MessageBubble>
   Widget build(BuildContext context) {
     final isMe = _isMe;
     final screenWidth = MediaQuery.of(context).size.width;
+    // Resolve sender display name once before the widget tree.
+    final senderLabel = isMe
+        ? 'You'
+        : MessageContentProcessor.senderDisplay(
+            widget.message.senderName,
+            widget.message.senderUserCode,
+          );
 
     return GestureDetector(
       onHorizontalDragUpdate: widget.onReply != null ? _onDragUpdate : null,
       onHorizontalDragEnd: widget.onReply != null ? _onDragEnd : null,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 12.0),
+        // Grouped messages get reduced top spacing — feels like a continuation.
+        padding: EdgeInsets.only(
+          top: widget.isGrouped ? 2.0 : 8.0,
+          bottom: 8.0,
+          left: 12.0,
+          right: 12.0,
+        ),
         child: SizedBox(
           width: double.infinity,
           child: Stack(
@@ -222,7 +258,7 @@ class _MessageBubbleState extends State<MessageBubble>
                       child: Container(
                         padding: const EdgeInsets.all(7),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryColor.withOpacity(0.12),
+                          color: AppColors.primaryColor.withValues(alpha: 0.12),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
@@ -246,8 +282,8 @@ class _MessageBubbleState extends State<MessageBubble>
                         ? CrossAxisAlignment.end
                         : CrossAxisAlignment.start,
                     children: [
-                      // Avatar row (above bubble)
-                      if (widget.isParentMessaging) ...[
+                      // Avatar row (above bubble) — hidden when grouped
+                      if (widget.isParentMessaging && !widget.isGrouped) ...[
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: isMe
@@ -266,13 +302,12 @@ class _MessageBubbleState extends State<MessageBubble>
                         const SizedBox(height: 8.0),
                       ],
 
-                      // Sender Name header (above bubble)
-                      if (widget.message.senderName != null &&
-                          widget.message.senderName!.isNotEmpty)
+                      // Sender Name header — hidden when grouped
+                      if (!widget.isGrouped)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
                           child: Text(
-                            isMe ? 'You' : widget.message.senderName!,
+                            senderLabel,
                             style: const TextStyle(
                               color: Color.fromRGBO(87, 51, 83, 0.7),
                               fontWeight: FontWeight.w500,
@@ -296,7 +331,12 @@ class _MessageBubbleState extends State<MessageBubble>
                               ? Alignment.centerRight
                               : Alignment.centerLeft,
                           onReactionAdded: (emoji) {
-                            widget.onReactionAdded?.call(emoji);
+                            final myReaction = widget.message.reactions[widget.currentUserCode ?? 'me'];
+                            if (myReaction == emoji) {
+                              widget.onRemoveReaction?.call(emoji);
+                            } else {
+                              widget.onReactionAdded?.call(emoji);
+                            }
                           },
                           onMenuItemTapped: _handleMenuItemTap,
                           child: _buildBubble(isMe),
@@ -334,10 +374,10 @@ class _MessageBubbleState extends State<MessageBubble>
                                   : const Color.fromRGBO(65, 65, 78, 0.5),
                             ),
                           ],
-                          if (widget.isParentMessaging == true) ...[
+                          if (widget.message.isPrivate) ...[
                             const SizedBox(width: 4),
                             const Icon(
-                              Icons.private_connectivity,
+                              Icons.visibility_off,
                               color: Colors.red,
                               size: 20,
                             ),
@@ -345,10 +385,7 @@ class _MessageBubbleState extends State<MessageBubble>
                           if (isMe &&
                               widget.onDelete != null &&
                               !widget.isInactive &&
-                              !(widget.isDeleted ||
-                                  widget.message.text.contains(
-                                    'This Message Has Been Deleted',
-                                  ))) ...[
+                              !widget.isDeleted) ...[
                             const SizedBox(width: 8),
                             GestureDetector(
                               onTap: () {
@@ -560,91 +597,135 @@ class _MessageBubbleState extends State<MessageBubble>
 
   Widget _buildBubble(bool isMe) {
     final message = widget.message;
-    final isDeleted =
-        widget.isDeleted ||
-        message.text.contains('This Message Has Been Deleted');
+    final isDeleted = widget.isDeleted;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-      margin: EdgeInsets.only(left: isMe ? 60 : 0, right: isMe ? 0 : 60),
-      decoration: BoxDecoration(
-        color: isMe ? null : const Color.fromRGBO(220, 230, 255, 1),
-        gradient: isMe ? AppColors.buildPrimaryGradient() : null,
-        borderRadius: BorderRadius.only(
-          topRight: Radius.circular(isMe ? 70 : 50),
-          topLeft: Radius.circular(isMe ? 50 : 70),
-          bottomLeft: Radius.circular(isMe ? 50 : 0),
-          bottomRight: Radius.circular(isMe ? 0 : 50),
-        ),
-      ),
+    return Material(
+      color: Colors.transparent,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: isDeleted
-            ? const Text(
-                '🚫 This Message Has Been Deleted',
-                style: TextStyle(
-                  color: Color.fromRGBO(87, 51, 83, 1),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Quoted preview
-                  if (message.quotedMessageId != null &&
-                      widget.quotedMessage != null)
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: _buildQuotePreview(isMe),
-                    ),
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+        margin: EdgeInsets.only(left: isMe ? 60 : 0, right: isMe ? 0 : 60),
+        decoration: BoxDecoration(
+          color: isMe ? null : const Color.fromRGBO(220, 230, 255, 1),
+          gradient: isMe ? AppColors.buildPrimaryGradient() : null,
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(isMe ? 70 : 50),
+            topLeft: Radius.circular(isMe ? 50 : 70),
+            bottomLeft: Radius.circular(isMe ? 50 : 0),
+            bottomRight: Radius.circular(isMe ? 0 : 50),
+          ),
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: isDeleted
+              ? Text(
+                  'This message has been deleted.',
+                  style: TextStyle(
+                    color: isMe
+                        ? Colors.white.withValues(alpha: 0.75)
+                        : const Color.fromRGBO(87, 51, 83, 0.6),
+                    fontSize: 14,
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Quoted preview
+                    if (message.quotedMessageId != null &&
+                        widget.quotedMessage != null)
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _buildQuotePreview(isMe),
+                      ),
 
-                  // Attachments
-                  if (message.hasAttachments) ...[
-                    _buildAttachmentsPreview(),
+                    // Attachments
+                    if (message.hasAttachments) ...[
+                      _buildAttachmentsPreview(),
+                      if (message.text.trim().isNotEmpty)
+                        const SizedBox(height: 6),
+                    ],
+
+                    // Message text — enriched HTML with auto-linked URLs/emails
                     if (message.text.trim().isNotEmpty)
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _StableHtml(
+                          data: MessageContentProcessor.enrich(message.text),
+                          linkColor: isMe ? Colors.white : AppColors.primaryColor,
+                          onLinkTap: MessageContentProcessor.launchLink,
+                          style: {
+                            'body': html.Style(
+                              margin: html.Margins.zero,
+                              padding: html.HtmlPaddings.zero,
+                              fontSize: html.FontSize(15.5),
+                              fontFamily: 'Manrope',
+                              color: isMe ? Colors.white : AppColors.primaryColor,
+                            ),
+                            'p': html.Style(
+                              margin: html.Margins.zero,
+                              padding: html.HtmlPaddings.zero,
+                            ),
+                          },
+                        ),
+                      ),
+
+                    // Link preview card — shown for the first URL found in the
+                    // message text. Only rendered for non-deleted messages that
+                    // actually contain an http/https URL.
+                    if (!isDeleted) ...[
+                      Builder(builder: (_) {
+                        final previewUrl = extractFirstUrl(message.text);
+                        if (previewUrl == null) return const SizedBox.shrink();
+                        return LinkPreviewCard(url: previewUrl, isMe: isMe);
+                      }),
+                    ],
+
+                    // Edited status check
+                    if (message.editedAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Edited',
+                        style: TextStyle(
+                          color: isMe
+                              ? Colors.white.withValues(alpha: 0.7)
+                              : Colors.grey,
+                          fontSize: 12,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+
+                    // Private message label chip (PRD AC7)
+                    if (message.isPrivate) ...[
                       const SizedBox(height: 6),
-                  ],
-
-                  // Message text
-                  if (message.text.trim().isNotEmpty)
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: html.Html(
-                        key: ValueKey('msg-text-${message.id}-$isMe'),
-                        data: message.text,
-                        style: {
-                          'body': html.Style(
-                            margin: html.Margins.zero,
-                            padding: html.HtmlPaddings.zero,
-                            fontSize: html.FontSize(15.5),
-                            fontFamily: 'Manrope',
-                            color: isMe ? Colors.white : AppColors.primaryColor,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.visibility_off_outlined,
+                            size: 12,
+                            color: isMe
+                                ? Colors.white.withValues(alpha: 0.85)
+                                : const Color(0xFFD63031),
                           ),
-                          'p': html.Style(
-                            margin: html.Margins.zero,
-                            padding: html.HtmlPaddings.zero,
+                          const SizedBox(width: 4),
+                          Text(
+                            'Private Message',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isMe
+                                  ? Colors.white.withValues(alpha: 0.85)
+                                  : const Color(0xFFD63031),
+                            ),
                           ),
-                        },
+                        ],
                       ),
-                    ),
-
-                  // Edited status check
-                  if (message.editedAt != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      'Edited',
-                      style: TextStyle(
-                        color: isMe
-                            ? Colors.white.withOpacity(0.7)
-                            : Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
+                    ],
                   ],
-                ],
-              ),
+                ),
+        ),
       ),
     );
   }
@@ -660,19 +741,18 @@ class _MessageBubbleState extends State<MessageBubble>
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(isMe ? 0.18 : 0.55),
+          color: Colors.white.withValues(alpha: isMe ? 0.18 : 0.55),
           borderRadius: BorderRadius.circular(10),
           border: Border(
             left: BorderSide(
               color: isMe
-                  ? Colors.white.withOpacity(0.8)
+                  ? Colors.white.withValues(alpha: 0.8)
                   : AppColors.primaryColor,
               width: 3,
             ),
           ),
         ),
-        child: html.Html(
-          key: ValueKey('quote-text-${widget.message.id}-$isMe'),
+        child: _StableHtml(
           data: quoted.text.length > 120
               ? '${quoted.text.substring(0, 120)}…'
               : quoted.text,
@@ -683,7 +763,7 @@ class _MessageBubbleState extends State<MessageBubble>
               fontSize: html.FontSize(13),
               fontFamily: 'Manrope',
               color: isMe
-                  ? Colors.white.withOpacity(0.9)
+                  ? Colors.white.withValues(alpha: 0.9)
                   : AppColors.primaryColor,
             ),
             'p': html.Style(
@@ -794,7 +874,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                   ),
                                 ),
                                 child: Thumbnail(
-                                  mimeType: att.mimeType ?? 'application/pdf',
+                                  mimeType: att.mimeType.isNotEmpty ? att.mimeType : 'application/pdf',
                                   dataResolver: () async {
                                     if (att.remoteUrl.isNotEmpty) {
                                       try {
@@ -884,7 +964,7 @@ class _MessageBubbleState extends State<MessageBubble>
                 borderRadius: BorderRadius.circular(12),
                 child: displayImages.first.displaySource != null
                     ? Thumbnail(
-                        mimeType: displayImages.first.mimeType ?? 'image/jpeg',
+                        mimeType: displayImages.first.mimeType.isNotEmpty ? displayImages.first.mimeType : 'image/jpeg',
                         dataResolver: () async {
                           final src = displayImages.first.displaySource!;
                           if (displayImages.first.remoteUrl.isNotEmpty) {
@@ -969,7 +1049,7 @@ class _MessageBubbleState extends State<MessageBubble>
                         borderRadius: BorderRadius.circular(12),
                         child: att.displaySource != null
                             ? Thumbnail(
-                                mimeType: att.mimeType ?? 'image/jpeg',
+                                mimeType: att.mimeType.isNotEmpty ? att.mimeType : 'image/jpeg',
                                 dataResolver: () async {
                                   final src = att.displaySource!;
                                   if (att.remoteUrl.isNotEmpty) {
@@ -1008,7 +1088,7 @@ class _MessageBubbleState extends State<MessageBubble>
                       if (hasMoreImages && isLast)
                         Container(
                           decoration: BoxDecoration(
-                            color: Colors.black.withOpacity(0.55),
+                            color: Colors.black.withValues(alpha: 0.55),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Center(
@@ -1038,6 +1118,69 @@ class _MessageBubbleState extends State<MessageBubble>
       dt,
       schoolTz,
     );
-    return '${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}';
+    final hhMM =
+        '${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}';
+    return MessageContentProcessor.smartBubbleTime(dt, hhMM);
+  }
+}
+
+// Wraps html.Html so each mounted instance owns its own _anchorKey GlobalKey.
+// flutter_html creates a HtmlParser(key: _anchorKey) inside _HtmlState.build().
+// If _anchorKey is shared (e.g. via MessageBubble State fields) and the same
+// widget tree is mounted in two places simultaneously (original bubble + the
+// reactions-dialog preview), two HtmlParser widgets get the same GlobalKey →
+// crash. Owning the key in THIS State means each placement gets its own key.
+class _StableHtml extends StatefulWidget {
+  final String data;
+  final Map<String, html.Style> style;
+  /// Called when a link (`<a href>`) inside the HTML is tapped.
+  final void Function(String? href)? onLinkTap;
+  /// Color used for `<a>` tags. Defaults to [AppColors.primaryColor].
+  final Color? linkColor;
+
+  const _StableHtml({
+    required this.data,
+    required this.style,
+    this.onLinkTap,
+    this.linkColor,
+  });
+
+  @override
+  State<_StableHtml> createState() => _StableHtmlState();
+}
+
+class _StableHtmlState extends State<_StableHtml> {
+  final GlobalKey _anchorKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    final linkColor = widget.linkColor ?? AppColors.primaryColor;
+
+    // Merge caller styles with the <a> tag style so links are always
+    // visually distinguishable (underlined, same color as message text).
+    final mergedStyle = {
+      ...widget.style,
+      'a': html.Style(
+        color: linkColor,
+        textDecoration: TextDecoration.underline,
+        textDecorationColor: linkColor,
+        fontWeight: FontWeight.w600,
+      ),
+    };
+
+    // Wrap with decoration:none to prevent the dialog context's DefaultTextStyle
+    // (no Material/Scaffold wrapper in HeroDialogRoute) from leaking yellow
+    // underlines into flutter_html's text span rendering.
+    return DefaultTextStyle.merge(
+      style: const TextStyle(decoration: TextDecoration.none),
+      child: html.Html(
+        anchorKey: _anchorKey,
+        data: widget.data,
+        style: mergedStyle,
+        onLinkTap: widget.onLinkTap != null
+            ? (url, _, __) => widget.onLinkTap!(url)
+            : null,
+      ),
+    );
   }
 }

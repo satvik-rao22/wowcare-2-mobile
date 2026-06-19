@@ -92,11 +92,38 @@ class CustomNavigationBar extends StatefulWidget {
 class _CustomNavigationBarState extends State<CustomNavigationBar> {
   final GlobalKey _containerKey = GlobalKey();
   double _navBarHeight = 0.0;
+  GoRouteInformationProvider? _routeInfoProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to the route-information provider so the nav bar rebuilds on
+    // every route change. Without this, appNavigationShell() and
+    // _currentLocationPath() are non-reactive reads — the active-tab highlight
+    // never updates after router.go() fires (e.g. Messages → Dashboard keeps
+    // Messages highlighted).
+    final provider = GoRouter.of(context).routeInformationProvider;
+    if (provider != _routeInfoProvider) {
+      _routeInfoProvider?.removeListener(_onRouteChanged);
+      _routeInfoProvider = provider;
+      _routeInfoProvider!.addListener(_onRouteChanged);
+    }
+  }
+
+  void _onRouteChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
+  }
+
+  @override
+  void dispose() {
+    _routeInfoProvider?.removeListener(_onRouteChanged);
+    super.dispose();
   }
 
   // Bug 4 fix: re-measure after every build pass so the height stays accurate
@@ -125,11 +152,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   /// resolved (e.g. transiently during teardown).
   String _currentLocationPath(BuildContext context) {
     try {
-      return GoRouter.of(context)
-          .routerDelegate
-          .currentConfiguration
-          .uri
-          .path;
+      return GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
     } catch (_) {
       return '';
     }
@@ -226,14 +249,18 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                       right: -8,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 2),
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.red,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: Colors.white, width: 1.2),
                         ),
-                        constraints:
-                            const BoxConstraints(minWidth: 16, minHeight: 16),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
                         child: Text(
                           badgeCount > 99 ? '99+' : '$badgeCount',
                           style: const TextStyle(
@@ -341,13 +368,16 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     //   adminChat       → ADMIN_CHAT    (!isStaff — hidden for pure staff role)
     final _unreadState = context.watch<UnreadBadgeCubit>().state;
     final _isStaff = roleProvider.isStaff;
-    final _showStaffMsg =
-        roleProvider.canReadModule(AppAccessModules.staffMessaging);
-    final _showParentMsg =
-        roleProvider.canReadModule(AppAccessModules.parentMessaging);
+    final _showStaffMsg = roleProvider.canReadModule(
+      AppAccessModules.staffMessaging,
+    );
+    final _showParentMsg = roleProvider.canReadModule(
+      AppAccessModules.parentMessaging,
+    );
     final _showAdminChat = !_isStaff;
 
-    final unreadTotal = (_showStaffMsg
+    final unreadTotal =
+        (_showStaffMsg
             ? _unreadState.unreadFor(ConversationType.staffDirect)
             : 0) +
         (_showParentMsg

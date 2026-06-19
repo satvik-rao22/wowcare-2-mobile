@@ -638,21 +638,21 @@ class ApiPaths {
   static const String kioskVerifyPin = '/api/v1/kiosk/verify-pin';
 
   // —— Reports (multiple microservices) ——
-  /// POST /api/v1/student-attendance/reports/generate — Generate student attendance reports.
+  /// POST /api/v1/attendance/student-attendance/reports/generate — Generate student attendance reports.
   static const String studentAttendanceReportsGenerate =
-      '/api/v1/student-attendance/reports/generate';
+      '/api/v1/attendance/student-attendance/reports/generate';
 
-  /// GET /api/v1/student-attendance/reports/recent — Get recent student attendance reports.
+  /// GET /api/v1/attendance/student-attendance/reports/recent — Get recent student attendance reports.
   static const String studentAttendanceReportsRecent =
-      '/api/v1/student-attendance/reports/recent';
+      '/api/v1/attendance/student-attendance/reports/recent';
 
-  /// POST /api/v1/staff-attendance/reports/generate — Generate staff attendance reports.
+  /// POST /api/v1/attendance/staff-attendance/reports/generate — Generate staff attendance reports.
   static const String staffAttendanceReportsGenerate =
-      '/api/v1/staff-attendance/reports/generate';
+      '/api/v1/attendance/staff-attendance/reports/generate';
 
-  /// GET /api/v1/staff-attendance/reports/recent — Get recent staff attendance reports.
+  /// GET /api/v1/attendance/staff-attendance/reports/recent — Get recent staff attendance reports.
   static const String staffAttendanceReportsRecent =
-      '/api/v1/staff-attendance/reports/recent';
+      '/api/v1/attendance/staff-attendance/reports/recent';
 
   /// POST /api/v1/staff/reports/generate — Generate staff directory reports (staff MS).
   static const String staffReportsGenerate = '/api/v1/staff/reports/generate';

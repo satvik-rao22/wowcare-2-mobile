@@ -103,7 +103,7 @@ class _ReportsScreenState extends State<ReportsScreen>
           )
           .then((success) {
             if (success == true && mounted) {
-              DefaultTabController.of(context).animateTo(0);
+              _tabController.animateTo(0);
             }
           }),
     );
@@ -148,7 +148,7 @@ class _ReportsScreenState extends State<ReportsScreen>
           )
           .then((success) {
             if (success == true && mounted) {
-              DefaultTabController.of(context).animateTo(0);
+              _tabController.animateTo(0);
             }
           }),
     );
@@ -182,7 +182,7 @@ class _ReportsScreenState extends State<ReportsScreen>
           )
           .then((success) {
             if (success == true && mounted) {
-              DefaultTabController.of(context).animateTo(0);
+              _tabController.animateTo(0);
             }
           }),
     );
@@ -218,7 +218,7 @@ class _ReportsScreenState extends State<ReportsScreen>
           )
           .then((success) {
             if (success == true && mounted) {
-              DefaultTabController.of(context).animateTo(0);
+              _tabController.animateTo(0);
             }
           }),
     );
@@ -302,28 +302,42 @@ class _ReportsScreenState extends State<ReportsScreen>
     ),
   ];
 
+  late final TabController _tabController;
+  String? _lastProcessedTabParam;
+
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: _tabs.length, vsync: this);
     // Load recent reports when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<ReportsCubit>().loadRecentReports();
+      }
+    });
+  }
 
-        // Handle tab navigation from query parameter
-        final tabIndex = int.tryParse(
-          GoRouterState.of(context).uri.queryParameters['tab'] ?? '0',
-        ) ?? 0;
-
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final tabParam = GoRouterState.of(context).uri.queryParameters['tab'];
+    if (tabParam != _lastProcessedTabParam) {
+      _lastProcessedTabParam = tabParam;
+      if (tabParam != null) {
+        final tabIndex = int.tryParse(tabParam) ?? 0;
         if (tabIndex >= 0 && tabIndex < _tabs.length) {
-          try {
-            DefaultTabController.of(context).animateTo(tabIndex);
-          } catch (_) {
-            // DefaultTabController might not be available yet
+          if (_tabController.index != tabIndex) {
+            _tabController.animateTo(tabIndex);
           }
         }
       }
-    });
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -403,16 +417,9 @@ class _ReportsScreenState extends State<ReportsScreen>
           ),
         ],
         child: GlobalScaffold(
-          body: DefaultTabController(
-            length: _tabs.length,
-            child: Builder(
-              builder: (context) {
-                final TabController controller = DefaultTabController.of(
-                  context,
-                );
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+          body: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
                     // Header and TabBar
                     SingleChildScrollView(
                       physics: const ClampingScrollPhysics(),
@@ -456,14 +463,15 @@ class _ReportsScreenState extends State<ReportsScreen>
                                       size: 25,
                                     ),
                                     onPressed: () {
-                                      final int current = controller.index;
+                                      final int current = _tabController.index;
                                       if (current > 0) {
-                                        controller.animateTo(current - 1);
+                                        _tabController.animateTo(current - 1);
                                       }
                                     },
                                   ),
                                   Expanded(
                                     child: TabBar(
+                                      controller: _tabController,
                                       isScrollable: true,
                                       padding: EdgeInsets.zero,
                                       labelPadding: EdgeInsets.zero,
@@ -516,9 +524,9 @@ class _ReportsScreenState extends State<ReportsScreen>
                                       size: 25,
                                     ),
                                     onPressed: () {
-                                      final int current = controller.index;
+                                      final int current = _tabController.index;
                                       if (current < _tabs.length - 1) {
-                                        controller.animateTo(current + 1);
+                                        _tabController.animateTo(current + 1);
                                       }
                                     },
                                   ),
@@ -538,6 +546,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                           vertical: contentPadding.top,
                         ),
                         child: TabBarView(
+                          controller: _tabController,
                           physics: const BouncingScrollPhysics(),
                           children: [
                             // Tab 0: Generated Reports
@@ -578,31 +587,13 @@ class _ReportsScreenState extends State<ReportsScreen>
                       ),
                     ),
                   ],
-                );
-              },
-            ),
-          ),
+                ),
           showCustomNavigationBar: true,
         ),
       ),
     );
   }
 
-  List<ReportItem> _reportsFor(int tabIndex) {
-    // Tab 0 is "Generated" (rendered separately); tabs 1-4 map to template lists.
-    switch (tabIndex) {
-      case 1:
-        return _studentReports;
-      case 2:
-        return _staffReports;
-      case 3:
-        return _complianceReports;
-      case 4:
-        return _billingReports;
-      default:
-        return const <ReportItem>[];
-    }
-  }
 
   void _showComingSoon(BuildContext context, String action) {
     CoreUtils.showTopSnackBar(
@@ -818,34 +809,44 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
   }
 
   Widget _buildErrorState(String? error) {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
-              const SizedBox(height: 16),
-              Text(
-                'Failed to load reports',
-                style: Theme.of(context).textTheme.titleMedium,
+    return RefreshIndicator(
+      onRefresh: () {
+        return context.read<ReportsCubit>().loadRecentReports(isRefresh: true);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height - 200,
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Failed to load reports',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    error ?? 'Unknown error',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () {
+                      context.read<ReportsCubit>().loadRecentReports();
+                    },
+                    child: const Text('Retry'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                error ?? 'Unknown error',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () {
-                  context.read<ReportsCubit>().loadRecentReports();
-                },
-                child: const Text('Retry'),
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -853,31 +854,41 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
   }
 
   Widget _buildEmptyState() {
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.description_outlined,
-                size: 48,
-                color: Colors.grey[400],
+    return RefreshIndicator(
+      onRefresh: () {
+        return context.read<ReportsCubit>().loadRecentReports(isRefresh: true);
+      },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: MediaQuery.of(context).size.height - 200,
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.description_outlined,
+                    size: 48,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No reports generated yet',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Generate your first report to see it here',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(
-                'No reports generated yet',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Generate your first report to see it here',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+            ),
           ),
         ),
       ),

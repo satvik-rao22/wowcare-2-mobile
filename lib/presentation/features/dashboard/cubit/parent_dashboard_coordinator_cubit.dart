@@ -125,11 +125,12 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
         emit(state.copyWith(status: DashboardStatus.loading));
       }
     } else if (isAllError) {
-      emit(state.copyWith(status: DashboardStatus.failure, errorMessage: "Failed to load dashboard data"));
+      emit(state.copyWith(status: DashboardStatus.failure, errorMessage: 'Unable to load dashboard data. Please try again.'));
     } else if (isAnyError) {
       emit(state.copyWith(status: DashboardStatus.partialError));
-    } else if (isAllLoaded || (myChildsDayLoaded || attendanceLoaded || newslettersLoaded)) {
-      emit(state.copyWith(status: DashboardStatus.ready));
+    } else if (isAllLoaded) {
+      // Clear any stale error from a previous failed load cycle.
+      emit(state.copyWith(status: DashboardStatus.ready, clearErrorMessage: true));
     } else {
       emit(state.copyWith(status: DashboardStatus.initial));
     }
@@ -159,8 +160,8 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
       studentNewslettersCubit.loadFirstPage(studentCode: selectedChild.code, forceRefresh: true),
       communicationCubit.loadConversations(),
     ]);
-
-    _updateState();
+    // No explicit _updateState() here — child cubit stream subscriptions
+    // trigger _updateState() reactively as each cubit completes.
   }
 
   @override

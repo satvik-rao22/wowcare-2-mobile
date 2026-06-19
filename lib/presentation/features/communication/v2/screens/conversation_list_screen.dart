@@ -1,4 +1,4 @@
-import 'dart:async' show unawaited;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,6 +8,8 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
@@ -53,6 +55,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showUnreadOnly = false;
   late final ConversationListCubit _cubit;
+  Timer? _searchDebounce;
 
   @override
   void initState() {
@@ -62,6 +65,8 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
       watchConversationsUseCase: serviceLocator(),
       getConversationsUseCase: serviceLocator(),
       getCachedConversationsUseCase: serviceLocator(),
+      conversationRepository: serviceLocator(),
+      storageService: serviceLocator(),
     );
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
@@ -70,6 +75,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     unawaited(_cubit.close());
     _scrollController
       ..removeListener(_onScroll)
@@ -84,7 +90,15 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     // Firestore stream auto-loads; no manual pagination needed.
   }
 
-  void _onSearchChanged() => setState(() {});
+  void _onSearchChanged() {
+    setState(() {});
+    // Only trigger staff directory search for STAFF_DIRECT conversations.
+    if (widget.conversationType != ConversationType.staffDirect) return;
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
+      _cubit.searchStaffDirectory(_searchController.text);
+    });
+  }
 
   // ─── Filter ──────────────────────────────────────────────────────────────────
 
@@ -105,8 +119,6 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
       value: _cubit,
       child: BlocBuilder<ConversationListCubit, ConversationListState>(
         builder: (context, state) {
-          final title = widget.title ?? _typeLabel(state.conversationType);
-
           return GlobalScaffold(
             hasBackButton: false,
 
@@ -218,6 +230,11 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                       ),
                     ),
 
+                  // ── Staff directory (STAFF_DIRECT + active search only) ───
+                  if (widget.conversationType == ConversationType.staffDirect &&
+                      _searchController.text.trim().isNotEmpty)
+                    _buildStaffDirectory(context, state),
+
                   const SliverToBoxAdapter(child: SizedBox(height: 80)),
                 ],
               ),
@@ -263,15 +280,130 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     );
   }
 
-  String _typeLabel(ConversationType type) {
-    switch (type) {
-      case ConversationType.staffDirect:
-        return 'Staff Messaging';
-      case ConversationType.roomChat:
-        return 'Parent Messaging';
-      case ConversationType.adminChat:
-        return 'Admin Chat';
+  /// Staff directory section — shown below conversations while search is active.
+  /// Tapping a staff tile starts (or opens an existing) 1:1 conversation via
+  /// the host screen's [onCreateTap] callback with the staff's userCode injected.
+  Widget _buildStaffDirectory(
+    BuildContext context,
+    ConversationListState state,
+  ) {
+    if (state.isSearchingStaff) {
+      return const SliverToBoxAdapter(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      );
     }
+
+    if (state.staffSearchResults.isEmpty) return const SliverToBoxAdapter();
+
+    return SliverMainAxisGroup(
+      slivers: [
+        // Section header
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            child: Text(
+              'Staff Directory',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryColor.withValues(alpha: 0.6),
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+        ),
+
+        SliverList(
+          delegate: SliverChildBuilderDelegate(
+            (context, index) {
+              final staff = state.staffSearchResults[index];
+              return _StaffDirectoryTile(
+                staff: staff,
+                onTap: () {
+                  // Navigate via the create-tap callback so the host screen
+                  // can pre-populate the recipient and open the thread.
+                  if (widget.onCreateTap != null) {
+                    widget.onCreateTap!();
+                  }
+                },
+              );
+            },
+            childCount: state.staffSearchResults.length,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─── Staff directory tile ─────────────────────────────────────────────────────
+
+class _StaffDirectoryTile extends StatelessWidget {
+  const _StaffDirectoryTile({required this.staff, required this.onTap});
+
+  final MessagingStaffResult staff;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      splashColor: const Color(0x1A6C5CE7),
+      highlightColor: Colors.transparent,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFFFAFAFF),
+          border: Border(
+            bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
+          ),
+        ),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 10,
+          ),
+          leading: DocumentImageWidget(
+            fileUuid: staff.avatarAssetCode ?? '',
+            name: staff.name,
+            size: 46,
+          ),
+          title: CustomTextWidget(
+            text: staff.name.isNotEmpty ? staff.name : 'Unknown',
+            fontWeight: FontWeight.w600,
+            fontSize: 15,
+            fontColor: AppColors.primaryColor,
+          ),
+          subtitle: Text(
+            staff.designation.isNotEmpty ? staff.designation : staff.status,
+            style: const TextStyle(fontSize: 12, color: Color(0xFF636E72)),
+          ),
+          trailing: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: const Color(0xFF6C5CE7).withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: const Text(
+              'Message',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF6C5CE7),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -359,7 +491,7 @@ class _ConversationTile extends StatelessWidget {
                     Text(
                       conversation.lastMessagePreview.isEmpty
                           ? 'Start a new conversation'
-                          : conversation.lastMessagePreview,
+                          : MessageContentProcessor.previewText(conversation.lastMessagePreview),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(

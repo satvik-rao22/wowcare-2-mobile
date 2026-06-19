@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/communication/models/conversation_entity_dto.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 
 abstract class ConversationEntityRemoteDataSource {
   Future<List<ConversationEntityDto>> getConversations({
@@ -10,6 +11,23 @@ abstract class ConversationEntityRemoteDataSource {
     String status,
     int page,
     int size,
+  });
+
+  /// Returns the existing STAFF_DIRECT conversation between the current user
+  /// and [recipientUserCode], or null if none exists.
+  Future<ConversationEntityDto?> findStaffDirectConversation(
+    String recipientUserCode,
+  );
+
+  /// Search active and upcoming staff by name fragment.
+  ///
+  /// Used by the Staff Messaging inbox to let users start a new conversation
+  /// with a staff member they have never messaged before.
+  Future<List<MessagingStaffResult>> searchStaffForMessaging({
+    required String query,
+    required String organizationCode,
+    required String schoolCode,
+    int size = 30,
   });
 
   Future<ConversationEntityDto> getConversation(String conversationCode);
@@ -80,6 +98,67 @@ class ConversationEntityRemoteDataSourceImpl
     return content
         .map((e) => ConversationEntityDto.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<List<MessagingStaffResult>> searchStaffForMessaging({
+    required String query,
+    required String organizationCode,
+    required String schoolCode,
+    int size = 30,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffList,
+      ApiConstants.staffBaseUrl,
+    );
+    final response = await apiClient.client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+        'search': query.trim(),
+        'status': ['ACTIVE', 'UPCOMING'],
+        'page': 0,
+        'size': size,
+        'sort': 'firstName,asc',
+      },
+    );
+
+    final data = response.data as Map<String, dynamic>?;
+    final content =
+        (data?['data']?['content'] ?? data?['content']) as List<dynamic>? ?? [];
+
+    return content.map((e) {
+      final m = e as Map<String, dynamic>;
+      final userObj = m['user'] as Map<String, dynamic>?;
+      return MessagingStaffResult(
+        userCode: (userObj?['userCode'] ?? userObj?['code'] ?? m['userCode'] ?? '').toString(),
+        staffCode: (m['code'] ?? m['staffCode'] ?? '').toString(),
+        name: '${m['firstName'] ?? ''} ${m['lastName'] ?? ''}'.trim(),
+        designation: (m['designation'] ?? '').toString(),
+        status: (m['status'] ?? 'ACTIVE').toString(),
+        avatarAssetCode: (m['profilePhotoAssetCode'] as String?),
+      );
+    }).where((s) => s.userCode.isNotEmpty).toList();
+  }
+
+  @override
+  Future<ConversationEntityDto?> findStaffDirectConversation(
+    String recipientUserCode,
+  ) async {
+    final path = ApiPaths.messagingConversationsByType('STAFF_DIRECT');
+    final endpoint = _url(
+      '$path?status=ACTIVE&participantUserCode=$recipientUserCode&page=0&size=1',
+    );
+    final response = await apiClient.client.get(endpoint);
+    _assertSuccess(response.data, 'Failed to search direct conversation');
+
+    final content =
+        response.data['data']['content'] as List<dynamic>? ?? [];
+    if (content.isEmpty) return null;
+    return ConversationEntityDto.fromJson(
+      content.first as Map<String, dynamic>,
+    );
   }
 
   @override
