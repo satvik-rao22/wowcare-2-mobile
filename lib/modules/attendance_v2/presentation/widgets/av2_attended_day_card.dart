@@ -5,21 +5,25 @@ import '../../core/theme/av2_text_styles.dart';
 import '../../core/utils/av2_date_formatter.dart';
 import '../../core/utils/av2_duration_formatter.dart';
 import '../../domain/entities/attendance_day.dart';
+import '../../domain/entities/day_detail.dart';
+import '../controllers/day_detail_loader.dart';
 import 'av2_break_row.dart';
 import 'av2_pill.dart';
 import 'av2_session_tile.dart';
 
-/// Mobile day card. Collapsed = the per-day summary (date, mini bar, OT chip,
-/// total). Expanded = the day's sessions. Manages its own expansion state.
+/// Mobile day card. Collapsed = per-day summary (date, OT chip, total — all
+/// from the overview). Expanding lazily loads the day's sessions + breaks.
 class Av2AttendedDayCard extends StatefulWidget {
   const Av2AttendedDayCard({
     super.key,
     required this.day,
+    required this.loadDetail,
     this.initiallyExpanded = false,
     this.onSessionAction,
   });
 
   final AttendanceDay day;
+  final DayDetailLoader loadDetail;
   final bool initiallyExpanded;
   final ValueChanged<String>? onSessionAction;
 
@@ -29,21 +33,34 @@ class Av2AttendedDayCard extends StatefulWidget {
 
 class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
   late bool _expanded = widget.initiallyExpanded;
+  Future<DayDetail>? _future;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_expanded) _future = widget.loadDetail(widget.day.date);
+  }
+
+  void _toggle() {
+    setState(() {
+      _expanded = !_expanded;
+      if (_expanded) _future ??= widget.loadDetail(widget.day.date);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final day = widget.day;
     return Container(
       decoration: BoxDecoration(
-        color: _expanded ? Av2Colors.surface : Av2Colors.surface,
+        color: Av2Colors.surface,
         borderRadius: BorderRadius.circular(Av2Spacing.radiusLg),
         border: Border.all(color: Av2Colors.borderStrong),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
         children: [
-          _header(day),
-          if (_expanded) _sessions(day),
+          _header(widget.day),
+          if (_expanded) _expandedBody(),
         ],
       ),
     );
@@ -53,7 +70,7 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
     return Material(
       color: _expanded ? Av2Colors.surfaceMuted : Av2Colors.surface,
       child: InkWell(
-        onTap: () => setState(() => _expanded = !_expanded),
+        onTap: _toggle,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           child: Row(
@@ -68,16 +85,10 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
                 ),
                 const SizedBox(width: 8),
               ],
-              Text(
-                Av2DurationFormatter.hm(day.totalMinutes),
-                style: Av2Text.bodyMedium,
-              ),
+              Text(Av2DurationFormatter.hm(day.totalMinutes), style: Av2Text.bodyMedium),
               const SizedBox(width: 2),
-              Icon(
-                _expanded ? Icons.expand_less : Icons.expand_more,
-                size: 18,
-                color: Av2Colors.textSecondary,
-              ),
+              Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18, color: Av2Colors.textSecondary),
             ],
           ),
         ),
@@ -90,24 +101,63 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          Av2DateFormatter.monthDay(day.date),
-          style: Av2Text.bodyMedium,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        Text(
-          Av2DateFormatter.weekday(day.date),
-          style: Av2Text.caption,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        Text(Av2DateFormatter.monthDay(day.date),
+            style: Av2Text.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(Av2DateFormatter.weekday(day.date),
+            style: Av2Text.caption, maxLines: 1, overflow: TextOverflow.ellipsis),
       ],
     );
   }
 
-  Widget _sessions(AttendanceDay day) {
-    final sessions = day.sessions;
+  Widget _expandedBody() {
+    return FutureBuilder<DayDetail>(
+      future: _future,
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Center(
+              child: SizedBox(
+                width: 20, height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Av2Colors.theme),
+              ),
+            ),
+          );
+        }
+        if (snap.hasError || snap.data == null) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, size: 16, color: Av2Colors.textTertiary),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Couldn’t load details', style: Av2Text.caption)),
+                TextButton(
+                  onPressed: () => setState(
+                      () => _future = widget.loadDetail(widget.day.date)),
+                  child: Text('Retry',
+                      style: Av2Text.caption.copyWith(color: Av2Colors.theme)),
+                ),
+              ],
+            ),
+          );
+        }
+        return _detail(snap.data!);
+      },
+    );
+  }
+
+  Widget _detail(DayDetail d) {
+    final sessions = d.sessions;
+    if (sessions.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        child: Text('No sessions for this day', style: Av2Text.caption),
+      );
+    }
+    final breakByStart = {
+      for (final b in d.breaks) b.start.millisecondsSinceEpoch: b,
+    };
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
       child: Column(
@@ -120,20 +170,21 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
                   ? null
                   : () => widget.onSessionAction!(sessions[i].recordCode),
             ),
-            if (day.breakAfterMinutes(i) > 0)
-              Av2BreakRow(
-                minutes: day.breakAfterMinutes(i),
-                start: sessions[i].signOutAt!,
-                end: sessions[i + 1].signInAt,
-              ),
+            if (i < sessions.length - 1 && sessions[i].signOutAt != null)
+              ...(() {
+                final b = breakByStart[sessions[i].signOutAt!.millisecondsSinceEpoch];
+                return b == null
+                    ? const <Widget>[]
+                    : [Av2BreakRow(minutes: b.minutes, start: b.start, end: b.end)];
+              })(),
           ],
-          if (day.hasBreaks) _totalBreak(day),
+          if (widget.day.hasBreaks) _totalBreak(),
         ],
       ),
     );
   }
 
-  Widget _totalBreak(AttendanceDay day) {
+  Widget _totalBreak() {
     return Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.only(top: 8),
@@ -142,17 +193,15 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.free_breakfast_outlined,
-              size: 15, color: Av2Colors.breakTime),
+          const Icon(Icons.free_breakfast_outlined, size: 15, color: Av2Colors.breakTime),
           const SizedBox(width: 6),
           Expanded(
             child: Text('Total break',
                 style: Av2Text.caption.copyWith(color: Av2Colors.breakTime)),
           ),
           Text(
-            Av2DurationFormatter.hm(day.totalBreakMinutes),
-            style: Av2Text.bodyMedium
-                .copyWith(fontSize: 13, color: Av2Colors.breakTime),
+            Av2DurationFormatter.hm(widget.day.breakMinutes),
+            style: Av2Text.bodyMedium.copyWith(fontSize: 13, color: Av2Colors.breakTime),
           ),
         ],
       ),

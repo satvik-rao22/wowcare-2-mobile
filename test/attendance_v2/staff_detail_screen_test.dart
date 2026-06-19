@@ -18,6 +18,7 @@ Widget _harness() {
           end: profile.rangeEnd,
           isWholeMonth: true,
         ),
+        loadDetail: (date) async => StaffOvertimeFixtures.dayDetail(date),
       ),
     ),
   );

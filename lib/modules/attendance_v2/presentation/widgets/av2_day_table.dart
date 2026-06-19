@@ -5,16 +5,25 @@ import '../../core/theme/av2_text_styles.dart';
 import '../../core/utils/av2_date_formatter.dart';
 import '../../core/utils/av2_duration_formatter.dart';
 import '../../domain/entities/attendance_day.dart';
+import '../../domain/entities/day_detail.dart';
+import '../controllers/day_detail_loader.dart';
 import 'av2_break_row.dart';
 import 'av2_pill.dart';
 import 'av2_session_tile.dart';
 
-/// Desktop/tablet presentation of the same days as a table with
-/// expandable session sub-rows. Column widths use flex so it never overflows.
+/// Desktop/tablet table of days with lazily-loaded session sub-rows. All
+/// numeric columns (incl. Break) come from the overview; only the expanded
+/// session detail is fetched on demand.
 class Av2DayTable extends StatefulWidget {
-  const Av2DayTable({super.key, required this.days, this.onSessionAction});
+  const Av2DayTable({
+    super.key,
+    required this.days,
+    required this.loadDetail,
+    this.onSessionAction,
+  });
 
   final List<AttendanceDay> days;
+  final DayDetailLoader loadDetail;
   final ValueChanged<String>? onSessionAction;
 
   @override
@@ -23,13 +32,18 @@ class Av2DayTable extends StatefulWidget {
 
 class _Av2DayTableState extends State<Av2DayTable> {
   final Set<int> _expanded = {};
+  final Map<int, Future<DayDetail>> _futures = {};
 
-  static const _flexDate = 3;
-  static const _flexReg = 2;
-  static const _flexOt = 2;
-  static const _flexTotal = 2;
-  static const _flexBreak = 2;
-  static const _flexAction = 1;
+  static const _flexDate = 3, _flexReg = 2, _flexOt = 2, _flexTotal = 2,
+      _flexBreak = 2, _flexAction = 1;
+
+  void _toggle(int index, AttendanceDay day) {
+    setState(() {
+      if (_expanded.remove(index)) return;
+      _expanded.add(index);
+      _futures.putIfAbsent(index, () => widget.loadDetail(day.date));
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -50,19 +64,14 @@ class _Av2DayTableState extends State<Av2DayTable> {
   }
 
   Widget _headerRow() {
-    final headerStyle = Av2Text.label.copyWith(
-      fontWeight: FontWeight.w700,
-      color: Av2Colors.textPrimary,
-    );
-    Widget h(String t, int flex,
-            {TextAlign align = TextAlign.left, Color? color}) =>
+    final hStyle = Av2Text.label
+        .copyWith(fontWeight: FontWeight.w700, color: Av2Colors.textPrimary);
+    Widget h(String t, int flex, {TextAlign align = TextAlign.left, Color? color}) =>
         Expanded(
           flex: flex,
-          child: Text(
-            t,
-            style: color == null ? headerStyle : headerStyle.copyWith(color: color),
-            textAlign: align,
-          ),
+          child: Text(t,
+              style: color == null ? hStyle : hStyle.copyWith(color: color),
+              textAlign: align),
         );
     return Container(
       color: Av2Colors.surfaceMuted,
@@ -82,34 +91,30 @@ class _Av2DayTableState extends State<Av2DayTable> {
 
   Widget _dayRow(int index, AttendanceDay day) {
     final isExpanded = _expanded.contains(index);
-    final canExpand = !day.isAbsent && day.sessions.isNotEmpty;
+    final canExpand = !day.isAbsent;
     return Column(
       children: [
         Material(
           color: isExpanded ? Av2Colors.surfaceMuted : Av2Colors.surface,
           child: InkWell(
-            onTap: canExpand
-                ? () => setState(() {
-                      isExpanded ? _expanded.remove(index) : _expanded.add(index);
-                    })
-                : null,
+            onTap: canExpand ? () => _toggle(index, day) : null,
             child: Container(
               decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Av2Colors.border, width: 0.5),
-                ),
+                border: Border(top: BorderSide(color: Av2Colors.border, width: 0.5)),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-              child: day.isAbsent ? _absentCells(day) : _attendedCells(day, canExpand, isExpanded),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: day.isAbsent
+                  ? _absentCells(day)
+                  : _attendedCells(day, isExpanded),
             ),
           ),
         ),
-        if (isExpanded) _sessionSubRows(day),
+        if (isExpanded) _sessionSubRows(index),
       ],
     );
   }
 
-  Widget _attendedCells(AttendanceDay day, bool canExpand, bool isExpanded) {
+  Widget _attendedCells(AttendanceDay day, bool isExpanded) {
     return Row(
       children: [
         Expanded(
@@ -117,27 +122,20 @@ class _Av2DayTableState extends State<Av2DayTable> {
           child: Text(Av2DateFormatter.monthDay(day.date),
               style: Av2Text.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
-        Expanded(
-          flex: _flexReg,
-          child: Text(Av2DurationFormatter.hm(day.regularMinutes), style: Av2Text.body),
-        ),
+        Expanded(flex: _flexReg, child: Text(Av2DurationFormatter.hm(day.regularMinutes), style: Av2Text.body)),
         Expanded(
           flex: _flexOt,
           child: Text(
             day.hasOvertime ? Av2DurationFormatter.hm(day.overtimeMinutes) : '—',
             style: Av2Text.body.copyWith(
-              color: day.hasOvertime ? Av2Colors.overtime : Av2Colors.textTertiary,
-            ),
+                color: day.hasOvertime ? Av2Colors.overtime : Av2Colors.textTertiary),
           ),
         ),
-        Expanded(
-          flex: _flexTotal,
-          child: Text(Av2DurationFormatter.hm(day.totalMinutes), style: Av2Text.bodyMedium),
-        ),
+        Expanded(flex: _flexTotal, child: Text(Av2DurationFormatter.hm(day.totalMinutes), style: Av2Text.bodyMedium)),
         Expanded(
           flex: _flexBreak,
           child: Text(
-            day.hasBreaks ? Av2DurationFormatter.hm(day.totalBreakMinutes) : '—',
+            day.hasBreaks ? Av2DurationFormatter.hm(day.breakMinutes) : '—',
             style: Av2Text.body.copyWith(color: Av2Colors.textSecondary),
           ),
         ),
@@ -145,10 +143,8 @@ class _Av2DayTableState extends State<Av2DayTable> {
           flex: _flexAction,
           child: Align(
             alignment: Alignment.centerRight,
-            child: canExpand
-                ? Icon(isExpanded ? Icons.expand_less : Icons.expand_more,
-                    size: 16, color: Av2Colors.textSecondary)
-                : const SizedBox.shrink(),
+            child: Icon(isExpanded ? Icons.expand_less : Icons.expand_more,
+                size: 16, color: Av2Colors.textSecondary),
           ),
         ),
       ],
@@ -156,7 +152,6 @@ class _Av2DayTableState extends State<Av2DayTable> {
   }
 
   Widget _absentCells(AttendanceDay day) {
-    final markedBy = day.absenceMarkedBy?.trim();
     return Row(
       children: [
         Expanded(
@@ -164,25 +159,11 @@ class _Av2DayTableState extends State<Av2DayTable> {
           child: Text(Av2DateFormatter.monthDay(day.date),
               style: Av2Text.bodyMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
-        Expanded(
+        const Expanded(
           flex: _flexReg + _flexOt + _flexTotal + _flexBreak,
-          child: Row(
-            children: [
-              const Av2Pill(
-                text: 'Absent',
-                fill: Av2Colors.dangerFill,
-                textColor: Av2Colors.danger,
-              ),
-              if (markedBy != null && markedBy.isNotEmpty) ...[
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text('marked by $markedBy',
-                      style: Av2Text.caption,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis),
-                ),
-              ],
-            ],
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Av2Pill(text: 'Absent', fill: Av2Colors.dangerFill, textColor: Av2Colors.danger),
           ),
         ),
         const Expanded(flex: _flexAction, child: SizedBox.shrink()),
@@ -190,29 +171,57 @@ class _Av2DayTableState extends State<Av2DayTable> {
     );
   }
 
-  Widget _sessionSubRows(AttendanceDay day) {
+  Widget _sessionSubRows(int index) {
     return Container(
       width: double.infinity,
       color: Av2Colors.surfaceMuted,
       padding: const EdgeInsets.fromLTRB(28, 0, 14, 8),
-      child: Column(
-        children: [
-          for (var i = 0; i < day.sessions.length; i++) ...[
-            Av2SessionTile(
-              session: day.sessions[i],
-              showDivider: false,
-              onAction: widget.onSessionAction == null
-                  ? null
-                  : () => widget.onSessionAction!(day.sessions[i].recordCode),
-            ),
-            if (day.breakAfterMinutes(i) > 0)
-              Av2BreakRow(
-                minutes: day.breakAfterMinutes(i),
-                start: day.sessions[i].signOutAt!,
-                end: day.sessions[i + 1].signInAt,
+      child: FutureBuilder<DayDetail>(
+        future: _futures[index],
+        builder: (context, snap) {
+          if (snap.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 14),
+              child: Center(
+                child: SizedBox(
+                  width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Av2Colors.theme),
+                ),
               ),
-          ],
-        ],
+            );
+          }
+          final d = snap.data;
+          if (snap.hasError || d == null || d.sessions.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Text('No session details', style: Av2Text.caption),
+            );
+          }
+          final breakByStart = {
+            for (final b in d.breaks) b.start.millisecondsSinceEpoch: b,
+          };
+          final sessions = d.sessions;
+          return Column(
+            children: [
+              for (var i = 0; i < sessions.length; i++) ...[
+                Av2SessionTile(
+                  session: sessions[i],
+                  showDivider: false,
+                  onAction: widget.onSessionAction == null
+                      ? null
+                      : () => widget.onSessionAction!(sessions[i].recordCode),
+                ),
+                if (i < sessions.length - 1 && sessions[i].signOutAt != null)
+                  ...(() {
+                    final b = breakByStart[sessions[i].signOutAt!.millisecondsSinceEpoch];
+                    return b == null
+                        ? const <Widget>[]
+                        : [Av2BreakRow(minutes: b.minutes, start: b.start, end: b.end)];
+                  })(),
+              ],
+            ],
+          );
+        },
       ),
     );
   }

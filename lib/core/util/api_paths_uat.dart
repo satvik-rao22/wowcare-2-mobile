@@ -60,6 +60,7 @@ class ApiPathsUat {
       'staff-attendance',
       'staff-absence-records',
       'staff-attendance-records',
+      'staff-overtime-records',
     },
     ApiMicroservices.classroom: {
       'classroom',
@@ -145,6 +146,7 @@ class ApiPathsUat {
       case 'staff-attendance':
       case 'staff-absence-records':
       case 'staff-attendance-records':
+      case 'staff-overtime-records':
         return ApiMicroservices.attendance;
       case 'classroom':
       case 'individual-movements':

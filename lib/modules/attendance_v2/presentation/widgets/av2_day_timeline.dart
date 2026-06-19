@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../domain/entities/attendance_day.dart';
+import '../controllers/day_detail_loader.dart';
 import 'av2_absent_day_card.dart';
 import 'av2_attended_day_card.dart';
 import 'av2_empty_state.dart';
@@ -11,15 +12,15 @@ class Av2DayTimeline extends StatelessWidget {
   const Av2DayTimeline({
     super.key,
     required this.days,
+    required this.loadDetail,
     this.emptyMessage = 'No days match this filter',
     this.onSessionAction,
-    this.onAbsentAction,
   });
 
   final List<AttendanceDay> days;
+  final DayDetailLoader loadDetail;
   final String emptyMessage;
   final ValueChanged<String>? onSessionAction;
-  final ValueChanged<DateTime>? onAbsentAction;
 
   @override
   Widget build(BuildContext context) {
@@ -42,10 +43,11 @@ class Av2DayTimeline extends StatelessWidget {
 
   Widget _card(AttendanceDay day, bool expand) {
     if (day.isAbsent) {
-      return Av2AbsentDayCard(day: day, onAction: onAbsentAction);
+      return Av2AbsentDayCard(day: day);
     }
     return Av2AttendedDayCard(
       day: day,
+      loadDetail: loadDetail,
       initiallyExpanded: expand,
       onSessionAction: onSessionAction,
     );

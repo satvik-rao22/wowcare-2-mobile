@@ -4,6 +4,7 @@ import '../../core/theme/av2_spacing.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../controllers/av2_day_filter.dart';
 import '../controllers/av2_period.dart';
+import '../controllers/day_detail_loader.dart';
 import '../widgets/av2_action_sheet.dart';
 import '../widgets/av2_day_table.dart';
 import '../widgets/av2_day_timeline.dart';
@@ -12,20 +13,21 @@ import '../widgets/av2_hero_card.dart';
 import '../widgets/av2_identity_row.dart';
 import '../widgets/av2_period_sheet.dart';
 
-/// Pure presentation of a loaded [StaffOvertimeProfile]. No data fetching — the
-/// parent supplies the profile and the selected period, and is notified when
-/// the user picks a new period. Responsive: card timeline on mobile/tablet,
-/// data table on desktop.
+/// Pure presentation of a loaded [StaffOvertimeProfile]. Day sessions load
+/// lazily through [loadDetail] when a row expands. Responsive: card timeline on
+/// mobile/tablet, data table on desktop.
 class StaffDetailView extends StatefulWidget {
   const StaffDetailView({
     super.key,
     required this.profile,
     required this.period,
+    required this.loadDetail,
     this.onPeriodChanged,
   });
 
   final StaffOvertimeProfile profile;
   final Av2Period period;
+  final DayDetailLoader loadDetail;
   final ValueChanged<Av2Period>? onPeriodChanged;
 
   @override
@@ -44,20 +46,14 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     if (picked != null) widget.onPeriodChanged?.call(picked);
   }
 
-  Future<void> _editRecord(String recordCode, {bool isAbsence = false}) async {
-    final action = await showAv2ActionSheet(
-      context,
-      title: isAbsence ? 'Edit absence' : 'Edit attendance',
-    );
+  Future<void> _editSession(String recordCode) async {
+    final action = await showAv2ActionSheet(context, title: 'Edit attendance');
     if (action == null || !mounted) return;
     final verb = action == Av2RecordAction.edit ? 'Edit' : 'Delete';
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('$verb · $recordCode')),
     );
   }
-
-  String _dateKey(DateTime d) =>
-      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
   @override
   Widget build(BuildContext context) {
@@ -94,10 +90,9 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               const SizedBox(height: Av2Spacing.sm),
               Av2DayTimeline(
                 days: filtered,
+                loadDetail: widget.loadDetail,
                 emptyMessage: _emptyMessage(),
-                onSessionAction: (code) => _editRecord(code),
-                onAbsentAction: (date) =>
-                    _editRecord(_dateKey(date), isAbsence: true),
+                onSessionAction: _editSession,
               ),
             ],
           ),
@@ -125,11 +120,16 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               Av2FilterChips(selected: _filter, onSelected: _setFilter),
               const SizedBox(height: Av2Spacing.sm),
               if (filtered.isEmpty)
-                Av2DayTimeline(days: filtered, emptyMessage: _emptyMessage())
+                Av2DayTimeline(
+                  days: filtered,
+                  loadDetail: widget.loadDetail,
+                  emptyMessage: _emptyMessage(),
+                )
               else
                 Av2DayTable(
                   days: filtered,
-                  onSessionAction: (code) => _editRecord(code),
+                  loadDetail: widget.loadDetail,
+                  onSessionAction: _editSession,
                 ),
             ],
           ),

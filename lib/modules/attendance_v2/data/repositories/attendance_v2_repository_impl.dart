@@ -1,37 +1,35 @@
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 
 import '../../core/config/av2_config.dart';
+import '../../domain/entities/day_detail.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../../domain/repositories/attendance_v2_repository.dart';
-import '../mappers/staff_overtime_mapper.dart';
+import '../datasources/staff_overtime_remote_datasource.dart';
+import '../mappers/day_detail_mapper.dart';
+import '../mappers/overview_mapper.dart';
 
-/// Reuses the host app's [AttendanceRepository] (and therefore its Dio client,
-/// auth + logging interceptors) to fetch the raw profile, then maps it into
-/// module entities. No new networking is introduced.
+/// Overview comes from the new overtime endpoint (own datasource, host Dio).
+/// Day detail reuses the host's [AttendanceRepository] (existing
+/// `/staff-attendance/profile` GET) for a single day — no new networking there.
 class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
-  AttendanceV2RepositoryImpl(this._source);
+  AttendanceV2RepositoryImpl(this._overviewSource, this._attendanceSource);
 
-  final AttendanceRepository _source;
+  final StaffOvertimeRemoteDataSource _overviewSource;
+  final AttendanceRepository _attendanceSource;
 
   @override
-  Future<StaffOvertimeProfile> getStaffProfile({
+  Future<StaffOvertimeProfile> getOverview({
     required String staffCode,
     String staffName = '',
     required DateTime from,
     required DateTime to,
   }) async {
-    final body = await _source.fetchStaffAttendanceProfile(
-      queryParameters: <String, dynamic>{
-        'staffCode': staffCode,
-        'fromAttendanceDate': _fmt(from),
-        'toAttendanceDate': _fmt(to),
-        'page': 0,
-        'size': Av2Config.profilePageSize,
-        'sort': <String>['attendanceDate,desc'],
-      },
+    final body = await _overviewSource.getOverview(
+      staffCode: staffCode,
+      fromDate: _fmt(from),
+      toDate: _fmt(to),
     );
-
-    return StaffOvertimeMapper.fromResponse(
+    return OverviewMapper.fromResponse(
       body,
       fallbackStaffCode: staffCode,
       fallbackStaffName: staffName,
@@ -40,8 +38,25 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
     );
   }
 
+  @override
+  Future<DayDetail> getDayDetail({
+    required String staffCode,
+    required DateTime date,
+  }) async {
+    final day = _fmt(date);
+    final body = await _attendanceSource.fetchStaffAttendanceProfile(
+      queryParameters: <String, dynamic>{
+        'staffCode': staffCode,
+        'fromAttendanceDate': day,
+        'toAttendanceDate': day,
+        'page': 0,
+        'size': Av2Config.profilePageSize,
+      },
+    );
+    return DayDetailMapper.fromResponse(body, date);
+  }
+
   String _fmt(DateTime d) =>
       '${d.year}-${_two(d.month)}-${_two(d.day)}';
-
   String _two(int n) => n.toString().padLeft(2, '0');
 }

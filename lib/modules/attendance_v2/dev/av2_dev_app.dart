@@ -49,6 +49,7 @@ class _DevHostState extends State<_DevHost> {
       body: StaffDetailView(
         profile: _profile,
         period: _period,
+        loadDetail: (date) async => StaffOvertimeFixtures.dayDetail(date),
         onPeriodChanged: (p) => setState(() => _period = p),
       ),
     );

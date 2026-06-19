@@ -79,6 +79,7 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
             return StaffDetailView(
               profile: state.profile!,
               period: _period,
+              loadDetail: _cubit.dayDetail,
               onPeriodChanged: _onPeriodChanged,
             );
           }
