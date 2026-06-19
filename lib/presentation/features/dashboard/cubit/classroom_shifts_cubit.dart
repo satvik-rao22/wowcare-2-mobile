@@ -126,10 +126,12 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
       final resolver = SchoolHoursResolver.fromDays(scheduleDays.cast());
       final schoolHours = resolver.hoursFor(date);
 
-      final startTime =
-          schoolHours?.startTimeOfDay ?? const TimeOfDay(hour: 6, minute: 0);
-      final endTime =
-          schoolHours?.endTimeOfDay ?? const TimeOfDay(hour: 22, minute: 0);
+      final forecastStart = schoolHours?.scheduleMonitorStartTimeOfDay ??
+          schoolHours?.startTimeOfDay ??
+          const TimeOfDay(hour: 6, minute: 0);
+      final forecastEnd = schoolHours?.scheduleMonitorEndTimeOfDay ??
+          schoolHours?.endTimeOfDay ??
+          const TimeOfDay(hour: 22, minute: 0);
       final blockMinutes = schoolHours?.durationMinutes ?? 30;
 
       // ── Phase 3: forecast + staff shifts (parallel) ───────────────────────
@@ -140,8 +142,8 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
           schoolCode: schoolCode,
           organizationCode: organizationCode,
           date: date,
-          startTime: startTime,
-          endTime: endTime,
+          startTime: forecastStart,
+          endTime: forecastEnd,
           durationMinutes: blockMinutes,
           classroomCodes: codes,
         ),

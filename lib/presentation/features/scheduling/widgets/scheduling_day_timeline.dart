@@ -28,7 +28,97 @@ double get kDayTimelineTrackHeight =>
     kDayTimelineBlockSize + kDayTimelineSlotVPad * 2 + 4 + 14;
 
 const int _kDefaultSlotMinutes = 30;
-const int _kDefaultDayStartMinutes = 7 * 60;
+
+/// Layout metrics for one day timeline row (blocks + hour axis).
+class DayTimelineMetrics {
+  const DayTimelineMetrics({
+    required this.stride,
+    required this.trackWidthPx,
+    required this.pixelsPerMinute,
+    required this.endLabelReservePx,
+  });
+
+  final double stride;
+  final double trackWidthPx;
+  final double pixelsPerMinute;
+  final double endLabelReservePx;
+}
+
+double _maxHourLabelWidth(BuildContext context, List<int> ticks) {
+  var maxWidth = 0.0;
+  for (final tick in ticks) {
+    final width = _measureHourLabelWidth(
+      context,
+      _formatHourAxisLabel(tick),
+    );
+    if (width > maxWidth) maxWidth = width;
+  }
+  return maxWidth;
+}
+
+final TextStyle _kHourLabelStyle = TextStyle(
+  fontFamily: 'Manrope',
+  fontSize: 10,
+  fontWeight: FontWeight.w500,
+  color: AppColors.primaryColor.withValues(alpha: 0.55),
+  height: 1.2,
+);
+
+double _measureHourLabelWidth(BuildContext context, String text) {
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: _kHourLabelStyle),
+    textDirection: Directionality.of(context),
+    maxLines: 1,
+  )..layout();
+  return painter.width;
+}
+
+/// Spreads slots wide enough that hourly labels never overlap; blocks stay square.
+DayTimelineMetrics _computeDayTimelineMetrics({
+  required BuildContext context,
+  required int anchorMinutes,
+  required int axisEndMinutes,
+  required int slotMinutes,
+  required int layoutSlotCount,
+}) {
+  final slot = slotMinutes > 0 ? slotMinutes : _kDefaultSlotMinutes;
+  final ticks = _buildSchoolHourTicks(
+    startMinutes: anchorMinutes,
+    endMinutes: axisEndMinutes,
+  );
+  final timeSpanMinutes = (axisEndMinutes - anchorMinutes).clamp(1, 24 * 60);
+  final maxLabelWidth = ticks.isEmpty
+      ? 40.0
+      : _maxHourLabelWidth(context, ticks);
+
+  // One hour on the axis must fit the widest label plus a readable gap.
+  final minPixelsPerMinute = (maxLabelWidth + _kHourLabelMinGap) / 60.0;
+  final minStride = slot * minPixelsPerMinute;
+  final baseStride = dayTimelineSlotStrideWidth();
+  final stride = minStride > baseStride ? minStride : baseStride;
+  final pixelsPerMinute = stride / slot;
+
+  final gridWidthPx = layoutSlotCount * stride;
+  final timeWidthPx = timeSpanMinutes * pixelsPerMinute;
+  final contentWidthPx =
+      gridWidthPx > timeWidthPx ? gridWidthPx : timeWidthPx;
+
+  final lastTick = ticks.isEmpty ? axisEndMinutes : ticks.last;
+  final lastLabelWidth = _measureHourLabelWidth(
+    context,
+    _formatHourAxisLabel(lastTick),
+  );
+  final endLabelReservePx = lastLabelWidth > kDayTimelineEndLabelReservePx
+      ? lastLabelWidth
+      : kDayTimelineEndLabelReservePx;
+
+  return DayTimelineMetrics(
+    stride: stride,
+    trackWidthPx: contentWidthPx + endLabelReservePx,
+    pixelsPerMinute: pixelsPerMinute,
+    endLabelReservePx: endLabelReservePx,
+  );
+}
 
 /// Legend for daily view: classroom ratio colours only (work/break shown above).
 class SchedulingDayLegend extends StatelessWidget {
@@ -123,19 +213,20 @@ class SchedulingDayTimelineTrack extends StatelessWidget {
     }
 
     final slot = slotMinutes > 0 ? slotMinutes : _kDefaultSlotMinutes;
-    final anchor =
-        dayStartMinutes > 0 ? dayStartMinutes : _kDefaultDayStartMinutes;
+    final anchor = dayStartMinutes;
     final axisEnd = dayEndMinutes > anchor
         ? dayEndMinutes
         : anchor + slotCount * slot;
-    final stride = dayTimelineSlotStrideWidth();
-    // Slot grid uses ceil(minutes/slot); track width must match that grid, not
-    // the exact minute span, or the blocks row overflows by up to 1 stride unit.
-    final layoutSlotCount = slotCount > blocks.length ? slotCount : blocks.length;
-    final gridMinutes = layoutSlotCount * slot;
-    final gridWidthPx = layoutSlotCount * stride;
-    final endLabelReserve = kDayTimelineEndLabelReservePx;
-    final trackWidthPx = gridWidthPx + endLabelReserve;
+    final layoutSlotCount =
+        slotCount > blocks.length ? slotCount : blocks.length;
+    final metrics = _computeDayTimelineMetrics(
+      context: context,
+      anchorMinutes: anchor,
+      axisEndMinutes: axisEnd,
+      slotMinutes: slot,
+      layoutSlotCount: layoutSlotCount,
+    );
+    final stride = metrics.stride;
     final rowBlocks = List<Widget>.from(blocks);
     for (var i = blocks.length; i < layoutSlotCount; i++) {
       rowBlocks.add(const _EmptyTimelineSlot());
@@ -148,7 +239,7 @@ class SchedulingDayTimelineTrack extends StatelessWidget {
         physics: const ClampingScrollPhysics(),
         clipBehavior: Clip.hardEdge,
         child: SizedBox(
-          width: trackWidthPx,
+          width: metrics.trackWidthPx,
           height: kDayTimelineTrackHeight,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -157,17 +248,20 @@ class SchedulingDayTimelineTrack extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ...rowBlocks,
-                  SizedBox(width: endLabelReserve),
+                  for (final block in rowBlocks)
+                    SizedBox(
+                      width: stride,
+                      child: Center(child: block),
+                    ),
+                  SizedBox(width: metrics.endLabelReservePx),
                 ],
               ),
               const SizedBox(height: 4),
               _DayTimelineHourAxis(
                 anchorMinutes: anchor,
                 axisEndMinutes: axisEnd,
-                gridMinutes: gridMinutes,
-                gridWidthPx: gridWidthPx,
-                endLabelReservePx: endLabelReserve,
+                pixelsPerMinute: metrics.pixelsPerMinute,
+                trackWidthPx: metrics.trackWidthPx,
               ),
             ],
           ),
@@ -177,98 +271,19 @@ class SchedulingDayTimelineTrack extends StatelessWidget {
   }
 }
 
-/// Hour labels at every school tick; positions are nudged so labels never overlap.
+/// Hour labels placed at true time offsets — track scrolls when the day is long.
 class _DayTimelineHourAxis extends StatelessWidget {
   const _DayTimelineHourAxis({
     required this.anchorMinutes,
     required this.axisEndMinutes,
-    required this.gridMinutes,
-    required this.gridWidthPx,
-    required this.endLabelReservePx,
+    required this.pixelsPerMinute,
+    required this.trackWidthPx,
   });
 
   final int anchorMinutes;
   final int axisEndMinutes;
-  final int gridMinutes;
-  final double gridWidthPx;
-  final double endLabelReservePx;
-
-  static final TextStyle _labelStyle = TextStyle(
-    fontFamily: 'Manrope',
-    fontSize: 10,
-    fontWeight: FontWeight.w500,
-    color: AppColors.primaryColor.withValues(alpha: 0.55),
-    height: 1.2,
-  );
-
-  static double _measureLabelWidth(BuildContext context, String text) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: _labelStyle),
-      textDirection: Directionality.of(context),
-      maxLines: 1,
-    )..layout();
-    return painter.width;
-  }
-
-  /// Places each tick label at its proportional offset, pushing right when needed
-  /// so full strings (e.g. "12:01 AM" next to "1:00 AM") stay readable.
-  static List<({int tickMinutes, double left})> _layoutHourLabels({
-    required BuildContext context,
-    required List<int> ticks,
-    required int anchorMinutes,
-    required int spanMinutes,
-    required double gridWidthPx,
-    required double trackWidthPx,
-  }) {
-    if (ticks.isEmpty) return const [];
-
-    final span = spanMinutes > 0 ? spanMinutes : 1;
-    final labels = <({int tickMinutes, double ideal, double width})>[];
-    for (final tick in ticks) {
-      final text = _formatHourAxisLabel(tick);
-      labels.add((
-        tickMinutes: tick,
-        ideal: (tick - anchorMinutes) / span * gridWidthPx,
-        width: _measureLabelWidth(context, text),
-      ));
-    }
-
-    final lefts = List<double>.filled(labels.length, 0);
-    lefts[0] = 0;
-
-    for (var i = 1; i < labels.length; i++) {
-      final prevRight = lefts[i - 1] + labels[i - 1].width;
-      lefts[i] = labels[i].ideal > prevRight + _kHourLabelMinGap
-          ? labels[i].ideal
-          : prevRight + _kHourLabelMinGap;
-    }
-
-    final last = labels.length - 1;
-    if (last > 0) {
-      final maxLeft = trackWidthPx - labels[last].width;
-      if (lefts[last] > maxLeft) {
-        lefts[last] = maxLeft;
-      }
-      for (var i = last - 1; i >= 1; i--) {
-        final maxLeftForI =
-            lefts[i + 1] - labels[i].width - _kHourLabelMinGap;
-        if (lefts[i] > maxLeftForI) {
-          lefts[i] = maxLeftForI.toDouble();
-        }
-        final minLeftForI = i == 0
-            ? 0.0
-            : lefts[i - 1] + labels[i - 1].width + _kHourLabelMinGap;
-        if (lefts[i] < minLeftForI) {
-          lefts[i] = minLeftForI;
-        }
-      }
-    }
-
-    return [
-      for (var i = 0; i < labels.length; i++)
-        (tickMinutes: labels[i].tickMinutes, left: lefts[i]),
-    ];
-  }
+  final double pixelsPerMinute;
+  final double trackWidthPx;
 
   @override
   Widget build(BuildContext context) {
@@ -276,30 +291,20 @@ class _DayTimelineHourAxis extends StatelessWidget {
       startMinutes: anchorMinutes,
       endMinutes: axisEndMinutes,
     );
-    final span = gridMinutes > 0 ? gridMinutes : 1;
-    final trackWidth = gridWidthPx + endLabelReservePx;
-    final placements = _layoutHourLabels(
-      context: context,
-      ticks: ticks,
-      anchorMinutes: anchorMinutes,
-      spanMinutes: span,
-      gridWidthPx: gridWidthPx,
-      trackWidthPx: trackWidth,
-    );
 
     return SizedBox(
-      width: trackWidth,
+      width: trackWidthPx,
       height: 14,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          for (final placement in placements)
+          for (final tick in ticks)
             Positioned(
-              left: placement.left,
+              left: (tick - anchorMinutes) * pixelsPerMinute,
               top: 0,
               child: Text(
-                _formatHourAxisLabel(placement.tickMinutes),
-                style: _labelStyle,
+                _formatHourAxisLabel(tick),
+                style: _kHourLabelStyle,
                 maxLines: 1,
                 softWrap: false,
               ),
@@ -322,7 +327,21 @@ List<int> _buildSchoolHourTicks({
     if (hourMark > startMinutes) ticks.add(hourMark);
     hourMark += 60;
   }
-  if (ticks.last != endMinutes) ticks.add(endMinutes);
+
+  if (ticks.last != endMinutes) {
+    // When school closes off the hour (e.g. 11:04 PM), drop the preceding hour
+    // tick (11:00 PM) so only the configured end time is shown at the close.
+    if (endMinutes % 60 != 0) {
+      final endHourFloor = (endMinutes ~/ 60) * 60;
+      if (endHourFloor > startMinutes &&
+          ticks.isNotEmpty &&
+          ticks.last == endHourFloor) {
+        ticks.removeLast();
+      }
+    }
+    ticks.add(endMinutes);
+  }
+
   return ticks;
 }
 
@@ -730,8 +749,7 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final slot = slotMinutes > 0 ? slotMinutes : _kDefaultSlotMinutes;
-    final anchor =
-        dayStartMinutes > 0 ? dayStartMinutes : _kDefaultDayStartMinutes;
+    final anchor = dayStartMinutes;
     final startMin = anchor + slotIndex * slot;
     final slotStart = TimeOfDay(hour: startMin ~/ 60, minute: startMin % 60);
     final endMin = startMin + slot;
@@ -873,8 +891,7 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final slot = slotMinutes > 0 ? slotMinutes : _kDefaultSlotMinutes;
-    final anchor =
-        dayStartMinutes > 0 ? dayStartMinutes : _kDefaultDayStartMinutes;
+    final anchor = dayStartMinutes;
     final startMin = anchor + slotIndex * slot;
     final fallbackStart =
         TimeOfDay(hour: startMin ~/ 60, minute: startMin % 60);

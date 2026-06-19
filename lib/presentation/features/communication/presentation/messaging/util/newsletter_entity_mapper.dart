@@ -65,6 +65,37 @@ Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
     sentAt: entity.updatedAt ?? entity.createdAt,
     createdAt: entity.createdAt,
     recipientCount: entity.recipientCount,
+    recipientNames: entity.recipients
+        .map((recipient) {
+          final name = recipient.userName.trim();
+          if (name.isNotEmpty) return name;
+          return recipient.userCode.trim();
+        })
+        .where((String name) => name.isNotEmpty)
+        .toSet()
+        .toList()
+      ..sort(
+        (String a, String b) => a.toLowerCase().compareTo(b.toLowerCase()),
+      ),
+    recipients: entity.recipients
+        .map((recipient) {
+          final name = recipient.userName.trim();
+          final code = recipient.userCode.trim();
+          final displayName = name.isNotEmpty ? name : code;
+          if (displayName.isEmpty) return null;
+          return NewsletterRecipientSummary(
+            displayName: displayName,
+            userCode: code,
+          );
+        })
+        .whereType<NewsletterRecipientSummary>()
+        .toList()
+      ..sort(
+        (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
+            a.displayName.toLowerCase().compareTo(
+                  b.displayName.toLowerCase(),
+                ),
+      ),
     classroomCodes: const <String>[],
     createdByName: entity.createdByName,
     bodyHtml: buildNewsletterBodyHtml(

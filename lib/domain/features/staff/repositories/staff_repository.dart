@@ -173,8 +173,8 @@ abstract class StaffRepository {
     required List<Map<String, dynamic>> breakSchedules,
   });
 
-  /// School regular schedules (operating hours per weekday) for validation on
-  /// the staff schedule editor.
+  /// School operating hours per weekday from school settings
+  /// (`GET /api/v1/organization/schools/{schoolCode}`).
   Future<List<SchoolRegularScheduleDay>> getSchoolRegularSchedules({
     required String schoolCode,
   });
