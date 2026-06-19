@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/add_credit_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
@@ -17,9 +18,9 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
-import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
@@ -178,6 +179,20 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
               ),
             ),
           );
+        },
+        onSelectAddCredit: () {
+          Navigator.of(ctx).maybePop();
+          Navigator.of(context).push<bool>(
+            MaterialPageRoute<bool>(
+              builder: (_) => AddCreditScreen(
+                ownerType: widget.ownerType,
+                ownerCode: widget.ownerCode,
+                familyName: _familyDisplayName,
+              ),
+            ),
+          ).then((added) {
+            if (added == true) _cubit.refresh();
+          });
         },
       ),
     );
@@ -361,95 +376,13 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              // Date range selector
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: AppColors.primaryColor.withOpacity(0.1),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Select Date Range',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.primaryColor.withOpacity(0.5),
-                              fontWeight: FontWeight.w400,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: GestureDetector(
-                        onTap: () async {
-                          try {
-                            final start = _startDate ??
-                                DateTime.now().subtract(const Duration(days: 7));
-                            final end = _endDate ?? DateTime.now();
-                            final result = await showDialog<Map<String, dynamic>>(
-                              context: context,
-                              builder: (context) => CalendarDialog(
-                                isRangePicker: true,
-                                isTimePicker: false,
-                                initialDate: start,
-                                initialEndDate: end.isAfter(start) ? end : null,
-                              ),
-                            );
-                            if (result != null) {
-                              await _cubit.applyDateRange(
-                                result['startDate'] as DateTime?,
-                                result['endDate'] as DateTime?,
-                              );
-                            }
-                          } catch (_) {}
-                        },
-                        child: Container(
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: const Color(0x1AB1AFE9),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 10),
-                          alignment: Alignment.centerLeft,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  (_startDate != null && _endDate != null)
-                                      ? '${DateFormat('MMM d, yyyy').format(_startDate!)} - ${DateFormat('MMM d, yyyy').format(_endDate!)}'
-                                      : 'Select Date Range',
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.billingTextColor,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const Icon(
-                                Icons.calendar_today_outlined,
-                                color: Color(0xFF573353),
-                                size: 20,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              // Date range selector (shared white-card UI with the SVG calendar
+              // icon, matching the other billing screens).
+              AccountingDateRangeSelector(
+                initialStartDate: _startDate,
+                initialEndDate: _endDate,
+                onRangeChanged: (start, end) =>
+                    _cubit.applyDateRange(start, end),
               ),
               const SizedBox(height: 12),
               // Compact family info box

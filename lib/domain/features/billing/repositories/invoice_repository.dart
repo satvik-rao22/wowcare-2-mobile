@@ -40,6 +40,7 @@ abstract class InvoiceRepository {
   });
   Future<InvoicePaymentResultEntity> createPayment(InvoicePaymentParams params);
   Future<InvoicePaymentResultEntity> createRefund(InvoicePaymentParams params);
+  Future<InvoicePaymentResultEntity> createCredit(CreateCreditParams params);
   Future<InvoiceResultEntity> updateInvoice({
     required String code,
     required UpdateInvoiceParams params,

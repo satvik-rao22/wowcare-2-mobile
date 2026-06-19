@@ -11,10 +11,14 @@ class TransactionActionDialog extends StatelessWidget {
     super.key,
     this.onSelectCreateInvoice,
     this.onSelectReceivePayment,
+    this.onSelectAddCredit,
   });
 
   final VoidCallback? onSelectCreateInvoice;
   final VoidCallback? onSelectReceivePayment;
+
+  /// Optional third action (shown only when provided) — adds account credit.
+  final VoidCallback? onSelectAddCredit;
 
   @override
   Widget build(BuildContext context) {
@@ -90,6 +94,22 @@ class TransactionActionDialog extends StatelessWidget {
                   ),
                 ],
               ),
+              if (onSelectAddCredit != null) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: BillingActionCard(
+                        title: 'Add\nCredit',
+                        subtitle:
+                            'Add account credit for this family',
+                        icon: Icons.account_balance_wallet_outlined,
+                        onTap: onSelectAddCredit,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

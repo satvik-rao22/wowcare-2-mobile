@@ -135,6 +135,21 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   }
 
   @override
+  Future<InvoicePaymentResultEntity> createCredit(
+      CreateCreditParams params) async {
+    final m = await _dataSource.createCredit(CreateCreditRequestModel(
+      schoolCode: params.schoolCode,
+      amount: params.amount,
+      ownerType: params.ownerType,
+      ownerCode: params.ownerCode,
+      studentCode: params.studentCode,
+      reason: params.reason,
+      description: params.description,
+    ));
+    return _mapPaymentResult(m);
+  }
+
+  @override
   Future<void> deleteInvoice(String code) => _dataSource.deleteInvoice(code);
 
   @override
