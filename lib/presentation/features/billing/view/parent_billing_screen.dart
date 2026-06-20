@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/billing/widgets/parent_transaction
 import 'package:wowcare/presentation/features/billing/widgets/sibling_cards_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_tab.dart';
 import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen.dart';
 
 /// Parent Billing UI (ported layout from legacy `lib copy/.../billing_screen.dart`).
 ///
@@ -94,11 +95,9 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       isAutoPayLoading: state.isAutoPayLoading,
       onPayNow: () async {
         if (state.isPaymentLoading) return;
-        await _cubit.payNow();
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pay Now (parent)'),
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => const PayNowAmountScreen(),
           ),
         );
       },

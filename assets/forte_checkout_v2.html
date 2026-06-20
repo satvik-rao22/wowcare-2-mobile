@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Checkout</title>
+
+    <!-- Sandbox (test) environment -->
+    <script type="text/javascript" src="https://sandbox.forte.net/checkout/v2/js"></script>
+    <!-- Production Environment (Live) -->
+    <!-- <script type="text/javascript" src="https://forte.net"></script> -->
+
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: 'Manrope', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+          Roboto, sans-serif;
+        background: #f6f7fb;
+        color: #573353;
+        padding: 16px;
+      }
+      .note {
+        font-size: 13px;
+        color: #8a8699;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Forte Checkout v2 host page.
+
+      The authorize step currently has no backend API, so the app shows its own
+      mocked authorize screen instead of launching this widget. When the API is
+      ready, initialize the Forte Checkout v2 button here with the server-signed
+      parameters and post the result back via:
+        window.flutter_inappwebview.callHandler('checkoutCallback', result);
+    -->
+    <div id="forte-checkout"></div>
+    <p class="note">Forte Checkout v2 is loaded and ready to be wired.</p>
+
+    <script>
+      window.initializeCheckout = function (payloadJson) {
+        try {
+          const payload =
+            typeof payloadJson === 'string'
+              ? JSON.parse(payloadJson)
+              : payloadJson;
+          console.log('[Checkout] init payload:', payload);
+          // TODO: build the Forte Checkout v2 button using `payload` (amount,
+          // api_login_id, signed fields, callback) once the authorize API exists.
+        } catch (err) {
+          console.error('Failed to initialize checkout', err);
+        }
+      };
+    </script>
+  </body>
+</html>

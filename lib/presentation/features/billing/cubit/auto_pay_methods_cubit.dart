@@ -12,7 +12,9 @@ import 'package:wowcare/domain/features/billing/usecases/set_autopay_status_usec
 import 'package:wowcare/domain/features/billing/usecases/get_payment_methods_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_school_forte_config_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/set_primary_payment_method_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/set_autopay_method_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/delete_payment_method_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/update_payment_method_usecase.dart';
 
 part 'auto_pay_methods_state.dart';
 
@@ -31,7 +33,9 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     required GetPaymentMethodsUseCase getMethods,
     required AddPaymentMethodUseCase addMethod,
     required SetPrimaryPaymentMethodUseCase setPrimary,
+    required SetAutopayMethodUseCase setAutopay,
     required DeletePaymentMethodUseCase deleteMethod,
+    required UpdatePaymentMethodUseCase updateMethod,
     required StorageService storage,
   })  : _getForteConfig = getForteConfig,
         _getStatus = getStatus,
@@ -39,7 +43,9 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         _getMethods = getMethods,
         _addMethod = addMethod,
         _setPrimary = setPrimary,
+        _setAutopay = setAutopay,
         _deleteMethod = deleteMethod,
+        _updateMethod = updateMethod,
         _storage = storage,
         super(const AutoPayMethodsState());
 
@@ -49,7 +55,9 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   final GetPaymentMethodsUseCase _getMethods;
   final AddPaymentMethodUseCase _addMethod;
   final SetPrimaryPaymentMethodUseCase _setPrimary;
+  final SetAutopayMethodUseCase _setAutopay;
   final DeletePaymentMethodUseCase _deleteMethod;
+  final UpdatePaymentMethodUseCase _updateMethod;
   final StorageService _storage;
 
   String _organizationCode = '';
@@ -92,15 +100,19 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       }
 
       if (isClosed) return;
-      final primaryCode = _primaryCodeOf(methods);
+      final selectedCode = _autopayCodeOf(methods) ?? _primaryCodeOf(methods);
       final enabled = status?.autopayEnabled ?? false;
       emit(state.copyWith(
         isLoading: false,
         apiLoginId: config?.apiLoginId ?? '',
+        maxMethods: (config?.maxPaymentMethods != null &&
+                config!.maxPaymentMethods! > 0)
+            ? config.maxPaymentMethods!
+            : state.maxMethods,
         autopayEnabled: enabled,
         initialAutopayEnabled: enabled,
         methods: methods,
-        selectedMethodCode: () => primaryCode,
+        selectedMethodCode: () => selectedCode,
       ));
     } catch (e) {
       if (isClosed) return;
@@ -149,12 +161,25 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     );
   }
 
+  /// Splits a full "ACCOUNT HOLDER" name into (first, rest-as-last).
+  (String, String) _splitName(String? full) {
+    final n = (full ?? '').trim();
+    if (n.isEmpty) return ('', '');
+    final parts = n.split(RegExp(r'\s+'));
+    if (parts.length == 1) return (parts.first, parts.first);
+    return (parts.first, parts.sublist(1).join(' '));
+  }
+
   /// Adds a payment method from the Forte one-time token returned by the
-  /// webview, then refreshes the list. Returns true on success.
+  /// webview, then refreshes the list. [accountHolder] (uppercase name from the
+  /// form) and the [makePrimary]/[makeAutopay] toggles are sent to the backend.
   Future<bool> addPaymentMethodFromToken({
     required String oneTimeToken,
     required PaymentMethodType methodType,
+    String? accountHolder,
     String? label,
+    bool makePrimary = false,
+    bool makeAutopay = false,
   }) async {
     if (state.isSaving) return false;
     if (!hasScope) {
@@ -165,7 +190,11 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     }
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
-      final (firstName, lastName) = await _guardianNames();
+      var (firstName, lastName) = _splitName(accountHolder);
+      if (firstName.isEmpty) {
+        // Fall back to the stored guardian name when the form left it blank.
+        (firstName, lastName) = await _guardianNames();
+      }
 
       await _addMethod(AddPaymentMethodParams(
         organizationCode: _organizationCode,
@@ -176,18 +205,22 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         firstName: firstName,
         lastName: lastName,
         label: label,
-        // Per product requirement: never auto-set primary/autopay on create.
-        makePrimary: false,
-        makeAutopay: false,
+        makePrimary: makePrimary,
+        makeAutopay: makeAutopay,
       ));
 
+      final status = await _getStatus(_scope);
       final methods = await _getMethods(_scope);
       if (isClosed) return true;
       emit(state.copyWith(
         isSaving: false,
+        autopayEnabled: status.autopayEnabled,
+        initialAutopayEnabled: status.autopayEnabled,
         methods: methods,
         selectedMethodCode: () =>
-            state.selectedMethodCode ?? _primaryCodeOf(methods),
+            _autopayCodeOf(methods) ??
+            _primaryCodeOf(methods) ??
+            state.selectedMethodCode,
       ));
       return true;
     } catch (e) {
@@ -200,15 +233,25 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     }
   }
 
-  /// "Edits" a saved method. Forte tokens are immutable (no update endpoint),
-  /// so this re-tokenizes: adds the new method, preserves primary if the old
-  /// one was primary, then removes the old method. Returns true on success.
-  Future<bool> replacePaymentMethod({
-    required String oldCode,
-    required bool oldWasPrimary,
-    required String oneTimeToken,
-    required PaymentMethodType methodType,
+  /// Edits a saved method's editable fields via `PUT .../payment-methods/{code}`
+  /// and, when toggled, marks it primary/auto-pay (separate endpoints). Only the
+  /// editable fields per method type are sent (card: name/expiry; echeck:
+  /// holder/routing/type/description). Returns true on success.
+  Future<bool> updatePaymentMethod({
+    required PaymentMethodEntity method,
+    // Card fields
+    String? nameOnCard,
+    int? expireMonth,
+    int? expireYear,
+    // eCheck fields
+    String? accountHolder,
+    String? routingNumber,
+    String? accountType,
+    String? itemDescription,
+    // Shared
     String? label,
+    bool makePrimary = false,
+    bool makeAutopay = false,
   }) async {
     if (state.isSaving) return false;
     if (!hasScope) {
@@ -219,36 +262,52 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     }
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
-      final (firstName, lastName) = await _guardianNames();
+      await _updateMethod(
+        paymentMethodCode: method.code,
+        params: UpdatePaymentMethodParams(
+          organizationCode: _organizationCode,
+          schoolCode: _schoolCode,
+          guardianCode: _guardianCode,
+          label: label,
+          card: method.isEcheck
+              ? null
+              : PaymentMethodCardEntity(
+                  nameOnCard: (nameOnCard ?? '').trim(),
+                  expireMonth: expireMonth ?? method.card?.expireMonth,
+                  expireYear: expireYear ?? method.card?.expireYear,
+                ),
+          echeck: method.isEcheck
+              ? PaymentMethodEcheckEntity(
+                  accountHolder: (accountHolder ?? '').trim(),
+                  routingNumber:
+                      (routingNumber ?? method.echeck?.routingNumber)?.trim(),
+                  accountType: accountType ?? method.echeck?.accountType,
+                  itemDescription:
+                      (itemDescription ?? method.echeck?.itemDescription)
+                          ?.trim(),
+                )
+              : null,
+        ),
+      );
 
-      final created = await _addMethod(AddPaymentMethodParams(
-        organizationCode: _organizationCode,
-        schoolCode: _schoolCode,
-        guardianCode: _guardianCode,
-        oneTimeToken: oneTimeToken,
-        methodType: methodType,
-        firstName: firstName,
-        lastName: lastName,
-        label: label,
-        makePrimary: false,
-        makeAutopay: false,
-      ));
-
-      // Carry the auto-pay (primary) flag over to the replacement method.
-      if (oldWasPrimary && created.code.isNotEmpty) {
-        await _setPrimary(paymentMethodCode: created.code, scope: _scope);
+      // Apply primary / auto-pay flags if the user turned them on here.
+      if (makePrimary && !method.primary) {
+        await _setPrimary(paymentMethodCode: method.code, scope: _scope);
+      }
+      if (makeAutopay && !method.autopay) {
+        await _setAutopay(paymentMethodCode: method.code, scope: _scope);
       }
 
-      // Remove the method being replaced.
-      await _deleteMethod(paymentMethodCode: oldCode, scope: _scope);
-
+      final status = await _getStatus(_scope);
       final methods = await _getMethods(_scope);
       if (isClosed) return true;
       emit(state.copyWith(
         isSaving: false,
+        autopayEnabled: status.autopayEnabled,
+        initialAutopayEnabled: status.autopayEnabled,
         methods: methods,
         selectedMethodCode: () =>
-            _primaryCodeOf(methods) ?? state.selectedMethodCode,
+            _autopayCodeOf(methods) ?? state.selectedMethodCode,
       ));
       return true;
     } catch (e) {
@@ -263,12 +322,12 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
 
   /// Commits the pending auto-pay changes (the Save button):
   /// - if the toggle changed → `PUT /autopay/status`;
-  /// - if a different primary method was picked (and auto-pay is on)
-  ///   → `PUT /payment-methods/{code}/primary`.
+  /// - if a different auto-pay method was picked (and auto-pay is on)
+  ///   → `PUT /payment-methods/{code}/autopay`.
   /// Then refreshes from the server. Returns true on success (or no-op).
   Future<bool> save() async {
     if (state.isSettingPrimary) return false;
-    if (!state.autopayChanged && !state.primaryChanged) return true;
+    if (!state.autopayChanged && !state.methodChanged) return true;
     if (!hasScope) {
       emit(state.copyWith(
         errorMessage: () => 'Account context unavailable. Please try again.',
@@ -281,8 +340,8 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       if (state.autopayChanged) {
         await _setStatus(scope: _scope, autopayEnabled: state.autopayEnabled);
       }
-      if (state.primaryChanged) {
-        await _setPrimary(
+      if (state.methodChanged) {
+        await _setAutopay(
           paymentMethodCode: state.selectedMethodCode!,
           scope: _scope,
         );
@@ -298,7 +357,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         initialAutopayEnabled: status.autopayEnabled,
         methods: methods,
         selectedMethodCode: () =>
-            _primaryCodeOf(methods) ?? state.selectedMethodCode,
+            _autopayCodeOf(methods) ?? state.selectedMethodCode,
       ));
       return true;
     } catch (e) {
@@ -329,10 +388,10 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
       await _deleteMethod(paymentMethodCode: code, scope: _scope);
       final methods = await _getMethods(_scope);
       if (isClosed) return true;
-      final primaryCode = _primaryCodeOf(methods);
       // Keep the current selection unless it was the deleted method.
-      final nextSelected =
-          state.selectedMethodCode == code ? primaryCode : state.selectedMethodCode;
+      final nextSelected = state.selectedMethodCode == code
+          ? (_autopayCodeOf(methods) ?? _primaryCodeOf(methods))
+          : state.selectedMethodCode;
       emit(state.copyWith(
         deletingMethodCode: () => null,
         methods: methods,
@@ -352,6 +411,13 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
   String? _primaryCodeOf(List<PaymentMethodEntity> methods) {
     for (final m in methods) {
       if (m.primary) return m.code;
+    }
+    return null;
+  }
+
+  String? _autopayCodeOf(List<PaymentMethodEntity> methods) {
+    for (final m in methods) {
+      if (m.autopay) return m.code;
     }
     return null;
   }
