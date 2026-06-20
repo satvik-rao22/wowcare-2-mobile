@@ -10,11 +10,12 @@ class AutoPayMethodsState extends Equatable {
     this.isLoading = true,
     this.isSaving = false,
     this.isSettingPrimary = false,
-    this.isTogglingAutoPay = false,
     this.autopayEnabled = false,
+    this.initialAutopayEnabled = false,
     this.apiLoginId = '',
     this.methods = const <PaymentMethodEntity>[],
     this.selectedMethodCode,
+    this.deletingMethodCode,
     this.errorMessage,
   });
 
@@ -24,13 +25,15 @@ class AutoPayMethodsState extends Equatable {
   /// A new method is being added (tokenize → POST → refresh).
   final bool isSaving;
 
-  /// A `PUT .../primary` call is in flight.
+  /// The Save action (commit auto-pay status + primary) is in flight.
   final bool isSettingPrimary;
 
-  /// A `PUT .../autopay/status` (enable/disable) call is in flight.
-  final bool isTogglingAutoPay;
-
+  /// Current (possibly unsaved) auto-pay toggle value shown in the UI.
   final bool autopayEnabled;
+
+  /// Auto-pay value as last known from the server; used to detect a pending
+  /// toggle change that the Save button must commit.
+  final bool initialAutopayEnabled;
 
   /// School-level Forte `apiLoginId` used to initialize the Forte JS SDK.
   final String apiLoginId;
@@ -39,6 +42,9 @@ class AutoPayMethodsState extends Equatable {
 
   /// The method the user has selected as the auto-pay (primary) method.
   final String? selectedMethodCode;
+
+  /// Code of the method whose delete request is currently in flight (if any).
+  final String? deletingMethodCode;
 
   final String? errorMessage;
 
@@ -57,41 +63,53 @@ class AutoPayMethodsState extends Equatable {
     return null;
   }
 
-  /// Whether the user changed the selected primary away from the current one.
-  bool get hasPrimaryChange {
+  /// Whether the auto-pay toggle differs from the saved server value.
+  bool get autopayChanged => autopayEnabled != initialAutopayEnabled;
+
+  /// Whether (with auto-pay on) the user picked a different primary method.
+  bool get primaryChanged {
     if (!autopayEnabled) return false;
     final code = selectedMethodCode;
     if (code == null || code.isEmpty) return false;
     return primaryMethod?.code != code;
   }
 
-  /// The Save button is actionable only when the selected method differs from
-  /// the current primary and nothing is in flight.
+  /// The Save button commits a pending toggle change and/or a new primary
+  /// method. Actionable only when there's a pending change and nothing is in
+  /// flight.
   bool get canSave =>
-      hasPrimaryChange && !isSaving && !isSettingPrimary && !isLoading;
+      (autopayChanged || primaryChanged) &&
+      !isSaving &&
+      !isSettingPrimary &&
+      !isLoading;
 
   AutoPayMethodsState copyWith({
     bool? isLoading,
     bool? isSaving,
     bool? isSettingPrimary,
-    bool? isTogglingAutoPay,
     bool? autopayEnabled,
+    bool? initialAutopayEnabled,
     String? apiLoginId,
     List<PaymentMethodEntity>? methods,
     String? Function()? selectedMethodCode,
+    String? Function()? deletingMethodCode,
     String? Function()? errorMessage,
   }) {
     return AutoPayMethodsState(
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
       isSettingPrimary: isSettingPrimary ?? this.isSettingPrimary,
-      isTogglingAutoPay: isTogglingAutoPay ?? this.isTogglingAutoPay,
       autopayEnabled: autopayEnabled ?? this.autopayEnabled,
+      initialAutopayEnabled:
+          initialAutopayEnabled ?? this.initialAutopayEnabled,
       apiLoginId: apiLoginId ?? this.apiLoginId,
       methods: methods ?? this.methods,
       selectedMethodCode: selectedMethodCode != null
           ? selectedMethodCode()
           : this.selectedMethodCode,
+      deletingMethodCode: deletingMethodCode != null
+          ? deletingMethodCode()
+          : this.deletingMethodCode,
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
     );
   }
@@ -101,11 +119,12 @@ class AutoPayMethodsState extends Equatable {
         isLoading,
         isSaving,
         isSettingPrimary,
-        isTogglingAutoPay,
         autopayEnabled,
+        initialAutopayEnabled,
         apiLoginId,
         methods,
         selectedMethodCode,
+        deletingMethodCode,
         errorMessage,
       ];
 }

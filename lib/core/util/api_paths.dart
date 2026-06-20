@@ -949,6 +949,11 @@ class ApiPaths {
   static const String paymentGatewayMethods =
       '/api/v1/payment-gateway/payment-methods';
 
+  /// A single saved payment method (used for DELETE).
+  static String paymentGatewayMethodByCode(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}';
+
   /// Mark a saved payment method as primary (the auto-pay method).
   static String paymentGatewayMethodPrimary(String paymentMethodCode) =>
       '/api/v1/payment-gateway/payment-methods/'
