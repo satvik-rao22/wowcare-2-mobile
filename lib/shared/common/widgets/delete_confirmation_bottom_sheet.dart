@@ -149,6 +149,8 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to cancel this Invoice -\n"${widget.name}" ?\nThis action cannot be undone.'
         : widget.type == 'invoice_delete'
         ? 'Do you want to delete this Invoice -\n"${widget.name}" ?'
+        : widget.type == 'payment_method'
+        ? 'Do you want to remove this payment method -\n"${widget.name}" ?'
         : '';
 
     String buttonText = widget.type == 'complete_purchase'
@@ -169,6 +171,8 @@ class _DeleteConfirmationBottomSheetState
         ? 'Cancel Invoice'
         : widget.type == 'invoice_delete'
         ? 'Delete'
+        : widget.type == 'payment_method'
+        ? 'Remove'
         : widget.type == 'order_purchase'
         ? 'Mark as Ordered'
         : widget.type == 'reject_request'

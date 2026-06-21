@@ -89,4 +89,17 @@ class AutoPayRepositoryImpl implements AutoPayRepository {
     );
     return model.toEntity();
   }
+
+  @override
+  Future<void> deletePaymentMethod({
+    required String paymentMethodCode,
+    required GuardianScopeParams scope,
+  }) {
+    return _dataSource.deletePaymentMethod(
+      paymentMethodCode: paymentMethodCode,
+      organizationCode: scope.organizationCode,
+      schoolCode: scope.schoolCode,
+      guardianCode: scope.guardianCode,
+    );
+  }
 }

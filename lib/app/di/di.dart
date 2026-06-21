@@ -396,6 +396,7 @@ import '../../domain/features/billing/usecases/set_autopay_status_usecase.dart';
 import '../../domain/features/billing/usecases/get_payment_methods_usecase.dart';
 import '../../domain/features/billing/usecases/add_payment_method_usecase.dart';
 import '../../domain/features/billing/usecases/set_primary_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/delete_payment_method_usecase.dart';
 import '../../presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
 import '../../domain/features/billing/usecases/create_discount_usecase.dart';
 import '../../domain/features/billing/usecases/update_discount_usecase.dart';
@@ -2070,6 +2071,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<SetPrimaryPaymentMethodUseCase>(
     () => SetPrimaryPaymentMethodUseCase(serviceLocator<AutoPayRepository>()),
   );
+  serviceLocator.registerFactory<DeletePaymentMethodUseCase>(
+    () => DeletePaymentMethodUseCase(serviceLocator<AutoPayRepository>()),
+  );
   serviceLocator.registerFactory<AutoPayMethodsCubit>(
     () => AutoPayMethodsCubit(
       getForteConfig: serviceLocator<GetSchoolForteConfigUseCase>(),
@@ -2078,6 +2082,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getMethods: serviceLocator<GetPaymentMethodsUseCase>(),
       addMethod: serviceLocator<AddPaymentMethodUseCase>(),
       setPrimary: serviceLocator<SetPrimaryPaymentMethodUseCase>(),
+      deleteMethod: serviceLocator<DeletePaymentMethodUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
