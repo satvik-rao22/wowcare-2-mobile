@@ -6,8 +6,8 @@ import 'firebase_options_uat.dart';
 import 'firebase_options_prod.dart';
 
 // Compile-time constant injected by --dart-define=ENVIRONMENT=<value>.
-// Defaults to UAT so a bare `flutter run` (without make) still works.
-const _env = String.fromEnvironment('ENVIRONMENT', defaultValue: 'UAT');
+// Defaults to LOCAL so a bare `flutter run` (without make) still works.
+const _env = String.fromEnvironment('ENVIRONMENT', defaultValue: 'LOCAL');
 
 abstract final class FirebaseConfigFactory {
   /// Returns [FirebaseOptions] for the current build environment.
