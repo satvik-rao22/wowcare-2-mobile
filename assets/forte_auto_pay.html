@@ -228,6 +228,67 @@
       .status-text.success {
         color: #0f9d58;
       }
+
+      .uppercase {
+        text-transform: uppercase;
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 14px;
+        margin-top: 12px;
+        border: 1px solid var(--primary-border);
+        border-radius: 12px;
+        background: #fff;
+      }
+
+      .toggle-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--primary);
+      }
+
+      .toggle-sub {
+        font-size: 12px;
+        color: #8a8699;
+        margin-top: 2px;
+      }
+
+      .switch {
+        flex-shrink: 0;
+        width: 46px;
+        height: 26px;
+        border: none;
+        border-radius: 999px;
+        background: #d7d7e3;
+        position: relative;
+        cursor: pointer;
+        transition: background 0.2s ease;
+        padding: 0;
+      }
+
+      .switch .knob {
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+        transition: left 0.2s ease;
+      }
+
+      .switch[aria-pressed='true'] {
+        background: var(--grad-end);
+      }
+
+      .switch[aria-pressed='true'] .knob {
+        left: 23px;
+      }
     </style>
   </head>
   <body>
@@ -269,6 +330,20 @@
               <span id="feeMessageText"></span>
             </div>
           </div>
+        </div>
+
+        <div id="accountHolderGroup" class="form-group" style="display: none">
+          <label class="form-label" for="accountHolder">
+            Account Holder Name<span class="required">*</span>
+          </label>
+          <input
+            id="accountHolder"
+            type="text"
+            maxlength="60"
+            class="custom-input uppercase"
+            placeholder="ENTER ACCOUNT HOLDER NAME"
+            autocomplete="off"
+          />
         </div>
 
         <div id="cardFields" style="display: none">
@@ -385,6 +460,37 @@
           <span>
             Your current outstanding balance will be deducted automatically.
           </span>
+        </div>
+
+        <div id="toggleGroup" style="display: none">
+          <div class="toggle-row">
+            <div class="toggle-text">
+              <div class="toggle-title">Make Primary</div>
+              <div class="toggle-sub">Use this as the default payment method.</div>
+            </div>
+            <button
+              id="makePrimaryToggle"
+              type="button"
+              class="switch"
+              aria-pressed="false"
+            >
+              <span class="knob"></span>
+            </button>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-text">
+              <div class="toggle-title">Use for AutoPay</div>
+              <div class="toggle-sub">Automatically deduct outstanding balances.</div>
+            </div>
+            <button
+              id="makeAutopayToggle"
+              type="button"
+              class="switch"
+              aria-pressed="false"
+            >
+              <span class="knob"></span>
+            </button>
+          </div>
         </div>
 
         <div class="button-container">
@@ -526,13 +632,15 @@
           btn.disabled = true;
           return;
         }
+        const holder = document.getElementById('accountHolder').value.trim();
         const isCard = value !== 'echeck';
         if (isCard) {
           const cardNumber = document.getElementById('cardNumber').value.trim();
           const expMonth = document.getElementById('expMonth').value;
           const expYear = document.getElementById('expYear').value;
           const cvv = document.getElementById('cvv').value.trim();
-          btn.disabled = !cardNumber || !expMonth || !expYear || !cvv;
+          btn.disabled =
+            !holder || !cardNumber || !expMonth || !expYear || !cvv;
         } else {
           const account = document
             .getElementById('accountNumber')
@@ -541,7 +649,24 @@
             .getElementById('routingNumber')
             .value.trim();
           const type = document.getElementById('accountType').value;
-          btn.disabled = !account || !routing || !type;
+          btn.disabled = !holder || !account || !routing || !type;
+        }
+      }
+
+      // UPPERCASE letters only, max 4 words, single space between, no leading space.
+      function sanitizeAccountHolder() {
+        const el = document.getElementById('accountHolder');
+        let v = el.value
+          .toUpperCase()
+          .replace(/[^A-Z ]/g, '')
+          .replace(/ {2,}/g, ' ')
+          .replace(/^\s+/, '');
+        const parts = v.split(' ');
+        if (parts.length > 4) {
+          v = parts.slice(0, 4).join(' ');
+        }
+        if (el.value !== v) {
+          el.value = v;
         }
       }
 
@@ -567,11 +692,16 @@
         const feeContainer = document.getElementById('feeMessageContainer');
         const feeText = document.getElementById('feeMessageText');
 
+        const holderGroup = document.getElementById('accountHolderGroup');
+        const toggleGroup = document.getElementById('toggleGroup');
+
         if (!cardType) {
           cardFields.style.display = 'none';
           echeckFields.style.display = 'none';
           info.style.display = 'none';
           feeContainer.style.display = 'none';
+          holderGroup.style.display = 'none';
+          toggleGroup.style.display = 'none';
           updateSubmitDisabled();
           return;
         }
@@ -580,6 +710,8 @@
         cardFields.style.display = isCard ? 'block' : 'none';
         echeckFields.style.display = isCard ? 'none' : 'block';
         info.style.display = 'flex';
+        holderGroup.style.display = 'block';
+        toggleGroup.style.display = 'block';
 
         const msg = getFeeMessage(cardType);
         if (msg) {
@@ -721,6 +853,17 @@
               success: true,
               paymentType: cardType === 'echeck' ? 'echeck' : 'card',
               data: response,
+              accountHolder: document
+                .getElementById('accountHolder')
+                .value.trim(),
+              makePrimary:
+                document.getElementById('makePrimaryToggle').getAttribute(
+                  'aria-pressed'
+                ) === 'true',
+              makeAutopay:
+                document.getElementById('makeAutopayToggle').getAttribute(
+                  'aria-pressed'
+                ) === 'true',
             });
           })
           .error((error) => {
@@ -783,6 +926,23 @@
           }
         }
       );
+
+      // Account holder: uppercase + letters/spaces only, then re-validate.
+      document.getElementById('accountHolder').addEventListener('input', () => {
+        sanitizeAccountHolder();
+        updateSubmitDisabled();
+      });
+
+      // Toggle switches (Make Primary / Use for AutoPay).
+      ['makePrimaryToggle', 'makeAutopayToggle'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('click', () => {
+            const on = el.getAttribute('aria-pressed') === 'true';
+            el.setAttribute('aria-pressed', on ? 'false' : 'true');
+          });
+        }
+      });
 
       populateExpirationOptions();
       updateSubmitDisabled();

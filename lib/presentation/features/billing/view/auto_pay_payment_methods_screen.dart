@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -9,13 +10,21 @@ import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class AutoPayPaymentMethodsScreen extends StatefulWidget {
-  const AutoPayPaymentMethodsScreen({super.key});
+  const AutoPayPaymentMethodsScreen({super.key, this.isPicker = false});
+
+  /// When true the screen acts as a pure "Saved Payment Methods" picker (used by
+  /// Pay Now): the auto-pay header/toggle, AutoPay tags and Save action are
+  /// hidden, and the bottom button returns the selected method via
+  /// `Navigator.pop(method)`.
+  final bool isPicker;
 
   static const String routeName = '/auto-pay-payment-methods';
 
@@ -30,10 +39,14 @@ class _AutoPayPaymentMethodsScreenState
   static const Color _autopayTagBg = Color(0xFFEEE9FF);
   static const Color _autopayTagFg = Color(0xFF6F52FF);
 
+  /// Large base so the looping PageView can scroll both directions endlessly.
+  static const int _loopBase = 100000;
+
   final AutoPayMethodsCubit _cubit = serviceLocator<AutoPayMethodsCubit>();
-  final PageController _pageController = PageController(viewportFraction: 0.95);
+  // Created once methods load, with an initialPage centered in the loop range
+  // so the carousel can scroll both directions endlessly.
+  PageController? _pageController;
   int _currentPage = 0;
-  bool _positionedToPrimary = false;
 
   @override
   void initState() {
@@ -43,7 +56,7 @@ class _AutoPayPaymentMethodsScreenState
 
   @override
   void dispose() {
-    _pageController.dispose();
+    _pageController?.dispose();
     unawaited(_cubit.close());
     super.dispose();
   }
@@ -66,14 +79,18 @@ class _AutoPayPaymentMethodsScreenState
         builder: (context, state) {
           _maybePositionToPrimary(state);
           return StaffFormLayout(
-            title: 'AutoPay Settings',
+            title: widget.isPicker
+                ? 'Saved Payment Methods'
+                : 'Auto Payment - ${state.autopayEnabled ? 'Enabled' : 'Disabled'}',
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAutoPayHeader(state),
-                  const Divider(height: 32),
-                  _buildSectionHeader(),
+                  if (!widget.isPicker) ...[
+                    _buildAutoPayHeader(state),
+                    const Divider(height: 32),
+                  ],
+                  _buildSectionHeader(state.maxMethods),
                   const SizedBox(height: 16),
                   _buildMethodsArea(state),
                   const SizedBox(height: 16),
@@ -92,96 +109,127 @@ class _AutoPayPaymentMethodsScreenState
 
   Widget _buildAutoPayHeader(AutoPayMethodsState state) {
     final enabled = state.autopayEnabled;
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          decoration: const BoxDecoration(
-            color: _autopayTagBg,
-            shape: BoxShape.circle,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          child: const Icon(Icons.autorenew, color: _autopayTagFg, size: 24),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Text(
-                    'AutoPay',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: enabled
-                          ? const Color(0xFFE8FFF1)
-                          : Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      enabled ? 'ON' : 'OFF',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: enabled ? AppColors.successColor : Colors.grey,
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: _autopayTagBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.autorenew, color: _autopayTagFg, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Flexible(
+                      child: Text(
+                        'Auto Payment',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 2),
-              const Text(
-                'Automatically pay invoices using a saved payment method.',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-            ],
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: enabled
+                            ? const Color(0xFFE8FFF1)
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        enabled ? 'Enabled' : 'Disabled',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color:
+                              enabled ? AppColors.successColor : Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Automatically pay invoices using saved payment method.',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        CustomToggle(
-          label: '',
-          isToggled: enabled,
-          onToggle: _cubit.toggleAutoPay,
-        ),
-      ],
+          const SizedBox(width: 8),
+          CustomToggle(
+            label: '',
+            isToggled: enabled,
+            onToggle: _cubit.toggleAutoPay,
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildSectionHeader() {
-    return Column(
+  Widget _buildSectionHeader(int maxMethods) {
+    // Full-size title that wraps to a second line if needed; the "Secure" chip
+    // stays full-size, pinned top-right and always visible.
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            const Expanded(
-              child: Text(
-                'Select payment method for AutoPay',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: 'Saved Payment Methods'),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: Tooltip(
+                      message:
+                          'You can save up to $maxMethods payment methods.',
+                      triggerMode: TooltipTriggerMode.tap,
+                      showDuration: const Duration(seconds: 3),
+                      child: Icon(Icons.info_outline,
+                          size: 16, color: Colors.grey.shade500),
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 8),
-            _secureChip(),
-          ],
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
+          ),
         ),
-        const SizedBox(height: 4),
-        const Text(
-          "Choose the payment method you'd like to use for automatic payments.",
-          style: TextStyle(fontSize: 12, color: Colors.black54),
-        ),
+        const SizedBox(width: 8),
+        _secureChip(),
       ],
     );
   }
@@ -190,20 +238,21 @@ class _AutoPayPaymentMethodsScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F0FB),
+        color: const Color(0xFFE8FFF1),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Row(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_user_outlined, size: 14, color: _autopayTagFg),
-          SizedBox(width: 6),
+          Icon(Icons.verified_user_outlined,
+              size: 14, color: AppColors.successColor),
+          const SizedBox(width: 6),
           Text(
             'Secure & Encrypted',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF4A4A68),
+              color: AppColors.successColor,
             ),
           ),
         ],
@@ -216,7 +265,7 @@ class _AutoPayPaymentMethodsScreenState
   Widget _buildMethodsArea(AutoPayMethodsState state) {
     if (state.isLoading) {
       return ShimmerLoader(
-        height: 290,
+        height: 248,
         width: double.infinity,
         borderRadius: BorderRadius.circular(20),
       );
@@ -224,34 +273,41 @@ class _AutoPayPaymentMethodsScreenState
     if (!state.hasMethods) return _buildEmptyState();
 
     final methods = state.methods;
+    final count = methods.length;
+    // Loop endlessly when there's more than one method.
+    final loop = count > 1;
     return Column(
       children: [
         SizedBox(
-          height: 290,
+          height: 248,
           child: Stack(
             alignment: Alignment.center,
             children: [
               PageView.builder(
                 controller: _pageController,
-                itemCount: methods.length,
-                onPageChanged: (i) => setState(() => _currentPage = i),
-                itemBuilder: (_, i) => _buildMethodCard(state, methods[i]),
+                itemCount: loop ? null : count,
+                onPageChanged: (i) => setState(() => _currentPage = i % count),
+                itemBuilder: (_, i) => _buildMethodCard(state, methods[i % count]),
               ),
-              if (methods.length > 1) ...[
+              if (loop) ...[
                 Align(
                   alignment: Alignment.centerLeft,
                   child: _arrowButton(
                     Icons.chevron_left,
-                    _currentPage > 0 ? () => _animateTo(_currentPage - 1) : null,
+                    () => unawaited(_pageController!.previousPage(
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOut,
+                    )),
                   ),
                 ),
                 Align(
                   alignment: Alignment.centerRight,
                   child: _arrowButton(
                     Icons.chevron_right,
-                    _currentPage < methods.length - 1
-                        ? () => _animateTo(_currentPage + 1)
-                        : null,
+                    () => unawaited(_pageController!.nextPage(
+                      duration: const Duration(milliseconds: 280),
+                      curve: Curves.easeOut,
+                    )),
                   ),
                 ),
               ],
@@ -259,7 +315,7 @@ class _AutoPayPaymentMethodsScreenState
           ),
         ),
         const SizedBox(height: 12),
-        if (methods.length > 1) _buildDots(methods.length),
+        if (loop) _buildDots(count),
         if (state.isSaving) ...[
           const SizedBox(height: 12),
           const Center(
@@ -315,31 +371,19 @@ class _AutoPayPaymentMethodsScreenState
     );
   }
 
-  void _animateTo(int page) {
-    unawaited(
-      _pageController.animateToPage(
-        page,
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOut,
-      ),
-    );
-  }
-
   void _maybePositionToPrimary(AutoPayMethodsState state) {
-    if (_positionedToPrimary || state.isLoading || !state.hasMethods) return;
-    _positionedToPrimary = true;
-    final idx =
-        state.methods.indexWhere((m) => m.code == state.selectedMethodCode);
+    if (_pageController != null || state.isLoading || !state.hasMethods) return;
+    final methods = state.methods;
+    final idx = methods.indexWhere((m) => m.code == state.selectedMethodCode);
     final target = idx >= 0 ? idx : 0;
-    if (target == 0) {
-      _currentPage = 0;
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_pageController.hasClients) return;
-      _pageController.jumpToPage(target);
-      setState(() => _currentPage = target);
-    });
+    _currentPage = target;
+    // For >1 methods start deep in the loop range so both directions scroll
+    // forever; for a single method just start at it (no loop).
+    final initialPage = methods.length > 1
+        ? _loopBase - (_loopBase % methods.length) + target
+        : target;
+    _pageController =
+        PageController(viewportFraction: 0.88, initialPage: initialPage);
   }
 
   // ── Method card (rich visual) ────────────────────────────────────────────
@@ -350,10 +394,10 @@ class _AutoPayPaymentMethodsScreenState
       margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: selected ? const Color(0xFFF1FFF6) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: selected ? _accent : Colors.grey.shade200,
+          color: selected ? AppColors.successColor : Colors.grey.shade200,
           width: selected ? 2 : 1,
         ),
         boxShadow: [
@@ -377,43 +421,22 @@ class _AutoPayPaymentMethodsScreenState
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               const SizedBox(width: 4),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _cubit.selectMethod(m.code),
-                  child: Text(
-                    _methodTitle(m),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ),
-              if (m.primary)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE8FFF1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'Auto Pay',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.successColor,
-                    ),
-                  ),
-                ),
+              if (m.autopay) _tag('AutoPay', _autopayTagBg, _autopayTagFg),
+              if (m.primary) ...[
+                if (m.autopay) const SizedBox(width: 6),
+                _tag('Primary', const Color(0xFFE8FFF1),
+                    AppColors.successColor),
+              ],
+              const Spacer(),
               _cardActions(state, m),
             ],
           ),
           const SizedBox(height: 6),
-          GestureDetector(
-            onTap: () => _cubit.selectMethod(m.code),
-            child: m.isEcheck ? _buildEcheckCard(m) : _buildCreditCard(m),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _cubit.selectMethod(m.code),
+              child: m.isEcheck ? _buildEcheckCard(m) : _buildCreditCard(m),
+            ),
           ),
         ],
       ),
@@ -437,11 +460,13 @@ class _AutoPayPaymentMethodsScreenState
           const Color(0xFF667EEA),
           busy ? null : () => _openEditMethod(m),
         ),
-        _iconAction(
-          Icons.delete_outline,
-          const Color(0xFFE53E3E),
-          busy ? null : () => _confirmAndDelete(m),
-        ),
+        // A primary method can't be deleted — pick another primary first.
+        if (!m.primary)
+          _iconAction(
+            Icons.delete_outline,
+            const Color(0xFFE53E3E),
+            busy ? null : () => _confirmAndDelete(m),
+          ),
       ],
     );
   }
@@ -457,6 +482,20 @@ class _AutoPayPaymentMethodsScreenState
     );
   }
 
+  Widget _tag(String text, Color bg, Color fg) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: fg),
+      ),
+    );
+  }
+
   Widget _buildCreditCard(PaymentMethodEntity m) {
     final card = m.card;
     final last4 = card?.last4 ?? m.last4 ?? '••••';
@@ -467,7 +506,7 @@ class _AutoPayPaymentMethodsScreenState
         : '--/--';
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 480, minHeight: 180),
+      constraints: const BoxConstraints(maxWidth: 480),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
@@ -555,7 +594,7 @@ class _AutoPayPaymentMethodsScreenState
     final e = m.echeck;
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 480, minHeight: 180),
+      constraints: const BoxConstraints(maxWidth: 480),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFFE8F4FC),
@@ -769,7 +808,7 @@ class _AutoPayPaymentMethodsScreenState
               Text(
                 state.canAddMore
                     ? 'Add new payment method'
-                    : 'Maximum of ${AutoPayMethodsState.maxMethods} methods reached',
+                    : 'Maximum of ${state.maxMethods} methods reached',
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
@@ -786,7 +825,9 @@ class _AutoPayPaymentMethodsScreenState
   // ── Bottom bar (Save) ────────────────────────────────────────────────────
 
   Widget _buildBottomBar(AutoPayMethodsState state) {
-    final canSave = state.canSave;
+    final canAct = widget.isPicker
+        ? state.selectedMethodCode != null && !state.isSaving
+        : state.canSave;
     return Container(
       padding: EdgeInsets.only(
         bottom: (MediaQuery.of(context).padding.bottom > 0)
@@ -810,53 +851,75 @@ class _AutoPayPaymentMethodsScreenState
           topRight: Radius.circular(24),
         ),
       ),
-      child: Opacity(
-        opacity: canSave ? 1 : 0.5,
-        child: InkWell(
-          onTap: canSave ? _handleSave : null,
-          borderRadius: BorderRadius.circular(16),
-          child: Container(
-            height: 54,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(
+            opacity: canAct ? 1 : 0.5,
+            child: InkWell(
+              onTap: canAct
+                  ? (widget.isPicker ? _handleContinue : _handleSave)
+                  : null,
               borderRadius: BorderRadius.circular(16),
-            ),
-            child: Center(
-              child: state.isSettingPrimary
-                  ? const SizedBox(
-                      height: 22,
-                      width: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2.5,
-                        valueColor:
-                            AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.save_outlined,
-                            color: Colors.white, size: 20),
-                        SizedBox(width: 8),
-                        Text(
-                          'Save AutoPay Settings',
-                          style: TextStyle(
+              child: Container(
+                height: 54,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildPrimaryGradient(),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Center(
+                  child: state.isSettingPrimary
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : Text(
+                          widget.isPicker ? 'Continue' : 'Save',
+                          style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
+                            fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ],
-                    ),
+                ),
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 10),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock_outline, size: 14, color: Colors.grey.shade500),
+              const SizedBox(width: 6),
+              Text(
+                'Your payment information is secure and encrypted.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────
+
+  /// Picker mode: return the chosen method to the caller (Pay Now).
+  void _handleContinue() {
+    final code = _cubit.state.selectedMethodCode;
+    if (code == null) return;
+    final method = _cubit.state.methods.firstWhere(
+      (m) => m.code == code,
+      orElse: () => _cubit.state.methods.first,
+    );
+    Navigator.of(context).pop(method);
+  }
 
   Future<void> _handleSave() async {
     final ok = await _cubit.save();
@@ -896,25 +959,18 @@ class _AutoPayPaymentMethodsScreenState
     );
   }
 
-  /// Opens the Forte tokenization webview and returns the one-time token +
-  /// method type, or null if cancelled/failed (showing the error). Shared by
-  /// the add and edit flows.
-  Future<({String token, PaymentMethodType type})?> _runForteWebview(
-    String title, {
-    String? defaultMethod,
-  }) async {
+  /// Adds a new saved payment method via the Forte webview (which now collects
+  /// the account-holder name and the Make-Primary / Use-for-AutoPay toggles).
+  Future<void> _openAddMethod() async {
     final result = await Navigator.of(context).push<dynamic>(
       MaterialPageRoute(
         fullscreenDialog: true,
         builder: (_) => AutoPayTokenWebView(
-          payload: _cubit.buildWebviewPayload(
-            title: title,
-            defaultMethod: defaultMethod,
-          ),
+          payload: _cubit.buildWebviewPayload(title: 'Add Payment Method'),
         ),
       ),
     );
-    if (!mounted || result is! Map) return null;
+    if (!mounted || result is! Map) return;
 
     if (result['success'] != true) {
       final error = result['error'];
@@ -922,16 +978,12 @@ class _AutoPayPaymentMethodsScreenState
           ? (error['response_description'] ??
                   error['response_text'] ??
                   error['error_message'] ??
-                  'Unable to process payment method. Please try again.')
+                  'Unable to add payment method. Please try again.')
               .toString()
           : (error?.toString() ??
-              'Unable to process payment method. Please try again.');
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isError: true,
-      );
-      return null;
+              'Unable to add payment method. Please try again.');
+      CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+      return;
     }
 
     final tokenData = result['data'];
@@ -944,7 +996,7 @@ class _AutoPayPaymentMethodsScreenState
         message: 'Invalid payment token received from Forte. Please try again.',
         isError: true,
       );
-      return null;
+      return;
     }
 
     final isEcheck =
@@ -953,16 +1005,13 @@ class _AutoPayPaymentMethodsScreenState
         ? PaymentMethodType.echeck
         : PaymentMethodTypeX.fromApi(data['card_type']?.toString());
     debugPrint('[AUTOPAY] one_time_token=$token (type=${type.apiValue})');
-    return (token: token, type: type);
-  }
 
-  /// Adds a new saved payment method via the Forte webview.
-  Future<void> _openAddMethod() async {
-    final res = await _runForteWebview('Add Payment Method');
-    if (res == null || !mounted) return;
     final ok = await _cubit.addPaymentMethodFromToken(
-      oneTimeToken: res.token,
-      methodType: res.type,
+      oneTimeToken: token,
+      methodType: type,
+      accountHolder: result['accountHolder']?.toString(),
+      makePrimary: result['makePrimary'] == true,
+      makeAutopay: result['makeAutopay'] == true,
     );
     if (!mounted) return;
     if (ok) {
@@ -974,27 +1023,370 @@ class _AutoPayPaymentMethodsScreenState
     }
   }
 
-  /// Edits a saved method by re-tokenizing (Forte tokens are immutable): the
-  /// new details replace the old method, preserving its auto-pay (primary) flag.
+  /// Edits a saved method's editable fields via the PUT endpoint. The tokenized
+  /// card/account number itself can't change.
   Future<void> _openEditMethod(PaymentMethodEntity m) async {
-    final res = await _runForteWebview(
-      'Edit Payment Method',
-      defaultMethod: m.isEcheck ? 'echeck' : null,
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _EditPaymentMethodScreen(method: m, cubit: _cubit),
+      ),
     );
-    if (res == null || !mounted) return;
-    final ok = await _cubit.replacePaymentMethod(
-      oldCode: m.code,
-      oldWasPrimary: m.primary,
-      oneTimeToken: res.token,
-      methodType: res.type,
+    if (!mounted || saved != true) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Payment method updated',
+      isSuccess: true,
     );
-    if (!mounted) return;
-    if (ok) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Payment method updated',
-        isSuccess: true,
-      );
+  }
+}
+
+/// UPPERCASE letters only, max 4 words, a single space between words and no
+/// leading space — shared by the account-holder fields.
+List<TextInputFormatter> _holderFormatters() => [
+      FilteringTextInputFormatter.allow(RegExp('[A-Za-z ]')),
+      TextInputFormatter.withFunction((old, value) {
+        var v = value.text
+            .toUpperCase()
+            .replaceAll(RegExp(' {2,}'), ' ') // single space between words
+            .replaceFirst(RegExp(r'^\s+'), ''); // no leading space
+        final parts = v.split(' ');
+        if (parts.length > 4) v = parts.sublist(0, 4).join(' '); // max 4 words
+        return value.copyWith(
+          text: v,
+          selection: TextSelection.collapsed(offset: v.length),
+        );
+      }),
+    ];
+
+/// Full-screen editor for a saved method (Add-Staff-style layout): editable
+/// fields per type (card: name + expiry; eCheck: holder, routing, type) plus
+/// Make Primary / Use for AutoPay toggles. Commits via
+/// [AutoPayMethodsCubit.updatePaymentMethod].
+class _EditPaymentMethodScreen extends StatefulWidget {
+  const _EditPaymentMethodScreen({required this.method, required this.cubit});
+
+  final PaymentMethodEntity method;
+  final AutoPayMethodsCubit cubit;
+
+  @override
+  State<_EditPaymentMethodScreen> createState() =>
+      _EditPaymentMethodScreenState();
+}
+
+class _EditPaymentMethodScreenState extends State<_EditPaymentMethodScreen> {
+  static const Color _primary = Color(0xFF573353);
+
+  late final TextEditingController _holder;
+  late final TextEditingController _routing;
+  String _expMonth = '';
+  String _expYear = '';
+  String _accountType = 'checking';
+  late bool _makePrimary;
+  late bool _makeAutopay;
+  bool _saving = false;
+
+  bool get _isEcheck => widget.method.isEcheck;
+
+  @override
+  void initState() {
+    super.initState();
+    final m = widget.method;
+    _holder = TextEditingController(
+      text: (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard ?? '')
+              ?.toUpperCase() ??
+          '',
+    );
+    _routing = TextEditingController(text: m.echeck?.routingNumber ?? '');
+    if (m.card?.expireMonth != null) {
+      _expMonth = m.card!.expireMonth.toString().padLeft(2, '0');
     }
+    if (m.card?.expireYear != null) _expYear = m.card!.expireYear.toString();
+    _accountType = _normAccountType(m.echeck?.accountType);
+    _makePrimary = m.primary;
+    _makeAutopay = m.autopay;
+  }
+
+  @override
+  void dispose() {
+    _holder.dispose();
+    _routing.dispose();
+    super.dispose();
+  }
+
+  String _normAccountType(String? t) {
+    final l = (t ?? '').toLowerCase();
+    if (l == 's' || l.contains('saving')) return 'savings';
+    return 'checking';
+  }
+
+  Future<void> _save() async {
+    setState(() => _saving = true);
+    final ok = _isEcheck
+        ? await widget.cubit.updatePaymentMethod(
+            method: widget.method,
+            accountHolder: _holder.text,
+            routingNumber: _routing.text,
+            accountType: _accountType,
+            makePrimary: _makePrimary,
+            makeAutopay: _makeAutopay,
+          )
+        : await widget.cubit.updatePaymentMethod(
+            method: widget.method,
+            nameOnCard: _holder.text,
+            expireMonth: int.tryParse(_expMonth),
+            expireYear: int.tryParse(_expYear),
+            makePrimary: _makePrimary,
+            makeAutopay: _makeAutopay,
+          );
+    if (!mounted) return;
+    setState(() => _saving = false);
+    if (ok) Navigator.of(context).pop(true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final months = List<String>.generate(12, (i) => '${i + 1}'.padLeft(2, '0'));
+    final currentYear = DateTime.now().year;
+    final years = List<String>.generate(20, (i) => '${currentYear + i}');
+
+    return StaffFormLayout(
+      title: 'Edit Payment Method',
+      bottomBar: _bottomBar(),
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          _label('Account Holder Name'),
+              _field(
+                controller: _holder,
+                hint: 'ENTER ACCOUNT HOLDER NAME',
+                formatters: _holderFormatters(),
+                capsAll: true,
+              ),
+              if (_isEcheck) ...[
+                const SizedBox(height: 14),
+                _label('Routing Number'),
+                _field(
+                  controller: _routing,
+                  hint: 'Enter routing number',
+                  keyboardType: TextInputType.number,
+                  formatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                    LengthLimitingTextInputFormatter(9),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                CustomDropdown(
+                  label: 'Account Type',
+                  hintText: 'Select Account Type',
+                  items: const ['Checking', 'Savings'],
+                  selectedItem: _accountType == 'savings' ? 'Savings' : 'Checking',
+                  labelStyle: _ddLabel,
+                  showAsterisk: false,
+                  labelBottomSpacing: 6,
+                  fieldHeight: 52,
+                  prependHintAsSelectableItem: false,
+                  onSelect: (v) {
+                    if (v == null) return;
+                    setState(() =>
+                        _accountType = v == 'Savings' ? 'savings' : 'checking');
+                  },
+                ),
+              ] else ...[
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: CustomDropdown(
+                        label: 'Expiry Month',
+                        hintText: 'MM',
+                        items: months,
+                        selectedItem:
+                            months.contains(_expMonth) ? _expMonth : null,
+                        labelStyle: _ddLabel,
+                        showAsterisk: false,
+                        labelBottomSpacing: 6,
+                        fieldHeight: 52,
+                        prependHintAsSelectableItem: false,
+                        onSelect: (v) {
+                          if (v != null) setState(() => _expMonth = v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: CustomDropdown(
+                        label: 'Expiry Year',
+                        hintText: 'YYYY',
+                        items: years,
+                        selectedItem:
+                            years.contains(_expYear) ? _expYear : null,
+                        labelStyle: _ddLabel,
+                        showAsterisk: false,
+                        labelBottomSpacing: 6,
+                        fieldHeight: 52,
+                        prependHintAsSelectableItem: false,
+                        onSelect: (v) {
+                          if (v != null) setState(() => _expYear = v);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+              _toggleRow(
+                title: 'Make Primary',
+                subtitle: 'Use this as the default payment method.',
+                value: _makePrimary,
+                onChanged: (v) => setState(() => _makePrimary = v),
+              ),
+              const SizedBox(height: 10),
+              _toggleRow(
+                title: 'Use for AutoPay',
+                subtitle: 'Automatically deduct outstanding balances.',
+                value: _makeAutopay,
+                onChanged: (v) => setState(() => _makeAutopay = v),
+              ),
+          const SizedBox(height: 12),
+        ],
+      ),
+    );
+  }
+
+  Widget _bottomBar() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final safe = bottomPadding > 0 ? bottomPadding : 16.0;
+    return Container(
+      padding: EdgeInsets.only(bottom: safe, left: 16, right: 16, top: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            offset: const Offset(0, -4),
+            blurRadius: 16,
+          ),
+        ],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: CustomButtonLayout(
+        confirmButtonLabel: 'Save',
+        onPressedConfirm: _save,
+        showCancelButton: false,
+        isForm: false,
+        isLoading: _saving,
+      ),
+    );
+  }
+
+  // Label style shared by the CustomDropdowns (matches the Add Staff form).
+  static const TextStyle _ddLabel = TextStyle(
+    fontFamily: 'Manrope',
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    color: _primary,
+  );
+
+  Widget _label(String text) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: _primary,
+          ),
+        ),
+      );
+
+  Widget _field({
+    required TextEditingController controller,
+    required String hint,
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? formatters,
+    bool capsAll = false,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0x66573353)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: formatters,
+        textCapitalization:
+            capsAll ? TextCapitalization.characters : TextCapitalization.none,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: _primary,
+          height: 19 / 14,
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: Colors.grey,
+          ),
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  Widget _toggleRow({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _primary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          CustomToggle(
+            label: '',
+            isToggled: value,
+            onToggle: onChanged,
+          ),
+        ],
+      ),
+    );
   }
 }

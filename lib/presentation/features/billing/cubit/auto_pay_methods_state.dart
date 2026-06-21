@@ -13,6 +13,7 @@ class AutoPayMethodsState extends Equatable {
     this.autopayEnabled = false,
     this.initialAutopayEnabled = false,
     this.apiLoginId = '',
+    this.maxMethods = 4,
     this.methods = const <PaymentMethodEntity>[],
     this.selectedMethodCode,
     this.deletingMethodCode,
@@ -38,9 +39,12 @@ class AutoPayMethodsState extends Equatable {
   /// School-level Forte `apiLoginId` used to initialize the Forte JS SDK.
   final String apiLoginId;
 
+  /// Max saved payment methods allowed (from school config).
+  final int maxMethods;
+
   final List<PaymentMethodEntity> methods;
 
-  /// The method the user has selected as the auto-pay (primary) method.
+  /// The method the user has selected as the auto-pay method.
   final String? selectedMethodCode;
 
   /// Code of the method whose delete request is currently in flight (if any).
@@ -48,14 +52,13 @@ class AutoPayMethodsState extends Equatable {
 
   final String? errorMessage;
 
-  static const int maxMethods = 4;
-
   bool get hasForteConfig => apiLoginId.trim().isNotEmpty;
 
   bool get canAddMore => methods.length < maxMethods;
 
   bool get hasMethods => methods.isNotEmpty;
 
+  /// The method currently flagged primary (default payment method) on the server.
   PaymentMethodEntity? get primaryMethod {
     for (final m in methods) {
       if (m.primary) return m;
@@ -63,22 +66,30 @@ class AutoPayMethodsState extends Equatable {
     return null;
   }
 
+  /// The method currently flagged as the auto-pay method on the server.
+  PaymentMethodEntity? get autopayMethod {
+    for (final m in methods) {
+      if (m.autopay) return m;
+    }
+    return null;
+  }
+
   /// Whether the auto-pay toggle differs from the saved server value.
   bool get autopayChanged => autopayEnabled != initialAutopayEnabled;
 
-  /// Whether (with auto-pay on) the user picked a different primary method.
-  bool get primaryChanged {
+  /// Whether (with auto-pay on) the user picked a different auto-pay method.
+  bool get methodChanged {
     if (!autopayEnabled) return false;
     final code = selectedMethodCode;
     if (code == null || code.isEmpty) return false;
-    return primaryMethod?.code != code;
+    return autopayMethod?.code != code;
   }
 
-  /// The Save button commits a pending toggle change and/or a new primary
+  /// The Save button commits a pending toggle change and/or a new auto-pay
   /// method. Actionable only when there's a pending change and nothing is in
   /// flight.
   bool get canSave =>
-      (autopayChanged || primaryChanged) &&
+      (autopayChanged || methodChanged) &&
       !isSaving &&
       !isSettingPrimary &&
       !isLoading;
@@ -90,6 +101,7 @@ class AutoPayMethodsState extends Equatable {
     bool? autopayEnabled,
     bool? initialAutopayEnabled,
     String? apiLoginId,
+    int? maxMethods,
     List<PaymentMethodEntity>? methods,
     String? Function()? selectedMethodCode,
     String? Function()? deletingMethodCode,
@@ -103,6 +115,7 @@ class AutoPayMethodsState extends Equatable {
       initialAutopayEnabled:
           initialAutopayEnabled ?? this.initialAutopayEnabled,
       apiLoginId: apiLoginId ?? this.apiLoginId,
+      maxMethods: maxMethods ?? this.maxMethods,
       methods: methods ?? this.methods,
       selectedMethodCode: selectedMethodCode != null
           ? selectedMethodCode()
@@ -122,6 +135,7 @@ class AutoPayMethodsState extends Equatable {
         autopayEnabled,
         initialAutopayEnabled,
         apiLoginId,
+        maxMethods,
         methods,
         selectedMethodCode,
         deletingMethodCode,

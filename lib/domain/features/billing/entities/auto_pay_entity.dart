@@ -50,6 +50,7 @@ class SchoolForteConfigEntity extends Equatable {
     this.schoolCode,
     this.organizationCode,
     this.status,
+    this.maxPaymentMethods,
   });
 
   final String apiLoginId;
@@ -58,11 +59,14 @@ class SchoolForteConfigEntity extends Equatable {
   final String? organizationCode;
   final String? status;
 
+  /// Max saved payment methods allowed (from school config); null = unknown.
+  final int? maxPaymentMethods;
+
   bool get hasApiLoginId => apiLoginId.trim().isNotEmpty;
 
   @override
   List<Object?> get props =>
-      [apiLoginId, code, schoolCode, organizationCode, status];
+      [apiLoginId, code, schoolCode, organizationCode, status, maxPaymentMethods];
 }
 
 /// Card details on a saved payment method.
@@ -96,6 +100,7 @@ class PaymentMethodEcheckEntity extends Equatable {
     this.last4,
     this.routingNumber,
     this.accountType,
+    this.itemDescription,
   });
 
   final String? accountHolder;
@@ -103,10 +108,17 @@ class PaymentMethodEcheckEntity extends Equatable {
   final String? last4;
   final String? routingNumber;
   final String? accountType;
+  final String? itemDescription;
 
   @override
-  List<Object?> get props =>
-      [accountHolder, maskedAccountNumber, last4, routingNumber, accountType];
+  List<Object?> get props => [
+        accountHolder,
+        maskedAccountNumber,
+        last4,
+        routingNumber,
+        accountType,
+        itemDescription,
+      ];
 }
 
 /// A saved payment method (`GET/POST /payment-gateway/payment-methods`).
@@ -208,6 +220,36 @@ class AddPaymentMethodParams extends Equatable {
         makePrimary,
         makeAutopay,
       ];
+}
+
+/// Params for `PUT /payment-gateway/payment-methods/{code}` (edit metadata:
+/// account-holder name / label — the tokenized card/account itself is immutable).
+class UpdatePaymentMethodParams extends Equatable {
+  const UpdatePaymentMethodParams({
+    required this.organizationCode,
+    required this.schoolCode,
+    required this.guardianCode,
+    this.label,
+    this.notes,
+    this.card,
+    this.echeck,
+  });
+
+  final String organizationCode;
+  final String schoolCode;
+  final String guardianCode;
+  final String? label;
+  final String? notes;
+
+  /// Updated card object (existing values + new name_on_card). Null for eCheck.
+  final PaymentMethodCardEntity? card;
+
+  /// Updated echeck object (existing values + new account_holder). Null for card.
+  final PaymentMethodEcheckEntity? echeck;
+
+  @override
+  List<Object?> get props =>
+      [organizationCode, schoolCode, guardianCode, label, notes, card, echeck];
 }
 
 /// Common org/school/guardian scope passed to the read + primary endpoints.

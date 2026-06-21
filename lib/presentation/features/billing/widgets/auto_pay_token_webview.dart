@@ -74,7 +74,7 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Secure Auto Pay'),
+        title: const Text('Add Payment Method'),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.white,
         elevation: 0,

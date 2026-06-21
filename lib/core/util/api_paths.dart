@@ -235,6 +235,7 @@ class ApiPaths {
         return ApiMicroservices.notification;
       case 'kiosk':
         return ApiMicroservices.attendance;
+      case 'billing':
       case 'discount':
       case 'subsidy':
       case 'fee-structure':
@@ -890,7 +891,15 @@ class ApiPaths {
   static const String notificationLogsReadAll =
       '/api/v1/notification/logs/read-all';
 
+  /// GET/PATCH user notification preferences (in-app / push / email per
+  /// notification definition). Notification MS.
+  static const String notificationPreferences =
+      '/api/v1/notification/preferences';
+
   // —— Billing MS ——
+  static const String billingStatements = '/api/v1/billing/statements';
+  static String billingStatementDownload(String code) =>
+      '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';
   static const String discounts = '/api/v1/discount';
   static const String subsidies = '/api/v1/subsidy';
   static const String feeStructures = '/api/v1/fee-structure';
@@ -954,8 +963,13 @@ class ApiPaths {
       '/api/v1/payment-gateway/payment-methods/'
       '${Uri.encodeComponent(paymentMethodCode.trim())}';
 
-  /// Mark a saved payment method as primary (the auto-pay method).
+  /// Mark a saved payment method as primary (the default payment method).
   static String paymentGatewayMethodPrimary(String paymentMethodCode) =>
       '/api/v1/payment-gateway/payment-methods/'
       '${Uri.encodeComponent(paymentMethodCode.trim())}/primary';
+
+  /// Mark a saved payment method as the auto-pay method.
+  static String paymentGatewayMethodAutopay(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}/autopay';
 }

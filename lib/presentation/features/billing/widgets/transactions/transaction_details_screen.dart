@@ -3,10 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
+import 'package:wowcare/presentation/features/billing/widgets/admin_statements_tab.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/generate_statement_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/add_credit_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
@@ -46,9 +49,14 @@ class TransactionDetailsScreen extends StatefulWidget {
   State<TransactionDetailsScreen> createState() => _TransactionDetailsScreenState();
 }
 
-class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
+class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
+    with TickerProviderStateMixin {
   late final TransactionDetailsCubit _cubit =
       serviceLocator<TransactionDetailsCubit>();
+  late final AdminStatementsCubit _statementsCubit =
+      serviceLocator<AdminStatementsCubit>();
+  late final TabController _tabController =
+      TabController(length: 2, vsync: this);
   final ScrollController _scrollController = ScrollController();
 
   // Read-only proxies onto the cubit state so the build helpers stay unchanged.
@@ -116,6 +124,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    _tabController.dispose();
+    _statementsCubit.close();
     _cubit.close();
     super.dispose();
   }
@@ -194,6 +204,19 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
             if (added == true) _cubit.refresh();
           });
         },
+      ),
+    );
+  }
+
+  void _openGenerateStatement() {
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => GenerateStatementScreen(
+          cubit: _statementsCubit,
+          subscriberCode: widget.ownerCode ?? '',
+          ownerType: widget.ownerType ?? 'FAMILY',
+          familyChildren: _familyChildren,
+        ),
       ),
     );
   }
@@ -334,70 +357,192 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen> {
     );
   }
 
+  List<Map<String, dynamic>> get _statementsChildren => _familyChildren
+      .map((c) => <String, dynamic>{
+            'fullName': (c['fullName'] ?? '').toString(),
+            'name': (c['fullName'] ?? '').toString(),
+            'room': '',
+            'roomName': '',
+          })
+      .toList();
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider<TransactionDetailsCubit>.value(
       value: _cubit,
       child: BlocBuilder<TransactionDetailsCubit, TransactionDetailsState>(
         builder: (context, state) {
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: CustomRefreshIndicator(
-        onRefresh: () async {
-          await _cubit.refresh();
-        },
-        child: SingleChildScrollView(
-          controller: _scrollController,
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Page title
-              Padding(
-                padding: const EdgeInsets.only(left: 4, top: 8, right: 16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${_familyDisplayName} Family Transactions',
-                        style: const TextStyle(
-                          color: AppColors.primaryColor,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
+          return GlobalScaffold(
+            hasBackButton: true,
+            showCustomNavigationBar: true,
+            body: Column(
+              children: [
+                // Family name header + add button
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, top: 8, right: 16, bottom: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          '$_familyDisplayName Family',
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    GradientAddButton(onTap: _showNewTransactionMenu),
-                  ],
+                      const SizedBox(width: 8),
+                      AnimatedBuilder(
+                        animation: _tabController,
+                        builder: (_, __) {
+                          final isStatementsTab = _tabController.index == 1;
+                          return GradientAddButton(
+                            onTap: isStatementsTab
+                                ? _openGenerateStatement
+                                : _showNewTransactionMenu,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 8),
-              // Date range selector (shared white-card UI with the SVG calendar
-              // icon, matching the other billing screens).
-              AccountingDateRangeSelector(
-                initialStartDate: _startDate,
-                initialEndDate: _endDate,
-                onRangeChanged: (start, end) =>
-                    _cubit.applyDateRange(start, end),
-              ),
-              const SizedBox(height: 12),
-              // Compact family info box
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                child: _buildFamilyInfoBox(),
-              ),
-              // Family transactions section
-              _buildSiblingTransactionsSection(),
-            ],
-          ),
-        ),
+                // Tab bar
+                Container(
+                  color: AppColors.cardColor,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TabBar(
+                        controller: _tabController,
+                        labelColor: AppColors.themeColor,
+                        unselectedLabelColor:
+                            AppColors.primaryColor.withValues(alpha: 0.6),
+                        dividerColor: Colors.transparent,
+                        indicatorColor: Colors.transparent,
+                        indicatorSize: TabBarIndicatorSize.label,
+                        tabs: const [
+                          Tab(text: 'Transactions'),
+                          Tab(text: 'Statements'),
+                        ],
+                      ),
+                      SizedBox(
+                        height: 2.5,
+                        child: AnimatedBuilder(
+                          animation: _tabController.animation ??
+                              const AlwaysStoppedAnimation(0),
+                          builder: (context, child) {
+                            final screenWidth =
+                                MediaQuery.of(context).size.width;
+                            final tabWidth = screenWidth / 2;
+
+                            final defaultTextStyle =
+                                DefaultTextStyle.of(context).style;
+                            final textStyle = defaultTextStyle.copyWith(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            );
+
+                            final transactionsText = TextPainter(
+                              text: TextSpan(
+                                  text: 'Transactions', style: textStyle),
+                              textDirection: TextDirection.ltr,
+                            )..layout();
+
+                            final statementsText = TextPainter(
+                              text: TextSpan(
+                                  text: 'Statements', style: textStyle),
+                              textDirection: TextDirection.ltr,
+                            )..layout();
+
+                            final animationValue =
+                                _tabController.animation?.value ?? 0.0;
+
+                            final currentTextWidth =
+                                (statementsText.size.width -
+                                            transactionsText.size.width) *
+                                        animationValue +
+                                    transactionsText.size.width;
+
+                            final transactionsCenter = tabWidth / 2;
+                            final statementsCenter = tabWidth + tabWidth / 2;
+                            final currentCenter = (statementsCenter -
+                                        transactionsCenter) *
+                                    animationValue +
+                                transactionsCenter;
+
+                            final leftOffset =
+                                currentCenter - currentTextWidth / 2;
+
+                            return Stack(
+                              children: [
+                                Positioned(
+                                  left: leftOffset,
+                                  width: currentTextWidth,
+                                  child: Container(
+                                    height: 2.5,
+                                    decoration: BoxDecoration(
+                                      gradient:
+                                          AppColors.buildPrimaryGradient(),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Tab content
+                Expanded(
+                  child: TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildTransactionsTab(),
+                      AdminStatementsTab(
+                        cubit: _statementsCubit,
+                        ownerCode: widget.ownerCode ?? '',
+                        familyChildren: _statementsChildren,
+                        customStartDate: _startDate,
+                        customEndDate: _endDate,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
-        },
+  }
+
+  Widget _buildTransactionsTab() {
+    return CustomRefreshIndicator(
+      onRefresh: () async => _cubit.refresh(),
+      child: SingleChildScrollView(
+        controller: _scrollController,
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            AccountingDateRangeSelector(
+              initialStartDate: _startDate,
+              initialEndDate: _endDate,
+              onRangeChanged: (start, end) => _cubit.applyDateRange(start, end),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: _buildFamilyInfoBox(),
+            ),
+            _buildSiblingTransactionsSection(),
+          ],
+        ),
       ),
     );
   }

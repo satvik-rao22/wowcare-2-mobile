@@ -10,20 +10,26 @@ import '../../data/features/notifications/datasources/fcm_remote_data_source.dar
 import '../../data/features/notifications/datasources/notification_center_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_logs_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_preferences_remote_data_source.dart';
 import '../../data/features/notifications/repositories/fcm_registration_repository_impl.dart';
+import '../../data/features/notifications/repositories/notification_preferences_repository_impl.dart';
 import '../../data/features/notifications/repositories/notification_center_repository_impl.dart';
 import '../../data/features/notifications/repositories/push_notification_repository_impl.dart';
 import '../../data/features/notifications/services/fcm_token_registration_service.dart';
 import '../../domain/features/notifications/repositories/fcm_registration_repository.dart';
 import '../../domain/features/notifications/repositories/notification_center_repository.dart';
+import '../../domain/features/notifications/repositories/notification_preferences_repository.dart';
 import '../../domain/features/notifications/repositories/push_notification_repository.dart';
+import '../../domain/features/notifications/usecases/get_notification_preferences_usecase.dart';
 import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
+import '../../domain/features/notifications/usecases/update_notification_preferences_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
 import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
+import '../../presentation/features/user-profile/view_model/notification_settings_cubit.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
@@ -337,10 +343,15 @@ import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
 import '../../data/services/file_download_service.dart';
 import '../../data/features/reports/repositories/file_download_repository.dart';
+import '../../data/features/billing/datasources/billing_statements_remote_datasource.dart';
 import '../../data/features/billing/datasources/ledger_remote_datasource.dart';
 import '../../data/features/billing/datasources/ledger_transaction_remote_datasource.dart';
+import '../../data/features/billing/repositories/billing_statements_repository_impl.dart';
 import '../../data/features/billing/repositories/ledger_repository_impl.dart';
 import '../../data/features/billing/repositories/ledger_transaction_repository_impl.dart';
+import '../../domain/features/billing/repositories/billing_statements_repository.dart';
+import '../../domain/features/billing/usecases/get_billing_statements_usecase.dart';
+import '../../presentation/features/billing/cubit/admin_statements_cubit.dart';
 import '../../domain/features/billing/repositories/ledger_repository.dart';
 import '../../domain/features/billing/repositories/ledger_transaction_repository.dart';
 import '../../domain/features/billing/usecases/get_ledgers_usecase.dart';
@@ -396,8 +407,11 @@ import '../../domain/features/billing/usecases/set_autopay_status_usecase.dart';
 import '../../domain/features/billing/usecases/get_payment_methods_usecase.dart';
 import '../../domain/features/billing/usecases/add_payment_method_usecase.dart';
 import '../../domain/features/billing/usecases/set_primary_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/set_autopay_method_usecase.dart';
 import '../../domain/features/billing/usecases/delete_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/update_payment_method_usecase.dart';
 import '../../presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
+import '../../presentation/features/billing/cubit/pay_now_cubit.dart';
 import '../../domain/features/billing/usecases/create_discount_usecase.dart';
 import '../../domain/features/billing/usecases/update_discount_usecase.dart';
 import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
@@ -1738,6 +1752,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
       markAllNotificationsReadUseCase: serviceLocator(),
     ),
   );
+
+  // Notification preferences (settings screen) — GET/PATCH /preferences.
+  serviceLocator.registerLazySingleton<NotificationPreferencesRemoteDataSource>(
+    () => NotificationPreferencesRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+    ),
+  );
+  serviceLocator.registerLazySingleton<NotificationPreferencesRepository>(
+    () => NotificationPreferencesRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetNotificationPreferencesUseCase>(
+    () => GetNotificationPreferencesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateNotificationPreferencesUseCase>(
+    () => UpdateNotificationPreferencesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<NotificationSettingsCubit>(
+    () => NotificationSettingsCubit(
+      getPreferences: serviceLocator(),
+      updatePreferences: serviceLocator(),
+      storage: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<CheckLocationPermissionUseCase>(
     () => CheckLocationPermissionUseCase(serviceLocator()),
   );
@@ -2009,6 +2046,26 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storage: serviceLocator<StorageService>(),
     ),
   );
+  serviceLocator.registerLazySingleton<BillingStatementsRemoteDataSource>(
+    () => BillingStatementsRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<BillingStatementsRepository>(
+    () => BillingStatementsRepositoryImpl(
+      serviceLocator<BillingStatementsRemoteDataSource>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetBillingStatementsUseCase>(
+    () => GetBillingStatementsUseCase(
+      serviceLocator<BillingStatementsRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<AdminStatementsCubit>(
+    () => AdminStatementsCubit(
+      getStatements: serviceLocator<GetBillingStatementsUseCase>(),
+      statementsRepository: serviceLocator<BillingStatementsRepository>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+    ),
+  );
   serviceLocator.registerFactory<TransactionsCubit>(
     () => TransactionsCubit(
       getOverview: serviceLocator<GetInvoiceOverviewUseCase>(),
@@ -2074,6 +2131,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeletePaymentMethodUseCase>(
     () => DeletePaymentMethodUseCase(serviceLocator<AutoPayRepository>()),
   );
+  serviceLocator.registerFactory<UpdatePaymentMethodUseCase>(
+    () => UpdatePaymentMethodUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<SetAutopayMethodUseCase>(
+    () => SetAutopayMethodUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PayNowCubit>(
+    () => PayNowCubit(
+      getFamilySummary: serviceLocator<GetFamilySummaryUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
   serviceLocator.registerFactory<AutoPayMethodsCubit>(
     () => AutoPayMethodsCubit(
       getForteConfig: serviceLocator<GetSchoolForteConfigUseCase>(),
@@ -2082,7 +2151,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getMethods: serviceLocator<GetPaymentMethodsUseCase>(),
       addMethod: serviceLocator<AddPaymentMethodUseCase>(),
       setPrimary: serviceLocator<SetPrimaryPaymentMethodUseCase>(),
+      setAutopay: serviceLocator<SetAutopayMethodUseCase>(),
       deleteMethod: serviceLocator<DeletePaymentMethodUseCase>(),
+      updateMethod: serviceLocator<UpdatePaymentMethodUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
