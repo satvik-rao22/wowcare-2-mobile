@@ -10,7 +10,6 @@ import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -1026,10 +1025,11 @@ class _AutoPayPaymentMethodsScreenState
   /// Edits a saved method's editable fields via the PUT endpoint. The tokenized
   /// card/account number itself can't change.
   Future<void> _openEditMethod(PaymentMethodEntity m) async {
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => _EditPaymentMethodScreen(method: m, cubit: _cubit),
-      ),
+    final saved = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _EditMethodSheet(method: m, cubit: _cubit),
     );
     if (!mounted || saved != true) return;
     CoreUtils.showTopSnackBar(
@@ -1058,22 +1058,20 @@ List<TextInputFormatter> _holderFormatters() => [
       }),
     ];
 
-/// Full-screen editor for a saved method (Add-Staff-style layout): editable
-/// fields per type (card: name + expiry; eCheck: holder, routing, type) plus
-/// Make Primary / Use for AutoPay toggles. Commits via
-/// [AutoPayMethodsCubit.updatePaymentMethod].
-class _EditPaymentMethodScreen extends StatefulWidget {
-  const _EditPaymentMethodScreen({required this.method, required this.cubit});
+/// Bottom-sheet editor for a saved method: editable fields per type (card:
+/// name + expiry; eCheck: holder, routing, type) plus Make Primary / Use for
+/// AutoPay toggles. Commits via [AutoPayMethodsCubit.updatePaymentMethod].
+class _EditMethodSheet extends StatefulWidget {
+  const _EditMethodSheet({required this.method, required this.cubit});
 
   final PaymentMethodEntity method;
   final AutoPayMethodsCubit cubit;
 
   @override
-  State<_EditPaymentMethodScreen> createState() =>
-      _EditPaymentMethodScreenState();
+  State<_EditMethodSheet> createState() => _EditMethodSheetState();
 }
 
-class _EditPaymentMethodScreenState extends State<_EditPaymentMethodScreen> {
+class _EditMethodSheetState extends State<_EditMethodSheet> {
   static const Color _primary = Color(0xFF573353);
 
   late final TextEditingController _holder;
@@ -1149,13 +1147,40 @@ class _EditPaymentMethodScreenState extends State<_EditPaymentMethodScreen> {
     final currentYear = DateTime.now().year;
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
-    return StaffFormLayout(
-      title: 'Edit Payment Method',
-      bottomBar: _bottomBar(),
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _label('Account Holder Name'),
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Text(
+                'Edit Payment Method',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: _primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _label('Account Holder Name'),
               _field(
                 controller: _holder,
                 hint: 'ENTER ACCOUNT HOLDER NAME',
@@ -1248,37 +1273,41 @@ class _EditPaymentMethodScreenState extends State<_EditPaymentMethodScreen> {
                 value: _makeAutopay,
                 onChanged: (v) => setState(() => _makeAutopay = v),
               ),
-          const SizedBox(height: 12),
-        ],
-      ),
-    );
-  }
-
-  Widget _bottomBar() {
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safe = bottomPadding > 0 ? bottomPadding : 16.0;
-    return Container(
-      padding: EdgeInsets.only(bottom: safe, left: 16, right: 16, top: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            offset: const Offset(0, -4),
-            blurRadius: 16,
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buildPrimaryGradient(),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: TextButton(
+                    onPressed: _saving ? null : _save,
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text(
+                            'Save Changes',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(24),
-          topRight: Radius.circular(24),
         ),
-      ),
-      child: CustomButtonLayout(
-        confirmButtonLabel: 'Save',
-        onPressedConfirm: _save,
-        showCancelButton: false,
-        isForm: false,
-        isLoading: _saving,
       ),
     );
   }
@@ -1380,10 +1409,10 @@ class _EditPaymentMethodScreenState extends State<_EditPaymentMethodScreen> {
               ],
             ),
           ),
-          CustomToggle(
-            label: '',
-            isToggled: value,
-            onToggle: onChanged,
+          Switch.adaptive(
+            value: value,
+            onChanged: onChanged,
+            activeTrackColor: const Color(0xFF6F52FF),
           ),
         ],
       ),
