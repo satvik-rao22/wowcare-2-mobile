@@ -161,15 +161,6 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     );
   }
 
-  /// Splits a full "ACCOUNT HOLDER" name into (first, rest-as-last).
-  (String, String) _splitName(String? full) {
-    final n = (full ?? '').trim();
-    if (n.isEmpty) return ('', '');
-    final parts = n.split(RegExp(r'\s+'));
-    if (parts.length == 1) return (parts.first, parts.first);
-    return (parts.first, parts.sublist(1).join(' '));
-  }
-
   /// Adds a payment method from the Forte one-time token returned by the
   /// webview, then refreshes the list. [accountHolder] (uppercase name from the
   /// form) and the [makePrimary]/[makeAutopay] toggles are sent to the backend.
@@ -190,10 +181,14 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     }
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
-      var (firstName, lastName) = _splitName(accountHolder);
-      if (firstName.isEmpty) {
+      var holderName = (accountHolder ?? '').trim();
+      if (holderName.isEmpty) {
         // Fall back to the stored guardian name when the form left it blank.
-        (firstName, lastName) = await _guardianNames();
+        final (firstName, lastName) = await _guardianNames();
+        holderName = [firstName, lastName]
+            .where((p) => p.trim().isNotEmpty)
+            .join(' ')
+            .trim();
       }
 
       await _addMethod(AddPaymentMethodParams(
@@ -202,8 +197,7 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         guardianCode: _guardianCode,
         oneTimeToken: oneTimeToken,
         methodType: methodType,
-        firstName: firstName,
-        lastName: lastName,
+        payMethodHolderName: holderName,
         label: label,
         makePrimary: makePrimary,
         makeAutopay: makeAutopay,
@@ -290,11 +284,15 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
         ),
       );
 
-      // Apply primary / auto-pay flags if the user turned them on here.
-      if (makePrimary && !method.primary) {
+      // Apply primary / auto-pay flags whenever the toggle is ON at save time.
+      // These PUT .../primary and PUT .../autopay endpoints are idempotent (they
+      // set THIS method), so re-asserting an already-primary/autopay method is
+      // harmless — this guarantees the calls run on every edit where the toggle
+      // is enabled, not only on an off→on flip.
+      if (makePrimary) {
         await _setPrimary(paymentMethodCode: method.code, scope: _scope);
       }
-      if (makeAutopay && !method.autopay) {
+      if (makeAutopay) {
         await _setAutopay(paymentMethodCode: method.code, scope: _scope);
       }
 

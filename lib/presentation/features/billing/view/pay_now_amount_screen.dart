@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_meth
 import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 /// Pay Now — step 1: choose how much to pay (full family balance or a custom
 /// per-owner allocation). Continues to the saved-method picker.
@@ -86,8 +87,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                         const Text(
                           'Payment Amount',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Manrope',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
                             color: _primary,
                           ),
                         ),
@@ -138,9 +140,10 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 child: Text(
                   'Current Outstanding (Family Balance)',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: _primary,
                   ),
                 ),
               ),
@@ -183,9 +186,10 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               const Text(
                 'Custom Amount',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontFamily: 'Manrope',
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: _primary,
                 ),
               ),
             ],
@@ -214,17 +218,19 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                     const Text(
                       'Total Payment Amount:',
                       style: TextStyle(
+                        fontFamily: 'Manrope',
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF334155),
+                        color: _primary,
                       ),
                     ),
                     Text(
                       '\$${_money(state.customTotal)}',
                       style: const TextStyle(
+                        fontFamily: 'Manrope',
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF334155),
+                        color: _primary,
                       ),
                     ),
                   ],
@@ -254,14 +260,16 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 TextSpan(
                   text: family.familyName,
                   style: const TextStyle(
+                    fontFamily: 'Manrope',
                     fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334155),
+                    fontWeight: FontWeight.w700,
+                    color: _primary,
                   ),
                 ),
                 TextSpan(
                   text: '  (Outstanding: \$${_money(family.openBalance)})',
                   style: TextStyle(
+                    fontFamily: 'Manrope',
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
                     color: Colors.grey.shade600,
@@ -284,25 +292,42 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     required TextEditingController controller,
     required ValueChanged<String> onChanged,
   }) {
-    return TextField(
-      controller: controller,
-      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-      inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-      ],
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        prefixText: '\$ ',
-        hintText: '0',
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+    final responsive = ResponsiveHelper(context);
+    // Match the input styling used across the staff forms (add_staff_screen):
+    // Manrope, primary text color, soft border, InputBorder.none inside a
+    // bordered container.
+    final textStyle = TextStyle(
+      fontFamily: 'Manrope',
+      fontSize: responsive.inputFontSize,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xff573353),
+      height: 19 / 14,
+    );
+    return Container(
+      constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0x66573353)),
+        borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [
+          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+        ],
+        onChanged: onChanged,
+        style: textStyle,
+        decoration: InputDecoration(
+          prefixText: '\$ ',
+          prefixStyle: textStyle,
+          hintText: '0',
+          hintStyle: textStyle.copyWith(color: Colors.grey),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: responsive.isTablet ? 16.0 : 12.0,
+            vertical: responsive.isTablet ? 16.0 : 12.0,
+          ),
         ),
       ),
     );

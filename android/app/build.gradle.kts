@@ -29,11 +29,11 @@ val flutterProguardRules: java.io.File =
 // Firebase multi-environment: decode --dart-define=ENVIRONMENT passed by Flutter.
 // Flutter encodes each dart-define as a base64 string, comma-separated, in the
 // "dart.defines" Gradle property. We decode and extract ENVIRONMENT, defaulting
-// to "uat" so a bare `./gradlew` still builds a valid variant.
+// to "local" so a bare `./gradlew` still builds a valid variant.
 // ---------------------------------------------------------------------------
 val dartEnvironment: String by lazy {
     val encoded = (project.findProperty("dart.defines") as? String) ?: ""
-    if (encoded.isBlank()) return@lazy "uat"
+    if (encoded.isBlank()) return@lazy "local"
     val decoded: List<String> = encoded.split(",")
         .filter { it.isNotBlank() }
         .mapNotNull { entry ->
@@ -46,7 +46,7 @@ val dartEnvironment: String by lazy {
     val env: String = decoded
         .firstOrNull { it.startsWith("ENVIRONMENT=") }
         ?.removePrefix("ENVIRONMENT=")
-        ?: "uat"
+        ?: "local"
     env.lowercase()
 }
 

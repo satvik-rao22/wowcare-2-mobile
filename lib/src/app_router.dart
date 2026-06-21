@@ -36,6 +36,9 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/onboarding/view/onboarding_screen.dart';
@@ -323,9 +326,25 @@ final GoRouter appRouter = GoRouter(
       path: NotificationCenterScreen.routeName,
       pageBuilder: (context, state) => _fastPage(
         state,
-        BlocProvider<NotificationCenterCubit>(
-          create: (_) =>
-              serviceLocator<NotificationCenterCubit>()..loadInitial(),
+        // This screen renders outside the nav shell with a plain Scaffold, so
+        // the shell's UnreadBadgeCubit isn't in scope. CustomNavigationBar
+        // watches it for the bottom-nav badge, so provide a route-scoped
+        // instance here (mirrors GlobalScaffold). create: auto-closes it on pop.
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<NotificationCenterCubit>(
+              create: (_) =>
+                  serviceLocator<NotificationCenterCubit>()..loadInitial(),
+            ),
+            BlocProvider<UnreadBadgeCubit>(
+              create: (_) => UnreadBadgeCubit(
+                watchUnreadCountForTypeUseCase:
+                    serviceLocator<WatchUnreadCountForTypeUseCase>(),
+                getUnreadAggregatesUseCase:
+                    serviceLocator<GetUnreadAggregatesUseCase>(),
+              )..startWatching(),
+            ),
+          ],
           child: const NotificationCenterScreen(),
         ),
       ),

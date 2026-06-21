@@ -6,7 +6,7 @@
 # We decode each token, find ENVIRONMENT=<value>, and lower-case it to pick the folder.
 set -euo pipefail
 
-ENVIRONMENT="uat"
+ENVIRONMENT="local"
 
 if [ -n "${DART_DEFINES:-}" ]; then
   IFS=',' read -ra DEFINES <<< "$DART_DEFINES"
