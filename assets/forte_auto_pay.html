@@ -653,15 +653,17 @@
         }
       }
 
-      // Force uppercase and allow only letters + single spaces (max 4 spaces).
+      // UPPERCASE letters only, max 4 words, single space between, no leading space.
       function sanitizeAccountHolder() {
         const el = document.getElementById('accountHolder');
-        let v = el.value.toUpperCase().replace(/[^A-Z ]/g, '');
-        v = v.replace(/ {2,}/g, ' ');
+        let v = el.value
+          .toUpperCase()
+          .replace(/[^A-Z ]/g, '')
+          .replace(/ {2,}/g, ' ')
+          .replace(/^\s+/, '');
         const parts = v.split(' ');
-        if (parts.length > 5) {
-          // Max 4 spaces → at most 5 words.
-          v = parts.slice(0, 5).join(' ');
+        if (parts.length > 4) {
+          v = parts.slice(0, 4).join(' ');
         }
         if (el.value !== v) {
           el.value = v;

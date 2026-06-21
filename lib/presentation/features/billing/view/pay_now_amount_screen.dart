@@ -6,9 +6,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_cubit.dart';
-import 'package:wowcare/presentation/features/billing/view/pay_now_method_picker_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
@@ -327,7 +329,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       child: Opacity(
         opacity: canConfirm ? 1 : 0.5,
         child: InkWell(
-          onTap: canConfirm ? _confirm : null,
+          onTap: canConfirm ? () => unawaited(_confirm()) : null,
           borderRadius: BorderRadius.circular(16),
           child: Container(
             height: 54,
@@ -352,12 +354,20 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     );
   }
 
-  void _confirm() {
+  Future<void> _confirm() async {
+    if (!_cubit.state.canConfirm) return;
     final amount = _cubit.state.amount;
-    if (amount <= 0) return;
-    Navigator.of(context).push(
+    // Step 2: the Saved Payment Methods picker (AutoPay UI without auto-pay).
+    final method = await Navigator.of(context).push<PaymentMethodEntity>(
       MaterialPageRoute(
-        builder: (_) => PayNowMethodPickerScreen(amount: amount),
+        builder: (_) => const AutoPayPaymentMethodsScreen(isPicker: true),
+      ),
+    );
+    if (!mounted || method == null) return;
+    // Step 3: our mocked authorize screen.
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PayNowAuthorizeScreen(method: method, amount: amount),
       ),
     );
   }

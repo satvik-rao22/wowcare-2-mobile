@@ -37,7 +37,12 @@ class PayNowState extends Equatable {
       ? customTotal
       : currentAmount;
 
-  bool get canConfirm => amount > 0 && !isLoading;
+  bool get canConfirm {
+    if (isLoading) return false;
+    // Custom amount: let it proceed with whatever was entered (incl. 0) for now.
+    if (mode == PayNowAmountMode.custom) return true;
+    return amount > 0;
+  }
 
   PayNowState copyWith({
     bool? isLoading,

@@ -10,13 +10,21 @@ import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/auto_pay_token_webview.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class AutoPayPaymentMethodsScreen extends StatefulWidget {
-  const AutoPayPaymentMethodsScreen({super.key});
+  const AutoPayPaymentMethodsScreen({super.key, this.isPicker = false});
+
+  /// When true the screen acts as a pure "Saved Payment Methods" picker (used by
+  /// Pay Now): the auto-pay header/toggle, AutoPay tags and Save action are
+  /// hidden, and the bottom button returns the selected method via
+  /// `Navigator.pop(method)`.
+  final bool isPicker;
 
   static const String routeName = '/auto-pay-payment-methods';
 
@@ -71,14 +79,17 @@ class _AutoPayPaymentMethodsScreenState
         builder: (context, state) {
           _maybePositionToPrimary(state);
           return StaffFormLayout(
-            title:
-                'Auto Payment - ${state.autopayEnabled ? 'Enabled' : 'Disabled'}',
+            title: widget.isPicker
+                ? 'Saved Payment Methods'
+                : 'Auto Payment - ${state.autopayEnabled ? 'Enabled' : 'Disabled'}',
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAutoPayHeader(state),
-                  const Divider(height: 32),
+                  if (!widget.isPicker) ...[
+                    _buildAutoPayHeader(state),
+                    const Divider(height: 32),
+                  ],
                   _buildSectionHeader(state.maxMethods),
                   const SizedBox(height: 16),
                   _buildMethodsArea(state),
@@ -184,25 +195,40 @@ class _AutoPayPaymentMethodsScreenState
   }
 
   Widget _buildSectionHeader(int maxMethods) {
+    // Full-size title that wraps to a second line if needed; the "Secure" chip
+    // stays full-size, pinned top-right and always visible.
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Saved Payment Methods',
-          style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                const TextSpan(text: 'Saved Payment Methods'),
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 6),
+                    child: Tooltip(
+                      message:
+                          'You can save up to $maxMethods payment methods.',
+                      triggerMode: TooltipTriggerMode.tap,
+                      showDuration: const Duration(seconds: 3),
+                      child: Icon(Icons.info_outline,
+                          size: 16, color: Colors.grey.shade500),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Colors.black87,
+            ),
           ),
         ),
-        const SizedBox(width: 6),
-        Tooltip(
-          message: 'You can save up to $maxMethods payment methods.',
-          triggerMode: TooltipTriggerMode.tap,
-          showDuration: const Duration(seconds: 3),
-          child: Icon(Icons.info_outline,
-              size: 16, color: Colors.grey.shade500),
-        ),
-        const Spacer(),
+        const SizedBox(width: 8),
         _secureChip(),
       ],
     );
@@ -799,7 +825,9 @@ class _AutoPayPaymentMethodsScreenState
   // ── Bottom bar (Save) ────────────────────────────────────────────────────
 
   Widget _buildBottomBar(AutoPayMethodsState state) {
-    final canSave = state.canSave;
+    final canAct = widget.isPicker
+        ? state.selectedMethodCode != null && !state.isSaving
+        : state.canSave;
     return Container(
       padding: EdgeInsets.only(
         bottom: (MediaQuery.of(context).padding.bottom > 0)
@@ -827,9 +855,11 @@ class _AutoPayPaymentMethodsScreenState
         mainAxisSize: MainAxisSize.min,
         children: [
           Opacity(
-            opacity: canSave ? 1 : 0.5,
+            opacity: canAct ? 1 : 0.5,
             child: InkWell(
-              onTap: canSave ? _handleSave : null,
+              onTap: canAct
+                  ? (widget.isPicker ? _handleContinue : _handleSave)
+                  : null,
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 height: 54,
@@ -849,9 +879,9 @@ class _AutoPayPaymentMethodsScreenState
                                 AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
-                          'Save',
-                          style: TextStyle(
+                      : Text(
+                          widget.isPicker ? 'Continue' : 'Save',
+                          style: const TextStyle(
                             color: Colors.white,
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -879,6 +909,17 @@ class _AutoPayPaymentMethodsScreenState
   }
 
   // ── Actions ──────────────────────────────────────────────────────────────
+
+  /// Picker mode: return the chosen method to the caller (Pay Now).
+  void _handleContinue() {
+    final code = _cubit.state.selectedMethodCode;
+    if (code == null) return;
+    final method = _cubit.state.methods.firstWhere(
+      (m) => m.code == code,
+      orElse: () => _cubit.state.methods.first,
+    );
+    Navigator.of(context).pop(method);
+  }
 
   Future<void> _handleSave() async {
     final ok = await _cubit.save();
@@ -985,11 +1026,10 @@ class _AutoPayPaymentMethodsScreenState
   /// Edits a saved method's editable fields via the PUT endpoint. The tokenized
   /// card/account number itself can't change.
   Future<void> _openEditMethod(PaymentMethodEntity m) async {
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _EditMethodSheet(method: m, cubit: _cubit),
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => _EditPaymentMethodScreen(method: m, cubit: _cubit),
+      ),
     );
     if (!mounted || saved != true) return;
     CoreUtils.showTopSnackBar(
@@ -1000,14 +1040,17 @@ class _AutoPayPaymentMethodsScreenState
   }
 }
 
-/// Uppercase letters + single spaces, max 4 spaces (5 words) — shared by the
-/// account-holder fields.
+/// UPPERCASE letters only, max 4 words, a single space between words and no
+/// leading space — shared by the account-holder fields.
 List<TextInputFormatter> _holderFormatters() => [
       FilteringTextInputFormatter.allow(RegExp('[A-Za-z ]')),
       TextInputFormatter.withFunction((old, value) {
-        var v = value.text.toUpperCase().replaceAll(RegExp(' {2,}'), ' ');
+        var v = value.text
+            .toUpperCase()
+            .replaceAll(RegExp(' {2,}'), ' ') // single space between words
+            .replaceFirst(RegExp(r'^\s+'), ''); // no leading space
         final parts = v.split(' ');
-        if (parts.length > 5) v = parts.sublist(0, 5).join(' ');
+        if (parts.length > 4) v = parts.sublist(0, 4).join(' '); // max 4 words
         return value.copyWith(
           text: v,
           selection: TextSelection.collapsed(offset: v.length),
@@ -1015,25 +1058,26 @@ List<TextInputFormatter> _holderFormatters() => [
       }),
     ];
 
-/// Full editor for a saved method: editable fields per type (card: name +
-/// expiry; eCheck: holder, routing, type, description) plus Make Primary /
-/// Use for AutoPay toggles. Commits via [AutoPayMethodsCubit.updatePaymentMethod].
-class _EditMethodSheet extends StatefulWidget {
-  const _EditMethodSheet({required this.method, required this.cubit});
+/// Full-screen editor for a saved method (Add-Staff-style layout): editable
+/// fields per type (card: name + expiry; eCheck: holder, routing, type) plus
+/// Make Primary / Use for AutoPay toggles. Commits via
+/// [AutoPayMethodsCubit.updatePaymentMethod].
+class _EditPaymentMethodScreen extends StatefulWidget {
+  const _EditPaymentMethodScreen({required this.method, required this.cubit});
 
   final PaymentMethodEntity method;
   final AutoPayMethodsCubit cubit;
 
   @override
-  State<_EditMethodSheet> createState() => _EditMethodSheetState();
+  State<_EditPaymentMethodScreen> createState() =>
+      _EditPaymentMethodScreenState();
 }
 
-class _EditMethodSheetState extends State<_EditMethodSheet> {
+class _EditPaymentMethodScreenState extends State<_EditPaymentMethodScreen> {
   static const Color _primary = Color(0xFF573353);
 
   late final TextEditingController _holder;
   late final TextEditingController _routing;
-  late final TextEditingController _itemDesc;
   String _expMonth = '';
   String _expYear = '';
   String _accountType = 'checking';
@@ -1053,7 +1097,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
           '',
     );
     _routing = TextEditingController(text: m.echeck?.routingNumber ?? '');
-    _itemDesc = TextEditingController(text: m.echeck?.itemDescription ?? '');
     if (m.card?.expireMonth != null) {
       _expMonth = m.card!.expireMonth.toString().padLeft(2, '0');
     }
@@ -1067,7 +1110,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
   void dispose() {
     _holder.dispose();
     _routing.dispose();
-    _itemDesc.dispose();
     super.dispose();
   }
 
@@ -1085,7 +1127,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
             accountHolder: _holder.text,
             routingNumber: _routing.text,
             accountType: _accountType,
-            itemDescription: _itemDesc.text,
             makePrimary: _makePrimary,
             makeAutopay: _makeAutopay,
           )
@@ -1108,40 +1149,13 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     final currentYear = DateTime.now().year;
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const Text(
-                'Edit Payment Method',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: _primary,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _label('Account Holder Name'),
+    return StaffFormLayout(
+      title: 'Edit Payment Method',
+      bottomBar: _bottomBar(),
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          _label('Account Holder Name'),
               _field(
                 controller: _holder,
                 hint: 'ENTER ACCOUNT HOLDER NAME',
@@ -1161,49 +1175,60 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                   ],
                 ),
                 const SizedBox(height: 14),
-                _label('Account Type'),
-                _dropdown(
-                  value: _accountType,
-                  items: const {'checking': 'Checking', 'savings': 'Savings'},
-                  onChanged: (v) => setState(() => _accountType = v),
-                ),
-                const SizedBox(height: 14),
-                _label('Item Description'),
-                _field(
-                  controller: _itemDesc,
-                  hint: 'Enter description',
+                CustomDropdown(
+                  label: 'Account Type',
+                  hintText: 'Select Account Type',
+                  items: const ['Checking', 'Savings'],
+                  selectedItem: _accountType == 'savings' ? 'Savings' : 'Checking',
+                  labelStyle: _ddLabel,
+                  showAsterisk: false,
+                  labelBottomSpacing: 6,
+                  fieldHeight: 52,
+                  prependHintAsSelectableItem: false,
+                  onSelect: (v) {
+                    if (v == null) return;
+                    setState(() =>
+                        _accountType = v == 'Savings' ? 'savings' : 'checking');
+                  },
                 ),
               ] else ...[
                 const SizedBox(height: 14),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _label('Expiry Month'),
-                          _dropdown(
-                            value: months.contains(_expMonth) ? _expMonth : null,
-                            hint: 'MM',
-                            items: {for (final m in months) m: m},
-                            onChanged: (v) => setState(() => _expMonth = v),
-                          ),
-                        ],
+                      child: CustomDropdown(
+                        label: 'Expiry Month',
+                        hintText: 'MM',
+                        items: months,
+                        selectedItem:
+                            months.contains(_expMonth) ? _expMonth : null,
+                        labelStyle: _ddLabel,
+                        showAsterisk: false,
+                        labelBottomSpacing: 6,
+                        fieldHeight: 52,
+                        prependHintAsSelectableItem: false,
+                        onSelect: (v) {
+                          if (v != null) setState(() => _expMonth = v);
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _label('Expiry Year'),
-                          _dropdown(
-                            value: years.contains(_expYear) ? _expYear : null,
-                            hint: 'YYYY',
-                            items: {for (final y in years) y: y},
-                            onChanged: (v) => setState(() => _expYear = v),
-                          ),
-                        ],
+                      child: CustomDropdown(
+                        label: 'Expiry Year',
+                        hintText: 'YYYY',
+                        items: years,
+                        selectedItem:
+                            years.contains(_expYear) ? _expYear : null,
+                        labelStyle: _ddLabel,
+                        showAsterisk: false,
+                        labelBottomSpacing: 6,
+                        fieldHeight: 52,
+                        prependHintAsSelectableItem: false,
+                        onSelect: (v) {
+                          if (v != null) setState(() => _expYear = v);
+                        },
                       ),
                     ),
                   ],
@@ -1223,52 +1248,57 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 value: _makeAutopay,
                 onChanged: (v) => setState(() => _makeAutopay = v),
               ),
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildPrimaryGradient(),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: TextButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
-                            ),
-                          )
-                        : const Text(
-                            'Save Changes',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+          const SizedBox(height: 12),
+        ],
       ),
     );
   }
+
+  Widget _bottomBar() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final safe = bottomPadding > 0 ? bottomPadding : 16.0;
+    return Container(
+      padding: EdgeInsets.only(bottom: safe, left: 16, right: 16, top: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            offset: const Offset(0, -4),
+            blurRadius: 16,
+          ),
+        ],
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+      ),
+      child: CustomButtonLayout(
+        confirmButtonLabel: 'Save',
+        onPressedConfirm: _save,
+        showCancelButton: false,
+        isForm: false,
+        isLoading: _saving,
+      ),
+    );
+  }
+
+  // Label style shared by the CustomDropdowns (matches the Add Staff form).
+  static const TextStyle _ddLabel = TextStyle(
+    fontFamily: 'Manrope',
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    color: _primary,
+  );
 
   Widget _label(String text) => Padding(
         padding: const EdgeInsets.only(bottom: 6),
         child: Text(
           text,
           style: const TextStyle(
+            fontFamily: 'Manrope',
             fontSize: 13,
-            fontWeight: FontWeight.w500,
+            fontWeight: FontWeight.w400,
             color: _primary,
           ),
         ),
@@ -1281,56 +1311,38 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     List<TextInputFormatter>? formatters,
     bool capsAll = false,
   }) {
-    return TextField(
-      controller: controller,
-      keyboardType: keyboardType,
-      inputFormatters: formatters,
-      textCapitalization:
-          capsAll ? TextCapitalization.characters : TextCapitalization.none,
-      decoration: InputDecoration(
-        hintText: hint,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: const Color(0x66573353)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        inputFormatters: formatters,
+        textCapitalization:
+            capsAll ? TextCapitalization.characters : TextCapitalization.none,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: _primary,
+          height: 19 / 14,
         ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: Colors.grey,
+          ),
+          border: InputBorder.none,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         ),
       ),
-    );
-  }
-
-  Widget _dropdown({
-    required String? value,
-    required Map<String, String> items,
-    required ValueChanged<String> onChanged,
-    String? hint,
-  }) {
-    return DropdownButtonFormField<String>(
-      initialValue: value,
-      isExpanded: true,
-      hint: hint == null ? null : Text(hint),
-      decoration: InputDecoration(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: Colors.grey.shade300),
-        ),
-      ),
-      items: items.entries
-          .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value)))
-          .toList(),
-      onChanged: (v) {
-        if (v != null) onChanged(v);
-      },
     );
   }
 
@@ -1368,10 +1380,10 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
               ],
             ),
           ),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeTrackColor: const Color(0xFF6F52FF),
+          CustomToggle(
+            label: '',
+            isToggled: value,
+            onToggle: onChanged,
           ),
         ],
       ),
