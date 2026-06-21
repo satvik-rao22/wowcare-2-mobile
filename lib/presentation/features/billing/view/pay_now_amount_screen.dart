@@ -87,8 +87,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                         const Text(
                           'Payment Amount',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
+                            fontFamily: 'Manrope',
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
                             color: _primary,
                           ),
                         ),
@@ -139,9 +140,10 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 child: Text(
                   'Current Outstanding (Family Balance)',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontFamily: 'Manrope',
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: _primary,
                   ),
                 ),
               ),
@@ -184,9 +186,10 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               const Text(
                 'Custom Amount',
                 style: TextStyle(
-                  fontSize: 16,
+                  fontFamily: 'Manrope',
+                  fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Colors.black87,
+                  color: _primary,
                 ),
               ),
             ],
@@ -215,17 +218,19 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                     const Text(
                       'Total Payment Amount:',
                       style: TextStyle(
+                        fontFamily: 'Manrope',
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF334155),
+                        color: _primary,
                       ),
                     ),
                     Text(
                       '\$${_money(state.customTotal)}',
                       style: const TextStyle(
+                        fontFamily: 'Manrope',
                         fontSize: 18,
                         fontWeight: FontWeight.w800,
-                        color: Color(0xFF334155),
+                        color: _primary,
                       ),
                     ),
                   ],
@@ -255,14 +260,16 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                 TextSpan(
                   text: family.familyName,
                   style: const TextStyle(
+                    fontFamily: 'Manrope',
                     fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF334155),
+                    fontWeight: FontWeight.w700,
+                    color: _primary,
                   ),
                 ),
                 TextSpan(
                   text: '  (Outstanding: \$${_money(family.openBalance)})',
                   style: TextStyle(
+                    fontFamily: 'Manrope',
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
                     color: Colors.grey.shade600,

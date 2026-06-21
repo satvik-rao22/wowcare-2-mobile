@@ -1264,6 +1264,11 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 title: 'Make Primary',
                 subtitle: 'Use this as the default payment method.',
                 value: _makePrimary,
+                // Already primary → can't be unset here; tapping explains how to
+                // change it (promote another card) instead of toggling.
+                lockedMessage: widget.method.primary
+                    ? 'This card is already primary. Set another card as primary to change it.'
+                    : null,
                 onChanged: (v) => setState(() => _makePrimary = v),
               ),
               const SizedBox(height: 10),
@@ -1271,6 +1276,11 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                 title: 'Use for AutoPay',
                 subtitle: 'Automatically deduct outstanding balances.',
                 value: _makeAutopay,
+                // Already the AutoPay card → no per-method unset; tapping explains
+                // to use another card for AutoPay.
+                lockedMessage: widget.method.autopay
+                    ? 'This card is already used for AutoPay. Set another card for AutoPay to change it.'
+                    : null,
                 onChanged: (v) => setState(() => _makeAutopay = v),
               ),
               const SizedBox(height: 20),
@@ -1380,7 +1390,33 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     required String subtitle,
     required bool value,
     required ValueChanged<bool> onChanged,
+    String? lockedMessage,
   }) {
+    final locked = lockedMessage != null;
+    Widget toggle = CustomToggle(
+      label: '',
+      isToggled: value,
+      onToggle: onChanged,
+    );
+    if (locked) {
+      // Keep the toggle looking normal, but swallow the tap and show a hint
+      // instead of flipping (there is no per-method "unset" endpoint).
+      toggle = Stack(
+        children: [
+          IgnorePointer(child: toggle),
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => CoreUtils.showTopSnackBar(
+                context: context,
+                message: lockedMessage,
+                isWarning: true,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -1409,11 +1445,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
               ],
             ),
           ),
-          Switch.adaptive(
-            value: value,
-            onChanged: onChanged,
-            activeTrackColor: const Color(0xFF6F52FF),
-          ),
+          toggle,
         ],
       ),
     );

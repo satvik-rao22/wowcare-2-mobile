@@ -189,9 +189,9 @@ class AddPaymentMethodParams extends Equatable {
     required this.guardianCode,
     required this.oneTimeToken,
     required this.methodType,
-    required this.firstName,
-    required this.lastName,
+    required this.payMethodHolderName,
     this.label,
+    this.familyCode,
     this.makePrimary = false,
     this.makeAutopay = false,
   });
@@ -201,9 +201,12 @@ class AddPaymentMethodParams extends Equatable {
   final String guardianCode;
   final String oneTimeToken;
   final PaymentMethodType methodType;
-  final String firstName;
-  final String lastName;
+
+  /// Cardholder / account-holder name — sent as `payMethodHolderName`. Forte
+  /// requires this (name_on_card) when converting the one-time token.
+  final String payMethodHolderName;
   final String? label;
+  final String? familyCode;
   final bool makePrimary;
   final bool makeAutopay;
 
@@ -214,9 +217,9 @@ class AddPaymentMethodParams extends Equatable {
         guardianCode,
         oneTimeToken,
         methodType,
-        firstName,
-        lastName,
+        payMethodHolderName,
         label,
+        familyCode,
         makePrimary,
         makeAutopay,
       ];

@@ -213,9 +213,9 @@ class AddPaymentMethodRequestModel {
     required this.guardianCode,
     required this.oneTimeToken,
     required this.methodType,
-    required this.firstName,
-    required this.lastName,
+    required this.payMethodHolderName,
     this.label,
+    this.familyCode,
     this.makePrimary = false,
     this.makeAutopay = false,
   });
@@ -225,9 +225,9 @@ class AddPaymentMethodRequestModel {
   final String guardianCode;
   final String oneTimeToken;
   final String methodType;
-  final String firstName;
-  final String lastName;
+  final String payMethodHolderName;
   final String? label;
+  final String? familyCode;
   final bool makePrimary;
   final bool makeAutopay;
 
@@ -238,8 +238,9 @@ class AddPaymentMethodRequestModel {
         'oneTimeToken': oneTimeToken,
         'methodType': methodType,
         if (label != null && label!.trim().isNotEmpty) 'label': label,
-        'firstName': firstName,
-        'lastName': lastName,
+        'payMethodHolderName': payMethodHolderName,
+        if (familyCode != null && familyCode!.trim().isNotEmpty)
+          'familyCode': familyCode,
         'makePrimary': makePrimary,
         'makeAutopay': makeAutopay,
       };
