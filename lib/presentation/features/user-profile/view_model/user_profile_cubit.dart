@@ -109,12 +109,13 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       final rolesJson =
           await _storage.getString(StorageKeys.roles); // JSON array from login
       String persona = '';
-      if (activeSchoolRole.isNotEmpty) {
-        persona = StringUtils.staffTypeToDisplayRole(activeSchoolRole);
-      }
-      // For staff personas, show designation instead of staffType/role when available.
-      if (persona.isEmpty && cachedDesignation.isNotEmpty) {
+      // Prefer the staff designation (e.g. Director / Lead Teacher) over the
+      // role/staffType; fall back to the role only when no designation exists.
+      if (cachedDesignation.isNotEmpty) {
         persona = StringUtils.staffTypeToDisplayRole(cachedDesignation);
+      }
+      if (persona.isEmpty && activeSchoolRole.isNotEmpty) {
+        persona = StringUtils.staffTypeToDisplayRole(activeSchoolRole);
       }
       final school =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
@@ -318,7 +319,14 @@ class UserProfileCubit extends Cubit<UserProfileState> {
             );
           }
           if (isClosed) return;
-          emit(state.copyWith(profile: cached));
+          emit(state.copyWith(
+            profile: cached,
+            // Keep the designation in the persona so a later fresh profile with
+            // an empty designation can't drop the header back to the role.
+            loginPersona: cached.designation.trim().isNotEmpty
+                ? StringUtils.staffTypeToDisplayRole(cached.designation.trim())
+                : state.loginPersona,
+          ));
         }
       }
 
@@ -336,7 +344,14 @@ class UserProfileCubit extends Cubit<UserProfileState> {
           );
         }
         if (isClosed) return;
-        emit(state.copyWith(profile: fresh));
+        emit(state.copyWith(
+          profile: fresh,
+          // Only refresh the persona when the fresh profile actually carries a
+          // designation; otherwise keep the existing one (don't revert to role).
+          loginPersona: fresh.designation.trim().isNotEmpty
+              ? StringUtils.staffTypeToDisplayRole(fresh.designation.trim())
+              : state.loginPersona,
+        ));
       } catch (e) {
         CoreUtils.logApiError(e.toString());
         if (state.profile == null && !_hasShownProfileLoadError) {
