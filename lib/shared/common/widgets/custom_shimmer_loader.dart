@@ -569,6 +569,79 @@ class StaffCardShimmer extends StatelessWidget {
   }
 }
 
+/// Shimmer placeholder matching the billing transaction card header
+/// (avatar + name/badge column + amount/date column). Mirrors [StaffCardShimmer]
+/// so billing lists show the card structure while loading.
+class BillingTransactionShimmer extends StatelessWidget {
+  final EdgeInsets? margin;
+
+  const BillingTransactionShimmer({super.key, this.margin});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar(double width, double height) => Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Avatar placeholder (matches the 50px card avatar).
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Name + status badge.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  bar(double.infinity, 14),
+                  const SizedBox(height: 8),
+                  bar(96, 18),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Amount + date.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                bar(70, 14),
+                const SizedBox(height: 8),
+                bar(96, 12),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Shimmer placeholder matching the Staff Scheduling profile card:
 /// avatar + name/designation/classroom header, three hour tiles, and a
 /// day timeline placeholder. Used for the first-time load so the user sees

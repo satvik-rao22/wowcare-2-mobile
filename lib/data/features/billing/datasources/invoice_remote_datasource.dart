@@ -5,6 +5,7 @@ import 'package:wowcare/data/features/billing/models/family_summary_models.dart'
 import 'package:wowcare/data/features/billing/models/invoice_list_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_overview_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
+import 'package:wowcare/data/features/billing/models/invoice_transaction_models.dart';
 
 abstract class InvoiceRemoteDataSource {
   Future<InvoiceResultModel> createInvoice(CreateInvoiceRequestModel request);
@@ -13,6 +14,14 @@ abstract class InvoiceRemoteDataSource {
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
+  });
+  Future<InvoiceTransactionsPageModel> getTransactions({
+    required String organizationCode,
+    required String school,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    int page,
+    int size,
   });
   Future<InvoiceListItemModel> getInvoiceByCode(String code);
   Future<PaginatedInvoicesModel> listInvoices({
@@ -80,6 +89,29 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       },
     );
     return InvoiceOverviewModel.fromJson(response.data ?? {});
+  }
+
+  @override
+  Future<InvoiceTransactionsPageModel> getTransactions({
+    required String organizationCode,
+    required String school,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesTransactions),
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'school': school,
+        if (dateFrom != null) 'dateFrom': dateFrom.toUtc().toIso8601String(),
+        if (dateTo != null) 'dateTo': dateTo.toUtc().toIso8601String(),
+        'page': page,
+        'size': size,
+      },
+    );
+    return InvoiceTransactionsPageModel.fromJson(response.data ?? {});
   }
 
   @override

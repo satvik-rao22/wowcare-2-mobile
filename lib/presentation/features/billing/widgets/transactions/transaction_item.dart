@@ -10,6 +10,8 @@ class TransactionItem {
     required this.description,
     required this.studentName,
     required this.classroom,
+    this.studentNames,
+    this.familyCode,
     this.invoiceCode,
     this.studentId,
     this.studentPhotoUuid,
@@ -33,6 +35,14 @@ class TransactionItem {
   final String status;
   final String description;
   final String studentName;
+
+  /// All family student names for family-level transactions (Credit / Refund /
+  /// Payment), shown in the expanded "Student Name" row. Null for single-student
+  /// rows (invoices), which fall back to [studentName].
+  final String? studentNames;
+
+  /// Owning family code — used to open the family Billing profile from a row.
+  final String? familyCode;
   final String classroom;
   final int? studentId;
   final String? studentPhotoUuid;

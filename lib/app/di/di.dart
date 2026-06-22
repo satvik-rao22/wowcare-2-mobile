@@ -385,6 +385,7 @@ import '../../domain/features/billing/usecases/cancel_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/issue_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/resend_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_overview_usecase.dart';
+import '../../domain/features/billing/usecases/get_invoice_transactions_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoices_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import '../../domain/features/billing/usecases/get_family_summary_usecase.dart';
@@ -2026,6 +2027,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetInvoiceOverviewUseCase>(
     () => GetInvoiceOverviewUseCase(serviceLocator<InvoiceRepository>()),
   );
+  serviceLocator.registerFactory<GetInvoiceTransactionsUseCase>(
+    () => GetInvoiceTransactionsUseCase(serviceLocator<InvoiceRepository>()),
+  );
   serviceLocator.registerFactory<GetInvoicesUseCase>(
     () => GetInvoicesUseCase(serviceLocator<InvoiceRepository>()),
   );
@@ -2069,6 +2073,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<TransactionsCubit>(
     () => TransactionsCubit(
       getOverview: serviceLocator<GetInvoiceOverviewUseCase>(),
+      getTransactions: serviceLocator<GetInvoiceTransactionsUseCase>(),
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
       storage: serviceLocator<StorageService>(),
@@ -2090,6 +2095,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ReceivePaymentRefundCubit(
       createPayment: serviceLocator<CreatePaymentUseCase>(),
       createRefund: serviceLocator<CreateRefundUseCase>(),
+      getFamilyLedger: serviceLocator<GetFamilyLedgerUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

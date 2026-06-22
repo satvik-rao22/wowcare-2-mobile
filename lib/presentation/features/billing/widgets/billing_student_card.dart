@@ -212,7 +212,6 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                   size: 50,
                                   shape: BoxShape.circle,
                                   fit: BoxFit.cover,
-                                  fontSize: 14,
                                   // No status dot here — dots are reserved for
                                   // attendance (present/absent) as elsewhere in
                                   // the app, and a family has no single

@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.d
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class AdminStatementsTab extends StatefulWidget {
@@ -87,9 +88,14 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
 
   Widget _buildBody(AdminStatementsState state) {
     if (state.isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(32),
-        child: Center(child: CircularProgressIndicator()),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Column(
+          children: List.generate(
+            5,
+            (_) => const BillingTransactionShimmer(),
+          ),
+        ),
       );
     }
     if (state.errorMessage.isNotEmpty) {
@@ -217,8 +223,7 @@ class _FamilySiblingsCard extends StatelessWidget {
                 DocumentImageWidget(
                   fileUuid: '',
                   name: name,
-                  size: 30,
-                  fontSize: 12,
+                  size: 50,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -340,7 +345,6 @@ class _AdminStatementCard extends StatelessWidget {
         fileUuid: '',
         name: _formattedType,
         size: 50,
-        fontSize: 14,
       ),
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

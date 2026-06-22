@@ -41,6 +41,26 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   }
 
   @override
+  Future<InvoiceTransactionsPage> getTransactions({
+    required String organizationCode,
+    required String school,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final m = await _dataSource.getTransactions(
+      organizationCode: organizationCode,
+      school: school,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      page: page,
+      size: size,
+    );
+    return m.toEntity();
+  }
+
+  @override
   Future<InvoiceListItemEntity> getInvoiceByCode(String code) async {
     final m = await _dataSource.getInvoiceByCode(code);
     return m.toEntity();
@@ -203,6 +223,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         studentCode: p.studentCode,
         issueDate: p.issueDate,
         dueDate: p.dueDate,
+        periodStart: p.periodStart,
+        periodEnd: p.periodEnd,
         notes: p.notes,
         currency: p.currency,
         items: p.items

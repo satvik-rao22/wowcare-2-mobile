@@ -1,5 +1,59 @@
 import 'package:equatable/equatable.dart';
 
+/// A single row from the Transactions list (`GET /invoices/transactions`).
+class InvoiceTransactionEntity extends Equatable {
+  const InvoiceTransactionEntity({
+    required this.id,
+    required this.type,
+    required this.date,
+    required this.familyCode,
+    required this.familyName,
+    required this.studentCode,
+    required this.studentName,
+    required this.description,
+    required this.status,
+    required this.method,
+    required this.amount,
+    required this.invoiceCode,
+  });
+
+  final String id;
+  final String type;
+  final DateTime? date;
+  final String familyCode;
+  final String familyName;
+  final String studentCode;
+  final String studentName;
+  final String description;
+  final String status;
+  final String? method;
+  final double amount;
+  final String invoiceCode;
+
+  @override
+  List<Object?> get props => [
+        id,
+        type,
+        date,
+        familyCode,
+        familyName,
+        studentCode,
+        studentName,
+        description,
+        status,
+        method,
+        amount,
+        invoiceCode,
+      ];
+}
+
+/// One page of transactions plus whether more pages exist.
+typedef InvoiceTransactionsPage = ({
+  List<InvoiceTransactionEntity> items,
+  bool hasMore,
+  int totalElements,
+});
+
 /// Params for creating a single invoice (one student per invoice).
 class CreateInvoiceItemParams extends Equatable {
   const CreateInvoiceItemParams({
@@ -33,6 +87,8 @@ class CreateInvoiceParams extends Equatable {
     required this.issueDate,
     required this.dueDate,
     required this.items,
+    this.periodStart,
+    this.periodEnd,
     this.notes,
     this.currency,
   });
@@ -42,6 +98,10 @@ class CreateInvoiceParams extends Equatable {
   final String studentCode;
   final DateTime issueDate;
   final DateTime dueDate;
+
+  /// Optional service period sent as `periodStart` / `periodEnd`.
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
   final List<CreateInvoiceItemParams> items;
   final String? notes;
   final String? currency;
@@ -53,6 +113,8 @@ class CreateInvoiceParams extends Equatable {
         studentCode,
         issueDate,
         dueDate,
+        periodStart,
+        periodEnd,
         items,
         notes,
         currency,

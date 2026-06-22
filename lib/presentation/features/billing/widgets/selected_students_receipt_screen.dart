@@ -14,6 +14,7 @@ class SelectedStudentsReceiptScreen extends StatefulWidget {
     required this.invoiceData,
     this.onStudentRemoved,
     this.isConfirmation = false,
+    this.onSubmit,
   });
 
   final List<Student> selectedStudents;
@@ -24,12 +25,38 @@ class SelectedStudentsReceiptScreen extends StatefulWidget {
   /// confirmation, so the bottom bar shows a single "Done" button.
   final bool isConfirmation;
 
+  /// Preview step (Step 3/3): performs the actual save. Called with `'draft'`
+  /// (Save) or `'send'` (Save & Send) plus the current (possibly trimmed)
+  /// student list, and returns true on success so this screen can pop back up
+  /// the create-invoice flow.
+  final Future<bool> Function(String mode, List<Student> students)? onSubmit;
+
   @override
   State<SelectedStudentsReceiptScreen> createState() => _SelectedStudentsReceiptScreenState();
 }
 
 class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptScreen> {
   bool isProcessing = false;
+
+  /// Local, mutable copy so a student can be removed from the invoice on this
+  /// preview step; the trimmed list is what gets submitted.
+  late final List<Student> _students =
+      List<Student>.from(widget.selectedStudents);
+
+  // Add-Staff text palette (Manrope, #573353).
+  static const Color _text = Color(0xff573353);
+  static TextStyle _ts(double size, FontWeight weight, {Color? color}) =>
+      TextStyle(
+        fontFamily: 'Manrope',
+        fontSize: size,
+        fontWeight: weight,
+        color: color ?? _text,
+      );
+
+  void _removeStudent(Student student) {
+    setState(() => _students.remove(student));
+    widget.onStudentRemoved?.call(student);
+  }
 
   double _computeTotalAmount() {
     double totalAmount = 0.0;
@@ -91,11 +118,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             children: [
               Text(
                 'Invoice Details',
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.billingGreyDark,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: _ts(16, FontWeight.w700),
               ),
               const SizedBox(height: 12),
           if (dueDateString != null)
@@ -105,19 +128,12 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 children: [
                   Text(
                     'Due Date: ',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: AppColors.billingGreyMedium,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: _ts(14, FontWeight.w400,
+                        color: _text.withValues(alpha: 0.6)),
                   ),
                   Text(
                     dueDateString,
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: _ts(14, FontWeight.w600),
                   ),
                 ],
               ),
@@ -182,11 +198,8 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 flex: 3,
                 child: Text(
                   'Description',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.billingGreyMedium,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: _ts(15, FontWeight.w400,
+                      color: _text.withValues(alpha: 0.6)),
                   textAlign: TextAlign.start,
                 ),
               ),
@@ -194,11 +207,8 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                 flex: 1,
                 child: Text(
                   'Amount',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: AppColors.billingGreyMedium,
-                    fontWeight: FontWeight.w500,
-                  ),
+                  style: _ts(15, FontWeight.w400,
+                      color: _text.withValues(alpha: 0.6)),
                   textAlign: TextAlign.end,
                 ),
               ),
@@ -219,22 +229,15 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     flex: 3,
                     child: Text(
                       description,
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: _ts(14, FontWeight.w600),
                     ),
                   ),
                   Expanded(
                     flex: 1,
                     child: Text(
                       '${isDiscount ? '-' : '+'}\$${amount.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        color: isDiscount ? Colors.red : AppColors.primaryColor,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: _ts(14, FontWeight.w600,
+                          color: isDiscount ? Colors.red : _text),
                       textAlign: TextAlign.end,
                     ),
                   ),
@@ -249,11 +252,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             children: [
               Text(
                 'Total Amount: \$${totalAmount.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
+                style: _ts(16, FontWeight.w700),
               ),
             ],
           ),
@@ -276,17 +275,22 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Selected Students (${widget.selectedStudents.length})',
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade700,
-              fontWeight: FontWeight.bold,
-            ),
+            'Selected Students (${_students.length})',
+            style: _ts(16, FontWeight.w700),
           ),
           const SizedBox(height: 16),
-          ...widget.selectedStudents.asMap().entries.map((entry) {
+          if (_students.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Text(
+                'No students selected. Go back to add a student.',
+                style: _ts(14, FontWeight.w400,
+                    color: _text.withValues(alpha: 0.6)),
+              ),
+            ),
+          ..._students.asMap().entries.map((entry) {
             final student = entry.value;
-            final isLast = entry.key == widget.selectedStudents.length - 1;
+            final isLast = entry.key == _students.length - 1;
             return Column(
               children: [
                 Row(
@@ -295,8 +299,7 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                     DocumentImageWidget(
                       fileUuid: student.fullName, // UI-only seed
                       name: student.fullName,
-                      size: 40,
-                      fontSize: 14,
+                      size: 50,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -305,32 +308,28 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
                         children: [
                           Text(
                             student.fullName,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: AppColors.billingGreyDark,
-                            ),
+                            style: _ts(16, FontWeight.w700),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             student.tags.isNotEmpty
                                 ? '${student.tags.first.id} - ${student.tags.first.name} - ${student.roomName ?? 'N/A'}'
                                 : student.roomName ?? 'No details available',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.billingGreyMedium,
-                            ),
+                            style: _ts(14, FontWeight.w400,
+                                color: _text.withValues(alpha: 0.6)),
                           ),
                         ],
                       ),
                     ),
-                    if (widget.onStudentRemoved != null)
-                      IconButton(
-                        onPressed: () => widget.onStudentRemoved!(student),
-                        icon: const Icon(Icons.delete, color: Colors.red, size: 20),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
+                    // Remove this student from the invoice (disabled while saving).
+                    IconButton(
+                      onPressed:
+                          isProcessing ? null : () => _removeStudent(student),
+                      icon: const Icon(Icons.delete_outline,
+                          color: Colors.red, size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
                   ],
                 ),
                 if (!isLast)
@@ -346,27 +345,44 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
     );
   }
 
-  void _onSave() {
-    if (isProcessing) return;
-    final total = _computeTotalAmount();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Saved invoice for ${widget.selectedStudents.length} student(s). Total: \$${total.toStringAsFixed(2)}')),
-    );
-  }
+  void _onSave() => _submit('draft');
 
-  void _onSaveAndSend() {
+  void _onSaveAndSend() => _submit('send');
+
+  Future<void> _submit(String mode) async {
     if (isProcessing) return;
-    final total = _computeTotalAmount();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Saved & sent invoice. Total: \$${total.toStringAsFixed(2)} — UI only')),
-    );
+    if (_students.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Add at least one student to the invoice.')),
+      );
+      return;
+    }
+    final onSubmit = widget.onSubmit;
+    if (onSubmit == null) {
+      // No submit wired (e.g. opened purely for preview) — just close.
+      final total = _computeTotalAmount();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+              'Invoice total: \$${total.toStringAsFixed(2)} — preview only'),
+        ),
+      );
+      return;
+    }
+    setState(() => isProcessing = true);
+    final ok = await onSubmit(mode, _students);
+    if (!mounted) return;
+    setState(() => isProcessing = false);
+    // On success the parent shows the snackbar; bubble the result up so the
+    // whole create-invoice flow closes back to the billing list.
+    if (ok) Navigator.of(context).pop(true);
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return StaffFormLayout(
-      title: 'Invoice Receipt',
+      title: widget.isConfirmation ? 'Invoice Receipt' : 'Invoice Preview',
       bottomBar: _buildBottomBar(),
       child: SingleChildScrollView(
         child: Column(
@@ -382,28 +398,42 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
   }
 
   Widget _buildBottomBar() {
-    Widget gradientButton(String label, VoidCallback onPressed) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          gradient: AppColors.buildPrimaryGradient(),
-        ),
-        child: TextButton(
-          onPressed: onPressed,
-          style: TextButton.styleFrom(
-            minimumSize: const Size.fromHeight(52),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+    Widget gradientButton(String label, VoidCallback? onPressed,
+        {bool busy = false}) {
+      return Opacity(
+        opacity: onPressed == null ? 0.6 : 1,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: AppColors.buildPrimaryGradient(),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-              color: AppColors.billingCardColor,
+          child: TextButton(
+            onPressed: onPressed,
+            style: TextButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
+            child: busy
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : Text(
+                    label,
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.billingCardColor,
+                    ),
+                  ),
           ),
         ),
       );
@@ -416,9 +446,22 @@ class _SelectedStudentsReceiptScreenState extends State<SelectedStudentsReceiptS
             ? gradientButton('Done', () => Navigator.of(context).pop())
             : Row(
                 children: [
-                  Expanded(child: gradientButton('Save', _onSave)),
+                  Expanded(
+                    child: gradientButton(
+                      'Save',
+                      (isProcessing || _students.isEmpty) ? null : _onSave,
+                    ),
+                  ),
                   const SizedBox(width: 12),
-                  Expanded(child: gradientButton('Save & Send', _onSaveAndSend)),
+                  Expanded(
+                    child: gradientButton(
+                      'Save and Send',
+                      (isProcessing || _students.isEmpty)
+                          ? null
+                          : _onSaveAndSend,
+                      busy: isProcessing,
+                    ),
+                  ),
                 ],
               ),
       ),

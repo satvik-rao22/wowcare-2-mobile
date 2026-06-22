@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 import 'package:wowcare/presentation/features/billing/cubit/parent_statements_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -171,10 +172,10 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
             const SizedBox(height: 15),
             // Statements list
             if (_isStatementsLoading)
-              const Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Center(
-                  child: CircularProgressIndicator(),
+              Column(
+                children: List.generate(
+                  5,
+                  (_) => const BillingTransactionShimmer(),
                 ),
               )
             else if (filteredStatements.isEmpty)

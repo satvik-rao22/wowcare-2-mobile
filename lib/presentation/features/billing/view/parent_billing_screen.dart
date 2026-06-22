@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
@@ -150,10 +151,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
             const SizedBox(height: 15),
             // Transaction list below
             if (state.isInitialLoadingTransactions)
-              const Padding(
-                padding: EdgeInsets.all(24.0),
-                child: Center(
-                  child: CircularProgressIndicator(),
+              Column(
+                children: List.generate(
+                  5,
+                  (_) => const BillingTransactionShimmer(),
                 ),
               )
             else if (filteredTransactions.isEmpty)

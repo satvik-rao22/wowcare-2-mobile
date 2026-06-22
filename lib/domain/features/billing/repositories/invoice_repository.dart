@@ -12,6 +12,16 @@ abstract class InvoiceRepository {
     DateTime? dateTo,
   });
 
+  /// Paginated Transactions list (`GET /api/v1/invoices/transactions`).
+  Future<InvoiceTransactionsPage> getTransactions({
+    required String organizationCode,
+    required String school,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    int page,
+    int size,
+  });
+
   /// Full invoice detail (`GET /api/v1/invoices/by-code/{code}`).
   Future<InvoiceListItemEntity> getInvoiceByCode(String code);
 

@@ -59,8 +59,7 @@ class SiblingCardsWidget extends StatelessWidget {
                       DocumentImageWidget(
                         fileUuid: '',
                         name: item['name'] ?? '',
-                        size: 30,
-                        fontSize: 12,
+                        size: 50,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
