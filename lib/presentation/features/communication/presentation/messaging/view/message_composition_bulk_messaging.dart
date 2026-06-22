@@ -102,10 +102,9 @@ class _MessageCompositionBulkMessagingState
       initialRecipients: widget.selectedRecipients,
       isStaff: widget.isStaff,
       conversationType: widget.conversationType,
-      createConversationUseCase: serviceLocator(),
+      createOrOpenConversationUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
       storageService: serviceLocator(),
-      conversationRepository: serviceLocator(),
     );
     _focusNode = FocusNode();
     _controller = RichFieldController(focusNode: _focusNode);

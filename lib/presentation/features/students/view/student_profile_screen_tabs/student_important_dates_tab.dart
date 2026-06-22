@@ -71,8 +71,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
         (failure) {
           setState(() {
             _isLoading = false;
-            _errorMessage =
-                failure.message ?? 'Failed to load important dates';
+            _errorMessage = failure.message ?? 'Failed to load important dates';
             _dates = null;
           });
         },
@@ -129,8 +128,8 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student) &&
-            !role.isStaff &&
-            !role.isParent;
+        !role.isStaff &&
+        !role.isParent;
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return Stack(
@@ -158,7 +157,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                   'Student code is required to load important dates',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.primaryColor.withOpacity(0.7),
+                    color: AppColors.primaryColor.withValues(alpha: 0.7),
                     fontSize: 16,
                   ),
                 ),
@@ -172,7 +171,10 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
     final entries = <MapEntry<String, String>>[
       MapEntry('Enroll Date', _format(_dates?.enrollDate)),
       MapEntry('School Start Date', _format(_dates?.schoolStartDate)),
-      MapEntry('Current Classroom Start Date', _format(_dates?.currentClassroomStartDate)),
+      MapEntry(
+        'Current Classroom Start Date',
+        _format(_dates?.currentClassroomStartDate),
+      ),
       MapEntry('Upcoming Moving Date', _format(_dates?.upcomingMoveDate)),
       MapEntry('School Leaving Date', _format(_dates?.schoolLeavingDate)),
     ];
@@ -221,10 +223,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Important Dates',
-                          style: AppTextStyles.title,
-                        ),
+                        Text('Important Dates', style: AppTextStyles.title),
                         if (canStudentWrite)
                           GestureDetector(
                             onTap: () => _openEdit(context),
@@ -264,10 +263,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                         if (i.isOdd) return const SizedBox(height: 16);
                         final idx = i ~/ 2;
                         final e = entries[idx];
-                        return _DateRow(
-                          label: e.key,
-                          text: e.value,
-                        );
+                        return _DateRow(label: e.key, text: e.value);
                       }),
                   ],
                 ),
@@ -289,8 +285,8 @@ class _DateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final displayText =
         (text.trim().isEmpty || text.trim().toLowerCase() == 'no cda')
-            ? '-'
-            : text;
+        ? '-'
+        : text;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +296,7 @@ class _DateRow extends StatelessWidget {
           child: Text(
             label,
             style: AppTextStyles.value.copyWith(
-              color: AppColors.primaryColor.withOpacity(0.5),
+              color: AppColors.primaryColor.withValues(alpha: 0.5),
               fontSize: 14,
               letterSpacing: 14 * (-3 / 100),
             ),
@@ -318,9 +314,7 @@ class _DateRow extends StatelessWidget {
                 child: Text(
                   displayText,
                   textAlign: TextAlign.end,
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 15,
-                  ),
+                  style: AppTextStyles.value.copyWith(fontSize: 15),
                 ),
               ),
             ],

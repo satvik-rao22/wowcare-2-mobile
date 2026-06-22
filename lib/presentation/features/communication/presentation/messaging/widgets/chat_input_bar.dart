@@ -134,7 +134,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   void _onFocusChanged() {
     final focused = _effectiveFocusNode.hasFocus;
-    if (focused != _hasFocus) setState(() => _hasFocus = focused);
+    if (focused == _hasFocus) return;
+    setState(() {
+      _hasFocus = focused;
+      // The text field regaining focus brings up the system keyboard —
+      // without this, the custom emoji grid could stay open underneath it,
+      // both reserving bottom space at once (visible as a layout jump /
+      // "keyboard reopening" on top of the already-open panel).
+      if (focused && _emojiPickerVisible) _emojiPickerVisible = false;
+    });
   }
 
   void _toggleEmojiPicker() {
@@ -202,7 +210,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
           maxLength: widget.maxLength,
           showCharCounter: widget.showCharCounter,
           isSending: widget.isSending,
-          hasText: _hasText,
+          // An attachment-only message is valid too — the send button must
+          // not stay disabled just because the text field is empty.
+          hasText: _hasText || widget.pendingAttachments.isNotEmpty,
           emojiVisible: _emojiPickerVisible,
           onEmojiToggle: _toggleEmojiPicker,
           onAttachmentTap: widget.onAttachmentTap,

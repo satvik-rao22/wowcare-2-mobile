@@ -119,17 +119,29 @@ class _AttendanceField extends StatelessWidget {
       case StaffProfileAbsentMarkMethod.gps:
         return Tooltip(
           message: 'GPS',
-          child: SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size),
+          child: SvgPicture.asset(
+            MediaRes.gpsMethodIcon,
+            width: size,
+            height: size,
+          ),
         );
       case StaffProfileAbsentMarkMethod.qr:
         return Tooltip(
           message: 'QR',
-          child: SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size),
+          child: SvgPicture.asset(
+            MediaRes.qrAttendanceIcon,
+            width: size,
+            height: size,
+          ),
         );
       case StaffProfileAbsentMarkMethod.kiosk:
         return Tooltip(
           message: 'PIN',
-          child: SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size),
+          child: SvgPicture.asset(
+            MediaRes.pinMethodIcon,
+            width: size,
+            height: size,
+          ),
         );
       case StaffProfileAbsentMarkMethod.app:
         return Tooltip(
@@ -616,10 +628,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             attendedMinutes: (m['attendedMinutes'] as int?) ?? 0,
             isTransferSignIn: isTransferSignIn,
             isTransferSignOut: isTransferSignOut,
-            signInMethod:
-                _mapAbsentMethodStringToEnum(m['signedInMethod'] as String?),
-            signOutMethod:
-                _mapAbsentMethodStringToEnum(m['signedOutMethod'] as String?),
+            signInMethod: _mapAbsentMethodStringToEnum(
+              m['signedInMethod'] as String?,
+            ),
+            signOutMethod: _mapAbsentMethodStringToEnum(
+              m['signedOutMethod'] as String?,
+            ),
           );
         }).toList();
 
@@ -990,13 +1004,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         side: BorderSide(
-          color: AppColors.primaryColor.withOpacity(0.2),
+          color: AppColors.primaryColor.withValues(alpha: 0.2),
           width: 0.5,
         ),
         borderRadius: BorderRadius.circular(16),
       ),
       elevation: 6,
-      shadowColor: AppColors.primaryColor.withOpacity(0.2),
+      shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
@@ -1284,7 +1298,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+          border: Border.all(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
         ),
         child: Center(
           child: AppText.body(
@@ -1320,7 +1336,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+          border: Border.all(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
         ),
         child: Center(
           child: AppText.body(
@@ -1366,11 +1384,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1380,7 +1402,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           });
         },
         children: [
-          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
+          Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
           _AttendanceField(label: 'Classroom', text: attendance.roomName),
           const SizedBox(height: 16),
@@ -1432,11 +1454,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1446,7 +1472,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           });
         },
         children: [
-          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
+          Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
           _AttendanceField(label: 'Classroom', text: staff?.roomName ?? ''),
           const SizedBox(height: 16),

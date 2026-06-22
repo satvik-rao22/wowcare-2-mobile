@@ -76,15 +76,12 @@ class _MessageAttachmentBottomSheetState
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: FilePickerUtils.allowedImageExtensions,
-      allowMultiple: true,
+      allowMultiple: false,
     );
     if (result == null || result.files.isEmpty) return;
-    final files = result.files
-        .map((f) => f.path)
-        .whereType<String>()
-        .map(File.new)
-        .toList();
-    await _processFiles(files, isPhoto: true);
+    final path = result.files.single.path;
+    if (path == null) return;
+    await _processFiles([File(path)], isPhoto: true);
   }
 
   Future<void> _pickDocument() async {

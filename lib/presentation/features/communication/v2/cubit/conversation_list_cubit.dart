@@ -45,6 +45,11 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   StreamSubscription<String>? _markedReadSubscription;
   bool _firestoreActive = false;
 
+  /// Dedup guard so a conversation's last message only triggers one
+  /// markConversationDelivered call per change — keyed by conversation
+  /// code, valued by the `lastMessageAt` we already processed.
+  final Map<String, DateTime> _deliveredMarkedAt = {};
+
   static const int _pageSize = 20;
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
@@ -95,6 +100,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           conversations: _sortedByLatest(conversations),
           isFromCache: false,
         ));
+        unawaited(_markDeliveredForIncomingMessages(conversations));
       },
       onError: (_) {
         if (!_firestoreActive) unawaited(_fallbackToApi());
@@ -106,6 +112,27 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     _markedReadSubscription = MessagingEventService
         .instance.onConversationMarkedRead
         .listen((code) => _zeroBadgeLocally(code));
+  }
+
+  /// Whenever a conversation's last message was sent by someone else, mark
+  /// it delivered for the current user — even if that thread isn't open —
+  /// so the sender's ticks advance without waiting for this user to open
+  /// the chat. Deduped per conversation by `lastMessageAt`.
+  Future<void> _markDeliveredForIncomingMessages(
+    List<ConversationEntity> conversations,
+  ) async {
+    final currentUserCode =
+        (await _storageService.getString(StorageKeys.userCode))?.trim();
+    if (currentUserCode == null || currentUserCode.isEmpty) return;
+
+    for (final conversation in conversations) {
+      final sender = conversation.lastMessageBy;
+      final at = conversation.lastMessageAt;
+      if (sender == null || sender == currentUserCode || at == null) continue;
+      if (_deliveredMarkedAt[conversation.code] == at) continue;
+      _deliveredMarkedAt[conversation.code] = at;
+      unawaited(_conversationRepo.markConversationDelivered(conversation.code));
+    }
   }
 
   /// Search the staff directory by name fragment.

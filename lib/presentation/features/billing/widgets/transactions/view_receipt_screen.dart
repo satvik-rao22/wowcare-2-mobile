@@ -42,8 +42,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
       'dueDate': widget.transaction.endDate != null
           ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
           : widget.transaction.date
-              .add(const Duration(days: 7))
-              .toIso8601String(),
+                .add(const Duration(days: 7))
+                .toIso8601String(),
     };
 
     // Generate dummy invoice items
@@ -68,7 +68,9 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   String _getDueDate() {
     if (_invoiceDetails != null && _invoiceDetails!['dueDate'] != null) {
       try {
-        final dueDateParsed = DateTime.parse(_invoiceDetails!['dueDate'].toString());
+        final dueDateParsed = DateTime.parse(
+          _invoiceDetails!['dueDate'].toString(),
+        );
         return DateUtilsNew.formatToReadableDate(dueDateParsed);
       } catch (e) {
         // Fall through
@@ -133,10 +135,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 ),
               ],
             ),
-            Divider(
-              thickness: 0.5,
-              color: AppColors.billingGreyTransparent,
-            ),
+            Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
             // Data row
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
@@ -244,10 +243,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 ),
               ],
             ),
-            Divider(
-              thickness: 0.5,
-              color: AppColors.billingGreyTransparent,
-            ),
+            Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
             // Payment mode row
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
@@ -376,10 +372,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 4,
               child: Text(
                 'Description',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey.shade500,
-                ),
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
                 textAlign: TextAlign.start,
               ),
             ),
@@ -387,19 +380,13 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 2,
               child: Text(
                 'Amount',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey.shade500,
-                ),
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
                 textAlign: TextAlign.end,
               ),
             ),
           ],
         ),
-        Divider(
-          thickness: 0.5,
-          color: Colors.grey.withOpacity(0.3),
-        ),
+        Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
         // Invoice items
         ..._invoiceItems!.map((item) {
           final type = item['type']?.toString() ?? '';
@@ -581,10 +568,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             const SizedBox(height: 10),
           ],
           _buildInvoiceItemsTable(),
-          Divider(
-            thickness: 0.5,
-            color: Colors.grey.withOpacity(0.3),
-          ),
+          Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -595,9 +579,9 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
                 ),
-              )
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -623,4 +607,3 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
     );
   }
 }
-

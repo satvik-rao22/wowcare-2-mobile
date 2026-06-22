@@ -6,6 +6,15 @@ import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 
 class FileDownloadService {
+  /// Returns the deterministic local cache location for [fileName] without
+  /// touching the filesystem — callers check `await file.exists()` to decide
+  /// whether a download is still needed. Uses the exact same path/sanitizing
+  /// rules as [saveFile] so a previously saved file is always found again.
+  Future<File> resolveCacheFile(String fileName) async {
+    final appDir = await getApplicationDocumentsDirectory();
+    return File('${appDir.path}/${_sanitizeFileName(fileName)}');
+  }
+
   /// Save file to device storage with validation
   Future<String?> saveFile({
     required Uint8List fileData,
@@ -203,9 +212,13 @@ class FileDownloadService {
       'docx' =>
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       'doc' => 'application/msword',
+      'ppt' => 'application/vnd.ms-powerpoint',
+      'pptx' =>
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'txt' => 'text/plain',
       'jpg' || 'jpeg' => 'image/jpeg',
       'png' => 'image/png',
+      'heic' => 'image/heic',
       _ => 'application/octet-stream',
     };
   }

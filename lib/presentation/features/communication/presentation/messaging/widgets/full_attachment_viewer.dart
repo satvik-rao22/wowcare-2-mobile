@@ -1,8 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
+import '../util/attachment_open_helper.dart';
+import '../util/attachment_url_resolver.dart';
 import 'show_full_screen_media_view.dart';
 
 class FullAttachmentViewer extends StatelessWidget {
@@ -141,36 +145,50 @@ class FullAttachmentViewer extends StatelessWidget {
   }
 
   Widget _buildImageWithPlaceholder(ChatAttachment att) {
-    final source = att.displaySource;
-    if (source == null) {
-      return Container(
-        color: Colors.grey[200],
-        child: const Center(
-          child: Icon(
-            Icons.image_not_supported_outlined,
-            size: 48,
-            color: Colors.grey,
-          ),
-        ),
-      );
-    }
-
-    return att.remoteUrl.isNotEmpty
-        ? _buildNetworkImageWithLQIP(att.remoteUrl)
-        : Image.file(
-            File(source),
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(
-              color: Colors.grey[200],
-              child: const Center(
-                child: Icon(
-                  Icons.broken_image_outlined,
-                  size: 48,
-                  color: Colors.grey,
-                ),
-              ),
+    return AttachmentUrlResolver(
+      attachment: att,
+      builder: (context, resolvedUrl, isLoading) {
+        final resolved = (resolvedUrl != null && resolvedUrl.isNotEmpty)
+            ? att.copyWith(remoteUrl: resolvedUrl)
+            : att;
+        final source = resolved.displaySource;
+        if (source == null) {
+          return Container(
+            color: Colors.grey[200],
+            child: Center(
+              child: isLoading
+                  ? const SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : const Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 48,
+                      color: Colors.grey,
+                    ),
             ),
           );
+        }
+
+        return resolved.remoteUrl.isNotEmpty
+            ? _buildNetworkImageWithLQIP(resolved.remoteUrl)
+            : Image.file(
+                File(source),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: Colors.grey[200],
+                  child: const Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      size: 48,
+                      color: Colors.grey,
+                    ),
+                  ),
+                ),
+              );
+      },
+    );
   }
 
   Widget _buildNetworkImageWithLQIP(String url) {
@@ -229,106 +247,112 @@ class FullAttachmentViewer extends StatelessWidget {
 
   Widget _buildDocumentCard(
       BuildContext context, ChatAttachment document) {
-    final isPdf = document.type.toLowerCase() == 'pdf' ||
+    final iconData = Thumbnailer.getIconDataForMimeType(document.mimeType) ??
+        FontAwesomeIcons.file;
+    final isPdf = document.mimeType.contains('pdf') ||
         document.name.toLowerCase().endsWith('.pdf');
+    final iconColor = isPdf
+        ? Colors.red
+        : iconData == FontAwesomeIcons.fileExcel
+            ? Colors.green.shade700
+            : iconData == FontAwesomeIcons.filePowerpoint
+                ? Colors.orange.shade800
+                : iconData == FontAwesomeIcons.fileWord
+                    ? Colors.blue.shade700
+                    : AppColors.primaryColor;
     final fileSize =
         (document.sizeBytes / 1024 / 1024).toStringAsFixed(1);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.shade200,
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => AttachmentOpenHelper.open(context, document),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.grey.shade200,
+              width: 1,
             ),
-          ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: isPdf
-                      ? Colors.red.withValues(alpha: 0.1)
-                      : AppColors.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Center(
-                  child: Icon(
-                    isPdf ? Icons.picture_as_pdf : Icons.description_outlined,
-                    color: isPdf ? Colors.red : AppColors.primaryColor,
-                    size: 28,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    CustomTextWidget(
-                      text: document.name,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    CustomTextWidget(
-                      text: '$fileSize MB • ${document.type.toUpperCase()}',
-                      fontSize: 12,
-                      fontColor: Colors.grey[600],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              IconButton(
-                onPressed: () => _downloadDocument(context, document),
-                icon: const Icon(
-                  Icons.download_outlined,
-                  size: 20,
-                ),
-                color: AppColors.primaryColor,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
               ),
             ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: iconColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Center(
+                    child: FaIcon(
+                      iconData,
+                      color: iconColor,
+                      size: 24,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CustomTextWidget(
+                        text: document.name,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      CustomTextWidget(
+                        text: '$fileSize MB • ${document.type.toUpperCase()}',
+                        fontSize: 12,
+                        fontColor: Colors.grey[600],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () => AttachmentOpenHelper.open(context, document),
+                  icon: const Icon(
+                    Icons.download_outlined,
+                    size: 20,
+                  ),
+                  color: AppColors.primaryColor,
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  void _openFullScreen(BuildContext context, ChatAttachment att) {
+  Future<void> _openFullScreen(BuildContext context, ChatAttachment att) async {
+    final resolvedUrl = await resolveAttachmentUrl(att);
+    if (!context.mounted) return;
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ShowFullScreenMediaView(
-          imageUrl: att.remoteUrl.isNotEmpty ? att.remoteUrl : null,
+          imageUrl: (resolvedUrl != null && resolvedUrl.isNotEmpty)
+              ? resolvedUrl
+              : (att.remoteUrl.isNotEmpty ? att.remoteUrl : null),
           imageFile: att.localPath != null ? File(att.localPath!) : null,
           title: att.name,
         ),
-      ),
-    );
-  }
-
-  Future<void> _downloadDocument(
-      BuildContext context, ChatAttachment document) async {
-    // Document download would be implemented here with proper error handling
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Download started'),
-        backgroundColor: AppColors.primaryColor,
       ),
     );
   }

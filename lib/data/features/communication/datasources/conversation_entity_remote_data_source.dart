@@ -19,6 +19,25 @@ abstract class ConversationEntityRemoteDataSource {
     String recipientUserCode,
   );
 
+  /// Returns the existing active ROOM_CHAT conversation for [studentCode],
+  /// optionally narrowed to [classroomCode], or null if none exists.
+  ///
+  /// Use this before [createConversation] to avoid duplicate per-student
+  /// (or per-classroom, when known) rooms.
+  Future<ConversationEntityDto?> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  });
+
+  /// Returns the existing active ADMIN_CHAT conversation for [studentCode],
+  /// or null if none exists.
+  ///
+  /// Use this before [createConversation] to avoid duplicate admin threads
+  /// for the same student.
+  Future<ConversationEntityDto?> findAdminChatConversation({
+    required String studentCode,
+  });
+
   /// Search active and upcoming staff by name fragment.
   ///
   /// Used by the Staff Messaging inbox to let users start a new conversation
@@ -47,6 +66,9 @@ abstract class ConversationEntityRemoteDataSource {
     List<String>? participantCodes,
     String organizationCode,
     String schoolCode,
+    String title,
+    String description,
+    String avatarUrl,
   });
 
   Future<List<ParticipantEntityDto>> addParticipants({
@@ -65,6 +87,8 @@ abstract class ConversationEntityRemoteDataSource {
   });
 
   Future<void> markConversationRead(String conversationCode);
+
+  Future<void> markConversationDelivered(String conversationCode);
 
   Future<Map<String, int>> getUnreadAggregates();
 }
@@ -162,6 +186,41 @@ class ConversationEntityRemoteDataSourceImpl
   }
 
   @override
+  Future<ConversationEntityDto?> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  }) async {
+    // Reuses the already-proven student-scoped list endpoint and filters
+    // client-side, rather than guessing at an unverified
+    // `type/{type}?studentCode=...&classroomCode=...` query combination on
+    // the backend.
+    final conversations = await getConversationsForStudent(studentCode);
+    for (final c in conversations) {
+      final matchesClassroom =
+          classroomCode == null ||
+          classroomCode.isEmpty ||
+          c.classroomCode == classroomCode;
+      if (c.type == 'ROOM_CHAT' && matchesClassroom && c.status == 'ACTIVE') {
+        return c;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<ConversationEntityDto?> findAdminChatConversation({
+    required String studentCode,
+  }) async {
+    final conversations = await getConversationsForStudent(studentCode);
+    for (final c in conversations) {
+      if (c.type == 'ADMIN_CHAT' && c.status == 'ACTIVE') {
+        return c;
+      }
+    }
+    return null;
+  }
+
+  @override
   Future<ConversationEntityDto> getConversation(
     String conversationCode,
   ) async {
@@ -211,10 +270,15 @@ class ConversationEntityRemoteDataSourceImpl
     List<String>? participantCodes,
     String organizationCode = '',
     String schoolCode = '',
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
   }) async {
     final endpoint = _url(ApiPaths.conversations);
     final body = <String, dynamic>{
       'type': type,
+      'title': title,
+      'description': description,
       if (organizationCode.isNotEmpty) 'organizationCode': organizationCode,
       if (schoolCode.isNotEmpty) 'schoolCode': schoolCode,
       if (studentCode.isNotEmpty) 'studentCode': studentCode,
@@ -222,6 +286,7 @@ class ConversationEntityRemoteDataSourceImpl
         'classroomCode': classroomCode,
       if (participantCodes != null && participantCodes.isNotEmpty)
         'participantUserCodes': participantCodes,
+      if (avatarUrl.isNotEmpty) 'avatarUrl': avatarUrl,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);
@@ -283,6 +348,13 @@ class ConversationEntityRemoteDataSourceImpl
   Future<void> markConversationRead(String conversationCode) async {
     final endpoint =
         _url(ApiPaths.messagingConversationMarkRead(conversationCode));
+    await apiClient.client.post(endpoint);
+  }
+
+  @override
+  Future<void> markConversationDelivered(String conversationCode) async {
+    final endpoint =
+        _url(ApiPaths.messagingConversationMarkDelivered(conversationCode));
     await apiClient.client.post(endpoint);
   }
 

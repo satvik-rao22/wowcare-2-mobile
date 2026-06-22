@@ -23,8 +23,11 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import '../util/chat_scroll_behavior.dart';
 import '../widgets/chat_thread_shimmer.dart';
-import '../widgets/message_bubble_widget.dart';
+import '../widgets/loading_older_indicator.dart';
+import '../widgets/new_messages_indicator.dart';
+import '../widgets/thread_message_tile.dart';
 
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({
@@ -43,12 +46,38 @@ class ParentMessagingThread extends StatefulWidget {
 }
 
 class _ParentMessagingThreadState extends State<ParentMessagingThread>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
 
   final AutoScrollController _groupController = AutoScrollController();
   final AutoScrollController _parent1Controller = AutoScrollController();
   final AutoScrollController _parent2Controller = AutoScrollController();
+  // These lists are built with `reverse: true` (index 0 = newest, resting at
+  // pixels == 0) — must tell ChatScrollBehavior, or "scroll to bottom" would
+  // land on the oldest message instead.
+  late final ChatScrollBehavior _groupScrollBehavior = ChatScrollBehavior(
+    _groupController,
+    reverse: true,
+  );
+  late final ChatScrollBehavior _parent1ScrollBehavior = ChatScrollBehavior(
+    _parent1Controller,
+    reverse: true,
+  );
+  late final ChatScrollBehavior _parent2ScrollBehavior = ChatScrollBehavior(
+    _parent2Controller,
+    reverse: true,
+  );
+  double _lastKeyboardInset = 0;
+  // Tracks the latest message's id rather than a raw count — a raw count
+  // can desync across edits/deletes/optimistic-rollbacks (e.g. a reaction
+  // mutation that fails and reverts touches `threads` without changing the
+  // message count, but a delete does change it without anything being
+  // "new" to scroll to), silently breaking the "did a new message arrive"
+  // check this drives. Identity comparison is correct regardless of why
+  // the list changed.
+  String? _lastMessageId;
+  bool _initialLoadInFlight = true;
+  bool _ownSendPending = false;
   TabController? _tabController;
 
   late final ReactionsController _reactionsController;
@@ -59,6 +88,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   String? _currentSender;
   Message? _editingMessage;
   final FocusNode _inputFocusNode = FocusNode();
+
+  bool _isLoadingOlder = false;
+  static const double _loadOlderScrollThreshold = 200.0;
 
   bool isPrivateModeEnabled(Map<String, dynamic> parentInfo) {
     final privateParents =
@@ -80,6 +112,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _reactionsController = ReactionsController(currentUserId: '');
     final parents =
         (widget.parentInfo['parents'] as List<dynamic>?)?.cast<String>() ?? [];
@@ -94,6 +127,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     _tabController?.addListener(() {
       if (mounted) setState(() {});
     });
+
+    // All three lists render the same underlying thread, just filtered
+    // differently per tab — one scroll-near-top check per controller is
+    // enough, since only the currently-visible one ever receives user-driven
+    // scroll events.
+    _groupController.addListener(_onScroll);
+    _parent1Controller.addListener(_onScroll);
+    _parent2Controller.addListener(_onScroll);
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -125,16 +166,33 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         '[ParentThread] loading messages for $convCode '
         'currentUserId=$currentUserId',
       );
-      context.read<CommunicationCubit>().loadMessages(
+      await context.read<CommunicationCubit>().loadMessages(
         convCode,
         currentUserId: currentUserId,
       );
+      if (!mounted) return;
+      // Realtime listener starts only after the API/Isar history has
+      // loaded — Firestore only ever applies deltas on top of it.
+      context.read<CommunicationCubit>().startWatchingThread(convCode);
+      final initialMessages = _activeMessages;
+      _lastMessageId = initialMessages.isNotEmpty
+          ? initialMessages.last.id
+          : null;
+      _initialLoadInFlight = false;
+      _getActiveScrollBehavior().scrollToBottom(animate: false);
     });
   }
 
   @override
   void dispose() {
-    //_reactionsController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _reactionsController.dispose();
+    _groupController.removeListener(_onScroll);
+    _parent1Controller.removeListener(_onScroll);
+    _parent2Controller.removeListener(_onScroll);
+    _groupScrollBehavior.dispose();
+    _parent1ScrollBehavior.dispose();
+    _parent2ScrollBehavior.dispose();
     _controller.dispose();
     _groupController.dispose();
     _parent1Controller.dispose();
@@ -144,9 +202,93 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     super.dispose();
   }
 
+  void _onScroll() {
+    final controller = _getActiveScrollController();
+    if (!controller.hasClients) return;
+    // Lists here are `reverse: true` (index 0 = newest, resting at
+    // pixels == 0) — the oldest message is at the *far* end of the scroll
+    // range, so "near the top of history" means near `maxScrollExtent`,
+    // the opposite of the non-reversed case.
+    final position = controller.position;
+    if (position.maxScrollExtent - position.pixels > _loadOlderScrollThreshold) {
+      return;
+    }
+    _loadOlderMessages();
+  }
+
+  /// Fetches the next older page. Unlike a non-reversed list, no scroll-
+  /// position-preservation step is needed: because each `itemBuilder` maps
+  /// `index -> _messages[length - 1 - index]`, prepending older messages to
+  /// the front of `_messages` only adds new, higher indices at the far end
+  /// — every currently-visible item keeps the exact index (and therefore
+  /// position) it already had.
+  Future<void> _loadOlderMessages() async {
+    if (_isLoadingOlder) return;
+    final cubit = context.read<CommunicationCubit>();
+    final state = cubit.state;
+    if (state is! CommunicationLoaded) return;
+    if (state.isLoadingOlderMessages || !state.hasMoreOlderMessages) return;
+
+    _isLoadingOlder = true;
+    final threadId = widget.parentInfo['code'] as String;
+    await cubit.loadOlderMessages(threadId, currentUserId: _currentUserCode);
+    _isLoadingOlder = false;
+  }
+
+  /// WhatsApp/Telegram-style keyboard handling: when the keyboard opens,
+  /// scroll to the latest message — but only if the user was already near
+  /// the bottom, never while they're reading older history.
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
+      _lastKeyboardInset = bottomInset;
+      if (keyboardOpened) {
+        _getActiveScrollBehavior().onKeyboardOpened();
+      }
+    });
+  }
+
+  /// Reacts to the latest message changing identity from any source (API
+  /// refresh, realtime delta, or our own optimistic send): scrolls to
+  /// bottom when the user is already there, otherwise surfaces the "new
+  /// messages" indicator rather than forcing a jump while they're reading
+  /// older history. Skipped while the initial load is still in flight (that
+  /// case is handled explicitly).
+  void _onMessagesChanged(List<Message> messages) {
+    if (_initialLoadInFlight) {
+      _lastMessageId = messages.isNotEmpty ? messages.last.id : null;
+      return;
+    }
+    final wasOwnSend = _ownSendPending;
+    _ownSendPending = false;
+    final latestId = messages.isNotEmpty ? messages.last.id : null;
+    final hasNewLatest = latestId != null && latestId != _lastMessageId;
+    _lastMessageId = latestId;
+    if (!hasNewLatest) return;
+    // Sending always scrolls to bottom, regardless of scroll position.
+    // Other growth (realtime/API) only scrolls when already near bottom.
+    if (wasOwnSend) {
+      _getActiveScrollBehavior().scrollToBottom();
+    } else {
+      _getActiveScrollBehavior().onIncomingMessage();
+    }
+  }
+
   AutoScrollController _getActiveScrollController() {
     if (!_privateModeEnabled) return _groupController;
     return _tabController?.index == 0 ? _parent1Controller : _parent2Controller;
+  }
+
+  ChatScrollBehavior _getActiveScrollBehavior() {
+    if (!_privateModeEnabled) return _groupScrollBehavior;
+    return _tabController?.index == 0
+        ? _parent1ScrollBehavior
+        : _parent2ScrollBehavior;
   }
 
   String? _getTagetParentForCurrentTab() {
@@ -211,12 +353,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         ? authState.loginResponse.displayName
         : _currentSender;
 
+    _ownSendPending = true;
     context.read<CommunicationCubit>().sendMessage(
       widget.parentInfo['code'] as String,
       text,
       attachments: List.from(_pendingAttachments),
       quotedMessageId: _quotedMessageId,
       senderName: senderName,
+      senderUserCode: _currentUserCode,
       receivers: receivers,
     );
 
@@ -226,36 +370,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       _quotedMessage = null;
       _quotedMessageId = null;
     });
-
-    // setState(() {
-    //   _messages.add(
-    //     Message(
-    //       text: _controller.text.trim(),
-    //       isSentByMe: true,
-    //       time: DateTime.now(),
-    //       deliveredAt: null,
-    //       readAt: null
-    //     ),
-    //   );
-    // });
-
-    //_controller.clear();
-    final scrollController = _getActiveScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      scrollController.scrollToIndex(
-        0,
-        preferPosition: AutoScrollPosition.begin,
-        duration: const Duration(milliseconds: 300),
-      );
-    });
-  }
-
-  Message? _findQuotedMessage(List<Message> messages, String? id) {
-    if (id == null) return null;
-    for (final m in messages) {
-      if (m.id == id) return m;
-    }
-    return null;
   }
 
   int? _getReversedIndex(String messageId) {
@@ -371,7 +485,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         ? [parent1Name, parent2Name]
         : ['${parent1Name}, ${parent2Name} and Staff'];
 
-    return BlocBuilder<CommunicationCubit, CommunicationState>(
+    return BlocConsumer<CommunicationCubit, CommunicationState>(
+      listener: (context, state) {
+        if (state is CommunicationLoaded) {
+          _onMessagesChanged(_activeMessages);
+        }
+      },
       builder: (context, state) {
         final _messages = _activeMessages;
         if (state is CommunicationLoading && _messages.isEmpty) {
@@ -379,6 +498,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           return Scaffold(
             body: const ChatThreadShimmer(),
           );
+        }
+        if (state is CommunicationError && _messages.isEmpty) {
+          final errorBody = _buildErrorState(context, state.message);
+          if (!widget.showOwnScaffold) return errorBody;
+          return Scaffold(body: SafeArea(child: errorBody));
+        }
+        if (state is CommunicationLoaded && _messages.isEmpty) {
+          final emptyBody = _buildEmptyConversationState(context);
+          if (!widget.showOwnScaffold) return emptyBody;
+          return Scaffold(body: SafeArea(child: emptyBody));
         }
         final threadBody = GestureDetector(
           behavior: HitTestBehavior.translucent,
@@ -418,6 +547,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             controller: _tabController,
                             children: _privateModeEnabled
                                 ? [
+                                    Stack(
+                                      children: [
                                     ListView.builder(
                                       controller: _getActiveScrollController(),
                                       padding: const EdgeInsets.symmetric(
@@ -438,13 +569,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                         //   messageId,
                                         //   () => GlobalKey(),
                                         // );
-                                        Message? quotedMessage;
-                                        if (message.quotedMessageId != null) {
-                                          quotedMessage = _findQuotedMessage(
-                                            _messages,
-                                            message.quotedMessageId,
-                                          );
-                                        }
                                         bool showDateHeader = false;
                                         final prevListIndex =
                                             _messages.length - 2 - index;
@@ -508,14 +632,25 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 const SizedBox(height: 10),
                                               // Spacing: compact for grouped, normal for new group
                                               SizedBox(height: isGrouped ? 2.0 : 8.0),
-                                              MessageBubble(
-                                                message: message,
+                                              ThreadMessageTile(
+                                                threadId: widget.parentInfo['code']
+                                                    as String,
+                                                messageCode: message.code,
+                                                quotedMessageId:
+                                                    message.quotedMessageId,
+                                                onDeleteAttachment: (attachment) {
+                                                  if (attachment.attachmentId != null) {
+                                                    context.read<CommunicationCubit>().deleteAttachment(
+                                                      widget.parentInfo['code'] as String,
+                                                      attachment.attachmentId!,
+                                                    );
+                                                  }
+                                                },
                                                 currentUserCode:
                                                     _currentUserCode,
                                                 reactionsController:
                                                     _reactionsController,
                                                 isParentMessaging: true,
-                                                quotedMessage: quotedMessage,
                                                 onReplyFromMenu: () {
                                                   setState(() {
                                                     _quotedMessageId =
@@ -622,6 +757,34 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                         );
                                       },
                                     ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 8,
+                                        child: ValueListenableBuilder<bool>(
+                                          valueListenable: _getActiveScrollBehavior()
+                                              .showNewMessageIndicator,
+                                          builder: (_, visible, __) =>
+                                              NewMessagesIndicator(
+                                            visible: visible,
+                                            onTap: () => _getActiveScrollBehavior()
+                                                .scrollToBottom(),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        top: 0,
+                                        child: LoadingOlderIndicator(
+                                          visible: state is CommunicationLoaded &&
+                                              state.isLoadingOlderMessages,
+                                        ),
+                                      ),
+                                      ],
+                                    ),
+                                    Stack(
+                                      children: [
                                     ListView.builder(
                                       controller: _getActiveScrollController(),
                                       padding: const EdgeInsets.symmetric(
@@ -637,13 +800,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 index];
                                         final messageId = message.id;
 
-                                        Message? quotedMessage;
-                                        if (message.quotedMessageId != null) {
-                                          quotedMessage = _findQuotedMessage(
-                                            _messages,
-                                            message.quotedMessageId,
-                                          );
-                                        }
                                         bool showDateHeader = false;
                                         final prevListIndex =
                                             _messages.length - 2 - index;
@@ -707,14 +863,25 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 const SizedBox(height: 10),
                                               // Spacing: compact for grouped, normal for new group
                                               SizedBox(height: isGrouped ? 2.0 : 8.0),
-                                              MessageBubble(
-                                                message: message,
+                                              ThreadMessageTile(
+                                                threadId: widget.parentInfo['code']
+                                                    as String,
+                                                messageCode: message.code,
+                                                quotedMessageId:
+                                                    message.quotedMessageId,
+                                                onDeleteAttachment: (attachment) {
+                                                  if (attachment.attachmentId != null) {
+                                                    context.read<CommunicationCubit>().deleteAttachment(
+                                                      widget.parentInfo['code'] as String,
+                                                      attachment.attachmentId!,
+                                                    );
+                                                  }
+                                                },
                                                 currentUserCode:
                                                     _currentUserCode,
                                                 reactionsController:
                                                     _reactionsController,
                                                 isParentMessaging: true,
-                                                quotedMessage: quotedMessage,
                                                 onReplyFromMenu: () {
                                                   setState(() {
                                                     _quotedMessageId =
@@ -820,9 +987,37 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                           ),
                                         );
                                       },
+                                    ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 8,
+                                        child: ValueListenableBuilder<bool>(
+                                          valueListenable: _getActiveScrollBehavior()
+                                              .showNewMessageIndicator,
+                                          builder: (_, visible, __) =>
+                                              NewMessagesIndicator(
+                                            visible: visible,
+                                            onTap: () => _getActiveScrollBehavior()
+                                                .scrollToBottom(),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        top: 0,
+                                        child: LoadingOlderIndicator(
+                                          visible: state is CommunicationLoaded &&
+                                              state.isLoadingOlderMessages,
+                                        ),
+                                      ),
+                                      ],
                                     ),
                                   ]
                                 : [
+                                    Stack(
+                                      children: [
                                     ListView.builder(
                                       controller: _getActiveScrollController(),
                                       padding: const EdgeInsets.symmetric(
@@ -837,13 +1032,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 1 -
                                                 index];
                                         final messageId = message.id;
-                                        Message? quotedMessage;
-                                        if (message.quotedMessageId != null) {
-                                          quotedMessage = _findQuotedMessage(
-                                            _messages,
-                                            message.quotedMessageId,
-                                          );
-                                        }
                                         bool showDateHeader = false;
                                         final prevListIndex =
                                             _messages.length - 2 - index;
@@ -907,14 +1095,25 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 const SizedBox(height: 10),
                                               // Spacing: compact for grouped, normal for new group
                                               SizedBox(height: isGrouped ? 2.0 : 8.0),
-                                              MessageBubble(
-                                                message: message,
+                                              ThreadMessageTile(
+                                                threadId: widget.parentInfo['code']
+                                                    as String,
+                                                messageCode: message.code,
+                                                quotedMessageId:
+                                                    message.quotedMessageId,
+                                                onDeleteAttachment: (attachment) {
+                                                  if (attachment.attachmentId != null) {
+                                                    context.read<CommunicationCubit>().deleteAttachment(
+                                                      widget.parentInfo['code'] as String,
+                                                      attachment.attachmentId!,
+                                                    );
+                                                  }
+                                                },
                                                 currentUserCode:
                                                     _currentUserCode,
                                                 reactionsController:
                                                     _reactionsController,
                                                 isParentMessaging: true,
-                                                quotedMessage: quotedMessage,
                                                 onReplyFromMenu: () {
                                                   setState(() {
                                                     _quotedMessageId =
@@ -1020,6 +1219,32 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                           ),
                                         );
                                       },
+                                    ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 8,
+                                        child: ValueListenableBuilder<bool>(
+                                          valueListenable: _getActiveScrollBehavior()
+                                              .showNewMessageIndicator,
+                                          builder: (_, visible, __) =>
+                                              NewMessagesIndicator(
+                                            visible: visible,
+                                            onTap: () => _getActiveScrollBehavior()
+                                                .scrollToBottom(),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        top: 0,
+                                        child: LoadingOlderIndicator(
+                                          visible: state is CommunicationLoaded &&
+                                              state.isLoadingOlderMessages,
+                                        ),
+                                      ),
+                                      ],
                                     ),
                                   ],
                           ),
@@ -1051,6 +1276,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             focusNode: _inputFocusNode,
                             onSend: _sendMessage,
                             onAttachmentTap: _showAttachmentSheet,
+                            isSending: state is CommunicationSending,
                             pendingAttachments: _pendingAttachments,
                             quotedMessage: _quotedMessage,
                             onCancelQuote: () => setState(() {
@@ -1118,6 +1344,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                 controller: _tabController,
                                 children: _privateModeEnabled
                                     ? [
+                                        Stack(
+                                          children: [
                                         ListView.builder(
                                           controller:
                                               _getActiveScrollController(),
@@ -1139,15 +1367,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             //   messageId,
                                             //   () => GlobalKey(),
                                             // );
-                                            Message? quotedMessage;
-                                            if (message.quotedMessageId !=
-                                                null) {
-                                              quotedMessage =
-                                                  _findQuotedMessage(
-                                                    _messages,
-                                                    message.quotedMessageId,
-                                                  );
-                                            }
                                             bool showDateHeader = false;
                                             final prevListIndex =
                                                 _messages.length - 2 - index;
@@ -1211,15 +1430,25 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   if (showDateHeader)
                                                     const SizedBox(height: 10),
 
-                                                  MessageBubble(
-                                                    message: message,
+                                                  ThreadMessageTile(
+                                                    threadId: widget.parentInfo['code']
+                                                        as String,
+                                                    messageCode: message.code,
+                                                    quotedMessageId:
+                                                        message.quotedMessageId,
+                                                    onDeleteAttachment: (attachment) {
+                                                      if (attachment.attachmentId != null) {
+                                                        context.read<CommunicationCubit>().deleteAttachment(
+                                                          widget.parentInfo['code'] as String,
+                                                          attachment.attachmentId!,
+                                                        );
+                                                      }
+                                                    },
                                                     currentUserCode:
                                                         _currentUserCode,
                                                     reactionsController:
                                                         _reactionsController,
                                                     isParentMessaging: true,
-                                                    quotedMessage:
-                                                        quotedMessage,
                                                     onReplyFromMenu: () {
                                                       setState(() {
                                                         _quotedMessageId =
@@ -1337,6 +1566,36 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             );
                                           },
                                         ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 8,
+                                            child: ValueListenableBuilder<bool>(
+                                              valueListenable:
+                                                  _getActiveScrollBehavior()
+                                                      .showNewMessageIndicator,
+                                              builder: (_, visible, __) =>
+                                                  NewMessagesIndicator(
+                                                visible: visible,
+                                                onTap: () =>
+                                                    _getActiveScrollBehavior()
+                                                        .scrollToBottom(),
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            top: 0,
+                                            child: LoadingOlderIndicator(
+                                              visible: state is CommunicationLoaded &&
+                                                  state.isLoadingOlderMessages,
+                                            ),
+                                          ),
+                                          ],
+                                        ),
+                                        Stack(
+                                          children: [
                                         ListView.builder(
                                           controller:
                                               _getActiveScrollController(),
@@ -1358,15 +1617,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             //   messageId,
                                             //   () => GlobalKey(),
                                             // );
-                                            Message? quotedMessage;
-                                            if (message.quotedMessageId !=
-                                                null) {
-                                              quotedMessage =
-                                                  _findQuotedMessage(
-                                                    _messages,
-                                                    message.quotedMessageId,
-                                                  );
-                                            }
                                             bool showDateHeader = false;
                                             final prevListIndex =
                                                 _messages.length - 2 - index;
@@ -1430,15 +1680,25 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   if (showDateHeader)
                                                     const SizedBox(height: 10),
 
-                                                  MessageBubble(
-                                                    message: message,
+                                                  ThreadMessageTile(
+                                                    threadId: widget.parentInfo['code']
+                                                        as String,
+                                                    messageCode: message.code,
+                                                    quotedMessageId:
+                                                        message.quotedMessageId,
+                                                    onDeleteAttachment: (attachment) {
+                                                      if (attachment.attachmentId != null) {
+                                                        context.read<CommunicationCubit>().deleteAttachment(
+                                                          widget.parentInfo['code'] as String,
+                                                          attachment.attachmentId!,
+                                                        );
+                                                      }
+                                                    },
                                                     currentUserCode:
                                                         _currentUserCode,
                                                     reactionsController:
                                                         _reactionsController,
                                                     isParentMessaging: true,
-                                                    quotedMessage:
-                                                        quotedMessage,
                                                     onReplyFromMenu: () {
                                                       setState(() {
                                                         _quotedMessageId =
@@ -1555,9 +1815,39 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                               ),
                                             );
                                           },
+                                        ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 8,
+                                            child: ValueListenableBuilder<bool>(
+                                              valueListenable:
+                                                  _getActiveScrollBehavior()
+                                                      .showNewMessageIndicator,
+                                              builder: (_, visible, __) =>
+                                                  NewMessagesIndicator(
+                                                visible: visible,
+                                                onTap: () =>
+                                                    _getActiveScrollBehavior()
+                                                        .scrollToBottom(),
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            top: 0,
+                                            child: LoadingOlderIndicator(
+                                              visible: state is CommunicationLoaded &&
+                                                  state.isLoadingOlderMessages,
+                                            ),
+                                          ),
+                                          ],
                                         ),
                                       ]
                                     : [
+                                        Stack(
+                                          children: [
                                         ListView.builder(
                                           controller:
                                               _getActiveScrollController(),
@@ -1579,15 +1869,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                             //   messageId,
                                             //   () => GlobalKey(),
                                             // );
-                                            Message? quotedMessage;
-                                            if (message.quotedMessageId !=
-                                                null) {
-                                              quotedMessage =
-                                                  _findQuotedMessage(
-                                                    _messages,
-                                                    message.quotedMessageId,
-                                                  );
-                                            }
                                             bool showDateHeader = false;
                                             final prevListIndex =
                                                 _messages.length - 2 - index;
@@ -1651,15 +1932,25 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   if (showDateHeader)
                                                     const SizedBox(height: 10),
 
-                                                  MessageBubble(
-                                                    message: message,
+                                                  ThreadMessageTile(
+                                                    threadId: widget.parentInfo['code']
+                                                        as String,
+                                                    messageCode: message.code,
+                                                    quotedMessageId:
+                                                        message.quotedMessageId,
+                                                    onDeleteAttachment: (attachment) {
+                                                      if (attachment.attachmentId != null) {
+                                                        context.read<CommunicationCubit>().deleteAttachment(
+                                                          widget.parentInfo['code'] as String,
+                                                          attachment.attachmentId!,
+                                                        );
+                                                      }
+                                                    },
                                                     currentUserCode:
                                                         _currentUserCode,
                                                     reactionsController:
                                                         _reactionsController,
                                                     isParentMessaging: true,
-                                                    quotedMessage:
-                                                        quotedMessage,
                                                     onReplyFromMenu: () {
                                                       setState(() {
                                                         _quotedMessageId =
@@ -1776,6 +2067,34 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                               ),
                                             );
                                           },
+                                        ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 8,
+                                            child: ValueListenableBuilder<bool>(
+                                              valueListenable:
+                                                  _getActiveScrollBehavior()
+                                                      .showNewMessageIndicator,
+                                              builder: (_, visible, __) =>
+                                                  NewMessagesIndicator(
+                                                visible: visible,
+                                                onTap: () =>
+                                                    _getActiveScrollBehavior()
+                                                        .scrollToBottom(),
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            top: 0,
+                                            child: LoadingOlderIndicator(
+                                              visible: state is CommunicationLoaded &&
+                                                  state.isLoadingOlderMessages,
+                                            ),
+                                          ),
+                                          ],
                                         ),
                                       ],
                               ),
@@ -1835,6 +2154,144 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
+  /// Shown when the thread has loaded successfully but has no messages yet —
+  /// the input bar stays usable so the user can start the conversation,
+  /// unlike the loading/error states which replace the whole screen.
+  Widget _buildEmptyConversationState(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Padding(
+        padding: const EdgeInsets.all(10.0),
+        child: Column(
+          children: [
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 56,
+                      color: AppColors.primaryColor.withValues(alpha: 0.35),
+                    ),
+                    const SizedBox(height: 12),
+                    const CustomTextWidget(
+                      text: 'No messages yet',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    const SizedBox(height: 4),
+                    CustomTextWidget(
+                      text: 'Say hello to start the conversation',
+                      fontSize: 13,
+                      fontColor: Colors.grey[600],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SafeArea(
+              top: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: ChatInputBar(
+                  controller: _controller,
+                  focusNode: _inputFocusNode,
+                  onSend: _sendMessage,
+                  onAttachmentTap: _showAttachmentSheet,
+                  pendingAttachments: _pendingAttachments,
+                  quotedMessage: _quotedMessage,
+                  onCancelQuote: () => setState(() {
+                    _quotedMessage = null;
+                    _quotedMessageId = null;
+                  }),
+                  onRemoveAttachment: (i) => setState(() {
+                    _pendingAttachments.removeAt(i);
+                  }),
+                  editingMessage: _editingMessage,
+                  onCancelEdit: () => setState(() {
+                    _editingMessage = null;
+                    _controller.clear();
+                  }),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Shown when [CommunicationCubit] has no cached history to fall back on
+  /// and the latest fetch failed — gives the user a way to retry instead of
+  /// staring at a blank screen.
+  Widget _buildErrorState(BuildContext context, String message) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 48,
+              color: Colors.redAccent,
+            ),
+            const SizedBox(height: 12),
+            const CustomTextWidget(
+              text: 'Unable to load messages',
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+            const SizedBox(height: 6),
+            CustomTextWidget(
+              text: message,
+              fontSize: 13,
+              fontColor: Colors.grey[600],
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () {
+                final convCode = widget.parentInfo['code'] as String;
+                context.read<CommunicationCubit>().loadMessages(
+                  convCode,
+                  currentUserId: _currentUserCode,
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildPrimaryGradient(),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: const CustomTextWidget(
+                  text: 'Retry',
+                  fontColor: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   List<ConversationParticipant> get _participants {
     final raw = widget.parentInfo['participants'];
     if (raw is List) {
@@ -1870,8 +2327,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     MessageAttachmentBottomSheet.show(
       context,
       onAttachmentsSelected: (attachments) {
+        if (attachments.isEmpty) return;
+        // Only one attachment may be pending at a time — a new pick
+        // replaces whatever was previously staged.
         setState(() {
-          _pendingAttachments.addAll(attachments);
+          _pendingAttachments = [attachments.first];
         });
       },
       onEmojiSelected: (emoji) {
@@ -2246,7 +2706,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         children: [
                           Flexible(
                             fit: FlexFit.loose,
-                            child: CustomTextWidget(text: r.name, fontSize: 13),
+                            child: CustomTextWidget(
+                              text: r.name.trim().isNotEmpty
+                                  ? r.name
+                                  : 'Participant',
+                              fontSize: 13,
+                            ),
                           ),
                           if (r.timestamp != null) ...[
                             const SizedBox(width: 10),

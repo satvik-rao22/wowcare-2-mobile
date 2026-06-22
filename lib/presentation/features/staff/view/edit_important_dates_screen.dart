@@ -37,7 +37,8 @@ class EditImportantDatesScreen extends StatefulWidget {
   final String? initialPhysicalCheckupStatus;
 
   @override
-  _EditImportantDatesScreenState createState() => _EditImportantDatesScreenState();
+  _EditImportantDatesScreenState createState() =>
+      _EditImportantDatesScreenState();
 }
 
 class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
@@ -52,7 +53,11 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   // - If there's no existing physical date (first time), only "Completed" is allowed by default.
   // - If a physical date already exists, allow all three options in the dropdown.
   static const List<String> _initialPhysicalStatusOptions = ['Completed'];
-  static const List<String> _editPhysicalStatusOptions = ['Due', 'Scheduled', 'Completed'];
+  static const List<String> _editPhysicalStatusOptions = [
+    'Due',
+    'Scheduled',
+    'Completed',
+  ];
   late List<String> _physicalCheckupStatusOptions;
 
   DateTime _todayDateOnly() {
@@ -71,8 +76,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     // Prefill when editing
     _selectedHireDate = widget.initialHireDate;
     _selectedCdaExaminationDate = widget.initialCdaExaminationDate;
-    _selectedFirstAidCprExpirationDate = widget.initialFirstAidCprExpirationDate;
-    _selectedBackgroundRecordCheckExpirationDate = widget.initialBackgroundRecordCheckExpirationDate;
+    _selectedFirstAidCprExpirationDate =
+        widget.initialFirstAidCprExpirationDate;
+    _selectedBackgroundRecordCheckExpirationDate =
+        widget.initialBackgroundRecordCheckExpirationDate;
     _selectedPhysicalCheckupDate = widget.initialPhysicalCheckupDate;
 
     // Decide which options to show in the dropdown based on whether
@@ -133,7 +140,8 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         _selectedBackgroundRecordCheckExpirationDate!.isBefore(today)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Background Record Check Expiration Date cannot be in the past',
+        message:
+            'Background Record Check Expiration Date cannot be in the past',
         isError: true,
       );
       return;
@@ -170,7 +178,8 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         if (pickedOnly.isAfter(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'For Completed status, Physical Checkup Date must be today or past',
+            message:
+                'For Completed status, Physical Checkup Date must be today or past',
             isError: true,
           );
           return;
@@ -181,7 +190,8 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
         if (pickedOnly.isBefore(today)) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'For Due/Scheduled status, Physical Checkup Date must be today or future',
+            message:
+                'For Due/Scheduled status, Physical Checkup Date must be today or future',
             isError: true,
           );
           return;
@@ -204,8 +214,12 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     if (_selectedCdaExaminationDate != null) {
       dates.add({
         'importantDateType': ImportantDateType.cda.value,
-        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedCdaExaminationDate!),
-        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedCdaExaminationDate!),
+        'dueDate': DateFormat(
+          'yyyy-MM-dd',
+        ).format(_selectedCdaExaminationDate!),
+        'completedDate': DateFormat(
+          'yyyy-MM-dd',
+        ).format(_selectedCdaExaminationDate!),
       });
     }
 
@@ -213,8 +227,12 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     if (_selectedFirstAidCprExpirationDate != null) {
       dates.add({
         'importantDateType': ImportantDateType.firstAidCpr.value,
-        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedFirstAidCprExpirationDate!),
-        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedFirstAidCprExpirationDate!),
+        'dueDate': DateFormat(
+          'yyyy-MM-dd',
+        ).format(_selectedFirstAidCprExpirationDate!),
+        'completedDate': DateFormat(
+          'yyyy-MM-dd',
+        ).format(_selectedFirstAidCprExpirationDate!),
       });
     }
 
@@ -222,14 +240,20 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
     if (_selectedBackgroundRecordCheckExpirationDate != null) {
       dates.add({
         'importantDateType': ImportantDateType.brc.value,
-        'dueDate': DateFormat('yyyy-MM-dd').format(_selectedBackgroundRecordCheckExpirationDate!),
-        'completedDate': DateFormat('yyyy-MM-dd').format(_selectedBackgroundRecordCheckExpirationDate!),
+        'dueDate': DateFormat(
+          'yyyy-MM-dd',
+        ).format(_selectedBackgroundRecordCheckExpirationDate!),
+        'completedDate': DateFormat(
+          'yyyy-MM-dd',
+        ).format(_selectedBackgroundRecordCheckExpirationDate!),
       });
     }
 
     // Physical Checkup Date (API supports status: Scheduled | Completed)
     if (_selectedPhysicalCheckupDate != null) {
-      final dueDate = DateFormat('yyyy-MM-dd').format(_selectedPhysicalCheckupDate!);
+      final dueDate = DateFormat(
+        'yyyy-MM-dd',
+      ).format(_selectedPhysicalCheckupDate!);
       final map = <String, String>{
         'importantDateType': ImportantDateType.physicalCheckup.value,
         'dueDate': dueDate,
@@ -277,8 +301,9 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
           break;
         case 'physical':
           currentDate = _selectedPhysicalCheckupDate;
-          final statusUpper =
-              (_selectedPhysicalCheckupStatus ?? '').trim().toUpperCase();
+          final statusUpper = (_selectedPhysicalCheckupStatus ?? '')
+              .trim()
+              .toUpperCase();
           if (statusUpper == 'COMPLETED') {
             lastDate = today;
           } else {
@@ -298,13 +323,14 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
           lastDate: lastDate,
         ),
       );
-      
+
       if (result != null && result['date'] != null) {
         final selected = result['date'] as DateTime;
         final selectedOnly = _dateOnly(selected);
         if (fieldName == 'physical') {
-          final statusUpper =
-              (_selectedPhysicalCheckupStatus ?? '').trim().toUpperCase();
+          final statusUpper = (_selectedPhysicalCheckupStatus ?? '')
+              .trim()
+              .toUpperCase();
           if ((statusUpper == 'DUE' ||
                   statusUpper == 'SCHEDULED' ||
                   statusUpper == 'OVERDUE') &&
@@ -383,118 +409,124 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
             final isSubmitting = state.isLoading;
 
             return StaffFormLayout(
-      title: "Edit Important Dates",
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          _buildDateField(
-            "Hire Date",
-            _selectedHireDate,
-            'hire',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildDateField(
-            "CDA Examination Date",
-            _selectedCdaExaminationDate,
-            'cda',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildDateField(
-            "First Aid/CPR Expiration Date",
-            _selectedFirstAidCprExpirationDate,
-            'firstAid',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildDateField(
-            "Background Record Check Expiration date",
-            _selectedBackgroundRecordCheckExpirationDate,
-            'background',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          _buildDateField(
-            "Physical Checkup Date",
-            _selectedPhysicalCheckupDate,
-            'physical',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
-            label: "Physical Checkup Status",
-            hintText: 'Select an option',
-            items: _physicalCheckupStatusOptions,
-            selectedItem: _selectedPhysicalCheckupStatus,
-            labelStyle: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: "Manrope",
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
-            ),
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            onSelect: (val) {
-              setState(() {
-                _selectedPhysicalCheckupStatus =
-                    val ?? _selectedPhysicalCheckupStatus;
-              });
+              title: "Edit Important Dates",
+              child: ListView(
+                padding: EdgeInsets.zero,
+                children: [
+                  _buildDateField("Hire Date", _selectedHireDate, 'hire'),
+                  SizedBox(height: responsive.verticalSpacing),
+                  _buildDateField(
+                    "CDA Examination Date",
+                    _selectedCdaExaminationDate,
+                    'cda',
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  _buildDateField(
+                    "First Aid/CPR Expiration Date",
+                    _selectedFirstAidCprExpirationDate,
+                    'firstAid',
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  _buildDateField(
+                    "Background Record Check Expiration date",
+                    _selectedBackgroundRecordCheckExpirationDate,
+                    'background',
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  _buildDateField(
+                    "Physical Checkup Date",
+                    _selectedPhysicalCheckupDate,
+                    'physical',
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  CustomDropdown(
+                    label: "Physical Checkup Status",
+                    hintText: 'Select an option',
+                    items: _physicalCheckupStatusOptions,
+                    selectedItem: _selectedPhysicalCheckupStatus,
+                    labelStyle: TextStyle(
+                      fontSize: responsive.labelFontSize,
+                      fontFamily: "Manrope",
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xff573353),
+                    ),
+                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                    onSelect: (val) {
+                      setState(() {
+                        _selectedPhysicalCheckupStatus =
+                            val ?? _selectedPhysicalCheckupStatus;
+                      });
 
-              if (_selectedPhysicalCheckupDate == null) return;
-              final today = _todayDateOnly();
-              final pickedOnly = _dateOnly(_selectedPhysicalCheckupDate!);
-              final statusUpper =
-                  (_selectedPhysicalCheckupStatus ?? '').trim().toUpperCase();
-              final isDueScheduled = statusUpper == 'DUE' ||
-                  statusUpper == 'SCHEDULED' ||
-                  statusUpper == 'OVERDUE';
+                      if (_selectedPhysicalCheckupDate == null) return;
+                      final today = _todayDateOnly();
+                      final pickedOnly = _dateOnly(
+                        _selectedPhysicalCheckupDate!,
+                      );
+                      final statusUpper = (_selectedPhysicalCheckupStatus ?? '')
+                          .trim()
+                          .toUpperCase();
+                      final isDueScheduled =
+                          statusUpper == 'DUE' ||
+                          statusUpper == 'SCHEDULED' ||
+                          statusUpper == 'OVERDUE';
 
-              if (isDueScheduled && pickedOnly.isBefore(today)) {
-                setState(() => _selectedPhysicalCheckupDate = null);
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message:
-                      'For Due/Scheduled status, Physical Checkup Date must be today or future',
-                  isError: true,
-                );
-                return;
-              }
+                      if (isDueScheduled && pickedOnly.isBefore(today)) {
+                        setState(() => _selectedPhysicalCheckupDate = null);
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message:
+                              'For Due/Scheduled status, Physical Checkup Date must be today or future',
+                          isError: true,
+                        );
+                        return;
+                      }
 
-              if (statusUpper == 'COMPLETED' && pickedOnly.isAfter(today)) {
-                setState(() => _selectedPhysicalCheckupDate = null);
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message:
-                      'For Completed status, Physical Checkup Date must be today or past',
-                  isError: true,
-                );
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-        ],
-      ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom, left: 16, right: 16, top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Save',
-          onPressedConfirm: isSubmitting ? null : _saveImportantDates,
-          showCancelButton: false,
-          isForm: false,
-          isLoading: isSubmitting,
-        ),
-      ),
+                      if (statusUpper == 'COMPLETED' &&
+                          pickedOnly.isAfter(today)) {
+                        setState(() => _selectedPhysicalCheckupDate = null);
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message:
+                              'For Completed status, Physical Checkup Date must be today or past',
+                          isError: true,
+                        );
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+              bottomBar: Container(
+                padding: EdgeInsets.only(
+                  bottom: safeAreaBottom,
+                  left: 16,
+                  right: 16,
+                  top: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      offset: const Offset(0, -4),
+                      blurRadius: 16,
+                    ),
+                  ],
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topRight: Radius.circular(
+                      responsive.isTablet ? 40.0 : 24.0,
+                    ),
+                  ),
+                ),
+                child: CustomButtonLayout(
+                  confirmButtonLabel: 'Save',
+                  onPressedConfirm: isSubmitting ? null : _saveImportantDates,
+                  showCancelButton: false,
+                  isForm: false,
+                  isLoading: isSubmitting,
+                ),
+              ),
             );
           },
         ),
@@ -503,7 +535,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   }
 
   Widget _buildDateField(
-    String label, 
+    String label,
     DateTime? selectedDate,
     String fieldName,
   ) {
@@ -538,12 +570,12 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
                 children: [
                   Flexible(
                     child: Text(
-                      selectedDate != null 
+                      selectedDate != null
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : 'Select Date',
                       style: TextStyle(
-                        color: selectedDate == null 
-                            ? AppColors.primaryColor.withOpacity(0.6)
+                        color: selectedDate == null
+                            ? AppColors.primaryColor.withValues(alpha: 0.6)
                             : AppColors.primaryColor,
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
@@ -555,7 +587,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: 20.0,
-                    colorFilter: const ColorFilter.mode(AppColors.primaryColor, BlendMode.srcIn),
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.primaryColor,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ],
               ),

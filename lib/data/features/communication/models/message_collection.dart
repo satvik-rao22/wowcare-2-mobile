@@ -134,6 +134,8 @@ class ChatAttachmentCollection {
   late String mimeType;
   late String remoteUrl;
   String? localPath;
+  String? code;
+  int? attachmentId;
 
   ChatAttachmentCollection();
 
@@ -144,7 +146,9 @@ class ChatAttachmentCollection {
       ..sizeBytes = attachment.sizeBytes
       ..mimeType = attachment.mimeType
       ..remoteUrl = attachment.remoteUrl
-      ..localPath = attachment.localPath;
+      ..localPath = attachment.localPath
+      ..code = attachment.code
+      ..attachmentId = attachment.attachmentId;
   }
 
   ChatAttachment toEntity() {
@@ -155,6 +159,8 @@ class ChatAttachmentCollection {
       mimeType: mimeType,
       remoteUrl: remoteUrl,
       localPath: localPath,
+      code: code,
+      attachmentId: attachmentId,
     );
   }
 }

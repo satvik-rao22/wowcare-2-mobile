@@ -66,14 +66,20 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         context.read<ClassroomCubit>().loadActiveClassrooms();
         context.read<StaffCubit>().loadInitial();
         context.read<StudentCubit>().loadInitial();
-        context.read<CommunicationCubit>().loadConversations(
+        await context.read<CommunicationCubit>().loadConversations(
           type: _conversationType,
           size: _conversationPageSize,
+        );
+        if (!mounted) return;
+        // Realtime listener starts only after the API/Isar history has
+        // loaded — Firestore only ever applies deltas on top of it.
+        context.read<CommunicationCubit>().startWatchingConversations(
+          type: _conversationType,
         );
       }
     });

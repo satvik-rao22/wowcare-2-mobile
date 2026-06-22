@@ -37,8 +37,9 @@ class _ControllableRepo implements ConversationEntityRepository {
   }
 
   @override
-  Stream<List<ConversationEntity>> watchConversations({ConversationType? type}) =>
-      const Stream.empty();
+  Stream<List<ConversationEntity>> watchConversations({
+    ConversationType? type,
+  }) => const Stream.empty();
 
   @override
   Stream<int> watchUnreadCountForType(ConversationType type) =>
@@ -61,8 +62,9 @@ class _ControllableRepo implements ConversationEntityRepository {
   }) async => const Right([]);
 
   @override
-  Future<Either<Failure, ConversationEntity>> getConversation(String code) async =>
-      Left(ServerFailure('stub'));
+  Future<Either<Failure, ConversationEntity>> getConversation(
+    String code,
+  ) async => Left(ServerFailure('stub'));
 
   @override
   Future<Either<Failure, ConversationEntity?>> getCachedConversation(
@@ -73,6 +75,17 @@ class _ControllableRepo implements ConversationEntityRepository {
   Future<Either<Failure, ConversationEntity?>> findStaffDirectConversation(
     String recipientUserCode,
   ) async => const Right(null);
+
+  @override
+  Future<Either<Failure, ConversationEntity?>> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  }) async => const Right(null);
+
+  @override
+  Future<Either<Failure, ConversationEntity?>> findAdminChatConversation({
+    required String studentCode,
+  }) async => const Right(null);
 
   @override
   Future<Either<Failure, List<MessagingStaffResult>>> searchStaffForMessaging({
@@ -88,8 +101,7 @@ class _ControllableRepo implements ConversationEntityRepository {
 
   @override
   Future<Either<Failure, List<ConversationEntity>>>
-      getConversationsForClassroom(String classroomCode) async =>
-          const Right([]);
+  getConversationsForClassroom(String classroomCode) async => const Right([]);
 
   @override
   Future<Either<Failure, ConversationEntity>> createConversation({
@@ -97,6 +109,9 @@ class _ControllableRepo implements ConversationEntityRepository {
     required String studentCode,
     String? classroomCode,
     List<String>? participantCodes,
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
   }) async => Left(ServerFailure('stub'));
 
   @override
@@ -127,6 +142,14 @@ class _ControllableRepo implements ConversationEntityRepository {
   @override
   Future<Either<Failure, void>> clearConversationsCache() async =>
       const Right(null);
+
+  @override
+  Future<Either<Failure, void>> markConversationDelivered(
+    String conversationCode,
+  ) {
+    // TODO: implement markConversationDelivered
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -134,12 +157,11 @@ class _ControllableRepo implements ConversationEntityRepository {
 PrivateModeToggleCubit _build(
   _ControllableRepo repo, {
   bool initialEnabled = false,
-}) =>
-    PrivateModeToggleCubit(
-      togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
-      conversationCode: 'CONV-INT-001',
-      initialEnabled: initialEnabled,
-    );
+}) => PrivateModeToggleCubit(
+  togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
+  conversationCode: 'CONV-INT-001',
+  initialEnabled: initialEnabled,
+);
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 
@@ -205,27 +227,29 @@ void main() {
       expect(cubit.state.isLoading, isFalse);
     });
 
-    test('state stream sequence is correct during a single successful toggle',
-        () async {
-      final repo = _ControllableRepo();
-      final cubit = _build(repo);
-      addTearDown(cubit.close);
+    test(
+      'state stream sequence is correct during a single successful toggle',
+      () async {
+        final repo = _ControllableRepo();
+        final cubit = _build(repo);
+        addTearDown(cubit.close);
 
-      final emitted = <PrivateModeToggleState>[];
-      final sub = cubit.stream.listen(emitted.add);
+        final emitted = <PrivateModeToggleState>[];
+        final sub = cubit.stream.listen(emitted.add);
 
-      await cubit.toggle();
-      await Future<void>.delayed(Duration.zero);
-      await sub.cancel();
+        await cubit.toggle();
+        await Future<void>.delayed(Duration.zero);
+        await sub.cancel();
 
-      expect(emitted, hasLength(2));
-      // Optimistic emission
-      expect(emitted[0].isEnabled, isTrue);
-      expect(emitted[0].isLoading, isTrue);
-      // Settled emission
-      expect(emitted[1].isEnabled, isTrue);
-      expect(emitted[1].isLoading, isFalse);
-      expect(emitted[1].errorMessage, isNull);
-    });
+        expect(emitted, hasLength(2));
+        // Optimistic emission
+        expect(emitted[0].isEnabled, isTrue);
+        expect(emitted[0].isLoading, isTrue);
+        // Settled emission
+        expect(emitted[1].isEnabled, isTrue);
+        expect(emitted[1].isLoading, isFalse);
+        expect(emitted[1].errorMessage, isNull);
+      },
+    );
   });
 }

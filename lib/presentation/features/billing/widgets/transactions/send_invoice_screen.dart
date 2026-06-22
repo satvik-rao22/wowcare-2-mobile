@@ -13,10 +13,7 @@ import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class SendInvoiceScreen extends StatefulWidget {
-  const SendInvoiceScreen({
-    super.key,
-    required this.transaction,
-  });
+  const SendInvoiceScreen({super.key, required this.transaction});
 
   final TransactionItem transaction;
 
@@ -29,7 +26,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   Map<String, dynamic>? _invoiceDetails;
 
   // Form controllers
-  final TextEditingController _invoiceNumberController = TextEditingController();
+  final TextEditingController _invoiceNumberController =
+      TextEditingController();
   final TextEditingController _dueDateController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -47,14 +45,19 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   void _initializeDummyData() {
     // Load dummy data
     Map<String, dynamic>? invoiceData;
-    if (widget.transaction.refTable == 'Invoice' && widget.transaction.refTableId != null) {
+    if (widget.transaction.refTable == 'Invoice' &&
+        widget.transaction.refTableId != null) {
       invoiceData = {
         'invoiceNumber': 'INV-2025-${widget.transaction.refTableId}',
-        'startDate': widget.transaction.date.subtract(const Duration(days: 30)).toIso8601String(),
+        'startDate': widget.transaction.date
+            .subtract(const Duration(days: 30))
+            .toIso8601String(),
         'endDate': widget.transaction.date.toIso8601String(),
         'dueDate': widget.transaction.endDate != null
             ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
-            : widget.transaction.date.add(const Duration(days: 7)).toIso8601String(),
+            : widget.transaction.date
+                  .add(const Duration(days: 7))
+                  .toIso8601String(),
         'invoiceAmount': widget.transaction.amount,
         'description': widget.transaction.description,
       };
@@ -71,7 +74,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   void _initializeFormData() {
     // Generate invoice number based on current date
     final now = DateTime.now();
-    _invoiceNumber = 'INV${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    _invoiceNumber =
+        'INV${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     _invoiceNumberController.text = _invoiceNumber;
 
     // Pre-fill with transaction data
@@ -92,7 +96,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     if (invoiceData['dueDate'] != null) {
       try {
         final dueDateParsed = DateTime.parse(invoiceData['dueDate'].toString());
-        _dueDateController.text = DateUtilsNew.formatToReadableDate(dueDateParsed);
+        _dueDateController.text = DateUtilsNew.formatToReadableDate(
+          dueDateParsed,
+        );
       } catch (e) {
         // Date parsing failed, keep current value
       }
@@ -100,12 +106,14 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
 
     // Update amount
     if (invoiceData['invoiceAmount'] != null) {
-      final invoiceAmount = double.tryParse(invoiceData['invoiceAmount'].toString()) ?? 0.0;
+      final invoiceAmount =
+          double.tryParse(invoiceData['invoiceAmount'].toString()) ?? 0.0;
       _amountController.text = invoiceAmount.toStringAsFixed(2);
     }
 
     // Update description if available
-    if (invoiceData['description'] != null && invoiceData['description'].toString().isNotEmpty) {
+    if (invoiceData['description'] != null &&
+        invoiceData['description'].toString().isNotEmpty) {
       _descriptionController.text = invoiceData['description'].toString();
     }
   }
@@ -160,7 +168,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
 
   /// A draft is issued (POST /issue); an already-issued invoice is re-sent
   /// (PATCH /resend).
-  bool get _isDraft => widget.transaction.status.toUpperCase().contains('DRAFT');
+  bool get _isDraft =>
+      widget.transaction.status.toUpperCase().contains('DRAFT');
 
   Future<void> _sendInvoice() async {
     if (_isSending) return;
@@ -229,9 +238,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
           const SizedBox(width: 8),
           Text(
             widget.transaction.classroom,
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.small.copyWith(color: AppColors.primaryColor),
           ),
         ],
       ],
@@ -303,7 +310,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               ),
             ),
             Text(
-              _dueDateController.text.isEmpty ? 'Not set' : _dueDateController.text,
+              _dueDateController.text.isEmpty
+                  ? 'Not set'
+                  : _dueDateController.text,
               style: TextStyle(
                 fontSize: 15,
                 color: AppColors.billingGreyDark,
@@ -354,17 +363,16 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               ),
             ],
           ),
-          Divider(
-            thickness: 0.5,
-            color: AppColors.billingGreyTransparent,
-          ),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           // Table Row
           Row(
             children: [
               Expanded(
                 flex: 4,
                 child: Text(
-                  _descriptionController.text.isEmpty ? '-' : _descriptionController.text,
+                  _descriptionController.text.isEmpty
+                      ? '-'
+                      : _descriptionController.text,
                   style: AppTextStyles.title.copyWith(
                     fontSize: 16,
                     color: AppColors.primaryColor,
@@ -385,14 +393,11 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               ),
             ],
           ),
-          Divider(
-            thickness: 0.5,
-            color: AppColors.billingGreyTransparent,
-          ),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           // Total Row with highlighted background
           Container(
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
+              color: AppColors.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -492,4 +497,3 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     );
   }
 }
-

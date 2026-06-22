@@ -225,7 +225,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           ),
           decoration: isActive
               ? BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(sizes.activeRadius),
                 )
               : const BoxDecoration(),
@@ -417,7 +417,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           gradient: AppColors.buildPrimaryGradient(),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 12,
               offset: const Offset(0, -6),
             ),

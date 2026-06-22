@@ -33,20 +33,7 @@ class AnalyticsSection extends StatelessWidget {
           title: 'Revenue (Net Paid)',
           ytdLabel: 'Revenue YTD',
           ytdAmount: 9000,
-          data: const <double>[
-            4000,
-            3000,
-            2000,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
-          ],
+          data: const <double>[4000, 3000, 2000, 0, 0, 0, 0, 0, 0, 0, 0, 0],
           gradient: AppColors.buildPrimaryGradient(
             colors: const <Color>[Color(0xFF1BB686), Color(0xFF31C9A5)],
           ),
@@ -158,7 +145,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.billingTextColor.withOpacity(0.8),
+                      color: AppColors.billingTextColor.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -209,7 +196,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: isTablet ? 13 : 12,
-                  color: AppColors.billingTextColor.withOpacity(0.8),
+                  color: AppColors.billingTextColor.withValues(alpha: 0.8),
                 ),
               ),
             ],
@@ -302,7 +289,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.billingTextColor.withOpacity(0.8),
+                      color: AppColors.billingTextColor.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -384,11 +371,7 @@ class _SimpleBarChart extends StatelessWidget {
           SizedBox(
             width: rowLabelWidth,
             height: chartHeight,
-            child: _YAxisLabels(
-              maxY: maxY,
-              steps: 4,
-              formatCompact: true,
-            ),
+            child: _YAxisLabels(maxY: maxY, steps: 4, formatCompact: true),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -476,7 +459,9 @@ class _GroupedBarChart extends StatelessWidget {
                       negativeMin: -maxAbsY * 0.4,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: List<Widget>.generate(months.length, (int monthIndex) {
+                        children: List<Widget>.generate(months.length, (
+                          int monthIndex,
+                        ) {
                           return Expanded(
                             child: Padding(
                               padding: EdgeInsets.symmetric(
@@ -484,19 +469,24 @@ class _GroupedBarChart extends StatelessWidget {
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: List<Widget>.generate(series.length, (int sIndex) {
+                                children: List<Widget>.generate(series.length, (
+                                  int sIndex,
+                                ) {
                                   final seriesItem = series[sIndex];
                                   final value = seriesItem.data[monthIndex];
                                   return Expanded(
                                     child: Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 1.8),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 1.8,
+                                      ),
                                       child: _SignedBar(
                                         value: value,
                                         maxY: maxAbsY,
                                         negativeMin: -maxAbsY * 0.4,
-                                        gradient: AppColors.buildPrimaryGradient(
-                                          colors: seriesItem.gradientColors,
-                                        ),
+                                        gradient:
+                                            AppColors.buildPrimaryGradient(
+                                              colors: seriesItem.gradientColors,
+                                            ),
                                       ),
                                     ),
                                   );
@@ -522,7 +512,9 @@ class _GroupedBarChart extends StatelessWidget {
               .map(
                 (item) => _LegendDot(
                   label: item.label,
-                  gradient: AppColors.buildPrimaryGradient(colors: item.gradientColors),
+                  gradient: AppColors.buildPrimaryGradient(
+                    colors: item.gradientColors,
+                  ),
                 ),
               )
               .toList(),
@@ -578,10 +570,7 @@ class _PlotArea extends StatelessWidget {
                   left: 0,
                   right: 0,
                   top: chartHeight * (1 - zeroRatio),
-                  child: Container(
-                    height: 1.2,
-                    color: const Color(0xFFCFCAD8),
-                  ),
+                  child: Container(height: 1.2, color: const Color(0xFFCFCAD8)),
                 ),
               child,
             ],
@@ -597,7 +586,7 @@ class _PlotArea extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: isTablet ? 12 : 10.5,
-                  color: AppColors.billingTextColor.withOpacity(0.75),
+                  color: AppColors.billingTextColor.withValues(alpha: 0.75),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -746,7 +735,7 @@ class _YAxisLabels extends StatelessWidget {
           style: TextStyle(
             fontFamily: 'Manrope',
             fontSize: isTablet ? 11 : 10,
-            color: AppColors.billingTextColor.withOpacity(0.6),
+            color: AppColors.billingTextColor.withValues(alpha: 0.6),
             fontWeight: FontWeight.w500,
           ),
           textAlign: TextAlign.right,
@@ -757,10 +746,7 @@ class _YAxisLabels extends StatelessWidget {
 }
 
 class _LegendDot extends StatelessWidget {
-  const _LegendDot({
-    required this.label,
-    required this.gradient,
-  });
+  const _LegendDot({required this.label, required this.gradient});
 
   final String label;
   final Gradient gradient;
@@ -786,7 +772,7 @@ class _LegendDot extends StatelessWidget {
             fontFamily: 'Manrope',
             fontSize: isTablet ? 12 : 11,
             fontWeight: FontWeight.w500,
-            color: AppColors.billingTextColor.withOpacity(0.8),
+            color: AppColors.billingTextColor.withValues(alpha: 0.8),
           ),
         ),
       ],

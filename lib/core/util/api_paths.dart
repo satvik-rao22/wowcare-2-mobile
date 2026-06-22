@@ -822,6 +822,30 @@ class ApiPaths {
   static const String messagingCreateMessage = conversations;
   static const String messagingMessages = messages;
 
+  // POST /api/v1/messages/conversations/{code}/attachments/upload-session
+  // (resolves to .../messaging/messages/conversations/{code}/attachments/
+  // upload-session in UAT, confirmed against the working web-app request) —
+  // mirrors the student-documents/staff-documents upload-session bootstrap
+  // so message attachments can use the same generic presign → S3 PUT →
+  // complete flow.
+  static String messagingConversationUploadSessionPath(String code) =>
+      '$messages/conversations/$code/attachments/upload-session';
+
+  // DELETE /api/v1/messages/attachments/{attachmentId} — removes a single
+  // attachment (by the messaging-service attachment id, not the document
+  // asset code) from its message without deleting the whole message.
+  static String messagingAttachmentPath(int attachmentId) =>
+      '$messages/attachments/$attachmentId';
+
+  // POST /api/v1/messages/conversations/{code}/attachments — registers a
+  // completed document-service asset against the conversation and returns
+  // the messaging-service attachment id required by [messagingMessages]'s
+  // `attachmentIds` (the asset code alone is not a valid send-message
+  // reference — confirmed against the working web-app request for this
+  // endpoint).
+  static String messagingConversationAttachmentsPath(String code) =>
+      '$messages/conversations/$code/attachments';
+
   // ── Conversation sub-resources ────────────────────────────────────────────
   static String messagingConversation(String code) => '$conversations/$code';
   static String messagingConversationsByType(String type) =>
@@ -841,6 +865,12 @@ class ApiPaths {
   // POST /api/v1/messages/conversation/{code}/receipts/read-all
   static String messagingConversationMarkRead(String code) =>
       '$messages/conversation/$code/receipts/read-all';
+  // POST /api/v1/messages/conversation/{code}/receipts/delivered-all — marks
+  // every unread message in the conversation as delivered for the current
+  // user, even with the thread closed, so the sender's ticks advance
+  // promptly (mirrors the web app's markAllAsDelivered).
+  static String messagingConversationMarkDelivered(String code) =>
+      '$messages/conversation/$code/receipts/delivered-all';
 
   // ── Message sub-resources ─────────────────────────────────────────────────
   static String messagingMessage(String code) => '$messages/$code';

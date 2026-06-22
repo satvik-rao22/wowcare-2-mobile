@@ -1405,31 +1405,31 @@ PODS:
   - GoogleDataTransport (10.1.0):
     - nanopb (~> 3.30910.0)
     - PromisesObjC (~> 2.4)
-  - GoogleUtilities/AppDelegateSwizzler (8.1.0):
+  - GoogleUtilities/AppDelegateSwizzler (8.1.1):
     - GoogleUtilities/Environment
     - GoogleUtilities/Logger
     - GoogleUtilities/Network
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Environment (8.1.0):
+  - GoogleUtilities/Environment (8.1.1):
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Logger (8.1.0):
+  - GoogleUtilities/Logger (8.1.1):
     - GoogleUtilities/Environment
     - GoogleUtilities/Privacy
-  - GoogleUtilities/MethodSwizzler (8.1.0):
+  - GoogleUtilities/MethodSwizzler (8.1.1):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Network (8.1.0):
+  - GoogleUtilities/Network (8.1.1):
     - GoogleUtilities/Logger
     - "GoogleUtilities/NSData+zlib"
     - GoogleUtilities/Privacy
     - GoogleUtilities/Reachability
-  - "GoogleUtilities/NSData+zlib (8.1.0)":
+  - "GoogleUtilities/NSData+zlib (8.1.1)":
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Privacy (8.1.0)
-  - GoogleUtilities/Reachability (8.1.0):
+  - GoogleUtilities/Privacy (8.1.1)
+  - GoogleUtilities/Reachability (8.1.1):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
-  - GoogleUtilities/UserDefaults (8.1.0):
+  - GoogleUtilities/UserDefaults (8.1.1):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
   - "gRPC-C++ (1.69.0)":
@@ -1573,7 +1573,7 @@ PODS:
   - PINCache/Core (3.0.4):
     - PINOperation (~> 1.2.3)
   - PINOperation (1.2.3)
-  - PromisesObjC (2.4.0)
+  - PromisesObjC (2.4.1)
   - qr_code_scanner_plus (0.2.6):
     - Flutter
   - SDWebImage (5.21.7):
@@ -1797,7 +1797,7 @@ SPEC CHECKSUMS:
   GoogleAdsOnDeviceConversion: 914d95386d0dd6815e8b1d70c465fe1d13312a1e
   GoogleAppMeasurement: 01e991b4c0c025dd66558dbc5133b5d70ccdf88e
   GoogleDataTransport: aae35b7ea0c09004c3797d53c8c41f66f219d6a7
-  GoogleUtilities: 00c88b9a86066ef77f0da2fab05f65d7768ed8e1
+  GoogleUtilities: 4f2618a4a1e762a1ee134a1e2323bba9843e06da
   "gRPC-C++": cc207623316fb041a7a3e774c252cf68a058b9e8
   gRPC-Core: 860978b7db482de8b4f5e10677216309b5ff6330
   GTMSessionFetcher: 127211aeec0b1e904fc49f4f6f895dcc535b0ecf
@@ -1816,7 +1816,7 @@ SPEC CHECKSUMS:
   permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
   PINCache: d9a87a0ff397acffe9e2f0db972ac14680441158
   PINOperation: fb563bcc9c32c26d6c78aaff967d405aa2ee74a7
-  PromisesObjC: f5707f49cb48b9636751c5b2e7d227e43fba9f47
+  PromisesObjC: 752c3227f599e3467650e47ea36f433eeb10c273
   qr_code_scanner_plus: 1fb59fd4576edb53ec7560c3746f454dee54300c
   SDWebImage: e9fc87c1aab89a8ab1bbd74eba378c6f53be8abf
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb

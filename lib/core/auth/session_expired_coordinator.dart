@@ -1,7 +1,5 @@
 import 'dart:convert';
-
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -21,7 +19,8 @@ import 'package:provider/provider.dart';
 /// session, reset [AuthCubit], and navigate to sign-in.
 class SessionExpiredCoordinator {
   SessionExpiredCoordinator._();
-  static final SessionExpiredCoordinator instance = SessionExpiredCoordinator._();
+  static final SessionExpiredCoordinator instance =
+      SessionExpiredCoordinator._();
 
   bool _busy = false;
 

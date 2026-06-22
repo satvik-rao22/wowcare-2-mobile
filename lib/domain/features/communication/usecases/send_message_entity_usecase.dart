@@ -11,14 +11,14 @@ class SendMessageEntityUseCase {
   Future<Either<Failure, MessageEntity>> call({
     required String conversationCode,
     required String text,
-    List<String> attachmentCodes = const [],
+    List<int> attachmentIds = const [],
     bool isPrivate = false,
     String? threadParentCode,
   }) {
     return _repository.sendMessage(
       conversationCode: conversationCode,
       text: text,
-      attachmentCodes: attachmentCodes,
+      attachmentIds: attachmentIds,
       isPrivate: isPrivate,
       threadParentCode: threadParentCode,
     );

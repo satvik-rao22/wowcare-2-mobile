@@ -10,6 +10,7 @@ import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/communication/cubit/create_conversation_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/create_conversation_state.dart';
@@ -18,6 +19,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
 import 'package:wowcare/presentation/features/communication/v2/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/v2/widgets/conversation_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -317,9 +319,6 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       backgroundColor: Colors.transparent,
       builder: (_) => MultiBlocProvider(
         providers: [
-          BlocProvider<CreateConversationCubit>(
-            create: (_) => serviceLocator<CreateConversationCubit>(),
-          ),
           BlocProvider<StudentCubit>(
             create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
           ),
@@ -549,9 +548,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 
     return SliverList(
       delegate: SliverChildBuilderDelegate(
-        (context, index) => _ConversationTile(
-          conversation: filtered[index],
-          onTap: () => _openThread(filtered[index]),
+        (context, index) => ConversationListTile(
+          conversationCode: filtered[index].code,
+          contentBuilder: (context, conversation) => _ConversationTileContent(
+            conversation: conversation,
+            onTap: () => _openThread(conversation),
+          ),
         ),
         childCount: filtered.length,
       ),
@@ -627,8 +629,11 @@ class _PageHeader extends StatelessWidget {
 
 // ─── Conversation tile ────────────────────────────────────────────────────────
 
-class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.conversation, required this.onTap});
+class _ConversationTileContent extends StatelessWidget {
+  const _ConversationTileContent({
+    required this.conversation,
+    required this.onTap,
+  });
 
   final ConversationEntity conversation;
   final VoidCallback onTap;
@@ -1102,42 +1107,34 @@ class _AdminChatStudentSheetState extends State<_AdminChatStudentSheet> {
     setState(() => _isCreating = true);
 
     final storage = serviceLocator<StorageService>();
-    final orgCode = await storage.getString(StorageKeys.organizationCode) ?? '';
-    final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
     final adminCode = await storage.getString(StorageKeys.userCode) ?? '';
 
     if (!mounted) return;
 
-    await context.read<CreateConversationCubit>().createConversation(
-      title: '${student.firstName} ${student.lastName}'.trim(),
-      type: 'ADMIN_CHAT',
-      organizationCode: orgCode,
-      schoolCode: schoolCode,
+    // Find-or-create: reuses the student's existing ADMIN_CHAT thread when
+    // one is already active, instead of always creating a new one.
+    final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
+      type: ConversationType.adminChat,
       studentCode: student.code,
-      participantUserCodes: const [],
-      participants: adminCode.isNotEmpty
-          ? [
-              {'userCode': adminCode, 'participantType': 'ADMIN'},
-            ]
-          : null,
-      description: '',
+      participantCodes: adminCode.isNotEmpty ? [adminCode] : null,
+      title: '${student.firstName} ${student.lastName}'.trim(),
       avatarUrl: student.profileImage ?? '',
     );
 
     if (!mounted) return;
     setState(() => _isCreating = false);
 
-    final state = context.read<CreateConversationCubit>().state;
-    if (state is CreateConversationSuccess) {
-      widget.onCreated();
-    } else if (state is CreateConversationError) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(state.message),
-          backgroundColor: Colors.red.shade600,
-        ),
-      );
-    }
+    result.fold(
+      (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message ?? 'Failed to start conversation.'),
+            backgroundColor: Colors.red.shade600,
+          ),
+        );
+      },
+      (_) => widget.onCreated(),
+    );
   }
 
   @override

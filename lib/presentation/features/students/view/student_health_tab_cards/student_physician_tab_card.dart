@@ -17,7 +17,6 @@ import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.d
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/view/add_physician_screen.dart';
 
-
 class StudentPhysicianTabCard extends StatefulWidget {
   const StudentPhysicianTabCard({
     required this.scrollController,
@@ -31,7 +30,6 @@ class StudentPhysicianTabCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? studentCode;
-
 
   @override
   State<StudentPhysicianTabCard> createState() =>
@@ -91,8 +89,8 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student) &&
-            !role.isStaff &&
-            !role.isParent;
+        !role.isStaff &&
+        !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -193,10 +191,9 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
       ),
     );
   }
-
 }
 
-class _PhysicianCard extends StatelessWidget{
+class _PhysicianCard extends StatelessWidget {
   const _PhysicianCard({
     required this.code,
     required this.studentCode,
@@ -262,19 +259,13 @@ class _PhysicianCard extends StatelessWidget{
           children: [
             Container(
               height: 60,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 24 : 16,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    name: name,
-                    size: 45,
-                  ),
+                  DocumentImageWidget(fileUuid: '', name: name, size: 45),
                   SizedBox(width: isTablet ? 16 : 9),
                   Flexible(
                     child: Text(
@@ -300,7 +291,8 @@ class _PhysicianCard extends StatelessWidget{
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (phoneNumber != null && phoneNumber!.trim().isNotEmpty) ...[
+                  if (phoneNumber != null &&
+                      phoneNumber!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -308,16 +300,16 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Phone Number',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
                         Text(
                           _formatPhoneNumber(phoneNumber),
-                          style: AppTextStyles.value.copyWith(
-                            fontSize: 15,
-                          ),
+                          style: AppTextStyles.value.copyWith(fontSize: 15),
                         ),
                       ],
                     ),
@@ -331,16 +323,16 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Email ID',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
                         Text(
                           email!,
-                          style: AppTextStyles.value.copyWith(
-                            fontSize: 15,
-                          ),
+                          style: AppTextStyles.value.copyWith(fontSize: 15),
                         ),
                       ],
                     ),
@@ -354,16 +346,16 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Address',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
                         Text(
                           address!,
-                          style: AppTextStyles.value.copyWith(
-                            fontSize: 15,
-                          ),
+                          style: AppTextStyles.value.copyWith(fontSize: 15),
                         ),
                       ],
                     ),
@@ -377,16 +369,16 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Specialty',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
                         Text(
                           specialty!,
-                          style: AppTextStyles.value.copyWith(
-                            fontSize: 15,
-                          ),
+                          style: AppTextStyles.value.copyWith(fontSize: 15),
                         ),
                       ],
                     ),
@@ -400,7 +392,9 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Notes',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
@@ -410,9 +404,7 @@ class _PhysicianCard extends StatelessWidget{
                           child: Text(
                             notes!,
                             textAlign: TextAlign.right,
-                            style: AppTextStyles.value.copyWith(
-                              fontSize: 15,
-                            ),
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
                           ),
                         ),
                       ],
@@ -420,102 +412,85 @@ class _PhysicianCard extends StatelessWidget{
                     const SizedBox(height: 10),
                   ],
                   if (showActionButtons) ...[
-                  const SizedBox(height: 12),
-                  CustomButtonLayout(
-                    confirmButtonLabel: 'Edit',
-                    cancelButtonLabel: 'Delete',
-                    gradientCancelLabel: true,
-                    onPressedConfirm: () async {
-                      final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => AddPhysicianScreen(
-                            studentCode: studentCode,
-                            physicianCode: code,
-                            isEdit: true,
-                            initialFirstName: firstName,
-                            initialLastName: lastName,
-                            initialEmail: email,
-                            initialPhoneNumber: phoneNumber,
-                            initialAddress: address,
-                            initialNotes: notes,
+                    const SizedBox(height: 12),
+                    CustomButtonLayout(
+                      confirmButtonLabel: 'Edit',
+                      cancelButtonLabel: 'Delete',
+                      gradientCancelLabel: true,
+                      onPressedConfirm: () async {
+                        final result = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => AddPhysicianScreen(
+                              studentCode: studentCode,
+                              physicianCode: code,
+                              isEdit: true,
+                              initialFirstName: firstName,
+                              initialLastName: lastName,
+                              initialEmail: email,
+                              initialPhoneNumber: phoneNumber,
+                              initialAddress: address,
+                              initialNotes: notes,
+                            ),
                           ),
-                        ),
-                      );
+                        );
 
-                      if (result == true && onChanged != null) {
-                        await onChanged!();
-                      }
-                    },
-                    onPressedCancel: () async {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (ctx) {
-                          return DeleteConfirmationBottomSheet(
-                            name: name,
-                            type: 'physician',
-                            onDelete: () async {
-                              try {
-                                final repo = serviceLocator<StudentRepository>();
-                                final message = await repo.deletePhysician(
-                                  code: code,
-                                  studentCode: studentCode,
-                                );
-                                Navigator.of(ctx).pop();
-                                if (onChanged != null) {
-                                  await onChanged!();
+                        if (result == true && onChanged != null) {
+                          await onChanged!();
+                        }
+                      },
+                      onPressedCancel: () async {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (ctx) {
+                            return DeleteConfirmationBottomSheet(
+                              name: name,
+                              type: 'physician',
+                              onDelete: () async {
+                                try {
+                                  final repo =
+                                      serviceLocator<StudentRepository>();
+                                  final message = await repo.deletePhysician(
+                                    code: code,
+                                    studentCode: studentCode,
+                                  );
+                                  Navigator.of(ctx).pop();
+                                  if (onChanged != null) {
+                                    await onChanged!();
+                                  }
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: message,
+                                    isSuccess: true,
+                                  );
+                                } catch (e) {
+                                  Navigator.of(ctx).pop();
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        ApiErrorHandler.extractErrorMessage(e),
+                                    isError: true,
+                                  );
                                 }
-                                CoreUtils.showTopSnackBar(
-                                  context: context,
-                                  message: message,
-                                  isSuccess: true,
-                                );
-                              } catch (e) {
+                              },
+                              onCancel: () {
                                 Navigator.of(ctx).pop();
-                                CoreUtils.showTopSnackBar(
-                                  context: context,
-                                  message: ApiErrorHandler.extractErrorMessage(e),
-                                  isError: true,
-                                );
-                              }
-                            },
-                            onCancel: () {
-                              Navigator.of(ctx).pop();
-                            },
-                          );
-                        },
-                      );
-                    },
-                    isForm: false,
-                  ),
-                  const SizedBox(height: 12),
+                              },
+                            );
+                          },
+                        );
+                      },
+                      isForm: false,
+                    ),
+                    const SizedBox(height: 12),
                   ],
                 ],
               ),
             ),
           ],
-
         ),
       ),
     );
-
   }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

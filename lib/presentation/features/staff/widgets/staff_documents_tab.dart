@@ -53,6 +53,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
     final c = (code ?? '').trim();
     return target.isNotEmpty && c.toUpperCase() == target.toUpperCase();
   }
+
   late final StaffDocumentsListCubit _documentsListCubit;
   final ScrollController _scrollController = ScrollController();
   final TextEditingController _searchController = TextEditingController();
@@ -105,7 +106,8 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
       return;
     }
 
-    final expiryDate = (doc.expiryDate == null || doc.expiryDate!.trim().isEmpty)
+    final expiryDate =
+        (doc.expiryDate == null || doc.expiryDate!.trim().isEmpty)
         ? null
         : DateFormat('yyyy-MM-dd').parse(doc.expiryDate!);
 
@@ -216,9 +218,10 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
     setState(() => _isDownloadingDoc = true);
     try {
       if (url.isEmpty && assetCode.isNotEmpty) {
-        url = (await serviceLocator<ImageUploadService>()
-                .getMediaAssetUrlByCode(assetCode: assetCode))
-            .trim();
+        url =
+            (await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
+              assetCode: assetCode,
+            )).trim();
       }
       if (!mounted) return;
       if (url.isEmpty || Uri.tryParse(url) == null) {
@@ -347,7 +350,9 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                       if (notification.metrics.pixels >=
                           notification.metrics.maxScrollExtent - 200) {
                         final state = _documentsListCubit.state;
-                        if (!state.isLoading && !state.isLoadingMore && state.hasMore) {
+                        if (!state.isLoading &&
+                            !state.isLoadingMore &&
+                            state.hasMore) {
                           _documentsListCubit.loadNextPage(
                             widget.staffCode,
                             expired: _showExpired ? true : null,
@@ -361,326 +366,373 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                     controller: _scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Padding(
-                    // Extra bottom padding so the floating add button
-                    // doesn't overlap the last items.
-                    padding: const EdgeInsets.fromLTRB(6, 16, 6, 96),
-                    child: Column(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
-                            borderRadius: BorderRadius.circular(14),
-                            color: Colors.white.withOpacity(0.88),
-                          ),
-                          child: Column(
-                            children: [
-                              TextField(
-                                controller: _searchController,
-                                decoration: InputDecoration(
-                                  hintText: 'Search documents...',
-                                  prefixIcon: const Icon(Icons.search),
-                                  suffixIcon: _searchController.text.trim().isEmpty
-                                      ? null
-                                      : IconButton(
-                                          onPressed: () => setState(() {
-                                            _searchController.clear();
-                                          }),
-                                          icon: const Icon(Icons.close),
-                                        ),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF8F7FA),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide.none,
-                                  ),
+                      // Extra bottom padding so the floating add button
+                      // doesn't overlap the last items.
+                      padding: const EdgeInsets.fromLTRB(6, 16, 6, 96),
+                      child: Column(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: AppColors.primaryColor.withValues(
+                                  alpha: 0.2,
                                 ),
-                                onChanged: (_) => setState(() {}),
                               ),
-                              const SizedBox(height: 12),
-                              CustomToggle(
-                                label: 'Show Expired Documents',
-                                isToggled: _showExpired,
-                                onToggle: (v) {
-                                  setState(() => _showExpired = v);
-                                  _documentsListCubit.refresh(
-                                    widget.staffCode,
-                                    expired: v ? true : null,
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        if (documents.isEmpty)
-                          Text(
-                            _showExpired
-                                ? 'No expired documents found'
-                                : (query.isEmpty
-                                    ? 'No documents found'
-                                    : 'No documents match your search'),
-                            style: const TextStyle(
-                              color: AppColors.primaryColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                              height: 16,
+                              borderRadius: BorderRadius.circular(14),
+                              color: Colors.white.withValues(alpha: 0.88),
                             ),
-                          )
-                        else
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: documents.length,
-                            itemBuilder: (context, index) {
-                              final doc = documents[index];
-                              final uploadedOn = _formatIsoDate(doc.createdAt);
-                              final expiryDisplay = _formatExpiryDate(doc.expiryDate);
-                              final uploadedBy = (doc.uploadedBy ?? '').trim().isEmpty
-                                  ? 'system'
-                                  : doc.uploadedBy!.trim();
-                              final isTarget =
-                                  _isHighlightTarget(doc.documentUuid);
-                              if (isTarget) {
-                                WidgetsBinding.instance
-                                    .addPostFrameCallback((_) {
-                                  final ctx = _highlightRowKey.currentContext;
-                                  if (ctx != null) {
-                                    Scrollable.ensureVisible(
-                                      ctx,
-                                      duration:
-                                          const Duration(milliseconds: 400),
-                                      alignment: 0.1,
-                                      curve: Curves.easeOut,
-                                    );
-                                  }
-                                });
-                              }
-
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 12),
-                                child: HighlightableCard(
-                                  key: isTarget ? _highlightRowKey : null,
-                                  code: doc.documentUuid,
-                                  highlightCode: widget.highlightCode,
-                                  child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.88),
-                                    borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(
-                                      color: AppColors.primaryColor.withOpacity(0.2),
+                            child: Column(
+                              children: [
+                                TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Search documents...',
+                                    prefixIcon: const Icon(Icons.search),
+                                    suffixIcon:
+                                        _searchController.text.trim().isEmpty
+                                        ? null
+                                        : IconButton(
+                                            onPressed: () => setState(() {
+                                              _searchController.clear();
+                                            }),
+                                            icon: const Icon(Icons.close),
+                                          ),
+                                    filled: true,
+                                    fillColor: const Color(0xFFF8F7FA),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                      borderSide: BorderSide.none,
                                     ),
                                   ),
-                                  child: Theme(
-                                    data: Theme.of(context).copyWith(
-                                      dividerColor: Colors.transparent,
-                                    ),
-                                    child: ExpansionTile(
-                                      initiallyExpanded: isTarget,
-                                      tilePadding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 4,
+                                  onChanged: (_) => setState(() {}),
+                                ),
+                                const SizedBox(height: 12),
+                                CustomToggle(
+                                  label: 'Show Expired Documents',
+                                  isToggled: _showExpired,
+                                  onToggle: (v) {
+                                    setState(() => _showExpired = v);
+                                    _documentsListCubit.refresh(
+                                      widget.staffCode,
+                                      expired: v ? true : null,
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          if (documents.isEmpty)
+                            Text(
+                              _showExpired
+                                  ? 'No expired documents found'
+                                  : (query.isEmpty
+                                        ? 'No documents found'
+                                        : 'No documents match your search'),
+                              style: const TextStyle(
+                                color: AppColors.primaryColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                                height: 16,
+                              ),
+                            )
+                          else
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: documents.length,
+                              itemBuilder: (context, index) {
+                                final doc = documents[index];
+                                final uploadedOn = _formatIsoDate(
+                                  doc.createdAt,
+                                );
+                                final expiryDisplay = _formatExpiryDate(
+                                  doc.expiryDate,
+                                );
+                                final uploadedBy =
+                                    (doc.uploadedBy ?? '').trim().isEmpty
+                                    ? 'system'
+                                    : doc.uploadedBy!.trim();
+                                final isTarget = _isHighlightTarget(
+                                  doc.documentUuid,
+                                );
+                                if (isTarget) {
+                                  WidgetsBinding.instance.addPostFrameCallback((
+                                    _,
+                                  ) {
+                                    final ctx = _highlightRowKey.currentContext;
+                                    if (ctx != null) {
+                                      Scrollable.ensureVisible(
+                                        ctx,
+                                        duration: const Duration(
+                                          milliseconds: 400,
+                                        ),
+                                        alignment: 0.1,
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  });
+                                }
+
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: HighlightableCard(
+                                    key: isTarget ? _highlightRowKey : null,
+                                    code: doc.documentUuid,
+                                    highlightCode: widget.highlightCode,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.88,
+                                        ),
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: AppColors.primaryColor
+                                              .withValues(alpha: 0.2),
+                                        ),
                                       ),
-                                      childrenPadding: const EdgeInsets.fromLTRB(
-                                        16,
-                                        0,
-                                        16,
-                                        16,
-                                      ),
-                                      title: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              doc.documentName,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontFamily: 'Manrope',
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors.primaryColor,
+                                      child: Theme(
+                                        data: Theme.of(context).copyWith(
+                                          dividerColor: Colors.transparent,
+                                        ),
+                                        child: ExpansionTile(
+                                          initiallyExpanded: isTarget,
+                                          tilePadding:
+                                              const EdgeInsets.symmetric(
+                                                horizontal: 16,
+                                                vertical: 4,
                                               ),
-                                            ),
+                                          childrenPadding:
+                                              const EdgeInsets.fromLTRB(
+                                                16,
+                                                0,
+                                                16,
+                                                16,
+                                              ),
+                                          title: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  doc.documentName,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: const TextStyle(
+                                                    fontFamily: 'Manrope',
+                                                    fontSize: 14,
+                                                    fontWeight: FontWeight.w600,
+                                                    color:
+                                                        AppColors.primaryColor,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                doc.documentType,
+                                                style: TextStyle(
+                                                  fontFamily: 'Manrope',
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: AppColors.primaryColor
+                                                      .withValues(alpha: 0.7),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            doc.documentType,
-                                            style: TextStyle(
-                                              fontFamily: 'Manrope',
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              color:
-                                                  AppColors.primaryColor.withOpacity(0.7),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      children: [
-                                        const Divider(
-                                          height: 1,
-                                          color: Color(0xFFE9ECEF),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        _DocumentDetailRow(
-                                          label: 'Document Type',
-                                          value: doc.documentType,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        _DocumentDetailRow(
-                                          label: 'Uploaded By',
-                                          value: uploadedBy,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        _DocumentDetailRow(
-                                          label: 'Uploaded On',
-                                          value: uploadedOn,
-                                        ),
-                                        const SizedBox(height: 8),
-                                        _DocumentDetailRow(
-                                          label: 'Expiry Date',
-                                          value: expiryDisplay,
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Row(
                                           children: [
-                                            Expanded(
-                                              child: Container(
-                                                height: 40,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  gradient:
-                                                      AppColors.buildPrimaryGradient(),
-                                                ),
-                                                child: TextButton(
-                                                  onPressed: () =>
-                                                      _handleEdit(context, doc),
-                                                  style: TextButton.styleFrom(
-                                                    padding: EdgeInsets.zero,
-                                                  ),
-                                                  child: const Text(
-                                                    'Edit',
-                                                    style: TextStyle(
-                                                      fontFamily: 'Manrope',
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: Colors.white,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
+                                            const Divider(
+                                              height: 1,
+                                              color: Color(0xFFE9ECEF),
                                             ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: SizedBox(
-                                                height: 40,
-                                                child: OutlinedButton(
-                                                  onPressed: () =>
-                                                      _handleDelete(context, doc),
-                                                  style: OutlinedButton.styleFrom(
-                                                    side: const BorderSide(
-                                                      color: Color(0xFF6C7FD8),
-                                                    ),
-                                                    shape:
-                                                        RoundedRectangleBorder(
+                                            const SizedBox(height: 12),
+                                            _DocumentDetailRow(
+                                              label: 'Document Type',
+                                              value: doc.documentType,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _DocumentDetailRow(
+                                              label: 'Uploaded By',
+                                              value: uploadedBy,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _DocumentDetailRow(
+                                              label: 'Uploaded On',
+                                              value: uploadedOn,
+                                            ),
+                                            const SizedBox(height: 8),
+                                            _DocumentDetailRow(
+                                              label: 'Expiry Date',
+                                              value: expiryDisplay,
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Container(
+                                                    height: 40,
+                                                    decoration: BoxDecoration(
                                                       borderRadius:
-                                                          BorderRadius.circular(8),
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      gradient:
+                                                          AppColors.buildPrimaryGradient(),
                                                     ),
-                                                    padding: EdgeInsets.zero,
-                                                  ),
-                                                  child: const Text(
-                                                    'Delete',
-                                                    style: TextStyle(
-                                                      fontFamily: 'Manrope',
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: Color(0xFF6C7FD8),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: Container(
-                                                height: 40,
-                                                decoration: BoxDecoration(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  gradient:
-                                                      AppColors.buildPrimaryGradient(),
-                                                ),
-                                                child: TextButton(
-                                                  onPressed: () =>
-                                                      _handleDownload(context, doc),
-                                                  style: TextButton.styleFrom(
-                                                    padding: EdgeInsets.zero,
-                                                  ),
-                                                  child: const Text(
-                                                    'Download',
-                                                    style: TextStyle(
-                                                      fontFamily: 'Manrope',
-                                                      fontSize: 16,
-                                                      fontWeight: FontWeight.w700,
-                                                      color: Colors.white,
+                                                    child: TextButton(
+                                                      onPressed: () =>
+                                                          _handleEdit(
+                                                            context,
+                                                            doc,
+                                                          ),
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                            padding:
+                                                                EdgeInsets.zero,
+                                                          ),
+                                                      child: const Text(
+                                                        'Edit',
+                                                        style: TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
                                                     ),
                                                   ),
                                                 ),
-                                              ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: SizedBox(
+                                                    height: 40,
+                                                    child: OutlinedButton(
+                                                      onPressed: () =>
+                                                          _handleDelete(
+                                                            context,
+                                                            doc,
+                                                          ),
+                                                      style: OutlinedButton.styleFrom(
+                                                        side: const BorderSide(
+                                                          color: Color(
+                                                            0xFF6C7FD8,
+                                                          ),
+                                                        ),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                        ),
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                      ),
+                                                      child: const Text(
+                                                        'Delete',
+                                                        style: TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: Color(
+                                                            0xFF6C7FD8,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Container(
+                                                    height: 40,
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            8,
+                                                          ),
+                                                      gradient:
+                                                          AppColors.buildPrimaryGradient(),
+                                                    ),
+                                                    child: TextButton(
+                                                      onPressed: () =>
+                                                          _handleDownload(
+                                                            context,
+                                                            doc,
+                                                          ),
+                                                      style:
+                                                          TextButton.styleFrom(
+                                                            padding:
+                                                                EdgeInsets.zero,
+                                                          ),
+                                                      child: const Text(
+                                                        'Download',
+                                                        style: TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: Colors.white,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
                                             ),
                                           ],
                                         ),
-                                      ],
+                                      ),
                                     ),
                                   ),
-                                ),
-                                ),
-                              );
-                            },
-                          ),
-                        if (state.isLoadingMore)
-                          const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: PrimaryCircularLoader(),
-                          ),
-                      ],
+                                );
+                              },
+                            ),
+                          if (state.isLoadingMore)
+                            const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: PrimaryCircularLoader(),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
+              );
             },
           ),
           Positioned(
             right: 16,
             bottom: 16,
             child: GradientAddButton(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => BlocProvider<StaffDocumentCubit>(
-                    create: (_) => serviceLocator<StaffDocumentCubit>(),
-                    child: AddDocumentScreen(
-                      staffCode: widget.staffCode,
-                    ),
-                  ),
-                ),
-              ).then((result) {
-                // Refresh documents list after successfully adding a new document
-                // Cache is already invalidated in repository, so this will fetch fresh data
-                if (result == true && mounted) {
-                  _documentsListCubit.refresh(
-                    widget.staffCode,
-                    expired: _showExpired ? true : null,
-                  );
-                }
-              });
-            },
-            size: 50.0,
-            iconSize: 28.0,
-            borderRadius: 12.0,
-          ),
+              onTap: () {
+                Navigator.of(context)
+                    .push(
+                      MaterialPageRoute(
+                        builder: (context) => BlocProvider<StaffDocumentCubit>(
+                          create: (_) => serviceLocator<StaffDocumentCubit>(),
+                          child: AddDocumentScreen(staffCode: widget.staffCode),
+                        ),
+                      ),
+                    )
+                    .then((result) {
+                      // Refresh documents list after successfully adding a new document
+                      // Cache is already invalidated in repository, so this will fetch fresh data
+                      if (result == true && mounted) {
+                        _documentsListCubit.refresh(
+                          widget.staffCode,
+                          expired: _showExpired ? true : null,
+                        );
+                      }
+                    });
+              },
+              size: 50.0,
+              iconSize: 28.0,
+              borderRadius: 12.0,
+            ),
           ),
         ],
       ),
@@ -689,10 +741,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
 }
 
 class _DocumentDetailRow extends StatelessWidget {
-  const _DocumentDetailRow({
-    required this.label,
-    required this.value,
-  });
+  const _DocumentDetailRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -704,7 +753,7 @@ class _DocumentDetailRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-            label,
+          label,
           style: const TextStyle(
             fontFamily: 'Manrope',
             fontSize: 13,
@@ -713,23 +762,21 @@ class _DocumentDetailRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-          Expanded(
-            child: Text(
+        Expanded(
+          child: Text(
             value.isEmpty ? '-' : value,
             textAlign: TextAlign.right,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
+            style: const TextStyle(
               fontFamily: 'Manrope',
               fontSize: 13,
-                fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w500,
               color: Color(0xff573353),
             ),
           ),
-          ),
+        ),
       ],
     );
   }
 }
-
-

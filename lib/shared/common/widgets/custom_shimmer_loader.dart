@@ -132,7 +132,7 @@ class SummaryCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
+              color: Colors.black.withValues(alpha: 0.07),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -236,7 +236,10 @@ class MovementsCardShimmer extends StatelessWidget {
       highlightColor: Colors.grey.shade100,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: List.generate(3, (i) => _MovementRowShimmer(key: ValueKey(i))),
+        children: List.generate(
+          3,
+          (i) => _MovementRowShimmer(key: ValueKey(i)),
+        ),
       ),
     );
   }
@@ -344,10 +347,7 @@ class _MovementRowShimmer extends StatelessWidget {
 /// Shimmer placeholder matching AvailabilityCard table layout:
 /// header row (Classroom | Morning | Afternoon) + skeleton data rows.
 class AvailabilityCardShimmer extends StatelessWidget {
-  const AvailabilityCardShimmer({
-    super.key,
-    this.rowCount = 5,
-  });
+  const AvailabilityCardShimmer({super.key, this.rowCount = 5});
 
   final int rowCount;
 
@@ -406,7 +406,10 @@ class AvailabilityCardShimmer extends StatelessWidget {
               ),
             ),
             // Data rows skeleton
-            ...List.generate(rowCount, (i) => _AvailabilityRowShimmer(key: ValueKey(i))),
+            ...List.generate(
+              rowCount,
+              (i) => _AvailabilityRowShimmer(key: ValueKey(i)),
+            ),
           ],
         ),
       ),
@@ -505,7 +508,7 @@ class StaffCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -1914,9 +1917,15 @@ class StudentProfileInfoShimmer extends StatelessWidget {
           const SizedBox(height: 18),
           for (int i = 0; i < rowCount; i++) ...[
             // Label line over a longer value line.
-            _SkelBox(width: _kLabelWidths[i % _kLabelWidths.length], height: 12),
+            _SkelBox(
+              width: _kLabelWidths[i % _kLabelWidths.length],
+              height: 12,
+            ),
             const SizedBox(height: 8),
-            _SkelBox(width: _kValueWidths[i % _kValueWidths.length], height: 14),
+            _SkelBox(
+              width: _kValueWidths[i % _kValueWidths.length],
+              height: 14,
+            ),
             if (i != rowCount - 1) const SizedBox(height: 18),
           ],
         ],
@@ -2339,9 +2348,15 @@ class StaffProfileInfoShimmer extends StatelessWidget {
           const _SkelBox(width: 150, height: 15),
           const SizedBox(height: 18),
           for (int i = 0; i < rowCount; i++) ...[
-            _SkelBox(width: _kLabelWidths[i % _kLabelWidths.length], height: 12),
+            _SkelBox(
+              width: _kLabelWidths[i % _kLabelWidths.length],
+              height: 12,
+            ),
             const SizedBox(height: 8),
-            _SkelBox(width: _kValueWidths[i % _kValueWidths.length], height: 14),
+            _SkelBox(
+              width: _kValueWidths[i % _kValueWidths.length],
+              height: 14,
+            ),
             if (i != rowCount - 1) const SizedBox(height: 16),
           ],
         ],
@@ -2411,7 +2426,10 @@ class StaffImportantDatesShimmer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SkelBox(width: _labelWidths[i % _labelWidths.length], height: 13),
+                  _SkelBox(
+                    width: _labelWidths[i % _labelWidths.length],
+                    height: 13,
+                  ),
                   const SizedBox(height: 8),
                   const _SkelBox(width: 100, height: 14),
                 ],
@@ -2444,7 +2462,10 @@ class StaffDatesShimmer extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (int i = 0; i < rowCount; i++) ...[
-                _SkelBox(width: _labelWidths[i % _labelWidths.length], height: 13),
+                _SkelBox(
+                  width: _labelWidths[i % _labelWidths.length],
+                  height: 13,
+                ),
                 const SizedBox(height: 8),
                 const _SkelBox(width: 100, height: 14),
                 if (i != rowCount - 1) const SizedBox(height: 16),

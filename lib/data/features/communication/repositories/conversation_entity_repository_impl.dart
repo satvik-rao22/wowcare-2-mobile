@@ -158,6 +158,42 @@ class ConversationEntityRepositoryImpl
   }
 
   @override
+  Future<Either<Failure, ConversationEntity?>> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  }) async {
+    try {
+      final dto = await _remote.findRoomChatConversation(
+        studentCode: studentCode,
+        classroomCode: classroomCode,
+      );
+      if (dto == null) return const Right(null);
+      final entity = dto.toEntity();
+      await _local.saveConversation(entity);
+      return Right(entity);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ConversationEntity?>> findAdminChatConversation({
+    required String studentCode,
+  }) async {
+    try {
+      final dto = await _remote.findAdminChatConversation(
+        studentCode: studentCode,
+      );
+      if (dto == null) return const Right(null);
+      final entity = dto.toEntity();
+      await _local.saveConversation(entity);
+      return Right(entity);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<ConversationEntity>>> getConversationsForStudent(
     String studentCode,
   ) async {
@@ -213,6 +249,9 @@ class ConversationEntityRepositoryImpl
     required String studentCode,
     String? classroomCode,
     List<String>? participantCodes,
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
   }) async {
     try {
       final org = await _orgCode;
@@ -224,6 +263,9 @@ class ConversationEntityRepositoryImpl
         participantCodes: participantCodes,
         organizationCode: org,
         schoolCode: school,
+        title: title,
+        description: description,
+        avatarUrl: avatarUrl,
       );
       final entity = dto.toEntity();
       await _local.saveConversation(entity);
@@ -352,6 +394,18 @@ class ConversationEntityRepositoryImpl
         );
       }
 
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> markConversationDelivered(
+    String conversationCode,
+  ) async {
+    try {
+      await _remote.markConversationDelivered(conversationCode);
       return const Right(null);
     } catch (e) {
       return Left(ServerFailure(e.toString()));

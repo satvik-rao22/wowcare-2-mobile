@@ -22,8 +22,8 @@ class _FakeRepo implements ConversationEntityRepository {
   final Completer<Either<Failure, void>>? _hangCompleter;
 
   _FakeRepo({bool shouldFail = false, Completer<Either<Failure, void>>? hang})
-      : shouldFail = shouldFail,
-        _hangCompleter = hang;
+    : shouldFail = shouldFail,
+      _hangCompleter = hang;
 
   @override
   Future<Either<Failure, void>> togglePrivateMode({
@@ -78,6 +78,17 @@ class _FakeRepo implements ConversationEntityRepository {
   ) async => const Right(null);
 
   @override
+  Future<Either<Failure, ConversationEntity?>> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  }) async => const Right(null);
+
+  @override
+  Future<Either<Failure, ConversationEntity?>> findAdminChatConversation({
+    required String studentCode,
+  }) async => const Right(null);
+
+  @override
   Future<Either<Failure, List<MessagingStaffResult>>> searchStaffForMessaging({
     required String query,
     required String organizationCode,
@@ -91,8 +102,7 @@ class _FakeRepo implements ConversationEntityRepository {
 
   @override
   Future<Either<Failure, List<ConversationEntity>>>
-      getConversationsForClassroom(String classroomCode) async =>
-          const Right([]);
+  getConversationsForClassroom(String classroomCode) async => const Right([]);
 
   @override
   Future<Either<Failure, ConversationEntity>> createConversation({
@@ -100,6 +110,9 @@ class _FakeRepo implements ConversationEntityRepository {
     required String studentCode,
     String? classroomCode,
     List<String>? participantCodes,
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
   }) async => Left(ServerFailure('stub'));
 
   @override
@@ -130,6 +143,14 @@ class _FakeRepo implements ConversationEntityRepository {
   @override
   Future<Either<Failure, void>> clearConversationsCache() async =>
       const Right(null);
+
+  @override
+  Future<Either<Failure, void>> markConversationDelivered(
+    String conversationCode,
+  ) {
+    // TODO: implement markConversationDelivered
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper to build a testable widget tree ────────────────────────────────────
@@ -145,9 +166,7 @@ Widget _subject(PrivateModeToggleCubit cubit) {
               Switch(
                 key: const Key('pm_switch'),
                 value: state.isEnabled,
-                onChanged: state.isLoading
-                    ? null
-                    : (_) => cubit.toggle(),
+                onChanged: state.isLoading ? null : (_) => cubit.toggle(),
               ),
               if (state.isEnabled)
                 const Text('Private Mode ON', key: Key('pm_on_label')),
@@ -163,10 +182,7 @@ Widget _subject(PrivateModeToggleCubit cubit) {
   );
 }
 
-PrivateModeToggleCubit _cubit(
-  _FakeRepo repo, {
-  bool initialEnabled = false,
-}) =>
+PrivateModeToggleCubit _cubit(_FakeRepo repo, {bool initialEnabled = false}) =>
     PrivateModeToggleCubit(
       togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
       conversationCode: 'CONV-001',
@@ -179,8 +195,9 @@ void main() {
   // ── Private Mode toggle widget ──────────────────────────────────────────────
 
   group('PrivateModeToggle widget — toggle visibility', () {
-    testWidgets('shows OFF label when initial state is disabled',
-        (tester) async {
+    testWidgets('shows OFF label when initial state is disabled', (
+      tester,
+    ) async {
       final cubit = _cubit(_FakeRepo());
       addTearDown(cubit.close);
 
@@ -243,8 +260,11 @@ void main() {
       await tester.pump();
 
       final sw = tester.widget<Switch>(find.byKey(const Key('pm_switch')));
-      expect(sw.onChanged, isNull,
-          reason: 'Switch must be disabled while API call is in-flight');
+      expect(
+        sw.onChanged,
+        isNull,
+        reason: 'Switch must be disabled while API call is in-flight',
+      );
 
       // Unblock so cubit can close cleanly
       completer.complete(const Right(null));
@@ -254,44 +274,54 @@ void main() {
   // ── Child dropdown visibility ───────────────────────────────────────────────
 
   group('Child dropdown visibility guard', () {
-    testWidgets('dropdown hidden when conversations list has exactly one item',
-        (tester) async {
+    testWidgets('dropdown hidden when conversations list has exactly one item', (
+      tester,
+    ) async {
       // Mirrors the guard in ParentDirectMessagingScreen._buildStudentDropdown
       const conversations = ['child-a'];
       bool dropdownShown = false;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: Builder(builder: (_) {
-            if (conversations.length <= 1) {
-              return const SizedBox(key: Key('no_dropdown'));
-            }
-            dropdownShown = true;
-            return const Text('dropdown');
-          }),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (_) {
+                if (conversations.length <= 1) {
+                  return const SizedBox(key: Key('no_dropdown'));
+                }
+                dropdownShown = true;
+                return const Text('dropdown');
+              },
+            ),
+          ),
         ),
-      ));
+      );
 
       expect(find.byKey(const Key('no_dropdown')), findsOneWidget);
       expect(dropdownShown, isFalse);
     });
 
-    testWidgets('dropdown visible when conversations list has two items',
-        (tester) async {
+    testWidgets('dropdown visible when conversations list has two items', (
+      tester,
+    ) async {
       const conversations = ['child-a', 'child-b'];
       bool dropdownShown = false;
 
-      await tester.pumpWidget(MaterialApp(
-        home: Scaffold(
-          body: Builder(builder: (_) {
-            if (conversations.length <= 1) {
-              return const SizedBox(key: Key('no_dropdown'));
-            }
-            dropdownShown = true;
-            return const Text('dropdown', key: Key('dropdown'));
-          }),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (_) {
+                if (conversations.length <= 1) {
+                  return const SizedBox(key: Key('no_dropdown'));
+                }
+                dropdownShown = true;
+                return const Text('dropdown', key: Key('dropdown'));
+              },
+            ),
+          ),
         ),
-      ));
+      );
 
       expect(dropdownShown, isTrue);
       expect(find.byKey(const Key('dropdown')), findsOneWidget);

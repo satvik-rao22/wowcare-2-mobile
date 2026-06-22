@@ -50,7 +50,8 @@ class AddStudentDocumentScreen extends StatefulWidget {
   final String? documentUuid;
 
   @override
-  _AddStudentDocumentScreenState createState() => _AddStudentDocumentScreenState();
+  _AddStudentDocumentScreenState createState() =>
+      _AddStudentDocumentScreenState();
 }
 
 class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
@@ -72,7 +73,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     'Health Forms',
     'Registration Forms',
     'Special Program Forms',
-    'Other'
+    'Other',
   ];
 
   @override
@@ -105,7 +106,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       return;
     }
     if (name.length > _documentNameMaxLength) {
-      _showWarningMessage('Document name must be at most $_documentNameMaxLength characters');
+      _showWarningMessage(
+        'Document name must be at most $_documentNameMaxLength characters',
+      );
       return;
     }
 
@@ -175,13 +178,15 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       studentCode: widget.studentCode,
       name: name,
       type: documentType,
-      expiryDate: _selectedExpiryDate != null 
+      expiryDate: _selectedExpiryDate != null
           ? DateFormat('yyyy-MM-dd').format(_selectedExpiryDate!)
           : '',
       storagePath: storagePath,
       mimeType: mimeType,
       size: sizeBytes,
-      notes: _notesController.text.trim().isEmpty ? null : _notesController.text.trim(),
+      notes: _notesController.text.trim().isEmpty
+          ? null
+          : _notesController.text.trim(),
     );
 
     if (widget.isEdit && (widget.documentUuid ?? '').isNotEmpty) {
@@ -232,12 +237,13 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           initialDate: _selectedExpiryDate,
         ),
       );
-      
+
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
         final now = DateTime.now();
         final today = DateTime(now.year, now.month, now.day);
-        if (selectedDate.isBefore(today) || selectedDate.isAtSameMomentAs(today)) {
+        if (selectedDate.isBefore(today) ||
+            selectedDate.isAtSameMomentAs(today)) {
           _showWarningMessage('Expiry date must be a future date');
           return;
         }
@@ -285,8 +291,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         _uploadProgressPercent = 0;
       });
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       final organizationCode =
           (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
@@ -305,16 +311,17 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       }
       final mimeType = FilePickerUtils.getMimeType(selectedFile.extension);
       final uploadService = serviceLocator<ImageUploadService>();
-      final uploadSession = await uploadService.createStudentDocumentUploadSession(
-        studentCode: widget.studentCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-      );
+      final uploadSession = await uploadService
+          .createStudentDocumentUploadSession(
+            studentCode: widget.studentCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
       final mediaType = mimeType.startsWith('image/')
           ? 'IMAGE'
           : mimeType.startsWith('video/')
-              ? 'VIDEO'
-              : 'DOCUMENT';
+          ? 'VIDEO'
+          : 'DOCUMENT';
       final presign = await uploadService.createAssetPresign(
         sessionCode: uploadSession.sessionCode,
         documentApiBasePath: uploadSession.documentApiBasePath,
@@ -426,13 +433,16 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
       ),
       bottomBar: Container(
         padding: EdgeInsets.only(
-          bottom: safeAreaBottom, left: 16, right: 16, top: 8,
+          bottom: safeAreaBottom,
+          left: 16,
+          right: 16,
+          top: 8,
         ),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -460,8 +470,8 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
   }
 
   Widget _buildInputField(
-    String label, 
-    String hint, 
+    String label,
+    String hint,
     TextEditingController controller,
   ) {
     final responsive = ResponsiveHelper(context);
@@ -477,7 +487,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -487,7 +500,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -528,10 +543,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Expiry Date',
-          style: labelStyle,
-        ),
+        Text('Expiry Date', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         GestureDetector(
           onTap: _selectExpiryDate,
@@ -540,7 +552,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -551,11 +565,15 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                 children: [
                   Expanded(
                     child: Text(
-                      _selectedExpiryDate != null 
-                          ? DateFormat('MMM dd, yyyy').format(_selectedExpiryDate!)
+                      _selectedExpiryDate != null
+                          ? DateFormat(
+                              'MMM dd, yyyy',
+                            ).format(_selectedExpiryDate!)
                           : 'Select Date',
                       style: TextStyle(
-                        color: _selectedExpiryDate == null ? Colors.grey : Colors.black,
+                        color: _selectedExpiryDate == null
+                            ? Colors.grey
+                            : Colors.black,
                         fontSize: responsive.inputFontSize,
                         fontFamily: 'Manrope',
                       ),
@@ -564,7 +582,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: responsive.isTablet ? 28.0 : 24.0,
-                    colorFilter: const ColorFilter.mode(AppColors.primaryColor, BlendMode.srcIn),
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.primaryColor,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ],
               ),
@@ -587,7 +608,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             ),
             children: [
               const TextSpan(text: 'Upload Document'),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -601,7 +625,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             ),
             decoration: BoxDecoration(
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
               color: Colors.white,
             ),
             child: Row(
@@ -612,7 +638,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                         ? 'Uploading... $_uploadProgressPercent%'
                         : (_selectedFilePath ?? 'Choose a File'),
                     style: TextStyle(
-                      color: _selectedFilePath == null ? Colors.grey : Colors.black,
+                      color: _selectedFilePath == null
+                          ? Colors.grey
+                          : Colors.black,
                       fontSize: responsive.inputFontSize,
                       fontFamily: 'Manrope',
                     ),
@@ -621,7 +649,10 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
                 SvgPicture.asset(
                   MediaRes.uploadIcon,
                   height: responsive.isTablet ? 28.0 : 24.0,
-                  colorFilter: const ColorFilter.mode(AppColors.primaryColor, BlendMode.srcIn),
+                  colorFilter: const ColorFilter.mode(
+                    AppColors.primaryColor,
+                    BlendMode.srcIn,
+                  ),
                 ),
               ],
             ),
@@ -640,10 +671,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Notes',
-          style: labelStyle,
-        ),
+        Text('Notes', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
           constraints: BoxConstraints(
@@ -653,7 +681,9 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: _notesController,
@@ -675,4 +705,3 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
     );
   }
 }
-

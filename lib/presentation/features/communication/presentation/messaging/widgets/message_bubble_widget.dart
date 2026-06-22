@@ -1,11 +1,12 @@
 import 'dart:io';
-import 'package:open_filex/open_filex.dart' as open_filex;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/attachment_open_helper.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/attachment_url_resolver.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
@@ -14,9 +15,7 @@ import 'package:flutter_html/flutter_html.dart' as html;
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-
 import '../../../../../../app/theme/colors.dart';
-import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'full_attachment_viewer.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
@@ -35,6 +34,7 @@ class MessageBubble extends StatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
   final VoidCallback? onInfo;
+  final void Function(ChatAttachment attachment)? onDeleteAttachment;
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
@@ -58,6 +58,7 @@ class MessageBubble extends StatefulWidget {
     this.onEdit,
     this.onDelete,
     this.onInfo,
+    this.onDeleteAttachment,
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
@@ -160,22 +161,24 @@ class _MessageBubbleState extends State<MessageBubble>
           widget.currentUserCode == widget.message.senderUserCode);
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
-    // Deleted messages expose NO actions — no reactions, no menu items.
+    // Deleted messages still allow viewing/adding reactions, but no other
+    // action (reply, edit, copy, delete-again) — so the reaction row stays
+    // enabled while the context-menu section is turned off entirely.
     if (widget.isDeleted) {
       return const ChatReactionsConfig(
-        availableReactions: [],
+        availableReactions: ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
         menuItems: [],
-        enableLongPress: false,
+        enableLongPress: true,
         enableDoubleTap: false,
-        showAddReactionButton: false,
+        showAddReactionButton: true,
         showContextMenu: false,
-        enableHapticFeedback: false,
+        enableHapticFeedback: true,
         reactionSize: 24,
       );
     }
 
     return ChatReactionsConfig(
-      availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '😡', '➕'],
+      availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
       menuItems: [
         if (isMe && !widget.isInactive)
           const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
@@ -254,6 +257,91 @@ class _MessageBubbleState extends State<MessageBubble>
                 onTap: () {
                   Navigator.pop(context);
                   widget.onDelete?.call();
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF7175F4), Color(0xFF9287F4)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Delete',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.center,
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(
+                      color: Color(0xFF573353),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteAttachment(ChatAttachment attachment) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                'Delete Attachment',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF573353),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Are you sure you want to delete this attachment?',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Color.fromRGBO(87, 51, 83, 0.7),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onDeleteAttachment?.call(attachment);
                 },
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -659,7 +747,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                   : Icons.done,
                               size: 14,
                               color: widget.message.isRead
-                                  ? Colors.blue
+                                  ? AppColors.primaryColor
                                   : Colors.white.withValues(alpha: 0.7),
                             ),
                           ],
@@ -766,61 +854,17 @@ class _MessageBubbleState extends State<MessageBubble>
       children: [
         if (documents.isNotEmpty) ...[
           ...documents.map((att) {
-            final source = att.displaySource;
+            // A fixed-size icon (no in-box text/thumbnail rendering) — long
+            // filenames are shown separately below and must never make this
+            // box grow, or its parent RenderFlex overflows (seen with long
+            // names like "WhatsApp Image 2026-06-16 at 10.21.27.jpeg").
+            final iconData =
+                Thumbnailer.getIconDataForMimeType(att.mimeType) ??
+                FontAwesomeIcons.filePdf;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: GestureDetector(
-                onTap: () async {
-                  if (source == null) {
-                    CoreUtils.showTopSnackBar(
-                      context: context,
-                      message: 'No file available to open',
-                      isError: true,
-                    );
-                    return;
-                  }
-                  if (att.localPath != null) {
-                    try {
-                      await open_filex.OpenFilex.open(att.localPath!);
-                    } catch (e) {
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Cannot open file: $e',
-                        isError: true,
-                      );
-                    }
-                  } else if (att.remoteUrl.isNotEmpty) {
-                    try {
-                      final response = await http.get(Uri.parse(att.remoteUrl));
-                      if (response.statusCode == 200) {
-                        final tempDir = await getTemporaryDirectory();
-                        final tempFile = File('${tempDir.path}/${att.name}');
-                        await tempFile.writeAsBytes(response.bodyBytes);
-                        try {
-                          await open_filex.OpenFilex.open(tempFile.path);
-                        } catch (e) {
-                          CoreUtils.showTopSnackBar(
-                            context: context,
-                            message: 'Cannot open: $e',
-                            isError: true,
-                          );
-                        }
-                      } else {
-                        CoreUtils.showTopSnackBar(
-                          context: context,
-                          message: 'Failed to download the file',
-                          isError: true,
-                        );
-                      }
-                    } catch (e) {
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Error: $e',
-                        isError: true,
-                      );
-                    }
-                  }
-                },
+                onTap: () => AttachmentOpenHelper.open(context, att),
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -833,52 +877,19 @@ class _MessageBubbleState extends State<MessageBubble>
                       SizedBox(
                         width: multiImageWidth * 0.35,
                         height: multiImageWidth * 0.45,
-                        child: source != null
-                            ? Container(
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: AppColors.primaryColor,
-                                  ),
-                                ),
-                                child: Thumbnail(
-                                  mimeType: att.mimeType.isNotEmpty
-                                      ? att.mimeType
-                                      : 'application/pdf',
-                                  dataResolver: () async {
-                                    if (att.remoteUrl.isNotEmpty) {
-                                      try {
-                                        final r = await http.get(
-                                          Uri.parse(source),
-                                        );
-                                        if (r.statusCode == 200)
-                                          return r.bodyBytes;
-                                      } catch (_) {}
-                                      return Uint8List(0);
-                                    }
-                                    return await File(source).readAsBytes();
-                                  },
-                                  widgetSize: multiImageWidth * 0.4,
-                                  decoration: WidgetDecoration(
-                                    backgroundColor: Colors.white,
-                                    iconColor: Colors.redAccent,
-                                  ),
-                                  errorBuilder: (context, error) =>
-                                      const Center(
-                                        child: Icon(
-                                          Icons.picture_as_pdf,
-                                          size: 40,
-                                          color: Colors.redAccent,
-                                        ),
-                                      ),
-                                ),
-                              )
-                            : const Center(
-                                child: Icon(
-                                  Icons.picture_as_pdf,
-                                  size: 40,
-                                  color: Colors.redAccent,
-                                ),
-                              ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: AppColors.primaryColor),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Center(
+                            child: FaIcon(
+                              iconData,
+                              size: 32,
+                              color: Colors.redAccent,
+                            ),
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -889,6 +900,8 @@ class _MessageBubbleState extends State<MessageBubble>
                               text: att.name,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 4),
                             CustomTextWidget(
@@ -900,6 +913,18 @@ class _MessageBubbleState extends State<MessageBubble>
                           ],
                         ),
                       ),
+                      if (_isMe &&
+                          !widget.isInactive &&
+                          widget.onDeleteAttachment != null &&
+                          att.attachmentId != null)
+                        IconButton(
+                          onPressed: () => _confirmDeleteAttachment(att),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                          ),
+                          color: Colors.grey[600],
+                        ),
                     ],
                   ),
                 ),
@@ -911,114 +936,36 @@ class _MessageBubbleState extends State<MessageBubble>
 
         if (images.isNotEmpty) ...[
           if (imageCount == 1)
-            GestureDetector(
-              onTap: () {
-                final att = displayImages.first;
-                if (att.displaySource != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ShowFullScreenMediaView(
-                        imageUrl: att.remoteUrl,
-                        imageFile: att.localPath != null
-                            ? File(att.localPath!)
-                            : null,
-                        title: att.name,
-                      ),
-                    ),
-                  );
-                }
-              },
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: displayImages.first.displaySource != null
-                    ? Thumbnail(
-                        mimeType: displayImages.first.mimeType.isNotEmpty
-                            ? displayImages.first.mimeType
-                            : 'image/jpeg',
-                        dataResolver: () async {
-                          final src = displayImages.first.displaySource!;
-                          if (displayImages.first.remoteUrl.isNotEmpty) {
-                            try {
-                              final r = await http.get(Uri.parse(src));
-                              if (r.statusCode == 200) return r.bodyBytes;
-                            } catch (_) {}
-                            return Uint8List(0);
-                          }
-                          return await File(src).readAsBytes();
-                        },
-                        widgetSize: singleImageWidth,
-                        decoration: WidgetDecoration(
-                          backgroundColor: Colors.white,
-                          iconColor: Colors.green,
-                        ),
-                        errorBuilder: (context, error) => Container(
-                          color: Colors.grey[300],
-                          child: const Icon(
-                            Icons.image,
-                            size: 80,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      )
-                    : Container(
-                        height: singleImageWidth * 0.6,
-                        color: Colors.grey[300],
-                        child: const Icon(
-                          Icons.broken_image,
-                          size: 80,
-                          color: Colors.grey,
-                        ),
-                      ),
-              ),
-            )
-          else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1.0,
-              ),
-              itemCount: displayImages.length,
-              itemBuilder: (context, index) {
-                final att = displayImages[index];
-                final isLast = index == displayImages.length - 1;
-                final remaining = images.length - 4;
-
-                return GestureDetector(
-                  onTap: () {
-                    if (hasMoreImages && isLast) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) =>
-                              FullAttachmentViewer(attachments: attachments),
-                        ),
-                      );
-                    } else if (att.displaySource != null) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => ShowFullScreenMediaView(
-                            imageUrl: att.remoteUrl,
-                            imageFile: att.localPath != null
-                                ? File(att.localPath!)
-                                : null,
-                            title: att.name,
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      ClipRRect(
+            AttachmentUrlResolver(
+              attachment: displayImages.first,
+              builder: (context, resolvedUrl, isLoading) {
+                final att = (resolvedUrl != null && resolvedUrl.isNotEmpty)
+                    ? displayImages.first.copyWith(remoteUrl: resolvedUrl)
+                    : displayImages.first;
+                final hasSource = att.displaySource != null;
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        if (hasSource) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ShowFullScreenMediaView(
+                                imageUrl: att.remoteUrl,
+                                imageFile: att.localPath != null
+                                    ? File(att.localPath!)
+                                    : null,
+                                title: att.name,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: att.displaySource != null
+                        child: hasSource
                             ? Thumbnail(
                                 mimeType: att.mimeType.isNotEmpty
                                     ? att.mimeType
@@ -1035,7 +982,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                   }
                                   return await File(src).readAsBytes();
                                 },
-                                widgetSize: multiImageWidth,
+                                widgetSize: singleImageWidth,
                                 decoration: WidgetDecoration(
                                   backgroundColor: Colors.white,
                                   iconColor: Colors.green,
@@ -1044,37 +991,184 @@ class _MessageBubbleState extends State<MessageBubble>
                                   color: Colors.grey[300],
                                   child: const Icon(
                                     Icons.image,
-                                    size: 50,
+                                    size: 80,
                                     color: Colors.grey,
                                   ),
                                 ),
                               )
                             : Container(
+                                height: singleImageWidth * 0.6,
                                 color: Colors.grey[300],
-                                child: const Icon(
-                                  Icons.broken_image,
-                                  size: 50,
-                                  color: Colors.grey,
+                                child: Center(
+                                  child: isLoading
+                                      ? const SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.5,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.broken_image,
+                                          size: 80,
+                                          color: Colors.grey,
+                                        ),
                                 ),
                               ),
                       ),
-                      if (hasMoreImages && isLast)
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.55),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Center(
-                            child: CustomTextWidget(
-                              text: '+$remaining',
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                              fontColor: Colors.white,
-                            ),
-                          ),
+                    ),
+                    if (_isMe &&
+                        !widget.isInactive &&
+                        widget.onDeleteAttachment != null &&
+                        att.attachmentId != null)
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: _AttachmentDeleteBadge(
+                          onTap: () => _confirmDeleteAttachment(att),
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
+                );
+              },
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 1.0,
+              ),
+              itemCount: displayImages.length,
+              itemBuilder: (context, index) {
+                final rawAtt = displayImages[index];
+                final isLast = index == displayImages.length - 1;
+                final remaining = images.length - 4;
+
+                return AttachmentUrlResolver(
+                  attachment: rawAtt,
+                  builder: (context, resolvedUrl, isLoading) {
+                    final att = (resolvedUrl != null && resolvedUrl.isNotEmpty)
+                        ? rawAtt.copyWith(remoteUrl: resolvedUrl)
+                        : rawAtt;
+                    final hasSource = att.displaySource != null;
+                    return GestureDetector(
+                      onTap: () {
+                        if (hasMoreImages && isLast) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => FullAttachmentViewer(
+                                attachments: attachments,
+                              ),
+                            ),
+                          );
+                        } else if (hasSource) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ShowFullScreenMediaView(
+                                imageUrl: att.remoteUrl,
+                                imageFile: att.localPath != null
+                                    ? File(att.localPath!)
+                                    : null,
+                                title: att.name,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: hasSource
+                                ? Thumbnail(
+                                    mimeType: att.mimeType.isNotEmpty
+                                        ? att.mimeType
+                                        : 'image/jpeg',
+                                    dataResolver: () async {
+                                      final src = att.displaySource!;
+                                      if (att.remoteUrl.isNotEmpty) {
+                                        try {
+                                          final r = await http.get(
+                                            Uri.parse(src),
+                                          );
+                                          if (r.statusCode == 200)
+                                            return r.bodyBytes;
+                                        } catch (_) {}
+                                        return Uint8List(0);
+                                      }
+                                      return await File(src).readAsBytes();
+                                    },
+                                    widgetSize: multiImageWidth,
+                                    decoration: WidgetDecoration(
+                                      backgroundColor: Colors.white,
+                                      iconColor: Colors.green,
+                                    ),
+                                    errorBuilder: (context, error) => Container(
+                                      color: Colors.grey[300],
+                                      child: const Icon(
+                                        Icons.image,
+                                        size: 50,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    color: Colors.grey[300],
+                                    child: Center(
+                                      child: isLoading
+                                          ? const SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2,
+                                              ),
+                                            )
+                                          : const Icon(
+                                              Icons.broken_image,
+                                              size: 50,
+                                              color: Colors.grey,
+                                            ),
+                                    ),
+                                  ),
+                          ),
+                          if (hasMoreImages && isLast)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.55),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Center(
+                                child: CustomTextWidget(
+                                  text: '+$remaining',
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  fontColor: Colors.white,
+                                ),
+                              ),
+                            ),
+                          if (!(hasMoreImages && isLast) &&
+                              _isMe &&
+                              !widget.isInactive &&
+                              widget.onDeleteAttachment != null &&
+                              att.attachmentId != null)
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: _AttachmentDeleteBadge(
+                                onTap: () => _confirmDeleteAttachment(att),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
                 );
               },
             ),
@@ -1094,6 +1188,37 @@ class _MessageBubbleState extends State<MessageBubble>
     final hhMM =
         '${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}';
     return MessageContentProcessor.smartBubbleTime(dt, hhMM);
+  }
+}
+
+/// Small "remove" badge overlaid on a sent image attachment — mirrors the
+/// pending-attachment removal badge in ChatInputBar's preview strip so the
+/// affordance reads the same whether the attachment is still local or
+/// already sent.
+class _AttachmentDeleteBadge extends StatelessWidget {
+  const _AttachmentDeleteBadge({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.55),
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.white, width: 1.5),
+        ),
+        child: const Icon(
+          Icons.delete_outline,
+          size: 14,
+          color: Colors.white,
+        ),
+      ),
+    );
   }
 }
 

@@ -41,10 +41,12 @@ class StudentAttendanceCustomView extends StatefulWidget {
   final ValueNotifier<int>? refreshNotifier;
 
   @override
-  State<StudentAttendanceCustomView> createState() => _StudentAttendanceCustomViewState();
+  State<StudentAttendanceCustomView> createState() =>
+      _StudentAttendanceCustomViewState();
 }
 
-class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomView>
+class _StudentAttendanceCustomViewState
+    extends State<StudentAttendanceCustomView>
     implements AttendanceTabRefresh {
   final TextEditingController _customSearchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -76,8 +78,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     } else {
       final repo = serviceLocator<AttendanceRepository>();
       _cubit = StudentAttendanceCustomCubit(
-        getStudentAttendanceCustomUseCase:
-            GetStudentAttendanceCustomUseCase(repo),
+        getStudentAttendanceCustomUseCase: GetStudentAttendanceCustomUseCase(
+          repo,
+        ),
         repository: repo,
       );
     }
@@ -134,7 +137,8 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
 
     if (!mounted) return;
     setState(() {
-      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+      _isClassroomDataReady =
+          !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
     if (hadClassroomSelection && _isClassroomDataReady) {
@@ -207,10 +211,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
-      return BlocProvider.value(
-        value: _cubit,
-        child: _buildContent(),
-      );
+      return BlocProvider.value(value: _cubit, child: _buildContent());
     }
 
     return BlocProvider.value(
@@ -232,66 +233,68 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
       listenWhen: (previous, current) =>
           previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
       listener: (_, __) => _reloadIfPendingClassroomFilter(),
-      child: BlocBuilder<StudentAttendanceCustomCubit,
-          StudentAttendanceCustomState>(
-      builder: (context, state) {
-        return CustomRefreshIndicator(
-          onRefresh: () async {
-            _loadAttendanceData(reset: true);
-          },
-          child: NotificationListener<ScrollNotification>(
-            onNotification: (notification) {
-              if (notification is ScrollUpdateNotification) {
-                if (notification.metrics.pixels >=
-                    notification.metrics.maxScrollExtent - 200) {
-                  if (!state.isLoading &&
-                      !state.isLoadingMore &&
-                      state.hasMore) {
-                    _cubit.loadNextPage();
-                  }
-                }
-              }
-              return false;
-            },
-            child: SingleChildScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(
-                horizontal: contentPadding.left,
-                vertical: responsive.verticalSpacing / 4,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: responsive.verticalSpacing / 4),
-                  if (!widget.contentOnly) ...[
-                    _buildHeaderTabsRow(),
-                    const SizedBox(height: 10),
-                    _buildTabIndicator(selectedTab: 1),
-                    SizedBox(height: responsive.verticalSpacing),
-                  ],
-                  _buildFilterSection(),
-                  SizedBox(height: responsive.verticalSpacing),
-                  _buildContentSection(
-                    state,
-                    _getFilteredAttendance(state.items),
-                  ),
-                  if (state.isLoadingMore)
-                    Padding(
-                      padding:
-                          EdgeInsets.all(responsive.verticalSpacing),
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
+      child:
+          BlocBuilder<
+            StudentAttendanceCustomCubit,
+            StudentAttendanceCustomState
+          >(
+            builder: (context, state) {
+              return CustomRefreshIndicator(
+                onRefresh: () async {
+                  _loadAttendanceData(reset: true);
+                },
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    if (notification is ScrollUpdateNotification) {
+                      if (notification.metrics.pixels >=
+                          notification.metrics.maxScrollExtent - 200) {
+                        if (!state.isLoading &&
+                            !state.isLoadingMore &&
+                            state.hasMore) {
+                          _cubit.loadNextPage();
+                        }
+                      }
+                    }
+                    return false;
+                  },
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: contentPadding.left,
+                      vertical: responsive.verticalSpacing / 4,
                     ),
-                  SizedBox(height: responsive.verticalSpacing),
-                ],
-              ),
-            ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(height: responsive.verticalSpacing / 4),
+                        if (!widget.contentOnly) ...[
+                          _buildHeaderTabsRow(),
+                          const SizedBox(height: 10),
+                          _buildTabIndicator(selectedTab: 1),
+                          SizedBox(height: responsive.verticalSpacing),
+                        ],
+                        _buildFilterSection(),
+                        SizedBox(height: responsive.verticalSpacing),
+                        _buildContentSection(
+                          state,
+                          _getFilteredAttendance(state.items),
+                        ),
+                        if (state.isLoadingMore)
+                          Padding(
+                            padding: EdgeInsets.all(responsive.verticalSpacing),
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                        SizedBox(height: responsive.verticalSpacing),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
-        );
-      },
-    ),
     );
   }
 
@@ -384,13 +387,13 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
         ? item.attendedTime
         : '${item.attendedHours} Hrs ${item.attendedMinutes} Mins';
 
-  final id = item.studentCode.isNotEmpty
-      ? item.studentCode
-      : '${item.studentName}_${item.classroomCode}_$index';
+    final id = item.studentCode.isNotEmpty
+        ? item.studentCode
+        : '${item.studentName}_${item.classroomCode}_$index';
 
     return _CustomAttendanceRow(
-    id: id,
-    studentCode: item.studentCode,
+      id: id,
+      studentCode: item.studentCode,
       studentId: index,
       studentName: item.studentName,
       roomName: _classroomDisplay(
@@ -478,10 +481,8 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                 child: BlocBuilder<ClassroomCubit, ClassroomState>(
                   bloc: _classroomCubit,
                   builder: (context, state) {
-                    final items =
-                        state.classrooms.map((c) => c.name).toList();
-                    final isLoading =
-                        state.isLoading || !_isClassroomDataReady;
+                    final items = state.classrooms.map((c) => c.name).toList();
+                    final isLoading = state.isLoading || !_isClassroomDataReady;
                     if (isLoading && items.isEmpty) {
                       return ShimmerLoader(
                         height: 40,
@@ -494,8 +495,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       selectedItems: _selectedClassroomNames,
                       onChanged: (values) {
                         setState(() {
-                          _selectedClassroomNames =
-                              List<String>.from(values);
+                          _selectedClassroomNames = List<String>.from(values);
                           _syncClassroomFilterCodes();
                         });
                         if (_selectedClassroomNames.isNotEmpty &&
@@ -593,7 +593,11 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            const Icon(Icons.error_outline, color: AppColors.errorColor, size: 48),
+            const Icon(
+              Icons.error_outline,
+              color: AppColors.errorColor,
+              size: 48,
+            ),
             const SizedBox(height: 16),
             AppText.title(
               'Error loading attendance data',
@@ -610,12 +614,17 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
             ElevatedButton.icon(
               onPressed: () => _loadAttendanceData(reset: true),
               icon: const Icon(Icons.refresh),
-              label: AppText.body('Retry', style: TextStyle(color: Colors.white)),
+              label: AppText.body(
+                'Retry',
+                style: TextStyle(color: Colors.white),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.themeColor,
                 foregroundColor: Colors.white,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 12,
+                ),
               ),
             ),
           ],
@@ -630,8 +639,11 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
         padding: const EdgeInsets.all(20.0),
         child: Column(
           children: [
-            const Icon(Icons.inbox_outlined,
-                color: AppColors.secondaryColor, size: 48),
+            const Icon(
+              Icons.inbox_outlined,
+              color: AppColors.secondaryColor,
+              size: 48,
+            ),
             const SizedBox(height: 16),
             AppText.title(
               'No attendance data found',
@@ -651,7 +663,11 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
   }
 
   Widget _buildTabButton(
-      String label, int index, int selectedTab, void Function(int) onTap) {
+    String label,
+    int index,
+    int selectedTab,
+    void Function(int) onTap,
+  ) {
     final bool isSelected = selectedTab == index;
     return GestureDetector(
       onTap: () => onTap(index),
@@ -709,19 +725,27 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
     final responsive = ResponsiveHelper(context);
     final bool isExpanded = _customExpandedStudentIndex == index;
 
-    final studentName =
-        attendance.studentName.isNotEmpty ? attendance.studentName : 'Unknown Student';
-    final roomName = attendance.roomName.isNotEmpty ? attendance.roomName : 'Unknown Room';
-    final daysAttended = attendance.daysAttended.isNotEmpty ? attendance.daysAttended : '0';
-    final totalHours = attendance.totalHours.isNotEmpty ? attendance.totalHours : '0 Hrs 0 Mins';
+    final studentName = attendance.studentName.isNotEmpty
+        ? attendance.studentName
+        : 'Unknown Student';
+    final roomName = attendance.roomName.isNotEmpty
+        ? attendance.roomName
+        : 'Unknown Room';
+    final daysAttended = attendance.daysAttended.isNotEmpty
+        ? attendance.daysAttended
+        : '0';
+    final totalHours = attendance.totalHours.isNotEmpty
+        ? attendance.totalHours
+        : '0 Hrs 0 Mins';
 
     final avatarSize = responsive.isTablet ? 52.0 : 44.0;
 
     return GestureDetector(
       onTap: () {
         setState(() {
-          _customExpandedStudentIndex =
-              (_customExpandedStudentIndex == index) ? null : index;
+          _customExpandedStudentIndex = (_customExpandedStudentIndex == index)
+              ? null
+              : index;
         });
       },
       child: AnimatedContainer(
@@ -734,7 +758,7 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -816,7 +840,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       ? Container(
                           height: 48,
                           decoration: BoxDecoration(
-                            color: AppColors.cardBorderColor.withOpacity(0.1),
+                            color: AppColors.cardBorderColor.withValues(
+                              alpha: 0.1,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: AppColors.cardBorderColor,
@@ -839,10 +865,16 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                       : CustomCancelButton(
                           cancelButtonLabel: 'View',
                           onPressedCancel: () async {
-                            setState(() => _loadingButtons[attendance.id] = true);
-                            await Future.delayed(const Duration(milliseconds: 300));
+                            setState(
+                              () => _loadingButtons[attendance.id] = true,
+                            );
+                            await Future.delayed(
+                              const Duration(milliseconds: 300),
+                            );
                             if (!mounted) return;
-                            setState(() => _loadingButtons[attendance.id] = false);
+                            setState(
+                              () => _loadingButtons[attendance.id] = false,
+                            );
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -853,7 +885,9 @@ class _StudentAttendanceCustomViewState extends State<StudentAttendanceCustomVie
                                   studentPhotoUuid: attendance.studentPhotoUuid,
                                   roomName: attendance.roomName,
                                   isSignedIn: attendance.hasSignIn,
-                                  isAbsent: !attendance.hasSignIn && attendance.expectedToday,
+                                  isAbsent:
+                                      !attendance.hasSignIn &&
+                                      attendance.expectedToday,
                                   isExpectedToday: attendance.expectedToday,
                                   isPresentToday: attendance.hasSignIn,
                                   profileStatus: 'A',

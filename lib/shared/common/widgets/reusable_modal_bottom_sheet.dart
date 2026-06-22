@@ -221,7 +221,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
               );
             }),
           ],
-          value: formValues[field.label] ?? '',
+          initialValue: formValues[field.label] ?? '',
           onChanged: (value) {
             setState(() {
               formValues[field.label] = value;

@@ -5,13 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-enum SignMethod {
-  gps,
-  qr,
-  kiosk,
-  direct,
-  web,
-}
+enum SignMethod { gps, qr, kiosk, direct, web }
 
 class StaffAttendanceCardData {
   final String? attendanceRecordCode;
@@ -20,6 +14,7 @@ class StaffAttendanceCardData {
   final String? staffPhotoUuid;
   final String? designationName;
   final String roomName;
+
   /// Backend classroom code for this row (for attendance mutations).
   final String? classroomCode;
   final bool expectedToday;
@@ -37,6 +32,7 @@ class StaffAttendanceCardData {
   final int? totalSequenceCount;
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
 
@@ -190,7 +186,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                                     fontFamily: 'Manrope',
                                     fontSize: isTablet ? 13 : 12,
                                     fontWeight: FontWeight.w400,
-                                    color: _plum.withOpacity(0.6),
+                                    color: _plum.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -232,8 +228,11 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildDetailRow(context, 'Expected Today?',
-                        staff.expectedToday ? 'Yes' : 'No'),
+                    _buildDetailRow(
+                      context,
+                      'Expected Today?',
+                      staff.expectedToday ? 'Yes' : 'No',
+                    ),
                     const SizedBox(height: 10),
                     _buildDetailRow(context, 'Classroom', staff.roomName),
                     const SizedBox(height: 10),
@@ -508,9 +507,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.white,
       ),

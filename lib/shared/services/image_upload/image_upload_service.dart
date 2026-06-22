@@ -512,6 +512,83 @@ class ImageUploadService {
     return sessionCode;
   }
 
+  /// Bootstraps an upload session scoped to a conversation so a picked chat
+  /// attachment can go through the same generic presign → S3 PUT → complete
+  /// flow used by student/staff documents and activity media.
+  Future<UploadSessionResult> createConversationAttachmentUploadSession({
+    required String conversationCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingConversationUploadSessionPath(conversationCode.trim()),
+      ApiConstants.communicationBaseUrl,
+    );
+    // The messaging service reads org/school from the X-Organization-Code /
+    // X-School-Code headers (already attached by the API client interceptor
+    // for every request) rather than query params — confirmed against the
+    // working web-app request for this endpoint.
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{},
+    );
+    return _parseUploadSessionResponse(response.data);
+  }
+
+  /// Registers a completed document-service asset against the conversation.
+  /// Required before the asset can be referenced from `sendMessage` — the
+  /// messaging service tracks attachments by its own integer id, not by the
+  /// document service's asset code.
+  Future<int> registerConversationAttachment({
+    required String conversationCode,
+    required String assetCode,
+    required String originalFilename,
+    required String mimeType,
+    required int fileSizeBytes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingConversationAttachmentsPath(conversationCode.trim()),
+      ApiConstants.communicationBaseUrl,
+    );
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assetCode': assetCode,
+            'originalFilename': originalFilename,
+            'mimeType': mimeType,
+            'fileSize': fileSizeBytes,
+          },
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected attachment registration response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Failed to register attachment',
+      );
+    }
+
+    final data = body['data'];
+    final rawId = data is Map<String, dynamic>
+        ? (data['id'] ?? data['attachmentId'])
+        : null;
+    final attachmentId = rawId is int ? rawId : int.tryParse('$rawId');
+    if (attachmentId == null) {
+      throw Exception('Attachment registered but no id was returned');
+    }
+    return attachmentId;
+  }
+
   Future<UploadSessionResult> createStudentDocumentUploadSession({
     required String studentCode,
     required String schoolCode,
@@ -776,10 +853,14 @@ class ImageUploadService {
     final documentApiBasePath = (data['documentApiBasePath'] ?? '/api/v1')
         .toString()
         .trim();
+    final ownerType = (data['ownerType'] ?? '').toString().trim();
+    final ownerCode = (data['ownerCode'] ?? '').toString().trim();
     return UploadSessionResult(
       sessionCode: sessionCode,
       documentApiBasePath:
           documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+      ownerType: ownerType.isEmpty ? null : ownerType,
+      ownerCode: ownerCode.isEmpty ? null : ownerCode,
     );
   }
 

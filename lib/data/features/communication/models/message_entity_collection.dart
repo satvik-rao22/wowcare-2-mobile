@@ -123,9 +123,11 @@ class MessageEntityCollection {
           .map(ReadReceiptEntityCollection.fromEntity)
           .toList()
       ..reactions = entity.reactions.entries
-          .map((e) => MessageReactionEntityCollection()
-            ..userCode = e.key
-            ..emoji = e.value)
+          .map(
+            (e) => MessageReactionEntityCollection()
+              ..userCode = e.key
+              ..emoji = e.value,
+          )
           .toList()
       ..organizationCode = entity.organizationCode
       ..schoolCode = entity.schoolCode
@@ -190,6 +192,9 @@ class AttachmentEntityCollection {
   late String uploadedBy;
   late DateTime uploadedAt;
 
+  /// Messaging-service attachment id — see [AttachmentEntity.attachmentId].
+  int? attachmentId;
+
   AttachmentEntityCollection();
 
   factory AttachmentEntityCollection.fromEntity(AttachmentEntity entity) {
@@ -205,7 +210,8 @@ class AttachmentEntityCollection {
       ..thumbnailUrl = entity.thumbnailUrl
       ..localFilePath = entity.localFilePath
       ..uploadedBy = entity.uploadedBy
-      ..uploadedAt = entity.uploadedAt;
+      ..uploadedAt = entity.uploadedAt
+      ..attachmentId = entity.attachmentId;
   }
 
   AttachmentEntity toEntity() {
@@ -222,6 +228,7 @@ class AttachmentEntityCollection {
       localFilePath: localFilePath,
       uploadedBy: uploadedBy,
       uploadedAt: uploadedAt,
+      attachmentId: attachmentId,
     );
   }
 }

@@ -98,7 +98,7 @@ class MessagingListTile extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
+                      color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
                       offset: const Offset(0, 4),
                     ),
@@ -158,7 +158,9 @@ class MessagingListTile extends StatelessWidget {
                 child: Text(
                   conversation.lastMessagePreview.isEmpty
                       ? 'Start a new conversation'
-                      : MessageContentProcessor.previewText(conversation.lastMessagePreview),
+                      : MessageContentProcessor.previewText(
+                          conversation.lastMessagePreview,
+                        ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -180,7 +182,7 @@ class MessagingListTile extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF00B894).withOpacity(0.35),
+                        color: const Color(0xFF00B894).withValues(alpha: 0.35),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

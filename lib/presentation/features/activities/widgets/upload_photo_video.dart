@@ -237,7 +237,7 @@
 // //           //margin: const EdgeInsets.symmetric(horizontal: 20),
 // //           decoration: BoxDecoration(
 // //             color: const Color(0x1AB1AFE9),
-// //             //color: const Color(0xff573353).withOpacity(0.05),
+// //             //color: const Color(0xff573353).withValues(alpha:0.05),
 // //             borderRadius: BorderRadius.circular(12),
 // //           ),
 // //           child: _mediaFile == null
@@ -989,14 +989,16 @@ class MediaUploader extends StatefulWidget {
   final String? initialVideoUrl;
 
   final Function(
-      List<File> newPhotos,
-      File? newVideo,
-      List<String> remainingExistingPhotoUrls,
-      String? remainingExistingVideoUrl,
-      )? onMediaChanged;
+    List<File> newPhotos,
+    File? newVideo,
+    List<String> remainingExistingPhotoUrls,
+    String? remainingExistingVideoUrl,
+  )?
+  onMediaChanged;
 
   final bool allowPhoto;
   final bool allowVideo;
+
   /// When [allowPhoto] and [allowVideo] are both true, keeps photos and video
   /// at the same time instead of replacing one with the other (e.g. Incident).
   final bool allowPhotoAndVideoTogether;
@@ -1013,7 +1015,6 @@ class MediaUploader extends StatefulWidget {
 }
 
 class _MediaUploaderState extends State<MediaUploader> {
-
   bool get _keepPhotoAndVideoTogether =>
       widget.allowPhoto &&
       widget.allowVideo &&
@@ -1039,9 +1040,9 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   bool get _hasMedia =>
       _newPhotos.isNotEmpty ||
-          _newVideoFile != null ||
-          _existingPhotoUrls.isNotEmpty ||
-          _existingVideoUrl != null;
+      _newVideoFile != null ||
+      _existingPhotoUrls.isNotEmpty ||
+      _existingVideoUrl != null;
 
   VideoPlayerController? _remoteVideoController;
   bool _remoteThumbnailReady = false;
@@ -1064,7 +1065,6 @@ class _MediaUploaderState extends State<MediaUploader> {
     if (widget.initialPhotos != null) {
       _newPhotos = widget.initialPhotos!;
     }
-
 
     if (_existingVideoUrl != null || _newVideoFile != null) {
       _currentType = MediaType.video;
@@ -1093,7 +1093,9 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   Future<void> _initializeRemoteVideoThumbnail(String videoUrl) async {
     try {
-      _remoteVideoController = VideoPlayerController.networkUrl(Uri.parse(videoUrl));
+      _remoteVideoController = VideoPlayerController.networkUrl(
+        Uri.parse(videoUrl),
+      );
       await _remoteVideoController!.initialize();
       _remoteVideoController!.setVolume(0);
       _remoteVideoController!.seekTo(Duration.zero);
@@ -1249,7 +1251,9 @@ class _MediaUploaderState extends State<MediaUploader> {
       final file = f;
       final sizeMB = (await file.length()) / (1024 * 1024);
       if (sizeMB > photoMaxSizeMB) {
-        _showWarning('Photo too large (${sizeMB.toStringAsFixed(1)} MB). Max: $photoMaxSizeMB MB');
+        _showWarning(
+          'Photo too large (${sizeMB.toStringAsFixed(1)} MB). Max: $photoMaxSizeMB MB',
+        );
         continue;
       }
       valid.add(file);
@@ -1339,12 +1343,10 @@ class _MediaUploaderState extends State<MediaUploader> {
       if (!_keepPhotoAndVideoTogether) {
         _newPhotos.clear();
       }
-      final hasPhotos =
-          _newPhotos.isNotEmpty || _existingPhotoUrls.isNotEmpty;
-      _currentType =
-          _keepPhotoAndVideoTogether && hasPhotos
-              ? MediaType.photos
-              : MediaType.video;
+      final hasPhotos = _newPhotos.isNotEmpty || _existingPhotoUrls.isNotEmpty;
+      _currentType = _keepPhotoAndVideoTogether && hasPhotos
+          ? MediaType.photos
+          : MediaType.video;
     });
     await _generateVideoThumbnail();
     _notifyParent();
@@ -1360,16 +1362,25 @@ class _MediaUploaderState extends State<MediaUploader> {
 
   Future<bool> _showReplaceConfirmation(String newType) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Replace media?'),
-        content: Text('Adding a $newType will remove the current media.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Replace', style: TextStyle(color: Colors.red))),
-        ],
-      ),
-    ) ??
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Replace media?'),
+            content: Text('Adding a $newType will remove the current media.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  'Replace',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ) ??
         false;
   }
 
@@ -1449,12 +1460,32 @@ class _MediaUploaderState extends State<MediaUploader> {
               ),
               const SizedBox(height: 20),
               if (widget.allowPhoto) ...[
-                _option(dialogContext, Icons.photo_camera, 'Take Photo', () => _pickPhotos(ImageSource.camera)),
-                _option(dialogContext, Icons.image, 'Photo Gallery', () => _pickPhotos(ImageSource.gallery)),
+                _option(
+                  dialogContext,
+                  Icons.photo_camera,
+                  'Take Photo',
+                  () => _pickPhotos(ImageSource.camera),
+                ),
+                _option(
+                  dialogContext,
+                  Icons.image,
+                  'Photo Gallery',
+                  () => _pickPhotos(ImageSource.gallery),
+                ),
               ],
               if (widget.allowVideo) ...[
-                _option(dialogContext, Icons.videocam, 'Record Video', () => _pickVideo(ImageSource.camera)),
-                _option(dialogContext, Icons.video_library, 'Video Gallery', () => _pickVideo(ImageSource.gallery)),
+                _option(
+                  dialogContext,
+                  Icons.videocam,
+                  'Record Video',
+                  () => _pickVideo(ImageSource.camera),
+                ),
+                _option(
+                  dialogContext,
+                  Icons.video_library,
+                  'Video Gallery',
+                  () => _pickVideo(ImageSource.gallery),
+                ),
               ],
             ],
           ),
@@ -1463,7 +1494,12 @@ class _MediaUploaderState extends State<MediaUploader> {
     );
   }
 
-  Widget _option(BuildContext dialogContext, IconData icon, String label, VoidCallback onTap) {
+  Widget _option(
+    BuildContext dialogContext,
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -1484,60 +1520,59 @@ class _MediaUploaderState extends State<MediaUploader> {
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            child: Row(children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                // Gradient-colored icon.
-                child: ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) =>
-                      AppColors.buildPrimaryGradient().createShader(bounds),
-                  child: Icon(icon, size: 26, color: Colors.white),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryColor,
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  // Gradient-colored icon.
+                  child: ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (bounds) =>
+                        AppColors.buildPrimaryGradient().createShader(bounds),
+                    child: Icon(icon, size: 26, color: Colors.white),
                   ),
                 ),
-              ),
-              Icon(
-                Icons.chevron_right,
-                color: AppColors.primaryColor.withValues(alpha: 0.35),
-              ),
-            ]),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: AppColors.primaryColor.withValues(alpha: 0.35),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-
   Widget _buildVideoPreview() {
     final bool hasLocalVideo = _newVideoFile != null;
     final bool hasLocalThumbnail = _videoThumbnailFile != null;
     final bool hasRemoteVideoOnly = _existingVideoUrl != null && !hasLocalVideo;
-    final bool showRemoteThumbnail = hasRemoteVideoOnly && _remoteThumbnailReady && !_remoteThumbnailError;
+    final bool showRemoteThumbnail =
+        hasRemoteVideoOnly && _remoteThumbnailReady && !_remoteThumbnailError;
 
     return _previewItem(
       onTap: _openVideoFullscreen,
       child: Stack(
         fit: StackFit.expand,
         children: [
-
           if (hasLocalVideo && hasLocalThumbnail)
             Image.file(_videoThumbnailFile!, fit: BoxFit.cover)
-
-
           else if (showRemoteThumbnail)
             FittedBox(
               fit: BoxFit.cover,
@@ -1547,35 +1582,33 @@ class _MediaUploaderState extends State<MediaUploader> {
                 child: VideoPlayer(_remoteVideoController!),
               ),
             )
-
-
-          else if (hasRemoteVideoOnly && !_remoteThumbnailReady && !_remoteThumbnailError)
-              Container(
-                color: Colors.grey[800],
-                child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-              )
+          else if (hasRemoteVideoOnly &&
+              !_remoteThumbnailReady &&
+              !_remoteThumbnailError)
+            Container(
+              color: Colors.grey[800],
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            )
           else
-              Container(
-                color: Colors.grey[800],
-                child: const Center(
-                  child: Icon(Icons.play_circle_fill, size: 60, color: Colors.white70),
+            Container(
+              color: Colors.grey[800],
+              child: const Center(
+                child: Icon(
+                  Icons.play_circle_fill,
+                  size: 60,
+                  color: Colors.white70,
                 ),
               ),
-
-
-
-
+            ),
 
           Center(
             child: Icon(
               Icons.play_circle_fill,
               size: 60,
-              color: Colors.white.withOpacity(0.9),
-              shadows: const [
-                Shadow(blurRadius: 10, color: Colors.black54),
-              ],
+              color: Colors.white.withValues(alpha: 0.9),
+              shadows: const [Shadow(blurRadius: 10, color: Colors.black54)],
             ),
           ),
 
@@ -1615,7 +1648,8 @@ class _MediaUploaderState extends State<MediaUploader> {
       child: Image.network(
         url,
         fit: BoxFit.cover,
-        loadingBuilder: (_, child, progress) => progress == null ? child : const CircularProgressIndicator(),
+        loadingBuilder: (_, child, progress) =>
+            progress == null ? child : const CircularProgressIndicator(),
         errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
       ),
       onRemove: () => _removeExistingPhoto(url),
@@ -1623,10 +1657,14 @@ class _MediaUploaderState extends State<MediaUploader> {
         Image.network(
           url,
           fit: BoxFit.contain,
-          loadingBuilder: (_, child, progress) =>
-              progress == null ? child : const Center(child: CircularProgressIndicator(color: Colors.white)),
-          errorBuilder: (_, __, ___) =>
-              const Center(child: Icon(Icons.broken_image, color: Colors.white70, size: 60)),
+          loadingBuilder: (_, child, progress) => progress == null
+              ? child
+              : const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+          errorBuilder: (_, __, ___) => const Center(
+            child: Icon(Icons.broken_image, color: Colors.white70, size: 60),
+          ),
         ),
       ),
       canRemove: !widget.readOnly,
@@ -1641,8 +1679,9 @@ class _MediaUploaderState extends State<MediaUploader> {
         Image.file(
           file,
           fit: BoxFit.contain,
-          errorBuilder: (_, __, ___) =>
-              const Center(child: Icon(Icons.broken_image, color: Colors.white70, size: 60)),
+          errorBuilder: (_, __, ___) => const Center(
+            child: Icon(Icons.broken_image, color: Colors.white70, size: 60),
+          ),
         ),
       ),
       canRemove: !widget.readOnly,
@@ -1708,7 +1747,10 @@ class _MediaUploaderState extends State<MediaUploader> {
                 onTap: onRemove,
                 child: Container(
                   padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
                   child: const Icon(Icons.close, color: Colors.white, size: 16),
                 ),
               ),
@@ -1728,7 +1770,9 @@ class _MediaUploaderState extends State<MediaUploader> {
         children: [
           if (showVideoPreview) _buildVideoPreview(),
           ..._existingPhotoUrls.map((url) => _buildPhotoPreviewNetwork(url)),
-          ..._newPhotos.asMap().entries.map((e) => _buildPhotoPreviewFile(e.value, e.key)),
+          ..._newPhotos.asMap().entries.map(
+            (e) => _buildPhotoPreviewFile(e.value, e.key),
+          ),
 
           const SizedBox(width: 8),
         ],
@@ -1760,8 +1804,13 @@ class _MediaUploaderState extends State<MediaUploader> {
                   Image.asset(MediaRes.uploadPhotoVideoImage),
                   const SizedBox(height: 16),
                   Text(
-                    widget.allowVideo ? 'Take/Upload Photo or Video' : 'Take/Upload Photo',
-                    style: const TextStyle(color: AppColors.primaryColor, fontSize: 14),
+                    widget.allowVideo
+                        ? 'Take/Upload Photo or Video'
+                        : 'Take/Upload Photo',
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
@@ -1774,8 +1823,18 @@ class _MediaUploaderState extends State<MediaUploader> {
               RichText(
                 text: TextSpan(
                   text: widget.label,
-                  style: TextStyle(fontSize: responsive.labelFontSize, color: const Color(0xff573353)),
-                  children: widget.isRequired ? [const TextSpan(text: ' *', style: TextStyle(color: Colors.red))] : null,
+                  style: TextStyle(
+                    fontSize: responsive.labelFontSize,
+                    color: const Color(0xff573353),
+                  ),
+                  children: widget.isRequired
+                      ? [
+                          const TextSpan(
+                            text: ' *',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ]
+                      : null,
                 ),
               ),
               const SizedBox(height: 8),
@@ -1791,8 +1850,14 @@ class _MediaUploaderState extends State<MediaUploader> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Select Media', style: TextStyle(fontSize: responsive.labelFontSize)),
-                      const Icon(Icons.file_upload_outlined, color: AppColors.primaryColor),
+                      Text(
+                        'Select Media',
+                        style: TextStyle(fontSize: responsive.labelFontSize),
+                      ),
+                      const Icon(
+                        Icons.file_upload_outlined,
+                        color: AppColors.primaryColor,
+                      ),
                     ],
                   ),
                 ),
@@ -1800,15 +1865,16 @@ class _MediaUploaderState extends State<MediaUploader> {
             ],
           ),
 
-
         if (widget.isRequired && !_hasMedia && !widget.readOnly)
           const Padding(
             padding: EdgeInsets.only(top: 8),
-            child: Text('Please upload at least one media *', style: TextStyle(color: Colors.red, fontSize: 13)),
+            child: Text(
+              'Please upload at least one media *',
+              style: TextStyle(color: Colors.red, fontSize: 13),
+            ),
           ),
 
         const SizedBox(height: 16),
-
 
         if (_hasMedia) _buildAllPreviews(),
 
@@ -1829,7 +1895,8 @@ class FullscreenLocalVideoPlayerPage extends StatefulWidget {
       _FullscreenLocalVideoPlayerPageState();
 }
 
-class _FullscreenLocalVideoPlayerPageState extends State<FullscreenLocalVideoPlayerPage> {
+class _FullscreenLocalVideoPlayerPageState
+    extends State<FullscreenLocalVideoPlayerPage> {
   VideoPlayerController? _controller;
 
   void _onCtrlUpdate() {
@@ -1901,8 +1968,11 @@ class _FullscreenLocalVideoPlayerPageState extends State<FullscreenLocalVideoPla
                       AnimatedOpacity(
                         opacity: c.value.isPlaying ? 0 : 1,
                         duration: const Duration(milliseconds: 300),
-                        child: const Icon(Icons.play_circle_fill,
-                            color: Colors.white70, size: 72),
+                        child: const Icon(
+                          Icons.play_circle_fill,
+                          color: Colors.white70,
+                          size: 72,
+                        ),
                       ),
                     ],
                   ),

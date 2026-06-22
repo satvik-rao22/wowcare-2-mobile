@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/v2/widgets/conversation_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -271,9 +272,12 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
 
     return SliverList(
       delegate: SliverChildBuilderDelegate(
-        (context, index) => _ConversationTile(
-          conversation: filtered[index],
-          onTap: () => widget.onConversationTap(filtered[index]),
+        (context, index) => ConversationListTile(
+          conversationCode: filtered[index].code,
+          contentBuilder: (context, conversation) => _ConversationTileContent(
+            conversation: conversation,
+            onTap: () => widget.onConversationTap(conversation),
+          ),
         ),
         childCount: filtered.length,
       ),
@@ -409,8 +413,11 @@ class _StaffDirectoryTile extends StatelessWidget {
 
 // ─── Conversation tile ────────────────────────────────────────────────────────
 
-class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.conversation, required this.onTap});
+class _ConversationTileContent extends StatelessWidget {
+  const _ConversationTileContent({
+    required this.conversation,
+    required this.onTap,
+  });
 
   final ConversationEntity conversation;
   final VoidCallback onTap;

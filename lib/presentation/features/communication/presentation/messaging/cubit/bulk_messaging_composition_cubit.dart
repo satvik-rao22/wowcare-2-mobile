@@ -6,10 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
-import 'package:wowcare/domain/features/communication/usecases/create_conversation_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_usecase.dart';
 
 class SelectedAttachment extends Equatable {
@@ -113,23 +112,20 @@ class BulkMessagingCompositionState extends Equatable {
 
 class BulkMessagingCompositionCubit
     extends Cubit<BulkMessagingCompositionState> {
-  final CreateConversationUseCase _createConversationUseCase;
+  final CreateOrOpenConversationUseCase _createOrOpenConversationUseCase;
   final SendMessageUseCase _sendMessageUseCase;
   final StorageService _storageService;
-  final ConversationEntityRepository _conversationRepo;
 
   BulkMessagingCompositionCubit({
     required List<Map<String, dynamic>> initialRecipients,
     required bool isStaff,
-    required CreateConversationUseCase createConversationUseCase,
+    required CreateOrOpenConversationUseCase createOrOpenConversationUseCase,
     required SendMessageUseCase sendMessageUseCase,
     required StorageService storageService,
-    required ConversationEntityRepository conversationRepository,
     String conversationType = 'ROOM_CHAT',
-  }) : _createConversationUseCase = createConversationUseCase,
+  }) : _createOrOpenConversationUseCase = createOrOpenConversationUseCase,
        _sendMessageUseCase = sendMessageUseCase,
        _storageService = storageService,
-       _conversationRepo = conversationRepository,
        super(
          BulkMessagingCompositionState(
            isStaff: isStaff,
@@ -291,34 +287,19 @@ class BulkMessagingCompositionCubit
 
           try {
             // ── Find-or-create: reuse existing STAFF_DIRECT thread ────────
-            String conversationCode;
-
-            final existing = await _conversationRepo
-                .findStaffDirectConversation(recipientCode);
-            final existingConv = existing.fold((_) => null, (c) => c);
-
-            if (existingConv != null) {
-              conversationCode = existingConv.code;
-            } else {
-              final request = CreateConversationRequest(
-                title: recipientName,
-                type: 'STAFF_DIRECT',
-                description: messageText,
-                organizationCode: orgCode,
-                schoolCode: schoolCode,
-                participants: [
-                  {'userCode': actualSenderCode, 'participantType': 'STAFF'},
-                  {'userCode': recipientCode, 'participantType': 'STAFF'},
-                ],
-              );
-              final created = await _createConversationUseCase(request);
-              final conv = created.fold((_) => null, (c) => c);
-              if (conv == null) {
-                failed.add(recipient);
-                continue;
-              }
-              conversationCode = conv.code;
+            final result = await _createOrOpenConversationUseCase(
+              type: ConversationType.staffDirect,
+              studentCode: '',
+              participantCodes: [recipientCode],
+              title: recipientName,
+              description: messageText,
+            );
+            final conv = result.fold((_) => null, (c) => c);
+            if (conv == null) {
+              failed.add(recipient);
+              continue;
             }
+            final conversationCode = conv.code;
 
             if (messageText.isNotEmpty) {
               final msg = Message(
@@ -351,30 +332,26 @@ class BulkMessagingCompositionCubit
             ? recipientCodes.where((c) => !c.startsWith('STF_')).toList()
             : recipientCodes;
 
-        final request = CreateConversationRequest(
-          title: (recipients.first['name'] as String? ?? '').trim(),
-          type: conversationType,
-          description: messageText,
-          organizationCode: orgCode,
-          schoolCode: schoolCode,
-          participants: [
-            if (actualSenderCode.isNotEmpty)
-              {
-                'userCode': actualSenderCode,
-                'participantType': isAdminChat ? 'ADMIN' : 'STAFF',
-              },
-            ...filteredRecipientCodes.map(
-              (code) => {
-                'userCode': code,
-                'participantType': code.startsWith('STF_')
-                    ? 'STAFF'
-                    : 'GUARDIAN',
-              },
-            ),
-          ],
-        );
+        // Dedupe is only meaningful when the audience resolves to a single
+        // student scope (e.g. "message about this one child") — an ad-hoc
+        // multi-recipient broadcast has no single existing thread to reuse,
+        // so it always creates fresh, same as before.
+        final singleStudentScope = filteredRecipientCodes.length == 1
+            ? filteredRecipientCodes.first
+            : '';
 
-        final result = await _createConversationUseCase(request);
+        final result = await _createOrOpenConversationUseCase(
+          type: isAdminChat
+              ? ConversationType.adminChat
+              : ConversationType.roomChat,
+          studentCode: singleStudentScope,
+          participantCodes: [
+            if (actualSenderCode.isNotEmpty) actualSenderCode,
+            ...filteredRecipientCodes,
+          ],
+          title: (recipients.first['name'] as String? ?? '').trim(),
+          description: messageText,
+        );
 
         await result.fold(
           (_) {

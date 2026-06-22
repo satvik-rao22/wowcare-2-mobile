@@ -1,5 +1,4 @@
 import 'dart:async' show unawaited;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -9,7 +8,6 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 
@@ -164,10 +162,12 @@ class _MessagingTabState extends State<MessagingTab>
                       );
                       if (context.mounted) {
                         unawaited(
-                          context.read<CommunicationCubit>().refreshConversations(
-                            type: 'STAFF_DIRECT',
-                            size: _conversationPageSize,
-                          ),
+                          context
+                              .read<CommunicationCubit>()
+                              .refreshConversations(
+                                type: 'STAFF_DIRECT',
+                                size: _conversationPageSize,
+                              ),
                         );
                       }
                     } else {
@@ -194,10 +194,12 @@ class _MessagingTabState extends State<MessagingTab>
                       );
                       if (context.mounted) {
                         unawaited(
-                          context.read<CommunicationCubit>().refreshConversations(
-                            type: 'ROOM_CHAT',
-                            size: _conversationPageSize,
-                          ),
+                          context
+                              .read<CommunicationCubit>()
+                              .refreshConversations(
+                                type: 'ROOM_CHAT',
+                                size: _conversationPageSize,
+                              ),
                         );
                       }
                     }

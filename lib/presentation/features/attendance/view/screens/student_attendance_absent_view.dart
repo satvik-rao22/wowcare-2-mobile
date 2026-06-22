@@ -79,10 +79,12 @@ class StudentAttendanceAbsentView extends StatefulWidget {
   final ValueNotifier<int>? refreshNotifier;
 
   @override
-  State<StudentAttendanceAbsentView> createState() => _StudentAttendanceAbsentViewState();
+  State<StudentAttendanceAbsentView> createState() =>
+      _StudentAttendanceAbsentViewState();
 }
 
-class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentView>
+class _StudentAttendanceAbsentViewState
+    extends State<StudentAttendanceAbsentView>
     implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
@@ -131,10 +133,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
     _loadTagData();
-    
+
     // Set up scroll listener for pagination
     _scrollController.addListener(_onScroll);
-    
+
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
@@ -179,7 +181,8 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
     if (!mounted) return;
     setState(() {
-      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+      _isClassroomDataReady =
+          !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
     if (hadClassroomSelection && _isClassroomDataReady) {
@@ -218,7 +221,9 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _tagNameToCode = map;
         _availableTagNames = names;
         // Remove any previously-selected tags that no longer exist
-        _selectedTagNames.removeWhere((name) => !_availableTagNames.contains(name));
+        _selectedTagNames.removeWhere(
+          (name) => !_availableTagNames.contains(name),
+        );
         _isLoadingTagMap = false;
       });
     } catch (e) {
@@ -308,7 +313,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   void _triggerSearchReload() {
-      _loadAbsentStudents(reset: true);
+    _loadAbsentStudents(reset: true);
   }
 
   void _syncClassroomFilterCodes() {
@@ -348,7 +353,8 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   void _onScroll() {
     if (!_scrollController.hasClients ||
         _isLoadingStudents ||
-        _isInitialLoadingStudents) return;
+        _isInitialLoadingStudents)
+      return;
     final position = _scrollController.position;
     final threshold = position.maxScrollExtent > 200
         ? position.maxScrollExtent - 100
@@ -357,11 +363,14 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _studentsHasMore &&
         position.pixels >= threshold) {
       setState(() => _isBackgroundFetchingStudents = true);
-        _loadAbsentStudents(fromBackground: true);
+      _loadAbsentStudents(fromBackground: true);
     }
   }
 
-  Future<void> _loadInitialData({bool reset = false, bool fromBackground = false}) async {
+  Future<void> _loadInitialData({
+    bool reset = false,
+    bool fromBackground = false,
+  }) async {
     // Try cache first to mirror cache integration used in student lists.
     if (!reset) {
       final from = _rangeStart ?? DateTime.now();
@@ -371,8 +380,8 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       final trimmedSearch = _searchQuery.trim();
       final hasActiveFilters =
           (classroomCodes != null && classroomCodes.isNotEmpty) ||
-              (tagCodes != null && tagCodes.isNotEmpty) ||
-              trimmedSearch.isNotEmpty;
+          (tagCodes != null && tagCodes.isNotEmpty) ||
+          trimmedSearch.isNotEmpty;
 
       if (!hasActiveFilters) {
         final cacheKey = _studentAttendanceAbsentCacheKey(
@@ -385,10 +394,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
         final cachedPayload = await _cacheManager.loadCache(cacheKey);
         if (cachedPayload != null) {
-          _applyPagePayload(
-            cachedPayload,
-            reset: true,
-          );
+          _applyPagePayload(cachedPayload, reset: true);
           return;
         }
       }
@@ -397,7 +403,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     await _loadAbsentStudents(reset: reset, fromBackground: fromBackground);
   }
 
-  Future<void> _loadAbsentStudents({bool reset = false, bool fromBackground = false}) async {
+  Future<void> _loadAbsentStudents({
+    bool reset = false,
+    bool fromBackground = false,
+  }) async {
     if (_isLoadingStudents && !reset) return;
 
     if (_rangeStart == null || _rangeEnd == null) {
@@ -414,11 +423,11 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
       if (reset || _studentsPage == 0) {
         if (reset || !fromBackground) {
-        _isInitialLoadingStudents = true;
+          _isInitialLoadingStudents = true;
         }
         _isBackgroundFetchingStudents = false;
         if (reset) {
-        _absentStudents.clear();
+          _absentStudents.clear();
         }
       }
 
@@ -448,15 +457,15 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     try {
       final data = await serviceLocator<AttendanceRepository>()
           .getStudentAttendanceAbsentView(
-        fromAbsenceDate: fromStr,
-        toAbsenceDate: toStr,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
-        page: _studentsPage,
-        size: _pageSize,
-        sort: const <String>['studentName,asc'],
-      );
+            fromAbsenceDate: fromStr,
+            toAbsenceDate: toStr,
+            classroomCodes: classroomCodes,
+            tagCodes: tagCodes,
+            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+            page: _studentsPage,
+            size: _pageSize,
+            sort: const <String>['studentName,asc'],
+          );
 
       if (!mounted) return;
 
@@ -487,7 +496,6 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
       }
 
       _applyPagePayload(root, reset: reset);
-
     } catch (error) {
       debugPrint('StudentAbsent API error: $error');
       if (!mounted) return;
@@ -557,10 +565,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   /// Applies a paged API/cache payload to local state and list.
-  void _applyPagePayload(
-    Map<String, dynamic> root, {
-    required bool reset,
-  }) {
+  void _applyPagePayload(Map<String, dynamic> root, {required bool reset}) {
     final content = root['content'] as List<dynamic>? ?? const [];
     final last = root['last'] as bool? ?? true;
     final number = root['number'] as int? ?? _studentsPage;
@@ -643,7 +648,6 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
@@ -668,205 +672,236 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
           previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
       listener: (_, __) => _reloadIfPendingClassroomFilter(),
       child: CustomRefreshIndicator(
-      onRefresh: _handleRefresh,
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.symmetric(
-          horizontal: contentPadding.left,
-          vertical: responsive.verticalSpacing / 4,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: responsive.verticalSpacing / 4),
-            // Filter section
-            CustomSectionCard(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  // Row 1: Full-width Search Bar
-                  Row(
-                    children: [
-                      Expanded(child: CustomSearchBar(controller: _searchController, hintText: 'Search Students')),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Row 2: Date Range (70%) + Clear All (30%)
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 7,
-                        child: CustomDateTimeField(
-                          hasLabel: false,
-                          isRangePicker: true,
-                          // Let the field compute and DISPLAY a default start–end (current month)
-                          // so both dates are visible on first open.
-                          fetchInitialTime: true,
-                          onRangeSelected: (start, end) {
-                            setState(() {
-                              _rangeStart = start;
-                              _rangeEnd = end;
-                            });
-                            _loadAbsentStudents(reset: true);
-                          },
+        onRefresh: _handleRefresh,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+            horizontal: contentPadding.left,
+            vertical: responsive.verticalSpacing / 4,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: responsive.verticalSpacing / 4),
+              // Filter section
+              CustomSectionCard(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    // Row 1: Full-width Search Bar
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomSearchBar(
+                            controller: _searchController,
+                            hintText: 'Search Students',
+                          ),
                         ),
-                      ),
-                      SizedBox(width: responsive.horizontalSpacing / 2),
-                      Expanded(
-                        flex: 3,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: CustomClearAllChip(
-                            onTap: () {
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Row 2: Date Range (70%) + Clear All (30%)
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 7,
+                          child: CustomDateTimeField(
+                            hasLabel: false,
+                            isRangePicker: true,
+                            // Let the field compute and DISPLAY a default start–end (current month)
+                            // so both dates are visible on first open.
+                            fetchInitialTime: true,
+                            onRangeSelected: (start, end) {
                               setState(() {
-                                _searchController.clear();
-                                _selectedClassroomNames = <String>[];
-                                _selectedClassroomCodes = null;
-                                _selectedTagNames = <String>[];
-                                // Reset to current month
-                                final now = DateTime.now();
-                                _rangeStart = DateTime(now.year, now.month, 1);
-                                _rangeEnd = DateTime(now.year, now.month + 1, 0);
+                                _rangeStart = start;
+                                _rangeEnd = end;
                               });
                               _loadAbsentStudents(reset: true);
                             },
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Row 3: Classroom (50%) + Tags (50%)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                          bloc: _classroomCubit,
-                          builder: (context, state) {
-                            final items = state.classrooms.map((c) => c.name).toList();
-                            final isLoading = state.isLoading || !_isClassroomDataReady;
-                            if (isLoading && items.isEmpty) {
-                              return ShimmerLoader(height: 40);
-                            }
-                            return CustomMultiSelectDropdown(
-                              hintText: 'Classroom',
-                              items: items,
-                              selectedItems: _selectedClassroomNames,
-                              onChanged: (values) {
+                        SizedBox(width: responsive.horizontalSpacing / 2),
+                        Expanded(
+                          flex: 3,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: CustomClearAllChip(
+                              onTap: () {
                                 setState(() {
-                                  _selectedClassroomNames = List<String>.from(values);
-                                  _syncClassroomFilterCodes();
+                                  _searchController.clear();
+                                  _selectedClassroomNames = <String>[];
+                                  _selectedClassroomCodes = null;
+                                  _selectedTagNames = <String>[];
+                                  // Reset to current month
+                                  final now = DateTime.now();
+                                  _rangeStart = DateTime(
+                                    now.year,
+                                    now.month,
+                                    1,
+                                  );
+                                  _rangeEnd = DateTime(
+                                    now.year,
+                                    now.month + 1,
+                                    0,
+                                  );
                                 });
-                                if (_selectedClassroomNames.isNotEmpty &&
-                                    _selectedClassroomCodes == null) {
-                                  return;
-                                }
                                 _loadAbsentStudents(reset: true);
                               },
-                            );
-                          },
+                            ),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: responsive.horizontalSpacing / 2),
-                      Expanded(
-                        child: _isLoadingTagMap && _availableTagNames.isEmpty
-                            ? ShimmerLoader(height: 40)
-                            : CustomMultiSelectDropdown(
-                                hintText: 'Tags',
-                                items: _availableTagNames,
-                                selectedItems: _selectedTagNames,
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Row 3: Classroom (50%) + Tags (50%)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                            bloc: _classroomCubit,
+                            builder: (context, state) {
+                              final items = state.classrooms
+                                  .map((c) => c.name)
+                                  .toList();
+                              final isLoading =
+                                  state.isLoading || !_isClassroomDataReady;
+                              if (isLoading && items.isEmpty) {
+                                return ShimmerLoader(height: 40);
+                              }
+                              return CustomMultiSelectDropdown(
+                                hintText: 'Classroom',
+                                items: items,
+                                selectedItems: _selectedClassroomNames,
                                 onChanged: (values) {
                                   setState(() {
-                                    _selectedTagNames = List<String>.from(values);
+                                    _selectedClassroomNames = List<String>.from(
+                                      values,
+                                    );
+                                    _syncClassroomFilterCodes();
                                   });
+                                  if (_selectedClassroomNames.isNotEmpty &&
+                                      _selectedClassroomCodes == null) {
+                                    return;
+                                  }
                                   _loadAbsentStudents(reset: true);
                                 },
-                              ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            // Content section
-            if (_isInitialLoadingStudents)
-              Column(
-                children: List.generate(
-                  6,
-                  (index) => StudentAbsentCardShimmer(
-                    key: ValueKey('shimmer_$index'),
-                  ),
-                ),
-              )
-            else if (errorMessage != null)
-              CustomSectionCard(
-                padding: EdgeInsets.all(responsive.horizontalSpacing),
-                backgroundColor: AppColors.errorColor.withOpacity(0.1),
-                child: Column(
-                  children: [
-                    Icon(Icons.error_outline, color: AppColors.errorColor, size: 48),
-                    SizedBox(height: responsive.verticalSpacing / 2),
-                    AppText.body(
-                      errorMessage ?? 'Unable to load absent students.',
-                      style: TextStyle(color: AppColors.errorColor),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: responsive.verticalSpacing / 2),
-                    ElevatedButton(
-                      onPressed: () => _loadInitialData(reset: true),
-                      child: AppText.body('Retry', style: TextStyle(color: Colors.white)),
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(width: responsive.horizontalSpacing / 2),
+                        Expanded(
+                          child: _isLoadingTagMap && _availableTagNames.isEmpty
+                              ? ShimmerLoader(height: 40)
+                              : CustomMultiSelectDropdown(
+                                  hintText: 'Tags',
+                                  items: _availableTagNames,
+                                  selectedItems: _selectedTagNames,
+                                  onChanged: (values) {
+                                    setState(() {
+                                      _selectedTagNames = List<String>.from(
+                                        values,
+                                      );
+                                    });
+                                    _loadAbsentStudents(reset: true);
+                                  },
+                                ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              )
-            else if (filtered.isEmpty)
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.all(responsive.verticalSpacing),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              // Content section
+              if (_isInitialLoadingStudents)
+                Column(
+                  children: List.generate(
+                    6,
+                    (index) => StudentAbsentCardShimmer(
+                      key: ValueKey('shimmer_$index'),
+                    ),
+                  ),
+                )
+              else if (errorMessage != null)
+                CustomSectionCard(
+                  padding: EdgeInsets.all(responsive.horizontalSpacing),
+                  backgroundColor: AppColors.errorColor.withValues(alpha: 0.1),
                   child: Column(
                     children: [
                       Icon(
-                        Icons.search_off,
+                        Icons.error_outline,
+                        color: AppColors.errorColor,
                         size: 48,
-                        color: AppColors.secondaryColor.withOpacity(0.5),
                       ),
                       SizedBox(height: responsive.verticalSpacing / 2),
                       AppText.body(
-                        _absentStudents.isEmpty
-                            ? 'No absent students found'
-                            : 'No students match your filters',
-                        style: TextStyle(color: AppColors.secondaryColor),
+                        errorMessage ?? 'Unable to load absent students.',
+                        style: TextStyle(color: AppColors.errorColor),
                         textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: responsive.verticalSpacing / 2),
+                      ElevatedButton(
+                        onPressed: () => _loadInitialData(reset: true),
+                        child: AppText.body(
+                          'Retry',
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              )
-            else
-              Column(
-                children: [
-                  ...filtered.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final student = entry.value;
-                    return _buildAbsentStudentCard(student, index);
-                  }).toList(),
-                  // Pagination loader
-                  if (_isLoadingStudents &&
-                      _studentsHasMore &&
-                      _studentsPage > 0 &&
-                      !_isInitialLoadingStudents)
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: responsive.verticalSpacing),
-                      child: const PrimaryCircularLoader(),
+                )
+              else if (filtered.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(responsive.verticalSpacing),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 48,
+                          color: AppColors.secondaryColor.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                        SizedBox(height: responsive.verticalSpacing / 2),
+                        AppText.body(
+                          _absentStudents.isEmpty
+                              ? 'No absent students found'
+                              : 'No students match your filters',
+                          style: TextStyle(color: AppColors.secondaryColor),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                ],
-              ),
-          ],
+                  ),
+                )
+              else
+                Column(
+                  children: [
+                    ...filtered.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final student = entry.value;
+                      return _buildAbsentStudentCard(student, index);
+                    }).toList(),
+                    // Pagination loader
+                    if (_isLoadingStudents &&
+                        _studentsHasMore &&
+                        _studentsPage > 0 &&
+                        !_isInitialLoadingStudents)
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: responsive.verticalSpacing,
+                        ),
+                        child: const PrimaryCircularLoader(),
+                      ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -899,7 +934,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -980,14 +1015,14 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
               _buildDetailRow(responsive, 'Absent Time', student.absentTime),
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(responsive, 'Marked By', student.absentBy),
-                SizedBox(height: responsive.isTablet ? 8 : 6),
+              SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(
                 responsive,
                 'Absent Note',
                 (student.note != null && student.note!.trim().isNotEmpty)
                     ? student.note!.trim()
                     : '-',
-                      ),
+              ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -997,7 +1032,9 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                       ? Container(
                           height: 48,
                           decoration: BoxDecoration(
-                            color: AppColors.cardBorderColor.withOpacity(0.1),
+                            color: AppColors.cardBorderColor.withValues(
+                              alpha: 0.1,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: AppColors.cardBorderColor,
@@ -1049,7 +1086,11 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     );
   }
 
-  Widget _buildDetailRow(ResponsiveHelper responsive, String label, String value) {
+  Widget _buildDetailRow(
+    ResponsiveHelper responsive,
+    String label,
+    String value,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

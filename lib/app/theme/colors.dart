@@ -139,7 +139,9 @@ class AppColors {
   static final Color billingCardBorderColor = primaryColor.withValues(
     alpha: 0.2,
   );
-  static final Color billingCardShadowColor = Colors.black.withOpacity(0.03);
+  static final Color billingCardShadowColor = Colors.black.withValues(
+    alpha: 0.03,
+  );
 
   // Divider colors
   static final Color billingDividerColor = primaryColor.withValues(alpha: 0.1);
@@ -158,7 +160,9 @@ class AppColors {
   static final Color billingGreyLight = Colors.grey.shade100;
   static final Color billingGreyMedium = Colors.grey.shade500;
   static final Color billingGreyDark = Colors.grey.shade700;
-  static final Color billingGreyTransparent = Colors.grey.withOpacity(0.3);
+  static final Color billingGreyTransparent = Colors.grey.withValues(
+    alpha: 0.3,
+  );
 
   // Success color
   static const Color billingSuccessColor = Colors.green;
@@ -168,9 +172,13 @@ class AppColors {
   static const Color billingTransparentColor = Colors.transparent;
 
   // Shadow colors
-  static final Color billingShadowColor = Colors.black.withOpacity(0.03);
-  static final Color billingShadowColorLight = Colors.black.withOpacity(0.05);
-  static final Color billingShadowColorMedium = Colors.black.withOpacity(0.08);
+  static final Color billingShadowColor = Colors.black.withValues(alpha: 0.03);
+  static final Color billingShadowColorLight = Colors.black.withValues(
+    alpha: 0.05,
+  );
+  static final Color billingShadowColorMedium = Colors.black.withValues(
+    alpha: 0.08,
+  );
 
   // Border colors with opacity
   static const Color billingBorderLight = Color(

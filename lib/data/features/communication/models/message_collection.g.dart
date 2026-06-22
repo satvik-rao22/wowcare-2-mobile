@@ -4009,33 +4009,43 @@ const ChatAttachmentCollectionSchema = Schema(
   name: r'ChatAttachmentCollection',
   id: -2974462360311791850,
   properties: {
-    r'localPath': PropertySchema(
+    r'attachmentId': PropertySchema(
       id: 0,
+      name: r'attachmentId',
+      type: IsarType.long,
+    ),
+    r'code': PropertySchema(
+      id: 1,
+      name: r'code',
+      type: IsarType.string,
+    ),
+    r'localPath': PropertySchema(
+      id: 2,
       name: r'localPath',
       type: IsarType.string,
     ),
     r'mimeType': PropertySchema(
-      id: 1,
+      id: 3,
       name: r'mimeType',
       type: IsarType.string,
     ),
     r'name': PropertySchema(
-      id: 2,
+      id: 4,
       name: r'name',
       type: IsarType.string,
     ),
     r'remoteUrl': PropertySchema(
-      id: 3,
+      id: 5,
       name: r'remoteUrl',
       type: IsarType.string,
     ),
     r'sizeBytes': PropertySchema(
-      id: 4,
+      id: 6,
       name: r'sizeBytes',
       type: IsarType.long,
     ),
     r'type': PropertySchema(
-      id: 5,
+      id: 7,
       name: r'type',
       type: IsarType.string,
     )
@@ -4052,6 +4062,12 @@ int _chatAttachmentCollectionEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  {
+    final value = object.code;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   {
     final value = object.localPath;
     if (value != null) {
@@ -4071,12 +4087,14 @@ void _chatAttachmentCollectionSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeString(offsets[0], object.localPath);
-  writer.writeString(offsets[1], object.mimeType);
-  writer.writeString(offsets[2], object.name);
-  writer.writeString(offsets[3], object.remoteUrl);
-  writer.writeLong(offsets[4], object.sizeBytes);
-  writer.writeString(offsets[5], object.type);
+  writer.writeLong(offsets[0], object.attachmentId);
+  writer.writeString(offsets[1], object.code);
+  writer.writeString(offsets[2], object.localPath);
+  writer.writeString(offsets[3], object.mimeType);
+  writer.writeString(offsets[4], object.name);
+  writer.writeString(offsets[5], object.remoteUrl);
+  writer.writeLong(offsets[6], object.sizeBytes);
+  writer.writeString(offsets[7], object.type);
 }
 
 ChatAttachmentCollection _chatAttachmentCollectionDeserialize(
@@ -4086,12 +4104,14 @@ ChatAttachmentCollection _chatAttachmentCollectionDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = ChatAttachmentCollection();
-  object.localPath = reader.readStringOrNull(offsets[0]);
-  object.mimeType = reader.readString(offsets[1]);
-  object.name = reader.readString(offsets[2]);
-  object.remoteUrl = reader.readString(offsets[3]);
-  object.sizeBytes = reader.readLong(offsets[4]);
-  object.type = reader.readString(offsets[5]);
+  object.attachmentId = reader.readLongOrNull(offsets[0]);
+  object.code = reader.readStringOrNull(offsets[1]);
+  object.localPath = reader.readStringOrNull(offsets[2]);
+  object.mimeType = reader.readString(offsets[3]);
+  object.name = reader.readString(offsets[4]);
+  object.remoteUrl = reader.readString(offsets[5]);
+  object.sizeBytes = reader.readLong(offsets[6]);
+  object.type = reader.readString(offsets[7]);
   return object;
 }
 
@@ -4103,16 +4123,20 @@ P _chatAttachmentCollectionDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readLongOrNull(offset)) as P;
     case 1:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 5:
+      return (reader.readString(offset)) as P;
+    case 6:
+      return (reader.readLong(offset)) as P;
+    case 7:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -4121,6 +4145,236 @@ P _chatAttachmentCollectionDeserializeProp<P>(
 
 extension ChatAttachmentCollectionQueryFilter on QueryBuilder<
     ChatAttachmentCollection, ChatAttachmentCollection, QFilterCondition> {
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> attachmentIdIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'attachmentId',
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> attachmentIdIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'attachmentId',
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> attachmentIdEqualTo(int? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'attachmentId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> attachmentIdGreaterThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'attachmentId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> attachmentIdLessThan(
+    int? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'attachmentId',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> attachmentIdBetween(
+    int? lower,
+    int? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'attachmentId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'code',
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'code',
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'code',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'code',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'code',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'code',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'code',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'code',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+          QAfterFilterCondition>
+      codeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'code',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+          QAfterFilterCondition>
+      codeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'code',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'code',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
+      QAfterFilterCondition> codeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'code',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<ChatAttachmentCollection, ChatAttachmentCollection,
       QAfterFilterCondition> localPathIsNull() {
     return QueryBuilder.apply(this, (query) {

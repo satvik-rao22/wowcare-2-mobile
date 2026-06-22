@@ -49,9 +49,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -96,11 +94,9 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
         if (state.isPaymentLoading) return;
         await _cubit.payNow();
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Pay Now (parent)'),
-          ),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Pay Now (parent)')));
       },
       onAutoPay: () async {
         if (state.isAutoPayLoading) return;
@@ -134,11 +130,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
             const SizedBox(height: 8),
             const Padding(
               padding: EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  AppText.title('Billing'),
-                ],
-              ),
+              child: Row(children: [AppText.title('Billing')]),
             ),
             // Sibling cards and date range
             Column(
@@ -153,9 +145,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
             if (state.isInitialLoadingTransactions)
               const Padding(
                 padding: EdgeInsets.all(24.0),
-                child: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: Center(child: CircularProgressIndicator()),
               )
             else if (filteredTransactions.isEmpty)
               Padding(
@@ -176,7 +166,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                             ? 'No transactions available for the selected date range'
                             : 'No transactions available',
                         style: AppTextStyles.body.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.7),
+                          color: AppColors.primaryColor.withValues(alpha: 0.7),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -231,8 +221,9 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                   children: [
                     TabBar(
                       labelColor: AppColors.themeColor,
-                      unselectedLabelColor:
-                          AppColors.primaryColor.withValues(alpha: 0.6),
+                      unselectedLabelColor: AppColors.primaryColor.withValues(
+                        alpha: 0.6,
+                      ),
                       controller: _tabController,
                       dividerColor: Colors.transparent,
                       indicatorColor: Colors.transparent,
@@ -246,15 +237,17 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                     SizedBox(
                       height: 2.5,
                       child: AnimatedBuilder(
-                        animation: _tabController.animation ??
+                        animation:
+                            _tabController.animation ??
                             const AlwaysStoppedAnimation(0),
                         builder: (context, child) {
                           final screenWidth = MediaQuery.of(context).size.width;
                           final tabWidth = screenWidth / 2;
 
                           // Get text width using default TabBar text style
-                          final defaultTextStyle =
-                              DefaultTextStyle.of(context).style;
+                          final defaultTextStyle = DefaultTextStyle.of(
+                            context,
+                          ).style;
                           final textStyle = defaultTextStyle.copyWith(
                             fontSize: 14,
                             fontWeight: FontWeight.w500,
@@ -266,8 +259,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                           )..layout();
 
                           final statementsText = TextPainter(
-                            text:
-                                TextSpan(text: 'Statements', style: textStyle),
+                            text: TextSpan(
+                              text: 'Statements',
+                              style: textStyle,
+                            ),
                             textDirection: TextDirection.ltr,
                           )..layout();
 
@@ -276,7 +271,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                               _tabController.animation?.value ?? 0.0;
 
                           // Interpolate between text widths
-                          final currentTextWidth = (statementsText.size.width -
+                          final currentTextWidth =
+                              (statementsText.size.width -
                                       billingText.size.width) *
                                   animationValue +
                               billingText.size.width;
@@ -286,8 +282,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                           final statementsCenter = tabWidth + tabWidth / 2;
 
                           // Interpolate between centers
-                          final currentCenter = (statementsCenter -
-                                      billingCenter) *
+                          final currentCenter =
+                              (statementsCenter - billingCenter) *
                                   animationValue +
                               billingCenter;
 
