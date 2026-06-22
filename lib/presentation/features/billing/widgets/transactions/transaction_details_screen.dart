@@ -411,88 +411,30 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                 // Tab bar
                 Container(
                   color: AppColors.cardColor,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TabBar(
-                        controller: _tabController,
-                        labelColor: AppColors.themeColor,
-                        unselectedLabelColor:
-                            AppColors.primaryColor.withValues(alpha: 0.6),
-                        dividerColor: Colors.transparent,
-                        indicatorColor: Colors.transparent,
-                        indicatorSize: TabBarIndicatorSize.label,
-                        tabs: const [
-                          Tab(text: 'Transactions'),
-                          Tab(text: 'Statements'),
-                        ],
-                      ),
-                      SizedBox(
-                        height: 2.5,
-                        child: AnimatedBuilder(
-                          animation: _tabController.animation ??
-                              const AlwaysStoppedAnimation(0),
-                          builder: (context, child) {
-                            final screenWidth =
-                                MediaQuery.of(context).size.width;
-                            final tabWidth = screenWidth / 2;
-
-                            final defaultTextStyle =
-                                DefaultTextStyle.of(context).style;
-                            final textStyle = defaultTextStyle.copyWith(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            );
-
-                            final transactionsText = TextPainter(
-                              text: TextSpan(
-                                  text: 'Transactions', style: textStyle),
-                              textDirection: TextDirection.ltr,
-                            )..layout();
-
-                            final statementsText = TextPainter(
-                              text: TextSpan(
-                                  text: 'Statements', style: textStyle),
-                              textDirection: TextDirection.ltr,
-                            )..layout();
-
-                            final animationValue =
-                                _tabController.animation?.value ?? 0.0;
-
-                            final currentTextWidth =
-                                (statementsText.size.width -
-                                            transactionsText.size.width) *
-                                        animationValue +
-                                    transactionsText.size.width;
-
-                            final transactionsCenter = tabWidth / 2;
-                            final statementsCenter = tabWidth + tabWidth / 2;
-                            final currentCenter = (statementsCenter -
-                                        transactionsCenter) *
-                                    animationValue +
-                                transactionsCenter;
-
-                            final leftOffset =
-                                currentCenter - currentTextWidth / 2;
-
-                            return Stack(
-                              children: [
-                                Positioned(
-                                  left: leftOffset,
-                                  width: currentTextWidth,
-                                  child: Container(
-                                    height: 2.5,
-                                    decoration: BoxDecoration(
-                                      gradient:
-                                          AppColors.buildPrimaryGradient(),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
+                  child: TabBar(
+                    controller: _tabController,
+                    dividerColor: Colors.transparent,
+                    indicator: const UnderlineTabIndicator(
+                      borderSide:
+                          BorderSide(color: AppColors.themeColor, width: 2),
+                    ),
+                    indicatorSize: TabBarIndicatorSize.label,
+                    indicatorPadding: const EdgeInsets.only(bottom: 8),
+                    labelColor: AppColors.themeColor,
+                    unselectedLabelColor:
+                        AppColors.primaryColor.withValues(alpha: 0.5),
+                    labelStyle: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    unselectedLabelStyle: const TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 16,
+                    ),
+                    tabs: const [
+                      Tab(text: 'Transactions'),
+                      Tab(text: 'Statements'),
                     ],
                   ),
                 ),

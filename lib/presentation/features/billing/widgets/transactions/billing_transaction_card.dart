@@ -290,67 +290,62 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                 maxLines: 1,
               ),
               const SizedBox(height: 3),
-              Flexible(
+              // Single ellipsizable chip ("Invoice (Sent)") — avoids the inner
+              // min-size Row that can't shrink and was overflowing.
+              Align(
+                alignment: Alignment.centerLeft,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
                     color: _badgeColor(type, widget.transaction.status),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: <Widget>[
-                      Text(
-                      _badgeLabel(type),
-                      style: AppTextStyles.label.copyWith(
-                        fontSize: 13,
-                        color: AppColors.billingTextColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                      const SizedBox(width: 3),
-                      Flexible(
-                        child: Text(
-                          '(${_formatStatus(widget.transaction.status)})',
-                          style: AppTextStyles.small.copyWith(
-                            color: AppColors.billingTextColor.withOpacity(0.7),
-                            fontWeight: FontWeight.w500,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ),
-                    ],
+                    borderRadius: BorderRadius.circular(6),
                   ),
+                  child: Text(
+                    '${_badgeLabel(type)} (${_formatStatus(widget.transaction.status)})',
+                    style: AppTextStyles.label.copyWith(
+                      fontSize: 13,
+                      color: AppColors.billingTextColor,
+                      fontWeight: FontWeight.w600,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
-                ],
+                ),
               ),
+            ],
+          ),
         ),
         const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  Text(
-              _formatCurrency(widget.transaction.amount),
-                    style: AppTextStyles.title.copyWith(
-                fontSize: 14,
-                color: AppColors.billingTextColor,
-                    ),
-                  ),
-            const SizedBox(height: 3),
-                  Text(
-                    dateLabel,
-              style: AppTextStyles.small.copyWith(
-                fontSize: 13,
-                color: AppColors.billingTextColor.withOpacity(0.7),
-                    ),
-                    textAlign: TextAlign.right,
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-                  ),
-                ],
+        // Flexible so the amount/date yields width to the name column instead of
+        // squeezing it (the cause of the badge overflow).
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              Text(
+                _formatCurrency(widget.transaction.amount),
+                style: AppTextStyles.title.copyWith(
+                  fontSize: 14,
+                  color: AppColors.billingTextColor,
+                ),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+              const SizedBox(height: 3),
+              Text(
+                dateLabel,
+                style: AppTextStyles.small.copyWith(
+                  fontSize: 13,
+                  color: AppColors.billingTextColor.withOpacity(0.7),
+                ),
+                textAlign: TextAlign.right,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 1,
+              ),
+            ],
+          ),
         ),
       ],
     );
