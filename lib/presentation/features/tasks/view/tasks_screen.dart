@@ -12,7 +12,6 @@ import 'package:wowcare/presentation/features/tasks/widgets/task_card.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_filter_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/expandable_section.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -415,61 +414,22 @@ class _TasksScreenState extends State<TasksScreen> {
   // --------------------------------------------------------- list view
 
   Widget _listView(BuildContext context, TasksState state, RoleCubit roles) {
-    final tasks = state.activeTasksOrdered;
-    final completed = state.completedTasksOrdered;
-    if (tasks.isEmpty && completed.isEmpty) {
+    // Completed tasks are surfaced via the status filter rather than a
+    // dedicated section, so the list simply shows all filtered tasks.
+    final tasks = state.listTasksOrdered;
+    if (tasks.isEmpty) {
       return _emptyState('No tasks match the current filters');
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (completed.isNotEmpty) ...[
-          _completedSection(context, state, roles, completed),
-          const SizedBox(height: 10),
-        ],
-        Expanded(
-          child: tasks.isEmpty
-              ? _emptyState('No active tasks')
-              : RefreshIndicator(
-                  color: AppColors.themeColor,
-                  onRefresh: () =>
-                      context.read<TasksCubit>().load(silent: true),
-                  child: ListView.separated(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.only(bottom: 90),
-                    itemCount: tasks.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) =>
-                        _buildCard(context, state, roles, tasks[index]),
-                  ),
-                ),
-        ),
-      ],
-    );
-  }
-
-  /// Collapsible "View Completed Tasks" list shown at the top of the list
-  /// view. Collapsed by default; the body scrolls internally so it can sit
-  /// above the active [Expanded] list without overflowing.
-  Widget _completedSection(
-    BuildContext context,
-    TasksState state,
-    RoleCubit roles,
-    List<Task> completed,
-  ) {
-    return ExpandableSection(
-      title: 'View Completed Tasks',
-      count: completed.length,
-      icon: Icons.history,
-      maxBodyHeight: 320,
-      child: Column(
-        children: [
-          for (final task in completed)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _buildCard(context, state, roles, task),
-            ),
-        ],
+    return RefreshIndicator(
+      color: AppColors.themeColor,
+      onRefresh: () => context.read<TasksCubit>().load(silent: true),
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.only(bottom: 90),
+        itemCount: tasks.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) =>
+            _buildCard(context, state, roles, tasks[index]),
       ),
     );
   }

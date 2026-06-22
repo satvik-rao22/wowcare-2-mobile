@@ -133,11 +133,16 @@ class TasksState extends Equatable {
         filteredTasks.where((t) => t.status != TaskStatus.completed).toList(),
       );
 
-  /// Completed filtered tasks, most recently due first — backs the
-  /// collapsible "Completed" section in the list view.
+  /// Completed filtered tasks, most recently due first.
   List<Task> get completedTasksOrdered =>
       filteredTasks.where((t) => t.status == TaskStatus.completed).toList()
         ..sort((a, b) => b.dueAt.compareTo(a.dueAt));
+
+  /// All filtered tasks for the list view: active first (overdue first),
+  /// then completed (most recently due last). The status filter narrows this
+  /// when the user wants only completed (or any single status).
+  List<Task> get listTasksOrdered =>
+      [...activeTasksOrdered, ...completedTasksOrdered];
 
   /// Orders [source] with overdue tasks first (by due moment), then the
   /// remaining tasks (also by due moment).

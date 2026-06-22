@@ -40,6 +40,10 @@ class _EventsScreenState extends State<EventsScreen> {
 
   int _tabIndex = 0; // 0 = Events, 1 = Holidays
   _EventsViewMode _viewMode = _EventsViewMode.calendar;
+
+  /// When true, every view shows completed events (most recently completed
+  /// first) instead of the upcoming-event content.
+  bool _showCompleted = false;
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.week;
@@ -205,42 +209,97 @@ class _EventsScreenState extends State<EventsScreen> {
         if (state.isSearching)
           Expanded(child: _searchResults(context, state, roles))
         else ...[
-          switch (_viewMode) {
-            // Calendar: completed list sits below the calendar (above the
-            // selected-day list).
-            _EventsViewMode.calendar => Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _calendarCard(context, state),
-                    const SizedBox(height: 10),
-                    _completedSection(context, state, roles),
-                    Expanded(child: _dayList(context, state, roles)),
-                  ],
-                ),
-              ),
-            // Grid & list: completed list sits at the very top.
-            _EventsViewMode.grid => Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _completedSection(context, state, roles),
-                    Expanded(child: _gridView(context, state, roles)),
-                  ],
-                ),
-              ),
-            _EventsViewMode.list => Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _completedSection(context, state, roles),
-                    Expanded(child: _listView(context, state, roles)),
-                  ],
-                ),
-              ),
-          },
+          _completedToggle(state),
+          const SizedBox(height: 10),
+          Expanded(child: _eventsContent(context, state, roles)),
         ],
       ],
+    );
+  }
+
+  /// Main content for the events tab. The calendar keeps its full layout in
+  /// both modes — in completed mode it marks only past completed events and
+  /// defaults to the latest one. Grid/list swap their data source between
+  /// upcoming and completed (the latter descending by occurrence date).
+  Widget _eventsContent(
+    BuildContext context,
+    EventsState state,
+    RoleCubit roles,
+  ) {
+    if (_viewMode == _EventsViewMode.calendar) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _calendarCard(context, state),
+          const SizedBox(height: 10),
+          Expanded(child: _dayList(context, state, roles)),
+        ],
+      );
+    }
+    final events = _showCompleted ? state.completedEvents : state.upcomingEvents;
+    final emptyMessage =
+        _showCompleted ? 'No completed events' : 'No upcoming events';
+    return _viewMode == _EventsViewMode.grid
+        ? _gridView(context, state, roles, events, emptyMessage: emptyMessage)
+        : _listView(context, state, roles, events, emptyMessage: emptyMessage);
+  }
+
+  /// Pill toggle (shared by all three views) that switches the content
+  /// between upcoming and completed events. In calendar mode, turning it on
+  /// jumps the calendar to the most recently completed event.
+  Widget _completedToggle(EventsState state) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Material(
+        color: _showCompleted
+            ? AppColors.themeColor.withValues(alpha: 0.12)
+            : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(20),
+          onTap: () => setState(() {
+            _showCompleted = !_showCompleted;
+            if (_showCompleted && _viewMode == _EventsViewMode.calendar) {
+              _jumpToLatestCompleted(state);
+            }
+          }),
+          child: Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _showCompleted
+                    ? AppColors.themeColor
+                    : Colors.grey.shade300,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _showCompleted ? Icons.history : Icons.history_outlined,
+                  size: 16,
+                  color: _showCompleted
+                      ? AppColors.themeColor
+                      : Colors.grey[600],
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'View Completed',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: _showCompleted
+                        ? AppColors.themeColor
+                        : Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -294,7 +353,7 @@ class _EventsScreenState extends State<EventsScreen> {
         const SizedBox(width: 8),
         _filterButton(context, state),
         const SizedBox(width: 8),
-        _viewSwitcher(),
+        _viewSwitcher(state),
       ],
     );
   }
@@ -355,13 +414,20 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  Widget _viewSwitcher() {
+  Widget _viewSwitcher(EventsState state) {
     Widget option(_EventsViewMode mode, IconData icon, String tooltip) {
       final selected = _viewMode == mode;
       return Tooltip(
         message: tooltip,
         child: GestureDetector(
-          onTap: () => setState(() => _viewMode = mode),
+          onTap: () => setState(() {
+            _viewMode = mode;
+            // Entering the calendar while viewing completed events should
+            // land on the most recently completed event.
+            if (_showCompleted && mode == _EventsViewMode.calendar) {
+              _jumpToLatestCompleted(state);
+            }
+          }),
           child: Container(
             width: 30,
             height: 30,
@@ -428,7 +494,7 @@ class _EventsScreenState extends State<EventsScreen> {
         startingDayOfWeek: StartingDayOfWeek.monday,
         selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
         holidayPredicate: state.isHoliday,
-        eventLoader: state.eventsOn,
+        eventLoader: (day) => _calendarEventsOn(state, day),
         onDaySelected: (selectedDay, focusedDay) {
           setState(() {
             _selectedDay = selectedDay;
@@ -514,8 +580,11 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _dayList(BuildContext context, EventsState state, RoleCubit roles) {
-    final dayEvents = state.eventsOn(_selectedDay);
-    final dayHolidays = state.holidaysOn(_selectedDay);
+    final dayEvents = _calendarEventsOn(state, _selectedDay);
+    // Holidays are only relevant to the upcoming/schedule view, not the
+    // completed-events view.
+    final dayHolidays =
+        _showCompleted ? const <Holiday>[] : state.holidaysOn(_selectedDay);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -530,7 +599,9 @@ class _EventsScreenState extends State<EventsScreen> {
         const SizedBox(height: 8),
         Expanded(
           child: dayEvents.isEmpty && dayHolidays.isEmpty
-              ? _emptyState('Nothing scheduled for this day')
+              ? _emptyState(_showCompleted
+                  ? 'No completed events on this day'
+                  : 'Nothing scheduled for this day')
               : RefreshIndicator(
                   color: AppColors.themeColor,
                   onRefresh: () =>
@@ -600,49 +671,17 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  // ---------------------------------------------------- completed events
+  // --------------------------------------------------- grid & list view
 
-  /// Collapsible "View Completed Events" list shared by all three views.
-  /// Hidden entirely when there are no completed events for the current
-  /// filters. Collapsed by default; the body scrolls internally so it can
-  /// sit above an [Expanded] list without overflowing.
-  Widget _completedSection(
+  Widget _gridView(
     BuildContext context,
     EventsState state,
     RoleCubit roles,
-  ) {
-    final completed = state.completedEvents;
-    if (completed.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: ExpandableSection(
-        title: 'View Completed Events',
-        count: completed.length,
-        icon: Icons.history,
-        maxBodyHeight: 320,
-        child: Column(
-          children: [
-            for (final event in completed)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: EventCard(
-                  event: event,
-                  showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
-                  onTap: () => _openDetail(context, event),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --------------------------------------------------- grid & list view
-
-  Widget _gridView(BuildContext context, EventsState state, RoleCubit roles) {
-    final events = state.upcomingEvents;
+    List<Event> events, {
+    required String emptyMessage,
+  }) {
     if (events.isEmpty) {
-      return _emptyState('No upcoming events');
+      return _emptyState(emptyMessage);
     }
     return RefreshIndicator(
       color: AppColors.themeColor,
@@ -680,10 +719,15 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  Widget _listView(BuildContext context, EventsState state, RoleCubit roles) {
-    final events = state.upcomingEvents;
+  Widget _listView(
+    BuildContext context,
+    EventsState state,
+    RoleCubit roles,
+    List<Event> events, {
+    required String emptyMessage,
+  }) {
     if (events.isEmpty) {
-      return _emptyState('No upcoming events');
+      return _emptyState(emptyMessage);
     }
     return RefreshIndicator(
       color: AppColors.themeColor,
@@ -940,4 +984,25 @@ class _EventsScreenState extends State<EventsScreen> {
 
   static bool _sameMonth(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month;
+
+  /// Events occurring on [day] for the calendar — limited to completed
+  /// events while the "View Completed" toggle is on so only past completed
+  /// occurrences are marked/listed.
+  List<Event> _calendarEventsOn(EventsState state, DateTime day) {
+    final events = state.eventsOn(day);
+    if (!_showCompleted) return events;
+    final now = DateTime.now();
+    return events.where((e) => e.isCompletedAsOf(now)).toList();
+  }
+
+  /// Moves the calendar's focus/selection to the most recently completed
+  /// event so it (and its day) are shown first. No-op when there are none.
+  /// Must be called inside [setState].
+  void _jumpToLatestCompleted(EventsState state) {
+    final completed = state.completedEvents;
+    if (completed.isEmpty) return;
+    final latest = completed.first.date;
+    _selectedDay = latest;
+    _focusedDay = latest;
+  }
 }

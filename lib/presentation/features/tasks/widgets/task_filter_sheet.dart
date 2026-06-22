@@ -129,6 +129,11 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                       label: status.label,
                       color: TaskUiUtils.statusColor(status),
                       selected: state.statusFilter.contains(status),
+                      // Completed contradicts "Overdue only" — a completed
+                      // task is never overdue — so disable it while that
+                      // toggle is on.
+                      disabled: status == TaskStatus.completed &&
+                          state.overdueOnly,
                       onTap: () => cubit.toggleStatusFilter(status),
                     ),
                 ],
@@ -191,6 +196,10 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
               const SizedBox(height: 14),
               _OverdueToggle(
                 value: state.overdueOnly,
+                // Mirror of the Completed guard above: a completed task is
+                // never overdue, so disable this toggle while Completed is
+                // an active status filter.
+                enabled: !state.statusFilter.contains(TaskStatus.completed),
                 onChanged: cubit.setOverdueOnly,
               ),
             ],
@@ -262,7 +271,25 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
     required Color color,
     required bool selected,
     required VoidCallback onTap,
+    bool disabled = false,
   }) {
+    if (disabled) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.grey.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade400,
+          ),
+        ),
+      );
+    }
     return Material(
       color: selected ? color : color.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(16),
@@ -422,13 +449,20 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
 }
 
 class _OverdueToggle extends StatelessWidget {
-  const _OverdueToggle({required this.value, required this.onChanged});
+  const _OverdueToggle({
+    required this.value,
+    required this.onChanged,
+    this.enabled = true,
+  });
 
   final bool value;
   final ValueChanged<bool> onChanged;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
+    final accent =
+        enabled ? TaskUiUtils.overdueColor : Colors.grey.shade400;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       decoration: BoxDecoration(
@@ -438,19 +472,21 @@ class _OverdueToggle extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline,
-              size: 17, color: TaskUiUtils.overdueColor),
+          Icon(Icons.error_outline, size: 17, color: accent),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
               'Overdue only',
-              style: TextStyle(fontSize: 13, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 13,
+                color: enabled ? Colors.black87 : Colors.grey.shade400,
+              ),
             ),
           ),
           Switch(
             value: value,
             activeThumbColor: TaskUiUtils.overdueColor,
-            onChanged: onChanged,
+            onChanged: enabled ? onChanged : null,
           ),
         ],
       ),
