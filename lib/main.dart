@@ -36,13 +36,15 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 /// cold-launched the app (killed state) — a reliable fallback for
 /// FirebaseMessaging.getInitialMessage() returning null with our manual plugin
 /// registration. See MainActivity.consumeLaunchNotificationData().
-const MethodChannel _notificationChannel =
-    MethodChannel('wowcare/notifications');
+const MethodChannel _notificationChannel = MethodChannel(
+  'wowcare/notifications',
+);
 
 Future<Map<String, String>?> _readNativeLaunchNotification() async {
   try {
-    final raw = await _notificationChannel
-        .invokeMapMethod<String, dynamic>('getInitialNotificationData');
+    final raw = await _notificationChannel.invokeMapMethod<String, dynamic>(
+      'getInitialNotificationData',
+    );
     if (raw == null) return null;
     return raw.map((k, v) => MapEntry(k, v?.toString() ?? ''));
   } catch (_) {
@@ -107,7 +109,9 @@ Future<void> main() async {
         ),
       );
       if (dest != null) pendingNotificationDeepLink = dest.location;
-      AppLogger.d('[main] stashed pendingNotificationDeepLink=$pendingNotificationDeepLink');
+      AppLogger.d(
+        '[main] stashed pendingNotificationDeepLink=$pendingNotificationDeepLink',
+      );
     }
 
     // Killed-state tap of a LOCAL notification: when an FCM message arrives
@@ -127,7 +131,9 @@ Future<void> main() async {
           payload != null &&
           payload.isNotEmpty) {
         pendingNotificationDeepLink = payload;
-        AppLogger.d('[main] stashed (local notif) pendingNotificationDeepLink=$pendingNotificationDeepLink');
+        AppLogger.d(
+          '[main] stashed (local notif) pendingNotificationDeepLink=$pendingNotificationDeepLink',
+        );
       }
     }
   } catch (e) {
@@ -171,7 +177,7 @@ class MyApp extends StatelessWidget {
           return MediaQuery(
             data: MediaQuery.of(
               context,
-            ).copyWith(textScaler: TextScaler.linear(customScaler)),
+            ).copyWith(textScaler: TextScaler.linear(customScaler * 1.0)),
             child: Sizer(
               builder: (context, orientation, screenType) {
                 return MultiBlocProvider(

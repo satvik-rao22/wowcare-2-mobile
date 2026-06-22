@@ -28,9 +28,14 @@ class TaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final overdue = task.isOverdue;
-    final accent = overdue ? TaskUiUtils.overdueColor : TaskUiUtils.accent;
-    return Material(
-      color: Colors.white,
+    // Completed tasks read as a muted "archive" entry (the green status badge
+    // already labels them "Completed"); overdue tasks get the red accent.
+    final completed = task.status == TaskStatus.completed;
+    final accent = completed
+        ? Colors.grey
+        : (overdue ? TaskUiUtils.overdueColor : TaskUiUtils.accent);
+    final card = Material(
+      color: completed ? const Color(0xFFFAFAFA) : Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -40,13 +45,15 @@ class TaskCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: accent.withValues(alpha: 0.18)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: completed
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -141,5 +148,6 @@ class TaskCard extends StatelessWidget {
         ),
       ),
     );
+    return completed ? Opacity(opacity: 0.85, child: card) : card;
   }
 }

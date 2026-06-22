@@ -93,6 +93,27 @@ class EventsState extends Equatable {
     }).toList();
   }
 
+  /// Upcoming (not-yet-completed) filtered events, ordered by occurrence
+  /// date ascending then start time — today's events first, then the next
+  /// day, and so on (FR list-view sort).
+  List<Event> get upcomingEvents {
+    final now = DateTime.now();
+    return filteredEvents.where((e) => !e.isCompletedAsOf(now)).toList()
+      ..sort((a, b) {
+        final byDate = a.date.compareTo(b.date);
+        if (byDate != 0) return byDate;
+        return a.startTime.compareTo(b.startTime);
+      });
+  }
+
+  /// Completed (fully past) filtered events, most recently completed first.
+  /// Backs the collapsible "Completed Events" section.
+  List<Event> get completedEvents {
+    final now = DateTime.now();
+    return filteredEvents.where((e) => e.isCompletedAsOf(now)).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
   /// Whether [event] belongs to the current user's "My Events" scope:
   /// created by them, invites them as staff, or is school-wide. Permissive
   /// when the user identity hasn't resolved yet.

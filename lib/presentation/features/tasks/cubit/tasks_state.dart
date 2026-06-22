@@ -116,6 +116,43 @@ class TasksState extends Equatable {
   int countWithStatus(TaskStatus status) =>
       filteredTasks.where((t) => t.status == status).length;
 
+  /// Tasks for a Kanban board with the required ordering: overdue items
+  /// first (by due moment) on the active boards, and most-recently-due
+  /// first on the Completed board (completed tasks are never overdue).
+  List<Task> orderedTasksWithStatus(TaskStatus status) {
+    final list = tasksWithStatus(status);
+    if (status == TaskStatus.completed) {
+      return list..sort((a, b) => b.dueAt.compareTo(a.dueAt));
+    }
+    return _overdueFirst(list);
+  }
+
+  /// Non-completed filtered tasks, overdue first then the rest — backs the
+  /// list view's active list.
+  List<Task> get activeTasksOrdered => _overdueFirst(
+        filteredTasks.where((t) => t.status != TaskStatus.completed).toList(),
+      );
+
+  /// Completed filtered tasks, most recently due first — backs the
+  /// collapsible "Completed" section in the list view.
+  List<Task> get completedTasksOrdered =>
+      filteredTasks.where((t) => t.status == TaskStatus.completed).toList()
+        ..sort((a, b) => b.dueAt.compareTo(a.dueAt));
+
+  /// Orders [source] with overdue tasks first (by due moment), then the
+  /// remaining tasks (also by due moment).
+  List<Task> _overdueFirst(List<Task> source) {
+    final now = DateTime.now();
+    final overdue = <Task>[];
+    final rest = <Task>[];
+    for (final task in source) {
+      (task.isOverdueAt(now) ? overdue : rest).add(task);
+    }
+    overdue.sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    rest.sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    return [...overdue, ...rest];
+  }
+
   /// Whether [task] is assigned to the current user. "My Tasks" shows only
   /// tasks assigned to the current user (PRD FR-TK-19) — note this is the
   /// *view* scope and is intentionally narrower than manage-ownership in

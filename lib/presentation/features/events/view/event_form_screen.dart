@@ -114,10 +114,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              _label('Event Type'),
+              _label('Event Type', required: true),
               _typeSelector(),
               const SizedBox(height: 14),
-              _label('Event Name'),
+              _label('Event Name', required: true),
               TextFormField(
                 controller: _nameController,
                 textCapitalization: TextCapitalization.sentences,
@@ -126,7 +126,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                     (value ?? '').trim().isEmpty ? 'Name is required' : null,
               ),
               const SizedBox(height: 14),
-              _label('Date & Time'),
+              _label('Date & Time', required: true),
               _dateTile(),
               const SizedBox(height: 8),
               _switchTile(
@@ -183,7 +183,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                     _inputDecoration('e.g. What to bring, where to meet…'),
               ),
               const SizedBox(height: 14),
-              _label('Attendees'),
+              _label('Attendees', required: _type != EventType.school),
               ..._audienceSection(),
               if (_type != EventType.staff) ...[
                 const SizedBox(height: 8),
@@ -727,15 +727,25 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   // ------------------------------------------------------------ helpers
 
-  Widget _label(String text) {
+  Widget _label(String text, {bool required = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryColor,
+      child: Text.rich(
+        TextSpan(
+          text: text,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryColor,
+          ),
+          children: required
+              ? const [
+                  TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: AppColors.errorColor),
+                  ),
+                ]
+              : null,
         ),
       ),
     );

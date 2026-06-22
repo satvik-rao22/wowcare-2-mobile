@@ -140,7 +140,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              _label('Task Name'),
+              _label('Task Name', required: true),
               TextFormField(
                 controller: _titleController,
                 textCapitalization: TextCapitalization.sentences,
@@ -158,7 +158,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 decoration: _inputDecoration('Add context for this task…'),
               ),
               const SizedBox(height: 14),
-              _label('Assignee'),
+              _label('Assignee', required: true),
               _assigneePicker(),
               const SizedBox(height: 14),
               _label('Priority'),
@@ -873,15 +873,25 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
   }
 
-  Widget _label(String text) {
+  Widget _label(String text, {bool required = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryColor,
+      child: Text.rich(
+        TextSpan(
+          text: text,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryColor,
+          ),
+          children: required
+              ? const [
+                  TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: AppColors.errorColor),
+                  ),
+                ]
+              : null,
         ),
       ),
     );

@@ -17,13 +17,16 @@ class EventAccess {
   /// Admin and staff can create events; parents never can.
   static bool canCreateEvents(RoleCubit roles) => !roles.isParent;
 
-  /// Event types the current persona may create. Staff cannot create
-  /// school-wide events (PRD §5.1: "no school type allowed").
+  /// Event types the current persona may create. The Individual type is
+  /// retired from creation (kept on the enum only so existing individual
+  /// events still render/edit). Staff additionally cannot create school-wide
+  /// events (PRD §5.1: "no school type allowed").
   static List<EventType> creatableTypes(RoleCubit roles) {
-    if (isAdmin(roles)) return List.of(EventType.values);
-    return EventType.values
-        .where((type) => type != EventType.school)
-        .toList();
+    return EventType.values.where((type) {
+      if (type == EventType.individual) return false;
+      if (type == EventType.school && !isAdmin(roles)) return false;
+      return true;
+    }).toList();
   }
 
   /// Add/edit/delete school holidays and approve/reject federal holidays

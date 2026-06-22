@@ -86,6 +86,25 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
               ),
             ),
             const SizedBox(height: 14),
+            const Padding(
+              padding: EdgeInsets.only(bottom: 6),
+              child: Text.rich(
+                TextSpan(
+                  text: 'Holiday name',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primaryColor,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: ' *',
+                      style: TextStyle(color: AppColors.errorColor),
+                    ),
+                  ],
+                ),
+              ),
+            ),
             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,

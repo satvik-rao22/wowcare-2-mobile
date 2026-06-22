@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/events/widgets/holiday_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_form_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/expandable_section.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -205,20 +206,38 @@ class _EventsScreenState extends State<EventsScreen> {
           Expanded(child: _searchResults(context, state, roles))
         else ...[
           switch (_viewMode) {
+            // Calendar: completed list sits below the calendar (above the
+            // selected-day list).
             _EventsViewMode.calendar => Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _calendarCard(context, state),
                     const SizedBox(height: 10),
+                    _completedSection(context, state, roles),
                     Expanded(child: _dayList(context, state, roles)),
                   ],
                 ),
               ),
-            _EventsViewMode.grid =>
-              Expanded(child: _gridView(context, state, roles)),
-            _EventsViewMode.list =>
-              Expanded(child: _listView(context, state, roles)),
+            // Grid & list: completed list sits at the very top.
+            _EventsViewMode.grid => Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _completedSection(context, state, roles),
+                    Expanded(child: _gridView(context, state, roles)),
+                  ],
+                ),
+              ),
+            _EventsViewMode.list => Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _completedSection(context, state, roles),
+                    Expanded(child: _listView(context, state, roles)),
+                  ],
+                ),
+              ),
           },
         ],
       ],
@@ -581,12 +600,49 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
+  // ---------------------------------------------------- completed events
+
+  /// Collapsible "View Completed Events" list shared by all three views.
+  /// Hidden entirely when there are no completed events for the current
+  /// filters. Collapsed by default; the body scrolls internally so it can
+  /// sit above an [Expanded] list without overflowing.
+  Widget _completedSection(
+    BuildContext context,
+    EventsState state,
+    RoleCubit roles,
+  ) {
+    final completed = state.completedEvents;
+    if (completed.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ExpandableSection(
+        title: 'View Completed Events',
+        count: completed.length,
+        icon: Icons.history,
+        maxBodyHeight: 320,
+        child: Column(
+          children: [
+            for (final event in completed)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: EventCard(
+                  event: event,
+                  showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
+                  onTap: () => _openDetail(context, event),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // --------------------------------------------------- grid & list view
 
   Widget _gridView(BuildContext context, EventsState state, RoleCubit roles) {
-    final events = _upcomingFirst(state.filteredEvents);
+    final events = state.upcomingEvents;
     if (events.isEmpty) {
-      return _emptyState('No events match the current filters');
+      return _emptyState('No upcoming events');
     }
     return RefreshIndicator(
       color: AppColors.themeColor,
@@ -625,9 +681,9 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _listView(BuildContext context, EventsState state, RoleCubit roles) {
-    final events = _upcomingFirst(state.filteredEvents);
+    final events = state.upcomingEvents;
     if (events.isEmpty) {
-      return _emptyState('No events match the current filters');
+      return _emptyState('No upcoming events');
     }
     return RefreshIndicator(
       color: AppColors.themeColor,
@@ -737,51 +793,55 @@ class _EventsScreenState extends State<EventsScreen> {
         padding: const EdgeInsets.only(bottom: 90),
         children: [
           if (school.isNotEmpty) ...[
-            _holidaySectionHeader('School Holidays'),
-            for (final holiday in school)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: HolidayCard(
-                  holiday: holiday,
-                  onEdit: canManage
-                      ? () =>
-                          showHolidayFormSheet(context, holiday: holiday)
-                      : null,
-                  onDelete: canManage
-                      ? () => _confirmDeleteHoliday(context, holiday)
-                      : null,
-                ),
+            ExpandableSection(
+              title: 'School Holidays',
+              count: school.length,
+              icon: Icons.beach_access_outlined,
+              initiallyExpanded: true,
+              child: Column(
+                children: [
+                  for (final holiday in school)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: HolidayCard(
+                        holiday: holiday,
+                        onEdit: canManage
+                            ? () => showHolidayFormSheet(context,
+                                holiday: holiday)
+                            : null,
+                        onDelete: canManage
+                            ? () => _confirmDeleteHoliday(context, holiday)
+                            : null,
+                      ),
+                    ),
+                ],
               ),
+            ),
+            const SizedBox(height: 10),
           ],
-          if (federal.isNotEmpty) ...[
-            _holidaySectionHeader('Federal Holidays'),
-            for (final holiday in federal)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: HolidayCard(
-                  holiday: holiday,
-                  onStatusChanged: canManage
-                      ? (status) =>
-                          cubit.setHolidayStatus(holiday.code, status)
-                      : null,
-                ),
+          if (federal.isNotEmpty)
+            ExpandableSection(
+              title: 'Federal Holidays',
+              count: federal.length,
+              icon: Icons.flag_outlined,
+              initiallyExpanded: true,
+              child: Column(
+                children: [
+                  for (final holiday in federal)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: HolidayCard(
+                        holiday: holiday,
+                        onStatusChanged: canManage
+                            ? (status) =>
+                                cubit.setHolidayStatus(holiday.code, status)
+                            : null,
+                      ),
+                    ),
+                ],
               ),
-          ],
+            ),
         ],
-      ),
-    );
-  }
-
-  Widget _holidaySectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 2),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.primaryColor,
-          fontSize: 13.5,
-          fontWeight: FontWeight.w600,
-        ),
       ),
     );
   }

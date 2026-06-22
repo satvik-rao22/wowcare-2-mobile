@@ -199,6 +199,21 @@ class Event extends Equatable {
   int rsvpCount(EventRsvpStatus status) =>
       rsvps.where((r) => r.status == status).length;
 
+  /// Whether the event has fully passed as of [now] — i.e. it has no
+  /// occurrence today or later. Non-recurring events are completed once
+  /// [date] is before today; recurring events once their [recurringEndDate]
+  /// has passed. A recurring event without an end date is treated as ongoing
+  /// and never reports completed.
+  bool isCompletedAsOf(DateTime now) {
+    final today = DateTime(now.year, now.month, now.day);
+    final lastDate = recurring ? recurringEndDate : date;
+    if (lastDate == null) return false;
+    final last = DateTime(lastDate.year, lastDate.month, lastDate.day);
+    return last.isBefore(today);
+  }
+
+  bool get isCompleted => isCompletedAsOf(DateTime.now());
+
   /// Whether this event (including recurring expansions) lands on [day].
   bool occursOn(DateTime day) {
     final target = DateTime(day.year, day.month, day.day);

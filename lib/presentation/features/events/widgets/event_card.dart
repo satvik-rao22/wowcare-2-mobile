@@ -21,9 +21,13 @@ class EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = EventUiUtils.typeColor(event.type);
-    return Material(
-      color: Colors.white,
+    final completed = event.isCompleted;
+    // Completed events read as a muted "archive" entry: grey accent, faded
+    // content and a "Completed" chip so they stand out from upcoming items.
+    final color =
+        completed ? Colors.grey : EventUiUtils.typeColor(event.type);
+    final card = Material(
+      color: completed ? const Color(0xFFFAFAFA) : Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -33,13 +37,15 @@ class EventCard extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: color.withValues(alpha: 0.18)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            boxShadow: completed
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 6,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -57,15 +63,19 @@ class EventCard extends StatelessWidget {
                             event.name,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.black87,
+                              color:
+                                  completed ? Colors.grey[700] : Colors.black87,
                             ),
                           ),
                         ),
                         const SizedBox(width: 6),
-                        EventTypeChip(type: event.type, compact: true),
+                        if (completed)
+                          const _CompletedChip()
+                        else
+                          EventTypeChip(type: event.type, compact: true),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -118,6 +128,7 @@ class EventCard extends StatelessWidget {
         ),
       ),
     );
+    return completed ? Opacity(opacity: 0.85, child: card) : card;
   }
 
   Widget _dateBadge(Color color) {
@@ -145,6 +156,38 @@ class EventCard extends StatelessWidget {
               fontSize: 18,
               fontWeight: FontWeight.w700,
               color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small grey "Completed" chip shown on past events in place of the type chip.
+class _CompletedChip extends StatelessWidget {
+  const _CompletedChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.grey.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_outline, size: 11, color: Colors.grey[600]),
+          const SizedBox(width: 3),
+          Text(
+            'Completed',
+            style: TextStyle(
+              color: Colors.grey[700],
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ],
