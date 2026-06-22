@@ -343,10 +343,15 @@ import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
 import '../../data/services/file_download_service.dart';
 import '../../data/features/reports/repositories/file_download_repository.dart';
+import '../../data/features/billing/datasources/billing_statements_remote_datasource.dart';
 import '../../data/features/billing/datasources/ledger_remote_datasource.dart';
 import '../../data/features/billing/datasources/ledger_transaction_remote_datasource.dart';
+import '../../data/features/billing/repositories/billing_statements_repository_impl.dart';
 import '../../data/features/billing/repositories/ledger_repository_impl.dart';
 import '../../data/features/billing/repositories/ledger_transaction_repository_impl.dart';
+import '../../domain/features/billing/repositories/billing_statements_repository.dart';
+import '../../domain/features/billing/usecases/get_billing_statements_usecase.dart';
+import '../../presentation/features/billing/cubit/admin_statements_cubit.dart';
 import '../../domain/features/billing/repositories/ledger_repository.dart';
 import '../../domain/features/billing/repositories/ledger_transaction_repository.dart';
 import '../../domain/features/billing/usecases/get_ledgers_usecase.dart';
@@ -2039,6 +2044,26 @@ Future<void> configureDependencies({String? baseUrl}) async {
       cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
       deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
       storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<BillingStatementsRemoteDataSource>(
+    () => BillingStatementsRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<BillingStatementsRepository>(
+    () => BillingStatementsRepositoryImpl(
+      serviceLocator<BillingStatementsRemoteDataSource>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetBillingStatementsUseCase>(
+    () => GetBillingStatementsUseCase(
+      serviceLocator<BillingStatementsRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<AdminStatementsCubit>(
+    () => AdminStatementsCubit(
+      getStatements: serviceLocator<GetBillingStatementsUseCase>(),
+      statementsRepository: serviceLocator<BillingStatementsRepository>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
     ),
   );
   serviceLocator.registerFactory<TransactionsCubit>(

@@ -235,6 +235,7 @@ class ApiPaths {
         return ApiMicroservices.notification;
       case 'kiosk':
         return ApiMicroservices.attendance;
+      case 'billing':
       case 'discount':
       case 'subsidy':
       case 'fee-structure':
@@ -896,6 +897,9 @@ class ApiPaths {
       '/api/v1/notification/preferences';
 
   // —— Billing MS ——
+  static const String billingStatements = '/api/v1/billing/statements';
+  static String billingStatementDownload(String code) =>
+      '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';
   static const String discounts = '/api/v1/discount';
   static const String subsidies = '/api/v1/subsidy';
   static const String feeStructures = '/api/v1/fee-structure';
