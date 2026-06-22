@@ -71,6 +71,19 @@ class NotificationCard extends StatelessWidget {
                         color: Color(0xff573353),
                       ),
                     ),
+                    if ((notification.body ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.body!.trim(),
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.35,
+                          color: AppColors.primaryColor.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Row(
                       children: [

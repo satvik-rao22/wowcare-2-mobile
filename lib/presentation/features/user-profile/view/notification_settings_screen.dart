@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -28,8 +29,11 @@ enum UserPersona {
 }
 
 class NotificationSettingsScreen extends StatefulWidget {
-  const NotificationSettingsScreen({super.key, this.persona = UserPersona.staff});
-  final UserPersona persona;
+  const NotificationSettingsScreen({super.key, this.persona});
+
+  /// Persona whose rows to show. When null it's derived from the logged-in role
+  /// ([RoleCubit]) so the correct Admin / Staff / Parent rows appear.
+  final UserPersona? persona;
 
   static const String routeName = '/dashboard/notificationSettings';
 
@@ -51,9 +55,21 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   @override
   void initState(){
     super.initState();
-    persona = widget.persona;
+    persona = widget.persona ?? _personaFromRole();
     _cubit = serviceLocator<NotificationSettingsCubit>()
       ..load(roleFallback: _roleFallback);
+  }
+
+  /// Maps the resolved [RoleCubit] role to a [UserPersona].
+  /// RoleCubit.role is one of: 'parent' (GUARDIAN), 'admin' (SCHOOL/ORG admin),
+  /// 'staff', 'kiosk'. Anything that isn't parent/admin falls back to staff.
+  UserPersona _personaFromRole() {
+    final role = context.read<RoleCubit>().role;
+    return switch (role) {
+      'parent' => UserPersona.parent,
+      'admin' => UserPersona.admin,
+      _ => UserPersona.staff,
+    };
   }
 
   @override

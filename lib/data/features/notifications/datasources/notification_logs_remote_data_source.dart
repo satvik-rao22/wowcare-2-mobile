@@ -2,12 +2,19 @@ import '../../../../core/network/api_client.dart';
 import '../../../../core/util/api_paths.dart';
 import '../models/app_notification_model.dart';
 
+/// One page of notification logs plus whether more pages exist.
+typedef NotificationLogsPage = ({
+  List<AppNotificationModel> items,
+  bool hasMore,
+});
+
 abstract class NotificationLogsRemoteDataSource {
-  Future<List<AppNotificationModel>> fetchLogs({
+  Future<NotificationLogsPage> fetchLogs({
     required String userCode,
     String? schoolCode,
     int page = 0,
-    int size = 50,
+    int size = 10,
+    String channel = 'PUSH',
   });
 
   Future<void> markRead(String code);
@@ -23,11 +30,12 @@ class NotificationLogsRemoteDataSourceImpl
   final ApiClient _apiClient;
 
   @override
-  Future<List<AppNotificationModel>> fetchLogs({
+  Future<NotificationLogsPage> fetchLogs({
     required String userCode,
     String? schoolCode,
     int page = 0,
-    int size = 50,
+    int size = 10,
+    String channel = 'PUSH',
   }) async {
     final endpoint = ApiPaths.url(ApiPaths.notificationLogs);
     final query = <String, dynamic>{
@@ -35,6 +43,8 @@ class NotificationLogsRemoteDataSourceImpl
       'page': page,
       'size': size,
       'sort': 'sentAt,desc',
+      // Backend requires the NotificationChannel; the bell list shows push.
+      'channel': channel,
       if (schoolCode != null && schoolCode.trim().isNotEmpty)
         'schoolCode': schoolCode.trim(),
     };
@@ -48,17 +58,25 @@ class NotificationLogsRemoteDataSourceImpl
     }
 
     final pageData = data['data'];
-    if (pageData is! Map) return const [];
+    if (pageData is! Map) return (items: const <AppNotificationModel>[], hasMore: false);
 
     final content = pageData['content'];
-    if (content is! List) return const [];
+    if (content is! List) return (items: const <AppNotificationModel>[], hasMore: false);
 
-    return content
+    final items = content
         .whereType<Map>()
         .map((e) => AppNotificationModel.fromDeliveryLogJson(
               Map<String, dynamic>.from(e),
             ))
         .toList();
+
+    // Prefer the Spring page's `last` flag; fall back to whether a full page
+    // came back (a short page means we've reached the end).
+    final bool hasMore = pageData['last'] is bool
+        ? !(pageData['last'] as bool)
+        : items.length >= size;
+
+    return (items: items, hasMore: hasMore);
   }
 
   @override

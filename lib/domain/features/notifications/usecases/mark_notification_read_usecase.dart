@@ -1,11 +1,10 @@
-import '../entities/app_notification.dart';
 import '../repositories/notification_center_repository.dart';
 
-/// Marks a single notification as read and returns the updated list.
+/// Marks a single notification as read on the backend.
 class MarkNotificationReadUseCase {
   MarkNotificationReadUseCase(this._repository);
 
   final NotificationCenterRepository _repository;
 
-  Future<List<AppNotification>> call(String id) => _repository.markAsRead(id);
+  Future<void> call(String id) => _repository.markAsRead(id);
 }

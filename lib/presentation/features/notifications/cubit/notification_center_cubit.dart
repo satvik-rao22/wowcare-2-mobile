@@ -29,25 +29,31 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
   final MarkNotificationReadUseCase _markRead;
   final MarkAllNotificationsReadUseCase _markAllRead;
 
+  /// Items per page (infinite scroll).
+  static const int _pageSize = 10;
+
   Future<void> loadInitial() async {
     emit(state.copyWith(isLoading: true, errorMessage: null));
-    await _fetch();
+    await _fetchFirstPage();
   }
 
   Future<void> refresh() async {
     if (state.isRefreshing) return;
     emit(state.copyWith(isRefreshing: true, errorMessage: null));
-    await _fetch();
+    await _fetchFirstPage();
   }
 
-  Future<void> _fetch() async {
+  Future<void> _fetchFirstPage() async {
     try {
-      final items = await _getNotifications();
+      final result = await _getNotifications(page: 0, size: _pageSize);
       if (isClosed) return;
       emit(state.copyWith(
-        items: items,
+        items: result.items,
+        page: 0,
+        hasMore: result.hasMore,
         isLoading: false,
         isRefreshing: false,
+        isLoadingMore: false,
       ));
     } catch (e) {
       if (isClosed) return;
@@ -55,8 +61,43 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       emit(state.copyWith(
         isLoading: false,
         isRefreshing: false,
+        isLoadingMore: false,
         errorMessage: e.toString(),
       ));
+    }
+  }
+
+  /// Loads the next page and appends it. No-op while already loading or when
+  /// the backend has no more pages.
+  Future<void> loadNextPage() async {
+    if (state.isLoading ||
+        state.isRefreshing ||
+        state.isLoadingMore ||
+        !state.hasMore) {
+      return;
+    }
+    emit(state.copyWith(isLoadingMore: true, errorMessage: null));
+    final nextPage = state.page + 1;
+    try {
+      final result =
+          await _getNotifications(page: nextPage, size: _pageSize);
+      if (isClosed) return;
+      // De-dupe defensively in case a page boundary overlaps.
+      final existingIds = state.items.map((n) => n.id).toSet();
+      final merged = <AppNotification>[
+        ...state.items,
+        ...result.items.where((n) => !existingIds.contains(n.id)),
+      ];
+      emit(state.copyWith(
+        items: merged,
+        page: nextPage,
+        hasMore: result.hasMore,
+        isLoadingMore: false,
+      ));
+    } catch (e) {
+      if (isClosed) return;
+      CoreUtils.logApiError(e.toString());
+      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toString()));
     }
   }
 
@@ -78,29 +119,46 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     final index = state.items.indexWhere((n) => n.id == id);
     if (index < 0 || state.items[index].isRead) return;
 
-    emit(state.copyWith(isMutating: true, errorMessage: null));
+    // Optimistically flip read state locally so the loaded pages aren't lost to
+    // a refetch (server-side pagination would otherwise truncate the list).
+    final previous = state.items;
+    final updated = [
+      for (final n in previous) n.id == id ? n.copyWith(isRead: true) : n,
+    ];
+    emit(state.copyWith(items: updated, isMutating: true, errorMessage: null));
     try {
-      final items = await _markRead(id);
+      await _markRead(id);
       if (isClosed) return;
-      emit(state.copyWith(items: items, isMutating: false));
+      emit(state.copyWith(isMutating: false));
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
-      emit(state.copyWith(isMutating: false, errorMessage: e.toString()));
+      // Roll back the optimistic update on failure.
+      emit(state.copyWith(
+        items: previous,
+        isMutating: false,
+        errorMessage: e.toString(),
+      ));
     }
   }
 
   Future<void> markAllAsRead() async {
     if (!state.hasUnread) return;
-    emit(state.copyWith(isMutating: true, errorMessage: null));
+    final previous = state.items;
+    final updated = [for (final n in previous) n.copyWith(isRead: true)];
+    emit(state.copyWith(items: updated, isMutating: true, errorMessage: null));
     try {
-      final items = await _markAllRead();
+      await _markAllRead();
       if (isClosed) return;
-      emit(state.copyWith(items: items, isMutating: false));
+      emit(state.copyWith(isMutating: false));
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
-      emit(state.copyWith(isMutating: false, errorMessage: e.toString()));
+      emit(state.copyWith(
+        items: previous,
+        isMutating: false,
+        errorMessage: e.toString(),
+      ));
     }
   }
 }

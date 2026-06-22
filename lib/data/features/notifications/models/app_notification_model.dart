@@ -19,7 +19,36 @@ class AppNotificationModel extends AppNotification {
   });
 
   /// Maps `GET /api/v1/notification/logs` delivery-log rows.
+  ///
+  /// The visible text and the deep-link payload are nested under
+  /// `providerResponse`:
+  /// ```
+  /// providerResponse.notification.{title, body}
+  /// providerResponse.data.{action, module, studentCode, classroomCode, ...}
+  /// ```
   factory AppNotificationModel.fromDeliveryLogJson(Map<String, dynamic> json) {
+    final provider = json['providerResponse'];
+    final providerMap = provider is Map ? provider : const <dynamic, dynamic>{};
+    final notif = providerMap['notification'];
+    final notifMap = notif is Map ? notif : const <dynamic, dynamic>{};
+    final payload = providerMap['data'];
+
+    // Deep-link payload → string map; this drives tap redirection through the
+    // same NotificationRouteResolver the FCM-tap path uses.
+    final data = <String, String>{};
+    if (payload is Map) {
+      payload.forEach((key, value) {
+        if (value != null) data['$key'] = value.toString();
+      });
+    }
+    // Carry org/school so a multi-school tap can switch school before routing.
+    for (final key in const ['organizationCode', 'schoolCode', 'role']) {
+      final v = json[key];
+      if (v != null && '$v'.trim().isNotEmpty) {
+        data.putIfAbsent(key, () => '$v');
+      }
+    }
+
     final metadata = json['metadata'];
     final meta = <String, String>{};
     if (metadata is Map) {
@@ -29,29 +58,27 @@ class AppNotificationModel extends AppNotification {
     }
 
     final title = _firstNonEmpty([
+      notifMap['title']?.toString(),
       meta['title'],
-      meta['message'],
-      meta['notificationTitle'],
-      json['errorMessage']?.toString(),
     ]);
 
     final body = _firstNonEmpty([
+      notifMap['body']?.toString(),
       meta['body'],
-      meta['description'],
-      meta['notificationBody'],
+      json['errorMessage']?.toString(),
     ]);
 
     final subjectName = _firstNonEmpty([
-      meta['subjectName'],
-      meta['personName'],
-      meta['studentName'],
-      meta['staffName'],
-      meta['name'],
+      data['studentName'],
+      data['staffName'],
+      data['subjectName'],
+      data['personName'],
+      data['name'],
     ]);
 
     final categoryRaw = _firstNonEmpty([
-      meta['category'],
-      meta['type'],
+      data['module'],
+      data['category'],
       meta['module'],
     ]);
 
@@ -66,7 +93,7 @@ class AppNotificationModel extends AppNotification {
       category: NotificationCategory.fromApi(categoryRaw),
       createdAt: DateTime.tryParse(sentAt?.toString() ?? '') ?? DateTime.now(),
       isRead: readAt != null && readAt.toString().isNotEmpty,
-      data: meta,
+      data: data,
     );
   }
 

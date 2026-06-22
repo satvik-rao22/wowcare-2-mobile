@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/active_school_switcher.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -9,9 +12,13 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/src/app_router.dart';
 
+import '../../../../domain/features/notifications/entities/app_notification.dart';
 import '../../../../domain/features/notifications/entities/notification_category.dart';
+import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../cubit/notification_center_cubit.dart';
+import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_card.dart';
 
 /// The notification center opened from the app-bar bell.
@@ -190,8 +197,71 @@ class _ActionsRow extends StatelessWidget {
   }
 }
 
-class _NotificationsList extends StatelessWidget {
+class _NotificationsList extends StatefulWidget {
   const _NotificationsList();
+
+  @override
+  State<_NotificationsList> createState() => _NotificationsListState();
+}
+
+class _NotificationsListState extends State<_NotificationsList> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    // Load the next page when within 400px of the bottom.
+    if (position.pixels >= position.maxScrollExtent - 400) {
+      context.read<NotificationCenterCubit>().loadNextPage();
+    }
+  }
+
+  /// Mark read, then deep-link to the same destination an FCM tap would, using
+  /// the shared [NotificationRouteResolver] table (the notification's `data`
+  /// carries `action` + the target codes).
+  void _onTapNotification(AppNotification n) {
+    unawaited(context.read<NotificationCenterCubit>().markAsRead(n.id));
+
+    final message = PushNotification(
+      title: n.title,
+      body: n.body,
+      action: n.data['action'],
+      type: n.data['module'],
+      data: n.data,
+    );
+    final destination = NotificationRouteResolver.resolve(message);
+    if (destination == null) return;
+    unawaited(_navigate(message, destination));
+  }
+
+  Future<void> _navigate(
+    PushNotification message,
+    NotificationDestination destination,
+  ) async {
+    // Switch the active org/school first if the notification targets a different
+    // school the user belongs to, so the destination loads the right data.
+    if (mounted) {
+      await switchActiveSchoolIfNeeded(
+        context: context,
+        organizationCode: message.organizationCode,
+        schoolCode: message.schoolCode,
+      );
+    }
+    appRouter.go(destination.location);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -209,10 +279,16 @@ class _NotificationsList extends StatelessWidget {
         }
 
         final items = state.visibleItems;
+        // Show the next-page loader only when paging the full (unfiltered) list:
+        // category/unread filters are client-side over already-loaded items.
+        final bool showFooterLoader = state.isLoadingMore &&
+            state.categoryFilter == null &&
+            !state.onlyUnread;
         return CustomRefreshIndicator(
           onRefresh: () => context.read<NotificationCenterCubit>().refresh(),
           child: items.isEmpty
               ? ListView(
+                  controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: const [
                     SizedBox(height: 120),
@@ -220,17 +296,22 @@ class _NotificationsList extends StatelessWidget {
                   ],
                 )
               : ListView.separated(
+                  controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.only(bottom: 24),
-                  itemCount: items.length,
+                  itemCount: items.length + (showFooterLoader ? 1 : 0),
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
+                    if (index >= items.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(child: PrimaryCircularLoader()),
+                      );
+                    }
                     final notification = items[index];
                     return NotificationCard(
                       notification: notification,
-                      onTap: () => context
-                          .read<NotificationCenterCubit>()
-                          .markAsRead(notification.id),
+                      onTap: () => _onTapNotification(notification),
                     );
                   },
                 ),
