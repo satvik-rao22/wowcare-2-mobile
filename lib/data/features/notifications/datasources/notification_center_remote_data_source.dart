@@ -1,6 +1,5 @@
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
-import '../models/app_notification_model.dart';
 import 'notification_center_data_source.dart';
 import 'notification_logs_remote_data_source.dart';
 
@@ -16,7 +15,10 @@ class NotificationCenterRemoteDataSource implements NotificationCenterDataSource
   final StorageService _storage;
 
   @override
-  Future<List<AppNotificationModel>> fetchNotifications() async {
+  Future<NotificationCenterPage> fetchNotifications({
+    int page = 0,
+    int size = 10,
+  }) async {
     final userCode =
         (await _storage.getString(StorageKeys.userCode) ?? '').trim();
     if (userCode.isEmpty) {
@@ -24,31 +26,32 @@ class NotificationCenterRemoteDataSource implements NotificationCenterDataSource
     }
     final schoolCode =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    return _logsRemote.fetchLogs(
+    final result = await _logsRemote.fetchLogs(
       userCode: userCode,
       schoolCode: schoolCode.isEmpty ? null : schoolCode,
+      page: page,
+      size: size,
     );
+    return (items: result.items, hasMore: result.hasMore);
   }
 
   @override
-  Future<List<AppNotificationModel>> markAsRead(String id) async {
+  Future<void> markAsRead(String id) async {
     await _logsRemote.markRead(id);
     try {
       await _logsRemote.trackClick(id);
     } catch (_) {
       // Click analytics are best-effort; read state is what matters for UX.
     }
-    return fetchNotifications();
   }
 
   @override
-  Future<List<AppNotificationModel>> markAllAsRead() async {
+  Future<void> markAllAsRead() async {
     final userCode =
         (await _storage.getString(StorageKeys.userCode) ?? '').trim();
     if (userCode.isEmpty) {
       throw Exception('User not signed in');
     }
     await _logsRemote.markAllRead(userCode);
-    return fetchNotifications();
   }
 }
