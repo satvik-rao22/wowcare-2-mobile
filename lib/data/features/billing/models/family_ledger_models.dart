@@ -45,6 +45,8 @@ class FamilyLedgerTransactionModel {
     required this.items,
     required this.amount,
     required this.balance,
+    required this.paidAmount,
+    required this.ledgerDelta,
     this.date,
   });
 
@@ -61,6 +63,8 @@ class FamilyLedgerTransactionModel {
   final List<String> items;
   final double amount;
   final double balance;
+  final double paidAmount;
+  final double ledgerDelta;
   final DateTime? date;
 
   factory FamilyLedgerTransactionModel.fromJson(Map<String, dynamic> json) {
@@ -81,6 +85,8 @@ class FamilyLedgerTransactionModel {
       items: rawItems.map((e) => e.toString()).toList(growable: false),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       balance: (json['balance'] as num?)?.toDouble() ?? 0,
+      paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0,
+      ledgerDelta: (json['ledgerDelta'] as num?)?.toDouble() ?? 0,
       date: rawDate is String ? DateTime.tryParse(rawDate) : null,
     );
   }
@@ -99,6 +105,8 @@ class FamilyLedgerTransactionModel {
         items: items,
         amount: amount,
         balance: balance,
+        paidAmount: paidAmount,
+        ledgerDelta: ledgerDelta,
         date: date,
       );
 }

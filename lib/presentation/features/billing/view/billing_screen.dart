@@ -50,6 +50,7 @@ class _BillingScreenState extends State<BillingScreen>
   Future<void> Function()? _ledgerRefreshFn;
   Future<void> Function()? _studentsRefreshFn;
   Future<void> Function()? _transactionsRefreshFn;
+  Future<void> Function()? _analyticsRefreshFn;
   VoidCallback? _ledgerLoadNextFn;
   VoidCallback? _discountLoadNextFn;
 
@@ -139,6 +140,9 @@ class _BillingScreenState extends State<BillingScreen>
                           break;
                         case 2:
                           await _ledgerRefreshFn?.call();
+                          break;
+                        case 4:
+                          await _analyticsRefreshFn?.call();
                           break;
                       }
                     },
@@ -376,7 +380,11 @@ class _BillingScreenState extends State<BillingScreen>
                               } else if (current == 3) {
                                 content = const SubsidiesSection();
                               } else if (current == 4) {
-                                content = const AnalyticsSection();
+                                content = AnalyticsSection(
+                                  onRegisterRefresh: (fn) {
+                                    _analyticsRefreshFn = fn;
+                                  },
+                                );
                               } else if (current == 5) {
                                 content = BillingSettingsSection(
                                   onRegisterLoadNextPage: (fn) {

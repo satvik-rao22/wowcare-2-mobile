@@ -1,10 +1,16 @@
 import '../entities/family_ledger_entity.dart';
 import '../entities/family_summary_entity.dart';
+import '../entities/invoice_analytics_entity.dart';
 import '../entities/invoice_entity.dart';
 import '../entities/invoice_list_entity.dart';
 
 abstract class InvoiceRepository {
   Future<InvoiceResultEntity> createInvoice(CreateInvoiceParams params);
+  Future<InvoiceAnalyticsEntity> getAnalytics({
+    required String organizationCode,
+    required String school,
+    int? year,
+  });
   Future<InvoiceOverviewEntity> getOverview({
     required String organizationCode,
     required String school,
@@ -37,6 +43,14 @@ abstract class InvoiceRepository {
     required String school,
     required String ownerType,
     required String ownerCode,
+  });
+
+  /// Guardian-scoped family billing ledger
+  /// (`GET /api/v1/invoices/family-ledger/by-guardian`).
+  Future<FamilyLedgerEntity> getGuardianFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String guardianCode,
   });
   Future<InvoicePaymentResultEntity> createPayment(InvoicePaymentParams params);
   Future<InvoicePaymentResultEntity> createRefund(InvoicePaymentParams params);

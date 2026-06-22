@@ -906,8 +906,11 @@ class ApiPaths {
   static const String otherFees = '/api/v1/other-fees';
   static const String invoices = '/api/v1/invoices';
   static const String invoicesOverview = '/api/v1/invoices/overview';
+  static const String invoicesAnalytics = '/api/v1/invoices/analytics';
   static const String invoicesFamilySummary = '/api/v1/invoices/family-summary';
   static const String invoicesFamilyLedger = '/api/v1/invoices/family-ledger';
+  static const String invoicesFamilyLedgerByGuardian =
+      '/api/v1/invoices/family-ledger/by-guardian';
   static const String invoicePayments = '/api/v1/invoices/payments';
   static const String invoiceRefunds = '/api/v1/invoices/refunds';
   static const String invoiceCredits = '/api/v1/invoices/credits';

@@ -34,6 +34,8 @@ class FamilyLedgerTransactionEntity extends Equatable {
     required this.items,
     required this.amount,
     required this.balance,
+    required this.paidAmount,
+    required this.ledgerDelta,
     this.date,
   });
 
@@ -50,6 +52,8 @@ class FamilyLedgerTransactionEntity extends Equatable {
   final List<String> items;
   final double amount;
   final double balance;
+  final double paidAmount;
+  final double ledgerDelta;
   final DateTime? date;
 
   @override
@@ -67,6 +71,8 @@ class FamilyLedgerTransactionEntity extends Equatable {
         items,
         amount,
         balance,
+        paidAmount,
+        ledgerDelta,
         date,
       ];
 }
