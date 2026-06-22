@@ -37,9 +37,11 @@ Future<String?> resolveAttachmentUrl(ChatAttachment attachment) async {
 }
 
 /// Widget form of [resolveAttachmentUrl] for eagerly rendering a thumbnail —
-/// hands [builder] the resolved url (or null) plus whether resolution is
-/// still in flight, so callers can show a loading state instead of a
-/// premature "broken image" placeholder.
+/// hands [builder] the resolved url (or null), whether resolution is still
+/// in flight, and whether the backend reported the asset as still
+/// processing (rather than a hard failure), so callers can show a distinct
+/// "still processing" state instead of a premature "broken image"
+/// placeholder.
 class AttachmentUrlResolver extends StatefulWidget {
   const AttachmentUrlResolver({
     super.key,
@@ -48,7 +50,13 @@ class AttachmentUrlResolver extends StatefulWidget {
   });
 
   final ChatAttachment attachment;
-  final Widget Function(BuildContext context, String? url, bool isLoading) builder;
+  final Widget Function(
+    BuildContext context,
+    String? url,
+    bool isLoading,
+    bool isProcessing,
+  )
+  builder;
 
   @override
   State<AttachmentUrlResolver> createState() => _AttachmentUrlResolverState();
@@ -77,11 +85,17 @@ class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
   Widget build(BuildContext context) {
     return FutureBuilder<String?>(
       future: _future,
-      builder: (context, snapshot) => widget.builder(
-        context,
-        snapshot.data,
-        snapshot.connectionState == ConnectionState.waiting,
-      ),
+      builder: (context, snapshot) {
+        final isLoading = snapshot.connectionState == ConnectionState.waiting;
+        final url = snapshot.data;
+        final assetCode = widget.attachment.code?.trim() ?? '';
+        final isProcessing =
+            !isLoading &&
+            (url == null || url.isEmpty) &&
+            assetCode.isNotEmpty &&
+            serviceLocator<ImageUploadService>().isAssetProcessing(assetCode);
+        return widget.builder(context, url, isLoading, isProcessing);
+      },
     );
   }
 }

@@ -25,11 +25,15 @@ abstract class ConversationEntityRepository {
   ///
   /// [type] — null returns all accessible types for current user role.
   /// [page] / [size] — pagination parameters.
+  /// [designation], [staffStatus], [classroom] — STAFF_DIRECT filters only.
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   });
 
   /// Return conversations directly from Isar (no network call).

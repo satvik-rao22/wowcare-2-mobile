@@ -609,6 +609,14 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       ..deliveredAt = existing?.deliveredAt
       ..readAt = existing?.readAt
       ..editedAt = entity.editedAt ?? existing?.editedAt
+      // `entity.isDeleted` already drives the placeholder text above, but
+      // without persisting `deletedAt` too, `Message.isDeleted` (derived
+      // from it) reads back false once this cached row round-trips through
+      // `toEntity()` — silently re-enabling Edit/Reply/Delete on a message
+      // that visually looks deleted.
+      ..deletedAt = entity.isDeleted
+          ? (entity.deletedAt ?? DateTime.now())
+          : existing?.deletedAt
       ..quotedMessageId = existing?.quotedMessageId ?? entity.threadParentCode
       ..senderName =
           entity.senderName.isNotEmpty ? entity.senderName : existing?.senderName
@@ -635,13 +643,20 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
               .toList()
           : existing?.readBy
       ..attachments = existing?.attachments
-      ..reactions = entity.reactions.entries
-          .map(
-            (r) => MessageReactionCollection()
-              ..userId = r.key
-              ..emoji = r.value,
-          )
-          .toList();
+      // Firestore's reactions map can lag behind a just-added local reaction
+      // (eventual consistency) — only overwrite the cache when the realtime
+      // payload actually carries reactions, otherwise keep what's cached so
+      // a reaction doesn't visually vanish the moment any other message
+      // arrives via the realtime stream.
+      ..reactions = entity.reactions.isNotEmpty
+          ? entity.reactions.entries
+              .map(
+                (r) => MessageReactionCollection()
+                  ..userId = r.key
+                  ..emoji = r.value,
+              )
+              .toList()
+          : existing?.reactions;
 
     await cacheService.put(merged);
   }

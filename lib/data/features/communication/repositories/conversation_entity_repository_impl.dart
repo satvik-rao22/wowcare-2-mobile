@@ -50,6 +50,9 @@ class ConversationEntityRepositoryImpl
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   }) async {
     try {
       final dtos = await _remote.getConversations(
@@ -57,10 +60,14 @@ class ConversationEntityRepositoryImpl
         status: status,
         page: page,
         size: size,
+        designation: designation,
+        staffStatus: staffStatus,
+        classroom: classroom,
       );
       final entities = dtos.map((d) => d.toEntity()).toList();
 
       // Update Isar — replace page 0 entirely; append subsequent pages.
+      // Note: When filters are applied, we always replace at page 0
       if (page == 0) {
         final org = await _orgCode;
         final school = await _schoolCode;

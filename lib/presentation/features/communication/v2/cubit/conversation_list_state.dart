@@ -15,6 +15,11 @@ class ConversationListState extends Equatable {
     this.errorMessage,
     this.staffSearchResults = const [],
     this.isSearchingStaff = false,
+    this.lastStaffSearchQuery,
+    this.staffSearchErrorMessage,
+    this.activeDesignation,
+    this.activeStaffStatus,
+    this.activeClassroom,
   });
 
   const ConversationListState.initial({required ConversationType conversationType})
@@ -27,7 +32,12 @@ class ConversationListState extends Equatable {
         page = 0,
         errorMessage = null,
         staffSearchResults = const [],
-        isSearchingStaff = false;
+        isSearchingStaff = false,
+        lastStaffSearchQuery = null,
+        staffSearchErrorMessage = null,
+        activeDesignation = null,
+        activeStaffStatus = null,
+        activeClassroom = null;
 
   const ConversationListState.loaded({
     required ConversationType conversationType,
@@ -44,7 +54,12 @@ class ConversationListState extends Equatable {
         page = page,
         errorMessage = null,
         staffSearchResults = const [],
-        isSearchingStaff = false;
+        isSearchingStaff = false,
+        lastStaffSearchQuery = null,
+        staffSearchErrorMessage = null,
+        activeDesignation = null,
+        activeStaffStatus = null,
+        activeClassroom = null;
 
   final ConversationType conversationType;
   final List<ConversationEntity> conversations;
@@ -62,7 +77,27 @@ class ConversationListState extends Equatable {
   /// True while the staff directory API call is in flight.
   final bool isSearchingStaff;
 
+  /// Last successful staff search query, used for retry.
+  final String? lastStaffSearchQuery;
+
+  /// Error message from the last failed staff search. Null if search succeeded.
+  final String? staffSearchErrorMessage;
+
+  /// Active filter: staff designation (STAFF_DIRECT only).
+  final String? activeDesignation;
+
+  /// Active filter: staff employment status (STAFF_DIRECT only).
+  final String? activeStaffStatus;
+
+  /// Active filter: classroom code (STAFF_DIRECT only).
+  final String? activeClassroom;
+
   bool get hasConversations => conversations.isNotEmpty;
+  bool get hasStaffSearchError => staffSearchErrorMessage != null;
+  bool get hasActiveFilters =>
+      activeDesignation != null ||
+      activeStaffStatus != null ||
+      activeClassroom != null;
 
   ConversationListState copyWith({
     List<ConversationEntity>? conversations,
@@ -75,6 +110,15 @@ class ConversationListState extends Equatable {
     bool clearError = false,
     List<MessagingStaffResult>? staffSearchResults,
     bool? isSearchingStaff,
+    String? lastStaffSearchQuery,
+    String? staffSearchErrorMessage,
+    bool clearStaffSearchError = false,
+    String? activeDesignation,
+    bool clearDesignation = false,
+    String? activeStaffStatus,
+    bool clearStaffStatus = false,
+    String? activeClassroom,
+    bool clearClassroom = false,
   }) {
     return ConversationListState(
       conversationType: conversationType,
@@ -87,6 +131,11 @@ class ConversationListState extends Equatable {
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
       staffSearchResults: staffSearchResults ?? this.staffSearchResults,
       isSearchingStaff: isSearchingStaff ?? this.isSearchingStaff,
+      lastStaffSearchQuery: lastStaffSearchQuery ?? this.lastStaffSearchQuery,
+      staffSearchErrorMessage: clearStaffSearchError ? null : (staffSearchErrorMessage ?? this.staffSearchErrorMessage),
+      activeDesignation: clearDesignation ? null : (activeDesignation ?? this.activeDesignation),
+      activeStaffStatus: clearStaffStatus ? null : (activeStaffStatus ?? this.activeStaffStatus),
+      activeClassroom: clearClassroom ? null : (activeClassroom ?? this.activeClassroom),
     );
   }
 
@@ -102,5 +151,10 @@ class ConversationListState extends Equatable {
         errorMessage,
         staffSearchResults,
         isSearchingStaff,
+        lastStaffSearchQuery,
+        staffSearchErrorMessage,
+        activeDesignation,
+        activeStaffStatus,
+        activeClassroom,
       ];
 }

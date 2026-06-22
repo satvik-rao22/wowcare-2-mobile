@@ -60,6 +60,7 @@ class BulkMessagingCompositionState extends Equatable {
   bool get canSend =>
       !isLoading &&
       !isBulkStarted &&
+      selectedRecipients.isNotEmpty &&
       (messageText.trim().isNotEmpty || attachments.isNotEmpty);
 
   BulkMessagingCompositionState copyWith({
@@ -277,46 +278,58 @@ class BulkMessagingCompositionCubit
 
     try {
       if (isStaff) {
-        for (final recipient in recipients) {
-          // Do NOT check isClosed here — the cubit is closed when the compose
-          // screen is disposed (immediately after isBulkStarted fires), but the
-          // job must continue to completion regardless of widget lifecycle.
-          final recipientCode = _recipientCode(recipient);
-          final recipientName = (recipient['name'] ?? 'recipient').toString();
-          if (recipientCode.isEmpty) continue;
+        // Send in small concurrent batches rather than one-at-a-time so a
+        // large recipient list doesn't take N sequential round-trips — each
+        // recipient's outcome is still tracked independently in [failed], so
+        // one failure never blocks the rest of the batch.
+        const batchSize = 8;
+        for (var i = 0; i < recipients.length; i += batchSize) {
+          final batch = recipients.skip(i).take(batchSize);
+          await Future.wait(
+            batch.map((recipient) async {
+              // Do NOT check isClosed here — the cubit is closed when the
+              // compose screen is disposed (immediately after isBulkStarted
+              // fires), but the job must continue to completion regardless
+              // of widget lifecycle.
+              final recipientCode = _recipientCode(recipient);
+              final recipientName = (recipient['name'] ?? 'recipient')
+                  .toString();
+              if (recipientCode.isEmpty) return;
 
-          try {
-            // ── Find-or-create: reuse existing STAFF_DIRECT thread ────────
-            final result = await _createOrOpenConversationUseCase(
-              type: ConversationType.staffDirect,
-              studentCode: '',
-              participantCodes: [recipientCode],
-              title: recipientName,
-              description: messageText,
-            );
-            final conv = result.fold((_) => null, (c) => c);
-            if (conv == null) {
-              failed.add(recipient);
-              continue;
-            }
-            final conversationCode = conv.code;
+              try {
+                // ── Find-or-create: reuse existing STAFF_DIRECT thread ────
+                final result = await _createOrOpenConversationUseCase(
+                  type: ConversationType.staffDirect,
+                  studentCode: '',
+                  participantCodes: [recipientCode],
+                  title: recipientName,
+                  description: messageText,
+                );
+                final conv = result.fold((_) => null, (c) => c);
+                if (conv == null) {
+                  failed.add(recipient);
+                  return;
+                }
+                final conversationCode = conv.code;
 
-            if (messageText.isNotEmpty) {
-              final msg = Message(
-                id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
-                code: '',
-                text: messageText,
-                isSentByMe: true,
-                senderUserCode: senderUserCode.isNotEmpty
-                    ? senderUserCode
-                    : actualSenderCode,
-                time: DateTime.now(),
-              );
-              await _sendMessageUseCase(conversationCode, msg);
-            }
-          } catch (_) {
-            failed.add(recipient);
-          }
+                if (messageText.isNotEmpty) {
+                  final msg = Message(
+                    id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                    code: '',
+                    text: messageText,
+                    isSentByMe: true,
+                    senderUserCode: senderUserCode.isNotEmpty
+                        ? senderUserCode
+                        : actualSenderCode,
+                    time: DateTime.now(),
+                  );
+                  await _sendMessageUseCase(conversationCode, msg);
+                }
+              } catch (_) {
+                failed.add(recipient);
+              }
+            }),
+          );
         }
       } else {
         final recipientCodes = recipients

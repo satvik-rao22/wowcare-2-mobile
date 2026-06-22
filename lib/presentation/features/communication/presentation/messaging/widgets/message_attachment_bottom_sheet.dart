@@ -76,12 +76,16 @@ class _MessageAttachmentBottomSheetState
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: FilePickerUtils.allowedImageExtensions,
-      allowMultiple: false,
+      allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
-    final path = result.files.single.path;
-    if (path == null) return;
-    await _processFiles([File(path)], isPhoto: true);
+    final files = result.files
+        .map((f) => f.path)
+        .whereType<String>()
+        .map((p) => File(p))
+        .toList();
+    if (files.isEmpty) return;
+    await _processFiles(files, isPhoto: true);
   }
 
   Future<void> _pickDocument() async {
@@ -89,11 +93,16 @@ class _MessageAttachmentBottomSheetState
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
+      allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
-    final path = result.files.single.path;
-    if (path == null) return;
-    await _processFiles([File(path)], isPhoto: false);
+    final files = result.files
+        .map((f) => f.path)
+        .whereType<String>()
+        .map((p) => File(p))
+        .toList();
+    if (files.isEmpty) return;
+    await _processFiles(files, isPhoto: false);
   }
 
   // ignore: unused_element

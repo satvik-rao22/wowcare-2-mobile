@@ -25,6 +25,31 @@ class ImageUploadService {
   /// sharing one code issues a single network call.
   final Map<String, Future<String>> _assetUrlInFlight = <String, Future<String>>{};
 
+  /// When an asset never finishes backend processing, [_waitForDocumentAssetUrlByCode]
+  /// gives up after its timeout — but on its own that's only a one-time
+  /// reprieve: a chat bubble's `AttachmentUrlResolver` re-creates its State
+  /// (and re-calls [getMediaAssetUrlByCode]) every time the message list
+  /// rebuilds (scroll recycling, a realtime delta for any other message,
+  /// the keyboard opening, …), which would otherwise restart a brand new
+  /// 15-second poll loop each time — visible as the same asset code being
+  /// GET-polled forever, minutes after it was first requested. Remembering
+  /// *when* an asset last failed lets us skip straight back to "still
+  /// unresolved" without hitting the network again until the cooldown
+  /// passes.
+  final Map<String, DateTime> _assetUrlFailedAt = <String, DateTime>{};
+  static const Duration _assetUrlFailureCooldown = Duration(seconds: 30);
+
+  /// Asset codes whose most recent media-asset poll reported
+  /// `status: "PROCESSING"` (or similar) rather than a hard failure — lets
+  /// the UI show "still processing" instead of a generic broken-image
+  /// state while the backend pipeline catches up.
+  final Set<String> _processingAssetCodes = <String>{};
+
+  /// True if [assetCode]'s most recent poll found it still backend-side
+  /// processing (no delivery URL yet, but not a failure either).
+  bool isAssetProcessing(String assetCode) =>
+      _processingAssetCodes.contains(assetCode.trim());
+
   Future<UploadSessionResult> createActivityUploadSession({
     required String organizationCode,
     required String schoolCode,
@@ -793,7 +818,13 @@ class ImageUploadService {
         final response = await _apiClient.client.get<dynamic>(endpoint);
         final body = response.data;
         final resolved = _extractDocumentAssetUrl(body);
-        if (resolved.isNotEmpty) return resolved;
+        if (resolved.isNotEmpty) {
+          _processingAssetCodes.remove(normalizedAssetCode);
+          return resolved;
+        }
+        if (_extractDocumentAssetStatus(body) == 'PROCESSING') {
+          _processingAssetCodes.add(normalizedAssetCode);
+        }
       } catch (_) {
         // Keep retrying for eventual consistency after finalize.
       }
@@ -818,13 +849,27 @@ class ImageUploadService {
     final cached = _assetUrlCache[normalized];
     if (cached != null) return cached;
 
+    // Failed (still backend-processing/unresolvable) recently → don't hit
+    // the network again until the cooldown passes, no matter how many times
+    // the calling widget gets rebuilt in the meantime.
+    final failedAt = _assetUrlFailedAt[normalized];
+    if (failedAt != null &&
+        DateTime.now().difference(failedAt) < _assetUrlFailureCooldown) {
+      return '';
+    }
+
     // A resolution for this code is already running → share its result.
     final inFlight = _assetUrlInFlight[normalized];
     if (inFlight != null) return inFlight;
 
     final future = _waitForDocumentAssetUrlByCode(assetCode: normalized)
         .then((String url) {
-      if (url.isNotEmpty) _assetUrlCache[normalized] = url;
+      if (url.isNotEmpty) {
+        _assetUrlCache[normalized] = url;
+        _assetUrlFailedAt.remove(normalized);
+      } else {
+        _assetUrlFailedAt[normalized] = DateTime.now();
+      }
       return url;
     }).whenComplete(() => _assetUrlInFlight.remove(normalized));
 
@@ -862,6 +907,16 @@ class ImageUploadService {
       ownerType: ownerType.isEmpty ? null : ownerType,
       ownerCode: ownerCode.isEmpty ? null : ownerCode,
     );
+  }
+
+  /// The document service's coarse asset status (`PROCESSING`, `READY`,
+  /// `COMPLETED`, …), upper-cased for comparison. Used to tell "still
+  /// being processed, normal to wait" apart from a genuine failure.
+  String _extractDocumentAssetStatus(dynamic body) {
+    if (body is! Map) return '';
+    final data = body['data'];
+    if (data is! Map) return '';
+    return (data['status'] ?? '').toString().trim().toUpperCase();
   }
 
   String _extractDocumentAssetUrl(dynamic body) {

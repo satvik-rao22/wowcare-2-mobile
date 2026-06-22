@@ -19,6 +19,7 @@ class MessageCollection {
   DateTime? deliveredAt;
   DateTime? readAt;
   DateTime? editedAt;
+  DateTime? deletedAt;
   String? quotedMessageId;
   String? senderName;
   List<String>? receivers;
@@ -42,6 +43,7 @@ class MessageCollection {
       ..deliveredAt = message.deliveredAt
       ..readAt = message.readAt
       ..editedAt = message.editedAt
+      ..deletedAt = message.deletedAt
       ..quotedMessageId = message.quotedMessageId
       ..senderName = message.senderName
       ..receivers = message.receivers
@@ -89,6 +91,7 @@ class MessageCollection {
       deliveredAt: deliveredAt,
       readAt: readAt,
       editedAt: editedAt,
+      deletedAt: deletedAt,
       quotedMessageId: quotedMessageId,
       senderName: senderName,
       receivers: receivers ?? [],

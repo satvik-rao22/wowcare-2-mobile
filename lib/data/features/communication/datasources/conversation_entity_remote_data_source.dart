@@ -11,6 +11,9 @@ abstract class ConversationEntityRemoteDataSource {
     String status,
     int page,
     int size,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   });
 
   /// Returns the existing STAFF_DIRECT conversation between the current user
@@ -109,11 +112,27 @@ class ConversationEntityRemoteDataSourceImpl
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   }) async {
     final path = type != null
         ? ApiPaths.messagingConversationsByType(type.toApiString())
         : ApiPaths.messagingConversations;
-    final endpoint = _url('$path?status=$status&page=$page&size=$size');
+
+    // Build query parameters
+    var queryParams = 'status=$status&page=$page&size=$size';
+    if (designation != null && designation.isNotEmpty) {
+      queryParams += '&designation=${Uri.encodeComponent(designation)}';
+    }
+    if (staffStatus != null && staffStatus.isNotEmpty) {
+      queryParams += '&staffStatus=${Uri.encodeComponent(staffStatus)}';
+    }
+    if (classroom != null && classroom.isNotEmpty) {
+      queryParams += '&classroom=${Uri.encodeComponent(classroom)}';
+    }
+
+    final endpoint = _url('$path?$queryParams');
 
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversations');

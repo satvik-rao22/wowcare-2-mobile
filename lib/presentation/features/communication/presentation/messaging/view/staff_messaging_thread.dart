@@ -53,6 +53,13 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   bool _initialLoadInFlight = true;
   bool _ownSendPending = false;
 
+  /// False until the very first scroll-to-bottom has actually landed on the
+  /// true latest message. The real message list stays hidden behind the
+  /// shimmer until this flips, so opening a thread shows the conversation
+  /// already sitting at the latest message instead of visibly scrolling
+  /// down to it from the top.
+  bool _isPositionedAtBottom = false;
+
   String? _currentUserCode;
 
   /// Guards against firing more than one `loadOlderMessages` request while
@@ -134,7 +141,13 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             ? initialMessages.last.id
             : null;
         _initialLoadInFlight = false;
-        _scrollBehavior.scrollToBottom(animate: false);
+        _scrollBehavior.scrollToBottom(
+          animate: false,
+          onSettled: () {
+            if (!mounted) return;
+            setState(() => _isPositionedAtBottom = true);
+          },
+        );
       }
     });
   }
@@ -492,7 +505,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         final bool isLandscape =
             MediaQuery.of(context).orientation == Orientation.landscape;
 
-        if (state is CommunicationLoading && _messages.isEmpty) {
+        if ((state is CommunicationLoading && _messages.isEmpty) ||
+            (_messages.isNotEmpty && !_isPositionedAtBottom)) {
           return Scaffold(body: const ChatThreadShimmer());
         }
 
@@ -641,14 +655,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                   _quotedMessage = message;
                                                 });
                                               },
-                                              onReplyFromMenu: () {
+                                              onReplyFromMenu: message.isDeleted
+                                                  ? null
+                                                  : () {
                                                 setState(() {
                                                   _quotedMessageCode =
                                                       message.code;
                                                   _quotedMessage = message;
                                                 });
                                               },
-                                              onCopy: () {
+                                              onCopy: message.isDeleted
+                                                  ? null
+                                                  : () {
                                                 Clipboard.setData(
                                                   ClipboardData(
                                                     text:
@@ -664,11 +682,15 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                   isSuccess: true,
                                                 );
                                               },
-                                              onEdit: () => _showEditDialog(
+                                              onEdit: message.isDeleted
+                                                  ? null
+                                                  : () => _showEditDialog(
                                                 context,
                                                 message,
                                               ),
-                                              onDelete: () {
+                                              onDelete: message.isDeleted
+                                                  ? null
+                                                  : () {
                                                 context
                                                     .read<CommunicationCubit>()
                                                     .deleteMessage(
@@ -683,7 +705,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                   isSuccess: true,
                                                 );
                                               },
-                                              onInfo: () =>
+                                              onInfo: message.isDeleted
+                                                  ? null
+                                                  : () =>
                                                   _showMessageStatusDialog(
                                                     context,
                                                     message,
@@ -1369,6 +1393,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         isSending: state is CommunicationSending,
         pendingAttachments: _pendingAttachments,
         quotedMessage: _quotedMessage,
+        showCharCounter: true,
         onCancelQuote: () => setState(() {
           _quotedMessage = null;
           _quotedMessageCode = null;

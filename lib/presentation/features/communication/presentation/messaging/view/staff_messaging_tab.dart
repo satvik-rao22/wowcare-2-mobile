@@ -16,6 +16,13 @@ import '../../../../../../shared/common/views/filter_screen.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../../core/util/safe_state_mixin.dart';
+import '../../../../../../core/storage/storage_service.dart';
+import '../../../../../../core/util/storage_keys.dart';
+import '../../../../../../domain/features/communication/entities/conversation_entity.dart';
+import '../../../../../../domain/features/communication/entities/enums.dart';
+import '../../../../../../domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
+import '../../../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import '../../../../classrooom/views/filters/designation_display_utils.dart';
 import '../../../../student/cubit/student_cubit.dart';
 import '../../../cubit/communication_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_shimmer.dart';
@@ -42,11 +49,163 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// appears without requiring a manual pull-to-refresh.
   StreamSubscription<String>? _conversationListChangedSub;
 
+  /// The logged-in user's own staff/user code — used to hide self from
+  /// contact pickers and block self-conversations.
+  String? _currentUserCode;
+
+  Future<void> _loadCurrentUserCode() async {
+    final storageService = serviceLocator<StorageService>();
+    final staffCode =
+        (await storageService.getString(StorageKeys.staffCode) ?? '').trim();
+    final userCode =
+        (await storageService.getString(StorageKeys.userCode) ?? '').trim();
+    final code = staffCode.isNotEmpty ? staffCode : userCode;
+    if (!mounted || code.isEmpty) return;
+    setState(() => _currentUserCode = code);
+  }
+
+  /// Backend designation codes (matches staff_filter_screen.dart) used to turn
+  /// the Designation filter's human-readable selections back into API values.
+  static const List<String> _designationCodes = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
+  ];
+
+  Map<String, String> get _designationLabelToCode => {
+    for (final code in _designationCodes)
+      formatDesignationForDisplay(code): code,
+  };
+
+  /// Tag display name -> backend tag code, resolved once per school for the
+  /// Parent tab's Tags filter (tags have no fixed/predefined codes like
+  /// designation does, so this has to be fetched).
+  Map<String, String> _tagNameToCode = {};
+
   String get _conversationType =>
       widget.isStaffMessaging ? 'STAFF_DIRECT' : 'ROOM_CHAT';
 
   @override
   bool get wantKeepAlive => true;
+
+  Future<void> _loadTagNameCodeMap() async {
+    final storageService = serviceLocator<StorageService>();
+    final schoolCode =
+        await storageService.getString(StorageKeys.schoolCode) ?? '';
+    if (schoolCode.isEmpty) return;
+    final map = await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
+      schoolCode: schoolCode,
+    );
+    if (!mounted) return;
+    setState(() => _tagNameToCode = map);
+  }
+
+  /// Maps a single-select Status filter selection ('Active'/'Upcoming') to
+  /// the backend enum value, or null when nothing is selected.
+  String? _mapStatusToApi(List<String>? selected) {
+    if (selected == null || selected.isEmpty) return null;
+    return selected.first.trim().toUpperCase();
+  }
+
+  /// Maps selected classroom names to their backend codes via ClassroomCubit.
+  /// Always returns a (possibly empty) list so callers can use it directly to
+  /// clear the filter when nothing is selected.
+  List<String> _mapClassroomNamesToCodes(List<String>? names) {
+    if (names == null || names.isEmpty) return const [];
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final nameToCode = {for (final c in classrooms) c.name: c.code};
+    return names.map((n) => nameToCode[n]).whereType<String>().toList();
+  }
+
+  /// The staff/staff API only accepts a single designation value, but the
+  /// filter UI is multi-select — only the first selection is sent.
+  String? _mapDesignationToApi(List<String>? selectedLabels) {
+    if (selectedLabels == null || selectedLabels.isEmpty) return null;
+    return _designationLabelToCode[selectedLabels.first];
+  }
+
+  List<String> _mapTagsToCodes(List<String>? names) {
+    if (names == null || names.isEmpty) return const [];
+    return names.map((n) => _tagNameToCode[n]).whereType<String>().toList();
+  }
+
+  /// True when any Classroom/Status/Designation/Tags filter is actively
+  /// selected (ignores the 'Unread' toggle, which doesn't drive these lists).
+  bool get _hasActiveContactFilters => _currentFilters.entries.any(
+    (e) => e.key != 'Unread' && e.value.isNotEmpty,
+  );
+
+  /// Human-readable "Classroom: X  •  Status: Y" summary of the active
+  /// filters, shown above the conversation list as a title when non-empty.
+  String get _activeFiltersSummary => _currentFilters.entries
+      .where((e) => e.key != 'Unread' && e.value.isNotEmpty)
+      .map((e) => '${e.key}: ${e.value.join(', ')}')
+      .join('   •   ');
+
+  /// Creates (or finds) a conversation with [code] and opens it directly —
+  /// so picking a filtered contact behaves like starting a real chat, not
+  /// just a silent refresh the user then has to find and tap again.
+  Future<void> _startConversationWith(String code, String name) async {
+    if (_currentUserCode != null && code == _currentUserCode) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('You can\'t start a conversation with yourself'),
+        ),
+      );
+      return;
+    }
+    final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
+      type: widget.isStaffMessaging
+          ? ConversationType.staffDirect
+          : ConversationType.roomChat,
+      studentCode: widget.isStaffMessaging ? '' : code,
+      participantCodes: widget.isStaffMessaging ? [code] : const [],
+      title: name,
+    );
+    if (!mounted) return;
+    final conversation = result.fold((_) => null, (c) => c);
+    if (conversation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not start a conversation with $name')),
+      );
+      return;
+    }
+    _openThread(
+      name: conversation.title.isNotEmpty ? conversation.title : name,
+      avatar: conversation.avatarUrl,
+      code: conversation.code,
+      participants: conversation.participants
+          .map(_toLegacyParticipant)
+          .toList(),
+    );
+  }
+
+  /// Adapts the v2 `ParticipantEntity` (returned by
+  /// `CreateOrOpenConversationUseCase`) to the legacy `ConversationParticipant`
+  /// shape `ParentMessagingThread` expects, so participant names/roles still
+  /// render correctly for a brand-new room-chat conversation.
+  ConversationParticipant _toLegacyParticipant(ParticipantEntity p) {
+    return ConversationParticipant(
+      id: p.id,
+      conversationId: p.conversationId,
+      userCode: p.userCode,
+      userName: p.userName,
+      role: p.role.toApiString(),
+      joinedAt: p.joinedAt,
+      leftAt: p.leftAt,
+      lastReadAt: p.lastReadAt,
+      muted: p.muted,
+      notificationsEnabled: p.notificationsEnabled,
+      createdAt: p.createdAt,
+      updatedAt: p.updatedAt,
+    );
+  }
 
   void _applyFilters() {
     setState(() {}); // Trigger rebuild to re-filter in build
@@ -61,6 +220,23 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     });
     if (!mounted) return;
     _applyFilters();
+    if (widget.isStaffMessaging) {
+      context.read<StaffCubit>().updateFilters(
+        status: null,
+        designation: null,
+        classCodes: const [],
+      );
+      unawaited(
+        context.read<StaffCubit>().refresh(ignoreRefreshingGuard: true),
+      );
+    } else {
+      context.read<StudentCubit>().updateFilters(
+        status: null,
+        classroomCodes: const [],
+        tagCodes: const [],
+      );
+      unawaited(context.read<StudentCubit>().refreshWithCacheReset());
+    }
   }
 
   @override
@@ -68,9 +244,17 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
-        context.read<ClassroomCubit>().loadActiveClassrooms();
+        // Non-admin staff only see the classrooms they're allowed to
+        // access; admins see every active classroom.
+        context.read<ClassroomCubit>().loadActiveClassrooms(
+          applyAttendanceStaffScope: true,
+        );
         context.read<StaffCubit>().loadInitial();
         context.read<StudentCubit>().loadInitial();
+        unawaited(_loadCurrentUserCode());
+        if (!widget.isStaffMessaging) {
+          unawaited(_loadTagNameCodeMap());
+        }
         await context.read<CommunicationCubit>().loadConversations(
           type: _conversationType,
           size: _conversationPageSize,
@@ -91,15 +275,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     // refreshConversations() in MessagingTab fires before the job completes.
     // This subscription catches the job-done signal and does the real refresh.
     _conversationListChangedSub = MessagingEventService
-        .instance.onConversationListChanged
+        .instance
+        .onConversationListChanged
         .listen((changedType) {
-      if (!mounted) return;
-      if (changedType != _conversationType) return;
-      context.read<CommunicationCubit>().loadConversations(
-        type: _conversationType,
-        size: _conversationPageSize,
-      );
-    });
+          if (!mounted) return;
+          if (changedType != _conversationType) return;
+          context.read<CommunicationCubit>().loadConversations(
+            type: _conversationType,
+            size: _conversationPageSize,
+          );
+        });
   }
 
   @override
@@ -187,17 +372,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                         FilerSection(
                                           label: 'Designation',
                                           hintText: 'Select designation',
-                                          items: [
-                                            'Kiosk',
-                                            'Director',
-                                            'Assistant Director',
-                                            'Admin',
-                                            'Lead Teacher',
-                                            'Associate Teacher',
-                                            'Assistant Teacher',
-                                            'Owner',
-                                            'Floater',
-                                          ],
+                                          items:
+                                              _designationLabelToCode.keys
+                                                  .toList()
+                                                ..sort(),
                                           isMultiSelectDropDown: true,
                                           initialSelected:
                                               _currentFilters['Designation'] ??
@@ -210,6 +388,25 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                           _currentFilters = filters;
                                         });
                                         _applyFilters();
+                                        context
+                                            .read<StaffCubit>()
+                                            .updateFilters(
+                                              status: _mapStatusToApi(
+                                                filters['Status'],
+                                              ),
+                                              designation: _mapDesignationToApi(
+                                                filters['Designation'],
+                                              ),
+                                              classCodes:
+                                                  _mapClassroomNamesToCodes(
+                                                    filters['Classroom'],
+                                                  ),
+                                            );
+                                        unawaited(
+                                          context.read<StaffCubit>().refresh(
+                                            ignoreRefreshingGuard: true,
+                                          ),
+                                        );
                                       },
                                     )
                                   : FilterScreen(
@@ -258,6 +455,25 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                           _currentFilters = filters;
                                         });
                                         _applyFilters();
+                                        context
+                                            .read<StudentCubit>()
+                                            .updateFilters(
+                                              status: _mapStatusToApi(
+                                                filters['Status'],
+                                              ),
+                                              classroomCodes:
+                                                  _mapClassroomNamesToCodes(
+                                                    filters['Classroom'],
+                                                  ),
+                                              tagCodes: _mapTagsToCodes(
+                                                filters['Tags'],
+                                              ),
+                                            );
+                                        unawaited(
+                                          context
+                                              .read<StudentCubit>()
+                                              .refreshWithCacheReset(),
+                                        );
                                       },
                                     ),
                             ),
@@ -270,9 +486,24 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                         borderRadius: BorderRadius.circular(100),
                         child: Padding(
                           padding: const EdgeInsets.all(8),
-                          child: SvgPicture.asset(
-                            MediaRes.filterIcon,
-                            height: 20,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              SvgPicture.asset(MediaRes.filterIcon, height: 20),
+                              if (_hasActiveContactFilters)
+                                Positioned(
+                                  top: -2,
+                                  right: -2,
+                                  child: Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
                       ),
@@ -314,92 +545,167 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
 
           SliverToBoxAdapter(child: const SizedBox(height: 15)),
 
-          SliverToBoxAdapter(child: const SizedBox(height: 15)),
+          if (_hasActiveContactFilters)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  _activeFiltersSummary,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xff573353),
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverToBoxAdapter(child: const SizedBox(height: 15)),
 
-          BlocBuilder<CommunicationCubit, CommunicationState>(
-            builder: (context, communicationState) {
-              if (communicationState is CommunicationConversationsLoading) {
-                return const MessagingShimmer();
-              }
-
-              if (communicationState is CommunicationError) {
-                return SliverFillRemaining(
-                  child: Center(child: Text(communicationState.message)),
-                );
-              }
-
-              // API already returns type-filtered conversations — no
-              // client-side participant-code filtering needed.
-              List<Conversation> conversationsToDisplay = [];
-
-              if (communicationState is CommunicationConversationsLoaded) {
-                final query = _searchController.text.trim().toLowerCase();
-
-                conversationsToDisplay = communicationState
-                    .getConversations(_conversationType)
-                    .where((conv) {
-                      if (query.isNotEmpty &&
-                          !conv.title.toLowerCase().contains(query)) {
-                        return false;
+          BlocBuilder<StaffCubit, StaffState>(
+            builder: (context, staffState) {
+              return BlocBuilder<StudentCubit, StudentState>(
+                builder: (context, studentState) {
+                  return BlocBuilder<CommunicationCubit, CommunicationState>(
+                    builder: (context, communicationState) {
+                      if (communicationState
+                          is CommunicationConversationsLoading) {
+                        return const MessagingShimmer();
                       }
-                      if (_showUnread && conv.unreadCount == 0) return false;
-                      return true;
-                    })
-                    .toList();
-              }
 
-              if (conversationsToDisplay.isEmpty) {
-                return _buildContactPicker(context);
-              }
+                      if (communicationState is CommunicationError) {
+                        return SliverFillRemaining(
+                          child: Center(
+                            child: Text(communicationState.message),
+                          ),
+                        );
+                      }
 
-              return SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final conversation = conversationsToDisplay[index];
-                  return MessagingListTile(
-                    conversation: conversation,
-                    onTap: () {
-                      final route = MaterialPageRoute(
-                        builder: (_) => BlocProvider<CommunicationCubit>(
-                          create: (context) =>
-                              serviceLocator<CommunicationCubit>(),
-                          child: widget.isStaffMessaging
-                              ? StaffMessagingThread(
-                                  staffInfo: {
-                                    'name': conversation.title,
-                                    'avatar': conversation.avatarUrl,
-                                    'code': conversation.code,
-                                  },
-                                )
-                              : ParentMessagingThread(
-                                  parentInfo: {
-                                    'name': conversation.title,
-                                    'avatar': conversation.avatarUrl,
-                                    'code': conversation.code,
-                                    'parents': conversation.participants
-                                        .map((p) => p.userName)
-                                        .toList(),
-                                    'participants': conversation.participants,
-                                    'staffList': [],
-                                    'privateModeParents': [],
-                                  },
-                                ),
-                        ),
-                      );
-                      unawaited(
-                        Navigator.of(context).push(route).then((_) async {
-                          if (mounted) {
-                            await context
-                                .read<CommunicationCubit>()
-                                .refreshConversations(
-                                  type: _conversationType,
-                                  size: _conversationPageSize,
+                      List<Conversation> conversationsToDisplay = [];
+
+                      if (communicationState
+                          is CommunicationConversationsLoaded) {
+                        final query = _searchController.text
+                            .trim()
+                            .toLowerCase();
+
+                        // Only the Staff tab's filters (Classroom/Designation/Status)
+                        // can be reliably matched against a conversation: each
+                        // conversation's participants carry the staff member's own
+                        // userCode, which is the same code StaffCubit's filtered
+                        // results use. Parent/Room-chat conversations have no such
+                        // reliable student/classroom code on the participant, so
+                        // their list isn't narrowed the same way.
+                        final filteredStaffCodes =
+                            (widget.isStaffMessaging &&
+                                _hasActiveContactFilters)
+                            ? staffState.items.map((s) => s.code).toSet()
+                            : null;
+
+                        conversationsToDisplay = communicationState
+                            .getConversations(_conversationType)
+                            .where((conv) {
+                              if (query.isNotEmpty &&
+                                  !conv.title.toLowerCase().contains(query)) {
+                                return false;
+                              }
+                              if (_showUnread && conv.unreadCount == 0)
+                                return false;
+                              if (filteredStaffCodes != null &&
+                                  !conv.participants.any(
+                                    (p) =>
+                                        filteredStaffCodes.contains(p.userCode),
+                                  )) {
+                                return false;
+                              }
+                              // Hide a conversation a user somehow has with only
+                              // themselves (no other participant).
+                              if (_currentUserCode != null &&
+                                  conv.participants.isNotEmpty &&
+                                  conv.participants.every(
+                                    (p) => p.userCode == _currentUserCode,
+                                  )) {
+                                return false;
+                              }
+                              return true;
+                            })
+                            .toList();
+                      }
+
+                      final filteredContacts = (_hasActiveContactFilters)
+                          ? (widget.isStaffMessaging
+                                ? _filteredStaffContacts(staffState)
+                                : _filteredStudentContacts(studentState))
+                          : const <_FilteredContact>[];
+
+                      final slivers = <Widget>[];
+
+                      if (conversationsToDisplay.isEmpty &&
+                          filteredContacts.isEmpty) {
+                        slivers.add(_buildContactPicker(context));
+                      } else {
+                        if (conversationsToDisplay.isNotEmpty) {
+                          slivers.add(
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final conversation =
+                                    conversationsToDisplay[index];
+                                return MessagingListTile(
+                                  conversation: conversation,
+                                  onTap: () => _openThread(
+                                    name: conversation.title,
+                                    avatar: conversation.avatarUrl,
+                                    code: conversation.code,
+                                    participants: conversation.participants,
+                                  ),
                                 );
-                          }
-                        }),
-                      );
+                              }, childCount: conversationsToDisplay.length),
+                            ),
+                          );
+                        }
+                        if (filteredContacts.isNotEmpty) {
+                          slivers.add(
+                            SliverToBoxAdapter(
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  16,
+                                  20,
+                                  4,
+                                ),
+                                child: Text(
+                                  'START NEW CHAT (${filteredContacts.length})',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.4,
+                                    color: Color(0xFF9B96B0),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                          slivers.add(
+                            SliverList(
+                              delegate: SliverChildBuilderDelegate((
+                                context,
+                                index,
+                              ) {
+                                final contact = filteredContacts[index];
+                                return _buildContactRow(contact);
+                              }, childCount: filteredContacts.length),
+                            ),
+                          );
+                        }
+                      }
+
+                      return SliverMainAxisGroup(slivers: slivers);
                     },
                   );
-                }, childCount: conversationsToDisplay.length),
+                },
               );
             },
           ),
@@ -408,7 +714,49 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     );
   }
 
+  /// Pushes the staff/parent thread screen and refreshes the inbox on return
+  /// — shared by tapping an existing conversation tile and by starting a
+  /// brand-new conversation from the filtered "Start new chat" list.
+  void _openThread({
+    required String name,
+    required String avatar,
+    required String code,
+    List<ConversationParticipant> participants = const [],
+  }) {
+    final route = MaterialPageRoute(
+      builder: (_) => BlocProvider<CommunicationCubit>(
+        create: (context) => serviceLocator<CommunicationCubit>(),
+        child: widget.isStaffMessaging
+            ? StaffMessagingThread(
+                staffInfo: {'name': name, 'avatar': avatar, 'code': code},
+              )
+            : ParentMessagingThread(
+                parentInfo: {
+                  'name': name,
+                  'avatar': avatar,
+                  'code': code,
+                  'parents': participants.map((p) => p.userName).toList(),
+                  'participants': participants,
+                  'staffList': [],
+                  'privateModeParents': [],
+                },
+              ),
+      ),
+    );
+    unawaited(
+      Navigator.of(context).push(route).then((_) async {
+        if (mounted) {
+          await context.read<CommunicationCubit>().refreshConversations(
+            type: _conversationType,
+            size: _conversationPageSize,
+          );
+        }
+      }),
+    );
+  }
+
   Widget _buildContactPicker(BuildContext context) {
+    final noMatches = _hasActiveContactFilters;
     return SliverFillRemaining(
       child: Center(
         child: Column(
@@ -421,21 +769,133 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
             ),
             const SizedBox(height: 12),
             Text(
-              widget.isStaffMessaging
-                  ? 'No staff conversations yet'
-                  : 'No conversations yet',
+              noMatches
+                  ? (widget.isStaffMessaging
+                        ? 'No staff match these filters'
+                        : 'No students match these filters')
+                  : (widget.isStaffMessaging
+                        ? 'No staff conversations yet'
+                        : 'No conversations yet'),
               style: const TextStyle(fontSize: 15, color: Colors.grey),
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'Use the + button to start one',
-              style: TextStyle(fontSize: 13, color: Colors.grey),
-            ),
+            if (!noMatches) ...[
+              const SizedBox(height: 6),
+              const Text(
+                'Use the + button to start one',
+                style: TextStyle(fontSize: 13, color: Colors.grey),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
+
+  /// Staff items matching the active filters, minus the logged-in user.
+  List<_FilteredContact> _filteredStaffContacts(StaffState staffState) {
+    return staffState.items
+        .where((s) => s.code != _currentUserCode)
+        .map(
+          (s) => _FilteredContact(
+            code: s.code,
+            name: s.name,
+            avatarUrl: s.profileImage,
+            subtitle: formatDesignationForDisplay(s.designation),
+          ),
+        )
+        .toList();
+  }
+
+  /// Student items matching the active filters, minus the logged-in user.
+  List<_FilteredContact> _filteredStudentContacts(StudentState studentState) {
+    return studentState.items
+        .where((s) => s.code != _currentUserCode)
+        .map(
+          (s) => _FilteredContact(
+            code: s.code,
+            name: s.fullName,
+            avatarUrl: s.profileImage,
+            subtitle: s.primaryClassroomName ?? '',
+          ),
+        )
+        .toList();
+  }
+
+  /// Flat list row (avatar, name, subtitle, trailing edit icon, thin bottom
+  /// divider) matching the existing conversation tile's look, used for the
+  /// "Start new chat" section under the filtered inbox.
+  Widget _buildContactRow(_FilteredContact contact) {
+    return InkWell(
+      onTap: () => _startConversationWith(contact.code, contact.name),
+      splashColor: const Color(0x1A6C5CE7),
+      highlightColor: Colors.transparent,
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(
+            bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundImage: (contact.avatarUrl ?? '').isNotEmpty
+                  ? NetworkImage(contact.avatarUrl!)
+                  : null,
+              child: (contact.avatarUrl ?? '').isEmpty
+                  ? Text(
+                      contact.name.isNotEmpty
+                          ? contact.name[0].toUpperCase()
+                          : '?',
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    contact.name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xff573353),
+                    ),
+                  ),
+                  if (contact.subtitle.isNotEmpty)
+                    Text(
+                      contact.subtitle,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF636E72),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6C5CE7)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FilteredContact {
+  const _FilteredContact({
+    required this.code,
+    required this.name,
+    required this.avatarUrl,
+    required this.subtitle,
+  });
+
+  final String code;
+  final String name;
+  final String? avatarUrl;
+  final String subtitle;
 }
 
 class SliverSelectionShimmerWrapper extends StatelessWidget {

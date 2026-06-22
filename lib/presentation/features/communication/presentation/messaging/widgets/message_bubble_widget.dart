@@ -14,7 +14,6 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'full_attachment_viewer.dart';
@@ -103,7 +102,9 @@ class _MessageBubbleState extends State<MessageBubble>
   @override
   void didUpdateWidget(MessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.message.reactions != widget.message.reactions) {
+    if (oldWidget.message.reactions != widget.message.reactions ||
+        oldWidget.message.id != widget.message.id ||
+        oldWidget.message.code != widget.message.code) {
       _syncReactionsToController();
     }
   }
@@ -120,6 +121,9 @@ class _MessageBubbleState extends State<MessageBubble>
   void _syncReactionsToController() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final messageId = widget.message.code.isNotEmpty
+          ? widget.message.code
+          : widget.message.id;
       final reactions = widget.message.reactions.entries.map((e) {
         return Reaction(
           emoji: e.value,
@@ -127,13 +131,13 @@ class _MessageBubbleState extends State<MessageBubble>
           timestamp: DateTime.now(),
         );
       }).toList();
-      widget.reactionsController.loadReactions(widget.message.code, reactions);
+      widget.reactionsController.loadReactions(messageId, reactions);
     });
   }
 
   void _onDragUpdate(DragUpdateDetails details) {
-    // Swipe-to-reply is disabled for deleted messages.
-    if (widget.onReply == null || widget.isDeleted) return;
+    // Swipe-to-reply is disabled for deleted or inactive messages.
+    if (widget.onReply == null || widget.isDeleted || widget.isInactive) return;
     setState(() {
       _dragOffset = (_dragOffset + details.delta.dx).clamp(
         0.0,
@@ -161,9 +165,9 @@ class _MessageBubbleState extends State<MessageBubble>
           widget.currentUserCode == widget.message.senderUserCode);
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
-    // Deleted messages still allow viewing/adding reactions, but no other
-    // action (reply, edit, copy, delete-again) — so the reaction row stays
-    // enabled while the context-menu section is turned off entirely.
+    // Deleted messages: no Reply/Copy/Edit/Delete/Info regardless of who
+    // sent it — there's no content left to act on. Reacting is still
+    // allowed (matches WhatsApp/Telegram behavior for deleted messages).
     if (widget.isDeleted) {
       return const ChatReactionsConfig(
         availableReactions: ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
@@ -177,12 +181,30 @@ class _MessageBubbleState extends State<MessageBubble>
       );
     }
 
+    // Inactive messages: disable edits and deletes but allow reactions/reply
+    if (widget.isInactive) {
+      return ChatReactionsConfig(
+        availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
+        menuItems: const [
+          MenuItem(label: 'Reply', icon: Icons.reply_rounded),
+          MenuItem(label: 'Copy', icon: Icons.copy_outlined),
+          MenuItem(label: 'Info', icon: Icons.info_outline),
+        ],
+        enableLongPress: true,
+        enableDoubleTap: false,
+        showAddReactionButton: true,
+        showContextMenu: true,
+        enableHapticFeedback: true,
+        reactionSize: 24,
+      );
+    }
+
     return ChatReactionsConfig(
       availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
       menuItems: [
-        if (isMe && !widget.isInactive)
+        if (isMe)
           const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
-        if (isMe && !widget.isInactive)
+        if (isMe)
           const MenuItem(
             label: 'Delete',
             icon: Icons.delete_outline,
@@ -306,90 +328,6 @@ class _MessageBubbleState extends State<MessageBubble>
     );
   }
 
-  void _confirmDeleteAttachment(ChatAttachment attachment) {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'Delete Attachment',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF573353),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Are you sure you want to delete this attachment?',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Color.fromRGBO(87, 51, 83, 0.7),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                  widget.onDeleteAttachment?.call(attachment);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF7175F4), Color(0xFF9287F4)],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'Delete',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'Cancel',
-                    style: TextStyle(
-                      color: Color(0xFF573353),
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
@@ -406,8 +344,8 @@ class _MessageBubbleState extends State<MessageBubble>
           );
 
     return GestureDetector(
-      onHorizontalDragUpdate: widget.onReply != null ? _onDragUpdate : null,
-      onHorizontalDragEnd: widget.onReply != null ? _onDragEnd : null,
+      onHorizontalDragUpdate: (widget.onReply != null && !widget.isDeleted && !widget.isInactive) ? _onDragUpdate : null,
+      onHorizontalDragEnd: (widget.onReply != null && !widget.isDeleted && !widget.isInactive) ? _onDragEnd : null,
       child: Padding(
         // Grouped messages get reduced top spacing — feels like a continuation.
         padding: EdgeInsets.only(
@@ -506,10 +444,9 @@ class _MessageBubbleState extends State<MessageBubble>
                               ? Alignment.centerRight
                               : Alignment.centerLeft,
                           onReactionAdded: (emoji) {
-                            final myReaction = widget
-                                .message
-                                .reactions[widget.currentUserCode ?? 'me'];
-                            if (myReaction == emoji) {
+                            final userCode = widget.currentUserCode ?? 'me';
+                            final myReaction = widget.message.reactions[userCode];
+                            if (myReaction != null && myReaction == emoji) {
                               widget.onRemoveReaction?.call(emoji);
                             } else {
                               widget.onReactionAdded?.call(emoji);
@@ -913,18 +850,6 @@ class _MessageBubbleState extends State<MessageBubble>
                           ],
                         ),
                       ),
-                      if (_isMe &&
-                          !widget.isInactive &&
-                          widget.onDeleteAttachment != null &&
-                          att.attachmentId != null)
-                        IconButton(
-                          onPressed: () => _confirmDeleteAttachment(att),
-                          icon: const Icon(
-                            Icons.delete_outline,
-                            size: 20,
-                          ),
-                          color: Colors.grey[600],
-                        ),
                     ],
                   ),
                 ),
@@ -938,7 +863,7 @@ class _MessageBubbleState extends State<MessageBubble>
           if (imageCount == 1)
             AttachmentUrlResolver(
               attachment: displayImages.first,
-              builder: (context, resolvedUrl, isLoading) {
+              builder: (context, resolvedUrl, isLoading, isProcessing) {
                 final att = (resolvedUrl != null && resolvedUrl.isNotEmpty)
                     ? displayImages.first.copyWith(remoteUrl: resolvedUrl)
                     : displayImages.first;
@@ -972,7 +897,16 @@ class _MessageBubbleState extends State<MessageBubble>
                                     : 'image/jpeg',
                                 dataResolver: () async {
                                   final src = att.displaySource!;
-                                  if (att.remoteUrl.isNotEmpty) {
+                                  // `displaySource` prefers `localPath` over
+                                  // `remoteUrl` — checking `remoteUrl.isNotEmpty`
+                                  // here was wrong whenever both were set
+                                  // (e.g. right after upload), since it would
+                                  // then try to HTTP-fetch what is actually a
+                                  // local file path. Decide from `src` itself.
+                                  final isRemote =
+                                      src.startsWith('http://') ||
+                                      src.startsWith('https://');
+                                  if (isRemote) {
                                     try {
                                       final r = await http.get(Uri.parse(src));
                                       if (r.statusCode == 200)
@@ -1008,6 +942,8 @@ class _MessageBubbleState extends State<MessageBubble>
                                             strokeWidth: 2.5,
                                           ),
                                         )
+                                      : isProcessing
+                                      ? const _AttachmentProcessingPlaceholder()
                                       : const Icon(
                                           Icons.broken_image,
                                           size: 80,
@@ -1017,17 +953,6 @@ class _MessageBubbleState extends State<MessageBubble>
                               ),
                       ),
                     ),
-                    if (_isMe &&
-                        !widget.isInactive &&
-                        widget.onDeleteAttachment != null &&
-                        att.attachmentId != null)
-                      Positioned(
-                        top: 6,
-                        right: 6,
-                        child: _AttachmentDeleteBadge(
-                          onTap: () => _confirmDeleteAttachment(att),
-                        ),
-                      ),
                   ],
                 );
               },
@@ -1050,7 +975,7 @@ class _MessageBubbleState extends State<MessageBubble>
 
                 return AttachmentUrlResolver(
                   attachment: rawAtt,
-                  builder: (context, resolvedUrl, isLoading) {
+                  builder: (context, resolvedUrl, isLoading, isProcessing) {
                     final att = (resolvedUrl != null && resolvedUrl.isNotEmpty)
                         ? rawAtt.copyWith(remoteUrl: resolvedUrl)
                         : rawAtt;
@@ -1093,7 +1018,15 @@ class _MessageBubbleState extends State<MessageBubble>
                                         : 'image/jpeg',
                                     dataResolver: () async {
                                       final src = att.displaySource!;
-                                      if (att.remoteUrl.isNotEmpty) {
+                                      // See single-image branch above: decide
+                                      // remote-vs-local from `src` itself, not
+                                      // `remoteUrl.isNotEmpty` (wrong whenever
+                                      // localPath is also set, which is what
+                                      // `displaySource` actually returns).
+                                      final isRemote =
+                                          src.startsWith('http://') ||
+                                          src.startsWith('https://');
+                                      if (isRemote) {
                                         try {
                                           final r = await http.get(
                                             Uri.parse(src),
@@ -1130,6 +1063,10 @@ class _MessageBubbleState extends State<MessageBubble>
                                                 strokeWidth: 2,
                                               ),
                                             )
+                                          : isProcessing
+                                          ? const _AttachmentProcessingPlaceholder(
+                                              compact: true,
+                                            )
                                           : const Icon(
                                               Icons.broken_image,
                                               size: 50,
@@ -1151,18 +1088,6 @@ class _MessageBubbleState extends State<MessageBubble>
                                   fontWeight: FontWeight.bold,
                                   fontColor: Colors.white,
                                 ),
-                              ),
-                            ),
-                          if (!(hasMoreImages && isLast) &&
-                              _isMe &&
-                              !widget.isInactive &&
-                              widget.onDeleteAttachment != null &&
-                              att.attachmentId != null)
-                            Positioned(
-                              top: 6,
-                              right: 6,
-                              child: _AttachmentDeleteBadge(
-                                onTap: () => _confirmDeleteAttachment(att),
                               ),
                             ),
                         ],
@@ -1191,33 +1116,35 @@ class _MessageBubbleState extends State<MessageBubble>
   }
 }
 
-/// Small "remove" badge overlaid on a sent image attachment — mirrors the
-/// pending-attachment removal badge in ChatInputBar's preview strip so the
-/// affordance reads the same whether the attachment is still local or
-/// already sent.
-class _AttachmentDeleteBadge extends StatelessWidget {
-  const _AttachmentDeleteBadge({required this.onTap});
+/// Shown instead of the broken-image icon when the backend has reported the
+/// attachment's asset as still `PROCESSING` (no delivery URL yet) rather
+/// than an outright failure — tells the user it's still on its way instead
+/// of looking like a load error.
+class _AttachmentProcessingPlaceholder extends StatelessWidget {
+  const _AttachmentProcessingPlaceholder({this.compact = false});
 
-  final VoidCallback onTap;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 24,
-        height: 24,
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 1.5),
+    final iconSize = compact ? 28.0 : 40.0;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: iconSize,
+          height: iconSize,
+          child: const CircularProgressIndicator(strokeWidth: 2.5),
         ),
-        child: const Icon(
-          Icons.delete_outline,
-          size: 14,
-          color: Colors.white,
+        SizedBox(height: compact ? 6 : 8),
+        Text(
+          'Processing…',
+          style: TextStyle(
+            fontSize: compact ? 11 : 13,
+            color: Colors.grey[700],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

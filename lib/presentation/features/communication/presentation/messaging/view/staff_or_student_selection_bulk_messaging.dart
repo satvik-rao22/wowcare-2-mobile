@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -9,7 +10,10 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../app/theme/media_res.dart';
+import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/safe_state_mixin.dart';
+import '../../../../../../core/util/storage_keys.dart';
+import '../../../../../../app/di/di.dart';
 import '../../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -37,10 +41,61 @@ class _StaffOrStudentSelectionBulkMessagingState
     with SafeStateMixin {
   final TextEditingController _searchController = TextEditingController();
   List<String> _selectedClassrooms = [];
-  String? _selectedStatus;
+  // Default to Active-only (per spec); user can switch to Upcoming explicitly.
+  String? _selectedStatus = 'Active';
   bool _selectAll = false;
+  bool _isSelectingAll = false;
   List<String> _selectedDesignations = [];
   List<String> _selectedTags = [];
+
+  /// The logged-in staff member's own code — excluded from the staff
+  /// recipient list so a user can't start a conversation with themselves.
+  String? _currentStaffCode;
+
+  Future<void> _loadCurrentStaffCode() async {
+    final storageService = serviceLocator<StorageService>();
+    final code =
+        (await storageService.getString(StorageKeys.staffCode) ?? '').trim();
+    if (!mounted || code.isEmpty) return;
+    setState(() => _currentStaffCode = code);
+  }
+
+  // Safety cap on how many extra pages "Select All" will fetch before
+  // selecting, so a very large filtered result can't trigger unbounded
+  // network calls.
+  static const int _maxSelectAllPages = 50;
+
+  /// Pages in the remaining filtered set that haven't been loaded into the
+  /// cubit yet (StaffCubit/StudentCubit only auto-load the first couple of
+  /// pages), so "Select All" would otherwise silently only select what's
+  /// already in memory.
+  Future<void> _ensureAllMatchingPagesLoaded() async {
+    if (widget.isStaffSelection) {
+      final cubit = context.read<StaffCubit>();
+      var pages = 0;
+      while (cubit.state.hasMore && pages < _maxSelectAllPages) {
+        await cubit.loadNextPage();
+        pages++;
+      }
+      if (cubit.state.hasMore) {
+        _showWarningMessage(
+          'Showing first ${cubit.state.items.length} staff matching filters.',
+        );
+      }
+    } else {
+      final cubit = context.read<StudentCubit>();
+      var pages = 0;
+      while (cubit.state.hasMore && pages < _maxSelectAllPages) {
+        await cubit.loadNextPage();
+        pages++;
+      }
+      if (cubit.state.hasMore) {
+        _showWarningMessage(
+          'Showing first ${cubit.state.items.length} students matching filters.',
+        );
+      }
+    }
+  }
 
   final List<String> _statusOptions = ['Active', 'Upcoming'];
 
@@ -56,7 +111,11 @@ class _StaffOrStudentSelectionBulkMessagingState
     final Map<String, String> classroomMap = {
       for (var c in classrooms) c.code: c.name,
     };
-    final staffMembers = context.read<StaffCubit>().state.items;
+    final staffMembers = context
+        .read<StaffCubit>()
+        .state
+        .items
+        .where((s) => s.code != _currentStaffCode);
     return staffMembers
         .map(
           (s) => {
@@ -222,10 +281,13 @@ class _StaffOrStudentSelectionBulkMessagingState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final classroomCubit = context.read<ClassroomCubit>();
-        classroomCubit.loadActiveClassrooms();
+        // Non-admin staff only see the classrooms they're allowed to
+        // access when starting a new conversation; admins see all of them.
+        classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
         context.read<StudentCubit>().loadInitial();
         if (widget.isStaffSelection) {
           context.read<StaffCubit>().loadInitial();
+          unawaited(_loadCurrentStaffCode());
         }
 
         // Auto-select first classroom if already available
@@ -428,8 +490,12 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                                 .clear();
                                                             _selectedDesignations =
                                                                 [];
+                                                            // Reset to the
+                                                            // Active-only
+                                                            // default, not
+                                                            // "show everyone".
                                                             _selectedStatus =
-                                                                null;
+                                                                'Active';
                                                             _updateSelectAllState();
                                                           });
                                                         },
@@ -521,46 +587,80 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                 Align(
                                                   alignment:
                                                       Alignment.centerLeft,
-                                                  child: CustomCheckbox(
-                                                    label: 'Select All',
-                                                    value: _selectAll,
-                                                    borderColor:
-                                                        AppColors.themeColor,
-                                                    onChanged: (v) {
-                                                      final newVal = v ?? false;
-                                                      setState(() {
-                                                        _selectAll = newVal;
-                                                        if (newVal) {
-                                                          if (widget
-                                                              .isStaffSelection) {
-                                                            _selectedStaffCodes.addAll(
-                                                              _filteredList.map(
-                                                                (e) =>
-                                                                    e.value['code']
-                                                                        as String,
-                                                              ),
-                                                            );
-                                                          } else {
-                                                            _selectedStudentCodes.addAll(
-                                                              _filteredList.map(
-                                                                (e) =>
-                                                                    e.value['code']
-                                                                        as String,
-                                                              ),
-                                                            );
-                                                          }
-                                                        } else {
-                                                          if (widget
-                                                              .isStaffSelection) {
-                                                            _selectedStaffCodes
-                                                                .clear();
-                                                          } else {
-                                                            _selectedStudentCodes
-                                                                .clear();
-                                                          }
-                                                        }
-                                                      });
-                                                    },
+                                                  child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    CustomCheckbox(
+                                                      label: 'Select All',
+                                                      value: _selectAll,
+                                                      borderColor:
+                                                          AppColors
+                                                              .themeColor,
+                                                      onChanged: _isSelectingAll
+                                                          ? null
+                                                          : (v) async {
+                                                              final newVal =
+                                                                  v ?? false;
+                                                              if (newVal) {
+                                                                setState(
+                                                                  () =>
+                                                                      _isSelectingAll =
+                                                                          true,
+                                                                );
+                                                                await _ensureAllMatchingPagesLoaded();
+                                                                if (!mounted) {
+                                                                  return;
+                                                                }
+                                                              }
+                                                              setState(() {
+                                                                _isSelectingAll =
+                                                                    false;
+                                                                _selectAll =
+                                                                    newVal;
+                                                                if (newVal) {
+                                                                  if (widget
+                                                                      .isStaffSelection) {
+                                                                    _selectedStaffCodes.addAll(
+                                                                      _filteredList.map(
+                                                                        (e) =>
+                                                                            e.value['code']
+                                                                                as String,
+                                                                      ),
+                                                                    );
+                                                                  } else {
+                                                                    _selectedStudentCodes.addAll(
+                                                                      _filteredList.map(
+                                                                        (e) =>
+                                                                            e.value['code']
+                                                                                as String,
+                                                                      ),
+                                                                    );
+                                                                  }
+                                                                } else {
+                                                                  if (widget
+                                                                      .isStaffSelection) {
+                                                                    _selectedStaffCodes
+                                                                        .clear();
+                                                                  } else {
+                                                                    _selectedStudentCodes
+                                                                        .clear();
+                                                                  }
+                                                                }
+                                                              });
+                                                            },
+                                                    ),
+                                                    if (_isSelectingAll) ...[
+                                                      const SizedBox(width: 8),
+                                                      const SizedBox(
+                                                        width: 14,
+                                                        height: 14,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ],
                                                   ),
                                                 ),
                                                 const SizedBox(height: 20),

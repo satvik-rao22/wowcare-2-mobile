@@ -101,6 +101,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   bool _initialLoadInFlight = true;
   bool _ownSendPending = false;
 
+  /// False until the very first scroll-to-bottom has actually landed on the
+  /// true latest message. The real message list stays hidden behind the
+  /// shimmer until this flips, so opening a thread shows the conversation
+  /// already sitting at the latest message instead of visibly scrolling
+  /// down to it from the top.
+  bool _isPositionedAtBottom = false;
+
   /// Guards against firing more than one `loadOlderMessages` request while
   /// one is already in flight — mirrors the cubit's own guard but avoids
   /// even constructing the call when we already know the answer locally.
@@ -375,7 +382,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       _lastMessageCode = latestCode;
       _initialLoadInFlight = false;
       if (messages.isNotEmpty) {
-        _scrollBehavior.scrollToBottom(animate: false);
+        _scrollBehavior.scrollToBottom(
+          animate: false,
+          onSettled: () {
+            if (!mounted) return;
+            setState(() => _isPositionedAtBottom = true);
+          },
+        );
+      } else {
+        _isPositionedAtBottom = true;
       }
       return;
     }
@@ -801,7 +816,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   // ── Message list ──────────────────────────────────────────────────────────
 
   Widget _buildMessageList(ConversationThreadState state) {
-    if (state.isLoading && !state.hasMessages) {
+    if ((state.isLoading && !state.hasMessages) ||
+        (state.hasMessages && !_isPositionedAtBottom)) {
       return const ChatThreadShimmer();
     }
 
@@ -895,14 +911,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 reactionsController: _reactionsController,
                 currentUserCode: _senderCode,
                 onScrollToQuoted: (quoteId) => _scrollToMessage(quoteId),
-                // Swipe-to-reply and menu Reply are disabled for deleted messages.
+                // Deleted messages disable all interactions except viewing/adding reactions
                 onReply: msg.isDeleted
                     ? null
                     : () => setState(() => _quotedMessage = msg),
                 onReplyFromMenu: msg.isDeleted
                     ? null
                     : () => setState(() => _quotedMessage = msg),
-                onCopy: () {
+                onCopy: msg.isDeleted
+                    ? null
+                    : () {
                   Clipboard.setData(
                     ClipboardData(
                       text: MessageContentProcessor.stripHtmlTags(msg.text),
@@ -914,7 +932,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     isSuccess: true,
                   );
                 },
-                onEdit: () {
+                onEdit: msg.isDeleted
+                    ? null
+                    : () {
                   setState(() {
                     _editingMessage = msg;
                     _inputController.text =
@@ -922,7 +942,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   });
                   _inputFocusNode.requestFocus();
                 },
-                onDelete: () async {
+                onDelete: msg.isDeleted
+                    ? null
+                    : () async {
                   await _cubit.deleteMessage(msg.code);
                   if (context.mounted) {
                     CoreUtils.showTopSnackBar(
@@ -932,7 +954,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     );
                   }
                 },
-                onInfo: () => MessageStatusDialog.show(context, message: msg),
+                onInfo: msg.isDeleted
+                    ? null
+                    : () => MessageStatusDialog.show(context, message: msg),
                 onDeleteAttachment: (attachment) {
                   if (attachment.attachmentId != null) {
                     _cubit.deleteAttachment(

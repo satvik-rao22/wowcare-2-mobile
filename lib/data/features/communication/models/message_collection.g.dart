@@ -28,81 +28,86 @@ const MessageCollectionSchema = CollectionSchema(
       name: r'code',
       type: IsarType.string,
     ),
-    r'deliveredAt': PropertySchema(
+    r'deletedAt': PropertySchema(
       id: 2,
+      name: r'deletedAt',
+      type: IsarType.dateTime,
+    ),
+    r'deliveredAt': PropertySchema(
+      id: 3,
       name: r'deliveredAt',
       type: IsarType.dateTime,
     ),
     r'deliveredTo': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'deliveredTo',
       type: IsarType.objectList,
       target: r'RecipientStatusCollection',
     ),
     r'editedAt': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'editedAt',
       type: IsarType.dateTime,
     ),
     r'id': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'id',
       type: IsarType.string,
     ),
     r'isSentByMe': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'isSentByMe',
       type: IsarType.bool,
     ),
     r'quotedMessageId': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'quotedMessageId',
       type: IsarType.string,
     ),
     r'reactions': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'reactions',
       type: IsarType.objectList,
       target: r'MessageReactionCollection',
     ),
     r'readAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'readAt',
       type: IsarType.dateTime,
     ),
     r'readBy': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'readBy',
       type: IsarType.objectList,
       target: r'RecipientStatusCollection',
     ),
     r'receivers': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'receivers',
       type: IsarType.stringList,
     ),
     r'senderName': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'senderName',
       type: IsarType.string,
     ),
     r'senderUserCode': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'senderUserCode',
       type: IsarType.string,
     ),
     r'text': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'text',
       type: IsarType.string,
     ),
     r'threadId': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'threadId',
       type: IsarType.string,
     ),
     r'time': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'time',
       type: IsarType.dateTime,
     )
@@ -251,36 +256,37 @@ void _messageCollectionSerialize(
     object.attachments,
   );
   writer.writeString(offsets[1], object.code);
-  writer.writeDateTime(offsets[2], object.deliveredAt);
+  writer.writeDateTime(offsets[2], object.deletedAt);
+  writer.writeDateTime(offsets[3], object.deliveredAt);
   writer.writeObjectList<RecipientStatusCollection>(
-    offsets[3],
+    offsets[4],
     allOffsets,
     RecipientStatusCollectionSchema.serialize,
     object.deliveredTo,
   );
-  writer.writeDateTime(offsets[4], object.editedAt);
-  writer.writeString(offsets[5], object.id);
-  writer.writeBool(offsets[6], object.isSentByMe);
-  writer.writeString(offsets[7], object.quotedMessageId);
+  writer.writeDateTime(offsets[5], object.editedAt);
+  writer.writeString(offsets[6], object.id);
+  writer.writeBool(offsets[7], object.isSentByMe);
+  writer.writeString(offsets[8], object.quotedMessageId);
   writer.writeObjectList<MessageReactionCollection>(
-    offsets[8],
+    offsets[9],
     allOffsets,
     MessageReactionCollectionSchema.serialize,
     object.reactions,
   );
-  writer.writeDateTime(offsets[9], object.readAt);
+  writer.writeDateTime(offsets[10], object.readAt);
   writer.writeObjectList<RecipientStatusCollection>(
-    offsets[10],
+    offsets[11],
     allOffsets,
     RecipientStatusCollectionSchema.serialize,
     object.readBy,
   );
-  writer.writeStringList(offsets[11], object.receivers);
-  writer.writeString(offsets[12], object.senderName);
-  writer.writeString(offsets[13], object.senderUserCode);
-  writer.writeString(offsets[14], object.text);
-  writer.writeString(offsets[15], object.threadId);
-  writer.writeDateTime(offsets[16], object.time);
+  writer.writeStringList(offsets[12], object.receivers);
+  writer.writeString(offsets[13], object.senderName);
+  writer.writeString(offsets[14], object.senderUserCode);
+  writer.writeString(offsets[15], object.text);
+  writer.writeString(offsets[16], object.threadId);
+  writer.writeDateTime(offsets[17], object.time);
 }
 
 MessageCollection _messageCollectionDeserialize(
@@ -297,36 +303,37 @@ MessageCollection _messageCollectionDeserialize(
     ChatAttachmentCollection(),
   );
   object.code = reader.readString(offsets[1]);
-  object.deliveredAt = reader.readDateTimeOrNull(offsets[2]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[2]);
+  object.deliveredAt = reader.readDateTimeOrNull(offsets[3]);
   object.deliveredTo = reader.readObjectList<RecipientStatusCollection>(
-    offsets[3],
+    offsets[4],
     RecipientStatusCollectionSchema.deserialize,
     allOffsets,
     RecipientStatusCollection(),
   );
-  object.editedAt = reader.readDateTimeOrNull(offsets[4]);
-  object.id = reader.readString(offsets[5]);
-  object.isSentByMe = reader.readBoolOrNull(offsets[6]);
-  object.quotedMessageId = reader.readStringOrNull(offsets[7]);
+  object.editedAt = reader.readDateTimeOrNull(offsets[5]);
+  object.id = reader.readString(offsets[6]);
+  object.isSentByMe = reader.readBoolOrNull(offsets[7]);
+  object.quotedMessageId = reader.readStringOrNull(offsets[8]);
   object.reactions = reader.readObjectList<MessageReactionCollection>(
-    offsets[8],
+    offsets[9],
     MessageReactionCollectionSchema.deserialize,
     allOffsets,
     MessageReactionCollection(),
   );
-  object.readAt = reader.readDateTimeOrNull(offsets[9]);
+  object.readAt = reader.readDateTimeOrNull(offsets[10]);
   object.readBy = reader.readObjectList<RecipientStatusCollection>(
-    offsets[10],
+    offsets[11],
     RecipientStatusCollectionSchema.deserialize,
     allOffsets,
     RecipientStatusCollection(),
   );
-  object.receivers = reader.readStringList(offsets[11]);
-  object.senderName = reader.readStringOrNull(offsets[12]);
-  object.senderUserCode = reader.readStringOrNull(offsets[13]);
-  object.text = reader.readString(offsets[14]);
-  object.threadId = reader.readString(offsets[15]);
-  object.time = reader.readDateTime(offsets[16]);
+  object.receivers = reader.readStringList(offsets[12]);
+  object.senderName = reader.readStringOrNull(offsets[13]);
+  object.senderUserCode = reader.readStringOrNull(offsets[14]);
+  object.text = reader.readString(offsets[15]);
+  object.threadId = reader.readString(offsets[16]);
+  object.time = reader.readDateTime(offsets[17]);
   return object;
 }
 
@@ -349,47 +356,49 @@ P _messageCollectionDeserializeProp<P>(
     case 2:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 3:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 4:
       return (reader.readObjectList<RecipientStatusCollection>(
         offset,
         RecipientStatusCollectionSchema.deserialize,
         allOffsets,
         RecipientStatusCollection(),
       )) as P;
-    case 4:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 5:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 6:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
       return (reader.readObjectList<MessageReactionCollection>(
         offset,
         MessageReactionCollectionSchema.deserialize,
         allOffsets,
         MessageReactionCollection(),
       )) as P;
-    case 9:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 10:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 11:
       return (reader.readObjectList<RecipientStatusCollection>(
         offset,
         RecipientStatusCollectionSchema.deserialize,
         allOffsets,
         RecipientStatusCollection(),
       )) as P;
-    case 11:
-      return (reader.readStringList(offset)) as P;
     case 12:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readStringList(offset)) as P;
     case 13:
       return (reader.readStringOrNull(offset)) as P;
     case 14:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 15:
       return (reader.readString(offset)) as P;
     case 16:
+      return (reader.readString(offset)) as P;
+    case 17:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -774,6 +783,80 @@ extension MessageCollectionQueryFilter
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'code',
         value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      deletedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      deletedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      deletedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      deletedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      deletedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      deletedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'deletedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
       ));
     });
   }
@@ -2626,6 +2709,20 @@ extension MessageCollectionQuerySortBy
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
       sortByDeliveredAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'deliveredAt', Sort.asc);
@@ -2792,6 +2889,20 @@ extension MessageCollectionQuerySortThenBy
       thenByCodeDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'code', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
@@ -2973,6 +3084,13 @@ extension MessageCollectionQueryWhereDistinct
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'deletedAt');
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
       distinctByDeliveredAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'deliveredAt');
@@ -3077,6 +3195,13 @@ extension MessageCollectionQueryProperty
   QueryBuilder<MessageCollection, String, QQueryOperations> codeProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'code');
+    });
+  }
+
+  QueryBuilder<MessageCollection, DateTime?, QQueryOperations>
+      deletedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'deletedAt');
     });
   }
 

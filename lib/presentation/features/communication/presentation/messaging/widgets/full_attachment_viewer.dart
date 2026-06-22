@@ -147,7 +147,7 @@ class FullAttachmentViewer extends StatelessWidget {
   Widget _buildImageWithPlaceholder(ChatAttachment att) {
     return AttachmentUrlResolver(
       attachment: att,
-      builder: (context, resolvedUrl, isLoading) {
+      builder: (context, resolvedUrl, isLoading, isProcessing) {
         final resolved = (resolvedUrl != null && resolvedUrl.isNotEmpty)
             ? att.copyWith(remoteUrl: resolvedUrl)
             : att;
@@ -161,6 +161,22 @@ class FullAttachmentViewer extends StatelessWidget {
                       width: 28,
                       height: 28,
                       child: CircularProgressIndicator(strokeWidth: 2.5),
+                    )
+                  : isProcessing
+                  ? Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Processing…',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                      ],
                     )
                   : const Icon(
                       Icons.image_not_supported_outlined,

@@ -80,6 +80,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   bool _ownSendPending = false;
   TabController? _tabController;
 
+  /// False until the very first scroll-to-bottom has actually landed on the
+  /// true latest message. The real message list stays hidden behind the
+  /// shimmer until this flips, so opening a thread shows the conversation
+  /// already sitting at the latest message instead of visibly scrolling
+  /// down to it from the top.
+  bool _isPositionedAtBottom = false;
+
   late final ReactionsController _reactionsController;
   Message? _quotedMessage = null;
   String? _quotedMessageId;
@@ -179,7 +186,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           ? initialMessages.last.id
           : null;
       _initialLoadInFlight = false;
-      _getActiveScrollBehavior().scrollToBottom(animate: false);
+      _getActiveScrollBehavior().scrollToBottom(
+        animate: false,
+        onSettled: () {
+          if (!mounted) return;
+          setState(() => _isPositionedAtBottom = true);
+        },
+      );
     });
   }
 
@@ -493,7 +506,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       },
       builder: (context, state) {
         final _messages = _activeMessages;
-        if (state is CommunicationLoading && _messages.isEmpty) {
+        if ((state is CommunicationLoading && _messages.isEmpty) ||
+            (_messages.isNotEmpty && !_isPositionedAtBottom)) {
           if (!widget.showOwnScaffold) return const ChatThreadShimmer();
           return Scaffold(
             body: const ChatThreadShimmer(),
@@ -651,14 +665,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 reactionsController:
                                                     _reactionsController,
                                                 isParentMessaging: true,
-                                                onReplyFromMenu: () {
+                                                onReplyFromMenu: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   setState(() {
                                                     _quotedMessageId =
                                                         message.id;
                                                     _quotedMessage = message;
                                                   });
                                                 },
-                                                onCopy: () {
+                                                onCopy: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   Clipboard.setData(
                                                     ClipboardData(
                                                       text: MessageContentProcessor.stripHtmlTags(message.text),
@@ -671,9 +689,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     isSuccess: true,
                                                   );
                                                 },
-                                                onEdit: () =>
+                                                onEdit: message.isDeleted
+                                                    ? null
+                                                    : () =>
                                                     _startEditing(message),
-                                                onDelete: () {
+                                                onDelete: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   context
                                                       .read<
                                                         CommunicationCubit
@@ -690,7 +712,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     isSuccess: true,
                                                   );
                                                 },
-                                                onInfo: () =>
+                                                onInfo: message.isDeleted
+                                                    ? null
+                                                    : () =>
                                                     _showMessageStatusDialog(
                                                       context,
                                                       message,
@@ -882,14 +906,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 reactionsController:
                                                     _reactionsController,
                                                 isParentMessaging: true,
-                                                onReplyFromMenu: () {
+                                                onReplyFromMenu: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   setState(() {
                                                     _quotedMessageId =
                                                         message.id;
                                                     _quotedMessage = message;
                                                   });
                                                 },
-                                                onCopy: () {
+                                                onCopy: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   Clipboard.setData(
                                                     ClipboardData(
                                                       text: MessageContentProcessor.stripHtmlTags(message.text),
@@ -902,9 +930,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     isSuccess: true,
                                                   );
                                                 },
-                                                onEdit: () =>
+                                                onEdit: message.isDeleted
+                                                    ? null
+                                                    : () =>
                                                     _startEditing(message),
-                                                onDelete: () {
+                                                onDelete: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   context
                                                       .read<
                                                         CommunicationCubit
@@ -921,7 +953,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     isSuccess: true,
                                                   );
                                                 },
-                                                onInfo: () =>
+                                                onInfo: message.isDeleted
+                                                    ? null
+                                                    : () =>
                                                     _showMessageStatusDialog(
                                                       context,
                                                       message,
@@ -1114,14 +1148,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                 reactionsController:
                                                     _reactionsController,
                                                 isParentMessaging: true,
-                                                onReplyFromMenu: () {
+                                                onReplyFromMenu: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   setState(() {
                                                     _quotedMessageId =
                                                         message.id;
                                                     _quotedMessage = message;
                                                   });
                                                 },
-                                                onCopy: () {
+                                                onCopy: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   Clipboard.setData(
                                                     ClipboardData(
                                                       text: MessageContentProcessor.stripHtmlTags(message.text),
@@ -1134,9 +1172,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     isSuccess: true,
                                                   );
                                                 },
-                                                onEdit: () =>
+                                                onEdit: message.isDeleted
+                                                    ? null
+                                                    : () =>
                                                     _startEditing(message),
-                                                onDelete: () {
+                                                onDelete: message.isDeleted
+                                                    ? null
+                                                    : () {
                                                   context
                                                       .read<
                                                         CommunicationCubit
@@ -1153,7 +1195,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     isSuccess: true,
                                                   );
                                                 },
-                                                onInfo: () =>
+                                                onInfo: message.isDeleted
+                                                    ? null
+                                                    : () =>
                                                     _showMessageStatusDialog(
                                                       context,
                                                       message,
