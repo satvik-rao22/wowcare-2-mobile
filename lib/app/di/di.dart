@@ -418,8 +418,11 @@ import '../../domain/features/billing/usecases/update_discount_usecase.dart';
 import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
 import '../../domain/features/billing/usecases/deactivate_discount_usecase.dart';
 import '../../domain/features/billing/usecases/reactivate_discount_usecase.dart';
+import '../../presentation/features/billing/cubit/analytics_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_form_cubit.dart';
+import '../../domain/features/billing/usecases/get_guardian_family_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/get_invoice_analytics_usecase.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -705,8 +708,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ProfileMenuHeaderCubit>(
     () => ProfileMenuHeaderCubit(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetGuardianFamilyLedgerUseCase>(
+    () => GetGuardianFamilyLedgerUseCase(serviceLocator<InvoiceRepository>()),
+  );
   serviceLocator.registerFactory<ParentBillingCubit>(
-    () => ParentBillingCubit(),
+    () => ParentBillingCubit(
+      getGuardianFamilyLedger:
+          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
   );
 
   // Reports - Data Layer
@@ -2160,6 +2170,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
       setAutopay: serviceLocator<SetAutopayMethodUseCase>(),
       deleteMethod: serviceLocator<DeletePaymentMethodUseCase>(),
       updateMethod: serviceLocator<UpdatePaymentMethodUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetInvoiceAnalyticsUseCase>(
+    () => GetInvoiceAnalyticsUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<AnalyticsCubit>(
+    () => AnalyticsCubit(
+      getAnalytics: serviceLocator<GetInvoiceAnalyticsUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

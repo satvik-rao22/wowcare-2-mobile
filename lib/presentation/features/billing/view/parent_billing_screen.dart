@@ -4,19 +4,18 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/sibling_cards_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_tab.dart';
 import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen.dart';
 
-/// Parent Billing UI (ported layout from legacy `lib copy/.../billing_screen.dart`).
-///
-/// State (date range, demo transactions, loading flags) lives in
-/// [ParentBillingCubit]; this widget only renders it and forwards user intent.
+/// Parent Billing UI — fetches live data from
+/// `GET /api/v1/invoices/family-ledger/by-guardian`.
 class ParentBillingScreen extends StatefulWidget {
   const ParentBillingScreen({super.key});
 
@@ -29,6 +28,7 @@ class ParentBillingScreen extends StatefulWidget {
 class _ParentBillingScreenState extends State<ParentBillingScreen>
     with TickerProviderStateMixin {
   late final TabController _tabController;
+  final ScrollController _billingScrollController = ScrollController();
 
   ParentBillingCubit get _cubit => context.read<ParentBillingCubit>();
 
@@ -36,13 +36,36 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _cubit.loadInitial();
+    _billingScrollController.addListener(_onBillingScroll);
+    _cubit.load();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _billingScrollController.removeListener(_onBillingScroll);
+    _billingScrollController.dispose();
     super.dispose();
+  }
+
+  void _onBillingScroll() {
+    if (!_billingScrollController.hasClients) return;
+    final pos = _billingScrollController.position;
+    if (pos.maxScrollExtent <= 0) {
+      _cubit.loadNextPage();
+      return;
+    }
+    if (pos.pixels >= pos.maxScrollExtent - 400) {
+      _cubit.loadNextPage();
+    }
+  }
+
+  void _maybeLoadNextBillingPage() {
+    if (!_billingScrollController.hasClients) return;
+    final pos = _billingScrollController.position;
+    if (pos.maxScrollExtent <= 0 && _cubit.state.hasMoreTransactions) {
+      _cubit.loadNextPage();
+    }
   }
 
   Widget _builtRangeSelector(ParentBillingState state) {
@@ -90,8 +113,8 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 
   Widget _builtStudentGridSkeleton(ParentBillingState state) {
     return SiblingCardsWidget(
-      siblings: state.siblings,
-      currentBalance: 0.0, // TODO: Calculate from actual data
+      students: state.students,
+      currentBalance: state.openBalance,
       isPaymentLoading: state.isPaymentLoading,
       isAutoPayLoading: state.isAutoPayLoading,
       onPayNow: () async {
@@ -122,11 +145,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
   }
 
   Widget _buildBillingTab(ParentBillingState state) {
-    final filteredTransactions = state.filteredTransactions;
-
     return CustomRefreshIndicator(
       onRefresh: _cubit.refresh,
       child: SingleChildScrollView(
+        controller: _billingScrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -140,7 +162,6 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 ],
               ),
             ),
-            // Sibling cards and date range
             Column(
               children: [
                 _builtStudentGridSkeleton(state),
@@ -149,15 +170,48 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
               ],
             ),
             const SizedBox(height: 15),
-            // Transaction list below
-            if (state.isInitialLoadingTransactions)
-              Column(
-                children: List.generate(
-                  5,
-                  (_) => const BillingTransactionShimmer(),
+            if (state.isLoading)
+              // Shimmer cards during initial load
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                child: Column(
+                  children: List.generate(
+                    5,
+                    (_) => const ParentTransactionCardShimmer(
+                      margin: EdgeInsets.only(bottom: 8),
+                    ),
+                  ),
                 ),
               )
-            else if (filteredTransactions.isEmpty)
+            else if (state.errorMessage != null && state.ledger == null)
+              Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: AppColors.primaryColor,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        state.errorMessage!,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.body.copyWith(
+                          color: AppColors.primaryColor.withValues(alpha: 0.7),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextButton(
+                        onPressed: _cubit.load,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (state.filteredTransactions.isEmpty)
               Padding(
                 padding: const EdgeInsets.all(24.0),
                 child: Center(
@@ -176,7 +230,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                             ? 'No transactions available for the selected date range'
                             : 'No transactions available',
                         style: AppTextStyles.body.copyWith(
-                          color: AppColors.primaryColor.withOpacity(0.7),
+                          color: AppColors.primaryColor.withValues(alpha: 0.7),
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -185,16 +239,28 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 ),
               )
             else
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: Column(
-                  children: filteredTransactions.map((txn) {
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: ParentTransactionCard(transaction: txn),
-                    );
-                  }).toList(),
-                ),
+              Builder(builder: (context) {
+                // After list renders, check if we should load more
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) _maybeLoadNextBillingPage();
+                });
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                  child: Column(
+                    children: state.visibleTransactions.map((txn) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: ParentTransactionCard(transaction: txn),
+                      );
+                    }).toList(),
+                  ),
+                );
+              }),
+            // Load-more indicator at bottom
+            if (state.hasMoreTransactions && !state.isLoading)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Center(child: PrimaryCircularLoader()),
               ),
           ],
         ),
@@ -204,15 +270,17 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 
   Widget _buildStatementsTab(ParentBillingState state) {
     return ParentStatementsTab(
-      familyChildren: state.siblings.map((sibling) {
-        return {
-          'id': sibling.hashCode,
-          'name': sibling['name'],
-          'fullName': sibling['name'],
-          'room': sibling['room'],
-          'roomName': sibling['room'],
+      familyChildren: state.students.map((s) {
+        return <String, dynamic>{
+          'code': s.code,
+          'name': s.fullName,
+          'fullName': s.fullName,
+          'room': s.role,
+          'roomName': s.role,
         };
       }).toList(),
+      subscriberCode: state.ledger?.ownerCode ?? '',
+      ownerType: state.ledger?.ownerType ?? 'GUARDIAN',
       customStartDate: state.startDate,
       customEndDate: state.endDate,
     );
@@ -225,92 +293,21 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
         return GlobalScaffold(
           body: Column(
             children: [
-              Container(
+              ColoredBox(
                 color: AppColors.cardColor,
-                child: Column(
-                  children: [
-                    TabBar(
-                      labelColor: AppColors.themeColor,
-                      unselectedLabelColor:
-                          AppColors.primaryColor.withValues(alpha: 0.6),
-                      controller: _tabController,
-                      dividerColor: Colors.transparent,
-                      indicatorColor: Colors.transparent,
-                      indicatorSize: TabBarIndicatorSize.label,
-                      tabs: const [
-                        Tab(text: 'Billing'),
-                        Tab(text: 'Statements'),
-                      ],
-                    ),
-                    // Custom gradient indicator line positioned below tabs
-                    SizedBox(
-                      height: 2.5,
-                      child: AnimatedBuilder(
-                        animation: _tabController.animation ??
-                            const AlwaysStoppedAnimation(0),
-                        builder: (context, child) {
-                          final screenWidth = MediaQuery.of(context).size.width;
-                          final tabWidth = screenWidth / 2;
-
-                          // Get text width using default TabBar text style
-                          final defaultTextStyle =
-                              DefaultTextStyle.of(context).style;
-                          final textStyle = defaultTextStyle.copyWith(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          );
-
-                          final billingText = TextPainter(
-                            text: TextSpan(text: 'Billing', style: textStyle),
-                            textDirection: TextDirection.ltr,
-                          )..layout();
-
-                          final statementsText = TextPainter(
-                            text:
-                                TextSpan(text: 'Statements', style: textStyle),
-                            textDirection: TextDirection.ltr,
-                          )..layout();
-
-                          // Smooth animation between tabs
-                          final animationValue =
-                              _tabController.animation?.value ?? 0.0;
-
-                          // Interpolate between text widths
-                          final currentTextWidth = (statementsText.size.width -
-                                      billingText.size.width) *
-                                  animationValue +
-                              billingText.size.width;
-
-                          // Calculate center position for each tab
-                          final billingCenter = tabWidth / 2;
-                          final statementsCenter = tabWidth + tabWidth / 2;
-
-                          // Interpolate between centers
-                          final currentCenter = (statementsCenter -
-                                      billingCenter) *
-                                  animationValue +
-                              billingCenter;
-
-                          final leftOffset =
-                              currentCenter - currentTextWidth / 2;
-
-                          return Stack(
-                            children: [
-                              Positioned(
-                                left: leftOffset,
-                                width: currentTextWidth,
-                                child: Container(
-                                  height: 2.5,
-                                  decoration: BoxDecoration(
-                                    gradient: AppColors.buildPrimaryGradient(),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
+                child: TabBar(
+                  labelColor: AppColors.themeColor,
+                  unselectedLabelColor:
+                      AppColors.primaryColor.withValues(alpha: 0.6),
+                  controller: _tabController,
+                  dividerColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.label,
+                  indicator: _GradientTabIndicator(
+                    gradient: AppColors.buildPrimaryGradient(),
+                  ),
+                  tabs: const [
+                    Tab(text: 'Billing'),
+                    Tab(text: 'Statements'),
                   ],
                 ),
               ),
@@ -329,5 +326,40 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
         );
       },
     );
+  }
+}
+
+// ─── Gradient tab indicator ───────────────────────────────────────────────────
+
+class _GradientTabIndicator extends Decoration {
+  const _GradientTabIndicator({
+    required this.gradient,
+    this.height = 2.5,
+  });
+
+  final Gradient gradient;
+  final double height;
+
+  @override
+  BoxPainter createBoxPainter([VoidCallback? onChanged]) =>
+      _GradientTabPainter(gradient: gradient, height: height);
+}
+
+class _GradientTabPainter extends BoxPainter {
+  _GradientTabPainter({required this.gradient, required this.height});
+
+  final Gradient gradient;
+  final double height;
+
+  @override
+  void paint(Canvas canvas, Offset offset, ImageConfiguration cfg) {
+    final size = cfg.size ?? Size.zero;
+    final rect = Rect.fromLTWH(
+      offset.dx,
+      offset.dy + size.height - height,
+      size.width,
+      height,
+    );
+    canvas.drawRect(rect, Paint()..shader = gradient.createShader(rect));
   }
 }

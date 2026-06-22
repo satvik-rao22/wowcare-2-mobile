@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-/// Reusable widget for displaying sibling cards with balance and payment buttons
+/// Reusable widget for displaying student cards with balance and payment buttons.
 class SiblingCardsWidget extends StatelessWidget {
-  final List<Map<String, String>> siblings;
+  final List<FamilyLedgerPersonEntity> students;
   final double currentBalance;
   final bool isPaymentLoading;
   final bool isAutoPayLoading;
@@ -15,7 +16,7 @@ class SiblingCardsWidget extends StatelessWidget {
 
   const SiblingCardsWidget({
     super.key,
-    required this.siblings,
+    required this.students,
     this.currentBalance = 0.0,
     this.isPaymentLoading = false,
     this.isAutoPayLoading = false,
@@ -41,59 +42,60 @@ class SiblingCardsWidget extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Student grid - 2 columns
-              GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 20,
-                  childAspectRatio: 3.5,
-                ),
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: siblings.length,
-                shrinkWrap: true,
-                itemBuilder: (context, index) {
-                  final item = siblings[index];
-                  return Row(
-                    children: [
-                      DocumentImageWidget(
-                        fileUuid: '',
-                        name: item['name'] ?? '',
-                        size: 50,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            AppText.value(
-                              item['name'] ?? '',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AppTextStyles.value.copyWith(
-                                color: const Color(0xff573353),
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (item['room'] != null && item['room']!.isNotEmpty)
+              if (students.isNotEmpty)
+                GridView.builder(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 20,
+                    childAspectRatio: 3.5,
+                  ),
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: students.length,
+                  shrinkWrap: true,
+                  itemBuilder: (context, index) {
+                    final student = students[index];
+                    return Row(
+                      children: [
+                        DocumentImageWidget(
+                          fileUuid: '',
+                          name: student.fullName,
+                          size: 30,
+                          fontSize: 12,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               AppText.value(
-                                item['room'] ?? '',
+                                student.fullName,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTextStyles.value.copyWith(
-                                  fontSize: 12,
                                   color: const Color(0xff573353),
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
-                          ],
+                              if (student.role.isNotEmpty)
+                                AppText.value(
+                                  student.role,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AppTextStyles.value.copyWith(
+                                    fontSize: 12,
+                                    color: const Color(0xff573353),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  );
-                },
-              ),
+                      ],
+                    );
+                  },
+                ),
               const SizedBox(height: 10),
               // Balance and payment buttons
               Row(
@@ -156,4 +158,3 @@ class SiblingCardsWidget extends StatelessWidget {
     );
   }
 }
-

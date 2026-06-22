@@ -1,33 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
-
-/// Demo transaction data model for UI-only display
-class DemoTransaction {
-  final String id;
-  final String type; // 'Payment', 'Invoice', 'Refund'
-  final double amount;
-  final DateTime date;
-  final String status; // 'Completed', 'In Process', 'Cancelled'
-  final String? paymentMode;
-  final String description;
-  final String studentName;
-  final String studentRoom;
-
-  const DemoTransaction({
-    required this.id,
-    required this.type,
-    required this.amount,
-    required this.date,
-    required this.status,
-    this.paymentMode,
-    required this.description,
-    required this.studentName,
-    required this.studentRoom,
-  });
-}
 
 /// Demo statement data model for UI-only display
 class DemoStatement {
@@ -68,19 +44,20 @@ final List<DemoStatement> demoStatements = [
   ),
 ];
 
-/// Transaction card — styled to match the staff card.
+/// Transaction card backed by [FamilyLedgerTransactionEntity] from the API.
 class ParentTransactionCard extends StatelessWidget {
-  final DemoTransaction transaction;
+  final FamilyLedgerTransactionEntity transaction;
 
   const ParentTransactionCard({
     super.key,
     required this.transaction,
   });
 
-  String get _type => transaction.type.toLowerCase();
+  String get _type => transaction.transactionType.toLowerCase();
 
   String _dateLabel() {
-    final date = DateUtilsNew.formatToReadableDate(transaction.date);
+    if (transaction.date == null) return '';
+    final date = DateUtilsNew.formatToReadableDate(transaction.date!);
     switch (_type) {
       case 'invoice':
         return 'Due Date: $date';
@@ -120,13 +97,11 @@ class ParentTransactionCard extends StatelessWidget {
     final badge = _badge();
 
     final expanded = <Widget>[];
-    if (transaction.paymentMode != null &&
-        transaction.paymentMode!.isNotEmpty &&
-        _type != 'invoice') {
+    if (transaction.method.isNotEmpty && _type != 'invoice') {
       expanded
         ..add(StaffCardDetailRow(
           label: 'Payment Method',
-          value: transaction.paymentMode!,
+          value: transaction.method,
         ))
         ..add(const SizedBox(height: 10));
     }
@@ -135,9 +110,23 @@ class ParentTransactionCard extends StatelessWidget {
       value: transaction.status,
     ));
     expanded.add(const SizedBox(height: 10));
+    if (transaction.description.isNotEmpty) {
+      expanded.add(StaffCardDetailRow(
+        label: 'Description',
+        value: transaction.description,
+      ));
+      expanded.add(const SizedBox(height: 10));
+    }
+    if (transaction.items.isNotEmpty) {
+      expanded.add(StaffCardDetailRow(
+        label: 'Items',
+        value: transaction.items.join(', '),
+      ));
+      expanded.add(const SizedBox(height: 10));
+    }
     expanded.add(StaffCardDetailRow(
-      label: 'Description',
-      value: transaction.description,
+      label: 'Amount',
+      value: '\$${transaction.amount.toStringAsFixed(2)}',
     ));
     if (_type == 'payment') {
       expanded
@@ -176,7 +165,11 @@ class ParentTransactionCard extends StatelessWidget {
                   maxLines: 1,
                 ),
                 const SizedBox(height: 4),
-                _Badge(label: badge.label, color: badge.color, textColor: badge.textColor),
+                _Badge(
+                  label: badge.label,
+                  color: badge.color,
+                  textColor: badge.textColor,
+                ),
               ],
             ),
           ),
