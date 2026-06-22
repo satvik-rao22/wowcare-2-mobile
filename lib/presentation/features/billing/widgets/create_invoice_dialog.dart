@@ -65,28 +65,12 @@ class CreateInvoiceDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: BillingActionCard(
-                      title: 'One-Time\nInvoice',
-                      subtitle:
-                          'Create a manual invoice for one or more students with custom line items',
-                      icon: Icons.receipt_long,
-                      onTap: onSelectOneTime,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: BillingActionCard(
-                      title: 'Recurring\nInvoice',
-                      subtitle:
-                          'Set up automatic recurring invoices for a student based on their schedule',
-                      icon: Icons.schedule,
-                      onTap: onSelectRecurring,
-                    ),
-                  ),
-                ],
+              BillingActionCard(
+                title: 'One-Time Invoice',
+                subtitle:
+                    'Create a manual invoice for one or more students with custom line items',
+                icon: Icons.receipt_long,
+                onTap: onSelectOneTime,
               ),
             ],
           ),

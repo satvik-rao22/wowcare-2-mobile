@@ -232,7 +232,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
           borderRadius: BorderRadius.circular(8.0),
         ),
         child: TextButton(
-          onPressed: () {
+          onPressed: () async {
             final selectedStudents = _cubit.selectedStudents;
             if (selectedStudents.isEmpty) {
               CoreUtils.showTopSnackBar(
@@ -246,7 +246,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
               widget.onNext!(context, selectedStudents);
               return;
             }
-            Navigator.push(
+            final created = await Navigator.push<bool>(
               context,
               MaterialPageRoute(
                 builder: (_) => CreateInvoiceScreen(
@@ -255,6 +255,11 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                 ),
               ),
             );
+            // Invoice saved from the preview step → close the wizard back to
+            // the billing list.
+            if (created == true && context.mounted) {
+              Navigator.of(context).pop(true);
+            }
           },
           child: const Text(
             'Next',
@@ -311,7 +316,7 @@ class _StudentRow extends StatelessWidget {
                   ? student.photoAssetCode!.trim()
                   : null,
               name: student.fullName,
-              size: 40,
+              size: 50,
               shape: BoxShape.circle,
             ),
             const SizedBox(width: 16),

@@ -42,7 +42,6 @@ class ParentStatementCard extends StatelessWidget {
         fileUuid: statement.photoUuid ?? '',
         name: statement.studentName,
         size: 50,
-        fontSize: 14,
       ),
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

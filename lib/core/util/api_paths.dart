@@ -308,9 +308,12 @@ class ApiPaths {
       '/api/v1/school/$schoolCode/regular-schedule';
 
   /// School settings (`data.childcareSchedule`, timezone, address, …).
-  /// UAT: `/api/v1/organization/schools/{schoolCode}`.
+  /// Served by the organization microservice at
+  /// `/api/v1/organization/schools/{schoolCode}`; the bare
+  /// `/api/v1/schools/{code}` form is not exposed.
   static const String schools = '/api/v1/schools';
-  static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
+  static String schoolByCode(String schoolCode) =>
+      '/api/v1/organization/schools/$schoolCode';
 
   /// GET /api/v1/schools/{schoolCode}/timezone
   static String schoolTimezone(String schoolCode) =>
@@ -907,6 +910,7 @@ class ApiPaths {
   static const String invoices = '/api/v1/invoices';
   static const String invoicesOverview = '/api/v1/invoices/overview';
   static const String invoicesAnalytics = '/api/v1/invoices/analytics';
+  static const String invoicesTransactions = '/api/v1/invoices/transactions';
   static const String invoicesFamilySummary = '/api/v1/invoices/family-summary';
   static const String invoicesFamilyLedger = '/api/v1/invoices/family-ledger';
   static const String invoicesFamilyLedgerByGuardian =

@@ -70,8 +70,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
         DocumentImageWidget(
           fileUuid: widget.transaction.studentPhotoUuid ?? '',
           name: widget.transaction.studentName,
-          size: 34,
-          fontSize: 13,
+          size: 50,
         ),
         const SizedBox(width: 8),
         Expanded(

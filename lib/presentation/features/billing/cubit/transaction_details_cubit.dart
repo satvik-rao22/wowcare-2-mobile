@@ -123,6 +123,10 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         siblingTransactions: _mapTransactions(
           ledger.transactions,
           familyName: ledger.familyName,
+          familyStudentNames: ledger.students
+              .map((s) => s.fullName.trim())
+              .where((n) => n.isNotEmpty)
+              .join(', '),
         ),
         familyChildren: _mapPeople(ledger.students),
         familyParents: _mapPeople(ledger.guardians),
@@ -158,14 +162,20 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
 
   List<TransactionItem> _mapTransactions(
       List<FamilyLedgerTransactionEntity> txns,
-      {String familyName = ''}) {
+      {String familyName = '', String familyStudentNames = ''}) {
     return List<TransactionItem>.generate(txns.length, (i) {
       final t = txns[i];
-      // Family-level transactions (Payment / Credit / Refund) carry no student;
-      // fall back to the student code, then the family name.
+      // Family-level transactions (Payment / Credit / Refund) carry no student.
+      final isFamilyLevel = t.studentName.isEmpty && t.studentCode.isEmpty;
+      // Header label: the specific student, else the family name.
       final resolvedName = t.studentName.isNotEmpty
           ? t.studentName
           : (t.studentCode.isNotEmpty ? t.studentCode : familyName);
+      // "Student Name" row: all family students for family-level transactions,
+      // otherwise the single student.
+      final studentNames = isFamilyLevel && familyStudentNames.isNotEmpty
+          ? familyStudentNames
+          : (t.studentName.isNotEmpty ? t.studentName : null);
       return TransactionItem(
         id: i + 1,
         invoiceCode: t.invoiceCode.isNotEmpty ? t.invoiceCode : null,
@@ -178,6 +188,7 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
             ? t.description
             : (t.items.isNotEmpty ? t.items.first : ''),
         studentName: resolvedName,
+        studentNames: studentNames,
         classroom: '',
         refTable: t.transactionType,
         balance: t.balance,

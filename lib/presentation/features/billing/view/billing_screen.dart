@@ -53,6 +53,7 @@ class _BillingScreenState extends State<BillingScreen>
   Future<void> Function()? _analyticsRefreshFn;
   VoidCallback? _ledgerLoadNextFn;
   VoidCallback? _discountLoadNextFn;
+  VoidCallback? _transactionsLoadNextFn;
 
   @override
   void initState() {
@@ -77,6 +78,7 @@ class _BillingScreenState extends State<BillingScreen>
     final position = _scrollController.position;
 
     VoidCallback? loadFn;
+    if (tc.index == 1) loadFn = _transactionsLoadNextFn;
     if (tc.index == 2) loadFn = _ledgerLoadNextFn;
     if (tc.index == 5) loadFn = _discountLoadNextFn;
     if (loadFn == null) return;
@@ -364,6 +366,10 @@ class _BillingScreenState extends State<BillingScreen>
                                   onRegisterRefresh: (fn) {
                                     _transactionsRefreshFn = fn;
                                   },
+                                  onRegisterLoadNextPage: (fn) {
+                                    _transactionsLoadNextFn = fn;
+                                  },
+                                  onLoadMoreNeeded: _maybeLoadNextPage,
                                 );
                               } else if (current == 2) {
                                 content = GeneralLedgerSection(

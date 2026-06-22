@@ -39,6 +39,8 @@ class CreateInvoiceRequestModel {
     required this.issueDate,
     required this.dueDate,
     required this.items,
+    this.periodStart,
+    this.periodEnd,
     this.notes,
     this.currency,
   });
@@ -48,6 +50,10 @@ class CreateInvoiceRequestModel {
   final String studentCode;
   final DateTime issueDate;
   final DateTime dueDate;
+
+  /// Optional service period (Date of Service range).
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
   final List<CreateInvoiceItemRequestModel> items;
   final String? notes;
   final String? currency;
@@ -58,6 +64,10 @@ class CreateInvoiceRequestModel {
         'studentCode': studentCode,
         'issueDate': issueDate.toUtc().toIso8601String(),
         'dueDate': dueDate.toUtc().toIso8601String(),
+        if (periodStart != null)
+          'periodStart': periodStart!.toUtc().toIso8601String(),
+        if (periodEnd != null)
+          'periodEnd': periodEnd!.toUtc().toIso8601String(),
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
         if (currency != null && currency!.isNotEmpty) 'currency': currency,
         'items': items.map((i) => i.toJson()).toList(),

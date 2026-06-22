@@ -7,21 +7,41 @@ class TransactionsState extends Equatable {
     this.overview,
     this.dateFrom,
     this.dateTo,
+    this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = false,
+    this.page = 0,
     this.errorMessage,
     this.successMessage,
   });
 
-  TransactionsState.initial()
-      : transactions = TransactionsCubit.seedTransactions(),
+  const TransactionsState.initial()
+      : transactions = const [],
         searchQuery = '',
         overview = null,
         dateFrom = null,
         dateTo = null,
+        isLoading = true,
+        isLoadingMore = false,
+        hasMore = false,
+        page = 0,
         errorMessage = null,
         successMessage = null;
 
   final List<TransactionRecord> transactions;
   final String searchQuery;
+
+  /// True during the initial / refresh transactions fetch (drives the shimmer).
+  final bool isLoading;
+
+  /// True while the next page is being appended (infinite scroll).
+  final bool isLoadingMore;
+
+  /// Whether the backend has more transaction pages after [page].
+  final bool hasMore;
+
+  /// Zero-based index of the last loaded transactions page.
+  final int page;
 
   /// Real billing totals from the overview API; null until loaded. When absent
   /// (not loaded yet or the request failed) the stat bar shows zeros.
@@ -76,6 +96,10 @@ class TransactionsState extends Equatable {
     InvoiceOverviewEntity? Function()? overview,
     DateTime? Function()? dateFrom,
     DateTime? Function()? dateTo,
+    bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? page,
     String? errorMessage,
     String? successMessage,
   }) {
@@ -85,6 +109,10 @@ class TransactionsState extends Equatable {
       overview: overview != null ? overview() : this.overview,
       dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
       dateTo: dateTo != null ? dateTo() : this.dateTo,
+      isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      page: page ?? this.page,
       errorMessage: errorMessage,
       successMessage: successMessage,
     );
@@ -97,6 +125,10 @@ class TransactionsState extends Equatable {
         overview,
         dateFrom,
         dateTo,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        page,
         errorMessage,
         successMessage,
       ];

@@ -149,7 +149,6 @@ class ParentTransactionCard extends StatelessWidget {
         fileUuid: '',
         name: transaction.studentName,
         size: 50,
-        fontSize: 14,
       ),
       header: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -216,7 +215,6 @@ class ParentStatementCard extends StatelessWidget {
         fileUuid: '',
         name: statement.studentName,
         size: 50,
-        fontSize: 14,
       ),
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
