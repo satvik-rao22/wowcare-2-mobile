@@ -21,9 +21,10 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
-import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
@@ -567,48 +568,12 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
             ),
           )
         else if (_isLoadingSiblings)
-          // Family transaction shimmer cards
+          // Transaction-card-shaped shimmer (avatar + name/badge + amount/date).
           ...List.generate(
-            3,
-            (index) => Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-              child: ShimmerLoaderCard(
-                child: Container(
-                  height: 80,
-                  child: Column(
-                    children: [
-                      Container(
-                        height: 12,
-                        width: double.infinity,
-                        margin: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.billingCardColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      Container(
-                        height: 15,
-                        width: 80,
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.billingCardColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        height: 15,
-                        width: 60,
-                        margin: const EdgeInsets.symmetric(horizontal: 8),
-                        decoration: BoxDecoration(
-                          color: AppColors.billingCardColor,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            5,
+            (index) => const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8.0, vertical: 6.0),
+              child: BillingTransactionShimmer(),
             ),
           )
         else if (_siblingTransactions.isEmpty && !_hasError)
@@ -632,6 +597,8 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
                         horizontal: 8.0, vertical: 6.0),
                     child: BillingTransactionCard(
                       transaction: transaction,
+                      // Already on the Billing profile — don't offer to reopen it.
+                      showBillingProfile: false,
                       onView: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
@@ -719,13 +686,44 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
 
   Widget _buildFamilyStatBar() {
     if (_isLoadingSiblings) {
-      return ShimmerLoaderCard(
+      Widget bar(double w, double h, {double radius = 4}) => Container(
+            width: w,
+            height: h,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(radius),
+            ),
+          );
+      // Mirrors AmountInvoicedStatBar: title, the segmented amount bar, and a
+      // legend row.
+      return Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
         child: Container(
-          height: 120,
           width: double.infinity,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.billingCardColor,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cardBorderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              bar(140, 14),
+              const SizedBox(height: 12),
+              bar(double.infinity, 16, radius: 8),
+              const SizedBox(height: 12),
+              Row(
+                children: List.generate(
+                  4,
+                  (_) => Padding(
+                    padding: const EdgeInsets.only(right: 12),
+                    child: bar(56, 10),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );
@@ -766,33 +764,56 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
 
   Widget _buildFamilyInfoBox() {
     if (_isLoadingFamily) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: ShimmerLoaderCard(
-          child: Container(
-            height: 60,
-            child: Column(
-              children: [
-                Container(
-                  height: 20,
-                  width: double.infinity,
-                  margin: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.billingCardColor,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                Container(
-                  height: 15,
-                  width: 120,
-                  margin: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.billingCardColor,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ],
+      Widget bar(double w, double h) => Container(
+            width: w,
+            height: h,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(4),
             ),
+          );
+      // Mirrors the real family-info box: a row of child chips (avatar + name)
+      // and the "Parents: …" line below.
+      return Shimmer.fromColors(
+        baseColor: Colors.grey.shade300,
+        highlightColor: Colors.grey.shade100,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.cardBorderColor),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: List.generate(
+                  2,
+                  (_) => Padding(
+                    padding: const EdgeInsets.only(right: 14),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 32,
+                          height: 32,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        bar(64, 12),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              bar(200, 12),
+            ],
           ),
         ),
       );

@@ -42,6 +42,9 @@ class _ReceivePaymentIssueRefundScreenState
   late final TextEditingController _staffNoteController;
   late final TextEditingController _chequeNumberController;
 
+  /// Per-sibling Custom Amount inputs, keyed by student code.
+  final Map<String, TextEditingController> _studentControllers = {};
+
   double? _amountUnpaid;
 
   /// Receive method: false = pay the current outstanding balance, true = a
@@ -72,6 +75,18 @@ class _ReceivePaymentIssueRefundScreenState
     _chequeNumberController = TextEditingController();
 
     _amountUnpaid = widget.transaction.balance;
+
+    // Payments support per-sibling amounts; load the family's students (with
+    // their outstanding) so the Custom Amount section can list each one.
+    if (!widget.isRefund) {
+      _cubit.loadPayableStudents(
+        ownerType: widget.ownerType,
+        ownerCode: widget.ownerCode,
+        fallbackName: widget.transaction.studentName,
+        fallbackStudentCode: widget.studentCode,
+        fallbackOutstanding: widget.transaction.balance ?? 0,
+      );
+    }
   }
 
   @override
@@ -81,7 +96,15 @@ class _ReceivePaymentIssueRefundScreenState
     _internalNoteController.dispose();
     _staffNoteController.dispose();
     _chequeNumberController.dispose();
+    for (final TextEditingController c in _studentControllers.values) {
+      c.dispose();
+    }
     super.dispose();
+  }
+
+  /// A persistent controller for a sibling's Custom Amount input.
+  TextEditingController _controllerFor(String code) {
+    return _studentControllers.putIfAbsent(code, () => TextEditingController());
   }
 
   List<String> _getFilteredPaymentOptions() {
@@ -93,22 +116,84 @@ class _ReceivePaymentIssueRefundScreenState
 
   double get _outstandingValue => _amountUnpaid ?? 0.0;
 
+  String get _narration => _internalNoteController.text.trim().isEmpty
+      ? _staffNoteController.text.trim()
+      : _internalNoteController.text.trim();
+
   Future<void> _onSave() async {
+    if (!widget.isRefund) {
+      await _onSavePayment();
+      return;
+    }
+    await _onSaveRefund();
+  }
+
+  /// Receive Payment: one payment per sibling. In Custom Amount mode each typed
+  /// amount is validated against that sibling's outstanding; otherwise each
+  /// sibling's full outstanding is paid.
+  Future<void> _onSavePayment() async {
+    final List<PayableStudent> students = _cubit.state.payableStudents;
+    final Map<String, double> amounts = <String, double>{};
+    if (_useCustomAmount) {
+      for (final PayableStudent s in students) {
+        final double value =
+            double.tryParse(_controllerFor(s.code).text.trim()) ?? 0;
+        if (value > s.outstanding + 0.001) {
+          _showMessage(
+            'Amount for ${s.name} exceeds outstanding '
+            '(\$${s.outstanding.toStringAsFixed(2)}).',
+            isError: true,
+          );
+          return;
+        }
+        amounts[s.code] = value;
+      }
+    } else {
+      for (final PayableStudent s in students) {
+        amounts[s.code] = s.outstanding;
+      }
+    }
+    final result = await _cubit.submitPayments(
+      amountsByCode: amounts,
+      chequeNumber: _chequeNumberController.text,
+      ownerType: widget.ownerType,
+      ownerCode: widget.ownerCode,
+      narration: _narration,
+    );
+    if (!mounted) return;
+    _handleResult(result);
+  }
+
+  /// Issue Refund: single amount, capped at the invoice amount.
+  Future<void> _onSaveRefund() async {
+    if (_useCustomAmount) {
+      final double value = double.tryParse(_amountController.text.trim()) ?? 0;
+      if (value > widget.transaction.amount + 0.001) {
+        _showMessage(
+          'Refund cannot exceed the invoice amount '
+          '(\$${widget.transaction.amount.toStringAsFixed(2)}).',
+          isError: true,
+        );
+        return;
+      }
+    }
     final String amount = _useCustomAmount
         ? _amountController.text
         : _outstandingValue.toStringAsFixed(2);
     final result = await _cubit.validateAndSave(
       amount: amount,
       chequeNumber: _chequeNumberController.text,
-      isRefund: widget.isRefund,
+      isRefund: true,
       studentCode: widget.studentCode,
       ownerType: widget.ownerType,
       ownerCode: widget.ownerCode,
-      narration: _internalNoteController.text.trim().isEmpty
-          ? _staffNoteController.text.trim()
-          : _internalNoteController.text.trim(),
+      narration: _narration,
     );
     if (!mounted) return;
+    _handleResult(result);
+  }
+
+  void _handleResult(ReceivePaymentRefundResult result) {
     switch (result) {
       case ReceivePaymentRefundResult.missingAmount:
         _showMessage('Please enter an amount', isError: true);
@@ -287,6 +372,14 @@ class _ReceivePaymentIssueRefundScreenState
   // ── Receive Method ─────────────────────────────────────────────────────────
 
   Widget _buildReceiveMethod(ResponsiveHelper responsive) {
+    final bool isRefund = widget.isRefund;
+    final List<PayableStudent> students = _cubit.state.payableStudents;
+    // "Current Outstanding" pays the full balance — for a family that's the sum
+    // of every sibling's outstanding.
+    final double totalOutstanding = isRefund
+        ? _outstandingValue
+        : students.fold<double>(0, (double sum, PayableStudent s) => sum + s.outstanding);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -303,14 +396,16 @@ class _ReceivePaymentIssueRefundScreenState
         _methodRadio(
           responsive,
           selected: !_useCustomAmount,
-          label: 'Current Outstanding (Family Balance)',
+          label: isRefund
+              ? 'Current Outstanding'
+              : 'Current Outstanding (Family Balance)',
           onTap: () => setState(() => _useCustomAmount = false),
         ),
         const SizedBox(height: 8),
         _buildAmountBox(
           responsive,
           active: !_useCustomAmount,
-          readOnlyText: _outstandingValue.toStringAsFixed(2),
+          readOnlyText: totalOutstanding.toStringAsFixed(2),
         ),
         const SizedBox(height: 12),
         _methodRadio(
@@ -321,11 +416,30 @@ class _ReceivePaymentIssueRefundScreenState
         ),
         if (_useCustomAmount) ...<Widget>[
           const SizedBox(height: 8),
-          _buildAmountBox(
-            responsive,
-            active: true,
-            controller: _amountController,
-          ),
+          if (isRefund)
+            _buildAmountBox(
+              responsive,
+              active: true,
+              controller: _amountController,
+            )
+          else if (_cubit.state.isLoadingStudents)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else
+            ...students.map(
+              (PayableStudent s) => Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildStudentAmountRow(responsive, s),
+              ),
+            ),
         ],
         if (_amountError)
           const Padding(
@@ -336,6 +450,115 @@ class _ReceivePaymentIssueRefundScreenState
             ),
           ),
       ],
+    );
+  }
+
+  /// One sibling row in the Custom Amount section: avatar + name + outstanding
+  /// on the left, a `$` amount input on the right, with an inline error when
+  /// the typed amount exceeds that sibling's outstanding.
+  Widget _buildStudentAmountRow(
+    ResponsiveHelper responsive,
+    PayableStudent student,
+  ) {
+    final TextEditingController controller = _controllerFor(student.code);
+    final double typed = double.tryParse(controller.text.trim()) ?? 0;
+    final bool over = typed > student.outstanding + 0.001;
+    final double radius = responsive.isTablet ? 12.0 : 8.0;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.billingCardColor,
+        border: Border.all(
+          color: over ? AppColors.errorColor : const Color(0x33573353),
+        ),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              _avatar(student.name),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      student.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.billingTextColor,
+                        fontFamily: 'Manrope',
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Outstanding: \$${student.outstanding.toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.billingGrey,
+                        fontFamily: 'Manrope',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 130,
+                child: _buildAmountBox(
+                  responsive,
+                  active: true,
+                  controller: controller,
+                  onChanged: () => setState(() {}),
+                ),
+              ),
+            ],
+          ),
+          if (over)
+            const Padding(
+              padding: EdgeInsets.only(top: 6.0, left: 2.0),
+              child: Text(
+                '*Amount exceeds outstanding.',
+                style: TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Initials avatar (matches the staff-card 50px size) for a sibling row.
+  Widget _avatar(String name) {
+    const List<Color> palette = <Color>[
+      Color(0xFFB983FF),
+      Color(0xFFF6D365),
+      Color(0xFF6F8CFF),
+      Color(0xFF7ED9A6),
+      Color(0xFFFF9AA2),
+    ];
+    final Color color = palette[name.hashCode.abs() % palette.length];
+    return Container(
+      width: 50,
+      height: 50,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Center(
+        child: Text(
+          _initials(name),
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            fontFamily: 'Manrope',
+          ),
+        ),
+      ),
     );
   }
 
@@ -382,6 +605,7 @@ class _ReceivePaymentIssueRefundScreenState
     required bool active,
     TextEditingController? controller,
     String? readOnlyText,
+    VoidCallback? onChanged,
   }) {
     final TextStyle valueStyle = TextStyle(
       fontFamily: 'Manrope',
@@ -418,7 +642,10 @@ class _ReceivePaymentIssueRefundScreenState
                     controller: controller,
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
-                    onChanged: (_) => _cubit.clearAmountError(),
+                    onChanged: (_) {
+                      _cubit.clearAmountError();
+                      onChanged?.call();
+                    },
                     style: valueStyle,
                     decoration: InputDecoration(
                       hintText: '0.00',
@@ -654,8 +881,10 @@ class _ReceivePaymentIssueRefundScreenState
     );
   }
 
-  String _getUserInitials() {
-    final String name = widget.transaction.studentName.trim();
+  String _getUserInitials() => _initials(widget.transaction.studentName);
+
+  String _initials(String rawName) {
+    final String name = rawName.trim();
     if (name.isEmpty) return 'NA';
     final List<String> parts = name.split(' ');
     if (parts.length >= 2) {

@@ -339,6 +339,10 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       emit(state.copyWith(invoiceDate: () => value));
   void setDueDate(DateTime? value) =>
       emit(state.copyWith(dueDate: () => value));
+  void setServiceDate(DateTime? value) =>
+      emit(state.copyWith(serviceDate: () => value));
+  void setServiceDateEnd(DateTime? value) =>
+      emit(state.copyWith(serviceDateEnd: () => value));
 
   void addItem() {
     if (state.isFormLocked) return;
@@ -477,11 +481,12 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required String mode,
     String? notes,
   }) async {
-    final issueDate = state.invoiceDate;
+    // Invoice date is no longer collected in the UI — default to today.
+    final issueDate = state.invoiceDate ?? DateTime.now();
     final dueDate = state.dueDate;
-    if (issueDate == null || dueDate == null) {
+    if (dueDate == null) {
       return const InvoiceSubmitResult(
-          success: false, error: 'Please select the invoice and due dates.');
+          success: false, error: 'Please select the invoice due date.');
     }
     if (students.isEmpty) {
       return const InvoiceSubmitResult(
@@ -526,6 +531,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
           studentCode: student.code,
           issueDate: issueDate,
           dueDate: dueDate,
+          periodStart: state.serviceDate,
+          periodEnd: state.serviceDateEnd,
           notes: notes,
           items: items,
         ));

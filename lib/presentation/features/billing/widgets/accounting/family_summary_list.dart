@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_card.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 /// Renders the per-family billing summary rows (used by both the Student(s)
 /// overview list and the Transactions list) as [BillingStudentCard]s.
@@ -31,9 +31,14 @@ class FamilySummaryList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      // Skeleton placeholders instead of a spinner so the list area shows
-      // structure while the family summary loads.
-      return const _FamilySummaryShimmer();
+      // Card-shaped skeletons (matching BillingStudentCard / staff card) so the
+      // list area shows structure while the family summary loads.
+      return Column(
+        children: List.generate(
+          5,
+          (_) => const BillingTransactionShimmer(),
+        ),
+      );
     }
     if (errorMessage != null && families.isEmpty) {
       // Detail goes to the top snackbar; keep the list area calm.
@@ -71,83 +76,6 @@ class FamilySummaryList extends StatelessWidget {
             ),
           ),
       ],
-    );
-  }
-}
-
-/// Shimmer skeleton roughly matching the collapsed [BillingStudentCard]:
-/// avatar + name/subtitle column + a trailing amount, repeated a few times.
-class _FamilySummaryShimmer extends StatelessWidget {
-  const _FamilySummaryShimmer({this.rowCount = 4});
-
-  final int rowCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
-      child: Column(
-        children: List.generate(rowCount, (_) => const _FamilyRowShimmer()),
-      ),
-    );
-  }
-}
-
-class _FamilyRowShimmer extends StatelessWidget {
-  const _FamilyRowShimmer();
-
-  Widget _box({double? width, double height = 14, double radius = 4}) =>
-      Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _box(width: 140, height: 16),
-                const SizedBox(height: 8),
-                _box(width: 90, height: 12),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
-          _box(width: 60, height: 18),
-        ],
-      ),
     );
   }
 }

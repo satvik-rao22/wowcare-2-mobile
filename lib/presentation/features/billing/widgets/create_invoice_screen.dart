@@ -41,6 +41,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   List<InvoiceItemFormData> get _invoiceItems => _cubit.state.items;
   DateTime? get _invoiceDate => _cubit.state.invoiceDate;
   DateTime? get _dueDate => _cubit.state.dueDate;
+  DateTime? get _serviceDate => _cubit.state.serviceDate;
+  DateTime? get _serviceDateEnd => _cubit.state.serviceDateEnd;
   bool get _isFormLocked => _cubit.state.isFormLocked;
   double get _totalAmount => _cubit.state.totalAmount;
 
@@ -111,7 +113,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         const [];
   }
 
-  Future<void> _handleSubmit(String mode) async {
+  /// Step 2 → Step 3: validate the form, then open the invoice preview. The
+  /// actual Save / Save & Send happens on the preview screen via [_submitInvoice].
+  Future<void> _openPreview() async {
     if (_isSubmitting.value) return;
     if (!_validateRequiredFields()) return;
     if (_invoiceItems
@@ -120,29 +124,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       return;
     }
 
-    _isSubmitting.value = true;
-    final result = await _cubit.submitInvoices(
-      students: _students,
-      mode: mode,
-      notes: _internalNoteController.text.trim(),
-    );
-    if (!mounted) return;
-    _isSubmitting.value = false;
-
-    if (!result.success) {
-      _showValidationMessage(result.error ?? 'Could not create the invoice.');
-      return;
-    }
-
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: mode == 'send'
-          ? 'Invoice created & sent for ${result.created} student(s).'
-          : 'Invoice saved as draft for ${result.created} student(s).',
-      isSuccess: true,
-    );
-
-    // Show the receipt as a confirmation of what was just saved.
     final invoiceData = <String, dynamic>{
       'invoiceItems': _invoiceItems
           .map((it) => {
@@ -158,19 +139,52 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       'internalNote': _internalNoteController.text.trim(),
       'invoiceDate': _invoiceDate,
       'dueDate': _dueDate,
-      'mode': mode,
+      'serviceDate': _serviceDate,
+      'serviceDateEnd': _serviceDateEnd,
     };
 
-    Navigator.pushReplacement(
+    _isSubmitting.value = true;
+    final submitted = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (_) => SelectedStudentsReceiptScreen(
           selectedStudents: _students,
           invoiceData: invoiceData,
-          isConfirmation: true,
+          onSubmit: _submitInvoice,
         ),
       ),
     );
+    if (!mounted) return;
+    _isSubmitting.value = false;
+    // Preview reported a successful save — close this step too so the flow
+    // returns to the billing list.
+    if (submitted == true) {
+      Navigator.of(context).pop(true);
+    }
+  }
+
+  /// Performs the real save from the preview step. [students] is the list as
+  /// trimmed on the preview (a student may have been removed there). Returns
+  /// true on success.
+  Future<bool> _submitInvoice(String mode, List<Student> students) async {
+    final result = await _cubit.submitInvoices(
+      students: students,
+      mode: mode,
+      notes: _internalNoteController.text.trim(),
+    );
+    if (!mounted) return false;
+    if (!result.success) {
+      _showValidationMessage(result.error ?? 'Could not create the invoice.');
+      return false;
+    }
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: mode == 'send'
+          ? 'Invoice created & sent for ${result.created} student(s).'
+          : 'Invoice saved as draft for ${result.created} student(s).',
+      isSuccess: true,
+    );
+    return true;
   }
 
   @override
@@ -195,17 +209,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                 SizedBox(height: responsive.verticalSpacing),
                 _buildDateField(
                   responsive: responsive,
-                  label: 'Invoice Date',
-                  value: _invoiceDate,
-                  onSelected: _cubit.setInvoiceDate,
-                ),
-                SizedBox(height: responsive.verticalSpacing),
-                _buildDateField(
-                  responsive: responsive,
-                  label: 'Due Date',
+                  label: 'Invoice Due Date',
                   value: _dueDate,
                   onSelected: _cubit.setDueDate,
                 ),
+                SizedBox(height: responsive.verticalSpacing),
+                _buildServiceDateRange(responsive),
                 SizedBox(height: responsive.verticalSpacing),
                 _buildInvoiceItemsSection(responsive, isTablet),
                 SizedBox(height: responsive.verticalSpacing),
@@ -245,54 +254,24 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         builder: (context, isSubmitting, _) {
           final radius =
               BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0);
-          return Row(
-            children: [
-              // Secondary: Save as Draft (outlined).
-              Expanded(
-                child: Container(
-                  height: responsive.buttonHeight,
-                  decoration: BoxDecoration(
-                    color: AppColors.billingCardColor,
-                    borderRadius: radius,
-                    border: Border.all(
-                      color: isSubmitting
-                          ? AppColors.billingButtonDisabled
-                          : AppColors.themeColor,
-                    ),
-                  ),
-                  child: TextButton(
-                    onPressed: isSubmitting ? null : () => _handleSubmit('draft'),
-                    child: Text(
-                      'Save as Draft',
-                      style: AppTextStyles.button(color: AppColors.themeColor)
-                          .copyWith(fontSize: responsive.buttonFontSize),
-                    ),
-                  ),
-                ),
+          // Step 2 of 3 → continue to the invoice preview, where Save / Save &
+          // Send finalize the invoice.
+          return Container(
+            height: responsive.buttonHeight,
+            decoration: BoxDecoration(
+              gradient:
+                  isSubmitting ? null : AppColors.buildPrimaryGradient(),
+              color: isSubmitting ? AppColors.billingButtonDisabled : null,
+              borderRadius: radius,
+            ),
+            child: TextButton(
+              onPressed: isSubmitting ? null : _openPreview,
+              child: Text(
+                'Preview Invoice',
+                style: AppTextStyles.button(color: AppColors.billingCardColor)
+                    .copyWith(fontSize: responsive.buttonFontSize),
               ),
-              const SizedBox(width: 12),
-              // Primary: Save and Send (gradient).
-              Expanded(
-                child: Container(
-                  height: responsive.buttonHeight,
-                  decoration: BoxDecoration(
-                    gradient:
-                        isSubmitting ? null : AppColors.buildPrimaryGradient(),
-                    color: isSubmitting ? AppColors.billingButtonDisabled : null,
-                    borderRadius: radius,
-                  ),
-                  child: TextButton(
-                    onPressed: isSubmitting ? null : () => _handleSubmit('send'),
-                    child: Text(
-                      'Save & Send',
-                      style:
-                          AppTextStyles.button(color: AppColors.billingCardColor)
-                              .copyWith(fontSize: responsive.buttonFontSize),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -311,17 +290,54 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
 
   Widget _buildDateField({
     required ResponsiveHelper responsive,
-    required String label,
+    String? label,
     required DateTime? value,
     required ValueChanged<DateTime?> onSelected,
+    bool isRequired = true,
   }) {
     return CustomDateTimeField(
       label: label,
-      isRequired: true,
+      isRequired: isRequired,
       labelStyle: _formLabelStyle(responsive),
       fetchInitialTime: false,
       initialDate: value,
       onDateSelected: (date) => onSelected(date),
+    );
+  }
+
+  /// Optional "Date of Service" period (start → end), matching the web flow.
+  Widget _buildServiceDateRange(ResponsiveHelper responsive) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Date of Service (Optional)', style: _formLabelStyle(responsive)),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: _buildDateField(
+                responsive: responsive,
+                value: _serviceDate,
+                onSelected: _cubit.setServiceDate,
+                isRequired: false,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text('to', style: _formLabelStyle(responsive)),
+            ),
+            Expanded(
+              child: _buildDateField(
+                responsive: responsive,
+                value: _serviceDateEnd,
+                onSelected: _cubit.setServiceDateEnd,
+                isRequired: false,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -655,12 +671,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       _showValidationMessage('Please keep at least one student.');
       return false;
     }
-    if (_invoiceDate == null) {
-      _showValidationMessage('Please select an invoice date.');
-      return false;
-    }
     if (_dueDate == null) {
-      _showValidationMessage('Please select a due date.');
+      _showValidationMessage('Please select the invoice due date.');
       return false;
     }
 

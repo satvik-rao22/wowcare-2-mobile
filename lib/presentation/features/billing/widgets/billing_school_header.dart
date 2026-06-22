@@ -101,11 +101,12 @@ class _BillingSchoolHeaderState extends State<BillingSchoolHeader> {
       }
 
       final addressParts = <String>[
-        addrPick(['addressLine1', 'line', 'street', 'addressLine']),
+        addrPick(['line1', 'addressLine1', 'line', 'street', 'addressLine']),
+        addrPick(['line2', 'addressLine2']),
         addrPick(['city']),
         addrPick(['state', 'province']),
         addrPick(['country']),
-        addrPick(['zipCode', 'zipcode', 'postalCode', 'zip']),
+        addrPick(['postalCode', 'zipCode', 'zipcode', 'zip']),
       ].where((p) => p.isNotEmpty).toList();
 
       return _SchoolHeaderData(

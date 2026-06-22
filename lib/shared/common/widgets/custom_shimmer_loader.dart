@@ -569,6 +569,79 @@ class StaffCardShimmer extends StatelessWidget {
   }
 }
 
+/// Shimmer placeholder matching the billing transaction card header
+/// (avatar + name/badge column + amount/date column). Mirrors [StaffCardShimmer]
+/// so billing lists show the card structure while loading.
+class BillingTransactionShimmer extends StatelessWidget {
+  final EdgeInsets? margin;
+
+  const BillingTransactionShimmer({super.key, this.margin});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar(double width, double height) => Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Avatar placeholder (matches the 50px card avatar).
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Name + status badge.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  bar(double.infinity, 14),
+                  const SizedBox(height: 8),
+                  bar(96, 18),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Amount + date.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                bar(70, 14),
+                const SizedBox(height: 8),
+                bar(96, 12),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Shimmer placeholder matching the Staff Scheduling profile card:
 /// avatar + name/designation/classroom header, three hour tiles, and a
 /// day timeline placeholder. Used for the first-time load so the user sees
@@ -2419,6 +2492,156 @@ class StaffImportantDatesShimmer extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ============================================================================
+// Parent Billing / Statements shimmers
+// ============================================================================
+
+/// Shimmer placeholder matching the collapsed [ParentTransactionCard] layout:
+/// avatar circle, student name + transaction-type badge (left), amount + date (right).
+class ParentTransactionCardShimmer extends StatelessWidget {
+  const ParentTransactionCardShimmer({super.key, this.margin});
+
+  final EdgeInsets? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.only(bottom: 8),
+        constraints: const BoxConstraints(minHeight: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE9ECEF)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 14,
+                    width: 120,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 22,
+                    width: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 14,
+                  width: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  height: 10,
+                  width: 90,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer placeholder matching the collapsed [ParentStatementCard] layout:
+/// avatar circle, student name (left), statement-type badge (right).
+class ParentStatementCardShimmer extends StatelessWidget {
+  const ParentStatementCardShimmer({super.key, this.margin});
+
+  final EdgeInsets? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.only(bottom: 8),
+        constraints: const BoxConstraints(minHeight: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE9ECEF)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Container(
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 22,
+              width: 80,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

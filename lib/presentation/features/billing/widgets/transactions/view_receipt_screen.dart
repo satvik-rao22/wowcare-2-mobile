@@ -474,8 +474,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
         DocumentImageWidget(
           fileUuid: widget.transaction.studentPhotoUuid ?? '',
           name: widget.transaction.studentName,
-          size: 32,
-          fontSize: 14,
+          size: 50,
         ),
         const SizedBox(width: 5),
         Text(

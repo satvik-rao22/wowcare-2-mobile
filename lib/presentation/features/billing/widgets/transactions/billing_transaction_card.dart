@@ -29,10 +29,15 @@ class BillingTransactionCard extends StatefulWidget {
     this.onCancel,
     this.onDelete,
     this.onLongPress,
+    this.showBillingProfile = true,
   });
 
   final TransactionItem transaction;
   final bool showSelection;
+
+  /// Hide the "Billing Profile" action in the menu (set false when the card is
+  /// shown inside the Billing profile screen itself).
+  final bool showBillingProfile;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
   final ValueChanged<bool>? onToggleSelection;
@@ -126,8 +131,11 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                           popupType: popupType,
                           invoiceVariant: invoiceVariant,
                           transaction: widget.transaction,
+                          showBillingProfile: widget.showBillingProfile,
                           onMessageTap: _dialogCallback(dialogContext, widget.onMessage),
                           onBillingProfileTap: _dialogCallback(dialogContext, widget.onBillingProfile),
+                          onEditTap:
+                              _dialogCallback(dialogContext, widget.onEditInvoice),
                           onCancelTap:
                               _dialogCallback(dialogContext, widget.onCancel),
                           onDeleteTap:
@@ -138,6 +146,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
                       popupType: popupType,
                       invoiceVariant: invoiceVariant,
                       transaction: widget.transaction,
+                      showBillingProfile: widget.showBillingProfile,
                       onViewTap: _dialogCallback(dialogContext, _viewActionFor(popupType)),
                       onEditTap: _dialogCallback(dialogContext, widget.onEditInvoice),
                       onResendTap: _dialogCallback(dialogContext, widget.onSendInvoice),
@@ -272,7 +281,6 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           size: 50,
           shape: BoxShape.circle,
           fit: BoxFit.cover,
-          fontSize: 14,
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -317,35 +325,31 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           ),
         ),
         const SizedBox(width: 8),
-        // Flexible so the amount/date yields width to the name column instead of
-        // squeezing it (the cause of the badge overflow).
-        Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text(
-                _formatCurrency(widget.transaction.amount),
-                style: AppTextStyles.title.copyWith(
-                  fontSize: 14,
-                  color: AppColors.billingTextColor,
-                ),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+        // Sized to its content so the amount + full due date are always visible;
+        // the name column (Expanded) is the one that ellipsizes if space is tight.
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            Text(
+              _formatCurrency(widget.transaction.amount),
+              style: AppTextStyles.title.copyWith(
+                fontSize: 14,
+                color: AppColors.billingTextColor,
               ),
-              const SizedBox(height: 3),
-              Text(
-                dateLabel,
-                style: AppTextStyles.small.copyWith(
-                  fontSize: 13,
-                  color: AppColors.billingTextColor.withOpacity(0.7),
-                ),
-                textAlign: TextAlign.right,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
+              maxLines: 1,
+            ),
+            const SizedBox(height: 3),
+            Text(
+              dateLabel,
+              style: AppTextStyles.small.copyWith(
+                fontSize: 13,
+                color: AppColors.billingTextColor.withOpacity(0.7),
               ),
-            ],
-          ),
+              textAlign: TextAlign.right,
+              maxLines: 1,
+            ),
+          ],
         ),
       ],
     );
@@ -394,6 +398,45 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
     return content;
   }
 
+  /// Student name(s) for the row. With more than 2 names it collapses to
+  /// "FirstName +N"; a long-press (mobile) or hover (web/desktop) reveals the
+  /// full list via a tooltip.
+  Widget _studentNamesWidget() {
+    final raw = (widget.transaction.studentNames?.trim().isNotEmpty ?? false)
+        ? widget.transaction.studentNames!
+        : widget.transaction.studentName;
+    final names = raw
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    final style = AppTextStyles.value.copyWith(
+      fontWeight: FontWeight.w600,
+      color: AppColors.billingTextColor,
+    );
+
+    if (names.length <= 2) {
+      return Text(
+        names.isEmpty ? raw : names.join(', '),
+        textAlign: TextAlign.end,
+        style: style,
+      );
+    }
+
+    return Tooltip(
+      message: names.join('\n'),
+      triggerMode: TooltipTriggerMode.longPress,
+      showDuration: const Duration(seconds: 3),
+      preferBelow: false,
+      child: Text(
+        '${names.first} +${names.length - 1}',
+        textAlign: TextAlign.end,
+        style: style,
+      ),
+    );
+  }
+
   Widget _studentInfoRow() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -411,14 +454,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: <Widget>[
-              Text(
-                widget.transaction.studentName,
-                textAlign: TextAlign.end,
-                style: AppTextStyles.value.copyWith(
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.billingTextColor,
-                ),
-              ),
+              _studentNamesWidget(),
               if (widget.transaction.classroom.isNotEmpty) ...<Widget>[
                 const SizedBox(height: 4),
                 Text(
