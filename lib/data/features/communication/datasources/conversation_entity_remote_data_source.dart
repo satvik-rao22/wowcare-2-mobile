@@ -189,19 +189,27 @@ class ConversationEntityRemoteDataSourceImpl
   Future<ConversationEntityDto?> findStaffDirectConversation(
     String recipientUserCode,
   ) async {
-    final path = ApiPaths.messagingConversationsByType('STAFF_DIRECT');
-    final endpoint = _url(
-      '$path?status=ACTIVE&participantUserCode=$recipientUserCode&page=0&size=1',
+    // The `participantUserCode` query param on this endpoint isn't reliably
+    // filtering server-side — it's been observed to just return whatever
+    // the single most-recently-active STAFF_DIRECT conversation is,
+    // regardless of who was actually asked for. That silently reopens the
+    // wrong (most recent) chat for ANY "start a new chat" tap. Mirrors
+    // findRoomChatConversation/findAdminChatConversation below: fetch the
+    // list from the same endpoint already proven correct (it drives the
+    // inbox) and verify the match against participants client-side instead
+    // of trusting an unverified filter param.
+    final conversations = await getConversations(
+      type: ConversationType.staffDirect,
+      status: 'ACTIVE',
+      page: 0,
+      size: 100,
     );
-    final response = await apiClient.client.get(endpoint);
-    _assertSuccess(response.data, 'Failed to search direct conversation');
-
-    final content =
-        response.data['data']['content'] as List<dynamic>? ?? [];
-    if (content.isEmpty) return null;
-    return ConversationEntityDto.fromJson(
-      content.first as Map<String, dynamic>,
-    );
+    for (final c in conversations) {
+      if (c.participants.any((p) => p.userCode == recipientUserCode)) {
+        return c;
+      }
+    }
+    return null;
   }
 
   @override

@@ -45,6 +45,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   bool _showUnread = false;
   static const int _conversationPageSize = 50;
 
+  /// Drives the inbox's "load more" — fetches the next page once the user
+  /// scrolls within this many pixels of the end, instead of capping the
+  /// list at whatever the first fixed-size fetch returned.
+  final ScrollController _conversationScrollController = ScrollController();
+  static const double _loadMoreScrollThreshold = 300.0;
+
   /// Fires after a background bulk-send job completes, so the new conversation
   /// appears without requiring a manual pull-to-refresh.
   StreamSubscription<String>? _conversationListChangedSub;
@@ -141,6 +147,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     (e) => e.key != 'Unread' && e.value.isNotEmpty,
   );
 
+  bool get _hasSearchQuery => _searchController.text.trim().isNotEmpty;
+
+  /// True whenever the "Start new chat" section should be considered at
+  /// all — either an explicit filter is applied, or the user is searching.
+  /// Searching for someone who has no conversation yet should surface them
+  /// here instead of just coming up empty.
+  bool get _shouldShowStartNewChat => _hasActiveContactFilters || _hasSearchQuery;
+
   /// Human-readable "Classroom: X  •  Status: Y" summary of the active
   /// filters, shown above the conversation list as a title when non-empty.
   String get _activeFiltersSummary => _currentFilters.entries
@@ -148,9 +162,17 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       .map((e) => '${e.key}: ${e.value.join(', ')}')
       .join('   •   ');
 
+  /// Codes currently being created/opened — guards against a double-tap on
+  /// the same contact firing two create requests while the first is still
+  /// in flight.
+  final Set<String> _startingConversationWith = {};
+
   /// Creates (or finds) a conversation with [code] and opens it directly —
   /// so picking a filtered contact behaves like starting a real chat, not
-  /// just a silent refresh the user then has to find and tap again.
+  /// just a silent refresh the user then has to find and tap again. Runs as
+  /// a background request: shows a brief "Creating…" notice, then either a
+  /// success notice (and opens the thread) or a failure notice — matches
+  /// across the Staff and Parent tabs since both go through this one path.
   Future<void> _startConversationWith(String code, String name) async {
     if (_currentUserCode != null && code == _currentUserCode) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -160,6 +182,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       );
       return;
     }
+    if (_startingConversationWith.contains(code)) return;
+    _startingConversationWith.add(code);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Creating conversation with $name…'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+
     final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
       type: widget.isStaffMessaging
           ? ConversationType.staffDirect
@@ -168,6 +200,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       participantCodes: widget.isStaffMessaging ? [code] : const [],
       title: name,
     );
+    _startingConversationWith.remove(code);
     if (!mounted) return;
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation == null) {
@@ -176,6 +209,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       );
       return;
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Chat with $name created successfully')),
+    );
     _openThread(
       name: conversation.title.isNotEmpty ? conversation.title : name,
       avatar: conversation.avatarUrl,
@@ -269,6 +305,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     });
 
     _searchController.addListener(_applyFilters);
+    _conversationScrollController.addListener(_onConversationScroll);
 
     // Reload the conversation list when the background bulk-send job finishes.
     // The job runs fire-and-forget after the compose screen is dismissed, so
@@ -287,11 +324,25 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         });
   }
 
+  void _onConversationScroll() {
+    if (!_conversationScrollController.hasClients) return;
+    final position = _conversationScrollController.position;
+    if (position.maxScrollExtent - position.pixels > _loadMoreScrollThreshold) {
+      return;
+    }
+    context.read<CommunicationCubit>().loadMoreConversations(
+      type: _conversationType,
+      size: _conversationPageSize,
+    );
+  }
+
   @override
   void dispose() {
     _conversationListChangedSub?.cancel();
     _searchController.removeListener(_applyFilters);
     _searchController.dispose();
+    _conversationScrollController.removeListener(_onConversationScroll);
+    _conversationScrollController.dispose();
     super.dispose();
   }
 
@@ -307,6 +358,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         );
       },
       child: CustomScrollView(
+        controller: _conversationScrollController,
         slivers: [
           SliverToBoxAdapter(child: const SizedBox(height: 15)),
           // search bar and filter icon as well as clear all button and unread messages toggle
@@ -582,13 +634,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       }
 
                       List<Conversation> conversationsToDisplay = [];
+                      Set<String> existingContactCodes = const {};
+                      final query = _searchController.text
+                          .trim()
+                          .toLowerCase();
 
                       if (communicationState
                           is CommunicationConversationsLoaded) {
-                        final query = _searchController.text
-                            .trim()
-                            .toLowerCase();
-
                         // Only the Staff tab's filters (Classroom/Designation/Status)
                         // can be reliably matched against a conversation: each
                         // conversation's participants carry the staff member's own
@@ -602,8 +654,20 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                             ? staffState.items.map((s) => s.code).toSet()
                             : null;
 
-                        conversationsToDisplay = communicationState
-                            .getConversations(_conversationType)
+                        final allConversationsForType = communicationState
+                            .getConversations(_conversationType);
+
+                        // Anyone who already has a conversation belongs in
+                        // the list above, not duplicated in "Start new
+                        // chat" below — computed from the full (unfiltered
+                        // by search) list so it's correct regardless of
+                        // what's currently typed.
+                        existingContactCodes = allConversationsForType
+                            .expand((c) => c.participants)
+                            .map((p) => p.userCode)
+                            .toSet();
+
+                        conversationsToDisplay = allConversationsForType
                             .where((conv) {
                               if (query.isNotEmpty &&
                                   !conv.title.toLowerCase().contains(query)) {
@@ -632,21 +696,46 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                             .toList();
                       }
 
-                      final filteredContacts = (_hasActiveContactFilters)
+                      final filteredContacts = (_shouldShowStartNewChat)
                           ? (widget.isStaffMessaging
-                                ? _filteredStaffContacts(staffState)
-                                : _filteredStudentContacts(studentState))
+                                ? _filteredStaffContacts(
+                                    staffState,
+                                    query: query,
+                                    excludeCodes: existingContactCodes,
+                                  )
+                                : _filteredStudentContacts(
+                                    studentState,
+                                    query: query,
+                                    excludeCodes: existingContactCodes,
+                                  ))
                           : const <_FilteredContact>[];
 
+                      // Every sliver below carries a stable Key, and every
+                      // list item is keyed by its own stable code rather
+                      // than index — this list's shape changes a lot
+                      // (load-more appending pages, sort-by-lastMessageAt
+                      // reordering on a new message, the "Start new chat"
+                      // section appearing/disappearing). Without keys,
+                      // Flutter matches old/new children by position, and
+                      // a gesture detector (e.g. RefreshIndicator's own)
+                      // can get reparented onto a different item mid
+                      // rebuild — the exact "_elements.contains(element)"
+                      // class of crash.
                       final slivers = <Widget>[];
 
                       if (conversationsToDisplay.isEmpty &&
                           filteredContacts.isEmpty) {
-                        slivers.add(_buildContactPicker(context));
+                        slivers.add(
+                          KeyedSubtree(
+                            key: const ValueKey('contact_picker'),
+                            child: _buildContactPicker(context),
+                          ),
+                        );
                       } else {
                         if (conversationsToDisplay.isNotEmpty) {
                           slivers.add(
                             SliverList(
+                              key: const ValueKey('conversations_list'),
                               delegate: SliverChildBuilderDelegate((
                                 context,
                                 index,
@@ -654,6 +743,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 final conversation =
                                     conversationsToDisplay[index];
                                 return MessagingListTile(
+                                  key: ValueKey(
+                                    'conversation_${conversation.code}',
+                                  ),
                                   conversation: conversation,
                                   onTap: () => _openThread(
                                     name: conversation.title,
@@ -665,10 +757,34 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               }, childCount: conversationsToDisplay.length),
                             ),
                           );
+                          if (communicationState
+                                  is CommunicationConversationsLoaded &&
+                              communicationState.getIsLoadingMore(
+                                _conversationType,
+                              )) {
+                            slivers.add(
+                              const SliverToBoxAdapter(
+                                key: ValueKey('loading_more_indicator'),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: Center(
+                                    child: SizedBox(
+                                      width: 22,
+                                      height: 22,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
                         }
                         if (filteredContacts.isNotEmpty) {
                           slivers.add(
                             SliverToBoxAdapter(
+                              key: const ValueKey('start_new_chat_header'),
                               child: Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   20,
@@ -690,12 +806,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                           );
                           slivers.add(
                             SliverList(
+                              key: const ValueKey('start_new_chat_list'),
                               delegate: SliverChildBuilderDelegate((
                                 context,
                                 index,
                               ) {
                                 final contact = filteredContacts[index];
-                                return _buildContactRow(contact);
+                                return _buildContactRow(
+                                  contact,
+                                  key: ValueKey('contact_${contact.code}'),
+                                );
                               }, childCount: filteredContacts.length),
                             ),
                           );
@@ -745,18 +865,24 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     );
     unawaited(
       Navigator.of(context).push(route).then((_) async {
-        if (mounted) {
-          await context.read<CommunicationCubit>().refreshConversations(
-            type: _conversationType,
-            size: _conversationPageSize,
-          );
-        }
+        if (!mounted) return;
+        // Defer past the pop transition's last frame — calling this
+        // synchronously while the popped route's tree is still tearing
+        // down has been known to corrupt the element tree of whatever
+        // gesture detector is live underneath (RefreshIndicator's own,
+        // in this screen's case).
+        await WidgetsBinding.instance.endOfFrame;
+        if (!mounted) return;
+        await context.read<CommunicationCubit>().refreshConversations(
+          type: _conversationType,
+          size: _conversationPageSize,
+        );
       }),
     );
   }
 
   Widget _buildContactPicker(BuildContext context) {
-    final noMatches = _hasActiveContactFilters;
+    final noMatches = _shouldShowStartNewChat;
     return SliverFillRemaining(
       child: Center(
         child: Column(
@@ -791,10 +917,20 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     );
   }
 
-  /// Staff items matching the active filters, minus the logged-in user.
-  List<_FilteredContact> _filteredStaffContacts(StaffState staffState) {
+  /// Staff items matching the active filters and/or search query, minus the
+  /// logged-in user and anyone who already has a conversation — those
+  /// belong in the conversation list above, not duplicated here.
+  List<_FilteredContact> _filteredStaffContacts(
+    StaffState staffState, {
+    String query = '',
+    Set<String> excludeCodes = const {},
+  }) {
     return staffState.items
         .where((s) => s.code != _currentUserCode)
+        .where((s) => !excludeCodes.contains(s.code))
+        .where(
+          (s) => query.isEmpty || s.name.toLowerCase().contains(query),
+        )
         .map(
           (s) => _FilteredContact(
             code: s.code,
@@ -806,10 +942,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         .toList();
   }
 
-  /// Student items matching the active filters, minus the logged-in user.
-  List<_FilteredContact> _filteredStudentContacts(StudentState studentState) {
+  /// Student items matching the active filters and/or search query, minus
+  /// the logged-in user and anyone who already has a conversation.
+  List<_FilteredContact> _filteredStudentContacts(
+    StudentState studentState, {
+    String query = '',
+    Set<String> excludeCodes = const {},
+  }) {
     return studentState.items
         .where((s) => s.code != _currentUserCode)
+        .where((s) => !excludeCodes.contains(s.code))
+        .where(
+          (s) => query.isEmpty || s.fullName.toLowerCase().contains(query),
+        )
         .map(
           (s) => _FilteredContact(
             code: s.code,
@@ -824,8 +969,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// Flat list row (avatar, name, subtitle, trailing edit icon, thin bottom
   /// divider) matching the existing conversation tile's look, used for the
   /// "Start new chat" section under the filtered inbox.
-  Widget _buildContactRow(_FilteredContact contact) {
+  Widget _buildContactRow(_FilteredContact contact, {Key? key}) {
     return InkWell(
+      key: key,
       onTap: () => _startConversationWith(contact.code, contact.name),
       splashColor: const Color(0x1A6C5CE7),
       highlightColor: Colors.transparent,

@@ -263,11 +263,25 @@ class ConversationEntityRepositoryImpl
     try {
       final org = await _orgCode;
       final school = await _schoolCode;
+
+      // The backend only adds whoever is explicitly listed in
+      // `participantUserCodes` — callers pass just the OTHER party's
+      // code(s), so without the creator's own code added here, the
+      // conversation gets created without them as a member. They'd then
+      // get a 403 "not authorized" the moment they try to open the very
+      // conversation they just started.
+      final currentUserCode =
+          (await _storage.getString(StorageKeys.userCode))?.trim() ?? '';
+      final allParticipants = <String>{
+        if (currentUserCode.isNotEmpty) currentUserCode,
+        ...(participantCodes ?? const []),
+      }.toList();
+
       final dto = await _remote.createConversation(
         type: type.toApiString(),
         studentCode: studentCode,
         classroomCode: classroomCode,
-        participantCodes: participantCodes,
+        participantCodes: allParticipants,
         organizationCode: org,
         schoolCode: school,
         title: title,

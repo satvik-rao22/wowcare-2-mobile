@@ -112,3 +112,22 @@ class ConversationParticipant extends Equatable {
         updatedAt,
       ];
 }
+
+/// One page of the conversation list, mirroring the `StaffPage`/`StudentPage`
+/// pattern — carries the backend's own pagination metadata (`hasMore`) so
+/// callers don't have to guess from a bare list whether there's more to
+/// fetch.
+class ConversationsPage extends Equatable {
+  const ConversationsPage({
+    required this.items,
+    required this.page,
+    required this.hasMore,
+  });
+
+  final List<Conversation> items;
+  final int page;
+  final bool hasMore;
+
+  @override
+  List<Object?> get props => [items, page, hasMore];
+}

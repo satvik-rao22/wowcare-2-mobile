@@ -506,8 +506,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       },
       builder: (context, state) {
         final _messages = _activeMessages;
-        if ((state is CommunicationLoading && _messages.isEmpty) ||
-            (_messages.isNotEmpty && !_isPositionedAtBottom)) {
+        if (state is CommunicationLoading && _messages.isEmpty) {
           if (!widget.showOwnScaffold) return const ChatThreadShimmer();
           return Scaffold(
             body: const ChatThreadShimmer(),
@@ -2188,10 +2187,27 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 ),
           ), // Padding
         ); // GestureDetector
-        if (!widget.showOwnScaffold) return threadBody;
+        // The list (and its scroll controllers) must stay mounted — and
+        // therefore attached — the whole time, or `scrollToBottom()` has
+        // nothing to scroll and silently no-ops. So instead of swapping the
+        // shimmer in for the real list, keep the real list underneath at
+        // all times and just hide it with opacity until the first
+        // scroll-to-bottom has actually settled, with the shimmer painted
+        // on top in the meantime.
+        final positionedBody = Stack(
+          children: [
+            Opacity(
+              opacity: _isPositionedAtBottom ? 1 : 0,
+              child: threadBody,
+            ),
+            if (!_isPositionedAtBottom)
+              const Positioned.fill(child: ChatThreadShimmer()),
+          ],
+        );
+        if (!widget.showOwnScaffold) return positionedBody;
         return Scaffold(
           body: SafeArea(
-            child: threadBody,
+            child: positionedBody,
           ),
         );
       },
@@ -2277,30 +2293,51 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
+  /// True for a backend "you're not a participant of this conversation"
+  /// response (403 Access denied) — happens for a conversation that was
+  /// never actually created properly. Retrying the same load will just
+  /// 403 again forever, so this gets a different message/CTA than a
+  /// transient network failure.
+  bool _isUnauthorizedConversationError(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('access denied') ||
+        lower.contains('not authorized') ||
+        lower.contains('403');
+  }
+
   /// Shown when [CommunicationCubit] has no cached history to fall back on
   /// and the latest fetch failed — gives the user a way to retry instead of
-  /// staring at a blank screen.
+  /// staring at a blank screen. A 403/"not authorized" failure means this
+  /// conversation was never actually created properly, so it offers "Go
+  /// back" instead of a "Retry" that would just fail the same way again.
   Widget _buildErrorState(BuildContext context, String message) {
+    final isUnauthorized = _isUnauthorizedConversationError(message);
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
-              Icons.error_outline_rounded,
+            Icon(
+              isUnauthorized
+                  ? Icons.chat_bubble_outline_rounded
+                  : Icons.error_outline_rounded,
               size: 48,
-              color: Colors.redAccent,
+              color: isUnauthorized ? Colors.grey : Colors.redAccent,
             ),
             const SizedBox(height: 12),
-            const CustomTextWidget(
-              text: 'Unable to load messages',
+            CustomTextWidget(
+              text: isUnauthorized
+                  ? 'This chat hasn\'t been created yet'
+                  : 'Unable to load messages',
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
             const SizedBox(height: 6),
             CustomTextWidget(
-              text: message,
+              text: isUnauthorized
+                  ? 'Go back and start a new conversation.'
+                  : message,
               fontSize: 13,
               fontColor: Colors.grey[600],
               textAlign: TextAlign.center,
@@ -2308,6 +2345,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
             const SizedBox(height: 20),
             GestureDetector(
               onTap: () {
+                if (isUnauthorized) {
+                  Navigator.of(context).pop();
+                  return;
+                }
                 final convCode = widget.parentInfo['code'] as String;
                 context.read<CommunicationCubit>().loadMessages(
                   convCode,
@@ -2323,8 +2364,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   gradient: AppColors.buildPrimaryGradient(),
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: const CustomTextWidget(
-                  text: 'Retry',
+                child: CustomTextWidget(
+                  text: isUnauthorized ? 'Go back' : 'Retry',
                   fontColor: Colors.white,
                   fontWeight: FontWeight.w600,
                 ),

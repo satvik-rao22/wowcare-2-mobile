@@ -17,6 +17,25 @@ class MessagingListTile extends StatelessWidget {
     required this.onTap,
   });
 
+  /// The backend's conversation-list summary only carries a plain-text
+  /// `lastMessagePreview` — empty for an attachment-only last message,
+  /// with no field at all for attachment name/type or reactions (those
+  /// only exist on the full `Message` entity inside a thread, not on this
+  /// list-level summary). `lastMessageAt` is what actually distinguishes
+  /// "no messages yet" from "the last message just had no text", so use
+  /// that instead of treating both cases as the empty-preview case.
+  String _lastMessagePreviewText(Conversation conversation) {
+    if (conversation.lastMessagePreview.isNotEmpty) {
+      return MessageContentProcessor.previewText(
+        conversation.lastMessagePreview,
+      );
+    }
+    if (conversation.lastMessageAt != null) {
+      return '📎 Attachment';
+    }
+    return 'Start a new conversation';
+  }
+
   String _formatMessageTime(DateTime? dateTime) {
     if (dateTime == null) return '—';
 
@@ -73,8 +92,6 @@ class MessagingListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isActive = conversation.status == 'ACTIVE';
-
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A6C5CE7), // Subtle theme splash
@@ -91,40 +108,30 @@ class MessagingListTile extends StatelessWidget {
             horizontal: 20,
             vertical: 12,
           ),
-          leading: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+          // No staffCode/studentCode is available on this legacy
+          // Conversation model (only the participant's userCode is, which
+          // isn't what the attendance "today sign-in status" API expects)
+          // — so there's no reliable signal to drive a real presence dot
+          // here. Showing one based on `conversation.status` (the
+          // conversation's own archived/active flag, unrelated to whether
+          // the person is actually signed in) was actively misleading, so
+          // it's removed rather than left showing the wrong thing.
+          leading: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-                child: DocumentImageWidget(
-                  fileUuid: conversation.avatarUrl,
-                  name: conversation.title,
-                  size: 52,
-                ),
-              ),
-              if (isActive)
-                Positioned(
-                  right: 2,
-                  top: 2,
-                  child: Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00B115),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2.5),
-                    ),
-                  ),
-                ),
-            ],
+              ],
+            ),
+            child: DocumentImageWidget(
+              fileUuid: conversation.avatarUrl,
+              name: conversation.title,
+              size: 52,
+            ),
           ),
           title: Padding(
             padding: const EdgeInsets.only(bottom: 4),
@@ -156,11 +163,7 @@ class MessagingListTile extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  conversation.lastMessagePreview.isEmpty
-                      ? 'Start a new conversation'
-                      : MessageContentProcessor.previewText(
-                          conversation.lastMessagePreview,
-                        ),
+                  _lastMessagePreviewText(conversation),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

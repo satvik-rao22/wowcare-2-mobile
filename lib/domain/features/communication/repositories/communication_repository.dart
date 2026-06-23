@@ -30,7 +30,7 @@ abstract class CommunicationRepository {
   Future<Either<Failure, Conversation>> createConversation(
     CreateConversationRequest request,
   );
-  Future<Either<Failure, List<Conversation>>> getConversations({
+  Future<Either<Failure, ConversationsPage>> getConversations({
     String? type,
     String status = 'ACTIVE',
     int page = 0,

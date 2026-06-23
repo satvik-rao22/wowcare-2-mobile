@@ -191,7 +191,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
-  Future<Either<Failure, List<Conversation>>> getConversations({
+  Future<Either<Failure, ConversationsPage>> getConversations({
     String? type,
     String status = 'ACTIVE',
     int page = 0,
@@ -229,15 +229,32 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           );
         }
 
-        return Right(conversations);
+        return Right(
+          ConversationsPage(
+            items: conversations,
+            page: response.data!.number,
+            // Backend's own pageable metadata — far more reliable than
+            // guessing from `items.length == size`, which breaks the
+            // instant the last page happens to be exactly full.
+            hasMore: !response.data!.last,
+          ),
+        );
       } else {
         return Left(ServerFailure(response.message));
       }
     } catch (e) {
-      // If remote fails, try to return cache as fallback
+      // If remote fails, try to return cache as fallback. The cache has no
+      // pagination metadata of its own, so treat it as a single complete
+      // page rather than risk an infinite "load more" loop while offline.
       final cachedItems = await cacheService.getAll<ConversationCollection>();
       if (cachedItems.isNotEmpty) {
-        return Right(cachedItems.map((e) => e.toEntity()).toList());
+        return Right(
+          ConversationsPage(
+            items: cachedItems.map((e) => e.toEntity()).toList(),
+            page: 0,
+            hasMore: false,
+          ),
+        );
       }
       return Left(ServerFailure(e.toString()));
     }

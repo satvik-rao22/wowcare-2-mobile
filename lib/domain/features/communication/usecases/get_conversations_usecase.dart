@@ -8,7 +8,7 @@ class GetConversationsUseCase {
 
   GetConversationsUseCase(this._repository);
 
-  Future<Either<Failure, List<Conversation>>> call({
+  Future<Either<Failure, ConversationsPage>> call({
     String? type,
     String status = 'ACTIVE',
     int page = 0,

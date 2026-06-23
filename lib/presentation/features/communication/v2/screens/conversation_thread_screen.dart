@@ -815,13 +815,26 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   // ── Message list ──────────────────────────────────────────────────────────
 
+  /// True for a backend "you're not a participant of this conversation"
+  /// response (403 Access denied) — happens for a conversation that was
+  /// never actually created properly. Retrying the same load will just
+  /// 403 again forever, so this gets a different message/CTA than a
+  /// transient network failure.
+  bool _isUnauthorizedConversationError(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('access denied') ||
+        lower.contains('not authorized') ||
+        lower.contains('403');
+  }
+
   Widget _buildMessageList(ConversationThreadState state) {
-    if ((state.isLoading && !state.hasMessages) ||
-        (state.hasMessages && !_isPositionedAtBottom)) {
+    if (state.isLoading && !state.hasMessages) {
       return const ChatThreadShimmer();
     }
 
     if (!state.hasMessages && state.errorMessage != null) {
+      final errorMessage = state.errorMessage!;
+      final isUnauthorized = _isUnauthorizedConversationError(errorMessage);
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -829,20 +842,26 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.cloud_off_rounded,
+                isUnauthorized
+                    ? Icons.chat_bubble_outline_rounded
+                    : Icons.cloud_off_rounded,
                 size: 48,
                 color: AppColors.primaryColor.withValues(alpha: 0.3),
               ),
               const SizedBox(height: 12),
               Text(
-                state.errorMessage!,
+                isUnauthorized
+                    ? 'This chat hasn\'t been created yet. Go back and start a new conversation.'
+                    : errorMessage,
                 textAlign: TextAlign.center,
                 style: const TextStyle(color: Color(0xFF636E72)),
               ),
               const SizedBox(height: 16),
               OutlinedButton(
-                onPressed: _cubit.loadMessages,
-                child: const Text('Try again'),
+                onPressed: isUnauthorized
+                    ? () => Navigator.of(context).pop()
+                    : _cubit.loadMessages,
+                child: Text(isUnauthorized ? 'Go back' : 'Try again'),
               ),
             ],
           ),
@@ -861,6 +880,26 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
     final messages = state.messages;
 
+    // The list (and its ScrollController) must stay mounted — and
+    // therefore attached — the whole time, or `scrollToBottom()` has
+    // nothing to scroll and silently no-ops. So instead of swapping the
+    // shimmer in for the real list, keep the real list underneath at all
+    // times and just hide it with opacity until the first scroll-to-bottom
+    // has actually settled, with the shimmer painted on top in the
+    // meantime.
+    return Stack(
+      children: [
+        Opacity(
+          opacity: _isPositionedAtBottom ? 1 : 0,
+          child: _buildRealMessageList(messages),
+        ),
+        if (!_isPositionedAtBottom)
+          const Positioned.fill(child: ChatThreadShimmer()),
+      ],
+    );
+  }
+
+  Widget _buildRealMessageList(List<MessageEntity> messages) {
     return RefreshIndicator(
       onRefresh: _cubit.refreshMessages,
       color: AppColors.primaryColor,

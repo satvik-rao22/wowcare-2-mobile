@@ -172,9 +172,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     _conversationsSubscription = watchConversationsUseCase(type: type).listen(
       (conversations) {
         if (isClosed || conversations.isEmpty) return;
-        final currentMap = state is CommunicationConversationsLoaded
-            ? (state as CommunicationConversationsLoaded).conversationsByType
-            : <String?, List<Conversation>>{};
+        final prior = state is CommunicationConversationsLoaded
+            ? state as CommunicationConversationsLoaded
+            : null;
+        final currentMap =
+            prior?.conversationsByType ?? <String?, List<Conversation>>{};
         final updatedMap = Map<String?, List<Conversation>>.from(currentMap);
         final sorted = List<Conversation>.from(conversations)
           ..sort((a, b) {
@@ -183,7 +185,17 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             return bTime.compareTo(aTime);
           });
         updatedMap[type] = sorted;
-        emit(CommunicationConversationsLoaded(updatedMap));
+        // Preserve pagination bookkeeping — this is a realtime delta, not a
+        // fresh paged fetch, so it must not reset `hasMore`/`currentPage`
+        // and silently cut off "load more" for the rest of the session.
+        emit(
+          CommunicationConversationsLoaded(
+            updatedMap,
+            currentPageByType: prior?.currentPageByType ?? const {},
+            hasMoreByType: prior?.hasMoreByType ?? const {},
+            isLoadingMoreByType: prior?.isLoadingMoreByType ?? const {},
+          ),
+        );
         unawaited(_markDeliveredForIncomingMessages(conversations));
       },
       // Same rationale as startWatchingThread — never let a Firestore
@@ -287,13 +299,15 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           emit(CommunicationError(failure.message ?? 'Unknown error'));
         }
       },
-      (conversations) {
-        final currentMap = state is CommunicationConversationsLoaded
-            ? (state as CommunicationConversationsLoaded).conversationsByType
-            : <String?, List<Conversation>>{};
+      (conversationsPage) {
+        final prior = state is CommunicationConversationsLoaded
+            ? state as CommunicationConversationsLoaded
+            : null;
+        final currentMap =
+            prior?.conversationsByType ?? <String?, List<Conversation>>{};
 
         final updatedMap = Map<String?, List<Conversation>>.from(currentMap);
-        final sorted = List<Conversation>.from(conversations)
+        final sorted = List<Conversation>.from(conversationsPage.items)
           ..sort((a, b) {
             final aTime = a.lastMessageAt ?? a.updatedAt;
             final bTime = b.lastMessageAt ?? b.updatedAt;
@@ -301,7 +315,108 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           });
         updatedMap[type] = sorted;
 
-        emit(CommunicationConversationsLoaded(updatedMap));
+        final updatedPages = Map<String?, int>.from(
+          prior?.currentPageByType ?? {},
+        )..[type] = conversationsPage.page;
+        final updatedHasMore = Map<String?, bool>.from(
+          prior?.hasMoreByType ?? {},
+        )..[type] = conversationsPage.hasMore;
+
+        emit(
+          CommunicationConversationsLoaded(
+            updatedMap,
+            currentPageByType: updatedPages,
+            hasMoreByType: updatedHasMore,
+            isLoadingMoreByType: prior?.isLoadingMoreByType ?? const {},
+          ),
+        );
+      },
+    );
+  }
+
+  /// Fetches the next page for [type] and appends it to the existing list —
+  /// called when the conversation list scrolls near its end, so the full
+  /// list loads progressively instead of being capped at whatever the
+  /// first fixed-size fetch returned.
+  Future<void> loadMoreConversations({
+    String? type,
+    String status = 'ACTIVE',
+    int size = 20,
+  }) async {
+    final current = state;
+    if (current is! CommunicationConversationsLoaded) return;
+    if (!current.getHasMore(type) || current.getIsLoadingMore(type)) return;
+
+    final nextPage = current.getCurrentPage(type) + 1;
+    emit(
+      current.copyWith(
+        isLoadingMoreByType: Map<String?, bool>.from(
+          current.isLoadingMoreByType,
+        )..[type] = true,
+      ),
+    );
+
+    final result = await getConversationsUseCase(
+      type: type,
+      status: status,
+      page: nextPage,
+      size: size,
+    );
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        // Stop spinning, but keep `hasMore` as-is so a transient failure
+        // doesn't permanently cut off pagination — the next scroll retries.
+        if (state is CommunicationConversationsLoaded) {
+          final s = state as CommunicationConversationsLoaded;
+          emit(
+            s.copyWith(
+              isLoadingMoreByType: Map<String?, bool>.from(
+                s.isLoadingMoreByType,
+              )..[type] = false,
+            ),
+          );
+        }
+      },
+      (conversationsPage) {
+        if (state is! CommunicationConversationsLoaded) return;
+        final s = state as CommunicationConversationsLoaded;
+
+        final existing = List<Conversation>.from(
+          s.conversationsByType[type] ?? const [],
+        );
+        final existingCodes = existing.map((c) => c.code).toSet();
+        // Dedupe — a conversation that received a new message between the
+        // first page load and this one can otherwise show up twice.
+        final appended = conversationsPage.items
+            .where((c) => !existingCodes.contains(c.code));
+        existing.addAll(appended);
+        existing.sort((a, b) {
+          final aTime = a.lastMessageAt ?? a.updatedAt;
+          final bTime = b.lastMessageAt ?? b.updatedAt;
+          return bTime.compareTo(aTime);
+        });
+
+        final updatedMap = Map<String?, List<Conversation>>.from(
+          s.conversationsByType,
+        )..[type] = existing;
+        final updatedPages = Map<String?, int>.from(s.currentPageByType)
+          ..[type] = conversationsPage.page;
+        final updatedHasMore = Map<String?, bool>.from(s.hasMoreByType)
+          ..[type] = conversationsPage.hasMore;
+        final updatedLoadingMore = Map<String?, bool>.from(
+          s.isLoadingMoreByType,
+        )..[type] = false;
+
+        emit(
+          CommunicationConversationsLoaded(
+            updatedMap,
+            currentPageByType: updatedPages,
+            hasMoreByType: updatedHasMore,
+            isLoadingMoreByType: updatedLoadingMore,
+          ),
+        );
       },
     );
   }
