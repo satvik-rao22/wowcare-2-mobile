@@ -19,7 +19,7 @@ enum TaskStatus {
       case TaskStatus.inProgress:
         return 'In Progress';
       case TaskStatus.completed:
-        return 'Completed';
+        return 'Done';
     }
   }
 

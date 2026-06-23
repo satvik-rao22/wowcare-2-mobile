@@ -4,8 +4,9 @@ import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
 
 /// Mobile task card used by both the Kanban column and List view. Surfaces
-/// the fields the PRD calls out (FR-TK-17): assignee, title, description,
-/// due date, priority, status and an overdue indicator.
+/// the fields the PRD calls out (FR-TK-17): assignee, title, due date,
+/// priority, status and an overdue indicator. Description is intentionally
+/// omitted from the card to keep it compact (shown on the detail screen).
 class TaskCard extends StatelessWidget {
   const TaskCard({
     required this.task,
@@ -35,7 +36,7 @@ class TaskCard extends StatelessWidget {
         ? Colors.grey
         : (overdue ? TaskUiUtils.overdueColor : TaskUiUtils.accent);
     final card = Material(
-      color: completed ? const Color(0xFFFAFAFA) : Colors.white,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -101,15 +102,6 @@ class TaskCard extends StatelessWidget {
                     ),
                 ],
               ),
-              if (task.description.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(
-                  task.description,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
               const SizedBox(height: 8),
               Row(
                 children: [

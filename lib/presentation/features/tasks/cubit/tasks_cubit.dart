@@ -56,20 +56,21 @@ class TasksCubit extends Cubit<TasksState> {
           staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
         } catch (_) {}
       }
-      var showMineOnly = state.showMineOnly;
+      var scope = state.scope;
       if (!_audienceDefaultApplied) {
         _audienceDefaultApplied = true;
-        // Staff/teacher personas default to "My Tasks" (PRD FR-TK-19);
-        // admins default to "All Tasks".
+        // Staff/teacher personas default to "For me" / "My Tasks"
+        // (PRD FR-TK-19); admins default to "All Tasks".
         final role =
             (await _storageService.getString(StorageKeys.activeSchoolRole) ??
                     '')
                 .toUpperCase();
-        showMineOnly = role.contains('STAFF') || role.contains('TEACHER');
+        final isStaff = role.contains('STAFF') || role.contains('TEACHER');
+        scope = isStaff ? TaskScope.mine : TaskScope.all;
       }
       final tasks = await _getTasks();
       emit(state.copyWith(
-        showMineOnly: showMineOnly,
+        scope: scope,
         tasks: tasks,
         isLoading: false,
         currentUserCode: userCode,
@@ -91,15 +92,22 @@ class TasksCubit extends Cubit<TasksState> {
     emit(state.copyWith(searchQuery: query));
   }
 
-  /// "All Tasks" vs "My Tasks" scope (PRD FR-TK-19).
-  void setShowMineOnly(bool mineOnly) {
-    emit(state.copyWith(showMineOnly: mineOnly));
+  /// Scope toggle (PRD FR-TK-19): admins switch All/My, staff switch
+  /// For-me/By-me.
+  void setScope(TaskScope scope) {
+    emit(state.copyWith(scope: scope));
   }
 
   void toggleAssigneeFilter(String assigneeCode) {
     final next = Set<String>.from(state.assigneeFilter);
     if (!next.remove(assigneeCode)) next.add(assigneeCode);
     emit(state.copyWith(assigneeFilter: next));
+  }
+
+  void toggleCreatedByFilter(String createdByCode) {
+    final next = Set<String>.from(state.createdByFilter);
+    if (!next.remove(createdByCode)) next.add(createdByCode);
+    emit(state.copyWith(createdByFilter: next));
   }
 
   void togglePriorityFilter(TaskPriority priority) {
@@ -127,6 +135,7 @@ class TasksCubit extends Cubit<TasksState> {
     emit(state.copyWith(
       searchQuery: '',
       assigneeFilter: const <String>{},
+      createdByFilter: const <String>{},
       priorityFilter: const <TaskPriority>{},
       statusFilter: const <TaskStatus>{},
       dateFrom: () => null,

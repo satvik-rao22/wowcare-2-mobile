@@ -27,7 +27,7 @@ class EventCard extends StatelessWidget {
     final color =
         completed ? Colors.grey : EventUiUtils.typeColor(event.type);
     final card = Material(
-      color: completed ? const Color(0xFFFAFAFA) : Colors.white,
+      color: Colors.white,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,

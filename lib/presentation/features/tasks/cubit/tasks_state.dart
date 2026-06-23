@@ -1,13 +1,21 @@
 part of 'tasks_cubit.dart';
 
+/// Which slice of tasks the list/board shows.
+///
+/// Admins toggle between [all] ("All Tasks") and [mine] ("My Tasks"). Staff
+/// instead toggle between [mine] ("For me" — assigned to them) and [byMe]
+/// ("By Me" — created by them). See [TasksState.filteredTasks].
+enum TaskScope { all, mine, byMe }
+
 class TasksState extends Equatable {
   const TasksState({
     required this.tasks,
     required this.isLoading,
     required this.isSaving,
-    required this.showMineOnly,
+    required this.scope,
     required this.searchQuery,
     required this.assigneeFilter,
+    required this.createdByFilter,
     required this.priorityFilter,
     required this.statusFilter,
     this.dateFrom,
@@ -23,9 +31,10 @@ class TasksState extends Equatable {
       : tasks = const [],
         isLoading = true,
         isSaving = false,
-        showMineOnly = false,
+        scope = TaskScope.all,
         searchQuery = '',
         assigneeFilter = const <String>{},
+        createdByFilter = const <String>{},
         priorityFilter = const <TaskPriority>{},
         statusFilter = const <TaskStatus>{},
         dateFrom = null,
@@ -40,15 +49,16 @@ class TasksState extends Equatable {
   final bool isLoading;
   final bool isSaving;
 
-  /// "My Tasks" scope (PRD FR-TK-19): only tasks assigned to the current
-  /// user. Defaults true for staff personas, false for admins.
-  final bool showMineOnly;
+  /// Which slice of tasks to show (PRD FR-TK-19). Defaults to [TaskScope.mine]
+  /// for staff personas, [TaskScope.all] for admins.
+  final TaskScope scope;
 
   /// Free-text filter on title/description (PRD FR-TK-20, fires per keystroke).
   final String searchQuery;
 
   /// Empty sets mean "show all".
   final Set<String> assigneeFilter;
+  final Set<String> createdByFilter;
   final Set<TaskPriority> priorityFilter;
   final Set<TaskStatus> statusFilter;
 
@@ -72,6 +82,7 @@ class TasksState extends Equatable {
   /// Clear affordance without bumping this badge (PRD FR-TK-24).
   int get filterCount =>
       assigneeFilter.length +
+      createdByFilter.length +
       priorityFilter.length +
       statusFilter.length +
       (dateFrom != null || dateTo != null ? 1 : 0) +
@@ -85,9 +96,14 @@ class TasksState extends Equatable {
     final now = DateTime.now();
     final query = searchQuery.trim().toLowerCase();
     return tasks.where((task) {
-      if (showMineOnly && !_isMine(task)) return false;
+      if (scope == TaskScope.mine && !_isMine(task)) return false;
+      if (scope == TaskScope.byMe && !_isByMe(task)) return false;
       if (assigneeFilter.isNotEmpty &&
           !assigneeFilter.contains(task.assigneeCode)) {
+        return false;
+      }
+      if (createdByFilter.isNotEmpty &&
+          !createdByFilter.contains(task.createdBy)) {
         return false;
       }
       if (priorityFilter.isNotEmpty &&
@@ -170,6 +186,15 @@ class TasksState extends Equatable {
     return codes.contains(task.assigneeCode);
   }
 
+  /// Whether [task] was created by the current user — backs the staff "By Me"
+  /// scope. Permissive while the user identity hasn't resolved yet.
+  bool _isByMe(Task task) {
+    final codes = <String>{currentUserCode, currentStaffCode}
+      ..removeWhere((code) => code.isEmpty);
+    if (codes.isEmpty) return true;
+    return codes.contains(task.createdBy);
+  }
+
   /// Distinct assignees referenced by any task — offline-safe options for the
   /// assignee filter dropdown.
   List<TaskAssigneeRef> get assigneeOptions {
@@ -177,6 +202,23 @@ class TasksState extends Equatable {
     for (final task in tasks) {
       if (task.assigneeCode.isNotEmpty) {
         byCode[task.assigneeCode] = task.assigneeName;
+      }
+    }
+    final options = byCode.entries
+        .map((e) => (code: e.key, name: e.value))
+        .toList()
+      ..sort((a, b) => a.name.compareTo(b.name));
+    return options;
+  }
+
+  /// Distinct creators referenced by any task — offline-safe options for the
+  /// "Created By" filter dropdown.
+  List<TaskAssigneeRef> get createdByOptions {
+    final byCode = <String, String>{};
+    for (final task in tasks) {
+      if (task.createdBy.isNotEmpty) {
+        byCode[task.createdBy] =
+            task.createdByName.isNotEmpty ? task.createdByName : task.createdBy;
       }
     }
     final options = byCode.entries
@@ -197,9 +239,10 @@ class TasksState extends Equatable {
     List<Task>? tasks,
     bool? isLoading,
     bool? isSaving,
-    bool? showMineOnly,
+    TaskScope? scope,
     String? searchQuery,
     Set<String>? assigneeFilter,
+    Set<String>? createdByFilter,
     Set<TaskPriority>? priorityFilter,
     Set<TaskStatus>? statusFilter,
     DateTime? Function()? dateFrom,
@@ -214,9 +257,10 @@ class TasksState extends Equatable {
       tasks: tasks ?? this.tasks,
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
-      showMineOnly: showMineOnly ?? this.showMineOnly,
+      scope: scope ?? this.scope,
       searchQuery: searchQuery ?? this.searchQuery,
       assigneeFilter: assigneeFilter ?? this.assigneeFilter,
+      createdByFilter: createdByFilter ?? this.createdByFilter,
       priorityFilter: priorityFilter ?? this.priorityFilter,
       statusFilter: statusFilter ?? this.statusFilter,
       dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
@@ -234,9 +278,10 @@ class TasksState extends Equatable {
         tasks,
         isLoading,
         isSaving,
-        showMineOnly,
+        scope,
         searchQuery,
         assigneeFilter,
+        createdByFilter,
         priorityFilter,
         statusFilter,
         dateFrom,

@@ -54,7 +54,7 @@ class _TasksScreenState extends State<TasksScreen> {
               children: [
                 _header(context, roles),
                 const SizedBox(height: 10),
-                _controlsRow(context, state),
+                _controlsRow(context, state, roles),
                 const SizedBox(height: 10),
                 _toolbar(context, state),
                 const SizedBox(height: 10),
@@ -104,9 +104,15 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  /// My/All scope toggle (PRD FR-TK-19) + Kanban/List view switcher.
-  Widget _controlsRow(BuildContext context, TasksState state) {
+  /// Scope toggle (PRD FR-TK-19) + Kanban/List view switcher. Staff personas
+  /// switch between "For me" (assigned to them) and "By Me" (created by them);
+  /// admins switch between "My Tasks" and "All Tasks".
+  Widget _controlsRow(BuildContext context, TasksState state, RoleCubit roles) {
     final cubit = context.read<TasksCubit>();
+    final isStaff = roles.isStaff;
+    final leftLabel = isStaff ? 'For me' : 'My Tasks';
+    final rightLabel = isStaff ? 'By Me' : 'All Tasks';
+    final rightScope = isStaff ? TaskScope.byMe : TaskScope.all;
     return Row(
       children: [
         Expanded(
@@ -122,14 +128,14 @@ class _TasksScreenState extends State<TasksScreen> {
             child: Row(
               children: [
                 _scopeTab(
-                  label: 'My Tasks',
-                  selected: state.showMineOnly,
-                  onTap: () => cubit.setShowMineOnly(true),
+                  label: leftLabel,
+                  selected: state.scope == TaskScope.mine,
+                  onTap: () => cubit.setScope(TaskScope.mine),
                 ),
                 _scopeTab(
-                  label: 'All Tasks',
-                  selected: !state.showMineOnly,
-                  onTap: () => cubit.setShowMineOnly(false),
+                  label: rightLabel,
+                  selected: state.scope == rightScope,
+                  onTap: () => cubit.setScope(rightScope),
                 ),
               ],
             ),

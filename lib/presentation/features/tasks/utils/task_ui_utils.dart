@@ -44,7 +44,7 @@ class TaskUiUtils {
       case TaskPriority.medium:
         return const Color(0xFFF9A825); // amber
       case TaskPriority.high:
-        return const Color(0xFFD32F2F); // red
+        return const Color(0xFFEF6C00); // orange (distinct from overdue red)
     }
   }
 

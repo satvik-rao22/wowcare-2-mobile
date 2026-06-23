@@ -6,12 +6,12 @@ import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 
-/// Bottom-drawer filter panel for tasks. Short, fixed dimensions (status,
-/// priority, overdue) stay inline; the open-ended Assignee dimension drills
-/// into a second searchable stage *within the same sheet* so it scales to
-/// large lists without a wall of chips. Options come from the already-loaded
-/// tasks (offline-safe, no extra network calls) and changes apply live
-/// through [TasksCubit] (PRD FR-TK-21/22).
+/// Bottom-drawer filter panel for tasks. Short, fixed dimensions (status +
+/// overdue, priority) stay inline; the open-ended Assignee and Created By
+/// dimensions drill into a second searchable stage *within the same sheet* so
+/// they scale to large lists without a wall of chips. Options come from the
+/// already-loaded tasks (offline-safe, no extra network calls) and changes
+/// apply live through [TasksCubit] (PRD FR-TK-21/22).
 Future<void> showTaskFilterSheet(BuildContext context) {
   final cubit = context.read<TasksCubit>();
   return showModalBottomSheet<void>(
@@ -29,7 +29,7 @@ Future<void> showTaskFilterSheet(BuildContext context) {
 }
 
 /// Which second-stage list (if any) the sheet is currently showing.
-enum _FilterStage { root, assignee }
+enum _FilterStage { root, assignee, createdBy }
 
 class _TaskFilterSheet extends StatefulWidget {
   const _TaskFilterSheet();
@@ -71,9 +71,13 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                   ).animate(animation),
                   child: FadeTransition(opacity: animation, child: child),
                 ),
-                child: _stage == _FilterStage.root
-                    ? _root(context, state, cubit)
-                    : _assigneeStage(context, state, cubit),
+                child: switch (_stage) {
+                  _FilterStage.root => _root(context, state, cubit),
+                  _FilterStage.assignee =>
+                    _assigneeStage(context, state, cubit),
+                  _FilterStage.createdBy =>
+                    _createdByStage(context, state, cubit),
+                },
               ),
             ),
           ),
@@ -129,13 +133,23 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                       label: status.label,
                       color: TaskUiUtils.statusColor(status),
                       selected: state.statusFilter.contains(status),
-                      // Completed contradicts "Overdue only" — a completed
-                      // task is never overdue — so disable it while that
-                      // toggle is on.
+                      // "Done" contradicts the "Overdue" chip — a done task is
+                      // never overdue — so disable it while Overdue is on.
                       disabled: status == TaskStatus.completed &&
                           state.overdueOnly,
                       onTap: () => cubit.toggleStatusFilter(status),
                     ),
+                  // Overdue sits on the same line as the status chips (it's a
+                  // cross-status flag). Mirror of the Done guard above: a done
+                  // task is never overdue, so disable it while Done is picked.
+                  _chip(
+                    label: 'Overdue',
+                    color: TaskUiUtils.overdueColor,
+                    selected: state.overdueOnly,
+                    disabled:
+                        state.statusFilter.contains(TaskStatus.completed),
+                    onTap: () => cubit.setOverdueOnly(!state.overdueOnly),
+                  ),
                 ],
               ),
               const SizedBox(height: 14),
@@ -162,6 +176,17 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                   label: 'Assignees',
                   selectedCount: state.assigneeFilter.length,
                   onTap: () => _open(_FilterStage.assignee),
+                ),
+              ],
+              if (state.createdByOptions.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                _sectionLabel('Created By'),
+                _navRow(
+                  icon: Icons.edit_outlined,
+                  color: TaskUiUtils.accent,
+                  label: 'Creators',
+                  selectedCount: state.createdByFilter.length,
+                  onTap: () => _open(_FilterStage.createdBy),
                 ),
               ],
               const SizedBox(height: 14),
@@ -192,15 +217,6 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                     ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 14),
-              _OverdueToggle(
-                value: state.overdueOnly,
-                // Mirror of the Completed guard above: a completed task is
-                // never overdue, so disable this toggle while Completed is
-                // an active status filter.
-                enabled: !state.statusFilter.contains(TaskStatus.completed),
-                onChanged: cubit.setOverdueOnly,
               ),
             ],
           ),
@@ -235,6 +251,27 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
       selected: state.assigneeFilter,
       accent: TaskUiUtils.accent,
       onToggle: cubit.toggleAssigneeFilter,
+      onBack: _back,
+    );
+  }
+
+  // ----------------------------------------------------- created-by stage
+
+  Widget _createdByStage(
+    BuildContext context,
+    TasksState state,
+    TasksCubit cubit,
+  ) {
+    return _CategoryFilterList(
+      key: const ValueKey(_FilterStage.createdBy),
+      title: 'Creators',
+      options: [
+        for (final creator in state.createdByOptions)
+          (code: creator.code, name: creator.name),
+      ],
+      selected: state.createdByFilter,
+      accent: TaskUiUtils.accent,
+      onToggle: cubit.toggleCreatedByFilter,
       onBack: _back,
     );
   }
@@ -443,52 +480,6 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _OverdueToggle extends StatelessWidget {
-  const _OverdueToggle({
-    required this.value,
-    required this.onChanged,
-    this.enabled = true,
-  });
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final bool enabled;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent =
-        enabled ? TaskUiUtils.overdueColor : Colors.grey.shade400;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.error_outline, size: 17, color: accent),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Overdue only',
-              style: TextStyle(
-                fontSize: 13,
-                color: enabled ? Colors.black87 : Colors.grey.shade400,
-              ),
-            ),
-          ),
-          Switch(
-            value: value,
-            activeThumbColor: TaskUiUtils.overdueColor,
-            onChanged: enabled ? onChanged : null,
-          ),
-        ],
       ),
     );
   }
