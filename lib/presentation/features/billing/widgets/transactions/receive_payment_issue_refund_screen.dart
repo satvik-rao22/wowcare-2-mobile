@@ -164,24 +164,19 @@ class _ReceivePaymentIssueRefundScreenState
     _handleResult(result);
   }
 
-  /// Issue Refund: single amount, capped at the invoice amount.
+  /// Issue Refund: single amount, capped at the invoice's max refundable.
   Future<void> _onSaveRefund() async {
-    if (_useCustomAmount) {
-      final double value = double.tryParse(_amountController.text.trim()) ?? 0;
-      if (value > widget.transaction.amount + 0.001) {
-        _showMessage(
-          'Refund cannot exceed the invoice amount '
-          '(\$${widget.transaction.amount.toStringAsFixed(2)}).',
-          isError: true,
-        );
-        return;
-      }
+    final double value = double.tryParse(_amountController.text.trim()) ?? 0;
+    if (value > widget.transaction.maxRefundable + 0.001) {
+      _showMessage(
+        'Refund cannot exceed the max refundable amount '
+        '(\$${widget.transaction.maxRefundable.toStringAsFixed(2)}).',
+        isError: true,
+      );
+      return;
     }
-    final String amount = _useCustomAmount
-        ? _amountController.text
-        : _outstandingValue.toStringAsFixed(2);
     final result = await _cubit.validateAndSave(
-      amount: amount,
+      amount: _amountController.text,
       chequeNumber: _chequeNumberController.text,
       isRefund: true,
       studentCode: widget.studentCode,
@@ -322,6 +317,10 @@ class _ReceivePaymentIssueRefundScreenState
               children: <Widget>[
                 _buildUserInfoSection(),
                 SizedBox(height: verticalSpacing),
+                if (widget.isRefund) ...<Widget>[
+                  _buildRefundAmountField(responsive, labelGap),
+                  SizedBox(height: verticalSpacing),
+                ],
                 _buildPaymentTypeField(responsive, labelGap),
                 if (_selectedPaymentType == 'Cheque') ...<Widget>[
                   SizedBox(height: verticalSpacing),
@@ -333,8 +332,10 @@ class _ReceivePaymentIssueRefundScreenState
                     hint: 'Enter cheque number',
                   ),
                 ],
-                SizedBox(height: verticalSpacing),
-                _buildReceiveMethod(responsive),
+                if (!widget.isRefund) ...<Widget>[
+                  SizedBox(height: verticalSpacing),
+                  _buildReceiveMethod(responsive),
+                ],
                 SizedBox(height: verticalSpacing),
                 _outlinedTextField(
                   responsive,
@@ -366,6 +367,33 @@ class _ReceivePaymentIssueRefundScreenState
           );
         },
       ),
+    );
+  }
+
+  // ── Refund Amount ──────────────────────────────────────────────────────────
+
+  /// Refund amount entry — a single editable Amount field (no Current
+  /// Outstanding / Custom Amount choice), capped at the invoice's max refundable.
+  Widget _buildRefundAmountField(ResponsiveHelper responsive, double labelGap) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        _fieldLabel(responsive, 'Amount', required: true),
+        SizedBox(height: labelGap),
+        _buildAmountBox(
+          responsive,
+          active: true,
+          controller: _amountController,
+        ),
+        if (_amountError)
+          const Padding(
+            padding: EdgeInsets.only(top: 4.0, left: 2.0),
+            child: Text(
+              '*Please enter an amount.',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
+      ],
     );
   }
 
@@ -859,17 +887,36 @@ class _ReceivePaymentIssueRefundScreenState
           ],
         ),
         const SizedBox(height: 12),
-        Text(
-          widget.isRefund
-              ? 'Invoice Amount : \$ ${widget.transaction.amount.toStringAsFixed(2)}'
-              : 'Account Balance : \$ ${effectiveBalance.toStringAsFixed(2)}',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.billingTextColor,
-            fontFamily: 'Manrope',
+        if (widget.isRefund) ...<Widget>[
+          Text(
+            'Invoice Amount : \$ ${widget.transaction.amount.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.billingTextColor,
+              fontFamily: 'Manrope',
+            ),
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            'Max Refundable : \$ ${widget.transaction.maxRefundable.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.billingTextColor,
+              fontFamily: 'Manrope',
+            ),
+          ),
+        ] else
+          Text(
+            'Account Balance : \$ ${effectiveBalance.toStringAsFixed(2)}',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: AppColors.billingTextColor,
+              fontFamily: 'Manrope',
+            ),
+          ),
         const SizedBox(height: 12),
         Container(
           height: 1.5,

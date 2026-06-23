@@ -183,6 +183,8 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
             t.transactionType.isNotEmpty ? t.transactionType : 'Invoice',
         date: t.date ?? DateTime.now(),
         amount: t.amount,
+        paidAmount: t.paidAmount,
+        refundedAmount: t.refundedAmount,
         status: t.status,
         description: t.description.isNotEmpty
             ? t.description

@@ -1,4 +1,61 @@
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/payment_settings_entity.dart';
+
+/// `data` from `GET /api/v1/payment/settings`.
+class PaymentSettingsModel {
+  const PaymentSettingsModel({
+    required this.acceptCreditCard,
+    required this.creditCardFeePaidBy,
+    required this.acceptDebitCard,
+    required this.debitCardFeePaidBy,
+    required this.acceptAch,
+    required this.achFeePaidBy,
+    this.schoolCode,
+  });
+
+  final bool acceptCreditCard;
+  final String creditCardFeePaidBy;
+  final bool acceptDebitCard;
+  final String debitCardFeePaidBy;
+  final bool acceptAch;
+  final String achFeePaidBy;
+  final String? schoolCode;
+
+  factory PaymentSettingsModel.fromJson(Map<String, dynamic> json) {
+    bool b(String key) => json[key] == true;
+    String s(String key) => (json[key] ?? '').toString();
+    return PaymentSettingsModel(
+      acceptCreditCard: b('acceptCreditCard'),
+      creditCardFeePaidBy: s('creditCardFeePaidBy'),
+      acceptDebitCard: b('acceptDebitCard'),
+      debitCardFeePaidBy: s('debitCardFeePaidBy'),
+      acceptAch: b('acceptAch'),
+      achFeePaidBy: s('achFeePaidBy'),
+      schoolCode: json['schoolCode']?.toString(),
+    );
+  }
+
+  static FeePayer _payer(String raw) {
+    switch (raw.trim().toUpperCase()) {
+      case 'PARENT':
+        return FeePayer.parent;
+      case 'SCHOOL':
+        return FeePayer.school;
+      default:
+        return FeePayer.unknown;
+    }
+  }
+
+  PaymentSettingsEntity toEntity() => PaymentSettingsEntity(
+        acceptCreditCard: acceptCreditCard,
+        creditCardFeePaidBy: _payer(creditCardFeePaidBy),
+        acceptDebitCard: acceptDebitCard,
+        debitCardFeePaidBy: _payer(debitCardFeePaidBy),
+        acceptAch: acceptAch,
+        achFeePaidBy: _payer(achFeePaidBy),
+        schoolCode: schoolCode ?? '',
+      );
+}
 
 /// One item from `GET /school-forte-configs` (`data.content[]`).
 class SchoolForteConfigModel {

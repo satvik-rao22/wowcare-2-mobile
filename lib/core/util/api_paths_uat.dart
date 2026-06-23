@@ -193,6 +193,7 @@ class ApiPathsUat {
       case 'invoices':
       case 'school-forte-configs':
       case 'payment-gateway':
+      case 'payment':
         return ApiMicroservices.billing;
       case 'admin':
         // v2 activity moderation endpoints:

@@ -64,6 +64,64 @@ class NotificationPreferenceGroup {
 class NotificationPreferenceCatalog {
   NotificationPreferenceCatalog._();
 
+  /// The ONLY `definitionCode`s the 3cdot notification service accepts. The
+  /// PATCH is filtered against this set — any code not listed here is dropped
+  /// before sending, because the service returns 500 on an unknown code.
+  /// (Rows whose codes aren't here yet simply won't persist until the backend
+  /// adds them.)
+  static const Set<String> allowedDefinitionCodes = <String>{
+    'ADD_STAFF_DEF',
+    'DEACTIVATE_STAFF_DEF',
+    'DELETE_STAFF_DEF',
+    'STAFF_DOCUMENT_EXPIRY_DEF',
+    'STAFF_PHYSICAL_DUE_DEF',
+    'ADD_CLASSROOM_DEF',
+    'EDIT_CLASSROOM_DEF',
+    'DEACTIVATE_CLASSROOM_DEF',
+    'DELETE_CLASSROOM_DEF',
+    'ASSIGN_STUDENT_TO_CLASSROOM_DEF',
+    'ASSIGN_STAFF_TO_CLASSROOM_DEF',
+    'ADD_CLASSROOM_NOTE_DEF',
+    'STAFF_PHYSICAL_OVERDUE_DEF',
+    'ADD_STUDENT_DEF',
+    'DEACTIVATE_STUDENT_DEF',
+    'DELETE_STUDENT_DEF',
+    'STUDENT_PARENT_NOT_ADDED_DEF',
+    'STUDENT_PHYSICAL_NOT_ADDED_DEF',
+    'STUDENT_BIRTHDATE_NOT_ADDED_DEF',
+    'STUDENT_DOCUMENT_ADDED_DEF',
+    'STUDENT_DOCUMENT_DELETED_DEF',
+    'STUDENT_DOCUMENT_EXPIRY_DEF',
+    'STUDENT_DOCUMENT_EXPIRED_DEF',
+    'STUDENT_PHYSICAL_DUE_DEF',
+    'STUDENT_PHYSICAL_OVERDUE_DEF',
+    'STUDENT_IMMUNIZATION_DUE_DEF',
+    'STUDENT_IMMUNIZATION_OVERDUE_DEF',
+    'STUDENT_SCHEDULE_NOT_ADDED_DEF',
+    'CREATE_RULE_DEF',
+    'DEACTIVATE_RULE_DEF',
+    'DELETE_RULE_DEF',
+    'CREATE_MOVEMENT_DEF',
+    'CONFIRMED_MOVEMENT_DEF',
+    'PUBLISH_SHIFT_DEF',
+    'UPCOMING_SHIFT_AND_BREAK_DEF',
+    'SCHEDULE_UNDER_RATIO_DEF',
+    'EDIT_SHIFT_DEF',
+    'DELETE_SHIFT_DEF',
+    'UPCOMING_MOVEMENT_DEF',
+    'MOVEMENT_OVERDUE_DEF',
+    'STAFF_PHYSICAL_NOT_ADDED_DEF',
+    'STAFF_SCHEDULE_NOT_ADDED_DEF',
+    'STUDENT_SIGN_IN_DEF',
+    'STUDENT_SIGN_OUT_DEF',
+    'STUDENT_MARKED_ABSENT_DEF',
+    'STAFF_SIGN_IN_DEF',
+    'STAFF_SIGN_OUT_DEF',
+    'STAFF_MARKED_ABSENT_DEF',
+    'STUD_ATTENDANCE_NOT_MARKED_DEF',
+    'STAFF_ATTENDANCE_NOT_MARKED_DEF',
+  };
+
   static const List<NotificationPreferenceGroup> groups =
       <NotificationPreferenceGroup>[
     // ── Messaging ──────────────────────────────────────────────────────────

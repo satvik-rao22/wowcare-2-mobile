@@ -136,6 +136,11 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
         final row = state.settings[group.title];
         if (row == null) continue;
         for (final code in group.definitionCodes) {
+          // Only send codes the backend recognises — unknown codes 500 it.
+          if (!NotificationPreferenceCatalog.allowedDefinitionCodes
+              .contains(code)) {
+            continue;
+          }
           updates.add(NotificationPreferenceUpdate(
             definitionCode: code,
             enabledInApp: row[_inApp],

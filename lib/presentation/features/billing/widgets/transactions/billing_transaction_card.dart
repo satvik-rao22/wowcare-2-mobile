@@ -332,7 +332,14 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text(
-              _formatCurrency(widget.transaction.amount),
+              // Refunds are money leaving the school — always shown negative
+              // (so Net Paid reads as payments minus refunds), regardless of
+              // the sign the API sends.
+              _formatCurrency(
+                type == 'refund'
+                    ? -widget.transaction.amount.abs()
+                    : widget.transaction.amount,
+              ),
               style: AppTextStyles.title.copyWith(
                 fontSize: 14,
                 color: AppColors.billingTextColor,
@@ -488,7 +495,10 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   Color _badgeColor(String type, String status) {
     // Check status first for special colors
     final String statusLower = status.toLowerCase();
-    if (statusLower.contains('in progress') || statusLower.contains('pending')) {
+    if (statusLower.contains('in progress') ||
+        statusLower.contains('in_process') ||
+        statusLower.contains('in process') ||
+        statusLower.contains('pending')) {
       return AppColors.billingStatusInProgressColor;
     }
     if (statusLower.contains('cancelled') || statusLower.contains('canceled')) {
@@ -584,17 +594,15 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
 
   String _dateLabel(TransactionItem tx, String type) {
     final DateFormat formatter = DateFormat('MMM dd, yyyy');
+    // Labels (Due Date / Paid On / Refunded On) are dropped to save horizontal
+    // space; the badge already conveys the transaction type.
     if (type == 'invoice') {
       final DateTime? dueDate =
           tx.endDate != null ? DateTime.tryParse(tx.endDate!) : null;
-      return 'Due Date: ${formatter.format(dueDate ?? tx.date)}';
+      return formatter.format(dueDate ?? tx.date);
     }
 
-    if (type == 'refund') {
-      return 'Refunded On: ${formatter.format(tx.date)}';
-    }
-
-    return 'Paid On: ${formatter.format(tx.date)}';
+    return formatter.format(tx.date);
   }
 
   String _formatCurrency(double value) {
@@ -614,6 +622,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       case 'pending':
       case 'in progress':
         return 'In Progress';
+      case 'in_process':
+      case 'in process':
+        return 'In Process';
       case 'paid':
       case 'completed':
         return 'Paid';
@@ -621,8 +632,9 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       case 'canceled':
         return 'Cancelled';
       default:
-        // Capitalize first letter of each word
-        return status.split(' ').map((word) {
+        // Capitalize first letter of each word, treating underscores as spaces
+        // (e.g. backend's `IN_PROCESS` → `In Process`).
+        return status.split(RegExp(r'[_\s]+')).map((word) {
           if (word.isEmpty) return word;
           return word[0].toUpperCase() + word.substring(1).toLowerCase();
         }).join(' ');

@@ -190,12 +190,16 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               ),
             ];
           case BillingInvoiceMenuVariant.paid:
+            // Issue Refund is hidden once the invoice is fully refunded
+            // (amount == refundedAmount → nothing left to refund).
+            final bool canRefund = (transaction?.maxRefundable ?? 0) > 0;
             return <_PopupActionConfig>[
-              _PopupActionConfig(
-                iconData: Icons.attach_money,
-                label: 'Issue Refund',
-                onTap: onIssueRefundTap,
-              ),
+              if (canRefund)
+                _PopupActionConfig(
+                  iconData: Icons.attach_money,
+                  label: 'Issue Refund',
+                  onTap: onIssueRefundTap,
+                ),
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
                 label: 'View',
@@ -223,17 +227,21 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             ];
         }
       case BillingPopupType.payment:
+        // Issue Refund is hidden once nothing is left to refund
+        // (amount == refundedAmount → maxRefundable is 0).
+        final bool canRefund = (transaction?.maxRefundable ?? 0) > 0;
         return <_PopupActionConfig>[
           _PopupActionConfig(
             iconPath: MediaRes.docsIcon,
             label: 'View',
             onTap: onViewTap,
           ),
-          _PopupActionConfig(
-            iconData: Icons.attach_money,
-            label: 'Issue Refund',
-            onTap: onIssueRefundTap,
-          ),
+          if (canRefund)
+            _PopupActionConfig(
+              iconData: Icons.attach_money,
+              label: 'Issue Refund',
+              onTap: onIssueRefundTap,
+            ),
           _PopupActionConfig(
             iconPath: MediaRes.moreIcon,
             label: 'More',
@@ -393,6 +401,10 @@ class BillingMoreOptionsPopup extends StatelessWidget {
       onTap: onCancelTap,
     );
 
+    // Cancel is only offered while nothing has been paid against the invoice;
+    // once paidAmount > 0 the invoice can no longer be cancelled.
+    final bool canCancel = (transaction?.paidAmount ?? 0) <= 0;
+
     final List<_PopupActionConfig> actions;
     if (popupType == BillingPopupType.invoice) {
       switch (invoiceVariant ?? BillingInvoiceMenuVariant.sent) {
@@ -401,7 +413,7 @@ class BillingMoreOptionsPopup extends StatelessWidget {
           actions = <_PopupActionConfig>[
             editAction,
             if (showBillingProfile) billingProfileAction,
-            cancelAction,
+            if (canCancel) cancelAction,
           ];
           break;
         case BillingInvoiceMenuVariant.sent:
@@ -410,7 +422,7 @@ class BillingMoreOptionsPopup extends StatelessWidget {
             // messageAction,
             editAction,
             if (showBillingProfile) billingProfileAction,
-            cancelAction,
+            if (canCancel) cancelAction,
           ];
           break;
         case BillingInvoiceMenuVariant.paid:

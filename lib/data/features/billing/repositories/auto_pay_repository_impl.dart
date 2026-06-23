@@ -1,6 +1,7 @@
 import 'package:wowcare/data/features/billing/datasources/auto_pay_remote_datasource.dart';
 import 'package:wowcare/data/features/billing/models/auto_pay_models.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/payment_settings_entity.dart';
 import 'package:wowcare/domain/features/billing/repositories/auto_pay_repository.dart';
 
 class AutoPayRepositoryImpl implements AutoPayRepository {
@@ -17,6 +18,14 @@ class AutoPayRepositoryImpl implements AutoPayRepository {
       organizationCode: organizationCode,
       schoolCode: schoolCode,
     );
+    return model?.toEntity();
+  }
+
+  @override
+  Future<PaymentSettingsEntity?> getPaymentSettings({
+    required String schoolCode,
+  }) async {
+    final model = await _dataSource.getPaymentSettings(schoolCode: schoolCode);
     return model?.toEntity();
   }
 

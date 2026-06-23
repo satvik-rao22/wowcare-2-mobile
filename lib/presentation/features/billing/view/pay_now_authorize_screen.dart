@@ -6,7 +6,9 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/payment_settings_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/payment_settings_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 /// Pay Now — step 3: review + authorize. Charges the selected saved method via
@@ -37,14 +39,29 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
   static const Color _accent = Color(0xFF6F8CFF);
 
   final PayNowAuthorizeCubit _cubit = serviceLocator<PayNowAuthorizeCubit>();
+  final PaymentSettingsCubit _settingsCubit =
+      serviceLocator<PaymentSettingsCubit>();
 
   bool get _authorizing => _cubit.state.isSubmitting;
 
   bool get _isEcheck => widget.method.isEcheck;
 
+  /// The convenience fee is only charged to (and shown to) the parent when the
+  /// school's settings say the parent pays it for this method type. For ACH that
+  /// is `achFeePaidBy == PARENT`; for cards, the card fee payer.
+  bool _feeApplies(PaymentSettingsEntity s) =>
+      _isEcheck ? s.achFeePaidByParent : s.cardFeePaidByParent;
+
+  @override
+  void initState() {
+    super.initState();
+    _settingsCubit.load();
+  }
+
   @override
   void dispose() {
     _cubit.close();
+    _settingsCubit.close();
     super.dispose();
   }
 
@@ -57,9 +74,11 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     return raw.trim();
   }
 
-  /// 3% for cards, flat $1.00 for ACH (matches the add-method fee note).
-  double get _fee => _isEcheck ? 1.00 : widget.amount * 0.03;
-  double get _total => widget.amount + _fee;
+  /// 3% for cards, flat $1.00 for ACH (matches the add-method fee note) — only
+  /// when the parent actually pays the fee for this method type, else $0.
+  double _feeFor(PaymentSettingsEntity s) =>
+      _feeApplies(s) ? (_isEcheck ? 1.00 : widget.amount * 0.03) : 0.0;
+  double _totalFor(PaymentSettingsEntity s) => widget.amount + _feeFor(s);
 
   TextStyle _t(double size, FontWeight weight, Color color,
           {double? spacing}) =>
@@ -73,15 +92,22 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<PayNowAuthorizeCubit>.value(
-      value: _cubit,
-      child: BlocBuilder<PayNowAuthorizeCubit, PayNowAuthorizeState>(
-        builder: (context, state) => _buildContent(context),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<PayNowAuthorizeCubit>.value(value: _cubit),
+        BlocProvider<PaymentSettingsCubit>.value(value: _settingsCubit),
+      ],
+      child: BlocBuilder<PaymentSettingsCubit, PaymentSettingsState>(
+        builder: (context, settingsState) =>
+            BlocBuilder<PayNowAuthorizeCubit, PayNowAuthorizeState>(
+          builder: (context, _) =>
+              _buildContent(context, settingsState.settings),
+        ),
       ),
     );
   }
 
-  Widget _buildContent(BuildContext context) {
+  Widget _buildContent(BuildContext context, PaymentSettingsEntity settings) {
     return StaffFormLayout(
       title: 'Pay Now',
       bottomBar: const SizedBox.shrink(),
@@ -102,7 +128,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            _reviewCard(),
+            _reviewCard(settings),
             const SizedBox(height: 28),
             Center(child: _confirmButton()),
             const SizedBox(height: 14),
@@ -136,8 +162,11 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     );
   }
 
-  Widget _reviewCard() {
+  Widget _reviewCard(PaymentSettingsEntity settings) {
     final m = widget.method;
+    final bool showFee = _feeApplies(settings);
+    final double fee = _feeFor(settings);
+    final double total = _totalFor(settings);
     final last4 = _isEcheck
         ? (m.echeck?.last4 ?? m.last4 ?? '••••')
         : (m.card?.last4 ?? m.last4 ?? '••••');
@@ -214,11 +243,13 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
               color: AppColors.primaryColor.withValues(alpha: 0.1), height: 1),
           const SizedBox(height: 14),
           _amountRow('Payment Amount', widget.amount),
-          const SizedBox(height: 10),
-          _amountRow(
-            _isEcheck ? 'Convenience Fee (\$1.00)' : 'Convenience Fee (3%)',
-            _fee,
-          ),
+          if (showFee) ...[
+            const SizedBox(height: 10),
+            _amountRow(
+              _isEcheck ? 'Convenience Fee (\$1.00)' : 'Convenience Fee (3%)',
+              fee,
+            ),
+          ],
           const SizedBox(height: 12),
           _dashedDivider(),
           const SizedBox(height: 12),
@@ -227,7 +258,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
             children: [
               Text('Total Amount',
                   style: _t(16, FontWeight.w800, AppColors.primaryColor)),
-              Text('\$${_money(_total)}',
+              Text('\$${_money(total)}',
                   style: _t(20, FontWeight.w800, _accent)),
             ],
           ),
@@ -348,10 +379,11 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
       final bool initiated = result != null &&
           (result.status.toUpperCase() == 'INITIATED' ||
               result.status.toUpperCase() == 'PENDING');
+      final double total = _totalFor(_settingsCubit.state.settings);
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            'Payment of \$${_money(_total)} ${initiated ? 'initiated' : 'confirmed'}',
+            'Payment of \$${_money(total)} ${initiated ? 'initiated' : 'confirmed'}',
         isSuccess: true,
       );
       Navigator.of(context).popUntil((route) => route.isFirst);

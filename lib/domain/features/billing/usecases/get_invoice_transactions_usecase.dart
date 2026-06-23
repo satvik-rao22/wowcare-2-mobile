@@ -12,6 +12,8 @@ class GetInvoiceTransactionsUseCase {
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
+    String? type,
+    String? status,
     int page = 0,
     int size = 10,
   }) =>
@@ -20,6 +22,8 @@ class GetInvoiceTransactionsUseCase {
         school: school,
         dateFrom: dateFrom,
         dateTo: dateTo,
+        type: type,
+        status: status,
         page: page,
         size: size,
       );

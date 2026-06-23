@@ -245,6 +245,7 @@ class ApiPaths {
       case 'ledger-transactions':
       case 'school-forte-configs':
       case 'payment-gateway':
+      case 'payment':
         return ApiMicroservices.billing;
       default:
         return ApiMicroservices.user;
@@ -459,6 +460,10 @@ class ApiPaths {
   /// Direct-MS form here (`/api/v1/student/{code}/siblings`); UAT re-inserts the
   /// gateway `student` segment — the doubled form 404s in LOCAL.
   static String studentSiblings(String code) => '$studentList/$code/siblings';
+
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling` — links siblings onto a
+  /// newly created student (used by the add-student dialog flow, not edit profile).
+  static String studentAddSibling(String code) => '$studentList/$code/add-sibling';
   static const String studentTags = '/api/v1/student-tags';
 
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
@@ -959,6 +964,8 @@ class ApiPaths {
   /// Full invoice detail (incl. line items) for the edit form.
   static String invoiceDetailByCode(String code) =>
       '/api/v1/invoices/by-code/${Uri.encodeComponent(code.trim())}';
+  /// Edit a draft invoice — `PATCH /api/v1/invoices/{invoiceCode}/draft`.
+  static String invoiceDraft(String code) => '${invoiceByCode(code)}/draft';
   static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';
   static String invoiceIssue(String code) => '${invoiceByCode(code)}/issue';
   static String invoiceResend(String code) => '${invoiceByCode(code)}/resend';
@@ -986,6 +993,10 @@ class ApiPaths {
   // —— Auto Pay / Forte payment methods (Billing MS) ——
   /// School-level Forte config (returns `apiLoginId`).
   static const String schoolForteConfigs = '/api/v1/school-forte-configs';
+
+  /// School payment settings — which method types are accepted and who pays the
+  /// convenience fee. `GET /api/v1/payment/settings?schoolCode=...`.
+  static const String paymentSettings = '/api/v1/payment/settings';
 
   /// Whether auto-pay is enabled for a guardian.
   static const String autopayStatus =

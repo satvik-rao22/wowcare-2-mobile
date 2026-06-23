@@ -79,6 +79,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
+    String? type,
+    String? status,
     int page = 0,
     int size = 10,
   }) async {
@@ -87,6 +89,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       school: school,
       dateFrom: dateFrom,
       dateTo: dateTo,
+      type: type,
+      status: status,
       page: page,
       size: size,
     );
@@ -289,24 +293,26 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
 
   UpdateInvoiceRequestModel _toUpdateRequest(UpdateInvoiceParams p) =>
       UpdateInvoiceRequestModel(
-        code: p.code,
+        organizationCode: p.organizationCode,
+        schoolCode: p.schoolCode,
         studentCode: p.studentCode,
+        ownerType: p.ownerType,
+        ownerCode: p.ownerCode,
         issueDate: p.issueDate,
         dueDate: p.dueDate,
-        status: p.status,
-        invoiceStatus: p.invoiceStatus,
-        amount: p.amount,
-        total: p.total,
-        paidAmount: p.paidAmount,
-        subjectOwnerType: p.subjectOwnerType,
-        subjectOwnerCode: p.subjectOwnerCode,
-        subscriptionCode: p.subscriptionCode,
+        periodStart: p.periodStart,
+        periodEnd: p.periodEnd,
+        currency: p.currency,
+        notes: p.notes,
         items: p.items
-            ?.map((i) => UpdateInvoiceItemRequestModel(
+            ?.map((i) => CreateInvoiceItemRequestModel(
+                  itemType: i.itemType,
                   description: i.description,
+                  amount: i.amount,
                   quantity: i.quantity,
-                  unitPrice: i.unitPrice,
-                  totalPrice: i.totalPrice,
+                  sourceCode: i.sourceCode,
+                  valueType: i.valueType,
+                  valueInput: i.valueInput,
                 ))
             .toList(),
       );

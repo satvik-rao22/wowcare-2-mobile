@@ -882,6 +882,32 @@
           });
       }
 
+      // Hides any cardType option whose value isn't in [allowed]. The empty
+      // placeholder is always kept. If every card brand is hidden but ACH
+      // remains (or vice-versa), the single remaining type is auto-selected.
+      function applyAllowedMethods(allowed) {
+        const sel = document.getElementById('cardType');
+        if (!sel) return;
+        const set = new Set(allowed);
+        const remaining = [];
+        Array.from(sel.options).forEach((opt) => {
+          if (opt.value === '') return; // keep placeholder
+          const ok = set.has(opt.value);
+          opt.hidden = !ok;
+          opt.disabled = !ok;
+          if (ok) remaining.push(opt.value);
+        });
+        // If the current selection is no longer allowed, reset it.
+        if (sel.value && !set.has(sel.value)) {
+          sel.value = '';
+          handleCardTypeChange();
+        }
+        if (remaining.length === 1) {
+          sel.value = remaining[0];
+          handleCardTypeChange();
+        }
+      }
+
       window.initializeAutoPay = function (payloadJson) {
         try {
           const payload =
@@ -892,6 +918,9 @@
           config.apiLoginId = payload.apiLoginId || config.apiLoginId;
           if (payload.title) {
             document.getElementById('dialog-title').textContent = payload.title;
+          }
+          if (Array.isArray(payload.allowedMethods)) {
+            applyAllowedMethods(payload.allowedMethods);
           }
           if (payload.defaultMethod) {
             const sel = document.getElementById('cardType');

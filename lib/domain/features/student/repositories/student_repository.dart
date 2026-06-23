@@ -80,6 +80,13 @@ abstract class StudentRepository {
     required List<String> siblingCodes,
   });
 
+  /// Links siblings onto a newly created student via
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling` (add-student flow only).
+  Future<String> addStudentSibling({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
   /// Fetches paginated student documents. [studentCode] = ownerId.
   Future<StudentDocumentsPage> getStudentDocuments({
     required String studentCode,

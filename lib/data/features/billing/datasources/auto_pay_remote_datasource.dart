@@ -7,6 +7,7 @@ abstract class AutoPayRemoteDataSource {
     required String organizationCode,
     required String schoolCode,
   });
+  Future<PaymentSettingsModel?> getPaymentSettings({required String schoolCode});
   Future<AutoPayStatusModel> getAutoPayStatus({
     required String organizationCode,
     required String schoolCode,
@@ -76,6 +77,21 @@ class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
       if (first is Map<String, dynamic>) {
         return SchoolForteConfigModel.fromJson(first);
       }
+    }
+    return null;
+  }
+
+  @override
+  Future<PaymentSettingsModel?> getPaymentSettings({
+    required String schoolCode,
+  }) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.paymentSettings),
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+    final data = response.data?['data'];
+    if (data is Map<String, dynamic>) {
+      return PaymentSettingsModel.fromJson(data);
     }
     return null;
   }
