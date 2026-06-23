@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -86,8 +87,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         listenWhen: (prev, curr) =>
             prev.errorMessage != curr.errorMessage && curr.errorMessage != null,
         listener: (context, state) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.errorMessage ?? 'Something went wrong')),
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.errorMessage ?? 'Something went wrong',
+            isError: true,
           );
         },
         builder: (context, state) => _buildContent(context, state),
@@ -227,7 +230,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               ),
                               NotificationSettingRow(
-                                title: 'Receive a message from staff',
+                                title: 'Receive a message from the staff',
                                 inAppValue: state.settings['Receive a message from staff']![0],
                                 emailValue: state.settings['Receive a message from staff']![1],
                                 pushValue: state.settings['Receive a message from staff']![2],
@@ -237,7 +240,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Receive a message from parents',
+                                  title: 'Received a message from parent',
                                   inAppValue: state.settings['Receive a message from parents']![0],
                                   emailValue: state.settings['Receive a message from parents']![1],
                                   pushValue: state.settings['Receive a message from parents']![2],
@@ -247,7 +250,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Ratio is breached',
+                                  title: 'Ratio breached',
                                   inAppValue: state.settings['Ratio is breached']![0],
                                   emailValue: state.settings['Ratio is breached']![1],
                                   pushValue: state.settings['Ratio is breached']![2],
@@ -257,7 +260,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Student is signed‑in / signed‑out (or marked absent)',
+                                  title: 'Student is signed in/Signed out',
                                   inAppValue: state.settings['Student is signed‑in / signed‑out (or marked absent)']![0],
                                   emailValue: state.settings['Student is signed‑in / signed‑out (or marked absent)']![1],
                                   pushValue: state.settings['Student is signed‑in / signed‑out (or marked absent)']![2],
@@ -277,7 +280,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Student’s birthday',
+                                  title: 'Student’s Birthday',
                                   inAppValue: state.settings['Student’s birthday']![0],
                                   emailValue: state.settings['Student’s birthday']![1],
                                   pushValue: state.settings['Student’s birthday']![2],
@@ -287,7 +290,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Sign‑in alert just after shift start time (if not already done)',
+                                  title: 'Sign in alert just after shift start (if not done already)',
                                   inAppValue: state.settings['Sign‑in alert just after shift start time (if not already done)']![0],
                                   emailValue: state.settings['Sign‑in alert just after shift start time (if not already done)']![1],
                                   pushValue: state.settings['Sign‑in alert just after shift start time (if not already done)']![2],
@@ -297,7 +300,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Sign‑out alert just after shift end time (if not already done)',
+                                  title: 'Sign out alert just after shift end (if not done already)',
                                   inAppValue: state.settings['Sign‑out alert just after shift end time (if not already done)']![0],
                                   emailValue: state.settings['Sign‑out alert just after shift end time (if not already done)']![1],
                                   pushValue: state.settings['Sign‑out alert just after shift end time (if not already done)']![2],
@@ -430,7 +433,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               // settings for parents only
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'My child is signed‑in/signed‑out or marked absent',
+                                  title: 'My child sign-in/out or marked absent',
                                   inAppValue: state.settings['My child is signed‑in/signed‑out or marked absent']![0],
                                   emailValue: state.settings['My child is signed‑in/signed‑out or marked absent']![1],
                                   pushValue: state.settings['My child is signed‑in/signed‑out or marked absent']![2],
@@ -451,7 +454,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'New activity is recorded for my child',
+                                  title: 'New activity recorded for my child',
                                   inAppValue: state.settings['New activity is recorded for my child']![0],
                                   emailValue: state.settings['New activity is recorded for my child']![1],
                                   pushValue: state.settings['New activity is recorded for my child']![2],
@@ -471,7 +474,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Payment is successful / failed',
+                                  title: 'Payment is successful/failed',
                                   inAppValue: state.settings['Payment is successful / failed']![0],
                                   emailValue: state.settings['Payment is successful / failed']![1],
                                   pushValue: state.settings['Payment is successful / failed']![2],
@@ -481,7 +484,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'My child’s profile/details are updated',
+                                  title: 'My child’s profile details are updated',
                                   inAppValue: state.settings['My child’s profile/details are updated']![0],
                                   emailValue: state.settings['My child’s profile/details are updated']![1],
                                   pushValue: state.settings['My child’s profile/details are updated']![2],
@@ -491,7 +494,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Sign‑in alert just after start time (if not already done)',
+                                  title: 'Sign in alert just after shift start (if not done already)',
                                   inAppValue: state.settings['Sign‑in alert just after start time (if not already done)']![0],
                                   emailValue: state.settings['Sign‑in alert just after start time (if not already done)']![1],
                                   pushValue: state.settings['Sign‑in alert just after start time (if not already done)']![2],
@@ -501,7 +504,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Sign‑out alert just after end time (if not already done)',
+                                  title: 'Sign out alert just after shift end (if not done already)',
                                   inAppValue: state.settings['Sign‑out alert just after end time (if not already done)']![0],
                                   emailValue: state.settings['Sign‑out alert just after end time (if not already done)']![1],
                                   pushValue: state.settings['Sign‑out alert just after end time (if not already done)']![2],
@@ -706,16 +709,15 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 onPressed: state.isSaving
                     ? null
                     : () async {
-                        final messenger = ScaffoldMessenger.of(context);
                         final navigator = Navigator.of(context);
                         final ok =
                             await _cubit.save(roleFallback: _roleFallback);
                         if (!mounted) return;
                         if (ok) {
-                          messenger.showSnackBar(
-                            const SnackBar(
-                              content: Text('Notification settings saved'),
-                            ),
+                          CoreUtils.showTopSnackBar(
+                            context: context,
+                            message: 'Notification settings saved',
+                            isSuccess: true,
                           );
                           navigator.pop();
                         }

@@ -19,11 +19,15 @@ abstract class InvoiceRepository {
   });
 
   /// Paginated Transactions list (`GET /api/v1/invoices/transactions`).
+  /// [type] (e.g. `PAYMENT`, `REFUND`, `PAYMENT,REFUND`) and [status]
+  /// (e.g. `SUCCESS`, `IN_PROCESS`) filter the rows server-side.
   Future<InvoiceTransactionsPage> getTransactions({
     required String organizationCode,
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
+    String? type,
+    String? status,
     int page,
     int size,
   });

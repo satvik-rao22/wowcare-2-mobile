@@ -72,15 +72,16 @@ class AuthInterceptor extends Interceptor {
       options.headers['schoolCode'] = resolvedSchoolCode;
     }
 
-    // Staff-scoped services (e.g. student MS writes) require the acting staff
-    // code. Attach when the logged-in user has a cached staff profile.
+    // Staff-scoped services (e.g. student MS writes) REQUIRE the acting staff
+    // code header to be present. Use the cached staff code when available,
+    // otherwise fall back to '-' — the org-level sentinel the app already uses
+    // for org admins (see AuthCubit) — so the required header is never missing.
     final staffCode =
         (await _storage.getString(StorageKeys.staffCode) ?? '').trim();
-    if (staffCode.isNotEmpty) {
-      options.headers['X-Staff-Code'] = staffCode;
-      options.headers['x-staff-code'] = staffCode;
-      options.headers['staffCode'] = staffCode;
-    }
+    final staffCodeHeader = staffCode.isNotEmpty ? staffCode : '-';
+    options.headers['X-Staff-Code'] = staffCodeHeader;
+    options.headers['x-staff-code'] = staffCodeHeader;
+    options.headers['staffCode'] = staffCodeHeader;
 
     handler.next(options);
   }

@@ -1,22 +1,35 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/payment_settings_entity.dart';
+import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/payment_settings_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-/// Pay Now — step 3: review + authorize. Our own screen (not Forte's hosted
-/// page). There is no authorize API yet, so Confirm Payment is mocked.
+/// Pay Now — step 3: review + authorize. Charges the selected saved method via
+/// `POST /payment-gateway/guardian/pay`, using the idempotency key created on
+/// step 2 so retries don't double-charge.
 class PayNowAuthorizeScreen extends StatefulWidget {
   const PayNowAuthorizeScreen({
     super.key,
     required this.method,
     required this.amount,
+    required this.charges,
   });
 
   final PaymentMethodEntity method;
+
+  /// Total across all family charges (for the review/fee display).
   final double amount;
+
+  /// One charge per family being paid; each carries its own `MOBILE-<uuid>`
+  /// idempotency key minted on step 2 and reused across retries.
+  final List<PayNowCharge> charges;
 
   @override
   State<PayNowAuthorizeScreen> createState() => _PayNowAuthorizeScreenState();
@@ -25,13 +38,47 @@ class PayNowAuthorizeScreen extends StatefulWidget {
 class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
   static const Color _accent = Color(0xFF6F8CFF);
 
-  bool _authorizing = false;
+  final PayNowAuthorizeCubit _cubit = serviceLocator<PayNowAuthorizeCubit>();
+  final PaymentSettingsCubit _settingsCubit =
+      serviceLocator<PaymentSettingsCubit>();
+
+  bool get _authorizing => _cubit.state.isSubmitting;
 
   bool get _isEcheck => widget.method.isEcheck;
 
-  /// 3% for cards, flat $1.00 for ACH (matches the add-method fee note).
-  double get _fee => _isEcheck ? 1.00 : widget.amount * 0.03;
-  double get _total => widget.amount + _fee;
+  /// The convenience fee is only charged to (and shown to) the parent when the
+  /// school's settings say the parent pays it for this method type. For ACH that
+  /// is `achFeePaidBy == PARENT`; for cards, the card fee payer.
+  bool _feeApplies(PaymentSettingsEntity s) =>
+      _isEcheck ? s.achFeePaidByParent : s.cardFeePaidByParent;
+
+  @override
+  void initState() {
+    super.initState();
+    _settingsCubit.load();
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    _settingsCubit.close();
+    super.dispose();
+  }
+
+  /// Holder name sent to the gateway (card or ACH account holder).
+  String get _holderName {
+    final m = widget.method;
+    final raw = (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard) ??
+        m.label ??
+        '';
+    return raw.trim();
+  }
+
+  /// 3% for cards, flat $1.00 for ACH (matches the add-method fee note) — only
+  /// when the parent actually pays the fee for this method type, else $0.
+  double _feeFor(PaymentSettingsEntity s) =>
+      _feeApplies(s) ? (_isEcheck ? 1.00 : widget.amount * 0.03) : 0.0;
+  double _totalFor(PaymentSettingsEntity s) => widget.amount + _feeFor(s);
 
   TextStyle _t(double size, FontWeight weight, Color color,
           {double? spacing}) =>
@@ -45,6 +92,22 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<PayNowAuthorizeCubit>.value(value: _cubit),
+        BlocProvider<PaymentSettingsCubit>.value(value: _settingsCubit),
+      ],
+      child: BlocBuilder<PaymentSettingsCubit, PaymentSettingsState>(
+        builder: (context, settingsState) =>
+            BlocBuilder<PayNowAuthorizeCubit, PayNowAuthorizeState>(
+          builder: (context, _) =>
+              _buildContent(context, settingsState.settings),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, PaymentSettingsEntity settings) {
     return StaffFormLayout(
       title: 'Pay Now',
       bottomBar: const SizedBox.shrink(),
@@ -65,7 +128,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
               ],
             ),
             const SizedBox(height: 14),
-            _reviewCard(),
+            _reviewCard(settings),
             const SizedBox(height: 28),
             Center(child: _confirmButton()),
             const SizedBox(height: 14),
@@ -99,8 +162,11 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     );
   }
 
-  Widget _reviewCard() {
+  Widget _reviewCard(PaymentSettingsEntity settings) {
     final m = widget.method;
+    final bool showFee = _feeApplies(settings);
+    final double fee = _feeFor(settings);
+    final double total = _totalFor(settings);
     final last4 = _isEcheck
         ? (m.echeck?.last4 ?? m.last4 ?? '••••')
         : (m.card?.last4 ?? m.last4 ?? '••••');
@@ -177,11 +243,13 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
               color: AppColors.primaryColor.withValues(alpha: 0.1), height: 1),
           const SizedBox(height: 14),
           _amountRow('Payment Amount', widget.amount),
-          const SizedBox(height: 10),
-          _amountRow(
-            _isEcheck ? 'Convenience Fee (\$1.00)' : 'Convenience Fee (3%)',
-            _fee,
-          ),
+          if (showFee) ...[
+            const SizedBox(height: 10),
+            _amountRow(
+              _isEcheck ? 'Convenience Fee (\$1.00)' : 'Convenience Fee (3%)',
+              fee,
+            ),
+          ],
           const SizedBox(height: 12),
           _dashedDivider(),
           const SizedBox(height: 12),
@@ -190,7 +258,7 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
             children: [
               Text('Total Amount',
                   style: _t(16, FontWeight.w800, AppColors.primaryColor)),
-              Text('\$${_money(_total)}',
+              Text('\$${_money(total)}',
                   style: _t(20, FontWeight.w800, _accent)),
             ],
           ),
@@ -297,19 +365,35 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     }
   }
 
-  /// Mocked confirm: no backend authorize API yet. Simulates success and closes
-  /// the whole Pay Now flow.
+  /// Charges the selected method via the payment gateway. Reuses the step-2
+  /// idempotency key so a retry after a failure/timeout can't double-charge.
   Future<void> _confirm() async {
-    setState(() => _authorizing = true);
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() => _authorizing = false);
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Payment of \$${_money(_total)} confirmed',
-      isSuccess: true,
+    final ok = await _cubit.payMany(
+      charges: widget.charges,
+      paymentMethodCode: widget.method.code,
+      payMethodHolderName: _holderName,
     );
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (!mounted) return;
+    if (ok) {
+      final result = _cubit.state.result;
+      final bool initiated = result != null &&
+          (result.status.toUpperCase() == 'INITIATED' ||
+              result.status.toUpperCase() == 'PENDING');
+      final double total = _totalFor(_settingsCubit.state.settings);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Payment of \$${_money(total)} ${initiated ? 'initiated' : 'confirmed'}',
+        isSuccess: true,
+      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } else {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: _cubit.state.errorMessage ?? 'Payment could not be processed.',
+        isError: true,
+      );
+    }
   }
 
   String _money(double v) => v.toStringAsFixed(2);

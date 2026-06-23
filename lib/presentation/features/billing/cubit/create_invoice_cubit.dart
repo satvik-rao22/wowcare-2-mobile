@@ -502,26 +502,33 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     try {
       final shouldIssue = mode == 'send';
 
-      // Edit mode: PATCH the existing invoice (single), then optionally issue it.
-      if (isEditing) {
-        await _updateInvoice(
-          code: _editingInvoiceCode!,
-          params: UpdateInvoiceParams(
-            issueDate: issueDate,
-            dueDate: dueDate,
-            items: _buildUpdateItemParams(),
-          ),
-        );
-        if (shouldIssue) {
-          await _issueInvoice(_editingInvoiceCode!);
-        }
-        return const InvoiceSubmitResult(success: true, created: 1);
-      }
-
       final org =
           (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
       final school =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+      // Edit mode: only PATCH the existing invoice via the /draft endpoint —
+      // never issue it. The invoice may already be SENT (issuing a non-DRAFT
+      // 400s), and editing should just persist changes regardless of whether
+      // the user tapped Save as Draft or Save & Send. The /draft endpoint takes
+      // the same body as create, so reuse the create-style [items] (which carry
+      // itemType/amount) and send schoolCode (required by the backend).
+      if (isEditing) {
+        await _updateInvoice(
+          code: _editingInvoiceCode!,
+          params: UpdateInvoiceParams(
+            organizationCode: org,
+            schoolCode: school,
+            issueDate: issueDate,
+            dueDate: dueDate,
+            periodStart: state.serviceDate,
+            periodEnd: state.serviceDateEnd,
+            notes: notes,
+            items: items,
+          ),
+        );
+        return const InvoiceSubmitResult(success: true, created: 1);
+      }
 
       var created = 0;
       for (final student in students) {
@@ -548,29 +555,6 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       return InvoiceSubmitResult(
           success: false, error: ApiErrorHandler.extractErrorMessage(e));
     }
-  }
-
-  /// Items for the update (PATCH) payload — the API's update item shape only
-  /// carries description/quantity/unit/total.
-  List<UpdateInvoiceItemParams> _buildUpdateItemParams() {
-    final result = <UpdateInvoiceItemParams>[];
-    for (final item in state.items) {
-      final amount = double.tryParse(item.amountController.text.isEmpty
-              ? item.amount
-              : item.amountController.text) ??
-          0;
-      final description = item.descriptionController.text.trim().isEmpty
-          ? item.description.trim()
-          : item.descriptionController.text.trim();
-      if (description.isEmpty) continue;
-      result.add(UpdateInvoiceItemParams(
-        description: description,
-        quantity: 1,
-        unitPrice: amount,
-        totalPrice: amount,
-      ));
-    }
-    return result;
   }
 
   List<CreateInvoiceItemParams> _buildItemParams() {

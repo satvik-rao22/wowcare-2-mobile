@@ -55,17 +55,22 @@ class ParentTransactionCard extends StatelessWidget {
 
   String get _type => transaction.transactionType.toLowerCase();
 
+  /// Title-cases a raw backend status, treating underscores as word breaks so
+  /// `IN_PROCESS` renders as `In Process` rather than `In_process`.
+  String _formatStatus(String status) {
+    if (status.isEmpty) return status;
+    return status
+        .split(RegExp(r'[_\s]+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .join(' ');
+  }
+
   String _dateLabel() {
     if (transaction.date == null) return '';
-    final date = DateUtilsNew.formatToReadableDate(transaction.date!);
-    switch (_type) {
-      case 'invoice':
-        return 'Due Date: $date';
-      case 'refund':
-        return 'Refunded On: $date';
-      default:
-        return 'Paid On: $date';
-    }
+    // Labels (Due Date / Paid On / Refunded On) are dropped to save horizontal
+    // space; the badge already conveys the transaction type.
+    return DateUtilsNew.formatToReadableDate(transaction.date!);
   }
 
   ({String label, Color color, Color textColor}) _badge() {
@@ -107,7 +112,7 @@ class ParentTransactionCard extends StatelessWidget {
     }
     expanded.add(StaffCardDetailRow(
       label: 'Status',
-      value: transaction.status,
+      value: _formatStatus(transaction.status),
     ));
     expanded.add(const SizedBox(height: 10));
     if (transaction.description.isNotEmpty) {

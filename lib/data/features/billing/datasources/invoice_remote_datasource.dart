@@ -26,6 +26,8 @@ abstract class InvoiceRemoteDataSource {
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
+    String? type,
+    String? status,
     int page,
     int size,
   });
@@ -125,6 +127,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
+    String? type,
+    String? status,
     int page = 0,
     int size = 10,
   }) async {
@@ -133,6 +137,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       queryParameters: <String, dynamic>{
         'organizationCode': organizationCode,
         'school': school,
+        if (type != null && type.trim().isNotEmpty) 'type': type.trim(),
+        if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
         if (dateFrom != null) 'dateFrom': dateFrom.toUtc().toIso8601String(),
         if (dateTo != null) 'dateTo': dateTo.toUtc().toIso8601String(),
         'page': page,
@@ -261,7 +267,7 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   Future<InvoiceResultModel> updateInvoice(
       String code, UpdateInvoiceRequestModel request) async {
     final response = await _client.patch<Map<String, dynamic>>(
-      ApiPaths.url(ApiPaths.invoiceByCode(code)),
+      ApiPaths.url(ApiPaths.invoiceDraft(code)),
       data: request.toJson(),
     );
     return InvoiceResultModel.fromJson(response.data ?? {});
