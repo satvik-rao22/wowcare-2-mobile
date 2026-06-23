@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -28,44 +29,53 @@ val flutterProguardRules: java.io.File =
 // Firebase multi-environment: decode --dart-define=ENVIRONMENT passed by Flutter.
 // Flutter encodes each dart-define as a base64 string, comma-separated, in the
 // "dart.defines" Gradle property. We decode and extract ENVIRONMENT, defaulting
-// to "uat" so a bare `./gradlew` still builds a valid variant.
+// to "local" so a bare `./gradlew` still builds a valid variant.
 // ---------------------------------------------------------------------------
 val dartEnvironment: String by lazy {
     val encoded = (project.findProperty("dart.defines") as? String) ?: ""
-    if (encoded.isBlank()) return@lazy "uat"
-    val env = encoded.split(",")
+    if (encoded.isBlank()) return@lazy "local"
+    val decoded: List<String> = encoded.split(",")
         .filter { it.isNotBlank() }
         .mapNotNull { entry ->
             try {
-                String(java.util.Base64.getDecoder().decode(entry.trim()))
+                String(Base64.getDecoder().decode(entry.trim()))
             } catch (_: Exception) {
                 null
             }
         }
+    val env: String = decoded
         .firstOrNull { it.startsWith("ENVIRONMENT=") }
         ?.removePrefix("ENVIRONMENT=")
-        ?: "uat"
+        ?: "local"
     env.lowercase()
 }
 
 // Copy the environment-specific google-services.json into the position the
-// google-services plugin expects before it runs.
-val copyGoogleServices by tasks.registering(Copy::class) {
-    val src = file("firebase/$dartEnvironment/google-services.json")
-    val dst = file("google-services.json")
-    doFirst {
+// google-services plugin expects before it runs. Implemented as an ad-hoc
+// `copy {}` action (not a `Copy` task with `into(projectDir)`) so the project
+// directory is not registered as a tracked task output — otherwise Gradle 8.12
+// reports implicit-dependency validation errors for every task that reads from
+// android/app (mergeAssets, mergeShaders, compileFlutterBuild, ...).
+val copyGoogleServices by tasks.registering {
+    val srcPath = "firebase/$dartEnvironment/google-services.json"
+    doLast {
+        val src = file(srcPath)
         require(src.exists()) {
-            "Missing android/app/firebase/$dartEnvironment/google-services.json\n" +
+            "Missing android/app/$srcPath\n" +
                 "Download it from the Firebase console for the '$dartEnvironment' project and place it there."
         }
+        copy {
+            from(src)
+            into(layout.projectDirectory)
+            rename { "google-services.json" }
+        }
     }
-    from(src)
-    into(dst.parentFile)
-    rename { dst.name }
 }
 
 afterEvaluate {
-    // Wire copyGoogleServices before any task whose name matches the google-services pattern.
+    // Ensure the file is in place before anything builds, and before the
+    // google-services plugin's own processing task runs.
+    tasks.named("preBuild").configure { dependsOn(copyGoogleServices) }
     tasks.matching { t ->
         t.name.startsWith("process") && t.name.endsWith("GoogleServices")
     }.configureEach {

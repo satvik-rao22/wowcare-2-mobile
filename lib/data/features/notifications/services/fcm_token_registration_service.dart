@@ -96,14 +96,23 @@ class FcmTokenRegistrationService {
     if (role.isEmpty) {
       role = await _roleFromRolesJson(organizationCode, schoolCode);
     }
-    if (role.isEmpty) role = 'STAFF';
 
     return _SessionContext(
       userCode: userCode,
       organizationCode: organizationCode,
       schoolCode: schoolCode,
-      role: role.toUpperCase(),
+      role: _normalizeRole(role),
     );
+  }
+
+  /// Collapses backend role codes (e.g. SCHOOL_ADMIN, ORGANIZATION_ADMIN,
+  /// TEACHER) into the role enum the notification service expects:
+  /// ADMIN | STAFF | GUARDIAN. Anything unrecognised (incl. empty) → STAFF.
+  String _normalizeRole(String raw) {
+    final r = raw.trim().toUpperCase();
+    if (r.contains('GUARDIAN') || r.contains('PARENT')) return 'GUARDIAN';
+    if (r.contains('ADMIN')) return 'ADMIN';
+    return 'STAFF';
   }
 
   Future<String> _roleFromRolesJson(

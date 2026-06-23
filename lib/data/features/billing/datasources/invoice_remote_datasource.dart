@@ -2,17 +2,32 @@ import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/billing/models/family_ledger_models.dart';
 import 'package:wowcare/data/features/billing/models/family_summary_models.dart';
+import 'package:wowcare/data/features/billing/models/invoice_analytics_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_list_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_overview_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
+import 'package:wowcare/data/features/billing/models/invoice_transaction_models.dart';
 
 abstract class InvoiceRemoteDataSource {
   Future<InvoiceResultModel> createInvoice(CreateInvoiceRequestModel request);
+  Future<InvoiceAnalyticsModel> getAnalytics({
+    required String organizationCode,
+    required String school,
+    int? year,
+  });
   Future<InvoiceOverviewModel> getOverview({
     required String organizationCode,
     required String school,
     DateTime? dateFrom,
     DateTime? dateTo,
+  });
+  Future<InvoiceTransactionsPageModel> getTransactions({
+    required String organizationCode,
+    required String school,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    int page,
+    int size,
   });
   Future<InvoiceListItemModel> getInvoiceByCode(String code);
   Future<PaginatedInvoicesModel> listInvoices({
@@ -33,6 +48,11 @@ abstract class InvoiceRemoteDataSource {
     required String school,
     required String ownerType,
     required String ownerCode,
+  });
+  Future<FamilyLedgerModel> getGuardianFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String guardianCode,
   });
   Future<InvoicePaymentResultModel> createPayment(
       InvoicePaymentRequestModel request);
@@ -64,6 +84,23 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
   }
 
   @override
+  Future<InvoiceAnalyticsModel> getAnalytics({
+    required String organizationCode,
+    required String school,
+    int? year,
+  }) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesAnalytics),
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'school': school,
+        if (year != null) 'year': year,
+      },
+    );
+    return InvoiceAnalyticsModel.fromJson(response.data ?? {});
+  }
+
+  @override
   Future<InvoiceOverviewModel> getOverview({
     required String organizationCode,
     required String school,
@@ -80,6 +117,29 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       },
     );
     return InvoiceOverviewModel.fromJson(response.data ?? {});
+  }
+
+  @override
+  Future<InvoiceTransactionsPageModel> getTransactions({
+    required String organizationCode,
+    required String school,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesTransactions),
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'school': school,
+        if (dateFrom != null) 'dateFrom': dateFrom.toUtc().toIso8601String(),
+        if (dateTo != null) 'dateTo': dateTo.toUtc().toIso8601String(),
+        'page': page,
+        'size': size,
+      },
+    );
+    return InvoiceTransactionsPageModel.fromJson(response.data ?? {});
   }
 
   @override
@@ -145,6 +205,23 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         'school': school,
         if (ownerType.trim().isNotEmpty) 'ownerType': ownerType,
         'ownerCode': ownerCode,
+      },
+    );
+    return FamilyLedgerModel.fromJson(response.data ?? {});
+  }
+
+  @override
+  Future<FamilyLedgerModel> getGuardianFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String guardianCode,
+  }) async {
+    final response = await _client.get<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.invoicesFamilyLedgerByGuardian),
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'school': school,
+        'guardianCode': guardianCode,
       },
     );
     return FamilyLedgerModel.fromJson(response.data ?? {});

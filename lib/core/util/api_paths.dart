@@ -235,6 +235,7 @@ class ApiPaths {
         return ApiMicroservices.notification;
       case 'kiosk':
         return ApiMicroservices.attendance;
+      case 'billing':
       case 'discount':
       case 'subsidy':
       case 'fee-structure':
@@ -307,9 +308,12 @@ class ApiPaths {
       '/api/v1/school/$schoolCode/regular-schedule';
 
   /// School settings (`data.childcareSchedule`, timezone, address, …).
-  /// UAT: `/api/v1/organization/schools/{schoolCode}`.
+  /// Served by the organization microservice at
+  /// `/api/v1/organization/schools/{schoolCode}`; the bare
+  /// `/api/v1/schools/{code}` form is not exposed.
   static const String schools = '/api/v1/schools';
-  static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
+  static String schoolByCode(String schoolCode) =>
+      '/api/v1/organization/schools/$schoolCode';
 
   /// GET /api/v1/schools/{schoolCode}/timezone
   static String schoolTimezone(String schoolCode) =>
@@ -920,15 +924,27 @@ class ApiPaths {
   static const String notificationLogsReadAll =
       '/api/v1/notification/logs/read-all';
 
+  /// GET/PATCH user notification preferences (in-app / push / email per
+  /// notification definition). Notification MS.
+  static const String notificationPreferences =
+      '/api/v1/notification/preferences';
+
   // —— Billing MS ——
+  static const String billingStatements = '/api/v1/billing/statements';
+  static String billingStatementDownload(String code) =>
+      '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';
   static const String discounts = '/api/v1/discount';
   static const String subsidies = '/api/v1/subsidy';
   static const String feeStructures = '/api/v1/fee-structure';
   static const String otherFees = '/api/v1/other-fees';
   static const String invoices = '/api/v1/invoices';
   static const String invoicesOverview = '/api/v1/invoices/overview';
+  static const String invoicesAnalytics = '/api/v1/invoices/analytics';
+  static const String invoicesTransactions = '/api/v1/invoices/transactions';
   static const String invoicesFamilySummary = '/api/v1/invoices/family-summary';
   static const String invoicesFamilyLedger = '/api/v1/invoices/family-ledger';
+  static const String invoicesFamilyLedgerByGuardian =
+      '/api/v1/invoices/family-ledger/by-guardian';
   static const String invoicePayments = '/api/v1/invoices/payments';
   static const String invoiceRefunds = '/api/v1/invoices/refunds';
   static const String invoiceCredits = '/api/v1/invoices/credits';
@@ -984,8 +1000,13 @@ class ApiPaths {
       '/api/v1/payment-gateway/payment-methods/'
       '${Uri.encodeComponent(paymentMethodCode.trim())}';
 
-  /// Mark a saved payment method as primary (the auto-pay method).
+  /// Mark a saved payment method as primary (the default payment method).
   static String paymentGatewayMethodPrimary(String paymentMethodCode) =>
       '/api/v1/payment-gateway/payment-methods/'
       '${Uri.encodeComponent(paymentMethodCode.trim())}/primary';
+
+  /// Mark a saved payment method as the auto-pay method.
+  static String paymentGatewayMethodAutopay(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}/autopay';
 }

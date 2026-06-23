@@ -5,6 +5,8 @@ class CreateInvoiceState extends Equatable {
     required this.items,
     required this.invoiceDate,
     required this.dueDate,
+    required this.serviceDate,
+    required this.serviceDateEnd,
     required this.catalog,
     required this.catalogLoaded,
     required this.isFormLocked,
@@ -16,6 +18,8 @@ class CreateInvoiceState extends Equatable {
         items: [InvoiceItemFormData.initial(isPrimary: true)],
         invoiceDate: null,
         dueDate: null,
+        serviceDate: null,
+        serviceDateEnd: null,
         catalog: const <String, List<InvoiceCatalogOption>>{},
         catalogLoaded: false,
         isFormLocked: false,
@@ -25,6 +29,10 @@ class CreateInvoiceState extends Equatable {
   final List<InvoiceItemFormData> items;
   final DateTime? invoiceDate;
   final DateTime? dueDate;
+
+  /// Optional service period (start / end) shown on the invoice.
+  final DateTime? serviceDate;
+  final DateTime? serviceDateEnd;
 
   /// Selectable Item Description entries keyed by item type
   /// (Tuition Fee / Other Fee / Discount / Subsidy).
@@ -60,6 +68,8 @@ class CreateInvoiceState extends Equatable {
     List<InvoiceItemFormData>? items,
     DateTime? Function()? invoiceDate,
     DateTime? Function()? dueDate,
+    DateTime? Function()? serviceDate,
+    DateTime? Function()? serviceDateEnd,
     Map<String, List<InvoiceCatalogOption>>? catalog,
     bool? catalogLoaded,
     bool? isFormLocked,
@@ -69,6 +79,9 @@ class CreateInvoiceState extends Equatable {
       items: items ?? this.items,
       invoiceDate: invoiceDate != null ? invoiceDate() : this.invoiceDate,
       dueDate: dueDate != null ? dueDate() : this.dueDate,
+      serviceDate: serviceDate != null ? serviceDate() : this.serviceDate,
+      serviceDateEnd:
+          serviceDateEnd != null ? serviceDateEnd() : this.serviceDateEnd,
       catalog: catalog ?? this.catalog,
       catalogLoaded: catalogLoaded ?? this.catalogLoaded,
       isFormLocked: isFormLocked ?? this.isFormLocked,
@@ -80,6 +93,8 @@ class CreateInvoiceState extends Equatable {
   List<Object?> get props => [
         invoiceDate,
         dueDate,
+        serviceDate,
+        serviceDateEnd,
         catalog,
         catalogLoaded,
         isFormLocked,

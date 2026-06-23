@@ -24,8 +24,14 @@ abstract class AutoPayRepository {
   /// Adds a new saved payment method from a Forte one-time token.
   Future<PaymentMethodEntity> addPaymentMethod(AddPaymentMethodParams params);
 
-  /// Marks the given payment method as primary (the auto-pay method).
+  /// Marks the given payment method as primary (the default payment method).
   Future<PaymentMethodEntity> setPrimaryPaymentMethod({
+    required String paymentMethodCode,
+    required GuardianScopeParams scope,
+  });
+
+  /// Marks the given payment method as the auto-pay method.
+  Future<PaymentMethodEntity> setAutopayMethod({
     required String paymentMethodCode,
     required GuardianScopeParams scope,
   });
@@ -34,5 +40,11 @@ abstract class AutoPayRepository {
   Future<void> deletePaymentMethod({
     required String paymentMethodCode,
     required GuardianScopeParams scope,
+  });
+
+  /// Updates a saved method's editable metadata (account-holder name / label).
+  Future<PaymentMethodEntity> updatePaymentMethod({
+    required String paymentMethodCode,
+    required UpdatePaymentMethodParams params,
   });
 }

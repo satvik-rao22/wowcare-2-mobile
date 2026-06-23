@@ -38,7 +38,7 @@ import 'src/app_router.dart';
 /// act on data-only messages which Android silently drops without this handler.
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: FirebaseConfigFactory.currentPlatform);
+  await _ensureFirebaseInitialized();
 
   AppLogger.d('[FCM] ════════ Background notification received ════════');
   AppLogger.d('[FCM] messageId : ${message.messageId}');
@@ -160,6 +160,28 @@ Future<void> _resetSecureStoreOnFreshInstall() async {
   }
 }
 
+/// Initializes Firebase idempotently.
+///
+/// Android auto-initializes the default `[DEFAULT]` app from
+/// `google-services.json` (via `FirebaseInitProvider`) before `main()` runs.
+/// The Dart-side `Firebase.apps` list is NOT synced with that native app until
+/// after the first `initializeApp` call, so an `isEmpty` guard isn't enough —
+/// calling `initializeApp(options:)` still throws `[core/duplicate-app]` when
+/// the native app already exists with different options. We catch that and
+/// reuse the existing default app instead of crashing.
+Future<void> _ensureFirebaseInitialized() async {
+  if (Firebase.apps.isNotEmpty) return;
+  try {
+    await Firebase.initializeApp(options: FirebaseConfigFactory.currentPlatform);
+  } on FirebaseException catch (e) {
+    if (e.code == 'duplicate-app') {
+      // Native already created [DEFAULT] from google-services.json — reuse it.
+      return;
+    }
+    rethrow;
+  }
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tzdata.initializeTimeZones();
@@ -172,7 +194,7 @@ Future<void> main() async {
   // absent, this is a fresh install → wipe the Keychain so the app opens clean.
   await _resetSecureStoreOnFreshInstall();
 
-  await Firebase.initializeApp(options: FirebaseConfigFactory.currentPlatform);
+  await _ensureFirebaseInitialized();
 
   // iOS foreground notifications: without this call FCM messages received while
   // the app is open show NO banner, sound, or badge — they only fire onMessage.

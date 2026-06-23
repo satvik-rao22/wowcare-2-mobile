@@ -31,11 +31,21 @@ abstract class AutoPayRemoteDataSource {
     required String schoolCode,
     required String guardianCode,
   });
+  Future<PaymentMethodModel> setAutopayMethod({
+    required String paymentMethodCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String guardianCode,
+  });
   Future<void> deletePaymentMethod({
     required String paymentMethodCode,
     required String organizationCode,
     required String schoolCode,
     required String guardianCode,
+  });
+  Future<PaymentMethodModel> updatePaymentMethod({
+    required String paymentMethodCode,
+    required UpdatePaymentMethodRequestModel request,
   });
 }
 
@@ -170,6 +180,27 @@ class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
   }
 
   @override
+  Future<PaymentMethodModel> setAutopayMethod({
+    required String paymentMethodCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String guardianCode,
+  }) async {
+    final response = await _client.put<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.paymentGatewayMethodAutopay(paymentMethodCode)),
+      queryParameters: <String, dynamic>{
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+        'guardianCode': guardianCode,
+      },
+    );
+    final data = response.data?['data'];
+    return PaymentMethodModel.fromJson(
+      data is Map<String, dynamic> ? data : <String, dynamic>{},
+    );
+  }
+
+  @override
   Future<void> deletePaymentMethod({
     required String paymentMethodCode,
     required String organizationCode,
@@ -183,6 +214,21 @@ class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
         'schoolCode': schoolCode,
         'guardianCode': guardianCode,
       },
+    );
+  }
+
+  @override
+  Future<PaymentMethodModel> updatePaymentMethod({
+    required String paymentMethodCode,
+    required UpdatePaymentMethodRequestModel request,
+  }) async {
+    final response = await _client.put<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.paymentGatewayMethodByCode(paymentMethodCode)),
+      data: request.toJson(),
+    );
+    final data = response.data?['data'];
+    return PaymentMethodModel.fromJson(
+      data is Map<String, dynamic> ? data : <String, dynamic>{},
     );
   }
 }

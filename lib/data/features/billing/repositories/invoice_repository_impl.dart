@@ -2,6 +2,7 @@ import 'package:wowcare/data/features/billing/datasources/invoice_remote_datasou
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
 import 'package:wowcare/domain/features/billing/repositories/invoice_repository.dart';
@@ -15,6 +16,38 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
   Future<InvoiceResultEntity> createInvoice(CreateInvoiceParams params) async {
     final model = await _dataSource.createInvoice(_toRequest(params));
     return _mapResult(model);
+  }
+
+  @override
+  Future<InvoiceAnalyticsEntity> getAnalytics({
+    required String organizationCode,
+    required String school,
+    int? year,
+  }) async {
+    final m = await _dataSource.getAnalytics(
+      organizationCode: organizationCode,
+      school: school,
+      year: year,
+    );
+    return InvoiceAnalyticsEntity(
+      revenue: m.revenue
+          .map((e) => AnalyticsMonthValueEntity(name: e.name, value: e.value))
+          .toList(),
+      invoiced: m.invoiced
+          .map((e) => AnalyticsMonthValueEntity(name: e.name, value: e.value))
+          .toList(),
+      refunds: m.refunds
+          .map((e) => AnalyticsMonthValueEntity(name: e.name, value: e.value))
+          .toList(),
+      subsidies: m.subsidies
+          .map((e) => AnalyticsSubsidyEntity(
+                name: e.name,
+                invoiced: e.invoiced,
+                received: e.received,
+                balance: e.balance,
+              ))
+          .toList(),
+    );
   }
 
   @override
@@ -38,6 +71,26 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       inProcess: m.inProcess,
       outstanding: m.outstanding,
     );
+  }
+
+  @override
+  Future<InvoiceTransactionsPage> getTransactions({
+    required String organizationCode,
+    required String school,
+    DateTime? dateFrom,
+    DateTime? dateTo,
+    int page = 0,
+    int size = 10,
+  }) async {
+    final m = await _dataSource.getTransactions(
+      organizationCode: organizationCode,
+      school: school,
+      dateFrom: dateFrom,
+      dateTo: dateTo,
+      page: page,
+      size: size,
+    );
+    return m.toEntity();
   }
 
   @override
@@ -107,6 +160,20 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
       school: school,
       ownerType: ownerType,
       ownerCode: ownerCode,
+    );
+    return m.toEntity();
+  }
+
+  @override
+  Future<FamilyLedgerEntity> getGuardianFamilyLedger({
+    required String organizationCode,
+    required String school,
+    required String guardianCode,
+  }) async {
+    final m = await _dataSource.getGuardianFamilyLedger(
+      organizationCode: organizationCode,
+      school: school,
+      guardianCode: guardianCode,
     );
     return m.toEntity();
   }
@@ -203,6 +270,8 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         studentCode: p.studentCode,
         issueDate: p.issueDate,
         dueDate: p.dueDate,
+        periodStart: p.periodStart,
+        periodEnd: p.periodEnd,
         notes: p.notes,
         currency: p.currency,
         items: p.items

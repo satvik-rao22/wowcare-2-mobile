@@ -8,6 +8,7 @@ class SchoolForteConfigModel {
     this.schoolCode,
     this.organizationCode,
     this.status,
+    this.maxPaymentMethods,
   });
 
   final String apiLoginId;
@@ -15,14 +16,22 @@ class SchoolForteConfigModel {
   final String? schoolCode;
   final String? organizationCode;
   final String? status;
+  final int? maxPaymentMethods;
 
   factory SchoolForteConfigModel.fromJson(Map<String, dynamic> json) {
+    // The max-methods limit may arrive under a few possible keys.
+    final maxRaw = json['maxPaymentMethods'] ??
+        json['maxMethods'] ??
+        json['paymentMethodLimit'] ??
+        json['maxPaymentMethodCount'];
     return SchoolForteConfigModel(
       apiLoginId: (json['apiLoginId'] ?? '').toString(),
       code: json['code']?.toString(),
       schoolCode: json['schoolCode']?.toString(),
       organizationCode: json['organizationCode']?.toString(),
       status: json['status']?.toString(),
+      maxPaymentMethods:
+          maxRaw is num ? maxRaw.toInt() : int.tryParse('${maxRaw ?? ''}'),
     );
   }
 
@@ -32,6 +41,7 @@ class SchoolForteConfigModel {
         schoolCode: schoolCode,
         organizationCode: organizationCode,
         status: status,
+        maxPaymentMethods: maxPaymentMethods,
       );
 }
 
@@ -103,6 +113,7 @@ class PaymentMethodEcheckModel {
     this.last4,
     this.routingNumber,
     this.accountType,
+    this.itemDescription,
   });
 
   final String? accountHolder;
@@ -110,6 +121,7 @@ class PaymentMethodEcheckModel {
   final String? last4;
   final String? routingNumber;
   final String? accountType;
+  final String? itemDescription;
 
   factory PaymentMethodEcheckModel.fromJson(Map<String, dynamic> json) {
     return PaymentMethodEcheckModel(
@@ -118,6 +130,7 @@ class PaymentMethodEcheckModel {
       last4: json['last_4_account_number']?.toString(),
       routingNumber: json['routing_number']?.toString(),
       accountType: json['account_type']?.toString(),
+      itemDescription: json['item_description']?.toString(),
     );
   }
 
@@ -127,6 +140,7 @@ class PaymentMethodEcheckModel {
         last4: last4,
         routingNumber: routingNumber,
         accountType: accountType,
+        itemDescription: itemDescription,
       );
 }
 
@@ -199,9 +213,9 @@ class AddPaymentMethodRequestModel {
     required this.guardianCode,
     required this.oneTimeToken,
     required this.methodType,
-    required this.firstName,
-    required this.lastName,
+    required this.payMethodHolderName,
     this.label,
+    this.familyCode,
     this.makePrimary = false,
     this.makeAutopay = false,
   });
@@ -211,9 +225,9 @@ class AddPaymentMethodRequestModel {
   final String guardianCode;
   final String oneTimeToken;
   final String methodType;
-  final String firstName;
-  final String lastName;
+  final String payMethodHolderName;
   final String? label;
+  final String? familyCode;
   final bool makePrimary;
   final bool makeAutopay;
 
@@ -224,9 +238,41 @@ class AddPaymentMethodRequestModel {
         'oneTimeToken': oneTimeToken,
         'methodType': methodType,
         if (label != null && label!.trim().isNotEmpty) 'label': label,
-        'firstName': firstName,
-        'lastName': lastName,
+        'payMethodHolderName': payMethodHolderName,
+        if (familyCode != null && familyCode!.trim().isNotEmpty)
+          'familyCode': familyCode,
         'makePrimary': makePrimary,
         'makeAutopay': makeAutopay,
+      };
+}
+
+/// Request body for `PUT /payment-gateway/payment-methods/{code}`.
+class UpdatePaymentMethodRequestModel {
+  const UpdatePaymentMethodRequestModel({
+    required this.organizationCode,
+    required this.schoolCode,
+    required this.guardianCode,
+    this.label,
+    this.notes,
+    this.card,
+    this.echeck,
+  });
+
+  final String organizationCode;
+  final String schoolCode;
+  final String guardianCode;
+  final String? label;
+  final String? notes;
+  final Map<String, dynamic>? card;
+  final Map<String, dynamic>? echeck;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'organizationCode': organizationCode,
+        'schoolCode': schoolCode,
+        'guardianCode': guardianCode,
+        if (label != null && label!.trim().isNotEmpty) 'label': label,
+        if (notes != null && notes!.trim().isNotEmpty) 'notes': notes,
+        if (card != null) 'card': card,
+        if (echeck != null) 'echeck': echeck,
       };
 }

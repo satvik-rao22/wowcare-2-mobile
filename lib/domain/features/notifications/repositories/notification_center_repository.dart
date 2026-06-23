@@ -1,5 +1,8 @@
 import '../entities/app_notification.dart';
 
+/// One page of notification-center items plus whether more pages exist.
+typedef NotificationPage = ({List<AppNotification> items, bool hasMore});
+
 /// Abstraction over the notification-center backend (the bell-icon inbox).
 ///
 /// Kept separate from [PushNotificationRepository] (FCM transport): this seam
@@ -7,13 +10,13 @@ import '../entities/app_notification.dart';
 /// concrete implementation currently talks to a mock data source; swapping in a
 /// real REST data source is a single-file change behind this interface.
 abstract class NotificationCenterRepository {
-  /// Fetches all notification-center items, newest first.
-  Future<List<AppNotification>> getNotifications();
+  /// Fetches one page of notification-center items, newest first.
+  /// [page] is zero-based.
+  Future<NotificationPage> getNotifications({int page, int size});
 
-  /// Marks a single notification as read. Returns the updated list so callers
-  /// can reflect server-side truth without a second round-trip.
-  Future<List<AppNotification>> markAsRead(String id);
+  /// Marks a single notification as read on the backend.
+  Future<void> markAsRead(String id);
 
-  /// Marks every notification as read. Returns the updated list.
-  Future<List<AppNotification>> markAllAsRead();
+  /// Marks every notification as read on the backend.
+  Future<void> markAllAsRead();
 }

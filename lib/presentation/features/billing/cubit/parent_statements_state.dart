@@ -6,23 +6,26 @@ class ParentStatementsState extends Equatable {
     required this.customEndDate,
     required this.isStatementsLoading,
     required this.isGenerating,
+    required this.displayCount,
   });
 
   const ParentStatementsState.initial()
       : customStartDate = null,
         customEndDate = null,
         isStatementsLoading = false,
-        isGenerating = false;
+        isGenerating = false,
+        displayCount = 10;
 
   final DateTime? customStartDate;
   final DateTime? customEndDate;
   final bool isStatementsLoading;
   final bool isGenerating;
 
+  /// How many statements to show (client-side pagination).
+  final int displayCount;
+
   bool get hasDateRange => customStartDate != null && customEndDate != null;
 
-  /// Demo statements (UI only). Dates are relative to "now", so they are built
-  /// lazily here rather than as constants.
   List<DemoStatement> get demoStatements {
     final now = DateTime.now();
     final currentYear = now.year;
@@ -63,7 +66,6 @@ class ParentStatementsState extends Equatable {
     ];
   }
 
-  /// Statements whose period overlaps the selected range, newest first.
   List<DemoStatement> get filteredStatements {
     final all = demoStatements;
     if (hasDateRange) {
@@ -85,11 +87,19 @@ class ParentStatementsState extends Equatable {
       ..sort((a, b) => b.generatedOn.compareTo(a.generatedOn));
   }
 
+  /// Statements visible in the current page window.
+  List<DemoStatement> get visibleStatements =>
+      filteredStatements.take(displayCount).toList();
+
+  /// Whether there are more statements beyond the current page window.
+  bool get hasMoreStatements => filteredStatements.length > displayCount;
+
   ParentStatementsState copyWith({
     DateTime? Function()? customStartDate,
     DateTime? Function()? customEndDate,
     bool? isStatementsLoading,
     bool? isGenerating,
+    int? displayCount,
   }) {
     return ParentStatementsState(
       customStartDate:
@@ -98,10 +108,11 @@ class ParentStatementsState extends Equatable {
           customEndDate != null ? customEndDate() : this.customEndDate,
       isStatementsLoading: isStatementsLoading ?? this.isStatementsLoading,
       isGenerating: isGenerating ?? this.isGenerating,
+      displayCount: displayCount ?? this.displayCount,
     );
   }
 
   @override
   List<Object?> get props =>
-      [customStartDate, customEndDate, isStatementsLoading, isGenerating];
+      [customStartDate, customEndDate, isStatementsLoading, isGenerating, displayCount];
 }

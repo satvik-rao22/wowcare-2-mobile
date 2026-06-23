@@ -6,6 +6,8 @@ class ReceivePaymentRefundState extends Equatable {
     required this.amountError,
     required this.sendEmailNotification,
     required this.selectedPaymentType,
+    required this.payableStudents,
+    required this.isLoadingStudents,
     this.errorMessage,
   });
 
@@ -14,12 +16,16 @@ class ReceivePaymentRefundState extends Equatable {
         amountError = false,
         sendEmailNotification = true,
         selectedPaymentType = null,
+        payableStudents = const <PayableStudent>[],
+        isLoadingStudents = false,
         errorMessage = null;
 
   final bool isSubmitting;
   final bool amountError;
   final bool sendEmailNotification;
   final String? selectedPaymentType;
+  final List<PayableStudent> payableStudents;
+  final bool isLoadingStudents;
   final String? errorMessage;
 
   ReceivePaymentRefundState copyWith({
@@ -27,6 +33,8 @@ class ReceivePaymentRefundState extends Equatable {
     bool? amountError,
     bool? sendEmailNotification,
     String? Function()? selectedPaymentType,
+    List<PayableStudent>? payableStudents,
+    bool? isLoadingStudents,
     String? errorMessage,
   }) {
     return ReceivePaymentRefundState(
@@ -37,6 +45,8 @@ class ReceivePaymentRefundState extends Equatable {
       selectedPaymentType: selectedPaymentType != null
           ? selectedPaymentType()
           : this.selectedPaymentType,
+      payableStudents: payableStudents ?? this.payableStudents,
+      isLoadingStudents: isLoadingStudents ?? this.isLoadingStudents,
       errorMessage: errorMessage,
     );
   }
@@ -47,6 +57,8 @@ class ReceivePaymentRefundState extends Equatable {
         amountError,
         sendEmailNotification,
         selectedPaymentType,
+        payableStudents,
+        isLoadingStudents,
         errorMessage,
       ];
 }

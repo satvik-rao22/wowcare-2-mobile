@@ -21,12 +21,26 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class TransactionsSection extends StatefulWidget {
-  const TransactionsSection({super.key, this.onRegisterRefresh});
+  const TransactionsSection({
+    super.key,
+    this.onRegisterRefresh,
+    this.onRegisterLoadNextPage,
+    this.onLoadMoreNeeded,
+  });
 
   /// Lets the parent (Billing page) trigger a pull-to-refresh of this tab.
   final void Function(Future<void> Function())? onRegisterRefresh;
+
+  /// Registers the "load next page" callback with the parent's scroll handler.
+  final void Function(VoidCallback)? onRegisterLoadNextPage;
+
+  /// Asks the parent to re-check whether the next page should load (e.g. when
+  /// the current content doesn't fill the viewport).
+  final VoidCallback? onLoadMoreNeeded;
 
   @override
   State<TransactionsSection> createState() => _TransactionsSectionState();
@@ -40,12 +54,17 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void initState() {
     super.initState();
     _cubit.loadOverview();
+    _cubit.loadTransactions();
     widget.onRegisterRefresh?.call(_refresh);
+    widget.onRegisterLoadNextPage?.call(_cubit.loadNextPage);
   }
 
-  /// Reloads the overview totals (stat bar) for this tab.
+  /// Reloads the overview totals + the transactions list for this tab.
   Future<void> _refresh() async {
-    await _cubit.loadOverview();
+    await Future.wait<void>([
+      _cubit.loadOverview(),
+      _cubit.loadTransactions(),
+    ]);
   }
 
   @override
@@ -105,7 +124,15 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                 const SizedBox(height: 12),
                 _buildSearchBar(context),
                 const SizedBox(height: 16),
-                if (visibleTransactions.isEmpty)
+                if (state.isLoading)
+                  ...List.generate(
+                    5,
+                    (_) => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: BillingTransactionShimmer(),
+                    ),
+                  )
+                else if (visibleTransactions.isEmpty)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(
@@ -120,35 +147,44 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                       ),
                     ),
                   )
-                else
-                  Column(
-                    children: visibleTransactions
-                        .map(
-                          (TransactionRecord record) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: BillingTransactionCard(
-                              transaction: record.item,
-                              onView: () => _openViewInvoice(record.item),
-                              onViewReceipt: () =>
-                                  _openViewReceipt(record.item, 'receipt'),
-                              onSendInvoice: () => _openSendInvoice(record.item),
-                              onReceivePayment: () =>
-                                  _openReceivePayment(record.item),
-                              onIssueRefund: () => _openIssueRefund(record.item),
-                              onEditInvoice: () =>
-                                  _openEditInvoice(record.item),
-                              onBillingProfile: () =>
-                                  _openTransactionDetails(record.item),
-                              onMessage: _showMessageUnavailable,
-                              onCancel: () => _confirmCancel(record.item),
-                              onDelete: () => _confirmDelete(record.item),
-                              onLongPress: () =>
-                                  _openTransactionDetails(record.item),
-                            ),
-                          ),
-                        )
-                        .toList(),
+                else ...[
+                  // Short content → ask the parent to load the next page.
+                  if (state.hasMore)
+                    Builder(builder: (_) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        widget.onLoadMoreNeeded?.call();
+                      });
+                      return const SizedBox.shrink();
+                    }),
+                  ...visibleTransactions.map(
+                    (TransactionRecord record) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: BillingTransactionCard(
+                        transaction: record.item,
+                        onView: () => _openViewInvoice(record.item),
+                        onViewReceipt: () =>
+                            _openViewReceipt(record.item, 'receipt'),
+                        onSendInvoice: () => _openSendInvoice(record.item),
+                        onReceivePayment: () =>
+                            _openReceivePayment(record.item),
+                        onIssueRefund: () => _openIssueRefund(record.item),
+                        onEditInvoice: () => _openEditInvoice(record.item),
+                        onBillingProfile: () =>
+                            _openTransactionDetails(record.item),
+                        onMessage: _showMessageUnavailable,
+                        onCancel: () => _confirmCancel(record.item),
+                        onDelete: () => _confirmDelete(record.item),
+                        onLongPress: () =>
+                            _openTransactionDetails(record.item),
+                      ),
+                    ),
                   ),
+                  if (state.isLoadingMore)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: PrimaryCircularLoader()),
+                    ),
+                ],
               ],
             );
           },
@@ -323,10 +359,15 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   }
 
   void _openTransactionDetails(TransactionItem item) {
+    final familyCode = (item.familyCode ?? '').trim();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => TransactionDetailsScreen(
           transaction: item,
+          // When we know the family, load the real family ledger.
+          ownerType: familyCode.isNotEmpty ? 'FAMILY' : null,
+          ownerCode: familyCode.isNotEmpty ? familyCode : null,
+          familyName: item.studentName,
         ),
       ),
     );

@@ -8,10 +8,10 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/trans
 enum BillingPopupType { student, invoice, payment, refund }
 
 /// Which invoice action set to show, driven by the invoice status:
-/// - [draft]: View, Edit, Send, Billing Profile, Cancel.
-/// - [sent]: View, Edit, Resend, Receive Payment, More (Cancel/Delete).
-/// - [paid]: Issue Refund, View, More (Billing Profile, Message).
-/// - [cancelled]: View, Delete, Billing Profile (no More).
+/// - [draft]: View, Send, More (Edit, Billing Profile, Cancel).
+/// - [sent]: View, Resend, Receive Payment, More (Edit, Billing Profile, Cancel).
+/// - [paid]: Issue Refund, View, More (Billing Profile).
+/// - [cancelled]: View, Delete.
 enum BillingInvoiceMenuVariant { draft, sent, paid, cancelled }
 
 class BillingStudentVerticalPopUp extends StatelessWidget {
@@ -31,6 +31,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
     this.onDeleteTap,
     this.onMoreTap,
     this.transaction,
+    this.showBillingProfile = true,
   });
 
   final BillingPopupType popupType;
@@ -50,6 +51,9 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
   final VoidCallback? onDeleteTap;
   final VoidCallback? onMoreTap;
   final TransactionItem? transaction;
+
+  /// Hide the "Billing Profile" action (e.g. when already on that screen).
+  final bool showBillingProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -124,31 +128,28 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
     switch (popupType) {
       case BillingPopupType.student:
         return <_PopupActionConfig>[
-          _PopupActionConfig(
-            iconPath: MediaRes.message_panel_icon,
-            label: 'Message',
-            onTap: onMessageTap,
-          ),
-          _PopupActionConfig(
-            iconPath: MediaRes.profile_panel_icon,
-            label: 'Billing Profile',
-            onTap: defaultBillingProfileTap,
-          ),
+          // Message temporarily disabled.
+          // _PopupActionConfig(
+          //   iconPath: MediaRes.message_panel_icon,
+          //   label: 'Message',
+          //   onTap: onMessageTap,
+          // ),
+          if (showBillingProfile)
+            _PopupActionConfig(
+              iconPath: MediaRes.profile_panel_icon,
+              label: 'Billing Profile',
+              onTap: defaultBillingProfileTap,
+            ),
         ];
       case BillingPopupType.invoice:
         switch (invoiceVariant ?? BillingInvoiceMenuVariant.sent) {
           case BillingInvoiceMenuVariant.draft:
-            // Billing Profile + Cancel live under More.
+            // Edit + Billing Profile + Cancel live under More.
             return <_PopupActionConfig>[
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
                 label: 'View',
                 onTap: onViewTap,
-              ),
-              _PopupActionConfig(
-                iconPath: MediaRes.communicationIcon,
-                label: 'Edit',
-                onTap: onEditTap,
               ),
               _PopupActionConfig(
                 iconPath: MediaRes.redirectArrowGradientIcon,
@@ -171,11 +172,6 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
                 onTap: onViewTap,
               ),
               _PopupActionConfig(
-                iconPath: MediaRes.communicationIcon,
-                label: 'Edit',
-                onTap: onEditTap,
-              ),
-              _PopupActionConfig(
                 iconPath: MediaRes.redirectArrowGradientIcon,
                 label: 'Resend',
                 onTap: onResendTap,
@@ -183,7 +179,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
                 iconSize: 19,
               ),
               _PopupActionConfig(
-                iconPath: MediaRes.transactions_Billing_Drawer_Icon,
+                iconData: Icons.attach_money,
                 label: 'Receive Payment',
                 onTap: onReceivePaymentTap,
               ),
@@ -196,7 +192,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
           case BillingInvoiceMenuVariant.paid:
             return <_PopupActionConfig>[
               _PopupActionConfig(
-                iconPath: MediaRes.transactions_Billing_Drawer_Icon,
+                iconData: Icons.attach_money,
                 label: 'Issue Refund',
                 onTap: onIssueRefundTap,
               ),
@@ -212,6 +208,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               ),
             ];
           case BillingInvoiceMenuVariant.cancelled:
+            // Cancelled invoice: View + Delete.
             return <_PopupActionConfig>[
               _PopupActionConfig(
                 iconPath: MediaRes.docsIcon,
@@ -223,11 +220,6 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
                 label: 'Delete',
                 onTap: onDeleteTap,
               ),
-              _PopupActionConfig(
-                iconPath: MediaRes.profile_panel_icon,
-                label: 'Billing Profile',
-                onTap: defaultBillingProfileTap,
-              ),
             ];
         }
       case BillingPopupType.payment:
@@ -238,7 +230,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             onTap: onViewTap,
           ),
           _PopupActionConfig(
-            iconPath: MediaRes.transactions_Billing_Drawer_Icon,
+            iconData: Icons.attach_money,
             label: 'Issue Refund',
             onTap: onIssueRefundTap,
           ),
@@ -354,72 +346,86 @@ class BillingMoreOptionsPopup extends StatelessWidget {
     this.invoiceVariant,
     this.onMessageTap,
     this.onBillingProfileTap,
+    this.onEditTap,
     this.onCancelTap,
     this.onDeleteTap,
     this.transaction,
+    this.showBillingProfile = true,
   });
 
   final BillingPopupType popupType;
   final BillingInvoiceMenuVariant? invoiceVariant;
   final VoidCallback? onMessageTap;
   final VoidCallback? onBillingProfileTap;
+  final VoidCallback? onEditTap;
   final VoidCallback? onCancelTap;
   final VoidCallback? onDeleteTap;
   final TransactionItem? transaction;
+
+  /// Hide the "Billing Profile" action (e.g. when already on that screen).
+  final bool showBillingProfile;
 
   @override
   Widget build(BuildContext context) {
     final VoidCallback? billingProfileTap =
         onBillingProfileTap ?? _transactionDetailsOpener(context, transaction);
-    final _PopupActionConfig messageAction = _PopupActionConfig(
-      iconPath: MediaRes.message_panel_icon,
-      label: 'Message',
-      onTap: onMessageTap,
-    );
+    // Message temporarily disabled.
+    // final _PopupActionConfig messageAction = _PopupActionConfig(
+    //   iconPath: MediaRes.message_panel_icon,
+    //   label: 'Message',
+    //   onTap: onMessageTap,
+    // );
     final _PopupActionConfig billingProfileAction = _PopupActionConfig(
       iconPath: MediaRes.profile_panel_icon,
       label: 'Billing Profile',
       onTap: billingProfileTap,
     );
 
+    final _PopupActionConfig editAction = _PopupActionConfig(
+      iconPath: MediaRes.communicationIcon,
+      label: 'Edit',
+      onTap: onEditTap,
+    );
+
+    final _PopupActionConfig cancelAction = _PopupActionConfig(
+      iconData: Icons.close,
+      label: 'Cancel',
+      onTap: onCancelTap,
+    );
+
     final List<_PopupActionConfig> actions;
     if (popupType == BillingPopupType.invoice) {
       switch (invoiceVariant ?? BillingInvoiceMenuVariant.sent) {
         case BillingInvoiceMenuVariant.draft:
-          // Draft: Billing Profile + Cancel under More.
+          // Draft: Edit + Billing Profile + Cancel under More (no Delete).
           actions = <_PopupActionConfig>[
-            billingProfileAction,
-            _PopupActionConfig(
-              iconData: Icons.close,
-              label: 'Cancel',
-              onTap: onCancelTap,
-            ),
+            editAction,
+            if (showBillingProfile) billingProfileAction,
+            cancelAction,
           ];
           break;
         case BillingInvoiceMenuVariant.sent:
-          // Sent invoices: standard options plus Cancel + Delete.
+          // Sent: Edit + standard options + Cancel. Delete is only for cancelled.
           actions = <_PopupActionConfig>[
-            messageAction,
-            billingProfileAction,
-            _PopupActionConfig(
-              iconData: Icons.close,
-              label: 'Cancel',
-              onTap: onCancelTap,
-            ),
-            _PopupActionConfig(
-              iconData: Icons.delete_outline,
-              label: 'Delete',
-              onTap: onDeleteTap,
-            ),
+            // messageAction,
+            editAction,
+            if (showBillingProfile) billingProfileAction,
+            cancelAction,
           ];
           break;
         case BillingInvoiceMenuVariant.paid:
         case BillingInvoiceMenuVariant.cancelled:
-          actions = <_PopupActionConfig>[billingProfileAction, messageAction];
+          actions = <_PopupActionConfig>[
+            if (showBillingProfile) billingProfileAction,
+            // messageAction,
+          ];
           break;
       }
     } else {
-      actions = <_PopupActionConfig>[messageAction, billingProfileAction];
+      actions = <_PopupActionConfig>[
+        // messageAction,
+        if (showBillingProfile) billingProfileAction,
+      ];
     }
 
     return Container(

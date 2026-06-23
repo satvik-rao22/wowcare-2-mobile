@@ -182,6 +182,7 @@ class ApiPathsUat {
         return ApiMicroservices.notification;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
+      case 'billing':
       case 'ledgers':
       case 'accounts':
       case 'ledger-transactions':
