@@ -1,8 +1,7 @@
 // ignore_for_file: type=lint
-// UAT app environment intentionally uses the shared `wowcare2-atoconn` Firebase
-// project (same as LOCAL/QA/PROD). Only the API base URLs differ per env; push
-// / Firebase services all run against atoconn for now.
-// To regenerate: flutterfire configure --project=wowcare2-atoconn --out=lib/core/firebase/firebase_options_uat.dart
+// UAT app environment uses the dedicated `wowcare2-uat` Firebase project.
+// LOCAL/QA/PROD use their own projects (LOCAL = wowcare2-atoconn).
+// To regenerate: flutterfire configure --project=wowcare2-uat --out=lib/core/firebase/firebase_options_uat.dart
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, TargetPlatform;
@@ -22,19 +21,19 @@ class FirebaseOptionsUat {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDkhMORPMLcJKiG76zYRGWRPGQqB5pNu1w',
-    appId: '1:861387942693:android:2fbd1cd64e4171275548cc',
-    messagingSenderId: '861387942693',
-    projectId: 'wowcare2-atoconn',
-    storageBucket: 'wowcare2-atoconn.firebasestorage.app',
+    apiKey: 'AIzaSyAVcVF2dd1SSCpRD2-tqq-ACX-ILK5v0lk',
+    appId: '1:103185714773:android:9ca80eef9f6c34f2ed4edc',
+    messagingSenderId: '103185714773',
+    projectId: 'wowcare2-uat',
+    storageBucket: 'wowcare2-uat.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyB0F4lAWYniARnK39Z_PV8_PYmBmDQrvv4',
-    appId: '1:861387942693:ios:6d658e9f7daf22295548cc',
-    messagingSenderId: '861387942693',
-    projectId: 'wowcare2-atoconn',
-    storageBucket: 'wowcare2-atoconn.firebasestorage.app',
+    apiKey: 'AIzaSyBYHqXcgPTcD1x5fLeLVDUbOsQ5QrA7Ee0',
+    appId: '1:103185714773:ios:637e6e6638df5a65ed4edc',
+    messagingSenderId: '103185714773',
+    projectId: 'wowcare2-uat',
+    storageBucket: 'wowcare2-uat.firebasestorage.app',
     iosBundleId: 'com.wiseowl.wowcareapp',
   );
 }
