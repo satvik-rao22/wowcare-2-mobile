@@ -35,6 +35,7 @@ class MessageEntity extends Equatable {
     this.threadParentSenderName,
     this.threadParentText,
     this.localTempCode,
+    this.privateParentUserCode,
   });
 
   // Identity
@@ -68,6 +69,7 @@ class MessageEntity extends Equatable {
   /// True when this message was sent while the sender had private mode enabled.
   /// Backend controls visibility — this flag is informational for the sender.
   final bool isPrivate;
+  final String? privateParentUserCode;
 
   // Edit / delete
   final bool isEdited;
@@ -139,6 +141,7 @@ class MessageEntity extends Equatable {
     String? threadParentSenderName,
     String? threadParentText,
     String? localTempCode,
+    String? privateParentUserCode,
   }) {
     return MessageEntity(
       id: id ?? this.id,
@@ -168,6 +171,7 @@ class MessageEntity extends Equatable {
       threadParentSenderName: threadParentSenderName ?? this.threadParentSenderName,
       threadParentText: threadParentText ?? this.threadParentText,
       localTempCode: localTempCode ?? this.localTempCode,
+      privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
     );
   }
 
@@ -200,6 +204,7 @@ class MessageEntity extends Equatable {
         organizationCode,
         schoolCode,
         localTempCode,
+        privateParentUserCode,
       ];
 }
 

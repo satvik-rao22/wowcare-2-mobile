@@ -116,6 +116,9 @@ class CommunicationRemoteDataSourceImpl
       if (attachmentIds.isNotEmpty) 'attachmentIds': attachmentIds,
       if (message.quotedMessageId != null)
         'replyToMessageId': message.quotedMessageId,
+      if (message.isPrivate) 'isPrivate': true,
+      // if (message.privateParentUserCode != null)
+      //   'privateParentUserCode': message.privateParentUserCode,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);
@@ -148,6 +151,8 @@ class CommunicationRemoteDataSourceImpl
         attachments: attachments,
         reactions: parsed.reactions,
         senderName: parsed.senderName,
+        isPrivate: parsed.isPrivate,
+        // privateParentUserCode: parsed.privateParentUserCode,
       );
     } else {
       throw Exception(response.data?['message'] ?? 'Failed to send message');

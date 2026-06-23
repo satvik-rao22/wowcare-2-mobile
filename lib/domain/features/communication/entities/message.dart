@@ -19,6 +19,7 @@ class Message extends Equatable {
   final List<String> receivers;
   final String? senderUserCode;
   final bool isPrivate;
+  final String? privateParentUserCode;
 
   const Message({
     required this.id,
@@ -39,6 +40,7 @@ class Message extends Equatable {
     this.receivers = const [],
     this.senderUserCode,
     this.isPrivate = false,
+    this.privateParentUserCode,
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
@@ -61,7 +63,7 @@ class Message extends Equatable {
   bool hasReacted(String currentUserId) => reactions.containsKey(currentUserId);
   String? getMyReaction(String currentUserId) => reactions[currentUserId];
 
-  Message copyWith({DateTime? deletedAt, List<ChatAttachment>? attachments}) {
+  Message copyWith({DateTime? deletedAt, List<ChatAttachment>? attachments, String? privateParentUserCode}) {
     return Message(
       id: id,
       code: code,
@@ -81,6 +83,7 @@ class Message extends Equatable {
       receivers: receivers,
       senderUserCode: senderUserCode,
       isPrivate: isPrivate,
+      privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
     );
   }
 
@@ -104,6 +107,7 @@ class Message extends Equatable {
         receivers,
         senderUserCode,
         isPrivate,
+        privateParentUserCode,
       ];
 }
 

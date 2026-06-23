@@ -117,6 +117,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   String _senderCode = '';
   String _senderName = '';
   ParticipantRole _senderRole = ParticipantRole.staff;
+  String? _conversationPrivateModeActivatedBy;
   String _organizationCode = '';
   String _schoolCode = '';
 
@@ -193,8 +194,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       _privateModeToggleCubit = PrivateModeToggleCubit(
         togglePrivateModeUseCase: TogglePrivateModeUseCase(serviceLocator()),
         conversationCode: widget.conversation.code,
-        initialEnabled: widget.initialPrivateModeEnabled,
+        initialEnabled: widget.conversation.privateModeActive ||
+            widget.initialPrivateModeEnabled,
       );
+      _conversationPrivateModeActivatedBy =
+          widget.conversation.privateModeActivatedBy;
     }
   }
 
@@ -491,6 +495,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // optimistic message lands in state (before the network call resolves).
     _ownSendPending = true;
     final attachmentsBeingSent = _pendingAttachments;
+    final bool isPrivate = widget.showPrivateModeToggle &&
+        _privateModeToggleCubit?.state.isEnabled == true;
+
     await _cubit.sendMessage(
       text: text,
       senderCode: _senderCode,
@@ -499,6 +506,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       organizationCode: _organizationCode,
       schoolCode: _schoolCode,
       attachments: attachmentsBeingSent,
+      isPrivate: isPrivate,
       threadParentCode: _quotedMessage?.code,
     );
     if (!mounted) return;
@@ -642,11 +650,31 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               // Private Mode toggle — parent persona only
               if (widget.showPrivateModeToggle &&
                   _privateModeToggleCubit != null)
-                BlocBuilder<PrivateModeToggleCubit, PrivateModeToggleState>(
+                BlocConsumer<PrivateModeToggleCubit, PrivateModeToggleState>(
                   bloc: _privateModeToggleCubit,
+                  listener: (context, pmState) {
+                    if (pmState.errorMessage != null) {
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: pmState.errorMessage!,
+                        isError: true,
+                      );
+                    }
+                    setState(() {
+                      if (pmState.isEnabled) {
+                        _conversationPrivateModeActivatedBy = _senderCode;
+                      } else {
+                        _conversationPrivateModeActivatedBy = null;
+                      }
+                    });
+                  },
                   builder: (_, pmState) => Tooltip(
                     message: pmState.isEnabled
-                        ? 'Private Mode ON'
+                        ? (_conversationPrivateModeActivatedBy ==
+                                  _senderCode ||
+                              _conversationPrivateModeActivatedBy == null
+                            ? 'Private Mode ON'
+                            : 'Private Mode was enabled by another guardian and can only be disabled by that guardian.')
                         : 'Private Mode OFF',
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -666,7 +694,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           value: pmState.isEnabled,
                           onChanged: pmState.isLoading
                               ? null
-                              : (_) => _privateModeToggleCubit!.toggle(),
+                              : (_conversationPrivateModeActivatedBy !=
+                                        null &&
+                                    _conversationPrivateModeActivatedBy !=
+                                        _senderCode &&
+                                    pmState.isEnabled)
+                                  ? null
+                                  : (_) => _privateModeToggleCubit!.toggle(),
                           activeThumbColor: const Color(0xFF6C63FF),
                           activeTrackColor: const Color(
                             0xFF6C63FF,

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:isar/isar.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -45,6 +47,9 @@ class ConversationEntityCollection {
   String? lastMessageBy;
   String? lastMessageSenderName;
   late String lastMessagePreview;
+  bool privateModeActive = false;
+  String? privateModeActivatedBy;
+  DateTime? privateModeActivatedAt;
 
   late int participantCount;
   late int unreadCount;
@@ -95,13 +100,47 @@ class ConversationEntityCollection {
       ..lastMessageBy = entity.lastMessageBy
       ..lastMessageSenderName = entity.lastMessageSenderName
       ..lastMessagePreview = entity.lastMessagePreview
+      ..privateModeActive = entity.privateModeActive
+      ..privateModeActivatedBy = entity.privateModeActivatedBy
+      ..privateModeActivatedAt = entity.privateModeActivatedAt
       ..participantCount = entity.participantCount
       ..unreadCount = entity.unreadCount
       ..participants = entity.participants
           .map(ParticipantEntityCollection.fromEntity)
           .toList()
       ..organizationCode = entity.organizationCode
-      ..schoolCode = entity.schoolCode;
+      ..schoolCode = entity.schoolCode
+      ..privateModeStatesJson = entity.privateModeStates.isEmpty
+          ? null
+          : jsonEncode(
+              entity.privateModeStates.map(
+                (parentCode, s) => MapEntry(parentCode, {
+                  'parentCode': s.parentCode,
+                  'enabled': s.enabled,
+                  'owner': s.owner,
+                  'enabledAt': s.enabledAt.toIso8601String(),
+                }),
+              ),
+            );
+  }
+
+  static Map<String, PrivateModeState> _decodePrivateModeStates(
+    String? json,
+  ) {
+    if (json == null || json.isEmpty) return const {};
+    final decoded = jsonDecode(json) as Map<String, dynamic>;
+    return decoded.map((parentCode, value) {
+      final v = value as Map<String, dynamic>;
+      return MapEntry(
+        parentCode,
+        PrivateModeState(
+          parentCode: v['parentCode'] as String,
+          enabled: v['enabled'] as bool,
+          owner: v['owner'] as String,
+          enabledAt: DateTime.parse(v['enabledAt'] as String),
+        ),
+      );
+    });
   }
 
   ConversationEntity toEntity() {
@@ -123,13 +162,15 @@ class ConversationEntityCollection {
       lastMessageBy: lastMessageBy,
       lastMessageSenderName: lastMessageSenderName,
       lastMessagePreview: lastMessagePreview,
+      privateModeActive: privateModeActive,
+      privateModeActivatedBy: privateModeActivatedBy,
+      privateModeActivatedAt: privateModeActivatedAt,
       participantCount: participantCount,
       unreadCount: unreadCount,
       participants: participants?.map((e) => e.toEntity()).toList() ?? [],
       organizationCode: organizationCode,
       schoolCode: schoolCode,
-      // privateModeStates decoded separately by the repository
-      privateModeStates: const {},
+      privateModeStates: _decodePrivateModeStates(privateModeStatesJson),
     );
   }
 }

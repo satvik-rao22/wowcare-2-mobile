@@ -33,7 +33,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   });
 
   Future<String> get _organizationCode async =>
-      (await storageService.getString(StorageKeys.organizationCode))?.trim() ?? '';
+      (await storageService.getString(StorageKeys.organizationCode))?.trim() ??
+      '';
   Future<String> get _schoolCode async =>
       (await storageService.getString(StorageKeys.schoolCode))?.trim() ?? '';
   Future<String> get _userCode async =>
@@ -110,6 +111,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         reactions: message.reactions,
         attachments: message.attachments,
         senderUserCode: '',
+        isPrivate: message.isPrivate,
+        privateParentUserCode: message.privateParentUserCode,
       );
       final sentMessage = await remoteDataSource.sendMessage(
         threadId,
@@ -486,7 +489,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // Update cache
       if (originalCollection != null) {
         await cacheService.put(
-          MessageCollection.fromEntity(editedMessage, originalCollection.threadId),
+          MessageCollection.fromEntity(
+            editedMessage,
+            originalCollection.threadId,
+          ),
         );
       }
 
@@ -530,72 +536,84 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           filterType: type,
         )
         .asyncMap((items) async {
-      var sawUnknownConversation = false;
-      final merged = <Conversation>[];
+          var sawUnknownConversation = false;
+          final merged = <Conversation>[];
 
-      for (final item in items) {
-        final cached = await cacheService.getByField<ConversationCollection>(
-          'code',
-          item.conversationCode,
-        );
-        if (cached.isEmpty) {
-          // Never seen via the API — Firestore must not fabricate it.
-          sawUnknownConversation = true;
-          continue;
-        }
-        final existing = cached.first;
-        existing.unreadCount = item.unreadCount;
-        existing.lastMessageAt = item.lastMessageAt ?? existing.lastMessageAt;
-        existing.lastMessageBy =
-            item.lastMessageSenderCode ?? existing.lastMessageBy;
-        if (item.lastMessagePreview.isNotEmpty) {
-          existing.lastMessagePreview = item.lastMessagePreview;
-        }
-        await cacheService.put(existing);
-        merged.add(existing.toEntity());
-      }
+          for (final item in items) {
+            final cached = await cacheService
+                .getByField<ConversationCollection>(
+                  'code',
+                  item.conversationCode,
+                );
+            if (cached.isEmpty) {
+              // Never seen via the API — Firestore must not fabricate it.
+              sawUnknownConversation = true;
+              continue;
+            }
+            final existing = cached.first;
+            existing.unreadCount = item.unreadCount;
+            existing.lastMessageAt =
+                item.lastMessageAt ?? existing.lastMessageAt;
+            existing.lastMessageBy =
+                item.lastMessageSenderCode ?? existing.lastMessageBy;
+            if (item.lastMessagePreview.isNotEmpty) {
+              existing.lastMessagePreview = item.lastMessagePreview;
+            }
+            await cacheService.put(existing);
+            merged.add(existing.toEntity());
+          }
 
-      if (sawUnknownConversation) {
-        final refreshKey = type ?? '__all__';
-        if (!_refreshedConversationTypes.contains(refreshKey)) {
-          _refreshedConversationTypes.add(refreshKey);
-          // Best-effort — pull the new conversation in via the API (source
-          // of truth) and persist it through the normal getConversations path.
-          unawaited(getConversations(type: type));
-        }
-      }
+          if (sawUnknownConversation) {
+            final refreshKey = type ?? '__all__';
+            if (!_refreshedConversationTypes.contains(refreshKey)) {
+              _refreshedConversationTypes.add(refreshKey);
+              // Best-effort — pull the new conversation in via the API (source
+              // of truth) and persist it through the normal getConversations path.
+              unawaited(getConversations(type: type));
+            }
+          }
 
-      return merged;
-    });
+          return merged;
+        });
   }
 
   @override
   Stream<List<Message>> watchMessages(String threadId) async* {
     final org = await _organizationCode;
     final school = await _schoolCode;
-    if (org.isEmpty || school.isEmpty) return;
+    final userCode = await _userCode;
+    if (org.isEmpty || school.isEmpty || userCode.isEmpty) return;
+
+    final roleJson = (await storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final activeRole = (await storageService.getString(StorageKeys.activeSchoolRole) ?? '').toUpperCase();
+    
+    final isStaff = activeRole == 'STAFF' || activeRole == 'TEACHER' || (activeRole.isEmpty && (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
+    final isAdmin = activeRole.contains('ADMIN') || activeRole.contains('DIRECTOR') || (activeRole.isEmpty && (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
 
     yield* messageRealtimeDataSource
         .watchMessages(
           organizationCode: org,
           schoolCode: school,
           conversationCode: threadId,
+          currentUserCode: userCode,
+          isStaff: isStaff,
+          isAdmin: isAdmin,
         )
         .asyncMap((entities) async {
-      for (final entity in entities) {
-        await _mergeRealtimeMessage(entity, threadId);
-      }
+          for (final entity in entities) {
+            await _mergeRealtimeMessage(entity, threadId);
+          }
 
-      final currentUser = await _userCode;
-      final cachedCollections = await cacheService
-          .getByField<MessageCollection>('threadId', threadId);
-      final messages =
-          cachedCollections
-              .map((c) => c.toEntity(currentUserId: currentUser))
-              .toList()
-            ..sort((a, b) => a.time.compareTo(b.time));
-      return messages;
-    });
+          final currentUser = await _userCode;
+          final cachedCollections = await cacheService
+              .getByField<MessageCollection>('threadId', threadId);
+          final messages =
+              cachedCollections
+                  .map((c) => c.toEntity(currentUserId: currentUser))
+                  .toList()
+                ..sort((a, b) => a.time.compareTo(b.time));
+          return messages;
+        });
   }
 
   /// Upserts a single realtime [MessageEntity] delta into the legacy Isar
@@ -635,29 +653,32 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           ? (entity.deletedAt ?? DateTime.now())
           : existing?.deletedAt
       ..quotedMessageId = existing?.quotedMessageId ?? entity.threadParentCode
-      ..senderName =
-          entity.senderName.isNotEmpty ? entity.senderName : existing?.senderName
+      ..senderName = entity.senderName.isNotEmpty
+          ? entity.senderName
+          : existing?.senderName
       ..receivers = existing?.receivers
+      // ..isPrivate = entity.isPrivate
+      // ..privateParentUserCode = entity.privateParentUserCode
       ..deliveredTo = entity.readReceipts.isNotEmpty
           ? entity.readReceipts
-              .map(
-                (r) => RecipientStatusCollection()
-                  ..name = r.userName
-                  ..userId = r.userCode
-                  ..timestamp = r.deliveredAt,
-              )
-              .toList()
+                .map(
+                  (r) => RecipientStatusCollection()
+                    ..name = r.userName
+                    ..userId = r.userCode
+                    ..timestamp = r.deliveredAt,
+                )
+                .toList()
           : existing?.deliveredTo
       ..readBy = entity.readReceipts.any((r) => r.isRead)
           ? entity.readReceipts
-              .where((r) => r.isRead)
-              .map(
-                (r) => RecipientStatusCollection()
-                  ..name = r.userName
-                  ..userId = r.userCode
-                  ..timestamp = r.readAt,
-              )
-              .toList()
+                .where((r) => r.isRead)
+                .map(
+                  (r) => RecipientStatusCollection()
+                    ..name = r.userName
+                    ..userId = r.userCode
+                    ..timestamp = r.readAt,
+                )
+                .toList()
           : existing?.readBy
       ..attachments = existing?.attachments
       // Firestore's reactions map can lag behind a just-added local reaction
@@ -667,12 +688,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // arrives via the realtime stream.
       ..reactions = entity.reactions.isNotEmpty
           ? entity.reactions.entries
-              .map(
-                (r) => MessageReactionCollection()
-                  ..userId = r.key
-                  ..emoji = r.value,
-              )
-              .toList()
+                .map(
+                  (r) => MessageReactionCollection()
+                    ..userId = r.key
+                    ..emoji = r.value,
+                )
+                .toList()
           : existing?.reactions;
 
     await cacheService.put(merged);

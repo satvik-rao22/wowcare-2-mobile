@@ -59,6 +59,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   bool _showUnreadOnly = false;
   late final ConversationListCubit _cubit;
   Timer? _searchDebounce;
+  bool _isGuardian = false;
 
   @override
   void initState() {
@@ -73,7 +74,17 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     );
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
+    _initRole();
     unawaited(_cubit.startWatching());
+  }
+
+  Future<void> _initRole() async {
+    final role = await serviceLocator<StorageService>().getString(StorageKeys.activeSchoolRole);
+    if (mounted) {
+      setState(() {
+        _isGuardian = role?.toUpperCase() == 'GUARDIAN' || role?.toUpperCase() == 'PARENT';
+      });
+    }
   }
 
   @override
@@ -188,9 +199,9 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                               ),
                               Row(
                                 children: [
-                                  // Filter button (STAFF_DIRECT only)
-                                  if (widget.conversationType ==
-                                      ConversationType.staffDirect)
+                                  // Filter button (STAFF_DIRECT and ADMIN_CHAT for non-guardians)
+                                  if (widget.conversationType == ConversationType.staffDirect ||
+                                      (widget.conversationType == ConversationType.adminChat && !_isGuardian))
                                     FilterIndicator(
                                       hasActiveFilters: state.hasActiveFilters,
                                       filterCount: [

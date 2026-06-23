@@ -153,7 +153,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// all — either an explicit filter is applied, or the user is searching.
   /// Searching for someone who has no conversation yet should surface them
   /// here instead of just coming up empty.
-  bool get _shouldShowStartNewChat => _hasActiveContactFilters || _hasSearchQuery;
+  /// For Room Chat (parent messaging), always show to allow staff to start new conversations.
+  bool get _shouldShowStartNewChat =>
+      _hasActiveContactFilters ||
+      _hasSearchQuery ||
+      !widget.isStaffMessaging;
 
   /// Human-readable "Classroom: X  •  Status: Y" summary of the active
   /// filters, shown above the conversation list as a title when non-empty.
@@ -635,6 +639,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
 
                       List<Conversation> conversationsToDisplay = [];
                       Set<String> existingContactCodes = const {};
+                      Set<String> existingContactNames = const {};
                       final query = _searchController.text
                           .trim()
                           .toLowerCase();
@@ -662,10 +667,27 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                         // chat" below — computed from the full (unfiltered
                         // by search) list so it's correct regardless of
                         // what's currently typed.
-                        existingContactCodes = allConversationsForType
-                            .expand((c) => c.participants)
-                            .map((p) => p.userCode)
-                            .toSet();
+                        //
+                        // Staff Messaging conversations carry the staff
+                        // member's own userCode as a participant, so they
+                        // can be matched directly against StaffCubit's
+                        // codes. Room-chat (Parent Messaging) conversations
+                        // only have the guardian(s) as participants — the
+                        // student is never a participant — so there's no
+                        // code to match against StudentCubit's items.
+                        // Instead, match by the conversation's title, which
+                        // is set to the student's full name when the
+                        // room-chat conversation is created.
+                        if (widget.isStaffMessaging) {
+                          existingContactCodes = allConversationsForType
+                              .expand((c) => c.participants)
+                              .map((p) => p.userCode)
+                              .toSet();
+                        } else {
+                          existingContactNames = allConversationsForType
+                              .map((c) => c.title.trim().toLowerCase())
+                              .toSet();
+                        }
 
                         conversationsToDisplay = allConversationsForType
                             .where((conv) {
@@ -706,7 +728,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 : _filteredStudentContacts(
                                     studentState,
                                     query: query,
-                                    excludeCodes: existingContactCodes,
+                                    excludeNames: existingContactNames,
                                   ))
                           : const <_FilteredContact>[];
 
@@ -856,10 +878,28 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   'avatar': avatar,
                   'code': code,
                   'parents': participants.map((p) => p.userName).toList(),
+                  'guardianMap': {
+                    for (final p in participants)
+                      if (p.role == 'GUARDIAN' || p.role == 'PARENT')
+                        p.userCode: p.userName,
+                  },
                   'participants': participants,
                   'staffList': [],
-                  'privateModeParents': [],
+                  'privateModeParents': participants
+                      .where(
+                        (p) =>
+                            (p.role == 'GUARDIAN' || p.role == 'PARENT') &&
+                            p.privateModeEnabled,
+                      )
+                      .map((p) => p.userName)
+                      .toList(),
+                  'privateModeActive': participants.any(
+                    (p) => p.privateModeEnabled,
+                  ),
+                  'privateModeActivatedBy': null,
+                  'privateModeActivatedAt': null,
                 },
+                isGuardian: false,
               ),
       ),
     );
@@ -943,15 +983,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   }
 
   /// Student items matching the active filters and/or search query, minus
-  /// the logged-in user and anyone who already has a conversation.
+  /// the logged-in user and anyone who already has a conversation. Room-chat
+  /// conversations carry no student code, so "already has a conversation" is
+  /// matched by the student's full name against [excludeNames] (each
+  /// conversation's title, set to the student's full name at creation) —
+  /// not by code.
   List<_FilteredContact> _filteredStudentContacts(
     StudentState studentState, {
     String query = '',
-    Set<String> excludeCodes = const {},
+    Set<String> excludeNames = const {},
   }) {
     return studentState.items
         .where((s) => s.code != _currentUserCode)
-        .where((s) => !excludeCodes.contains(s.code))
+        .where((s) => !excludeNames.contains(s.fullName.trim().toLowerCase()))
         .where(
           (s) => query.isEmpty || s.fullName.toLowerCase().contains(query),
         )
