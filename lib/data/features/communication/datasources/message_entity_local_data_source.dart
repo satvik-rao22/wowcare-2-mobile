@@ -5,11 +5,16 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
 
 abstract class MessageEntityLocalDataSource {
+  /// Returns up to [limit] cached messages for [conversationCode], newest
+  /// first. When [beforeMessageCode] is provided, only messages strictly
+  /// older than that message are returned (cursor-based pagination) —
+  /// matching the `beforeMessageCode` cursor used by the remote data source.
   Future<List<MessageEntityCollection>> getMessages({
     required String conversationCode,
     required String organizationCode,
     required String schoolCode,
     int limit,
+    String? beforeMessageCode,
     String? currentUserCode,
   });
 
@@ -71,10 +76,11 @@ class MessageEntityLocalDataSourceImpl
     required String organizationCode,
     required String schoolCode,
     int limit = 50,
+    String? beforeMessageCode,
     String? currentUserCode,
   }) async {
     final all = await cacheService.getAll<MessageEntityCollection>();
-    return all
+    final matching = all
         .where(
           (m) =>
               m.conversationCode == conversationCode &&
@@ -82,8 +88,23 @@ class MessageEntityLocalDataSourceImpl
               m.schoolCode == schoolCode,
         )
         .toList()
-      ..sort((a, b) => b.sentAt.compareTo(a.sentAt)) // newest first
-      ..take(limit);
+      ..sort((a, b) => b.sentAt.compareTo(a.sentAt)); // newest first
+
+    if (beforeMessageCode == null) {
+      // `List.take()` returns a lazy Iterable — it must be materialised with
+      // `.toList()`, otherwise the caller receives the full unsliced list
+      // and `limit` is silently ignored.
+      return matching.take(limit).toList();
+    }
+
+    // Cursor-based pagination: only messages strictly older than the cursor.
+    final cursorIndex = matching.indexWhere((m) => m.code == beforeMessageCode);
+    if (cursorIndex == -1) {
+      // Cursor message isn't in the local cache — nothing older to page
+      // through locally (caller should rely on the remote fallback/result).
+      return const [];
+    }
+    return matching.skip(cursorIndex + 1).take(limit).toList();
   }
 
   @override

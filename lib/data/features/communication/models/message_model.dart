@@ -16,6 +16,7 @@ class MessageModel extends Message {
     super.deliveredAt,
     super.readAt,
     super.editedAt,
+    super.deletedAt,
     super.deliveredTo,
     super.readBy,
     super.reactions,
@@ -59,6 +60,9 @@ class MessageModel extends Message {
       readAt: json['status'] == 'READ' ? DateTime.now() : null,
       editedAt: json['editedAt'] != null
           ? DateTime.parse(json['editedAt'] as String)
+          : null,
+      deletedAt: json['deletedAt'] != null
+          ? DateTime.parse(json['deletedAt'] as String)
           : null,
       deliveredTo: const [],
       readBy: const [],
@@ -129,16 +133,32 @@ class ChatAttachmentModel extends ChatAttachment {
     required super.mimeType,
     required super.remoteUrl,
     super.localPath,
+    super.code,
+    super.attachmentId,
   });
 
   factory ChatAttachmentModel.fromJson(Map<String, dynamic> json) {
+    final rawId = json['attachmentId'] ?? json['id'];
+    // The messaging service's own attachment row (returned inline with each
+    // message — see GET .../messages/conversation/{code}) uses a different
+    // shape than the local upload-pipeline model below: `originalFilename`,
+    // `attachmentType`, `fileSize`, `assetCode`, and a `fileUrl`/
+    // `thumbnailUrl` that is null until the document service finishes
+    // resolving it (see AttachmentUrlResolver for that resolution step).
     return ChatAttachmentModel(
-      name: json['name'] as String? ?? '',
-      type: json['type'] as String? ?? '',
-      sizeBytes: (json['size_bytes'] ?? json['sizeBytes']) as int? ?? 0,
+      name: (json['name'] ?? json['originalFilename']) as String? ?? '',
+      type: (json['type'] ?? json['attachmentType']) as String? ?? '',
+      sizeBytes:
+          (json['size_bytes'] ?? json['sizeBytes'] ?? json['fileSize']) as int? ?? 0,
       mimeType: (json['mime_type'] ?? json['mimeType']) as String? ?? '',
-      remoteUrl: (json['remote_url'] ?? json['remoteUrl']) as String? ?? '',
+      remoteUrl: (json['remote_url'] ??
+              json['remoteUrl'] ??
+              json['fileUrl'] ??
+              json['thumbnailUrl']) as String? ??
+          '',
       localPath: (json['local_path'] ?? json['localPath']) as String?,
+      code: (json['code'] ?? json['assetCode']) as String?,
+      attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
     );
   }
 
@@ -150,6 +170,8 @@ class ChatAttachmentModel extends ChatAttachment {
       'mime_type': mimeType,
       'remote_url': remoteUrl,
       'local_path': localPath,
+      'code': code,
+      'attachmentId': attachmentId,
     };
   }
 }

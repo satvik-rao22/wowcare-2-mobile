@@ -6,10 +6,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/data/features/communication/models/create_conversation_request.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
-import 'package:wowcare/domain/features/communication/usecases/create_conversation_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_usecase.dart';
 
 class SelectedAttachment extends Equatable {
@@ -61,6 +60,7 @@ class BulkMessagingCompositionState extends Equatable {
   bool get canSend =>
       !isLoading &&
       !isBulkStarted &&
+      selectedRecipients.isNotEmpty &&
       (messageText.trim().isNotEmpty || attachments.isNotEmpty);
 
   BulkMessagingCompositionState copyWith({
@@ -113,23 +113,20 @@ class BulkMessagingCompositionState extends Equatable {
 
 class BulkMessagingCompositionCubit
     extends Cubit<BulkMessagingCompositionState> {
-  final CreateConversationUseCase _createConversationUseCase;
+  final CreateOrOpenConversationUseCase _createOrOpenConversationUseCase;
   final SendMessageUseCase _sendMessageUseCase;
   final StorageService _storageService;
-  final ConversationEntityRepository _conversationRepo;
 
   BulkMessagingCompositionCubit({
     required List<Map<String, dynamic>> initialRecipients,
     required bool isStaff,
-    required CreateConversationUseCase createConversationUseCase,
+    required CreateOrOpenConversationUseCase createOrOpenConversationUseCase,
     required SendMessageUseCase sendMessageUseCase,
     required StorageService storageService,
-    required ConversationEntityRepository conversationRepository,
     String conversationType = 'ROOM_CHAT',
-  }) : _createConversationUseCase = createConversationUseCase,
+  }) : _createOrOpenConversationUseCase = createOrOpenConversationUseCase,
        _sendMessageUseCase = sendMessageUseCase,
        _storageService = storageService,
-       _conversationRepo = conversationRepository,
        super(
          BulkMessagingCompositionState(
            isStaff: isStaff,
@@ -281,121 +278,122 @@ class BulkMessagingCompositionCubit
 
     try {
       if (isStaff) {
-        for (final recipient in recipients) {
-          // Do NOT check isClosed here — the cubit is closed when the compose
-          // screen is disposed (immediately after isBulkStarted fires), but the
-          // job must continue to completion regardless of widget lifecycle.
-          final recipientCode = _recipientCode(recipient);
-          final recipientName = (recipient['name'] ?? 'recipient').toString();
-          if (recipientCode.isEmpty) continue;
+        // Send in small concurrent batches rather than one-at-a-time so a
+        // large recipient list doesn't take N sequential round-trips — each
+        // recipient's outcome is still tracked independently in [failed], so
+        // one failure never blocks the rest of the batch.
+        const batchSize = 8;
+        for (var i = 0; i < recipients.length; i += batchSize) {
+          final batch = recipients.skip(i).take(batchSize);
+          await Future.wait(
+            batch.map((recipient) async {
+              // Do NOT check isClosed here — the cubit is closed when the
+              // compose screen is disposed (immediately after isBulkStarted
+              // fires), but the job must continue to completion regardless
+              // of widget lifecycle.
+              final recipientCode = _recipientCode(recipient);
+              final recipientName = (recipient['name'] ?? 'recipient')
+                  .toString();
+              if (recipientCode.isEmpty) return;
 
-          try {
-            // ── Find-or-create: reuse existing STAFF_DIRECT thread ────────
-            String conversationCode;
+              try {
+                // ── Find-or-create: reuse existing STAFF_DIRECT thread ────
+                final result = await _createOrOpenConversationUseCase(
+                  type: ConversationType.staffDirect,
+                  studentCode: '',
+                  participantCodes: [recipientCode],
+                  title: recipientName,
+                  description: messageText,
+                );
+                final conv = result.fold((_) => null, (c) => c);
+                if (conv == null) {
+                  failed.add(recipient);
+                  return;
+                }
+                final conversationCode = conv.code;
 
-            final existing = await _conversationRepo
-                .findStaffDirectConversation(recipientCode);
-            final existingConv = existing.fold((_) => null, (c) => c);
-
-            if (existingConv != null) {
-              conversationCode = existingConv.code;
-            } else {
-              final request = CreateConversationRequest(
-                title: recipientName,
-                type: 'STAFF_DIRECT',
-                description: messageText,
-                organizationCode: orgCode,
-                schoolCode: schoolCode,
-                participants: [
-                  {'userCode': actualSenderCode, 'participantType': 'STAFF'},
-                  {'userCode': recipientCode, 'participantType': 'STAFF'},
-                ],
-              );
-              final created = await _createConversationUseCase(request);
-              final conv = created.fold((_) => null, (c) => c);
-              if (conv == null) {
+                if (messageText.isNotEmpty) {
+                  final msg = Message(
+                    id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                    code: '',
+                    text: messageText,
+                    isSentByMe: true,
+                    senderUserCode: senderUserCode.isNotEmpty
+                        ? senderUserCode
+                        : actualSenderCode,
+                    time: DateTime.now(),
+                  );
+                  await _sendMessageUseCase(conversationCode, msg);
+                }
+              } catch (_) {
                 failed.add(recipient);
-                continue;
               }
-              conversationCode = conv.code;
-            }
-
-            if (messageText.isNotEmpty) {
-              final msg = Message(
-                id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
-                code: '',
-                text: messageText,
-                isSentByMe: true,
-                senderUserCode: senderUserCode.isNotEmpty
-                    ? senderUserCode
-                    : actualSenderCode,
-                time: DateTime.now(),
-              );
-              await _sendMessageUseCase(conversationCode, msg);
-            }
-          } catch (_) {
-            failed.add(recipient);
-          }
+            }),
+          );
         }
       } else {
-        final recipientCodes = recipients
-            .map(_recipientCode)
-            .where((code) => code.isNotEmpty)
-            .toSet()
-            .toList();
-
-        if (recipientCodes.isEmpty) return;
-
         final isAdminChat = conversationType == 'ADMIN_CHAT';
+        final recipientByCode = <String, Map<String, dynamic>>{
+          for (final r in recipients) _recipientCode(r): r,
+        }..removeWhere((code, _) => code.isEmpty);
+
         final filteredRecipientCodes = isAdminChat
-            ? recipientCodes.where((c) => !c.startsWith('STF_')).toList()
-            : recipientCodes;
+            ? recipientByCode.keys.where((c) => !c.startsWith('STF_'))
+            : recipientByCode.keys;
+        final codes = filteredRecipientCodes.toList();
+        if (codes.isEmpty) return;
 
-        final request = CreateConversationRequest(
-          title: (recipients.first['name'] as String? ?? '').trim(),
-          type: conversationType,
-          description: messageText,
-          organizationCode: orgCode,
-          schoolCode: schoolCode,
-          participants: [
-            if (actualSenderCode.isNotEmpty)
-              {
-                'userCode': actualSenderCode,
-                'participantType': isAdminChat ? 'ADMIN' : 'STAFF',
-              },
-            ...filteredRecipientCodes.map(
-              (code) => {
-                'userCode': code,
-                'participantType': code.startsWith('STF_')
-                    ? 'STAFF'
-                    : 'GUARDIAN',
-              },
-            ),
-          ],
-        );
+        // Same broadcast pattern as the staff branch above: one
+        // independent conversation per recipient (their own room/admin
+        // chat scoped to that student), not a single shared group thread
+        // with everyone lumped in — selecting N students should reach N
+        // separate conversations, exactly like selecting N staff does.
+        const batchSize = 8;
+        for (var i = 0; i < codes.length; i += batchSize) {
+          final batch = codes.skip(i).take(batchSize);
+          await Future.wait(
+            batch.map((recipientCode) async {
+              final recipient = recipientByCode[recipientCode]!;
+              final recipientName = (recipient['name'] ?? 'recipient')
+                  .toString();
 
-        final result = await _createConversationUseCase(request);
+              try {
+                final result = await _createOrOpenConversationUseCase(
+                  type: isAdminChat
+                      ? ConversationType.adminChat
+                      : ConversationType.roomChat,
+                  studentCode: recipientCode,
+                  participantCodes: [
+                    if (actualSenderCode.isNotEmpty) actualSenderCode,
+                  ],
+                  title: recipientName,
+                  description: messageText,
+                );
+                final conv = result.fold((_) => null, (c) => c);
+                if (conv == null) {
+                  failed.add(recipient);
+                  return;
+                }
 
-        await result.fold(
-          (_) {
-            failed.addAll(recipients);
-          },
-          (conversation) async {
-            if (messageText.isNotEmpty) {
-              final msg = Message(
-                id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
-                code: '',
-                text: messageText,
-                isSentByMe: true,
-                senderUserCode: senderUserCode.isNotEmpty
-                    ? senderUserCode
-                    : actualSenderCode,
-                time: DateTime.now(),
-              );
-              await _sendMessageUseCase(conversation.code, msg);
-            }
-          },
-        );
+                if (messageText.isNotEmpty) {
+                  final msg = Message(
+                    id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                    code: '',
+                    text: messageText,
+                    isSentByMe: true,
+                    senderUserCode: senderUserCode.isNotEmpty
+                        ? senderUserCode
+                        : actualSenderCode,
+                    time: DateTime.now(),
+                  );
+                  await _sendMessageUseCase(conv.code, msg);
+                }
+              } catch (_) {
+                failed.add(recipient);
+              }
+            }),
+          );
+        }
       }
 
       // Notify the conversation list to refresh now that all conversations and

@@ -17,7 +17,6 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
-
 class StudentImmunizationTabCard extends StatefulWidget {
   const StudentImmunizationTabCard({
     required this.scrollController,
@@ -32,13 +31,13 @@ class StudentImmunizationTabCard extends StatefulWidget {
   final String classroom;
   final String? studentCode;
 
-
   @override
   State<StudentImmunizationTabCard> createState() =>
       _StudentImmunizationTabCardState();
 }
 
-class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard> {
+class _StudentImmunizationTabCardState
+    extends State<StudentImmunizationTabCard> {
   late Future<List<StudentImmunization>> _immunizationFuture;
   bool _hasShownErrorSnackBar = false;
   final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
@@ -100,8 +99,8 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
   Future<void> _openEditImmunizationBottomSheet({
     required StudentImmunization model,
   }) async {
-    DateTime? selectedDate = _parseIsoDate(model.administeredDate) ??
-        _parseIsoDate(model.dueDate);
+    DateTime? selectedDate =
+        _parseIsoDate(model.administeredDate) ?? _parseIsoDate(model.dueDate);
     String statusUi = _statusUiFromApi(model.status);
     bool isSaving = false;
     String exemptionReason = (model.exemptionReason ?? '').trim();
@@ -116,10 +115,10 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
         final isLargeTablet = screenWidth > 900;
         final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-        final horizontalPadding =
-            isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-        final verticalPadding =
-            isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+        final horizontalPadding = isLargeTablet
+            ? 32.0
+            : (isTablet ? 24.0 : 16.0);
+        final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
         final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
         final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
 
@@ -195,14 +194,15 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                                 onTap: () async {
                                   final result =
                                       await showDialog<Map<String, dynamic>>(
-                                    context: context,
-                                    builder: (context) => CalendarDialog(
-                                      isRangePicker: false,
-                                      isTimePicker: false,
-                                      initialDate: selectedDate,
-                                    ),
-                                  );
-                                  if (result == null || result['date'] == null) {
+                                        context: context,
+                                        builder: (context) => CalendarDialog(
+                                          isRangePicker: false,
+                                          isTimePicker: false,
+                                          initialDate: selectedDate,
+                                        ),
+                                      );
+                                  if (result == null ||
+                                      result['date'] == null) {
                                     return;
                                   }
                                   final picked = result['date'] as DateTime;
@@ -246,13 +246,13 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                               onTap: () async {
                                 final result =
                                     await showDialog<Map<String, dynamic>>(
-                                  context: context,
-                                  builder: (context) => CalendarDialog(
-                                    isRangePicker: false,
-                                    isTimePicker: false,
-                                    initialDate: selectedDate,
-                                  ),
-                                );
+                                      context: context,
+                                      builder: (context) => CalendarDialog(
+                                        isRangePicker: false,
+                                        isTimePicker: false,
+                                        initialDate: selectedDate,
+                                      ),
+                                    );
                                 if (result == null || result['date'] == null) {
                                   return;
                                 }
@@ -270,7 +270,8 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                                 'Missed',
                                 'Exempt',
                               ],
-                              onChanged: (v) => setLocalState(() => statusUi = v),
+                              onChanged: (v) =>
+                                  setLocalState(() => statusUi = v),
                             ),
                           ],
                         ),
@@ -281,7 +282,9 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                             labelText: 'Exemption Reason *',
                             border: OutlineInputBorder(),
                           ),
-                          controller: TextEditingController(text: exemptionReason),
+                          controller: TextEditingController(
+                            text: exemptionReason,
+                          ),
                           minLines: 1,
                           maxLines: 3,
                           onChanged: (v) =>
@@ -325,9 +328,9 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                                     _immunizationFuture =
                                         serviceLocator<StudentRepository>()
                                             .getStudentImmunizations(
-                                      studentCode: model.studentCode,
-                                      forceRefresh: true,
-                                    );
+                                              studentCode: model.studentCode,
+                                              forceRefresh: true,
+                                            );
                                     _hasShownErrorSnackBar = false;
                                   });
                                 } catch (e) {
@@ -376,17 +379,17 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
     final role = context.watch<RoleCubit>();
     final canMutateStudent =
         ModuleAccess.mayWrite(role, AppAccessModules.student) &&
-            !role.isStaff &&
-            !role.isParent;
+        !role.isStaff &&
+        !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: () async {
         setState(() {
           _immunizationFuture = serviceLocator<StudentRepository>()
               .getStudentImmunizations(
-            studentCode: widget.studentCode ?? '',
-            forceRefresh: true,
-          );
+                studentCode: widget.studentCode ?? '',
+                forceRefresh: true,
+              );
           _hasShownErrorSnackBar = false;
         });
         try {
@@ -447,9 +450,7 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
                   _ImmunizationCard(
                     vaccineName: sortedKeys[i],
                     doses: grouped[sortedKeys[i]]!
-                      ..sort(
-                      (a, b) => a.doseNumber.compareTo(b.doseNumber),
-                    ),
+                      ..sort((a, b) => a.doseNumber.compareTo(b.doseNumber)),
                     onMore: canMutateStudent
                         ? (m) => _openEditImmunizationBottomSheet(model: m)
                         : (_) {},
@@ -464,7 +465,6 @@ class _StudentImmunizationTabCardState extends State<StudentImmunizationTabCard>
       ),
     );
   }
-
 }
 
 class _ImmunizationCard extends StatelessWidget {
@@ -482,51 +482,55 @@ class _ImmunizationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-        return IntrinsicHeight(
-          child: Container(
+    return IntrinsicHeight(
+      child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
             bottomRight: Radius.circular(8),
-              ),
+          ),
           border: Border.fromBorderSide(
             BorderSide(color: AppColors.themeColor, width: 1),
           ),
-            ),
-            clipBehavior: Clip.antiAlias,
+        ),
+        clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-                child: Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
-                  children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
+                children: [
                   Expanded(
                     child: Text(
                       vaccineName,
-                                style: AppTextStyles.value.copyWith(
-                                  fontSize: 15,
+                      style: AppTextStyles.value.copyWith(
+                        fontSize: 15,
                         fontWeight: FontWeight.w600,
-                              ),
+                      ),
                     ),
                   ),
                   if (showActions)
                     IconButton(
-                      onPressed: doses.isEmpty ? null : () => onMore(doses.first),
+                      onPressed: doses.isEmpty
+                          ? null
+                          : () => onMore(doses.first),
                       icon: const Icon(
                         Icons.more_horiz,
                         size: 20,
                         color: Color(0xFF573353),
-                        ),
+                      ),
                       visualDensity: VisualDensity.compact,
-                      constraints:
-                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                     ),
                 ],
               ),
@@ -535,11 +539,11 @@ class _ImmunizationCard extends StatelessWidget {
                 _DoseRow(
                   model: dose,
                   onMore: showActions ? () => onMore(dose) : null,
-                      ),
-                    ],
-              ),
-            ),
+                ),
+            ],
           ),
+        ),
+      ),
     );
   }
 }
@@ -551,7 +555,6 @@ class _DoseRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
     return Column(
       children: [
         const SizedBox(height: 15),
@@ -562,7 +565,7 @@ class _DoseRow extends StatelessWidget {
             Text(
               'Dose ${model.doseNumber}',
               style: AppTextStyles.label.copyWith(
-                color: AppColors.primaryColor.withOpacity(0.5),
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
                 fontSize: 14,
                 letterSpacing: 14 * (-3 / 100),
               ),
@@ -573,17 +576,15 @@ class _DoseRow extends StatelessWidget {
                   onTap: onMore,
                   borderRadius: BorderRadius.circular(8),
                   child: _Chip(
-                  label: _statusLabel(model.status),
-                  labelColor: _statusLabelColor(model.status),
-                  color: _statusBgColor(model.status),
+                    label: _statusLabel(model.status),
+                    labelColor: _statusLabelColor(model.status),
+                    color: _statusBgColor(model.status),
                   ),
                 ),
                 const SizedBox(width: 10),
                 Text(
                   _doseDateText(model),
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 15,
-                  ),
+                  style: AppTextStyles.value.copyWith(fontSize: 15),
                 ),
               ],
             ),
@@ -591,7 +592,6 @@ class _DoseRow extends StatelessWidget {
         ),
       ],
     );
-
   }
 
   String _statusLabel(String raw) {
@@ -601,9 +601,7 @@ class _DoseRow extends StatelessWidget {
     if (upper == 'EXEMPT') return 'Exempt';
     if (upper == 'MISSED') return 'Missed';
     if (upper == 'OVERDUE') return 'Overdue';
-    return upper.isEmpty
-        ? '-'
-        : upper[0] + upper.substring(1).toLowerCase();
+    return upper.isEmpty ? '-' : upper[0] + upper.substring(1).toLowerCase();
   }
 
   Color _statusLabelColor(String raw) {
@@ -613,7 +611,7 @@ class _DoseRow extends StatelessWidget {
     if (upper == 'EXEMPT') return const Color(0xFF6C6377);
     if (upper == 'MISSED') return const Color(0xFFD32F2F);
     if (upper == 'OVERDUE') return const Color(0xFFEF6C00);
-    return AppColors.primaryColor.withOpacity(0.8);
+    return AppColors.primaryColor.withValues(alpha: 0.8);
   }
 
   Color _statusBgColor(String raw) {
@@ -635,7 +633,6 @@ class _DoseRow extends StatelessWidget {
     }
     return '-';
   }
-
 }
 
 class _DialogField extends StatelessWidget {
@@ -659,7 +656,7 @@ class _DialogField extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
+            color: AppColors.primaryColor.withValues(alpha: 0.6),
             fontFamily: 'Manrope',
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -720,7 +717,7 @@ class _DialogDropdown extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
+            color: AppColors.primaryColor.withValues(alpha: 0.6),
             fontFamily: 'Manrope',
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -770,13 +767,15 @@ class _DialogDropdown extends StatelessWidget {
   }
 }
 
-
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.labelColor, required this.color});
+  const _Chip({
+    required this.label,
+    required this.labelColor,
+    required this.color,
+  });
   final String label;
   final Color labelColor;
   final Color color;
-
 
   @override
   Widget build(BuildContext context) {
@@ -802,9 +801,3 @@ class _Chip extends StatelessWidget {
     );
   }
 }
-
-
-
-
-
-

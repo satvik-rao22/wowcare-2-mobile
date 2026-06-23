@@ -8,13 +8,20 @@ abstract class CommunicationRepository {
   Future<Either<Failure, List<Message>>> getMessages(
     String threadId, {
     String? currentUserId,
+    int page = 0,
+    int size = 100,
   });
   Future<Either<Failure, Message>> sendMessage(
     String threadId,
     Message message,
   );
   Future<Either<Failure, void>> markAsRead(String threadId, String messageId);
-  Future<Either<Failure, String>> uploadAttachment(ChatAttachment attachment);
+
+  /// Marks every unread message in [threadId] as delivered for the current
+  /// user — called when a new message arrives via the realtime conversation
+  /// watcher, even if the thread isn't open, so the sender's ticks advance
+  /// promptly (mirrors the web app's `markAllAsDelivered`).
+  Future<Either<Failure, void>> markAllAsDelivered(String threadId);
   Future<Either<Failure, void>> sendBulkMessage({
     required String text,
     required List<String> recipientIds,
@@ -23,7 +30,7 @@ abstract class CommunicationRepository {
   Future<Either<Failure, Conversation>> createConversation(
     CreateConversationRequest request,
   );
-  Future<Either<Failure, List<Conversation>>> getConversations({
+  Future<Either<Failure, ConversationsPage>> getConversations({
     String? type,
     String status = 'ACTIVE',
     int page = 0,
@@ -45,6 +52,20 @@ abstract class CommunicationRepository {
     String messageCode,
     String emoji,
   );
+  Future<Either<Failure, void>> deleteAttachment(int attachmentId);
   Future<Either<Failure, void>> clearMessagesCache(String threadId);
   Future<Either<Failure, void>> clearConversationsCache();
+
+  /// Realtime delta stream for a conversation's messages, sourced from
+  /// Firestore. Never replaces history — every emission is merged into the
+  /// Isar cache (upsert by message code) and the merged, full cached list is
+  /// re-emitted. Used purely as a "what changed" notification layer on top
+  /// of the API → Isar → UI flow.
+  Stream<List<Message>> watchMessages(String threadId);
+
+  /// Realtime delta stream for the conversation list, sourced from
+  /// Firestore's per-user inbox. Same merge-into-Isar semantics as
+  /// [watchMessages] — only `unreadCount` / `lastMessage*` fields are
+  /// updated; everything else is preserved from the API-sourced cache.
+  Stream<List<Conversation>> watchConversations({String? type});
 }

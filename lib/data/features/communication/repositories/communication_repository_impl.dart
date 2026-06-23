@@ -1,47 +1,75 @@
+import 'dart:async';
+
 import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
 import '../datasources/communication_remote_data_source.dart';
 import '../models/message_collection.dart';
 import '../models/message_model.dart';
 import '../../../../domain/features/communication/entities/message.dart';
+import '../../../../domain/features/communication/entities/message_entity.dart';
 import '../../../../domain/features/communication/repositories/communication_repository.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../models/conversation_collection.dart';
 import '../models/create_conversation_request.dart';
+import '../realtime/conversation_realtime_data_source.dart';
+import '../realtime/message_realtime_data_source.dart';
 
 class CommunicationRepositoryImpl implements CommunicationRepository {
   final CommunicationRemoteDataSource remoteDataSource;
   final CacheService cacheService;
+  final ConversationRealtimeDataSource conversationRealtimeDataSource;
+  final MessageRealtimeDataSource messageRealtimeDataSource;
+  final StorageService storageService;
 
   CommunicationRepositoryImpl({
     required this.remoteDataSource,
     required this.cacheService,
+    required this.conversationRealtimeDataSource,
+    required this.messageRealtimeDataSource,
+    required this.storageService,
   });
+
+  Future<String> get _organizationCode async =>
+      (await storageService.getString(StorageKeys.organizationCode))?.trim() ?? '';
+  Future<String> get _schoolCode async =>
+      (await storageService.getString(StorageKeys.schoolCode))?.trim() ?? '';
+  Future<String> get _userCode async =>
+      (await storageService.getString(StorageKeys.userCode))?.trim() ?? '';
 
   @override
   Future<Either<Failure, List<Message>>> getMessages(
     String threadId, {
     String? currentUserId,
+    int page = 0,
+    int size = 100,
   }) async {
     try {
       final remoteMessages = await remoteDataSource.getMessages(
         threadId,
         currentUserId: currentUserId,
+        page: page,
+        size: size,
       );
 
-      // Synchronize cache: API response is the source of truth
-      // Delete all old cached messages for this thread first
-      final oldCachedCollections = await cacheService
-          .getByField<MessageCollection>('threadId', threadId);
-      for (final collection in oldCachedCollections) {
-        await cacheService.delete<MessageCollection>(collection.isarId);
-      }
-
-      // Insert fresh messages from API (empty API → cache is now empty)
       final collections = remoteMessages
           .map((m) => MessageCollection.fromEntity(m, threadId))
           .toList();
+
+      if (page == 0) {
+        // Page 0 is the latest-window refresh: API response is the source
+        // of truth for that window, so old rows for the thread are cleared
+        // first. An older-history page (page > 0) must NOT do this — it
+        // would wipe out the newer messages already cached locally.
+        final oldCachedCollections = await cacheService
+            .getByField<MessageCollection>('threadId', threadId);
+        for (final collection in oldCachedCollections) {
+          await cacheService.delete<MessageCollection>(collection.isarId);
+        }
+      }
+
       if (collections.isNotEmpty) {
         await cacheService.putAll(collections);
       }
@@ -80,6 +108,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         senderName: message.senderName,
         receivers: message.receivers,
         reactions: message.reactions,
+        attachments: message.attachments,
         senderUserCode: '',
       );
       final sentMessage = await remoteDataSource.sendMessage(
@@ -124,20 +153,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
-  Future<Either<Failure, String>> uploadAttachment(
-    ChatAttachment attachment,
-  ) async {
+  Future<Either<Failure, void>> markAllAsDelivered(String threadId) async {
     try {
-      final attachmentModel = ChatAttachmentModel(
-        name: attachment.name,
-        type: attachment.type,
-        sizeBytes: attachment.sizeBytes,
-        mimeType: attachment.mimeType,
-        remoteUrl: attachment.remoteUrl,
-        localPath: attachment.localPath,
-      );
-      final url = await remoteDataSource.uploadAttachment(attachmentModel);
-      return Right(url);
+      await remoteDataSource.markAllAsDelivered(threadId);
+      return const Right(null);
     } catch (e) {
       return Left(ServerFailure(e.toString()));
     }
@@ -172,7 +191,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
-  Future<Either<Failure, List<Conversation>>> getConversations({
+  Future<Either<Failure, ConversationsPage>> getConversations({
     String? type,
     String status = 'ACTIVE',
     int page = 0,
@@ -210,15 +229,32 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           );
         }
 
-        return Right(conversations);
+        return Right(
+          ConversationsPage(
+            items: conversations,
+            page: response.data!.number,
+            // Backend's own pageable metadata — far more reliable than
+            // guessing from `items.length == size`, which breaks the
+            // instant the last page happens to be exactly full.
+            hasMore: !response.data!.last,
+          ),
+        );
       } else {
         return Left(ServerFailure(response.message));
       }
     } catch (e) {
-      // If remote fails, try to return cache as fallback
+      // If remote fails, try to return cache as fallback. The cache has no
+      // pagination metadata of its own, so treat it as a single complete
+      // page rather than risk an infinite "load more" loop while offline.
       final cachedItems = await cacheService.getAll<ConversationCollection>();
       if (cachedItems.isNotEmpty) {
-        return Right(cachedItems.map((e) => e.toEntity()).toList());
+        return Right(
+          ConversationsPage(
+            items: cachedItems.map((e) => e.toEntity()).toList(),
+            page: 0,
+            hasMore: false,
+          ),
+        );
       }
       return Left(ServerFailure(e.toString()));
     }
@@ -359,6 +395,40 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
+  Future<Either<Failure, void>> deleteAttachment(int attachmentId) async {
+    // Attachments are embedded on whichever message carries them — there's
+    // no indexed field to query by, so find the owning row by scanning the
+    // (locally bounded) cache rather than adding a new index for a rare,
+    // user-initiated action.
+    final allMessages = await cacheService.getAll<MessageCollection>();
+    MessageCollection? originalCollection;
+    List<ChatAttachmentCollection>? originalAttachments;
+
+    for (final candidate in allMessages) {
+      final attachments = candidate.attachments ?? const [];
+      if (attachments.any((a) => a.attachmentId == attachmentId)) {
+        originalCollection = candidate;
+        originalAttachments = List<ChatAttachmentCollection>.from(attachments);
+        candidate.attachments = List<ChatAttachmentCollection>.from(attachments)
+          ..removeWhere((a) => a.attachmentId == attachmentId);
+        await cacheService.put(candidate);
+        break;
+      }
+    }
+
+    try {
+      await remoteDataSource.deleteAttachment(attachmentId);
+      return const Right(null);
+    } catch (e) {
+      if (originalCollection != null) {
+        originalCollection.attachments = originalAttachments;
+        await cacheService.put(originalCollection);
+      }
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> clearMessagesCache(String threadId) async {
     try {
       final collections = await cacheService.getByField<MessageCollection>(
@@ -429,5 +499,182 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       }
       return Left(ServerFailure(e.toString()));
     }
+  }
+
+  // ─── Realtime (Firestore delta layer) ────────────────────────────────────
+  //
+  // API + Isar remain the source of truth for history. Firestore is only
+  // consulted here to learn "something changed" and merge that delta into
+  // the existing Isar row before re-emitting. Nothing is ever rendered
+  // straight from Firestore, and a Firestore emission never replaces or
+  // deletes Isar history outright.
+
+  /// Tracks conversation types for which we've already triggered a
+  /// best-effort REST refresh after spotting an inbox entry with no local
+  /// Isar match (i.e. a brand new conversation) — avoids refresh storms when
+  /// several unknown codes arrive in the same snapshot/session.
+  final Set<String> _refreshedConversationTypes = {};
+
+  @override
+  Stream<List<Conversation>> watchConversations({String? type}) async* {
+    final org = await _organizationCode;
+    final school = await _schoolCode;
+    final user = await _userCode;
+    if (org.isEmpty || school.isEmpty || user.isEmpty) return;
+
+    yield* conversationRealtimeDataSource
+        .watchInbox(
+          organizationCode: org,
+          schoolCode: school,
+          userCode: user,
+          filterType: type,
+        )
+        .asyncMap((items) async {
+      var sawUnknownConversation = false;
+      final merged = <Conversation>[];
+
+      for (final item in items) {
+        final cached = await cacheService.getByField<ConversationCollection>(
+          'code',
+          item.conversationCode,
+        );
+        if (cached.isEmpty) {
+          // Never seen via the API — Firestore must not fabricate it.
+          sawUnknownConversation = true;
+          continue;
+        }
+        final existing = cached.first;
+        existing.unreadCount = item.unreadCount;
+        existing.lastMessageAt = item.lastMessageAt ?? existing.lastMessageAt;
+        existing.lastMessageBy =
+            item.lastMessageSenderCode ?? existing.lastMessageBy;
+        if (item.lastMessagePreview.isNotEmpty) {
+          existing.lastMessagePreview = item.lastMessagePreview;
+        }
+        await cacheService.put(existing);
+        merged.add(existing.toEntity());
+      }
+
+      if (sawUnknownConversation) {
+        final refreshKey = type ?? '__all__';
+        if (!_refreshedConversationTypes.contains(refreshKey)) {
+          _refreshedConversationTypes.add(refreshKey);
+          // Best-effort — pull the new conversation in via the API (source
+          // of truth) and persist it through the normal getConversations path.
+          unawaited(getConversations(type: type));
+        }
+      }
+
+      return merged;
+    });
+  }
+
+  @override
+  Stream<List<Message>> watchMessages(String threadId) async* {
+    final org = await _organizationCode;
+    final school = await _schoolCode;
+    if (org.isEmpty || school.isEmpty) return;
+
+    yield* messageRealtimeDataSource
+        .watchMessages(
+          organizationCode: org,
+          schoolCode: school,
+          conversationCode: threadId,
+        )
+        .asyncMap((entities) async {
+      for (final entity in entities) {
+        await _mergeRealtimeMessage(entity, threadId);
+      }
+
+      final currentUser = await _userCode;
+      final cachedCollections = await cacheService
+          .getByField<MessageCollection>('threadId', threadId);
+      final messages =
+          cachedCollections
+              .map((c) => c.toEntity(currentUserId: currentUser))
+              .toList()
+            ..sort((a, b) => a.time.compareTo(b.time));
+      return messages;
+    });
+  }
+
+  /// Upserts a single realtime [MessageEntity] delta into the legacy Isar
+  /// cache by message code, preserving fields Firestore doesn't carry
+  /// (attachments, delivery/read receipts) from whatever is already cached.
+  Future<void> _mergeRealtimeMessage(
+    MessageEntity entity,
+    String threadId,
+  ) async {
+    final existingRows = await cacheService.getByField<MessageCollection>(
+      'code',
+      entity.code,
+    );
+    final existing = existingRows.isNotEmpty ? existingRows.first : null;
+
+    final merged = MessageCollection()
+      ..id = existing?.id ?? entity.id
+      ..code = entity.code
+      ..threadId = threadId
+      ..text = entity.isDeleted
+          ? (entity.deletedPlaceholder ?? '🚫 This Message Has Been Deleted')
+          : entity.text
+      ..isSentByMe = existing?.isSentByMe
+      ..senderUserCode = entity.senderCode.isNotEmpty
+          ? entity.senderCode
+          : existing?.senderUserCode
+      ..time = existing?.time ?? entity.sentAt
+      ..deliveredAt = existing?.deliveredAt
+      ..readAt = existing?.readAt
+      ..editedAt = entity.editedAt ?? existing?.editedAt
+      // `entity.isDeleted` already drives the placeholder text above, but
+      // without persisting `deletedAt` too, `Message.isDeleted` (derived
+      // from it) reads back false once this cached row round-trips through
+      // `toEntity()` — silently re-enabling Edit/Reply/Delete on a message
+      // that visually looks deleted.
+      ..deletedAt = entity.isDeleted
+          ? (entity.deletedAt ?? DateTime.now())
+          : existing?.deletedAt
+      ..quotedMessageId = existing?.quotedMessageId ?? entity.threadParentCode
+      ..senderName =
+          entity.senderName.isNotEmpty ? entity.senderName : existing?.senderName
+      ..receivers = existing?.receivers
+      ..deliveredTo = entity.readReceipts.isNotEmpty
+          ? entity.readReceipts
+              .map(
+                (r) => RecipientStatusCollection()
+                  ..name = r.userName
+                  ..userId = r.userCode
+                  ..timestamp = r.deliveredAt,
+              )
+              .toList()
+          : existing?.deliveredTo
+      ..readBy = entity.readReceipts.any((r) => r.isRead)
+          ? entity.readReceipts
+              .where((r) => r.isRead)
+              .map(
+                (r) => RecipientStatusCollection()
+                  ..name = r.userName
+                  ..userId = r.userCode
+                  ..timestamp = r.readAt,
+              )
+              .toList()
+          : existing?.readBy
+      ..attachments = existing?.attachments
+      // Firestore's reactions map can lag behind a just-added local reaction
+      // (eventual consistency) — only overwrite the cache when the realtime
+      // payload actually carries reactions, otherwise keep what's cached so
+      // a reaction doesn't visually vanish the moment any other message
+      // arrives via the realtime stream.
+      ..reactions = entity.reactions.isNotEmpty
+          ? entity.reactions.entries
+              .map(
+                (r) => MessageReactionCollection()
+                  ..userId = r.key
+                  ..emoji = r.value,
+              )
+              .toList()
+          : existing?.reactions;
+
+    await cacheService.put(merged);
   }
 }

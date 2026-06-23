@@ -898,4 +898,3 @@ class _ReceivePaymentIssueRefundScreenState
     return 'NA';
   }
 }
-

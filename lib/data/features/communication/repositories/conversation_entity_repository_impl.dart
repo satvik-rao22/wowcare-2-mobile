@@ -50,6 +50,9 @@ class ConversationEntityRepositoryImpl
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   }) async {
     try {
       final dtos = await _remote.getConversations(
@@ -57,10 +60,14 @@ class ConversationEntityRepositoryImpl
         status: status,
         page: page,
         size: size,
+        designation: designation,
+        staffStatus: staffStatus,
+        classroom: classroom,
       );
       final entities = dtos.map((d) => d.toEntity()).toList();
 
       // Update Isar — replace page 0 entirely; append subsequent pages.
+      // Note: When filters are applied, we always replace at page 0
       if (page == 0) {
         final org = await _orgCode;
         final school = await _schoolCode;
@@ -158,6 +165,42 @@ class ConversationEntityRepositoryImpl
   }
 
   @override
+  Future<Either<Failure, ConversationEntity?>> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  }) async {
+    try {
+      final dto = await _remote.findRoomChatConversation(
+        studentCode: studentCode,
+        classroomCode: classroomCode,
+      );
+      if (dto == null) return const Right(null);
+      final entity = dto.toEntity();
+      await _local.saveConversation(entity);
+      return Right(entity);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, ConversationEntity?>> findAdminChatConversation({
+    required String studentCode,
+  }) async {
+    try {
+      final dto = await _remote.findAdminChatConversation(
+        studentCode: studentCode,
+      );
+      if (dto == null) return const Right(null);
+      final entity = dto.toEntity();
+      await _local.saveConversation(entity);
+      return Right(entity);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<ConversationEntity>>> getConversationsForStudent(
     String studentCode,
   ) async {
@@ -213,17 +256,37 @@ class ConversationEntityRepositoryImpl
     required String studentCode,
     String? classroomCode,
     List<String>? participantCodes,
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
   }) async {
     try {
       final org = await _orgCode;
       final school = await _schoolCode;
+
+      // The backend only adds whoever is explicitly listed in
+      // `participantUserCodes` — callers pass just the OTHER party's
+      // code(s), so without the creator's own code added here, the
+      // conversation gets created without them as a member. They'd then
+      // get a 403 "not authorized" the moment they try to open the very
+      // conversation they just started.
+      final currentUserCode =
+          (await _storage.getString(StorageKeys.userCode))?.trim() ?? '';
+      final allParticipants = <String>{
+        if (currentUserCode.isNotEmpty) currentUserCode,
+        ...(participantCodes ?? const []),
+      }.toList();
+
       final dto = await _remote.createConversation(
         type: type.toApiString(),
         studentCode: studentCode,
         classroomCode: classroomCode,
-        participantCodes: participantCodes,
+        participantCodes: allParticipants,
         organizationCode: org,
         schoolCode: school,
+        title: title,
+        description: description,
+        avatarUrl: avatarUrl,
       );
       final entity = dto.toEntity();
       await _local.saveConversation(entity);
@@ -352,6 +415,18 @@ class ConversationEntityRepositoryImpl
         );
       }
 
+      return const Right(null);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> markConversationDelivered(
+    String conversationCode,
+  ) async {
+    try {
+      await _remote.markConversationDelivered(conversationCode);
       return const Right(null);
     } catch (e) {
       return Left(ServerFailure(e.toString()));

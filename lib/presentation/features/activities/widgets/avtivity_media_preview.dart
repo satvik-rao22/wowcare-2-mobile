@@ -7,8 +7,11 @@ import '../../../../app/theme/media_res.dart';
 class ActivityMediaPreview extends StatefulWidget {
   final ActivityItem activity;
   final Color activityColor;
-  const ActivityMediaPreview({super.key, required this.activity, required this.activityColor});
-
+  const ActivityMediaPreview({
+    super.key,
+    required this.activity,
+    required this.activityColor,
+  });
 
   @override
   State<ActivityMediaPreview> createState() => _ActivityMediaPreviewState();
@@ -42,10 +45,14 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   bool _isVideoRow(Map<String, dynamic> row) {
     final mt = (row['mediaType'] ?? '').toString().trim().toUpperCase();
     if (mt.contains('VIDEO')) return true;
-    final delivery = (row['deliveryUrl'] ?? row['artifactUrl'] ?? row['originalDownloadUrl'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
+    final delivery =
+        (row['deliveryUrl'] ??
+                row['artifactUrl'] ??
+                row['originalDownloadUrl'] ??
+                '')
+            .toString()
+            .trim()
+            .toLowerCase();
     return delivery.endsWith('.mp4') ||
         delivery.endsWith('.mov') ||
         delivery.endsWith('.webm') ||
@@ -53,7 +60,8 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   }
 
   String? _resolveVideoThumbnailUrl() {
-    final rows = widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+    final rows =
+        widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
     for (final r in rows) {
       if (!_isVideoRow(r)) continue;
       final thumb = (r['thumbnailUrl'] ?? '').toString().trim();
@@ -69,7 +77,8 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   }
 
   bool _hasProcessingMedia() {
-    final rows = widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
+    final rows =
+        widget.activity.snapshotAttachments ?? const <Map<String, dynamic>>[];
     for (final r in rows) {
       final status = (r['status'] ?? '').toString().trim().toUpperCase();
       final isProcessing =
@@ -122,17 +131,13 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
   }
 
   Widget _buildIconFallback() {
-    final icon = activityIcons[widget.activity.name] ?? MediaRes.notesActivityIcon;
+    final icon =
+        activityIcons[widget.activity.name] ?? MediaRes.notesActivityIcon;
     return Container(
       width: 122,
       height: 76,
-      color: widget.activityColor.withOpacity(0.25),
-      child: Center(
-        child: Image.asset(
-          icon,
-          fit: BoxFit.fill,
-        ),
-      ),
+      color: widget.activityColor.withValues(alpha: 0.25),
+      child: Center(child: Image.asset(icon, fit: BoxFit.fill)),
     );
   }
 
@@ -146,7 +151,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     final thumbUrl = hasVideo ? _resolveVideoThumbnailUrl() : null;
     return InkWell(
       onTap: () {
-        if ( photoUrl?.isNotEmpty == true || videoUrl?.isNotEmpty == true) {
+        if (photoUrl?.isNotEmpty == true || videoUrl?.isNotEmpty == true) {
           Navigator.of(context).push(
             MaterialPageRoute(
               builder: (_) => ShowFullScreenMedia(activity: widget.activity),
@@ -162,12 +167,13 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
                 ? Image.network(
                     thumbUrl,
                     fit: BoxFit.cover,
-                    loadingBuilder: (c, child, progress) =>
-                        progress == null
-                            ? child
-                            : Container(color: widget.activityColor.withOpacity(0.3)),
+                    loadingBuilder: (c, child, progress) => progress == null
+                        ? child
+                        : Container(
+                            color: widget.activityColor.withValues(alpha: 0.3),
+                          ),
                     errorBuilder: (c, e, s) => Container(
-                      color: widget.activityColor.withOpacity(0.3),
+                      color: widget.activityColor.withValues(alpha: 0.3),
                       child: const Center(
                         child: Icon(
                           Icons.videocam_outlined,
@@ -178,7 +184,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
                     ),
                   )
                 : Container(
-                    color: widget.activityColor.withOpacity(0.3),
+                    color: widget.activityColor.withValues(alpha: 0.3),
                     child: const Center(
                       child: Icon(
                         Icons.videocam_outlined,
@@ -191,9 +197,12 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
             Image.network(
               photoUrl!,
               fit: BoxFit.cover,
-              loadingBuilder: (c, child, progress)=> progress == null ? child : Container(color: widget.activityColor.withOpacity(0.3)),
-              errorBuilder: (c, e, s)=> _buildIconFallback(),
-
+              loadingBuilder: (c, child, progress) => progress == null
+                  ? child
+                  : Container(
+                      color: widget.activityColor.withValues(alpha: 0.3),
+                    ),
+              errorBuilder: (c, e, s) => _buildIconFallback(),
             )
           else if (hasProcessingMedia)
             _buildProcessingCard()
@@ -205,7 +214,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
               child: Icon(
                 Icons.play_circle_outline,
                 color: Colors.white,
-                size : 50,
+                size: 50,
               ),
             ),
           if (hasProcessingMedia && !hasVideo)

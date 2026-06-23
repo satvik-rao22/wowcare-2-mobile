@@ -49,10 +49,15 @@ abstract class MessageEntityRepository {
   /// [isPrivate] — sends within the sender's private mode session.
   ///   Backend enforces visibility; the client sends the flag and renders
   ///   only what the API returns.
+  ///
+  /// [attachmentIds] — messaging-service attachment ids (see
+  /// [AttachmentEntity.attachmentId]), already uploaded and registered
+  /// against [conversationCode] by the caller before this is invoked (see
+  /// `ChatAttachmentUploader`). Not document-service asset codes.
   Future<Either<Failure, MessageEntity>> sendMessage({
     required String conversationCode,
     required String text,
-    List<String> attachmentCodes = const [],
+    List<int> attachmentIds = const [],
     bool isPrivate = false,
     String? threadParentCode,
   });
@@ -77,6 +82,17 @@ abstract class MessageEntityRepository {
   /// Failure types:
   ///   [AuthorizationFailure] — caller is not sender or admin/director.
   Future<Either<Failure, void>> deleteMessage(String messageCode);
+
+  /// Removes a single attachment from [messageCode] without deleting the
+  /// whole message — mirrors legacy `CommunicationRepository.deleteAttachment`,
+  /// reusing the same `DELETE /messages/attachments/{id}` endpoint.
+  ///
+  /// Offline behaviour: optimistic Isar update, rolled back on failure (no
+  /// sync-queue entry — matches legacy's exact behaviour for this operation).
+  Future<Either<Failure, void>> deleteAttachment({
+    required String messageCode,
+    required int attachmentId,
+  });
 
   /// Retry sending a message that has [MessageStatus.failed].
   Future<Either<Failure, MessageEntity>> retryFailedMessage(

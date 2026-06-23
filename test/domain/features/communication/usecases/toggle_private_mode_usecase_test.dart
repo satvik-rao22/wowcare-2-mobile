@@ -29,8 +29,9 @@ class _FakeRepo implements ConversationEntityRepository {
   }
 
   @override
-  Stream<List<ConversationEntity>> watchConversations({ConversationType? type}) =>
-      const Stream.empty();
+  Stream<List<ConversationEntity>> watchConversations({
+    ConversationType? type,
+  }) => const Stream.empty();
 
   @override
   Stream<int> watchUnreadCountForType(ConversationType type) =>
@@ -42,6 +43,10 @@ class _FakeRepo implements ConversationEntityRepository {
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
+    String? organizationCode,
+    String? schoolCode,
+    String? studentCode,
+    String? classroomCode,
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
@@ -53,8 +58,9 @@ class _FakeRepo implements ConversationEntityRepository {
   }) async => const Right([]);
 
   @override
-  Future<Either<Failure, ConversationEntity>> getConversation(String code) async =>
-      Left(ServerFailure('stub'));
+  Future<Either<Failure, ConversationEntity>> getConversation(
+    String code,
+  ) async => Left(ServerFailure('stub'));
 
   @override
   Future<Either<Failure, ConversationEntity?>> getCachedConversation(
@@ -65,6 +71,17 @@ class _FakeRepo implements ConversationEntityRepository {
   Future<Either<Failure, ConversationEntity?>> findStaffDirectConversation(
     String recipientUserCode,
   ) async => const Right(null);
+
+  @override
+  Future<Either<Failure, ConversationEntity?>> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  }) async => const Right(null);
+
+  @override
+  Future<Either<Failure, ConversationEntity?>> findAdminChatConversation({
+    required String studentCode,
+  }) async => const Right(null);
 
   @override
   Future<Either<Failure, List<MessagingStaffResult>>> searchStaffForMessaging({
@@ -80,8 +97,7 @@ class _FakeRepo implements ConversationEntityRepository {
 
   @override
   Future<Either<Failure, List<ConversationEntity>>>
-      getConversationsForClassroom(String classroomCode) async =>
-          const Right([]);
+  getConversationsForClassroom(String classroomCode) async => const Right([]);
 
   @override
   Future<Either<Failure, ConversationEntity>> createConversation({
@@ -89,6 +105,9 @@ class _FakeRepo implements ConversationEntityRepository {
     required String studentCode,
     String? classroomCode,
     List<String>? participantCodes,
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
   }) async => Left(ServerFailure('stub'));
 
   @override
@@ -119,6 +138,14 @@ class _FakeRepo implements ConversationEntityRepository {
   @override
   Future<Either<Failure, void>> clearConversationsCache() async =>
       const Right(null);
+
+  @override
+  Future<Either<Failure, void>> markConversationDelivered(
+    String conversationCode,
+  ) {
+    // TODO: implement markConversationDelivered
+    throw UnimplementedError();
+  }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -129,10 +156,7 @@ void main() {
       final repo = _FakeRepo();
       final useCase = TogglePrivateModeUseCase(repo);
 
-      final result = await useCase(
-        conversationCode: 'CONV-123',
-        enable: true,
-      );
+      final result = await useCase(conversationCode: 'CONV-123', enable: true);
 
       expect(result.isRight(), isTrue);
       expect(repo.lastConversationCode, 'CONV-123');
@@ -152,10 +176,7 @@ void main() {
       final repo = _FakeRepo(shouldFail: true);
       final useCase = TogglePrivateModeUseCase(repo);
 
-      final result = await useCase(
-        conversationCode: 'CONV-001',
-        enable: true,
-      );
+      final result = await useCase(conversationCode: 'CONV-001', enable: true);
 
       expect(result.isLeft(), isTrue);
       result.fold(

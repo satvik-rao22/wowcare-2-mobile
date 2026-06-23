@@ -11,6 +11,9 @@ abstract class ConversationEntityRemoteDataSource {
     String status,
     int page,
     int size,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   });
 
   /// Returns the existing STAFF_DIRECT conversation between the current user
@@ -18,6 +21,25 @@ abstract class ConversationEntityRemoteDataSource {
   Future<ConversationEntityDto?> findStaffDirectConversation(
     String recipientUserCode,
   );
+
+  /// Returns the existing active ROOM_CHAT conversation for [studentCode],
+  /// optionally narrowed to [classroomCode], or null if none exists.
+  ///
+  /// Use this before [createConversation] to avoid duplicate per-student
+  /// (or per-classroom, when known) rooms.
+  Future<ConversationEntityDto?> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  });
+
+  /// Returns the existing active ADMIN_CHAT conversation for [studentCode],
+  /// or null if none exists.
+  ///
+  /// Use this before [createConversation] to avoid duplicate admin threads
+  /// for the same student.
+  Future<ConversationEntityDto?> findAdminChatConversation({
+    required String studentCode,
+  });
 
   /// Search active and upcoming staff by name fragment.
   ///
@@ -47,6 +69,9 @@ abstract class ConversationEntityRemoteDataSource {
     List<String>? participantCodes,
     String organizationCode,
     String schoolCode,
+    String title,
+    String description,
+    String avatarUrl,
   });
 
   Future<List<ParticipantEntityDto>> addParticipants({
@@ -65,6 +90,8 @@ abstract class ConversationEntityRemoteDataSource {
   });
 
   Future<void> markConversationRead(String conversationCode);
+
+  Future<void> markConversationDelivered(String conversationCode);
 
   Future<Map<String, int>> getUnreadAggregates();
 }
@@ -85,11 +112,27 @@ class ConversationEntityRemoteDataSourceImpl
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   }) async {
     final path = type != null
         ? ApiPaths.messagingConversationsByType(type.toApiString())
         : ApiPaths.messagingConversations;
-    final endpoint = _url('$path?status=$status&page=$page&size=$size');
+
+    // Build query parameters
+    var queryParams = 'status=$status&page=$page&size=$size';
+    if (designation != null && designation.isNotEmpty) {
+      queryParams += '&designation=${Uri.encodeComponent(designation)}';
+    }
+    if (staffStatus != null && staffStatus.isNotEmpty) {
+      queryParams += '&staffStatus=${Uri.encodeComponent(staffStatus)}';
+    }
+    if (classroom != null && classroom.isNotEmpty) {
+      queryParams += '&classroom=${Uri.encodeComponent(classroom)}';
+    }
+
+    final endpoint = _url('$path?$queryParams');
 
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversations');
@@ -146,19 +189,62 @@ class ConversationEntityRemoteDataSourceImpl
   Future<ConversationEntityDto?> findStaffDirectConversation(
     String recipientUserCode,
   ) async {
-    final path = ApiPaths.messagingConversationsByType('STAFF_DIRECT');
-    final endpoint = _url(
-      '$path?status=ACTIVE&participantUserCode=$recipientUserCode&page=0&size=1',
+    // The `participantUserCode` query param on this endpoint isn't reliably
+    // filtering server-side — it's been observed to just return whatever
+    // the single most-recently-active STAFF_DIRECT conversation is,
+    // regardless of who was actually asked for. That silently reopens the
+    // wrong (most recent) chat for ANY "start a new chat" tap. Mirrors
+    // findRoomChatConversation/findAdminChatConversation below: fetch the
+    // list from the same endpoint already proven correct (it drives the
+    // inbox) and verify the match against participants client-side instead
+    // of trusting an unverified filter param.
+    final conversations = await getConversations(
+      type: ConversationType.staffDirect,
+      status: 'ACTIVE',
+      page: 0,
+      size: 100,
     );
-    final response = await apiClient.client.get(endpoint);
-    _assertSuccess(response.data, 'Failed to search direct conversation');
+    for (final c in conversations) {
+      if (c.participants.any((p) => p.userCode == recipientUserCode)) {
+        return c;
+      }
+    }
+    return null;
+  }
 
-    final content =
-        response.data['data']['content'] as List<dynamic>? ?? [];
-    if (content.isEmpty) return null;
-    return ConversationEntityDto.fromJson(
-      content.first as Map<String, dynamic>,
-    );
+  @override
+  Future<ConversationEntityDto?> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  }) async {
+    // Reuses the already-proven student-scoped list endpoint and filters
+    // client-side, rather than guessing at an unverified
+    // `type/{type}?studentCode=...&classroomCode=...` query combination on
+    // the backend.
+    final conversations = await getConversationsForStudent(studentCode);
+    for (final c in conversations) {
+      final matchesClassroom =
+          classroomCode == null ||
+          classroomCode.isEmpty ||
+          c.classroomCode == classroomCode;
+      if (c.type == 'ROOM_CHAT' && matchesClassroom && c.status == 'ACTIVE') {
+        return c;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<ConversationEntityDto?> findAdminChatConversation({
+    required String studentCode,
+  }) async {
+    final conversations = await getConversationsForStudent(studentCode);
+    for (final c in conversations) {
+      if (c.type == 'ADMIN_CHAT' && c.status == 'ACTIVE') {
+        return c;
+      }
+    }
+    return null;
   }
 
   @override
@@ -211,10 +297,15 @@ class ConversationEntityRemoteDataSourceImpl
     List<String>? participantCodes,
     String organizationCode = '',
     String schoolCode = '',
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
   }) async {
     final endpoint = _url(ApiPaths.conversations);
     final body = <String, dynamic>{
       'type': type,
+      'title': title,
+      'description': description,
       if (organizationCode.isNotEmpty) 'organizationCode': organizationCode,
       if (schoolCode.isNotEmpty) 'schoolCode': schoolCode,
       if (studentCode.isNotEmpty) 'studentCode': studentCode,
@@ -222,6 +313,7 @@ class ConversationEntityRemoteDataSourceImpl
         'classroomCode': classroomCode,
       if (participantCodes != null && participantCodes.isNotEmpty)
         'participantUserCodes': participantCodes,
+      if (avatarUrl.isNotEmpty) 'avatarUrl': avatarUrl,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);
@@ -283,6 +375,13 @@ class ConversationEntityRemoteDataSourceImpl
   Future<void> markConversationRead(String conversationCode) async {
     final endpoint =
         _url(ApiPaths.messagingConversationMarkRead(conversationCode));
+    await apiClient.client.post(endpoint);
+  }
+
+  @override
+  Future<void> markConversationDelivered(String conversationCode) async {
+    final endpoint =
+        _url(ApiPaths.messagingConversationMarkDelivered(conversationCode));
     await apiClient.client.post(endpoint);
   }
 

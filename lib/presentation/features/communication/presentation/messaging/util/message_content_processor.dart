@@ -179,10 +179,9 @@ class MessageContentProcessor {
   /// tiles, notification text, and search results.  Never longer than
   /// [maxLength] characters; appends '…' when truncated.
   static String previewText(String rawContent, {int maxLength = 120}) {
-    final plain = stripHtmlTags(rawContent)
-        .replaceAll('\n', ' ')
-        .replaceAll(RegExp(r'\s{2,}'), ' ')
-        .trim();
+    final plain = stripHtmlTags(
+      rawContent,
+    ).replaceAll('\n', ' ').replaceAll(RegExp(r'\s{2,}'), ' ').trim();
     if (plain.length <= maxLength) return plain;
     return '${plain.substring(0, maxLength)}…';
   }
@@ -197,7 +196,7 @@ class MessageContentProcessor {
   static String smartBubbleTime(DateTime sentAt, String hhMM) {
     final diff = DateTime.now().toUtc().difference(sentAt.toUtc());
     if (diff.inSeconds < 30) return 'Now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
     return hhMM;
   }
 
@@ -205,16 +204,13 @@ class MessageContentProcessor {
 
   /// Returns the best available display label for a message sender.
   ///
-  /// Priority: `senderName` → `senderUserCode` (truncated) → `'User'`.
-  /// Never returns an empty string or "Unknown User".
+  /// Only ever returns `senderName`, or the generic `'User'` placeholder —
+  /// the internal `senderUserCode` must never reach the UI, so it's
+  /// intentionally not part of this fallback chain.
   static String senderDisplay(String? senderName, String? senderUserCode) {
     if (senderName != null && senderName.trim().isNotEmpty) {
       return senderName.trim();
     }
-    if (senderUserCode != null && senderUserCode.trim().isNotEmpty) {
-      final code = senderUserCode.trim();
-      return code.length > 16 ? code.substring(0, 16) : code;
-    }
-    return 'User';
+    return senderName ?? 'User';
   }
 }

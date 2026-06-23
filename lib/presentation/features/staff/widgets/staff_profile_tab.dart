@@ -233,7 +233,8 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
   }
 
   Color _getStatusBgColor(String? status) {
-    if (status == null || status.isEmpty) return Colors.grey.withOpacity(0.1);
+    if (status == null || status.isEmpty)
+      return Colors.grey.withValues(alpha: 0.1);
     final upperStatus = status.trim().toUpperCase();
     if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
       return const Color.fromRGBO(56, 200, 32, 0.1);
@@ -388,421 +389,435 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.all(16),
                     child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Profile Information',
-                            style: TextStyle(
-                              color: AppColors.primaryColor,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () async {
-                              // Map allowed/primary classroom codes to display names using cached metadata.
-                              final allowedClassroomNames = profile
-                                  .allowedClassroomCodes
-                                  .map(_displayClassroomName)
-                                  .toList();
-                              final primaryClassroomName =
-                                  profile.primaryClassroomCode.isEmpty
-                                  ? null
-                                  : _displayClassroomName(
-                                      profile.primaryClassroomCode,
-                                    );
-
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      EditProfileDetailsScreen(
-                                        staffCode: profile.staffCode,
-                                        initialFirstName: profile.firstName,
-                                        initialLastName: profile.lastName,
-                                        initialStatus: _getStatusLabel(
-                                          profile.status,
-                                        ),
-                                        initialDesignation: profile.designation,
-                                        initialAllowedClassrooms:
-                                            allowedClassroomNames,
-                                        initialPrimaryClassroom:
-                                            primaryClassroomName,
-                                        initialBirthDate:
-                                            profile.birthDate.isEmpty
-                                            ? null
-                                            : DateTime.tryParse(
-                                                profile.birthDate,
-                                              ),
-                                        initialJobTag: profile.jobTag,
-                                        initialEmail: profile.email,
-                                        initialPhoneNumber: profile.phoneNumber,
-                                        initialStreet: profile.address.street,
-                                        initialCity: profile.address.city,
-                                        initialState: profile.address.state,
-                                        initialCountry: profile.address.country,
-                                        initialZipCode: profile.address.zipCode,
-                                        initialClassroomNames:
-                                            widget.classroomNames,
-                                        initialClassroomCodeByName:
-                                            widget.classroomNameByCode == null
-                                            ? null
-                                            : {
-                                                for (final entry
-                                                    in widget
-                                                        .classroomNameByCode!
-                                                        .entries)
-                                                  entry.value: entry.key,
-                                              },
-                                      ),
-                                ),
-                              );
-
-                              // If profile was updated, refresh from API.
-                              if (result == true) {
-                                await _profileCubit.refresh(widget.staffCode);
-                              }
-                            },
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                gradient: AppColors.buildPrimaryGradient(),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.edit,
-                                size: 22,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Name',
-                        value: profile.fullName.isEmpty
-                            ? '-'
-                            : profile.fullName,
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Status',
-                        value: null,
-                        trailing: _buildStatusChip(profile.status),
-                      ),
-                      const SizedBox(height: 12),
-                      _Field(
-                        label: 'Designation',
-                        value: _formatEnumLabel(profile.designation),
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Role',
-                        value: profile.staffType.trim().isEmpty
-                            ? '-'
-                            : StringUtils.staffTypeToDisplayRole(
-                                profile.staffType,
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Email',
-                        value: profile.email.isEmpty ? '-' : profile.email,
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Clock In-Out PIN',
-                        value: profile.clockPin.isEmpty
-                            ? '-'
-                            : profile.clockPin,
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Phone Number',
-                        value: _formatPhoneNumber(profile.phoneNumber),
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Address',
-                        value: addressDisplay.isEmpty ? '-' : addressDisplay,
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Birth Date',
-                        value: _formatDate(profile.birthDate),
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Job Tag',
-                        value: _formatEnumLabel(profile.jobTag),
-                      ),
-                      const SizedBox(height: 16),
-                      _Field(
-                        label: 'Allowed Classrooms',
-                        value: null,
-                        trailing: profile.allowedClassroomCodes.isEmpty
-                            ? const Text(
-                                '-',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 15,
-                                  color: Color(0xff573353),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              )
-                            : Wrap(
-                                spacing: 6,
-                                runSpacing: 6,
-                                children: List.generate(
-                                  profile.allowedClassroomCodes.length,
-                                  (index) {
-                                    final code =
-                                        profile.allowedClassroomCodes[index];
-                                    final name = _displayClassroomName(code);
-                                    return _Chip(
-                                      label: name,
-                                      labelColor: const Color.fromRGBO(
-                                        27,
-                                        35,
-                                        126,
-                                        1,
-                                      ),
-                                      color:
-                                          chipColors[index % chipColors.length],
-                                    );
-                                  },
-                                ),
-                              ),
-                      ),
-                      const SizedBox(height: 12),
-                      _Field(
-                        label: 'Primary Classroom',
-                        value: null,
-                        trailing: profile.primaryClassroomCode.isEmpty
-                            ? const Text(
-                                '-',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 15,
-                                  color: Color(0xff573353),
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              )
-                            : _Chip(
-                                label: _displayClassroomName(
-                                  profile.primaryClassroomCode,
-                                ),
-                                labelColor: const Color.fromRGBO(
-                                  27,
-                                  35,
-                                  126,
-                                  1,
-                                ),
-                                color: chipColors.first,
-                              ),
-                      ),
-                      // Schedule section – layout aligned with student profile schedule card
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () {
-                          final schedules = <ScheduleEntry>[];
-                          for (final workSchedule in profile.workSchedules) {
-                            schedules.add(
-                              ScheduleEntry(
-                                day: workSchedule.dayOfWeek.toLowerCase(),
-                                startTime:
-                                    workSchedule.workStartTime.formattedTime,
-                                endTime: workSchedule.workEndTime.formattedTime,
-                                isBreakTime: false,
-                              ),
-                            );
-                          }
-                          for (final breakSchedule in profile.breakSchedules) {
-                            schedules.add(
-                              ScheduleEntry(
-                                day: breakSchedule.dayOfWeek.toLowerCase(),
-                                startTime:
-                                    breakSchedule.breakStartTime.formattedTime,
-                                endTime:
-                                    breakSchedule.breakEndTime.formattedTime,
-                                isBreakTime: true,
-                              ),
-                            );
-                          }
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => EditScheduleScreen(
-                                staffCode: widget.staffCode,
-                                initialSchedules: schedules,
-                              ),
-                            ),
-                          ).then((updated) async {
-                            if (updated == true) {
-                              await _profileCubit.refresh(widget.staffCode);
-                            }
-                          });
-                        },
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Schedule',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xff573353),
-                                  ),
-                                ),
-                                const Icon(
-                                  Icons.edit,
-                                  size: 16,
-                                  color: Color(0x99573353),
-                                ),
-                              ],
+                            const Text(
+                              'Profile Information',
+                              style: TextStyle(
+                                color: AppColors.primaryColor,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                            const SizedBox(height: 8),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    children:
-                                        (_schoolOpenDays.isNotEmpty
-                                                ? _schoolOpenDays
-                                                : _fallbackDays)
-                                            .map((day) {
-                                              // Map internal enum-style day to display name (Monday, etc.)
-                                              String displayDay;
-                                              switch (day) {
-                                                case 'MONDAY':
-                                                  displayDay = 'Monday';
-                                                  break;
-                                                case 'TUESDAY':
-                                                  displayDay = 'Tuesday';
-                                                  break;
-                                                case 'WEDNESDAY':
-                                                  displayDay = 'Wednesday';
-                                                  break;
-                                                case 'THURSDAY':
-                                                  displayDay = 'Thursday';
-                                                  break;
-                                                case 'FRIDAY':
-                                                  displayDay = 'Friday';
-                                                  break;
-                                                case 'SATURDAY':
-                                                  displayDay = 'Saturday';
-                                                  break;
-                                                case 'SUNDAY':
-                                                  displayDay = 'Sunday';
-                                                  break;
-                                                default:
-                                                  displayDay = day
-                                                      .toLowerCase();
-                                                  displayDay =
-                                                      displayDay[0]
-                                                          .toUpperCase() +
-                                                      displayDay.substring(1);
-                                                  break;
-                                              }
+                            GestureDetector(
+                              onTap: () async {
+                                // Map allowed/primary classroom codes to display names using cached metadata.
+                                final allowedClassroomNames = profile
+                                    .allowedClassroomCodes
+                                    .map(_displayClassroomName)
+                                    .toList();
+                                final primaryClassroomName =
+                                    profile.primaryClassroomCode.isEmpty
+                                    ? null
+                                    : _displayClassroomName(
+                                        profile.primaryClassroomCode,
+                                      );
 
-                                              final isAvailable = availableDays
-                                                  .contains(day);
-                                              final String? workLabel =
-                                                  isAvailable
-                                                  ? workTimes[day]
-                                                  : null;
-                                              final String? breakLabel =
-                                                  isAvailable
-                                                  ? breakTimes[day]
-                                                  : null;
-
-                                              return Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  _ScheduleChip(
-                                                    width: 130,
-                                                    label: displayDay,
-                                                    labelColor: isAvailable
-                                                        ? const Color.fromRGBO(
-                                                            27,
-                                                            35,
-                                                            126,
-                                                            1,
-                                                          )
-                                                        : Colors.grey.shade700,
-                                                    color: isAvailable
-                                                        ? const Color(
-                                                            0x4DB1AFE9,
-                                                          )
-                                                        : const Color(
-                                                            0xFFF3F4FB,
-                                                          ),
-                                                  ),
-                                                  if (workLabel != null &&
-                                                      workLabel
-                                                          .trim()
-                                                          .isNotEmpty) ...[
-                                                    const SizedBox(height: 6),
-                                                    _ScheduleChip(
-                                                      width: 130,
-                                                      label: workLabel,
-                                                      labelColor:
-                                                          const Color.fromRGBO(
-                                                            27,
-                                                            35,
-                                                            126,
-                                                            1,
-                                                          ),
-                                                      color: Colors.transparent,
-                                                      isTimeChip: true,
-                                                    ),
-                                                  ],
-                                                  if (breakLabel != null &&
-                                                      breakLabel
-                                                          .trim()
-                                                          .isNotEmpty) ...[
-                                                    const SizedBox(height: 6),
-                                                    _ScheduleChip(
-                                                      width: 130,
-                                                      label: '$breakLabel',
-                                                      labelColor:
-                                                          const Color.fromRGBO(
-                                                            27,
-                                                            35,
-                                                            126,
-                                                            1,
-                                                          ),
-                                                      color: Colors.transparent,
-                                                      isTimeChip: true,
-                                                    ),
-                                                  ],
-                                                ],
-                                              );
-                                            })
-                                            .toList(),
+                                final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        EditProfileDetailsScreen(
+                                          staffCode: profile.staffCode,
+                                          initialFirstName: profile.firstName,
+                                          initialLastName: profile.lastName,
+                                          initialStatus: _getStatusLabel(
+                                            profile.status,
+                                          ),
+                                          initialDesignation:
+                                              profile.designation,
+                                          initialAllowedClassrooms:
+                                              allowedClassroomNames,
+                                          initialPrimaryClassroom:
+                                              primaryClassroomName,
+                                          initialBirthDate:
+                                              profile.birthDate.isEmpty
+                                              ? null
+                                              : DateTime.tryParse(
+                                                  profile.birthDate,
+                                                ),
+                                          initialJobTag: profile.jobTag,
+                                          initialEmail: profile.email,
+                                          initialPhoneNumber:
+                                              profile.phoneNumber,
+                                          initialStreet: profile.address.street,
+                                          initialCity: profile.address.city,
+                                          initialState: profile.address.state,
+                                          initialCountry:
+                                              profile.address.country,
+                                          initialZipCode:
+                                              profile.address.zipCode,
+                                          initialClassroomNames:
+                                              widget.classroomNames,
+                                          initialClassroomCodeByName:
+                                              widget.classroomNameByCode == null
+                                              ? null
+                                              : {
+                                                  for (final entry
+                                                      in widget
+                                                          .classroomNameByCode!
+                                                          .entries)
+                                                    entry.value: entry.key,
+                                                },
+                                        ),
                                   ),
+                                );
+
+                                // If profile was updated, refresh from API.
+                                if (result == true) {
+                                  await _profileCubit.refresh(widget.staffCode);
+                                }
+                              },
+                              child: Container(
+                                width: 38,
+                                height: 38,
+                                decoration: BoxDecoration(
+                                  gradient: AppColors.buildPrimaryGradient(),
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                              ],
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.edit,
+                                  size: 22,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Name',
+                          value: profile.fullName.isEmpty
+                              ? '-'
+                              : profile.fullName,
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Status',
+                          value: null,
+                          trailing: _buildStatusChip(profile.status),
+                        ),
+                        const SizedBox(height: 12),
+                        _Field(
+                          label: 'Designation',
+                          value: _formatEnumLabel(profile.designation),
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Role',
+                          value: profile.staffType.trim().isEmpty
+                              ? '-'
+                              : StringUtils.staffTypeToDisplayRole(
+                                  profile.staffType,
+                                ),
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Email',
+                          value: profile.email.isEmpty ? '-' : profile.email,
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Clock In-Out PIN',
+                          value: profile.clockPin.isEmpty
+                              ? '-'
+                              : profile.clockPin,
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Phone Number',
+                          value: _formatPhoneNumber(profile.phoneNumber),
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Address',
+                          value: addressDisplay.isEmpty ? '-' : addressDisplay,
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Birth Date',
+                          value: _formatDate(profile.birthDate),
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Job Tag',
+                          value: _formatEnumLabel(profile.jobTag),
+                        ),
+                        const SizedBox(height: 16),
+                        _Field(
+                          label: 'Allowed Classrooms',
+                          value: null,
+                          trailing: profile.allowedClassroomCodes.isEmpty
+                              ? const Text(
+                                  '-',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 15,
+                                    color: Color(0xff573353),
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                )
+                              : Wrap(
+                                  spacing: 6,
+                                  runSpacing: 6,
+                                  children: List.generate(
+                                    profile.allowedClassroomCodes.length,
+                                    (index) {
+                                      final code =
+                                          profile.allowedClassroomCodes[index];
+                                      final name = _displayClassroomName(code);
+                                      return _Chip(
+                                        label: name,
+                                        labelColor: const Color.fromRGBO(
+                                          27,
+                                          35,
+                                          126,
+                                          1,
+                                        ),
+                                        color:
+                                            chipColors[index %
+                                                chipColors.length],
+                                      );
+                                    },
+                                  ),
+                                ),
+                        ),
+                        const SizedBox(height: 12),
+                        _Field(
+                          label: 'Primary Classroom',
+                          value: null,
+                          trailing: profile.primaryClassroomCode.isEmpty
+                              ? const Text(
+                                  '-',
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: 15,
+                                    color: Color(0xff573353),
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                )
+                              : _Chip(
+                                  label: _displayClassroomName(
+                                    profile.primaryClassroomCode,
+                                  ),
+                                  labelColor: const Color.fromRGBO(
+                                    27,
+                                    35,
+                                    126,
+                                    1,
+                                  ),
+                                  color: chipColors.first,
+                                ),
+                        ),
+                        // Schedule section – layout aligned with student profile schedule card
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () {
+                            final schedules = <ScheduleEntry>[];
+                            for (final workSchedule in profile.workSchedules) {
+                              schedules.add(
+                                ScheduleEntry(
+                                  day: workSchedule.dayOfWeek.toLowerCase(),
+                                  startTime:
+                                      workSchedule.workStartTime.formattedTime,
+                                  endTime:
+                                      workSchedule.workEndTime.formattedTime,
+                                  isBreakTime: false,
+                                ),
+                              );
+                            }
+                            for (final breakSchedule
+                                in profile.breakSchedules) {
+                              schedules.add(
+                                ScheduleEntry(
+                                  day: breakSchedule.dayOfWeek.toLowerCase(),
+                                  startTime: breakSchedule
+                                      .breakStartTime
+                                      .formattedTime,
+                                  endTime:
+                                      breakSchedule.breakEndTime.formattedTime,
+                                  isBreakTime: true,
+                                ),
+                              );
+                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditScheduleScreen(
+                                  staffCode: widget.staffCode,
+                                  initialSchedules: schedules,
+                                ),
+                              ),
+                            ).then((updated) async {
+                              if (updated == true) {
+                                await _profileCubit.refresh(widget.staffCode);
+                              }
+                            });
+                          },
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const SizedBox(height: 16),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Schedule',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xff573353),
+                                    ),
+                                  ),
+                                  const Icon(
+                                    Icons.edit,
+                                    size: 16,
+                                    color: Color(0x99573353),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Wrap(
+                                      spacing: 8,
+                                      runSpacing: 8,
+                                      children:
+                                          (_schoolOpenDays.isNotEmpty
+                                                  ? _schoolOpenDays
+                                                  : _fallbackDays)
+                                              .map((day) {
+                                                // Map internal enum-style day to display name (Monday, etc.)
+                                                String displayDay;
+                                                switch (day) {
+                                                  case 'MONDAY':
+                                                    displayDay = 'Monday';
+                                                    break;
+                                                  case 'TUESDAY':
+                                                    displayDay = 'Tuesday';
+                                                    break;
+                                                  case 'WEDNESDAY':
+                                                    displayDay = 'Wednesday';
+                                                    break;
+                                                  case 'THURSDAY':
+                                                    displayDay = 'Thursday';
+                                                    break;
+                                                  case 'FRIDAY':
+                                                    displayDay = 'Friday';
+                                                    break;
+                                                  case 'SATURDAY':
+                                                    displayDay = 'Saturday';
+                                                    break;
+                                                  case 'SUNDAY':
+                                                    displayDay = 'Sunday';
+                                                    break;
+                                                  default:
+                                                    displayDay = day
+                                                        .toLowerCase();
+                                                    displayDay =
+                                                        displayDay[0]
+                                                            .toUpperCase() +
+                                                        displayDay.substring(1);
+                                                    break;
+                                                }
+
+                                                final isAvailable =
+                                                    availableDays.contains(day);
+                                                final String? workLabel =
+                                                    isAvailable
+                                                    ? workTimes[day]
+                                                    : null;
+                                                final String? breakLabel =
+                                                    isAvailable
+                                                    ? breakTimes[day]
+                                                    : null;
+
+                                                return Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    _ScheduleChip(
+                                                      width: 130,
+                                                      label: displayDay,
+                                                      labelColor: isAvailable
+                                                          ? const Color.fromRGBO(
+                                                              27,
+                                                              35,
+                                                              126,
+                                                              1,
+                                                            )
+                                                          : Colors
+                                                                .grey
+                                                                .shade700,
+                                                      color: isAvailable
+                                                          ? const Color(
+                                                              0x4DB1AFE9,
+                                                            )
+                                                          : const Color(
+                                                              0xFFF3F4FB,
+                                                            ),
+                                                    ),
+                                                    if (workLabel != null &&
+                                                        workLabel
+                                                            .trim()
+                                                            .isNotEmpty) ...[
+                                                      const SizedBox(height: 6),
+                                                      _ScheduleChip(
+                                                        width: 130,
+                                                        label: workLabel,
+                                                        labelColor:
+                                                            const Color.fromRGBO(
+                                                              27,
+                                                              35,
+                                                              126,
+                                                              1,
+                                                            ),
+                                                        color:
+                                                            Colors.transparent,
+                                                        isTimeChip: true,
+                                                      ),
+                                                    ],
+                                                    if (breakLabel != null &&
+                                                        breakLabel
+                                                            .trim()
+                                                            .isNotEmpty) ...[
+                                                      const SizedBox(height: 6),
+                                                      _ScheduleChip(
+                                                        width: 130,
+                                                        label: '$breakLabel',
+                                                        labelColor:
+                                                            const Color.fromRGBO(
+                                                              27,
+                                                              35,
+                                                              126,
+                                                              1,
+                                                            ),
+                                                        color:
+                                                            Colors.transparent,
+                                                        isTimeChip: true,
+                                                      ),
+                                                    ],
+                                                  ],
+                                                );
+                                              })
+                                              .toList(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 ),
               ),
             );

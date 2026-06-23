@@ -13,6 +13,9 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/v2/widgets/conversation_filter_sheet.dart';
+import 'package:wowcare/presentation/features/communication/v2/widgets/conversation_tile.dart';
+import 'package:wowcare/presentation/features/communication/v2/widgets/filter_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -100,6 +103,18 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     });
   }
 
+  /// Show the filter bottom sheet for STAFF_DIRECT conversations.
+  void _showFilterSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => const ConversationFilterSheet(),
+    );
+  }
+
   // ─── Filter ──────────────────────────────────────────────────────────────────
 
   List<ConversationEntity> _filtered(List<ConversationEntity> all) {
@@ -171,9 +186,81 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                                   ),
                                 ],
                               ),
-                              _TypeChip(type: state.conversationType),
+                              Row(
+                                children: [
+                                  // Filter button (STAFF_DIRECT only)
+                                  if (widget.conversationType ==
+                                      ConversationType.staffDirect)
+                                    FilterIndicator(
+                                      hasActiveFilters: state.hasActiveFilters,
+                                      filterCount: [
+                                        state.activeDesignation,
+                                        state.activeStaffStatus,
+                                        state.activeClassroom,
+                                      ]
+                                          .where((f) => f != null)
+                                          .length,
+                                      onTap: () => _showFilterSheet(context),
+                                    ),
+                                  _TypeChip(type: state.conversationType),
+                                ],
+                              ),
                             ],
                           ),
+                          // Active filter chips
+                          if (state.hasActiveFilters)
+                            Padding(
+                              padding:
+                                  const EdgeInsets.fromLTRB(0, 8, 0, 0),
+                              child: Wrap(
+                                spacing: 6,
+                                children: [
+                                  if (state.activeDesignation != null)
+                                    _FilterChip(
+                                      label: state.activeDesignation!,
+                                      onRemove: () {
+                                        context
+                                            .read<ConversationListCubit>()
+                                            .applyFilters(
+                                              designation: null,
+                                              staffStatus:
+                                                  state.activeStaffStatus,
+                                              classroom: state.activeClassroom,
+                                            );
+                                      },
+                                    ),
+                                  if (state.activeStaffStatus != null)
+                                    _FilterChip(
+                                      label: state.activeStaffStatus!,
+                                      onRemove: () {
+                                        context
+                                            .read<ConversationListCubit>()
+                                            .applyFilters(
+                                              designation:
+                                                  state.activeDesignation,
+                                              staffStatus: null,
+                                              classroom: state.activeClassroom,
+                                            );
+                                      },
+                                    ),
+                                  if (state.activeClassroom != null)
+                                    _FilterChip(
+                                      label: state.activeClassroom!,
+                                      onRemove: () {
+                                        context
+                                            .read<ConversationListCubit>()
+                                            .applyFilters(
+                                              designation:
+                                                  state.activeDesignation,
+                                              staffStatus:
+                                                  state.activeStaffStatus,
+                                              classroom: null,
+                                            );
+                                      },
+                                    ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -271,9 +358,12 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
 
     return SliverList(
       delegate: SliverChildBuilderDelegate(
-        (context, index) => _ConversationTile(
-          conversation: filtered[index],
-          onTap: () => widget.onConversationTap(filtered[index]),
+        (context, index) => ConversationListTile(
+          conversationCode: filtered[index].code,
+          contentBuilder: (context, conversation) => _ConversationTileContent(
+            conversation: conversation,
+            onTap: () => widget.onConversationTap(conversation),
+          ),
         ),
         childCount: filtered.length,
       ),
@@ -283,10 +373,55 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   /// Staff directory section — shown below conversations while search is active.
   /// Tapping a staff tile starts (or opens an existing) 1:1 conversation via
   /// the host screen's [onCreateTap] callback with the staff's userCode injected.
+  ///
+  /// Includes loading, error, and empty states with retry support.
   Widget _buildStaffDirectory(
     BuildContext context,
     ConversationListState state,
   ) {
+    // Show error state with retry button
+    if (state.hasStaffSearchError) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFE5E5),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFE57373), width: 1),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  state.staffSearchErrorMessage ?? 'Failed to search staff',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFFC62828),
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ElevatedButton.icon(
+                  onPressed: () => context.read<ConversationListCubit>().retryStaffSearch(),
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFC62828),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Show loading indicator
     if (state.isSearchingStaff) {
       return const SliverToBoxAdapter(
         child: Padding(
@@ -302,8 +437,24 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
       );
     }
 
-    if (state.staffSearchResults.isEmpty) return const SliverToBoxAdapter();
+    // Show empty state when no results
+    if (state.staffSearchResults.isEmpty) {
+      return SliverToBoxAdapter(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          child: Text(
+            'No staff found for "${_searchController.text}"',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF636E72),
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ),
+      );
+    }
 
+    // Show staff directory list
     return SliverMainAxisGroup(
       slivers: [
         // Section header
@@ -328,12 +479,15 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
               final staff = state.staffSearchResults[index];
               return _StaffDirectoryTile(
                 staff: staff,
-                onTap: () {
-                  // Navigate via the create-tap callback so the host screen
-                  // can pre-populate the recipient and open the thread.
-                  if (widget.onCreateTap != null) {
-                    widget.onCreateTap!();
-                  }
+                isCreating: state.isSearchingStaff && state.staffSearchErrorMessage == null,
+                onTap: () async {
+                  // Create or get existing STAFF_DIRECT conversation
+                  await context.read<ConversationListCubit>()
+                      .createOrGetStaffDirectConversation(
+                    staff.userCode,
+                    staff.name,
+                    staff.avatarAssetCode,
+                  );
                 },
               );
             },
@@ -348,15 +502,20 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
 // ─── Staff directory tile ─────────────────────────────────────────────────────
 
 class _StaffDirectoryTile extends StatelessWidget {
-  const _StaffDirectoryTile({required this.staff, required this.onTap});
+  const _StaffDirectoryTile({
+    required this.staff,
+    required this.onTap,
+    this.isCreating = false,
+  });
 
   final MessagingStaffResult staff;
   final VoidCallback onTap;
+  final bool isCreating;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: onTap,
+      onTap: isCreating ? null : onTap,
       splashColor: const Color(0x1A6C5CE7),
       highlightColor: Colors.transparent,
       child: Container(
@@ -386,21 +545,27 @@ class _StaffDirectoryTile extends StatelessWidget {
             staff.designation.isNotEmpty ? staff.designation : staff.status,
             style: const TextStyle(fontSize: 12, color: Color(0xFF636E72)),
           ),
-          trailing: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFF6C5CE7).withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              'Message',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF6C5CE7),
-              ),
-            ),
-          ),
+          trailing: isCreating
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF6C5CE7).withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'Message',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF6C5CE7),
+                    ),
+                  ),
+                ),
         ),
       ),
     );
@@ -409,8 +574,11 @@ class _StaffDirectoryTile extends StatelessWidget {
 
 // ─── Conversation tile ────────────────────────────────────────────────────────
 
-class _ConversationTile extends StatelessWidget {
-  const _ConversationTile({required this.conversation, required this.onTap});
+class _ConversationTileContent extends StatelessWidget {
+  const _ConversationTileContent({
+    required this.conversation,
+    required this.onTap,
+  });
 
   final ConversationEntity conversation;
   final VoidCallback onTap;
@@ -744,6 +912,54 @@ class _FullScreenError extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─── Filter chip ──────────────────────────────────────────────────────────────
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.onRemove,
+  });
+
+  final String label;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: AppColors.primaryColor.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
+          ),
+          const SizedBox(width: 4),
+          GestureDetector(
+            onTap: onRemove,
+            child: Icon(
+              Icons.clear,
+              size: 14,
+              color: AppColors.primaryColor.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
       ),
     );
   }

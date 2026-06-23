@@ -19,6 +19,7 @@ class MessageCollection {
   DateTime? deliveredAt;
   DateTime? readAt;
   DateTime? editedAt;
+  DateTime? deletedAt;
   String? quotedMessageId;
   String? senderName;
   List<String>? receivers;
@@ -42,6 +43,7 @@ class MessageCollection {
       ..deliveredAt = message.deliveredAt
       ..readAt = message.readAt
       ..editedAt = message.editedAt
+      ..deletedAt = message.deletedAt
       ..quotedMessageId = message.quotedMessageId
       ..senderName = message.senderName
       ..receivers = message.receivers
@@ -89,6 +91,7 @@ class MessageCollection {
       deliveredAt: deliveredAt,
       readAt: readAt,
       editedAt: editedAt,
+      deletedAt: deletedAt,
       quotedMessageId: quotedMessageId,
       senderName: senderName,
       receivers: receivers ?? [],
@@ -134,6 +137,8 @@ class ChatAttachmentCollection {
   late String mimeType;
   late String remoteUrl;
   String? localPath;
+  String? code;
+  int? attachmentId;
 
   ChatAttachmentCollection();
 
@@ -144,7 +149,9 @@ class ChatAttachmentCollection {
       ..sizeBytes = attachment.sizeBytes
       ..mimeType = attachment.mimeType
       ..remoteUrl = attachment.remoteUrl
-      ..localPath = attachment.localPath;
+      ..localPath = attachment.localPath
+      ..code = attachment.code
+      ..attachmentId = attachment.attachmentId;
   }
 
   ChatAttachment toEntity() {
@@ -155,6 +162,8 @@ class ChatAttachmentCollection {
       mimeType: mimeType,
       remoteUrl: remoteUrl,
       localPath: localPath,
+      code: code,
+      attachmentId: attachmentId,
     );
   }
 }

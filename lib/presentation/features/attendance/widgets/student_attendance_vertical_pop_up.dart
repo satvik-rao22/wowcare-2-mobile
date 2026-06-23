@@ -57,13 +57,20 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
   Widget _buildButton(BuildContext context) {
     // Check permission using the shared service
     final isStudentAttendanceAllowed =
-        AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+        AttendancePermissionService.hasPermissionToManageStudentAttendance(
+          context,
+        );
     final activeDisabledActions = Set<String>.from(disabledActions);
     final activeReasons = Map<String, String>.from(disabledReasons);
     if (!isStudentAttendanceAllowed) {
       // STAFF persona that has not completed self sign-in: block every action
       // and explain why. This reason takes precedence over status-based ones.
-      for (final action in const ['Sign-in', 'Sign-Out', 'Transfer', 'Absent']) {
+      for (final action in const [
+        'Sign-in',
+        'Sign-Out',
+        'Transfer',
+        'Absent',
+      ]) {
         activeDisabledActions.add(action);
         activeReasons[action] =
             AttendancePermissionService.staffSelfSignInRequiredMessage;
@@ -78,7 +85,8 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     final bool isLargeTablet = screenWidth >= 900;
 
     return GradientAddButton(
-      onTap: () => _showActionMenu(context, activeDisabledActions, activeReasons),
+      onTap: () =>
+          _showActionMenu(context, activeDisabledActions, activeReasons),
       isTablet: isTablet,
       isLargeTablet: isLargeTablet,
     );
@@ -114,7 +122,11 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2)),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
               ],
             ),
             child: Container(
@@ -128,13 +140,37 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in', activeDisabledActions, activeReasons),
+                  _buildMenuItem(
+                    context,
+                    MediaRes.Sign_in,
+                    'Sign-in',
+                    activeDisabledActions,
+                    activeReasons,
+                  ),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out', activeDisabledActions, activeReasons),
+                  _buildMenuItem(
+                    context,
+                    MediaRes.Sign_out,
+                    'Sign-Out',
+                    activeDisabledActions,
+                    activeReasons,
+                  ),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.transfer, 'Transfer', activeDisabledActions, activeReasons),
+                  _buildMenuItem(
+                    context,
+                    MediaRes.transfer,
+                    'Transfer',
+                    activeDisabledActions,
+                    activeReasons,
+                  ),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.Mark_absent, 'Absent', activeDisabledActions, activeReasons),
+                  _buildMenuItem(
+                    context,
+                    MediaRes.Mark_absent,
+                    'Absent',
+                    activeDisabledActions,
+                    activeReasons,
+                  ),
                 ],
               ),
             ),
@@ -144,19 +180,25 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     );
   }
 
-  Widget _buildMenuItem(BuildContext context, String svgPath, String label, Set<String> activeDisabledActions, Map<String, String> activeReasons) {
+  Widget _buildMenuItem(
+    BuildContext context,
+    String svgPath,
+    String label,
+    Set<String> activeDisabledActions,
+    Map<String, String> activeReasons,
+  ) {
     final isDisabled = activeDisabledActions.contains(label);
     final Widget item = InkWell(
       onTap: isDisabled
           ? null
           : () {
-        Navigator.pop(context);
-        if (onActionTap != null) {
-          onActionTap!(label);
-          return;
-        }
-        _navigateToForm(context, label);
-      },
+              Navigator.pop(context);
+              if (onActionTap != null) {
+                onActionTap!(label);
+                return;
+              }
+              _navigateToForm(context, label);
+            },
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -165,7 +207,10 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             opacity: isDisabled ? 0.45 : 1,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
               child: SvgPicture.asset(svgPath, height: 24, width: 24),
             ),
           ),
@@ -175,7 +220,12 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             child: Text(
               label,
               maxLines: 1,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, fontFamily: 'Manrope', color: AppColors.primaryColor),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Manrope',
+                color: AppColors.primaryColor,
+              ),
             ),
           ),
         ],
@@ -198,7 +248,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
     }
 
     Widget? form;
-    
+
     switch (label) {
       case 'Sign-in':
         form = const StudentSelectionSignInForm();

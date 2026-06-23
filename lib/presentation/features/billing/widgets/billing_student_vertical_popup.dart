@@ -99,7 +99,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               color: const Color.fromRGBO(156, 132, 255, 1),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -112,11 +112,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
                 customBorder: const CircleBorder(),
                 child: const Padding(
                   padding: EdgeInsets.all(10.0),
-                  child: Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: Icon(Icons.close, color: Colors.white, size: 20),
                 ),
               ),
             ),
@@ -324,11 +320,7 @@ class _PopupActionButton extends StatelessWidget {
                             BlendMode.srcIn,
                           ),
                         )
-                      : Icon(
-                          iconData,
-                          color: Colors.white,
-                          size: iconSize,
-                        ),
+                      : Icon(iconData, color: Colors.white, size: iconSize),
                 ),
               ),
               const SizedBox(height: 4),
@@ -337,10 +329,7 @@ class _PopupActionButton extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ],
           ),
@@ -449,7 +438,7 @@ class BillingMoreOptionsPopup extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -500,11 +489,7 @@ class _MoreOptionItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _GradientIcon(
-              iconPath: iconPath,
-              iconData: iconData,
-              size: 24,
-            ),
+            _GradientIcon(iconPath: iconPath, iconData: iconData, size: 24),
             const SizedBox(height: 4),
             Text(
               displayLabel,
@@ -526,11 +511,8 @@ class _MoreOptionItem extends StatelessWidget {
 }
 
 class _GradientIcon extends StatelessWidget {
-  const _GradientIcon({
-    this.iconPath,
-    this.iconData,
-    required this.size,
-  }) : assert(iconPath != null || iconData != null);
+  const _GradientIcon({this.iconPath, this.iconData, required this.size})
+    : assert(iconPath != null || iconData != null);
 
   final String? iconPath;
   final IconData? iconData;
@@ -555,11 +537,7 @@ class _GradientIcon extends StatelessWidget {
                 BlendMode.srcIn,
               ),
             )
-          : Icon(
-              iconData,
-              size: size,
-              color: Colors.white,
-            ),
+          : Icon(iconData, size: size, color: Colors.white),
     );
   }
 }
@@ -578,12 +556,10 @@ VoidCallback? _transactionDetailsOpener(
     WidgetsBinding.instance.addPostFrameCallback((_) {
       navigator.push(
         MaterialPageRoute(
-          builder: (context) => TransactionDetailsScreen(
-            transaction: transactionItem,
-          ),
+          builder: (context) =>
+              TransactionDetailsScreen(transaction: transactionItem),
         ),
       );
     });
   };
 }
-

@@ -54,120 +54,122 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       value: _cubit,
       child: BlocBuilder<BoolToggleCubit, bool>(
         builder: (context, _) {
-    final numberFormat = NumberFormat('#,##0');
-    String formatAmount(double value) {
-      final sign = value < 0 ? '-' : '';
-      return '$sign\$${numberFormat.format(value.abs())}';
-    }
+          final numberFormat = NumberFormat('#,##0');
+          String formatAmount(double value) {
+            final sign = value < 0 ? '-' : '';
+            return '$sign\$${numberFormat.format(value.abs())}';
+          }
 
-    // Share of the invoiced amount; shown verbatim in labels.
-    double pct(double value) =>
-        widget.totalAmount <= 0 ? 0 : (value / widget.totalAmount) * 100;
-    String pctText(double value) => '${pct(value).toStringAsFixed(1)}%';
-    // Clamped only for the progress-bar segment width.
-    double barValue(double value) => pct(value).clamp(0, 100).toDouble();
+          // Share of the invoiced amount; shown verbatim in labels.
+          double pct(double value) =>
+              widget.totalAmount <= 0 ? 0 : (value / widget.totalAmount) * 100;
+          String pctText(double value) => '${pct(value).toStringAsFixed(1)}%';
+          // Clamped only for the progress-bar segment width.
+          double barValue(double value) => pct(value).clamp(0, 100).toDouble();
 
-    String labelFor(String name, double amount) =>
-        '$name\n${formatAmount(amount)} (${pctText(amount)})';
+          String labelFor(String name, double amount) =>
+              '$name\n${formatAmount(amount)} (${pctText(amount)})';
 
-    // Keep Net Paid and Outstanding as the first-row items
-    final netPaidItem = ProgressItemHelper(
-      label: labelFor('Net Paid', widget.netPaidAmount),
-      value: barValue(widget.netPaidAmount),
-      color: Colors.greenAccent.shade100,
-    );
+          // Keep Net Paid and Outstanding as the first-row items
+          final netPaidItem = ProgressItemHelper(
+            label: labelFor('Net Paid', widget.netPaidAmount),
+            value: barValue(widget.netPaidAmount),
+            color: Colors.greenAccent.shade100,
+          );
 
-    final outstandingItem = ProgressItemHelper(
-      label: labelFor('Outstanding', widget.outstandingAmount),
-      value: barValue(widget.outstandingAmount),
-      color: Colors.redAccent.shade100,
-    );
+          final outstandingItem = ProgressItemHelper(
+            label: labelFor('Outstanding', widget.outstandingAmount),
+            value: barValue(widget.outstandingAmount),
+            color: Colors.redAccent.shade100,
+          );
 
-    final inProcessItem = ProgressItemHelper(
-      label: labelFor('In Process', widget.inProcessAmount),
-      value: barValue(widget.inProcessAmount),
-      color: Colors.yellow,
-    );
+          final inProcessItem = ProgressItemHelper(
+            label: labelFor('In Process', widget.inProcessAmount),
+            value: barValue(widget.inProcessAmount),
+            color: Colors.yellow,
+          );
 
-    final refundItem = ProgressItemHelper(
-      label: labelFor('Refund', widget.refundedAmount),
-      value: barValue(widget.refundedAmount),
-      color: AppColors.refundLegendColor,
-    );
+          final refundItem = ProgressItemHelper(
+            label: labelFor('Refund', widget.refundedAmount),
+            value: barValue(widget.refundedAmount),
+            color: AppColors.refundLegendColor,
+          );
 
-    final paidItem = ProgressItemHelper(
-      label: labelFor('Paid', widget.paidAmount),
-      value: barValue(widget.paidAmount),
-      color: AppColors.paidLegendColor,
-    );
+          final paidItem = ProgressItemHelper(
+            label: labelFor('Paid', widget.paidAmount),
+            value: barValue(widget.paidAmount),
+            color: AppColors.paidLegendColor,
+          );
 
-    final collapsedItems = <ProgressItemHelper>[
-      netPaidItem,
-      outstandingItem,
-    ];
+          final collapsedItems = <ProgressItemHelper>[
+            netPaidItem,
+            outstandingItem,
+          ];
 
-    final expandedItems = <ProgressItemHelper>[
-      netPaidItem,
-      outstandingItem,
-      inProcessItem,
-      refundItem,
-      paidItem,
-    ];
+          final expandedItems = <ProgressItemHelper>[
+            netPaidItem,
+            outstandingItem,
+            inProcessItem,
+            refundItem,
+            paidItem,
+          ];
 
-    final itemsToShow = _isExpanded ? expandedItems : collapsedItems;
-    final progressItems = <ProgressItemHelper>[
-      netPaidItem,
-      outstandingItem,
-      inProcessItem,
-    ];
+          final itemsToShow = _isExpanded ? expandedItems : collapsedItems;
+          final progressItems = <ProgressItemHelper>[
+            netPaidItem,
+            outstandingItem,
+            inProcessItem,
+          ];
 
-    final outstandingAmountText = formatAmount(widget.outstandingAmount);
-    final outstandingPercentage = pct(widget.outstandingAmount).toStringAsFixed(1);
+          final outstandingAmountText = formatAmount(widget.outstandingAmount);
+          final outstandingPercentage = pct(
+            widget.outstandingAmount,
+          ).toStringAsFixed(1);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _TotalOutstandingSummary(
-          amountLabel: outstandingAmountText,
-          percentageLabel: '$outstandingPercentage%',
-        ),
-        const SizedBox(height: 8),
-        // Only the "Show more" / "Show less" button toggles expand/collapse —
-        // tapping the card body itself does nothing.
-        CustomStatBarCard(
-          title: widget.title,
-          number: '\$${numberFormat.format(widget.totalAmount)}',
-          numberFontSize: 26,
-          titleFontSize: 17,
-          items: itemsToShow,
-          progressItems: progressItems,
-          fullWidthBar: true,
-          footer: TextButton.icon(
-            onPressed: _toggleExpanded,
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(0, 0),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            icon: Icon(
-              _isExpanded
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              size: 16,
-              color: AppColors.primaryColor,
-            ),
-            label: Text(
-              _isExpanded ? 'Show less' : 'Show more',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.primaryColor,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _TotalOutstandingSummary(
+                amountLabel: outstandingAmountText,
+                percentageLabel: '$outstandingPercentage%',
               ),
-            ),
-          ),
-        ),
-      ],
-    );
+              const SizedBox(height: 8),
+              // Only the "Show more" / "Show less" button toggles expand/collapse —
+              // tapping the card body itself does nothing.
+              CustomStatBarCard(
+                title: widget.title,
+                number: '\$${numberFormat.format(widget.totalAmount)}',
+                numberFontSize: 26,
+                titleFontSize: 17,
+                items: itemsToShow,
+                progressItems: progressItems,
+                fullWidthBar: true,
+                footer: TextButton.icon(
+                  onPressed: _toggleExpanded,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: Icon(
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 16,
+                    color: AppColors.primaryColor,
+                  ),
+                  label: Text(
+                    _isExpanded ? 'Show less' : 'Show more',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -217,7 +219,7 @@ class _TotalOutstandingSummary extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.refundLegendColor.withOpacity(0.15),
+              color: AppColors.refundLegendColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
@@ -244,6 +246,3 @@ class _TotalOutstandingSummary extends StatelessWidget {
     );
   }
 }
-
-
-

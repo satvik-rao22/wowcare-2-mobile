@@ -196,6 +196,7 @@ class AttachmentEntityDto {
     required this.uploadedBy,
     required this.uploadedAt,
     this.thumbnailUrl,
+    this.attachmentId,
   });
 
   final String code;
@@ -209,7 +210,14 @@ class AttachmentEntityDto {
   final String uploadedBy;
   final DateTime uploadedAt;
 
+  /// Messaging-service attachment id — same backend field legacy's
+  /// `ChatAttachmentModel.fromJson` reads as `attachmentId`/`id`, required by
+  /// `DELETE /messages/attachments/{id}`. Was previously dropped here even
+  /// though the backend already returns it on every message response.
+  final int? attachmentId;
+
   factory AttachmentEntityDto.fromJson(Map<String, dynamic> json) {
+    final rawId = json['attachmentId'] ?? json['id'];
     return AttachmentEntityDto(
       code: json['code'] as String? ?? '',
       messageCode: json['messageCode'] as String? ?? '',
@@ -223,6 +231,7 @@ class AttachmentEntityDto {
       uploadedAt: DateTime.parse(
         json['uploadedAt'] as String? ?? DateTime.now().toIso8601String(),
       ),
+      attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
     );
   }
 
@@ -237,6 +246,7 @@ class AttachmentEntityDto {
         if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
         'uploadedBy': uploadedBy,
         'uploadedAt': uploadedAt.toIso8601String(),
+        if (attachmentId != null) 'attachmentId': attachmentId,
       };
 
   AttachmentEntity toEntity() {
@@ -252,6 +262,7 @@ class AttachmentEntityDto {
       thumbnailUrl: thumbnailUrl,
       uploadedBy: uploadedBy,
       uploadedAt: uploadedAt,
+      attachmentId: attachmentId,
     );
   }
 }

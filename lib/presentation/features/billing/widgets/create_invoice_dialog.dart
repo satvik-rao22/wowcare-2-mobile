@@ -128,7 +128,7 @@ class BillingActionCardState extends State<BillingActionCard> {
               : const Color(0x99573353);
           final Color iconBg = _isHighlighted
               ? Colors.white24
-              : AppColors.themeColor.withOpacity(0.1);
+              : AppColors.themeColor.withValues(alpha: 0.1);
           final Color iconColor = _isHighlighted
               ? Colors.white
               : AppColors.themeColor;
@@ -137,10 +137,10 @@ class BillingActionCardState extends State<BillingActionCard> {
             onTap: widget.onTap,
             onHighlightChanged: _setHighlight,
             overlayColor: MaterialStatePropertyAll(
-              AppColors.themeColor.withOpacity(0.12),
+              AppColors.themeColor.withValues(alpha: 0.12),
             ),
-            splashColor: AppColors.themeColor.withOpacity(0.16),
-            highlightColor: AppColors.themeColor.withOpacity(0.1),
+            splashColor: AppColors.themeColor.withValues(alpha: 0.16),
+            highlightColor: AppColors.themeColor.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(12),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 120),

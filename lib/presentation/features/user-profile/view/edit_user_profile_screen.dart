@@ -15,7 +15,21 @@ import '../view_model/edit_user_profile_cubit.dart';
 /// Thin wrapper that provides the [EditUserProfileCubit] (and kicks off the
 /// profile load) so the form below stays focused on rendering + input.
 class EditUserProfileScreen extends StatelessWidget {
-  const EditUserProfileScreen({super.key, this.initialFirstName, this.initialLastName, this.initialEmail, this.initialPhoneNo, this.initialStreet, this.initialCity, this.initialState, this.initialCountry, this.initialZipCode, this.role, this.signInPin, this.initialAddressLine2});
+  const EditUserProfileScreen({
+    super.key,
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhoneNo,
+    this.initialStreet,
+    this.initialCity,
+    this.initialState,
+    this.initialCountry,
+    this.initialZipCode,
+    this.role,
+    this.signInPin,
+    this.initialAddressLine2,
+  });
   static const String routeName = '/edit-user-profile-details-screen';
 
   final String? initialFirstName;
@@ -54,7 +68,20 @@ class EditUserProfileScreen extends StatelessWidget {
 }
 
 class _EditUserProfileForm extends StatefulWidget {
-  const _EditUserProfileForm({this.initialFirstName, this.initialLastName, this.initialEmail, this.initialPhoneNo, this.initialStreet, this.initialCity, this.initialState, this.initialCountry, this.initialZipCode, this.role, this.signInPin, this.initialAddressLine2});
+  const _EditUserProfileForm({
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhoneNo,
+    this.initialStreet,
+    this.initialCity,
+    this.initialState,
+    this.initialCountry,
+    this.initialZipCode,
+    this.role,
+    this.signInPin,
+    this.initialAddressLine2,
+  });
 
   final String? initialFirstName;
   final String? initialLastName;
@@ -89,8 +116,9 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
   int _appliedRevision = 0;
 
   // Full lists sourced from shared `location_constants.dart`
-  final List<String> _stateOptions =
-      US_STATES.map((state) => state.name).toList();
+  final List<String> _stateOptions = US_STATES
+      .map((state) => state.name)
+      .toList();
 
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
@@ -110,9 +138,10 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
     _cityController.text = widget.initialCity ?? '';
     _selectedState =
         (widget.initialState != null && widget.initialState!.trim().isNotEmpty)
-            ? widget.initialState
-            : null;
-    _selectedCountry = (widget.initialCountry != null &&
+        ? widget.initialState
+        : null;
+    _selectedCountry =
+        (widget.initialCountry != null &&
             widget.initialCountry!.trim().isNotEmpty)
         ? widget.initialCountry
         : null;
@@ -208,35 +237,51 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
     final address2 = _toTitleCase(_addressLine2Controller.text.trim());
 
     if (first.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'First Name is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First Name is required',
+        isError: true,
+      );
       return;
     }
     if (first.length > 50 || !_nameRegex.hasMatch(first)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:'First Name must be letters only and max 50 characters',
+        message: 'First Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
     }
     if (last.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Last Name is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name is required',
+        isError: true,
+      );
       return;
     }
     if (last.length > 50 || !_nameRegex.hasMatch(last)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:'Last Name must be letters only and max 50 characters',
+        message: 'Last Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
     }
     if (email.isEmpty || !_emailRegex.hasMatch(email)) {
-      CoreUtils.showTopSnackBar(context: context, message:'Email is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Email is required',
+        isError: true,
+      );
       return;
     }
     if (phoneDigits.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Phone Number is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Phone Number is required',
+        isError: true,
+      );
       return;
     }
     if (phoneDigits.length != 10) {
@@ -256,23 +301,43 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       return;
     }
     if (_streetController.text.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Street is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street is required',
+        isError: true,
+      );
       return;
     }
     if (street.length > 150) {
-      CoreUtils.showTopSnackBar(context: context, message:'Street address cannot exceed 150 characters', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street address cannot exceed 150 characters',
+        isError: true,
+      );
       return;
     }
     if (_cityController.text.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'City is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City is required',
+        isError: true,
+      );
       return;
     }
     if (city.length > 50) {
-      CoreUtils.showTopSnackBar(context: context, message:'City name cannot exceed 50 characters', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City name cannot exceed 50 characters',
+        isError: true,
+      );
       return;
     }
     if (_zipCodeController.text.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Zip Code is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code is required',
+        isError: true,
+      );
       return;
     }
     final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
@@ -285,18 +350,28 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       return;
     }
     if ((_selectedState ?? '').trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'State is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'State is required',
+        isError: true,
+      );
       return;
     }
     if ((_selectedCountry ?? '').trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Country is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Country is required',
+        isError: true,
+      );
       return;
     }
 
-
-
     if (address2.length > 150) {
-      CoreUtils.showTopSnackBar(context: context, message:'Address Line 2 cannot exceed 150 characters', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Address Line 2 cannot exceed 150 characters',
+        isError: true,
+      );
       return;
     }
 
@@ -313,9 +388,10 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       'addressCountry': 'United States',
     };
 
-    final result = await context
-        .read<EditUserProfileCubit>()
-        .saveProfile(fields: body, email: email);
+    final result = await context.read<EditUserProfileCubit>().saveProfile(
+      fields: body,
+      email: email,
+    );
     if (!mounted) return;
 
     switch (result) {
@@ -343,8 +419,11 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
     return input
         .toLowerCase()
         .split(RegExp(r'\s+'))
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -353,181 +432,184 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    final isSubmitting =
-        context.watch<EditUserProfileCubit>().state.isSubmitting;
+    final isSubmitting = context
+        .watch<EditUserProfileCubit>()
+        .state
+        .isSubmitting;
     return BlocListener<EditUserProfileCubit, EditUserProfileState>(
       listener: _onCubitState,
       child: StaffFormLayout(
-      title: 'Edit My Profile',
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInputField(
-                    "First Name",
-                    "E.g. John",
-                    _firstNameController,
-                    isRequired: true,
+        title: 'Edit My Profile',
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildInputField(
+                      "First Name",
+                      "E.g. John",
+                      _firstNameController,
+                      isRequired: true,
+                    ),
                   ),
-                ),
-                SizedBox(width: responsive.horizontalSpacing),
-                Expanded(
-                  child: _buildInputField(
-                    "Last Name",
-                    "E.g. Smith",
-                    _lastNameController,
-                    isRequired: true,
+                  SizedBox(width: responsive.horizontalSpacing),
+                  Expanded(
+                    child: _buildInputField(
+                      "Last Name",
+                      "E.g. Smith",
+                      _lastNameController,
+                      isRequired: true,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Email",
-              "E.g. Jessica@wowcare.com",
-              _emailController,
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Phone Number",
-              "E.g. (000) 000-0000",
-              _phoneNoController,
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Street",
-              "Eg. Street no",
-              _streetController,
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Address line 2",
-              "E.g. Address line 2",
-              _addressLine2Controller,
-              isRequired: false,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "City",
-              "Eg. Nashua",
-              _cityController,
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildCustomDropdown(
-              "State",
-              "Select",
-              _stateOptions,
-              _selectedState,
-              (v) => setState(() => _selectedState = v),
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            Opacity(
-              opacity: 0.8,
-              child: CustomDropdown(
-                label: "Country",
-                hintText: 'United States',
-                items: const <String>['United States'],
-                selectedItem: 'United States',
-                isEnabled: false,
-                showAsterisk: true,
-                labelStyle: TextStyle(
-                  fontSize: responsive.labelFontSize + 1,
-                  fontFamily: "Manrope",
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xff573353),
-                ),
-                selectedTextStyle: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.inputFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
-                  height: 19 / 14,
-                ),
-                popupItemTextStyle: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.inputFontSize,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xff573353),
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: responsive.isTablet ? 16.0 : 12.0,
-                  vertical: responsive.isTablet ? 16.0 : 12.0,
-                ),
-                onSelect: null,
+                ],
               ),
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Zip Code",
-              "E.g. 12345 or 12345-6789",
-              _zipCodeController,
-              isRequired: true,
-            ),
-          ],
-        ),
-      ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Email",
+                "E.g. Jessica@wowcare.com",
+                _emailController,
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Phone Number",
+                "E.g. (000) 000-0000",
+                _phoneNoController,
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Street",
+                "Eg. Street no",
+                _streetController,
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Address line 2",
+                "E.g. Address line 2",
+                _addressLine2Controller,
+                isRequired: false,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "City",
+                "Eg. Nashua",
+                _cityController,
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildCustomDropdown(
+                "State",
+                "Select",
+                _stateOptions,
+                _selectedState,
+                (v) => setState(() => _selectedState = v),
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              Opacity(
+                opacity: 0.8,
+                child: CustomDropdown(
+                  label: "Country",
+                  hintText: 'United States',
+                  items: const <String>['United States'],
+                  selectedItem: 'United States',
+                  isEnabled: false,
+                  showAsterisk: true,
+                  labelStyle: TextStyle(
+                    fontSize: responsive.labelFontSize + 1,
+                    fontFamily: "Manrope",
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xff573353),
+                  ),
+                  selectedTextStyle: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.inputFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                    height: 19 / 14,
+                  ),
+                  popupItemTextStyle: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.inputFontSize,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xff573353),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: responsive.isTablet ? 16.0 : 12.0,
+                    vertical: responsive.isTablet ? 16.0 : 12.0,
+                  ),
+                  onSelect: null,
+                ),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Zip Code",
+                "E.g. 12345 or 12345-6789",
+                _zipCodeController,
+                isRequired: true,
+              ),
+            ],
           ),
         ),
-        child: Container(
-          height: responsive.buttonHeight,
+        bottomBar: Container(
+          padding: EdgeInsets.only(
+            bottom: safeAreaBottom,
+            left: 16,
+            right: 16,
+            top: 8,
+          ),
           decoration: BoxDecoration(
-            gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: isSubmitting ? Colors.grey[300] : null,
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                offset: const Offset(0, -4),
+                blurRadius: 16,
+              ),
+            ],
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+            ),
           ),
-          child: TextButton(
-            onPressed: isSubmitting ? null : () => _saveProfileDetails(),
-            child: Text(
-              'Save',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: responsive.buttonFontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+          child: Container(
+            height: responsive.buttonHeight,
+            decoration: BoxDecoration(
+              gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
+              color: isSubmitting ? Colors.grey[300] : null,
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 16.0 : 8.0,
+              ),
+            ),
+            child: TextButton(
+              onPressed: isSubmitting ? null : () => _saveProfileDetails(),
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.buttonFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
 
   Widget _buildInputField(
-      String label,
-      String hint,
-      TextEditingController controller, {
-        bool isRequired = false,
-      }) {
+    String label,
+    String hint,
+    TextEditingController controller, {
+    bool isRequired = false,
+  }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize + 1,
@@ -544,7 +626,11 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -554,15 +640,17 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
             keyboardType: label == 'Zip Code'
                 ? TextInputType.number
                 : (label == 'Phone Number'
-                    ? TextInputType.phone
-                    : TextInputType.text),
+                      ? TextInputType.phone
+                      : TextInputType.text),
             inputFormatters: label == 'Zip Code'
                 ? <TextInputFormatter>[
                     FilteringTextInputFormatter.digitsOnly,
@@ -570,12 +658,12 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
                     _ZipCodeFormatter(),
                   ]
                 : (label == 'Phone Number'
-                    ? <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                        _UserPhoneNumberFormatter(),
-                      ]
-                    : const <TextInputFormatter>[]),
+                      ? <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                          _UserPhoneNumberFormatter(),
+                        ]
+                      : const <TextInputFormatter>[]),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),
@@ -599,13 +687,13 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
   }
 
   Widget _buildCustomDropdown(
-      String label,
-      String hintText,
-      List<String> items,
-      String? selectedItem,
-      ValueChanged<String?> onSelect, {
-        bool isRequired = false,
-      }) {
+    String label,
+    String hintText,
+    List<String> items,
+    String? selectedItem,
+    ValueChanged<String?> onSelect, {
+    bool isRequired = false,
+  }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: label,

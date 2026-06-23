@@ -86,20 +86,27 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.symmetric(vertical: 5),
-            decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: Colors.blue.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
             child: SvgPicture.asset(svgPath, height: 24, width: 24),
           ),
           const SizedBox(height: 5),
           Text(
             label,
             maxLines: 1,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, fontFamily: 'Manrope', color: AppColors.primaryColor),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              fontFamily: 'Manrope',
+              color: AppColors.primaryColor,
+            ),
           ),
         ],
       ),
     );
   }
-
 }
 
 class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
@@ -141,7 +148,11 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
         ],
       ),
       child: Column(
@@ -176,7 +187,10 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
             opacity: isDisabled ? 0.45 : 1,
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 5),
-              decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: Colors.blue.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
               child: SvgPicture.asset(svgPath, height: 24, width: 24),
             ),
           ),
@@ -186,7 +200,12 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
             child: Text(
               label,
               maxLines: 1,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, fontFamily: 'Manrope', color: AppColors.primaryColor),
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                fontFamily: 'Manrope',
+                color: AppColors.primaryColor,
+              ),
             ),
           ),
         ],
@@ -201,5 +220,3 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
     return AppTooltip(message: reason, child: item);
   }
 }
-
-

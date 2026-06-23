@@ -25,11 +25,15 @@ abstract class ConversationEntityRepository {
   ///
   /// [type] — null returns all accessible types for current user role.
   /// [page] / [size] — pagination parameters.
+  /// [designation], [staffStatus], [classroom] — STAFF_DIRECT filters only.
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   });
 
   /// Return conversations directly from Isar (no network call).
@@ -57,6 +61,25 @@ abstract class ConversationEntityRepository {
   Future<Either<Failure, ConversationEntity?>> findStaffDirectConversation(
     String recipientUserCode,
   );
+
+  /// Returns the existing active ROOM_CHAT conversation for [studentCode],
+  /// optionally narrowed to [classroomCode], or null when none exists.
+  ///
+  /// Use this before [createConversation] to avoid duplicate per-student
+  /// (or per-classroom, when known) rooms.
+  Future<Either<Failure, ConversationEntity?>> findRoomChatConversation({
+    required String studentCode,
+    String? classroomCode,
+  });
+
+  /// Returns the existing active ADMIN_CHAT conversation for [studentCode],
+  /// or null when none exists.
+  ///
+  /// Use this before [createConversation] to avoid duplicate admin threads
+  /// for the same student.
+  Future<Either<Failure, ConversationEntity?>> findAdminChatConversation({
+    required String studentCode,
+  });
 
   /// Search active and upcoming staff by name fragment.
   ///
@@ -101,6 +124,9 @@ abstract class ConversationEntityRepository {
     required String studentCode,
     String? classroomCode,
     List<String>? participantCodes,
+    String title = '',
+    String description = '',
+    String avatarUrl = '',
   });
 
   /// Add participants to an existing conversation (admin/director only).
@@ -141,6 +167,13 @@ abstract class ConversationEntityRepository {
   ///
   /// Offline behaviour: queued and retried on reconnect.
   Future<Either<Failure, void>> markConversationRead(String conversationCode);
+
+  /// Marks every unread message in [conversationCode] as delivered for the
+  /// current user — called on a new incoming message even if the thread
+  /// isn't open, so the sender's ticks advance promptly.
+  Future<Either<Failure, void>> markConversationDelivered(
+    String conversationCode,
+  );
 
   /// Sync unread counts from the backend (called on reconnect).
   Future<Either<Failure, List<UnreadEntity>>> syncUnreadCounts();

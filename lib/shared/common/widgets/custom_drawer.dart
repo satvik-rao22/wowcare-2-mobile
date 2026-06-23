@@ -271,10 +271,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
+              color: Colors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -297,7 +297,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white.withOpacity(0.15)
+                          ? Colors.white.withValues(alpha: 0.15)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -1122,7 +1122,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     ),
                                   ),
                                   onTap: () => _navigate(
-                                      MessagingScreen.newsletterRoute),
+                                    MessagingScreen.newsletterRoute,
+                                  ),
                                 ),
                             ],
                           ),
@@ -1149,8 +1150,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 leading: SvgPicture.asset(
                                   MediaRes.staff_Schedule_drawer_icon,
                                 ),
-                                onTap: () => _navigate(
-                                    StaffSchedulingScreen.routeName),
+                                onTap: () =>
+                                    _navigate(StaffSchedulingScreen.routeName),
                               ),
                             ],
                           ),

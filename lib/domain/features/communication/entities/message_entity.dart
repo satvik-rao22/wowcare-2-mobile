@@ -218,6 +218,7 @@ class AttachmentEntity extends Equatable {
     required this.uploadedAt,
     this.thumbnailUrl,
     this.localFilePath,
+    this.attachmentId,
   });
 
   final String code;
@@ -236,6 +237,13 @@ class AttachmentEntity extends Equatable {
   final String uploadedBy;
   final DateTime uploadedAt;
 
+  /// Messaging-service attachment id — what `DELETE /messages/attachments/{id}`
+  /// expects. Distinct from [code] (the document-service asset code); null
+  /// until the backend includes it on the message response (always present
+  /// once the message round-trips through the API — see
+  /// [MessageEntityRepository.deleteAttachment]).
+  final int? attachmentId;
+
   bool get isImage => attachmentType == AttachmentType.image;
   bool get isCached => localFilePath != null;
 
@@ -253,6 +261,7 @@ class AttachmentEntity extends Equatable {
         localFilePath,
         uploadedBy,
         uploadedAt,
+        attachmentId,
       ];
 }
 

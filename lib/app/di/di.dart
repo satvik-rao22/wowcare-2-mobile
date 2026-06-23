@@ -276,7 +276,11 @@ import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_usecase.dart';
 import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import '../../domain/features/communication/usecases/delete_message_usecase.dart';
+import '../../domain/features/communication/usecases/delete_attachment_usecase.dart';
 import '../../domain/features/communication/usecases/remove_reaction_legacy_usecase.dart';
+import '../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
+import '../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
+import '../../domain/features/communication/usecases/mark_conversation_delivered_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 // Communication v2.1 — Phase 1B
@@ -293,10 +297,14 @@ import '../../domain/features/communication/usecases/get_messages_entity_usecase
 import '../../domain/features/communication/usecases/send_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/delete_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
 import '../../domain/features/communication/usecases/search_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import '../../domain/features/communication/usecases/remove_reaction_usecase.dart';
 import '../../domain/features/communication/usecases/sync_pending_operations_usecase.dart';
+import '../../domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
+import '../../domain/features/communication/repositories/reaction_repository.dart';
+import '../../data/features/communication/repositories/reaction_repository_impl.dart';
 import '../../data/features/communication/datasources/conversation_entity_remote_data_source.dart';
 import '../../data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import '../../data/features/communication/datasources/message_entity_remote_data_source.dart';
@@ -313,6 +321,7 @@ import '../../domain/features/communication/usecases/watch_total_unread_count_us
 import '../../domain/features/communication/usecases/watch_messages_usecase.dart';
 import '../../domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import '../../domain/features/communication/usecases/register_firebase_token_usecase.dart';
+import '../../presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
 import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../data/features/newsletter/datasources/newsletter_remote_datasource.dart';
@@ -324,6 +333,7 @@ import '../../presentation/features/communication/presentation/messaging/cubit/n
 import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
+import '../../presentation/features/communication/presentation/messaging/util/chat_attachment_uploader.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
@@ -608,13 +618,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<ActivityRepository>(
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
-  serviceLocator.registerLazySingleton<CommunicationRepository>(
-    () => CommunicationRepositoryImpl(
-      remoteDataSource: serviceLocator(),
-      cacheService: serviceLocator(),
-    ),
-  );
-
   // ===== COMMUNICATION V2.1 — REALTIME DATA SOURCES (Firestore) =====
   serviceLocator.registerLazySingleton<ConversationRealtimeDataSource>(
     () => FirebaseConversationRealtimeDataSource(
@@ -626,6 +629,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => FirebaseMessageRealtimeDataSource(
       firestore: FirebaseFirestore.instance,
     ),
+  );
+
+  serviceLocator.registerLazySingleton<CommunicationRepository>(
+    () => CommunicationRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      cacheService: serviceLocator(),
+      conversationRealtimeDataSource: serviceLocator(),
+      messageRealtimeDataSource: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<ChatAttachmentUploader>(
+    () => ChatAttachmentUploader(serviceLocator(), serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<FirebaseTokenDataSource>(
@@ -663,12 +680,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
+  serviceLocator.registerLazySingleton<ReactionRepository>(
+    () => ReactionRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      localDataSource: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
   serviceLocator.registerLazySingleton<MessageEntityRepository>(
     () => MessageEntityRepositoryImpl(
       remoteDataSource: serviceLocator(),
       localDataSource: serviceLocator(),
       storageService: serviceLocator(),
       realtimeDataSource: serviceLocator(),
+      reactionRepository: serviceLocator(),
     ),
   );
 
@@ -1183,6 +1209,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteMessageUseCase>(
     () => DeleteMessageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<DeleteAttachmentUseCase>(
+    () => DeleteAttachmentUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<RemoveReactionLegacyUseCase>(
     () => RemoveReactionLegacyUseCase(serviceLocator()),
   );
@@ -1191,6 +1220,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ClearConversationsCacheUseCase>(
     () => ClearConversationsCacheUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchMessagesLegacyUseCase>(
+    () => WatchMessagesLegacyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchConversationsLegacyUseCase>(
+    () => WatchConversationsLegacyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkConversationDeliveredUseCase>(
+    () => MarkConversationDeliveredUseCase(serviceLocator()),
   );
 
   // ===== COMMUNICATION V2.1 — USE CASES (Phase 1C) =====
@@ -1207,6 +1245,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<CreateConversationEntityUseCase>(
     () => CreateConversationEntityUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<CreateOrOpenConversationUseCase>(
+    () => CreateOrOpenConversationUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetConversationsForStudentUseCase>(
     () => GetConversationsForStudentUseCase(serviceLocator()),
   );
@@ -1222,6 +1263,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetUnreadAggregatesUseCase>(
     () => GetUnreadAggregatesUseCase(serviceLocator()),
   );
+  // Single app-session instance — previously each consumer (GlobalScaffold,
+  // StaffAttendanceTabbedView, StudentAttendanceTabbedView) constructed its
+  // own UnreadBadgeCubit, opening up to 3x the Firestore listeners for the
+  // same data whenever more than one was mounted at once.
+  serviceLocator.registerLazySingleton<UnreadBadgeCubit>(
+    () => UnreadBadgeCubit(
+      watchUnreadCountForTypeUseCase: serviceLocator(),
+      getUnreadAggregatesUseCase: serviceLocator(),
+    ),
+  );
   // MessageEntityRepository use cases
   serviceLocator.registerFactory<GetMessagesEntityUseCase>(
     () => GetMessagesEntityUseCase(serviceLocator()),
@@ -1234,6 +1285,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteMessageEntityUseCase>(
     () => DeleteMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteAttachmentEntityUseCase>(
+    () => DeleteAttachmentEntityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<SearchMessagesUseCase>(
     () => SearchMessagesUseCase(serviceLocator()),
@@ -1589,10 +1643,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
       addReactionUseCase: serviceLocator<AddReactionUseCase>(),
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
       deleteMessageUseCase: serviceLocator<DeleteMessageUseCase>(),
+      deleteAttachmentUseCase: serviceLocator<DeleteAttachmentUseCase>(),
       removeReactionLegacyUseCase: serviceLocator<RemoveReactionLegacyUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
       clearConversationsCacheUseCase:
           serviceLocator<ClearConversationsCacheUseCase>(),
+      attachmentUploader: serviceLocator<ChatAttachmentUploader>(),
+      watchMessagesUseCase: serviceLocator<WatchMessagesLegacyUseCase>(),
+      watchConversationsUseCase:
+          serviceLocator<WatchConversationsLegacyUseCase>(),
+      markConversationDeliveredUseCase:
+          serviceLocator<MarkConversationDeliveredUseCase>(),
+      storageService: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
