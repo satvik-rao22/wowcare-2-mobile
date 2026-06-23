@@ -18,6 +18,19 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
   final AttendanceRepository _attendanceSource;
 
   @override
+  Future<void> calculate({
+    required String staffCode,
+    required DateTime from,
+    required DateTime to,
+  }) {
+    return _overviewSource.calculate(
+      staffCode: staffCode,
+      fromDate: _fmt(from),
+      toDate: _fmt(to),
+    );
+  }
+
+  @override
   Future<StaffOvertimeProfile> getOverview({
     required String staffCode,
     String staffName = '',

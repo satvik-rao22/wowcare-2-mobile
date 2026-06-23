@@ -5,6 +5,7 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import '../data/datasources/staff_overtime_remote_datasource.dart';
 import '../data/repositories/attendance_v2_repository_impl.dart';
 import '../domain/repositories/attendance_v2_repository.dart';
+import '../domain/usecases/calculate_overtime_usecase.dart';
 import '../domain/usecases/get_day_detail_usecase.dart';
 import '../domain/usecases/get_staff_overview_usecase.dart';
 import '../presentation/cubit/staff_detail_cubit.dart';
@@ -23,6 +24,9 @@ void registerAttendanceV2(GetIt sl) {
       sl<AttendanceRepository>(),
     ),
   );
+  sl.registerFactory<CalculateOvertimeUseCase>(
+    () => CalculateOvertimeUseCase(sl<AttendanceV2Repository>()),
+  );
   sl.registerFactory<GetStaffOverviewUseCase>(
     () => GetStaffOverviewUseCase(sl<AttendanceV2Repository>()),
   );
@@ -31,6 +35,7 @@ void registerAttendanceV2(GetIt sl) {
   );
   sl.registerFactory<StaffDetailCubit>(
     () => StaffDetailCubit(
+      calculateOvertimeUseCase: sl(),
       getStaffOverviewUseCase: sl(),
       getDayDetailUseCase: sl(),
     ),

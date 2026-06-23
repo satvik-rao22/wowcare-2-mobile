@@ -76,11 +76,15 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
             return _ErrorState(message: state.errorMessage, onRetry: _fetch);
           }
           if (state.isLoaded) {
-            return StaffDetailView(
-              profile: state.profile!,
-              period: _period,
-              loadDetail: _cubit.dayDetail,
-              onPeriodChanged: _onPeriodChanged,
+            return RefreshIndicator(
+              color: Av2Colors.theme,
+              onRefresh: _cubit.refresh,
+              child: StaffDetailView(
+                profile: state.profile!,
+                period: _period,
+                loadDetail: _cubit.dayDetail,
+                onPeriodChanged: _onPeriodChanged,
+              ),
             );
           }
           return const Center(

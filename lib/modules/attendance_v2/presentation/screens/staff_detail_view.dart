@@ -74,10 +74,12 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     final pad = Av2Breakpoints.screenPadding(f);
     final filtered = _filter.apply(_profile.days);
 
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: Av2Spacing.contentMaxWidth),
         child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(pad, Av2Spacing.xs, pad, Av2Spacing.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -106,6 +108,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     const pad = Av2Spacing.screenPadDesktop;
 
     return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(pad, Av2Spacing.xs, pad, Av2Spacing.xl),
       child: Center(
         child: ConstrainedBox(

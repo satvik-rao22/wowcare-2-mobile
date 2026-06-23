@@ -3,6 +3,14 @@ import '../entities/staff_overtime_profile.dart';
 
 /// Read interface for the Attendance V2 detail screen.
 abstract class AttendanceV2Repository {
+  /// Triggers the server-side overtime recompute for the range (must run
+  /// before [getOverview] returns fresh data).
+  Future<void> calculate({
+    required String staffCode,
+    required DateTime from,
+    required DateTime to,
+  });
+
   /// Loads the per-day overview (summary + day rollups, no sessions) for a
   /// staff member over a date range.
   Future<StaffOvertimeProfile> getOverview({
