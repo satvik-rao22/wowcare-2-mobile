@@ -421,8 +421,10 @@ import '../../domain/features/billing/usecases/set_primary_payment_method_usecas
 import '../../domain/features/billing/usecases/set_autopay_method_usecase.dart';
 import '../../domain/features/billing/usecases/delete_payment_method_usecase.dart';
 import '../../domain/features/billing/usecases/update_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/guardian_pay_usecase.dart';
 import '../../presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
 import '../../presentation/features/billing/cubit/pay_now_cubit.dart';
+import '../../presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
 import '../../domain/features/billing/usecases/create_discount_usecase.dart';
 import '../../domain/features/billing/usecases/update_discount_usecase.dart';
 import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
@@ -2217,7 +2219,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PayNowCubit>(
     () => PayNowCubit(
-      getFamilySummary: serviceLocator<GetFamilySummaryUseCase>(),
+      getGuardianFamilyLedger:
+          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GuardianPayUseCase>(
+    () => GuardianPayUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PayNowAuthorizeCubit>(
+    () => PayNowAuthorizeCubit(
+      guardianPay: serviceLocator<GuardianPayUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

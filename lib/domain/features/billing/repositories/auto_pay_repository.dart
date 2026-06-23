@@ -47,4 +47,8 @@ abstract class AutoPayRepository {
     required String paymentMethodCode,
     required UpdatePaymentMethodParams params,
   });
+
+  /// Charges a guardian's saved payment method (Pay Now). The
+  /// [GuardianPayParams.idempotencyKey] dedupes retries of one attempt.
+  Future<GuardianPayResultEntity> guardianPay(GuardianPayParams params);
 }

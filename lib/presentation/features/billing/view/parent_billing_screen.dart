@@ -115,6 +115,11 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
     return SiblingCardsWidget(
       students: state.students,
       currentBalance: state.openBalance,
+      paid: state.paid,
+      netPaid: state.netPaid,
+      refunded: state.refunded,
+      unpaid: state.unpaid,
+      inProcess: state.inProcess,
       isPaymentLoading: state.isPaymentLoading,
       isAutoPayLoading: state.isAutoPayLoading,
       onPayNow: () async {

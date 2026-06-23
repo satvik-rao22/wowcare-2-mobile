@@ -156,4 +156,12 @@ class AutoPayRepositoryImpl implements AutoPayRepository {
     );
     return model.toEntity();
   }
+
+  @override
+  Future<GuardianPayResultEntity> guardianPay(GuardianPayParams params) async {
+    final model = await _dataSource.guardianPay(
+      GuardianPayRequestModel(params),
+    );
+    return model.toEntity();
+  }
 }

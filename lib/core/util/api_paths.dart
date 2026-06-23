@@ -995,6 +995,10 @@ class ApiPaths {
   static const String paymentGatewayMethods =
       '/api/v1/payment-gateway/payment-methods';
 
+  /// Charge a guardian's saved payment method (Pay Now).
+  static const String paymentGatewayGuardianPay =
+      '/api/v1/payment-gateway/guardian/pay';
+
   /// A single saved payment method (used for DELETE).
   static String paymentGatewayMethodByCode(String paymentMethodCode) =>
       '/api/v1/payment-gateway/payment-methods/'

@@ -47,6 +47,7 @@ abstract class AutoPayRemoteDataSource {
     required String paymentMethodCode,
     required UpdatePaymentMethodRequestModel request,
   });
+  Future<GuardianPayResultModel> guardianPay(GuardianPayRequestModel request);
 }
 
 class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
@@ -228,6 +229,19 @@ class AutoPayRemoteDataSourceImpl implements AutoPayRemoteDataSource {
     );
     final data = response.data?['data'];
     return PaymentMethodModel.fromJson(
+      data is Map<String, dynamic> ? data : <String, dynamic>{},
+    );
+  }
+
+  @override
+  Future<GuardianPayResultModel> guardianPay(
+      GuardianPayRequestModel request) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      ApiPaths.url(ApiPaths.paymentGatewayGuardianPay),
+      data: request.toJson(),
+    );
+    final data = response.data?['data'];
+    return GuardianPayResultModel.fromJson(
       data is Map<String, dynamic> ? data : <String, dynamic>{},
     );
   }

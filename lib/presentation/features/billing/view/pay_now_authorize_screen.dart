@@ -1,22 +1,33 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
+import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
-/// Pay Now — step 3: review + authorize. Our own screen (not Forte's hosted
-/// page). There is no authorize API yet, so Confirm Payment is mocked.
+/// Pay Now — step 3: review + authorize. Charges the selected saved method via
+/// `POST /payment-gateway/guardian/pay`, using the idempotency key created on
+/// step 2 so retries don't double-charge.
 class PayNowAuthorizeScreen extends StatefulWidget {
   const PayNowAuthorizeScreen({
     super.key,
     required this.method,
     required this.amount,
+    required this.charges,
   });
 
   final PaymentMethodEntity method;
+
+  /// Total across all family charges (for the review/fee display).
   final double amount;
+
+  /// One charge per family being paid; each carries its own `MOBILE-<uuid>`
+  /// idempotency key minted on step 2 and reused across retries.
+  final List<PayNowCharge> charges;
 
   @override
   State<PayNowAuthorizeScreen> createState() => _PayNowAuthorizeScreenState();
@@ -25,9 +36,26 @@ class PayNowAuthorizeScreen extends StatefulWidget {
 class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
   static const Color _accent = Color(0xFF6F8CFF);
 
-  bool _authorizing = false;
+  final PayNowAuthorizeCubit _cubit = serviceLocator<PayNowAuthorizeCubit>();
+
+  bool get _authorizing => _cubit.state.isSubmitting;
 
   bool get _isEcheck => widget.method.isEcheck;
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
+
+  /// Holder name sent to the gateway (card or ACH account holder).
+  String get _holderName {
+    final m = widget.method;
+    final raw = (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard) ??
+        m.label ??
+        '';
+    return raw.trim();
+  }
 
   /// 3% for cards, flat $1.00 for ACH (matches the add-method fee note).
   double get _fee => _isEcheck ? 1.00 : widget.amount * 0.03;
@@ -45,6 +73,15 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<PayNowAuthorizeCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<PayNowAuthorizeCubit, PayNowAuthorizeState>(
+        builder: (context, state) => _buildContent(context),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     return StaffFormLayout(
       title: 'Pay Now',
       bottomBar: const SizedBox.shrink(),
@@ -297,19 +334,34 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
     }
   }
 
-  /// Mocked confirm: no backend authorize API yet. Simulates success and closes
-  /// the whole Pay Now flow.
+  /// Charges the selected method via the payment gateway. Reuses the step-2
+  /// idempotency key so a retry after a failure/timeout can't double-charge.
   Future<void> _confirm() async {
-    setState(() => _authorizing = true);
-    await Future<void>.delayed(const Duration(milliseconds: 900));
-    if (!mounted) return;
-    setState(() => _authorizing = false);
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Payment of \$${_money(_total)} confirmed',
-      isSuccess: true,
+    final ok = await _cubit.payMany(
+      charges: widget.charges,
+      paymentMethodCode: widget.method.code,
+      payMethodHolderName: _holderName,
     );
-    Navigator.of(context).popUntil((route) => route.isFirst);
+    if (!mounted) return;
+    if (ok) {
+      final result = _cubit.state.result;
+      final bool initiated = result != null &&
+          (result.status.toUpperCase() == 'INITIATED' ||
+              result.status.toUpperCase() == 'PENDING');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Payment of \$${_money(_total)} ${initiated ? 'initiated' : 'confirmed'}',
+        isSuccess: true,
+      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } else {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: _cubit.state.errorMessage ?? 'Payment could not be processed.',
+        isError: true,
+      );
+    }
   }
 
   String _money(double v) => v.toStringAsFixed(2);

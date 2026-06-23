@@ -36,6 +36,11 @@ class ParentBillingState extends Equatable {
 
   bool get hasDateRange => startDate != null && endDate != null;
   double get openBalance => ledger?.openBalance ?? 0;
+  double get paid => ledger?.paid ?? 0;
+  double get refunded => ledger?.refunded ?? 0;
+  double get netPaid => ledger?.netPaid ?? 0;
+  double get inProcess => ledger?.inProcess ?? 0;
+  double get unpaid => ledger?.unpaid ?? 0;
   List<FamilyLedgerPersonEntity> get students =>
       ledger?.students ?? const [];
 
