@@ -30,6 +30,8 @@ class TransactionsSection extends StatefulWidget {
     this.onRegisterRefresh,
     this.onRegisterLoadNextPage,
     this.onLoadMoreNeeded,
+    this.initialFilter,
+    this.onNavigateToOutstanding,
   });
 
   /// Lets the parent (Billing page) trigger a pull-to-refresh of this tab.
@@ -41,6 +43,14 @@ class TransactionsSection extends StatefulWidget {
   /// Asks the parent to re-check whether the next page should load (e.g. when
   /// the current content doesn't fill the viewport).
   final VoidCallback? onLoadMoreNeeded;
+
+  /// A summary-card filter to apply on first load — set when the user taps a
+  /// filter on the Student(s) tab and is routed here. Ignored for Outstanding.
+  final BillingSummaryFilter? initialFilter;
+
+  /// Routes an Outstanding tap back to the Student(s) tab (Outstanding lives
+  /// there, not in the Transactions list).
+  final VoidCallback? onNavigateToOutstanding;
 
   @override
   State<TransactionsSection> createState() => _TransactionsSectionState();
@@ -54,7 +64,13 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   void initState() {
     super.initState();
     _cubit.loadOverview();
-    _cubit.loadTransactions();
+    final TransactionFilter? initial =
+        transactionFilterOf(widget.initialFilter);
+    if (initial != null) {
+      _cubit.applyFilter(initial);
+    } else {
+      _cubit.loadTransactions();
+    }
     widget.onRegisterRefresh?.call(_refresh);
     widget.onRegisterLoadNextPage?.call(_cubit.loadNextPage);
   }
@@ -120,6 +136,8 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                   inProcessAmount: state.inProcessAmount,
                   outstandingAmount: state.outstandingAmount,
                   refundedAmount: state.refundedAmount,
+                  selectedFilter: billingFilterOf(state.activeFilter),
+                  onFilterTap: _onFilterTap,
                 ),
                 const SizedBox(height: 12),
                 _buildSearchBar(context),
@@ -243,9 +261,23 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     );
   }
 
+  /// Handles a summary-card tap. The four list filters scope the Transactions
+  /// list in place (re-tapping the active one clears it); Outstanding routes
+  /// back to the Student(s) tab.
+  void _onFilterTap(BillingSummaryFilter filter) {
+    if (filter == BillingSummaryFilter.outstanding) {
+      widget.onNavigateToOutstanding?.call();
+      return;
+    }
+    final tapped = transactionFilterOf(filter);
+    final next = _cubit.state.activeFilter == tapped ? null : tapped;
+    _cubit.applyFilter(next);
+  }
+
   void _clearSearch() {
     _searchController.clear();
     _cubit.clearSearch();
+    _cubit.applyFilter(null);
   }
 
   void _showMessageUnavailable() {

@@ -5,7 +5,8 @@ enum PayNowAmountMode { currentOutstanding, custom }
 class PayNowState extends Equatable {
   const PayNowState({
     this.isLoading = true,
-    this.families = const <FamilySummaryEntity>[],
+    this.ledger,
+    this.guardianCode = '',
     this.mode = PayNowAmountMode.currentOutstanding,
     this.currentAmount = 0,
     this.customAmounts = const <String, double>{},
@@ -13,40 +14,47 @@ class PayNowState extends Equatable {
   });
 
   final bool isLoading;
-  final List<FamilySummaryEntity> families;
+  final FamilyLedgerEntity? ledger;
+
+  /// The logged-in guardian's code — appended to the payment idempotency key.
+  final String guardianCode;
   final PayNowAmountMode mode;
 
-  /// Amount entered for the "Current Outstanding (Family Balance)" option.
+  /// Amount for the "Current Outstanding" option (seeded with the family's
+  /// unpaid total).
   final double currentAmount;
 
-  /// Per-owner amounts (keyed by ownerCode) for the "Custom Amount" option.
+  /// Per-child amounts (keyed by student code) for the "Custom Amount" option.
   final Map<String, double> customAmounts;
 
   final String? errorMessage;
 
-  /// Sum of all owners' open balances.
-  double get familyTotal =>
-      families.fold<double>(0, (sum, f) => sum + f.openBalance);
+  /// The children in this family, each with their own outstanding balance.
+  List<FamilyLedgerPersonEntity> get students => ledger?.students ?? const [];
 
-  /// Sum of the per-owner custom amounts entered.
+  /// The family's unpaid total — what "Current Outstanding" charges.
+  double get unpaid => ledger?.unpaid ?? 0;
+
+  String get ownerType => ledger?.ownerType ?? '';
+  String get ownerCode => ledger?.ownerCode ?? '';
+
+  /// Sum of the per-child custom amounts entered.
   double get customTotal =>
       customAmounts.values.fold<double>(0, (sum, v) => sum + v);
 
   /// The amount that will actually be charged based on the selected mode.
-  double get amount => mode == PayNowAmountMode.custom
-      ? customTotal
-      : currentAmount;
+  double get amount =>
+      mode == PayNowAmountMode.custom ? customTotal : currentAmount;
 
   bool get canConfirm {
     if (isLoading) return false;
-    // Custom amount: let it proceed with whatever was entered (incl. 0) for now.
-    if (mode == PayNowAmountMode.custom) return true;
     return amount > 0;
   }
 
   PayNowState copyWith({
     bool? isLoading,
-    List<FamilySummaryEntity>? families,
+    FamilyLedgerEntity? Function()? ledger,
+    String? guardianCode,
     PayNowAmountMode? mode,
     double? currentAmount,
     Map<String, double>? customAmounts,
@@ -54,7 +62,8 @@ class PayNowState extends Equatable {
   }) {
     return PayNowState(
       isLoading: isLoading ?? this.isLoading,
-      families: families ?? this.families,
+      ledger: ledger != null ? ledger() : this.ledger,
+      guardianCode: guardianCode ?? this.guardianCode,
       mode: mode ?? this.mode,
       currentAmount: currentAmount ?? this.currentAmount,
       customAmounts: customAmounts ?? this.customAmounts,
@@ -65,7 +74,8 @@ class PayNowState extends Equatable {
   @override
   List<Object?> get props => [
         isLoading,
-        families,
+        ledger,
+        guardianCode,
         mode,
         currentAmount,
         customAmounts,

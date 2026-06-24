@@ -66,6 +66,11 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
   final UpdateNotificationPreferencesUseCase _updatePreferences;
   final StorageService _storage;
 
+  /// Row titles the user actually toggled this session. Only these are sent on
+  /// save — so tapping one row PATCHes just that row's definition codes, not the
+  /// whole matrix.
+  final Set<String> _changedRowTitles = <String>{};
+
   // Channel indices within each row's `[inApp, email, push]` list.
   static const int _inApp = 0;
   static const int _email = 1;
@@ -88,8 +93,9 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
         organizationCode: organizationCode,
       );
 
+      _changedRowTitles.clear();
       emit(state.copyWith(
-        settings: _foldOntoMatrix(prefs),
+        settings: _foldOntoMatrix(prefs, role),
         isLoading: false,
       ));
     } catch (e) {
@@ -108,6 +114,7 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
         entry.key: List<bool>.from(entry.value),
     };
     updated[key]![index] = value;
+    _changedRowTitles.add(key);
     emit(state.copyWith(settings: updated, saved: false));
   }
 
@@ -121,11 +128,19 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
       final organizationCode = await _read(StorageKeys.organizationCode);
       final role = await _resolveRole(roleFallback);
 
+      // Send ONLY the rows the user toggled (scoped to the active role). Each
+      // changed row still fans out to all of its definition codes.
       final updates = <NotificationPreferenceUpdate>[];
-      for (final group in NotificationPreferenceCatalog.groups) {
+      for (final group in NotificationPreferenceCatalog.groupsForRole(role)) {
+        if (!_changedRowTitles.contains(group.title)) continue;
         final row = state.settings[group.title];
         if (row == null) continue;
         for (final code in group.definitionCodes) {
+          // Only send codes the backend recognises — unknown codes 500 it.
+          if (!NotificationPreferenceCatalog.allowedDefinitionCodes
+              .contains(code)) {
+            continue;
+          }
           updates.add(NotificationPreferenceUpdate(
             definitionCode: code,
             enabledInApp: row[_inApp],
@@ -133,6 +148,12 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
             enabledPush: row[_push],
           ));
         }
+      }
+
+      // Nothing changed → no-op save (don't PATCH an empty list).
+      if (updates.isEmpty) {
+        emit(state.copyWith(isSaving: false, saved: true));
+        return true;
       }
 
       await _updatePreferences(
@@ -145,6 +166,7 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
         ),
       );
 
+      _changedRowTitles.clear();
       emit(state.copyWith(isSaving: false, saved: true));
       return true;
     } catch (e) {
@@ -155,13 +177,17 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
 
   /// Builds the row matrix from the API response. Each row takes the channel
   /// flags of the first of its definition codes present in [prefs]; rows with no
-  /// matching code keep their default.
-  Map<String, List<bool>> _foldOntoMatrix(List<NotificationPreference> prefs) {
+  /// matching code are left **unticked** (all channels off) — so when the GET
+  /// returns no data, every checkbox shows empty rather than the seeded default.
+  Map<String, List<bool>> _foldOntoMatrix(
+      List<NotificationPreference> prefs, String role) {
     final byCode = <String, NotificationPreference>{
       for (final p in prefs) p.definitionCode: p,
     };
     final matrix = _defaultSettings();
-    for (final group in NotificationPreferenceCatalog.groups) {
+    // Fold only the active role's rows so a code shared by an admin row and a
+    // parent row doesn't cross-populate the wrong persona's matrix.
+    for (final group in NotificationPreferenceCatalog.groupsForRole(role)) {
       if (!matrix.containsKey(group.title)) continue;
       for (final code in group.definitionCodes) {
         final pref = byCode[code];
@@ -183,75 +209,57 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
 
   Future<String> _resolveRole(String? fallback) async {
     final stored = await _read(StorageKeys.activeSchoolRole);
-    if (stored.isNotEmpty) return stored;
-    return (fallback ?? '').trim();
+    final raw = stored.isNotEmpty ? stored : (fallback ?? '').trim();
+    return _normalizeRole(raw);
   }
 
-  // first bool = in-app, second bool = email, third bool = push
-  static Map<String, List<bool>> _defaultSettings() => {
-        'Receive a message from staff': [true, true, false],
-        'Receive a message from parents': [true, true, false],
-        'Ratio is breached': [true, true, false],
-        'Student is signed‑in / signed‑out (or marked absent)': [
-          true,
-          true,
-          false
-        ],
-        'Newsletter is received': [true, true, true],
-        'Student’s birthday': [true, true, false],
-        'Sign‑in alert just after shift start time (if not already done)': [
-          true,
-          true,
-          false
-        ],
-        'Sign‑out alert just after shift end time (if not already done)': [
-          true,
-          true,
-          false
-        ],
-        'My schedule when published/updated': [true, true, true],
-        'Students – Immunization (not added, upcoming, expiry/overdue)': [
-          true,
-          true,
-          true
-        ],
-        'Students & Staff – Physical examination (not added, upcoming, expiry/overdue)':
-            [true, true, true],
-        'Students & Staff – Documents (expiry/overdue)': [true, true, true],
-        'Students & Staff – Other details (not added, edits)': [
-          true,
-          true,
-          true
-        ],
-        'Payment refunded / Failed': [true, true, true],
-        'Upcoming student starting the school': [true, true, true],
-        'Upcoming room movements': [true, true, true],
-        'Overdue room movements': [true, true, true],
-        'Classroom shifts/schedule needs attention': [true, true, true],
-        'Today’s attendance is not marked for Students & Staff': [
-          false,
-          false,
-          true
-        ],
-        'Incident is approved/rejected/acknowledged': [true, true, true],
-        'My child is signed‑in/signed‑out or marked absent': [
-          true,
-          true,
-          false
-        ],
-        'New activity is recorded for my child': [true, true, false],
-        'Invoice is received': [true, true, true],
-        'Payment is successful / failed': [true, true, true],
-        'My child’s profile/details are updated': [true, true, false],
-        'Sign‑in alert just after start time (if not already done)': [
-          true,
-          true,
-          false
-        ],
-        'Sign‑out alert just after end time (if not already done)': [
-          true,
-          true,
-          false
-        ],
+  /// Collapses backend role codes (e.g. SCHOOL_ADMIN, ORGANIZATION_ADMIN,
+  /// TEACHER) into the enum the notification service expects:
+  /// ADMIN | GUARDIAN | STAFF. Anything unrecognised (incl. empty) → STAFF.
+  String _normalizeRole(String raw) {
+    final r = raw.trim().toUpperCase();
+    if (r.contains('GUARDIAN') || r.contains('PARENT')) return 'GUARDIAN';
+    if (r.contains('ADMIN')) return 'ADMIN';
+    return 'STAFF';
+  }
+
+  /// Row titles shown on the settings screen (must match the screen's keys
+  /// byte-for-byte, incl. non-breaking hyphen `‑` and curly apostrophe `’`).
+  ///
+  /// No seeded channel values: every row starts **unticked**. Ticked state comes
+  /// only from the API response (see [_foldOntoMatrix]).
+  static const List<String> _rowTitles = <String>[
+    'Receive a message from staff',
+    'Receive a message from parents',
+    'Ratio is breached',
+    'Student is signed‑in / signed‑out (or marked absent)',
+    'Newsletter is received',
+    'Student’s birthday',
+    'Sign‑in alert just after shift start time (if not already done)',
+    'Sign‑out alert just after shift end time (if not already done)',
+    'My schedule when published/updated',
+    'Students – Immunization (not added, upcoming, expiry/overdue)',
+    'Students & Staff – Physical examination (not added, upcoming, expiry/overdue)',
+    'Students & Staff – Documents (expiry/overdue)',
+    'Students & Staff – Other details (not added, edits)',
+    'Payment refunded / Failed',
+    'Upcoming student starting the school',
+    'Upcoming room movements',
+    'Overdue room movements',
+    'Classroom shifts/schedule needs attention',
+    'Today’s attendance is not marked for Students & Staff',
+    'Incident is approved/rejected/acknowledged',
+    'My child is signed‑in/signed‑out or marked absent',
+    'New activity is recorded for my child',
+    'Invoice is received',
+    'Payment is successful / failed',
+    'My child’s profile/details are updated',
+    'Sign‑in alert just after start time (if not already done)',
+    'Sign‑out alert just after end time (if not already done)',
+  ];
+
+  // first bool = in-app, second bool = email, third bool = push (all off).
+  static Map<String, List<bool>> _defaultSettings() => <String, List<bool>>{
+        for (final title in _rowTitles) title: <bool>[false, false, false],
       };
 }

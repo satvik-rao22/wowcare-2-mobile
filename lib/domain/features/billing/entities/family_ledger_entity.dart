@@ -35,6 +35,7 @@ class FamilyLedgerTransactionEntity extends Equatable {
     required this.amount,
     required this.balance,
     required this.paidAmount,
+    required this.refundedAmount,
     required this.ledgerDelta,
     this.date,
   });
@@ -53,6 +54,10 @@ class FamilyLedgerTransactionEntity extends Equatable {
   final double amount;
   final double balance;
   final double paidAmount;
+
+  /// Amount already refunded against this invoice (max refundable = amount −
+  /// refundedAmount).
+  final double refundedAmount;
   final double ledgerDelta;
   final DateTime? date;
 
@@ -72,6 +77,7 @@ class FamilyLedgerTransactionEntity extends Equatable {
         amount,
         balance,
         paidAmount,
+        refundedAmount,
         ledgerDelta,
         date,
       ];

@@ -6,6 +6,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/view/Accounting/students.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
@@ -54,6 +55,28 @@ class _BillingScreenState extends State<BillingScreen>
   VoidCallback? _ledgerLoadNextFn;
   VoidCallback? _discountLoadNextFn;
   VoidCallback? _transactionsLoadNextFn;
+
+  /// One-shot hand-off of a summary-card filter across a tab switch. Consumed
+  /// (and cleared) by the destination tab's section on its next build.
+  BillingSummaryFilter? _pendingTransactionFilter;
+  bool _pendingStudentOutstanding = false;
+
+  static const int _studentsTabIndex = 0;
+  static const int _transactionsTabIndex = 1;
+
+  /// Switches to the Transactions tab with [filter] pre-applied (from a tap on
+  /// the Student(s) summary card).
+  void _openTransactionsWithFilter(BillingSummaryFilter filter) {
+    _pendingTransactionFilter = filter;
+    _tabController?.animateTo(_transactionsTabIndex);
+  }
+
+  /// Switches to the Student(s) tab with the outstanding-only filter enabled
+  /// (from an Outstanding tap on the Transactions summary card).
+  void _openStudentsOutstanding() {
+    _pendingStudentOutstanding = true;
+    _tabController?.animateTo(_studentsTabIndex);
+  }
 
   @override
   void initState() {
@@ -356,12 +379,24 @@ class _BillingScreenState extends State<BillingScreen>
                               final int current = controller.index;
                               Widget content;
                               if (current == 0) {
+                                // Consume the one-shot Outstanding hand-off so
+                                // it only applies on the triggering switch.
+                                final bool showOutstanding =
+                                    _pendingStudentOutstanding;
+                                _pendingStudentOutstanding = false;
                                 content = StudentsAccountingSection(
                                   onRegisterRefresh: (fn) {
                                     _studentsRefreshFn = fn;
                                   },
+                                  initialShowOutstanding: showOutstanding,
+                                  onNavigateToTransactions:
+                                      _openTransactionsWithFilter,
                                 );
                               } else if (current == 1) {
+                                // Consume the one-shot filter hand-off.
+                                final BillingSummaryFilter? pendingFilter =
+                                    _pendingTransactionFilter;
+                                _pendingTransactionFilter = null;
                                 content = TransactionsSection(
                                   onRegisterRefresh: (fn) {
                                     _transactionsRefreshFn = fn;
@@ -370,6 +405,9 @@ class _BillingScreenState extends State<BillingScreen>
                                     _transactionsLoadNextFn = fn;
                                   },
                                   onLoadMoreNeeded: _maybeLoadNextPage,
+                                  initialFilter: pendingFilter,
+                                  onNavigateToOutstanding:
+                                      _openStudentsOutstanding,
                                 );
                               } else if (current == 2) {
                                 content = GeneralLedgerSection(

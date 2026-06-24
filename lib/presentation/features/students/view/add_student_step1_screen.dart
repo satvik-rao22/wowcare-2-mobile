@@ -832,10 +832,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       }
 
-      // Link siblings after guardians (PUT /api/v1/student/student/{code}/siblings).
+      // Link siblings after guardians (POST /api/v1/student/{code}/add-sibling).
       if (siblingCodesToLink.isNotEmpty) {
         try {
-          await repo.updateStudentSiblings(
+          await repo.addStudentSibling(
             studentCode: student.code,
             siblingCodes: siblingCodesToLink,
           );
