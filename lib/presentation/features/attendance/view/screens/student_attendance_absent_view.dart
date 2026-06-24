@@ -10,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_shimmer.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -141,6 +142,8 @@ class _StudentAttendanceAbsentViewState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
+    // Resolve the school timezone, then re-seed the default range if it differs.
+    _initSchoolTimezone();
   }
 
   void _onRefreshRequested() => refreshAfterReturningFromAttendanceFlow();
@@ -294,9 +297,28 @@ class _StudentAttendanceAbsentViewState
   }
 
   void _initializeDefaultRange() {
-    final now = DateTime.now();
+    final now = attendanceSchoolToday();
     _rangeStart ??= DateTime(now.year, now.month, 1);
     _rangeEnd ??= DateTime(now.year, now.month + 1, 0);
+  }
+
+  Future<void> _initSchoolTimezone() async {
+    final beforeStart = _rangeStart;
+    final beforeEnd = _rangeEnd;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final now = attendanceSchoolToday();
+    final schoolStart = DateTime(now.year, now.month, 1);
+    final schoolEnd = DateTime(now.year, now.month + 1, 0);
+    if (beforeStart == _rangeStart &&
+        beforeEnd == _rangeEnd &&
+        (_rangeStart != schoolStart || _rangeEnd != schoolEnd)) {
+      setState(() {
+        _rangeStart = schoolStart;
+        _rangeEnd = schoolEnd;
+      });
+      _loadInitialData();
+    }
   }
 
   void _onSearchChanged() {
@@ -373,8 +395,8 @@ class _StudentAttendanceAbsentViewState
   }) async {
     // Try cache first to mirror cache integration used in student lists.
     if (!reset) {
-      final from = _rangeStart ?? DateTime.now();
-      final to = _rangeEnd ?? DateTime.now();
+      final from = _rangeStart ?? attendanceSchoolToday();
+      final to = _rangeEnd ?? attendanceSchoolToday();
       final classroomCodes = _effectiveClassroomCodes();
       final tagCodes = _resolveSelectedTagCodes();
       final trimmedSearch = _searchQuery.trim();
@@ -483,8 +505,8 @@ class _StudentAttendanceAbsentViewState
 
       // Cache first page keyed by filters so it can be reused on next load.
       if (_studentsPage == 0) {
-        final from = _rangeStart ?? DateTime.now();
-        final to = _rangeEnd ?? DateTime.now();
+        final from = _rangeStart ?? attendanceSchoolToday();
+        final to = _rangeEnd ?? attendanceSchoolToday();
         final cacheKey = _studentAttendanceAbsentCacheKey(
           from,
           to,
@@ -605,8 +627,8 @@ class _StudentAttendanceAbsentViewState
 
       final absenceDateStr = m['absenceDate'] as String? ?? '';
       final absenceDate = absenceDateStr.isNotEmpty
-          ? DateTime.tryParse(absenceDateStr) ?? DateTime.now()
-          : DateTime.now();
+          ? DateTime.tryParse(absenceDateStr) ?? attendanceSchoolToday()
+          : attendanceSchoolToday();
 
       final classroomName = (m['classroomName'] as String?)?.trim() ?? '';
       final classroomCode = (m['classroomCode'] as String?)?.trim() ?? '';
@@ -734,7 +756,7 @@ class _StudentAttendanceAbsentViewState
                                   _selectedClassroomCodes = null;
                                   _selectedTagNames = <String>[];
                                   // Reset to current month
-                                  final now = DateTime.now();
+                                  final now = attendanceSchoolToday();
                                   _rangeStart = DateTime(
                                     now.year,
                                     now.month,

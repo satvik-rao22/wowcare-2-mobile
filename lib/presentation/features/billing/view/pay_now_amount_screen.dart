@@ -413,6 +413,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       familyName: state.ledger?.familyName ?? '',
       amount: total,
       idempotencyKey: idempotencyKey,
+      // Custom mode splits the amount per child; Current Outstanding leaves
+      // allocations empty so the backend applies it family-wide (oldest first).
+      allocations: state.allocations,
     );
 
     // Step 2: the Saved Payment Methods picker (AutoPay UI without auto-pay).
@@ -430,7 +433,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     await (_settingsFuture ??= _settingsCubit.load());
     if (!mounted) return;
     // Step 3: review + authorize (real charge via the payment gateway).
-    await Navigator.of(context).push(
+    final paid = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PayNowAuthorizeScreen(
           method: method,
@@ -440,6 +443,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
         ),
       ),
     );
+    // A payment was made — dismiss the entry screen and signal the billing
+    // screen to reload its ledger so the new transaction appears.
+    if (paid == true && mounted) Navigator.of(context).pop(true);
   }
 
   String _money(double v) => v.toStringAsFixed(2);

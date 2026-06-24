@@ -376,7 +376,10 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
             'Payment of \$${_money(total)} ${initiated ? 'initiated' : 'confirmed'}',
         isSuccess: true,
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // Return `true` so the amount screen (and then the billing screen) can
+      // reload the family ledger — the new payment shows as In Process and
+      // later flips to Success/Failed once settled.
+      Navigator.of(context).pop(true);
     } else {
       CoreUtils.showTopSnackBar(
         context: context,

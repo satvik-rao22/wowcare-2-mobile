@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -226,7 +227,8 @@ class _StudentSelectionSignInFormState
     });
 
     try {
-      final today = DateTime.now();
+      await bootstrapAttendanceSchoolTimezone();
+      final today = attendanceSchoolToday();
       final dateString = _formatDate(today);
 
       final selectedClassroomCode = _selectedClassroomCode?.trim();

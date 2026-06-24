@@ -125,11 +125,14 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       isAutoPayLoading: state.isAutoPayLoading,
       onPayNow: () async {
         if (state.isPaymentLoading) return;
-        await Navigator.of(context).push(
+        final paid = await Navigator.of(context).push<bool>(
           MaterialPageRoute(
             builder: (_) => const PayNowAmountScreen(),
           ),
         );
+        // Reload the ledger so the just-made payment appears (In Process →
+        // Success/Failed once settled).
+        if (paid == true && mounted) _cubit.refresh();
       },
       onAutoPay: () async {
         if (state.isAutoPayLoading) return;

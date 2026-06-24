@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_summary.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/student_attendance_absent_card.dart';
@@ -61,6 +62,7 @@ class StudentAttendanceDailyViewScreen extends StatefulWidget {
     this.staffAllowedClassroomIds,
     this.highlightCode,
     this.onAttendanceMutated,
+    this.refreshNotifier,
   });
 
   final String? incomingFilter;
@@ -68,6 +70,11 @@ class StudentAttendanceDailyViewScreen extends StatefulWidget {
   final FilterData? classroomFilter;
   final List<String>? staffAllowedClassrooms;
   final List<int>? staffAllowedClassroomIds;
+
+  /// Bumped by the tabbed shell after ANY attendance action (including bulk
+  /// actions from the floating popup) so this Daily tab reloads — not just the
+  /// Custom/Absent tabs.
+  final ValueNotifier<int>? refreshNotifier;
 
   /// Student code from a notification deep-link; the matching attendance card
   /// scrolls into view, expands, and flashes once.
@@ -87,7 +94,9 @@ class _StudentAttendanceDailyViewScreenState
     extends State<StudentAttendanceDailyViewScreen>
     implements DailyAttendanceParentRefresh {
   final TextEditingController _searchController = TextEditingController();
-  DateTime _selectedDate = DateTime.now();
+  // Seeded with the school's "today" (device-today until the zone resolves, then
+  // re-seeded by _initSchoolTimezone) so the daily query uses the school day.
+  DateTime _selectedDate = attendanceSchoolToday();
   bool _showAbsentOnly = false;
   String? _statusLegendFilter;
   String? _signInAtFilter;
@@ -185,6 +194,7 @@ class _StudentAttendanceDailyViewScreenState
     _loadLoggedInUserName();
     _loadStaffPersonaFlags();
     _searchController.addListener(_onSearchChanged);
+    widget.refreshNotifier?.addListener(_onExternalRefresh);
 
     // Handle incoming filter
     if (widget.incomingFilter != null) {
@@ -219,10 +229,32 @@ class _StudentAttendanceDailyViewScreenState
 
     // Load initial data using cache-aware cubit methods.
     _loadAttendanceData();
+    // Resolve the school timezone, then re-seed the selected day to the school's
+    // "today" if it differs (handles a device in a different zone on cold start).
+    unawaited(_initSchoolTimezone());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadStudentCounts();
     });
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// Resolves the school timezone and, if the user is still on the default
+  /// "today", re-seeds [_selectedDate] to the school's today and reloads.
+  Future<void> _initSchoolTimezone() async {
+    final provisional = _selectedDate;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final schoolToday = attendanceSchoolToday();
+    // Skip if the user navigated to another date, or it's already correct.
+    if (!_isSameDay(_selectedDate, provisional) ||
+        _isSameDay(_selectedDate, schoolToday)) {
+      return;
+    }
+    setState(() => _selectedDate = schoolToday);
+    _loadAttendanceData(reset: true);
   }
 
   @override
@@ -234,6 +266,15 @@ class _StudentAttendanceDailyViewScreenState
     // ...and, when hosted in the tabbed shell, the sibling tabs (Custom,
     // Absent) so the whole page reflects the action.
     widget.onAttendanceMutated?.call();
+  }
+
+  /// Triggered by the shell's [refreshNotifier] (e.g. a bulk action from the
+  /// floating popup). Reloads this tab's list + counts but does NOT call
+  /// [onAttendanceMutated] — that would re-bump the notifier and loop.
+  void _onExternalRefresh() {
+    if (!mounted) return;
+    _loadAttendanceData(reset: true);
+    unawaited(_loadStudentCounts());
   }
 
   Future<void> _loadStudentCounts() async {
@@ -386,6 +427,7 @@ class _StudentAttendanceDailyViewScreenState
 
   @override
   void dispose() {
+    widget.refreshNotifier?.removeListener(_onExternalRefresh);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _cubit.close();
@@ -629,7 +671,7 @@ class _StudentAttendanceDailyViewScreenState
 
     final absenceDate = item.absenceDate.isNotEmpty
         ? item.absenceDate
-        : DateTime.now().toIso8601String();
+        : attendanceSchoolToday().toIso8601String();
 
     final absentTime = item.markedAbsentTime?.formatted12h ?? '';
 
@@ -1542,7 +1584,7 @@ class _StudentAttendanceDailyViewScreenState
                     ? () {
                         setState(() {
                           _searchController.clear();
-                          _selectedDate = DateTime.now();
+                          _selectedDate = attendanceSchoolToday();
                           _statusLegendFilter = null;
                           _studentFilters = null;
                           _selectedClassroomNames = [];

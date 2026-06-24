@@ -22,6 +22,7 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/student_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -94,6 +95,29 @@ class _StudentAttendanceCustomViewState
     _initializeDefaultRange();
     // Initial load should use cached data when available.
     _loadAttendanceData(reset: false);
+    // Resolve the school timezone, then re-seed the default range to the school
+    // month if it differs (handles a device in a different zone on cold start).
+    _initSchoolTimezone();
+  }
+
+  Future<void> _initSchoolTimezone() async {
+    final beforeStart = _customRangeStart;
+    final beforeEnd = _customRangeEnd;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final now = attendanceSchoolToday();
+    final schoolStart = DateTime(now.year, now.month, 1);
+    final schoolEnd = DateTime(now.year, now.month + 1, 0);
+    // Re-seed only if the range is still the initial month default (untouched).
+    if (beforeStart == _customRangeStart &&
+        beforeEnd == _customRangeEnd &&
+        (_customRangeStart != schoolStart || _customRangeEnd != schoolEnd)) {
+      setState(() {
+        _customRangeStart = schoolStart;
+        _customRangeEnd = schoolEnd;
+      });
+      _loadAttendanceData(reset: true);
+    }
   }
 
   void _onRefreshRequested() => refreshAfterReturningFromAttendanceFlow();
@@ -299,7 +323,7 @@ class _StudentAttendanceCustomViewState
   }
 
   void _initializeDefaultRange() {
-    final now = DateTime.now();
+    final now = attendanceSchoolToday();
     _customRangeStart ??= DateTime(now.year, now.month, 1);
     _customRangeEnd ??= DateTime(now.year, now.month + 1, 0);
   }
@@ -336,8 +360,8 @@ class _StudentAttendanceCustomViewState
   }
 
   void _loadAttendanceData({bool reset = false}) {
-    final fromDate = _customRangeStart ?? DateTime.now();
-    final toDate = _customRangeEnd ?? DateTime.now();
+    final fromDate = _customRangeStart ?? attendanceSchoolToday();
+    final toDate = _customRangeEnd ?? attendanceSchoolToday();
 
     final classroomCodes = _effectiveClassroomCodes();
     if (_selectedClassroomNames.isNotEmpty && classroomCodes == null) {
@@ -536,7 +560,7 @@ class _StudentAttendanceCustomViewState
                     _searchQuery = '';
                     _selectedClassroomNames = <String>[];
                     _selectedClassroomCodes = null;
-                    final now = DateTime.now();
+                    final now = attendanceSchoolToday();
                     _customRangeStart = DateTime(now.year, now.month, 1);
                     _customRangeEnd = DateTime(now.year, now.month + 1, 0);
                   });

@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/generate_statement_screen.dart';
@@ -41,7 +42,8 @@ class ParentStatementsTab extends StatefulWidget {
 }
 
 class _ParentStatementsTabState extends State<ParentStatementsTab> {
-  late final ParentStatementsCubit _cubit = ParentStatementsCubit();
+  late final ParentStatementsCubit _cubit =
+      serviceLocator<ParentStatementsCubit>();
   final ScrollController _scrollController = ScrollController();
 
   DateTime? get _customStartDate => _cubit.state.customStartDate;
@@ -54,11 +56,15 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
     super.initState();
     _scrollController.addListener(_onScroll);
     _cubit.initialize(widget.customStartDate, widget.customEndDate);
+    _cubit.load(widget.subscriberCode);
   }
 
   @override
   void didUpdateWidget(covariant ParentStatementsTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.subscriberCode != widget.subscriberCode) {
+      _cubit.load(widget.subscriberCode);
+    }
     if (oldWidget.customStartDate != widget.customStartDate ||
         oldWidget.customEndDate != widget.customEndDate) {
       _cubit.syncDates(widget.customStartDate, widget.customEndDate);
@@ -136,6 +142,22 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
     _cubit.applyDateRange(startDate, endDate);
   }
 
+  /// Downloads the statement PDF and opens it, surfacing any error.
+  Future<void> _handleDownload(BillingStatementEntity statement) async {
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Downloading statement PDF…',
+    );
+    final error = await _cubit.downloadStatement(statement);
+    if (!mounted || error == null) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: error,
+      isError: true,
+    );
+  }
+
   Widget _buildDateFilterCard() {
     return Card(
       elevation: 0,
@@ -189,6 +211,11 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
           final visibleStatements = state.visibleStatements;
           final currentBalance = 0.0;
 
+          final studentNames = widget.familyChildren
+              .map((c) => (c['fullName'] ?? c['name'] ?? '').toString())
+              .where((n) => n.isNotEmpty)
+              .join(', ');
+
           final formattedChildren = widget.familyChildren.map((child) {
             return {
               'name': child['name'] ?? child['fullName'] ?? 'Unknown',
@@ -241,6 +268,33 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                         ),
                       ),
                     )
+                  else if (state.errorMessage.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Center(
+                        child: Column(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              size: 40,
+                              color: AppColors.billingErrorIconColor,
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              state.errorMessage,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  color: AppColors.billingErrorTextColor),
+                            ),
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: () => _cubit.refresh(),
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
                   else if (state.filteredStatements.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -285,8 +339,14 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                                 (statement) => Padding(
                                   padding: const EdgeInsets.symmetric(
                                       vertical: 8.0),
-                                  child:
-                                      ParentStatementCard(statement: statement),
+                                  child: ParentStatementCard(
+                                    statement: statement,
+                                    studentNames: studentNames,
+                                    isDownloading:
+                                        state.isDownloading(statement.code),
+                                    onDownload: () => _handleDownload(statement),
+                                    onView: () => _handleDownload(statement),
+                                  ),
                                 ),
                               )
                               .toList(),
