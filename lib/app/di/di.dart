@@ -2080,7 +2080,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => InvoiceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceRepository>(
-    () => InvoiceRepositoryImpl(serviceLocator<InvoiceRemoteDataSource>()),
+    () => InvoiceRepositoryImpl(
+          serviceLocator<InvoiceRemoteDataSource>(),
+          serviceLocator<CacheManager>(),
+        ),
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),

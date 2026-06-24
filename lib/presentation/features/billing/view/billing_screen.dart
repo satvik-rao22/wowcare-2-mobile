@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -82,14 +83,37 @@ class _BillingScreenState extends State<BillingScreen>
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Refresh the visible tab after any billing mutation (invoice CRUD,
+    // payment, refund, credit) — fired globally by the invoice repository.
+    BillingEvents.tick.addListener(_onBillingChanged);
   }
 
   @override
   void dispose() {
+    BillingEvents.tick.removeListener(_onBillingChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _ledgerCreationNotifier.dispose();
     super.dispose();
+  }
+
+  /// Re-fetches whichever tab is currently shown when a billing mutation fires.
+  void _onBillingChanged() {
+    if (!mounted) return;
+    switch (_tabController?.index) {
+      case 0:
+        _studentsRefreshFn?.call();
+        break;
+      case 1:
+        _transactionsRefreshFn?.call();
+        break;
+      case 2:
+        _ledgerRefreshFn?.call();
+        break;
+      case 4:
+        _analyticsRefreshFn?.call();
+        break;
+    }
   }
 
   void _onScroll() => _maybeLoadNextPage();

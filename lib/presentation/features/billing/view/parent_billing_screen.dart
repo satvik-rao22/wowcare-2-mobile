@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -141,8 +142,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
         if (!mounted) return;
         _cubit.endAutoPay();
         if (result == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Auto Pay settings updated')),
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Auto Pay settings updated',
+            isSuccess: true,
           );
         }
       },
