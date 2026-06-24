@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -63,16 +62,24 @@ class _ParentDashboardState extends State<ParentDashboard> {
           final coordinator = context.read<ParentDashboardCoordinatorCubit>();
           return MultiBlocProvider(
             providers: [
-              BlocProvider<ParentDashboardCubit>.value(value: coordinator.dashboardCubit),
-              BlocProvider<MyChildsDayCubit>.value(value: coordinator.myChildsDayCubit),
+              BlocProvider<ParentDashboardCubit>.value(
+                value: coordinator.dashboardCubit,
+              ),
+              BlocProvider<MyChildsDayCubit>.value(
+                value: coordinator.myChildsDayCubit,
+              ),
               BlocProvider<StudentAttendanceProfileCubit>.value(
                 value: coordinator.studentAttendanceProfileCubit,
               ),
-              BlocProvider<CommunicationCubit>.value(value: coordinator.communicationCubit),
+              BlocProvider<CommunicationCubit>.value(
+                value: coordinator.communicationCubit,
+              ),
               BlocProvider<StudentNewslettersCubit>.value(
                 value: coordinator.studentNewslettersCubit,
               ),
-              BlocProvider<GeofenceCubit>.value(value: coordinator.geofenceCubit),
+              BlocProvider<GeofenceCubit>.value(
+                value: coordinator.geofenceCubit,
+              ),
             ],
             child: _buildScaffold(context),
           );
@@ -94,7 +101,9 @@ class _ParentDashboardState extends State<ParentDashboard> {
         if (state.isFailure) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: state.errorMessage ?? 'Unable to load dashboard data. Please try again.',
+            message:
+                state.errorMessage ??
+                'Unable to load dashboard data. Please try again.',
             isError: true,
           );
         } else if (state.isPartialError) {
@@ -126,7 +135,6 @@ class _ParentDashboardState extends State<ParentDashboard> {
     );
   }
 }
-
 
 /// Isolated widget for the reorderable card list.
 ///

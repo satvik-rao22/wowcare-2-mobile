@@ -17,7 +17,6 @@ import '../../../../../../core/util/core_utils.dart';
 import '../util/message_content_processor.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
-import '../../../../../../domain/features/communication/entities/enums.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -448,9 +447,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         : null;
     final privateParentUserCode = widget.isGuardian
         ? (myPrivateModeEnabled ? _currentUserCode : null)
-        : ((!widget.isGuardian && _privateModeActive && selectedGuardianUserCode != null)
-            ? selectedGuardianUserCode
-            : null);
+        : ((!widget.isGuardian &&
+                  _privateModeActive &&
+                  selectedGuardianUserCode != null)
+              ? selectedGuardianUserCode
+              : null);
 
     _ownSendPending = true;
     context.read<CommunicationCubit>().sendMessage(

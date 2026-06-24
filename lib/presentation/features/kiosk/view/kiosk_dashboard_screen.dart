@@ -209,28 +209,16 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
   /// Phone layout: QR on top, PIN pad below (full screen each)
   Widget _buildPhoneLayout(KioskDashboardState state) {
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.45,
-            child: KioskQrSectionWidget(
-              state: state,
-              schoolName: _getSchoolName(state),
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.55,
-            child: KioskPinPadWidget(
-              onPinSubmit: _onPinSubmit,
-              maxPinLength: maxPinLength,
-            ),
-          ),
-        ],
-      ),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        KioskQrSectionWidget(state: state, schoolName: _getSchoolName(state)),
+        const SizedBox(height: 8),
+        KioskPinPadWidget(
+          onPinSubmit: _onPinSubmit,
+          maxPinLength: maxPinLength,
+        ),
+      ],
     );
   }
 
@@ -410,13 +398,17 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
       }
     }
 
-    AppLogger.d('[KIOSK] Student Status Count: signedIn=$signedInCount, signedOut=$signedOutCount');
+    AppLogger.d(
+      '[KIOSK] Student Status Count: signedIn=$signedInCount, signedOut=$signedOutCount',
+    );
     AppLogger.d('[KIOSK] Signed In Students: $signedInStudents');
     AppLogger.d('[KIOSK] Signed Out Students: $signedOutStudents');
 
     // DECISION 1: ALL STUDENTS ARE SIGNED IN
     if (signedInCount > 0 && signedOutCount == 0) {
-      AppLogger.d('[KIOSK] ✓ ALL STUDENTS SIGNED IN - NAVIGATE TO SIGN-OUT PAGE');
+      AppLogger.d(
+        '[KIOSK] ✓ ALL STUDENTS SIGNED IN - NAVIGATE TO SIGN-OUT PAGE',
+      );
       context.go(
         '/kiosk/student-sign-out',
         extra: {
@@ -433,7 +425,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
     // DECISION 2: ALL STUDENTS ARE SIGNED OUT
     if (signedOutCount > 0 && signedInCount == 0) {
-      AppLogger.d('[KIOSK] ✓ ALL STUDENTS SIGNED OUT - NAVIGATE TO SIGN-IN PAGE');
+      AppLogger.d(
+        '[KIOSK] ✓ ALL STUDENTS SIGNED OUT - NAVIGATE TO SIGN-IN PAGE',
+      );
       context.go(
         '/kiosk/student-sign-in-and-sign-out',
         extra: {
