@@ -66,6 +66,11 @@ object GeofencePrefs {
             .apply()
     }
 
+    fun getLastInside(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_LAST_INSIDE, false)
+    }
+
     data class Config(
         val schoolCode: String,
         val latitude: Double,

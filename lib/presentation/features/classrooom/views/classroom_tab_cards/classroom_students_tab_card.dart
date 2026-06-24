@@ -16,6 +16,12 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
@@ -123,6 +129,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   bool _attendanceStatusError = false;
   int _visibleAttendanceFetchToken = 0;
   Set<String> _lastVisibleAttendanceCodes = <String>{};
+  bool _staffIsSignedIn = false;
 
   static const Duration _attendanceCacheTtl = Duration(minutes: 10);
   static final Map<String, _AttendanceCacheEntry> _attendanceCacheByKey =
@@ -145,6 +152,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     _loadNapStartStudentCodes(refresh: false);
+    _loadStaffSignInStatus();
     classroomStudentsRefreshTick.addListener(_handleExternalRefresh);
   }
 
@@ -158,6 +166,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _lastVisibleAttendanceCodes = <String>{};
     _loadForSelectedRoom(refresh: true);
     _loadNapStartStudentCodes(refresh: true);
+    _loadStaffSignInStatus();
   }
 
   /// Pull-to-refresh: re-run every API this tab uses (student roster, today's
@@ -168,6 +177,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};
+    await _loadStaffSignInStatus();
     if (_isNappingFilter) {
       // Napping filter on: refresh nap-start codes + roster scoped to nappers.
       await _applyNappingFilter(refresh: true);
@@ -184,12 +194,24 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   /// the user selects the same student the attendance gate computes against
   /// stale data and "Sign In" stays disabled after a successful Sign Out
   /// (and vice versa). Wiping the room's cache here forces a fresh fetch.
+  void _dismissSelectionPanel() {
+    if (!mounted) return;
+    setState(() {
+      isSelectAllChecked = false;
+      studentSelections.updateAll((key, val) => false);
+      _showActivitiesPanel = false;
+      _currentPanel = StudentPanelType.none;
+    });
+  }
+
   void _refreshAfterAttendanceAction() {
+    _dismissSelectionPanel();
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};
     _clearAttendanceEntityCaches();
     _loadForSelectedRoom(refresh: true);
+    _loadStaffSignInStatus();
   }
 
   /// Called after an activity is recorded from the Activities panel. A new
@@ -197,12 +219,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   /// so drop the roster + attendance + nap-start caches and refetch the list.
   void _refreshAfterActivityRecorded() {
     if (!mounted) return;
+    _dismissSelectionPanel();
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};
     _clearAttendanceEntityCaches();
     _loadForSelectedRoom(refresh: true);
     _loadNapStartStudentCodes(refresh: true);
+    _loadStaffSignInStatus();
   }
 
   void _loadForSelectedRoom({
@@ -305,6 +329,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       });
       _loadForSelectedRoom(refresh: false);
       _loadNapStartStudentCodes(refresh: true);
+      _loadStaffSignInStatus();
     }
   }
 
@@ -783,6 +808,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
   }
 
+  Future<void> _loadStaffSignInStatus() async {}
+
   StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
     List<StudentClassroomItem> selected,
   ) {
@@ -790,6 +817,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       return StudentAttendanceActionAvailability.allDisabled;
     }
     if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
       return StudentAttendanceActionAvailability.allDisabled;
     }
     final gates = selected.map((s) {
@@ -805,6 +835,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         todayStatusRaw: _todayStatusForStudentCode(s.studentCode),
       );
     });
+    
     return StudentAttendanceActionAvailability.fromGates(gates);
   }
 
@@ -1233,6 +1264,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<GeofenceCubit>();
     return BlocProvider.value(
       value: _cubit,
       child: BlocBuilder<ClassroomStudentsCubit, ClassroomStudentsState>(
@@ -1289,6 +1321,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   left: BorderSide(color: AppColors.themeColor),
                   top: BorderSide(color: AppColors.themeColor),
                   right: BorderSide(color: AppColors.themeColor),
+                  bottom: BorderSide(color: AppColors.themeColor),
                 ),
                 color: Colors.white,
                 child: Padding(

@@ -63,6 +63,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.notificationCount = 0,
     this.isParent = false,
     this.studentList,
+    this.isKiosk = false,
     super.key,
   });
 
@@ -73,6 +74,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int notificationCount;
   final bool isParent;
   final List<String>? studentList;
+  final bool isKiosk;
 
   @override
   Size get preferredSize => Size.fromHeight(
@@ -141,15 +143,17 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? IconButton(
               icon: SvgPicture.asset(MediaRes.backButton),
               onPressed: () {
-                // Always do something useful: pop one level if possible,
-                // otherwise go home to Dashboard. Previously this was just
-                // Navigator.maybePop — which silently does nothing on a tab
-                // branch root (e.g. /messageFeed for staff has
-                // hasBackButton:true but nothing to pop), so the back icon
-                // appeared broken.
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
+                // Use GoRouter's navigation for proper back handling in shell routes.
+                // In StatefulShellRoute, context.canPop() may not work as expected because
+                // the route hierarchy differs from traditional Navigator stacks.
+                // Always try to pop from the shell context first, preserving route history.
+                debugPrint('[CustomAppBar] Back button pressed. '
+                    'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}');
+
+                if (context.canPop()) {
+                  context.pop();
                 } else {
+                  // Fallback: navigate to dashboard if nothing to pop
                   context.go(DashboardScreen.routeName);
                 }
               },
@@ -161,59 +165,62 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
       actions: [
-        IconButton(
-          icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
-          onPressed: () {},
-        ),
-        Stack(
-          children: [
-            IconButton(
-              icon: SvgPicture.asset(
-                MediaRes.notificationsIcon,
-                width: 22,
-                height: 22,
+        if (!isKiosk)
+          IconButton(
+            icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
+            onPressed: () {},
+          ),
+        if (!isKiosk)
+          Stack(
+            children: [
+              IconButton(
+                icon: SvgPicture.asset(
+                  MediaRes.notificationsIcon,
+                  width: 22,
+                  height: 22,
+                ),
+                onPressed: () {
+                  // Don't stack a second notification page when the bell is
+                  // tapped again while already on it.
+                  if (currentRoute == NotificationCenterScreen.routeName) return;
+                  context.push(NotificationCenterScreen.routeName);
+                },
               ),
-              onPressed: () {
-                // Don't stack a second notification page when the bell is
-                // tapped again while already on it.
-                if (currentRoute == NotificationCenterScreen.routeName) return;
-                context.push(NotificationCenterScreen.routeName);
-              },
-            ),
-            if (notificationCount > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color.fromRGBO(179, 38, 30, 1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    notificationCount > 99 ? '99+' : '$notificationCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+              if (notificationCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 5,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color.fromRGBO(179, 38, 30, 1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      notificationCount > 99 ? '99+' : '$notificationCount',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
-        ),
-        PopupMenuButton<int>(
-          constraints: const BoxConstraints(maxWidth: 240),
-          icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
-          offset: const Offset(0, 48),
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            ],
           ),
-          itemBuilder: (context) => [
+        if (!isKiosk)
+          PopupMenuButton<int>(
+            constraints: const BoxConstraints(maxWidth: 240),
+            icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
+            offset: const Offset(0, 48),
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            itemBuilder: (context) => [
             PopupMenuItem<int>(
               enabled: false,
               height: 64,

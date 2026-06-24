@@ -21,8 +21,9 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 
 // Student entity for Transfer UI & API payload
 class StudentEntity {
@@ -213,7 +214,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         for (final classroom in classrooms)
           if (classroom.name.trim().isNotEmpty &&
               classroom.code.trim().isNotEmpty &&
-              (!isScopedStaff || allowedCodes.contains(classroom.code.trim())) &&
+              (!isScopedStaff ||
+                  allowedCodes.contains(classroom.code.trim())) &&
               isSelectableClassroomName(classroom.name))
             classroom.name: classroom.code,
       };
@@ -324,7 +326,6 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     setState(() {
       _isSubmitting = true;
     });
-
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
@@ -442,12 +443,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          redirectToAttendanceDaily(
+              context, StudentAttendanceTabbedView.routeName);
         }
       }
     } catch (e) {
@@ -545,7 +542,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                       const SizedBox(height: 8),
                       IgnorePointer(
                         ignoring: !(_isStaffAdminPersona ?? false),
-                        child: SimpleTimePickerField(
+                        child: GradientTimePickerField(
                           time: _selectedTransferTime,
                           onTimeSelected: (t) {
                             setState(() {

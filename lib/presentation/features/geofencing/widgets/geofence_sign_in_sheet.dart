@@ -13,6 +13,7 @@ class GeofenceSignInSheet extends StatelessWidget {
     required this.role,
     required this.isSignedIn,
     this.studentName,
+    this.studentCode,
   });
 
   /// 'parent' | 'staff' | 'admin'
@@ -24,11 +25,15 @@ class GeofenceSignInSheet extends StatelessWidget {
   /// Child name for parent role display.
   final String? studentName;
 
+  /// Child student code — pre-selects this child in the sign-in form (parent only).
+  final String? studentCode;
+
   static Future<void> show(
     BuildContext context, {
     required String role,
     required bool isSignedIn,
     String? studentName,
+    String? studentCode,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -38,6 +43,7 @@ class GeofenceSignInSheet extends StatelessWidget {
         role: role,
         isSignedIn: isSignedIn,
         studentName: studentName,
+        studentCode: studentCode,
       ),
     );
   }
@@ -151,24 +157,33 @@ class GeofenceSignInSheet extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.themeColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+                borderRadius: BorderRadius.circular(14),
               ),
-              onPressed: () {
-                Navigator.pop(context);
-                context.go(route);
-              },
-              child: Text(
-                action,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  final router = GoRouter.of(context);
+                  Navigator.of(context).pop();
+                  router.go(route);
+                },
+                child: Text(
+                  action,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -176,35 +191,23 @@ class GeofenceSignInSheet extends StatelessWidget {
           const SizedBox(height: 12),
 
           // ── dismiss ───────────────────────────────────────────────────
-          // SizedBox(
-          //   width: double.infinity,
-          //   height: 48,
-          //   child: TextButton(
-          //     onPressed: () => Navigator.pop(context),
-          //     child: Text(
-          //       'Dismiss',
-          //       style: TextStyle(fontSize: 14, color: AppColors.primaryColor),
-          //     ),
-          //   ),
-          // ),
           SizedBox(
             width: double.infinity,
             height: 48,
-            child: TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white,
+            child: OutlinedButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.primaryColor,
+                side: BorderSide(color: AppColors.primaryColor, width: 1.5),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppColors.themeColor, width: 1),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
-              child: Text(
+              child: const Text(
                 'Dismiss',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -227,14 +230,17 @@ class GeofenceSignInSheet extends StatelessWidget {
 
   String _resolveRoute() {
     if (role == 'parent') {
-      return isSignedIn
+      final base = isSignedIn
           ? '/dashboard/student-selection-sign-out-form'
           : '/dashboard/student-selection-sign-in-form';
+      // Pass the currently-viewed child so the form pre-selects them.
+      final code = (studentCode ?? '').trim();
+      return code.isNotEmpty ? '$base?studentCode=${Uri.encodeComponent(code)}' : base;
     } else {
-      // staff or admin
+      // staff or admin: gps=1 tells the form to always self-fill (incl. admin).
       return isSignedIn
-          ? '/dashboard/staff-sign-out-form'
-          : '/dashboard/staff-sign-in-form';
+          ? '/dashboard/staff-sign-out-form?gps=1'
+          : '/dashboard/staff-sign-in-form?gps=1';
     }
   }
 }

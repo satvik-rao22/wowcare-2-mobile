@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
 
 enum StaffFilterSection {
   /// Uses the "Allowed Classroom" list as the classroom multi-select.
@@ -94,6 +95,34 @@ class StaffFilterScreen extends StatefulWidget {
 }
 
 class _StaffFilterScreenState extends State<StaffFilterScreen> {
+  /// Backend designation codes (API filter values).
+  static const List<String> _designationCodes = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
+  ];
+
+  Map<String, String> get _labelToDesignationCode => {
+    for (final code in _designationCodes)
+      formatDesignationForDisplay(code): code,
+  };
+
+  List<String> get _designationLabels =>
+      _labelToDesignationCode.keys.toList()..sort();
+
+  List<String> _designationLabelsSelected() {
+    return _selectedDesignationList
+        .map(formatDesignationForDisplay)
+        .where(_labelToDesignationCode.containsKey)
+        .toList();
+  }
+
   List<String> get _labelList {
     // If the screen is used in "attendance" mode with just Classroom + Designation,
     // show the simplified label.
@@ -217,18 +246,8 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         _selectedStatusList.add('ACTIVE');
       }
 
-      // Designation options from the API
-      _designationList = [
-        'OWNER',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'LEAD_TEACHER',
-        'ASSOCIATE_TEACHER',
-        'ASSISTANT_TEACHER',
-        'FLOATER',
-        'KIOSK_USER',
-      ];
+      // Designation options (backend codes; UI shows human-readable labels).
+      _designationList = List<String>.from(_designationCodes);
 
       _attendanceStatusList = ['Expected', 'Present', 'Absent'];
     });
@@ -452,11 +471,18 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             final items = optionsFor(section);
             final selected = selectedFor(section);
 
+            final dropdownItems = section == StaffFilterSection.designation
+                ? _designationLabels
+                : items;
+            final dropdownSelected = section == StaffFilterSection.designation
+                ? _designationLabelsSelected()
+                : selected;
+
             return CustomMultiSelectDropdown(
               label: label,
               hintText: 'Select',
-              items: items,
-              selectedItems: selected,
+              items: dropdownItems,
+              selectedItems: dropdownSelected,
               onChanged: (selectedItems) {
                 setState(() {
                   switch (section) {
@@ -480,9 +506,16 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
                       }
                       break;
                     case StaffFilterSection.designation:
+                      final codes = <String>{};
+                      for (final label in selectedItems) {
+                        final code = _labelToDesignationCode[label];
+                        if (code != null && code.trim().isNotEmpty) {
+                          codes.add(code.trim());
+                        }
+                      }
                       _selectedDesignationList
                         ..clear()
-                        ..addAll(selectedItems);
+                        ..addAll(codes);
                       break;
                     case StaffFilterSection.sortBy:
                       _selectedSortByList.clear();

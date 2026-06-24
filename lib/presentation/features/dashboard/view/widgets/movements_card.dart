@@ -66,6 +66,26 @@ bool _isWithinLastMonth(DateTime movementDate) {
   return movementDate.isAfter(thirtyDaysAgo);
 }
 
+/// Keeps movements that involve [classroomCode] as source or destination.
+IndividualMovementBoard _filterBoardForClassroom(
+  IndividualMovementBoard board,
+  String classroomCode,
+) {
+  final code = classroomCode.trim();
+  if (code.isEmpty) return board;
+
+  bool involves(IndividualMovement m) {
+    return m.fromClassroomCode.trim() == code || m.toClassroomCode.trim() == code;
+  }
+
+  return IndividualMovementBoard(
+    overdue: board.overdue.where(involves).toList(growable: false),
+    upcoming: board.upcoming.where(involves).toList(growable: false),
+    confirmed: board.confirmed.where(involves).toList(growable: false),
+    rejected: board.rejected.where(involves).toList(growable: false),
+  );
+}
+
 /// Filter priority movements: overdue → upcoming → confirmed, max 3 items.
 List<_GroupedMovement> _filterPriorityMovements(
   IndividualMovementBoard board, {
@@ -107,8 +127,8 @@ List<_GroupedMovement> _filterPriorityMovements(
   if (recentOverdue.isNotEmpty) {
     addBucket(recentOverdue, 'Overdue');
     final rows = map.values.toList(growable: false);
-    // Sort overdue: oldest first
-    rows.sort((a, b) => a.movementDate.compareTo(b.movementDate));
+    // Sort overdue: most recent first
+    rows.sort((a, b) => b.movementDate.compareTo(a.movementDate));
     return rows.length <= maxRows ? rows : rows.sublist(0, maxRows);
   }
 
@@ -170,7 +190,17 @@ String _monthAbbr(int month) {
 // ---------------------------------------------------------------------------
 
 class MovementsCard extends StatefulWidget {
-  const MovementsCard({super.key});
+  const MovementsCard({
+    super.key,
+    this.classroomCode,
+    this.onRedirect,
+  });
+
+  /// When set, only movements involving this classroom (from or to) are shown.
+  final String? classroomCode;
+
+  /// Override header redirect; defaults to [IndividualMovementScreen].
+  final VoidCallback? onRedirect;
 
   @override
   State<MovementsCard> createState() => _MovementsCardState();
@@ -394,26 +424,38 @@ class _MovementsCardState extends State<MovementsCard> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            studentCount,
+                      if (students.length == 1)
+                        Flexible(
+                          child: Text(
+                            students.first.name,
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Students',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                        )
+                      else
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              studentCount,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
+                            const SizedBox(width: 4),
+                            const Text(
+                              'Students',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
                       const SizedBox(width: 4),
                       _buildStatusBadge(status),
                       const SizedBox(width: 8),
@@ -478,7 +520,8 @@ class _MovementsCardState extends State<MovementsCard> {
           DashboardCardHeader(
             title: 'Movements',
             showRedirect: true,
-            onRedirect: () => context.go(IndividualMovementScreen.routeName),
+            onRedirect: widget.onRedirect ??
+                () => context.go(IndividualMovementScreen.routeName),
             minimized: _minimized,
             onToggle: () => setState(() => _minimized = !_minimized),
           ),
@@ -512,8 +555,12 @@ class _MovementsCardState extends State<MovementsCard> {
         }
 
         if (state.board != null) {
+          final scopedBoard = _filterBoardForClassroom(
+            state.board!,
+            widget.classroomCode ?? '',
+          );
           // Priority filtering and sorting (max 3 items) happen in _filterPriorityMovements.
-          final rows = _filterPriorityMovements(state.board!);
+          final rows = _filterPriorityMovements(scopedBoard);
           if (rows.isEmpty) return _buildEmptyState();
 
           return Column(

@@ -4,14 +4,58 @@ class TransactionsState extends Equatable {
   const TransactionsState({
     required this.transactions,
     required this.searchQuery,
+    this.overview,
+    this.dateFrom,
+    this.dateTo,
+    this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = false,
+    this.page = 0,
+    this.errorMessage,
+    this.successMessage,
   });
 
-  TransactionsState.initial()
-      : transactions = TransactionsCubit.seedTransactions(),
-        searchQuery = '';
+  const TransactionsState.initial()
+      : transactions = const [],
+        searchQuery = '',
+        overview = null,
+        dateFrom = null,
+        dateTo = null,
+        isLoading = true,
+        isLoadingMore = false,
+        hasMore = false,
+        page = 0,
+        errorMessage = null,
+        successMessage = null;
 
   final List<TransactionRecord> transactions;
   final String searchQuery;
+
+  /// True during the initial / refresh transactions fetch (drives the shimmer).
+  final bool isLoading;
+
+  /// True while the next page is being appended (infinite scroll).
+  final bool isLoadingMore;
+
+  /// Whether the backend has more transaction pages after [page].
+  final bool hasMore;
+
+  /// Zero-based index of the last loaded transactions page.
+  final int page;
+
+  /// Real billing totals from the overview API; null until loaded. When absent
+  /// (not loaded yet or the request failed) the stat bar shows zeros.
+  final InvoiceOverviewEntity? overview;
+
+  final DateTime? dateFrom;
+  final DateTime? dateTo;
+
+  /// Last load error, surfaced as a top snackbar by the view.
+  final String? errorMessage;
+
+  /// One-shot success message (e.g. after cancel/delete), surfaced as a top
+  /// snackbar by the view.
+  final String? successMessage;
 
   List<TransactionRecord> get visibleTransactions {
     final query = searchQuery.trim().toLowerCase();
@@ -24,42 +68,68 @@ class TransactionsState extends Equatable {
     }).toList();
   }
 
-  double totalAmountFor(Set<TransactionStatus> statuses) => transactions
-      .where((record) => statuses.contains(record.status))
-      .fold<double>(0, (sum, record) => sum + record.item.amount);
+  // Live overview totals only; zeros when not loaded / on failure (never demo).
+  double get totalInvoiced => overview?.amountInvoiced ?? 0;
 
-  double _percentage(double value, double total) =>
-      total <= 0 ? 0 : (value / total) * 100;
+  // Actual dollar amounts from the overview API (shown verbatim in the cards).
+  double get netPaidAmount => overview?.netPaid ?? 0;
+  double get paidAmount => overview?.paid ?? 0;
+  double get refundedAmount => overview?.refunded ?? 0;
+  double get inProcessAmount => overview?.inProcess ?? 0;
+  double get outstandingAmount => overview?.outstanding ?? 0;
 
-  double get totalInvoiced => totalAmountFor(<TransactionStatus>{
-        TransactionStatus.paid,
-        TransactionStatus.inProcess,
-        TransactionStatus.unpaid,
-      });
+  /// "Net Paid" share of the invoiced amount.
+  double get paidPercent => overview?.netPaidPercent ?? 0;
 
-  double get paidPercent =>
-      _percentage(totalAmountFor(<TransactionStatus>{TransactionStatus.paid}),
-          totalInvoiced);
-  double get inProcessPercent => _percentage(
-      totalAmountFor(<TransactionStatus>{TransactionStatus.inProcess}),
-      totalInvoiced);
-  double get unpaidPercent => _percentage(
-      totalAmountFor(<TransactionStatus>{TransactionStatus.unpaid}),
-      totalInvoiced);
-  double get refundPercent => _percentage(
-      totalAmountFor(<TransactionStatus>{TransactionStatus.refund}),
-      totalInvoiced);
+  /// Gross "Paid" share (before refunds) — shown in the expanded view.
+  double get grossPaidPercent => overview?.paidPercent ?? 0;
+
+  double get inProcessPercent => overview?.inProcessPercent ?? 0;
+
+  double get unpaidPercent => overview?.outstandingPercent ?? 0;
+
+  double get refundPercent => overview?.refundedPercent ?? 0;
 
   TransactionsState copyWith({
     List<TransactionRecord>? transactions,
     String? searchQuery,
+    InvoiceOverviewEntity? Function()? overview,
+    DateTime? Function()? dateFrom,
+    DateTime? Function()? dateTo,
+    bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? page,
+    String? errorMessage,
+    String? successMessage,
   }) {
     return TransactionsState(
       transactions: transactions ?? this.transactions,
       searchQuery: searchQuery ?? this.searchQuery,
+      overview: overview != null ? overview() : this.overview,
+      dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
+      dateTo: dateTo != null ? dateTo() : this.dateTo,
+      isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      page: page ?? this.page,
+      errorMessage: errorMessage,
+      successMessage: successMessage,
     );
   }
 
   @override
-  List<Object?> get props => [transactions, searchQuery];
+  List<Object?> get props => [
+        transactions,
+        searchQuery,
+        overview,
+        dateFrom,
+        dateTo,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        page,
+        errorMessage,
+        successMessage,
+      ];
 }

@@ -138,7 +138,7 @@ class CoreUtils {
       context: context,
       message: message,
       backgroundColor: bg,
-      borderColor: bg.withOpacity(0.85),
+      borderColor: bg.withValues(alpha: 0.85),
       contentColor: onBg,
       icon: Icons.info_outline_rounded,
       duration: const Duration(seconds: 2),
@@ -194,8 +194,14 @@ class CoreUtils {
 
     // Ensure only one banner is visible at a time (prevents "double banners"
     // when multiple events fire back-to-back during login/navigation).
-    if (_activeTopBannerEntry?.mounted == true) {
-      _activeTopBannerEntry!.remove();
+    if (_activeTopBannerEntry != null) {
+      try {
+        // Always try to remove, even if not mounted
+        _activeTopBannerEntry!.remove();
+      } catch (_) {
+        // Silently ignore removal errors (entry may have already been removed)
+      }
+      _activeTopBannerEntry = null;
     }
 
     late final OverlayEntry overlayEntry;
@@ -227,7 +233,7 @@ class CoreUtils {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -266,11 +272,19 @@ class CoreUtils {
     _activeTopBannerEntry = overlayEntry;
 
     Future.delayed(duration, () {
-      if (_activeTopBannerEntry == overlayEntry && overlayEntry.mounted) {
-        overlayEntry.remove();
-      }
-      if (_activeTopBannerEntry == overlayEntry) {
-        _activeTopBannerEntry = null;
+      // Always try to remove the entry
+      try {
+        if (_activeTopBannerEntry == overlayEntry) {
+          // Always attempt removal, even if not mounted
+          overlayEntry.remove();
+          _activeTopBannerEntry = null;
+        }
+      } catch (_) {
+        // Silently ignore removal errors (entry may have been removed by navigation)
+        // But still clear the reference
+        if (_activeTopBannerEntry == overlayEntry) {
+          _activeTopBannerEntry = null;
+        }
       }
     });
   }

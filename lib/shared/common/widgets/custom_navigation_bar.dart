@@ -6,7 +6,10 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
+import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/src/app_router.dart';
@@ -89,11 +92,38 @@ class CustomNavigationBar extends StatefulWidget {
 class _CustomNavigationBarState extends State<CustomNavigationBar> {
   final GlobalKey _containerKey = GlobalKey();
   double _navBarHeight = 0.0;
+  GoRouteInformationProvider? _routeInfoProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to the route-information provider so the nav bar rebuilds on
+    // every route change. Without this, appNavigationShell() and
+    // _currentLocationPath() are non-reactive reads — the active-tab highlight
+    // never updates after router.go() fires (e.g. Messages → Dashboard keeps
+    // Messages highlighted).
+    final provider = GoRouter.of(context).routeInformationProvider;
+    if (provider != _routeInfoProvider) {
+      _routeInfoProvider?.removeListener(_onRouteChanged);
+      _routeInfoProvider = provider;
+      _routeInfoProvider!.addListener(_onRouteChanged);
+    }
+  }
+
+  void _onRouteChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
+  }
+
+  @override
+  void dispose() {
+    _routeInfoProvider?.removeListener(_onRouteChanged);
+    super.dispose();
   }
 
   // Bug 4 fix: re-measure after every build pass so the height stays accurate
@@ -116,9 +146,27 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _measureHeight());
   }
 
+  /// The full active route path (e.g. `/dashboard/billing`), read from the
+  /// router's current configuration so it is independent of where in the
+  /// widget tree this bar is mounted. Empty string if the router can't be
+  /// resolved (e.g. transiently during teardown).
+  String _currentLocationPath(BuildContext context) {
+    try {
+      return GoRouter.of(context).routerDelegate.currentConfiguration.uri.path;
+    } catch (_) {
+      return '';
+    }
+  }
+
   void _onItemTapped(int tabIndex, BuildContext context, bool isParent) {
     // The Attendance slot (index 1) is a modal popup, not a route.
     if (tabIndex == 1) {
+      if (isParent) {
+        final shell = appNavigationShell(context);
+        if (shell != null && shell.currentIndex != 0) {
+          shell.goBranch(0);
+        }
+      }
       AttendancePopupManager.showAttendancePopup(context);
       return;
     }
@@ -132,14 +180,14 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     final shell = appNavigationShell(context);
     if (shell != null) {
       if (branchIndex == shell.currentIndex) {
-        // Already on this branch. If the user is on a sub-route (e.g.
-        // /dashboard/student-attendance-tabbed-view), navigate back to the
-        // branch root so they return to the dashboard. If already at the
-        // branch root, context.canPop() is false and we do nothing —
-        // preserving the user's scroll position and state.
-        if (context.canPop()) {
-          context.go(branchRootPaths[branchIndex]);
+        // Already on this branch. If the user is on a sub-route or has pushed routes
+        // on top of this branch's nested navigator, pop them all to return to the root.
+        final router = GoRouter.of(context);
+        final navigator = Navigator.of(context);
+        while (navigator.canPop()) {
+          navigator.pop();
         }
+        router.go(branchRootPaths[branchIndex]);
         return;
       }
       // Different branch → IndexedStack swap; state of the outgoing branch is
@@ -160,6 +208,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     required BuildContext context,
     required bool isParent,
     required _NavSizes sizes,
+    int badgeCount = 0,
   }) {
     final bool isActive = activeTabIndex == index;
 
@@ -176,7 +225,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           ),
           decoration: isActive
               ? BoxDecoration(
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withValues(alpha: 0.35),
                   borderRadius: BorderRadius.circular(sizes.activeRadius),
                 )
               : const BoxDecoration(),
@@ -184,12 +233,47 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
             mainAxisAlignment: MainAxisAlignment.center,
             mainAxisSize: MainAxisSize.min,
             children: [
-              SvgPicture.asset(
-                icon,
-                height: sizes.iconSize,
-                colorFilter: isActive
-                    ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
-                    : null,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  SvgPicture.asset(
+                    icon,
+                    height: sizes.iconSize,
+                    colorFilter: isActive
+                        ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
+                        : null,
+                  ),
+                  if (badgeCount > 0)
+                    Positioned(
+                      top: -5,
+                      right: -8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.white, width: 1.2),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          badgeCount > 99 ? '99+' : '$badgeCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
               ),
               const SizedBox(height: 3),
               FittedBox(
@@ -255,18 +339,59 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     // Highlight comes from the shell's current branch; falls back to 0
     // when the bar renders outside the shell (e.g. on an auth screen).
     final shell = appNavigationShell(context);
-    final activeTabIndex = widget.activeTabIndexOverride ??
-        (shell == null
-            ? 0
-            : tabIndexForBranchIndex(
-                isParent: isParent,
-                branchIndex: shell.currentIndex,
-              ));
+    final int activeTabIndex;
+    if (widget.activeTabIndexOverride != null) {
+      activeTabIndex = widget.activeTabIndexOverride!;
+    } else if (shell == null) {
+      activeTabIndex = 0;
+    } else if (shell.currentIndex == 0) {
+      // Branch 0 (the Dashboard branch) also hosts every non-tab drill-down
+      // (Billing, Scheduling, Staff, Reports, …). Those screens are NOT
+      // bottom-nav tabs, so only the dashboard ROOT should light up the
+      // Dashboard slot — on any drill-down we highlight nothing (-1) instead
+      // of falsely marking Dashboard as active.
+      final path = _currentLocationPath(context);
+      activeTabIndex = path == AppRoutes.dashboard ? 0 : -1;
+    } else {
+      activeTabIndex = tabIndexForBranchIndex(
+        isParent: isParent,
+        branchIndex: shell.currentIndex,
+      );
+    }
+
+    // Compute the badge total using the same per-module visibility rules the
+    // drawer uses, so the bottom-nav number always matches what the drawer shows.
+    //
+    // Drawer rules (mirrored here):
+    //   staffMessaging  → STAFF_DIRECT  (canReadModule staffMessaging)
+    //   parentMessaging → ROOM_CHAT     (canReadModule parentMessaging)
+    //   adminChat       → ADMIN_CHAT    (!isStaff — hidden for pure staff role)
+    final _unreadState = context.watch<UnreadBadgeCubit>().state;
+    final _isStaff = roleProvider.isStaff;
+    final _showStaffMsg = roleProvider.canReadModule(
+      AppAccessModules.staffMessaging,
+    );
+    final _showParentMsg = roleProvider.canReadModule(
+      AppAccessModules.parentMessaging,
+    );
+    final _showAdminChat = !_isStaff;
+
+    final unreadTotal =
+        (_showStaffMsg
+            ? _unreadState.unreadFor(ConversationType.staffDirect)
+            : 0) +
+        (_showParentMsg
+            ? _unreadState.unreadFor(ConversationType.roomChat)
+            : 0) +
+        (_showAdminChat
+            ? _unreadState.unreadFor(ConversationType.adminChat)
+            : 0);
 
     Widget item({
       required String icon,
       required String label,
       required int index,
+      int badgeCount = 0,
     }) {
       return _buildNavItem(
         icon: icon,
@@ -276,6 +401,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
         context: context,
         isParent: isParent,
         sizes: sizes,
+        badgeCount: badgeCount,
       );
     }
 
@@ -291,7 +417,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           gradient: AppColors.buildPrimaryGradient(),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.12),
+              color: Colors.black.withValues(alpha: 0.12),
               blurRadius: 12,
               offset: const Offset(0, -6),
             ),
@@ -325,6 +451,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                           icon: MediaRes.communicationIcon,
                           label: 'Communication',
                           index: 3,
+                          badgeCount: unreadTotal,
                         )
                       : _hiddenNavSlot(),
                   showBilling
@@ -367,6 +494,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
                           icon: MediaRes.communicationIcon,
                           label: 'Messages',
                           index: 4,
+                          badgeCount: unreadTotal,
                         )
                       : _hiddenNavSlot(),
                 ],

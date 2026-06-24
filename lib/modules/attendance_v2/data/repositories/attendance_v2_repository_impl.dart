@@ -1,6 +1,7 @@
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 
 import '../../core/config/av2_config.dart';
+import '../../core/utils/av2_time_zone.dart';
 import '../../domain/entities/day_detail.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../../domain/repositories/attendance_v2_repository.dart';
@@ -67,6 +68,28 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
       },
     );
     return DayDetailMapper.fromResponse(body, date);
+  }
+
+  @override
+  Future<void> editSession({
+    required String recordCode,
+    required String staffCode,
+    required DateTime signInLocal,
+    DateTime? signOutLocal,
+    required String timeZone,
+  }) {
+    final zone = Av2TimeZone.resolveZone(timeZone);
+    final body = <String, dynamic>{
+      'staffCode': staffCode,
+      'signedInAt': Av2TimeZone.toUtcIso(signInLocal, zone),
+      'signedInMethod': Av2Config.editMethod,
+      'timeZone': zone,
+    };
+    if (signOutLocal != null) {
+      body['signedOutAt'] = Av2TimeZone.toUtcIso(signOutLocal, zone);
+      body['signedOutMethod'] = Av2Config.editMethod;
+    }
+    return _overviewSource.editDailyRecord(recordCode: recordCode, body: body);
   }
 
   String _fmt(DateTime d) =>

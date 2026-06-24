@@ -67,11 +67,7 @@ class StaffAttendanceFilters extends StatelessWidget {
             _buildFilterButton(context, responsive),
             SizedBox(width: spacing),
             if (hasActiveFilters && onClearAll != null)
-              Flexible(
-                child: CustomClearAllChip(
-                  onTap: onClearAll,
-                ),
-              ),
+              Flexible(child: CustomClearAllChip(onTap: onClearAll)),
             const Spacer(),
             Flexible(
               child: Align(
@@ -98,7 +94,7 @@ class StaffAttendanceFilters extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: hasActiveFilters
-            ? AppColors.themeColor.withOpacity(0.15)
+            ? AppColors.themeColor.withValues(alpha: 0.15)
             : AppColors.cardColor,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
@@ -125,7 +121,7 @@ class StaffAttendanceFilters extends StatelessWidget {
                   colorFilter: ColorFilter.mode(
                     hasActiveFilters
                         ? AppColors.themeColor
-                        : AppColors.secondaryColor.withOpacity(0.6),
+                        : AppColors.secondaryColor.withValues(alpha: 0.6),
                     BlendMode.srcIn,
                   ),
                 ),

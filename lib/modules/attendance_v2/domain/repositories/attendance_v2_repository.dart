@@ -25,4 +25,14 @@ abstract class AttendanceV2Repository {
     required String staffCode,
     required DateTime date,
   });
+
+  /// Edits an attendance session's sign-in/out. [signInLocal]/[signOutLocal]
+  /// are wall-clock times in the school's [timeZone]; the impl converts to UTC.
+  Future<void> editSession({
+    required String recordCode,
+    required String staffCode,
+    required DateTime signInLocal,
+    DateTime? signOutLocal,
+    required String timeZone,
+  });
 }

@@ -30,6 +30,8 @@ class AddShiftScreen extends StatelessWidget {
     this.initialDate,
     this.initialClassroomCode,
     this.initialStaffCode,
+    this.initialShiftStart,
+    this.initialShiftEnd,
     this.initialPublish = false,
     this.prefillStaff = true,
   });
@@ -39,6 +41,8 @@ class AddShiftScreen extends StatelessWidget {
   final DateTime? initialDate;
   final String? initialClassroomCode;
   final String? initialStaffCode;
+  final TimeOfDay? initialShiftStart;
+  final TimeOfDay? initialShiftEnd;
 
   /// When true, the "Publish shift" checkbox starts checked.
   final bool initialPublish;
@@ -55,6 +59,8 @@ class AddShiftScreen extends StatelessWidget {
           initialDate: initialDate,
           initialClassroomCode: initialClassroomCode,
           initialStaffCode: initialStaffCode,
+          initialShiftStart: initialShiftStart,
+          initialShiftEnd: initialShiftEnd,
           initialPublish: initialPublish,
           prefillStaff: prefillStaff,
         ),

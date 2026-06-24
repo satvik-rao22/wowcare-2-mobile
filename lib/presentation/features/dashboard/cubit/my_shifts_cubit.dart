@@ -9,8 +9,11 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_classroom.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 
 part 'my_shifts_state.dart';
 
@@ -19,20 +22,32 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     required GetStaffShiftsUseCase getStaffShiftsUseCase,
     required GetRatioMonitoringClassroomsUseCase getClassroomsUseCase,
     required StorageService storageService,
+    required StaffRepository staffRepository,
   }) : _getShifts = getStaffShiftsUseCase,
        _getClassrooms = getClassroomsUseCase,
        _storage = storageService,
+       _staffRepository = staffRepository,
        super(const MyShiftsState());
 
   final GetStaffShiftsUseCase _getShifts;
   final GetRatioMonitoringClassroomsUseCase _getClassrooms;
   final StorageService _storage;
+  final StaffRepository _staffRepository;
 
   bool _isFetching = false;
 
-  Future<void> load({bool forceRefresh = false}) async {
+  Future<void> load({DateTime? date, bool forceRefresh = false}) async {
+    final targetDate = date ?? state.selectedDate ?? DateTime.now();
+    final normalizedDate = DateTime(
+      targetDate.year,
+      targetDate.month,
+      targetDate.day,
+    );
+
+    final startOfWeek = _startOfWeek(normalizedDate);
+    final endOfWeek = startOfWeek.add(const Duration(days: 6));
+
     if (_isFetching) return;
-    if (!forceRefresh && state.isLoaded) return;
     _isFetching = true;
 
     emit(state.copyWith(status: _Status.loading, clearError: true));
@@ -55,10 +70,6 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
         return;
       }
 
-      final now = DateTime.now();
-      final startOfWeek = _startOfWeek(now);
-      final endOfWeek = startOfWeek.add(const Duration(days: 6));
-
       // ── Fetch shifts + classroom name map in parallel ────────────────────
       final results = await Future.wait([
         _getShifts(
@@ -70,7 +81,7 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
         ),
         _getClassrooms(schoolCode: schoolCode).catchError(
           // Non-fatal — classroom names degrade to codes if this fails.
-          (_) => <dynamic>[],
+          (_) => <RatioMonitoringClassroom>[],
         ),
       ]);
 
@@ -84,43 +95,87 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
             c.code.toString().trim(): c.name.toString().trim(),
       };
 
-      final today = DateTime(now.year, now.month, now.day);
       final todays = shifts
-          .where((s) => _sameDay(s.shiftDate, today))
+          .where((s) => _sameDay(s.shiftDate, normalizedDate))
           .toList(growable: false);
 
-      final totals = _extractTotals(shifts);
+      // Calculate totals from today's shifts only (not the entire week)
+      final totals = _extractTotals(todays);
+
+      // DEBUG: Log the extracted totals
+      AppLogger.d('[MyShiftsCubit] Today has ${todays.length} shifts');
+      for (var (i, shift) in todays.indexed) {
+        AppLogger.d('[MyShiftsCubit] Shift $i: avail=${shift.availableHours}, sched=${shift.scheduledHours}, unsched=${shift.unscheduledHours}');
+      }
+      AppLogger.d('[MyShiftsCubit] Extracted Totals: avail=${totals.availableHours}, sched=${totals.scheduledHours}, unsched=${totals.unscheduledHours}');
 
       final displayName =
           (await _storage.getString(StorageKeys.displayName) ?? '').trim();
-      final designation = (await _storage.getString(StorageKeys.staffDesignation) ?? '')
-          .trim()
-          .replaceAll('_', ' ');
+      String rawDesignation =
+          (await _storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+      if (rawDesignation.isEmpty && staffCode.isNotEmpty) {
+        try {
+          final profile = await _staffRepository.getStaffProfile(
+            staffCode: staffCode,
+          );
+          rawDesignation = profile.designation.trim();
+          if (rawDesignation.isNotEmpty) {
+            await _storage.saveString(
+              StorageKeys.staffDesignation,
+              rawDesignation,
+            );
+          }
+        } catch (_) {}
+      }
+      final designation = _formatDesignation(rawDesignation);
 
-      // Pick a classroom label for the profile row:
-      // 1) today's first shift classroomName/code
-      // 2) any shift classroomName/code
       final classroomLabel = _classroomLabelFor(
         todays.isNotEmpty ? todays : shifts,
         classroomNames: classroomNames,
       );
 
-      emit(
-        state.copyWith(
-          status: shifts.isEmpty ? _Status.empty : _Status.loaded,
-          staffCode: staffCode,
-          staffName: displayName,
-          designation: designation,
-          classroomLabel: classroomLabel,
-          shifts: shifts,
-          todayShifts: todays,
-          availableHours: totals.availableHours,
-          scheduledHours: totals.scheduledHours,
-          unscheduledHours: totals.unscheduledHours,
-          weekFrom: startOfWeek,
-          weekTo: endOfWeek,
-        ),
+      // ── Fetch school hours for the selected day ────────────────────────────
+      String schoolStartTime = '';
+      String schoolEndTime = '';
+      try {
+        final schoolDays =
+            await _staffRepository.getSchoolRegularSchedules(
+          schoolCode: schoolCode,
+        );
+        final resolver = SchoolHoursResolver.fromDays(schoolDays);
+        final hoursForDay = resolver.hoursFor(normalizedDate);
+        if (hoursForDay != null) {
+          schoolStartTime = hoursForDay.startTime;
+          schoolEndTime = hoursForDay.endTime;
+        }
+      } catch (e) {
+        // Non-fatal — if API fails, schoolStartTime/schoolEndTime remain empty
+        AppLogger.d('[MyShiftsCubit] Failed to load school hours: $e');
+      }
+
+      final newState = state.copyWith(
+        status: shifts.isEmpty ? _Status.empty : _Status.loaded,
+        staffCode: staffCode,
+        staffName: displayName,
+        designation: designation,
+        classroomLabel: classroomLabel,
+        shifts: shifts,
+        todayShifts: todays,
+        availableHours: totals.availableHours,
+        scheduledHours: totals.scheduledHours,
+        unscheduledHours: totals.unscheduledHours,
+        weekFrom: startOfWeek,
+        weekTo: endOfWeek,
+        selectedDate: normalizedDate,
+        classroomNames: classroomNames,
+        schoolStartTime: schoolStartTime,
+        schoolEndTime: schoolEndTime,
       );
+
+      // DEBUG: Log the state before emitting
+      AppLogger.d('[MyShiftsCubit] State to emit: avail=${newState.availableHours}, sched=${newState.scheduledHours}, unsched=${newState.unscheduledHours}');
+
+      emit(newState);
     } catch (e) {
       final message = ApiErrorHandler.extractErrorMessage(e);
       AppLogger.d('[MyShiftsCubit] load failed: $message');
@@ -128,6 +183,10 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     } finally {
       _isFetching = false;
     }
+  }
+
+  Future<void> changeSelectedDate(DateTime date) async {
+    await load(date: date);
   }
 
   DateTime _startOfWeek(DateTime dt) {
@@ -151,10 +210,8 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
       0,
       (p, s) => s.scheduledHours > p ? s.scheduledHours : p,
     );
-    final maxUnscheduled = shifts.fold<int>(
-      0,
-      (p, s) => s.unscheduledHours > p ? s.unscheduledHours : p,
-    );
+    // Calculate unscheduled as the difference to ensure consistency
+    final maxUnscheduled = (maxAvailable - maxScheduled).clamp(0, 9999);
     return (
       availableHours: maxAvailable,
       scheduledHours: maxScheduled,
@@ -177,10 +234,28 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     return code;
   }
 
+  /// Converts enum-style designation strings to human-readable title case.
+  /// e.g. "ASSOCIATE_TEACHER" → "Associate Teacher", "FULL_TIME" → "Full-Time".
+  static String _formatDesignation(String raw) {
+    if (raw.isEmpty) return '';
+    final upper = raw.trim().toUpperCase();
+    if (upper == 'FULL_TIME') return 'Full-Time';
+    if (upper == 'PART_TIME') return 'Part-Time';
+    return upper
+        .split(RegExp(r'[_\s]+'))
+        .map((w) {
+          if (w.isEmpty) return '';
+          return w[0].toUpperCase() + w.substring(1).toLowerCase();
+        })
+        .where((w) => w.isNotEmpty)
+        .join(' ');
+  }
+
   /// Formats a shift block time for the existing card widgets
   /// (`hh:mm:ss a`, e.g. "11:09:00 AM").
   static String formatBlockTime(TimeOfDay time) {
     final dt = DateTime(2000, 1, 1, time.hour, time.minute);
     return DateFormat('hh:mm:ss a').format(dt);
   }
+
 }

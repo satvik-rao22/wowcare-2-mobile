@@ -1,5 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -35,6 +41,7 @@ class _BillingTransactionReportScreenState
   late DateTime _endDate;
   String _transactionType = 'All Transactions';
   List<String> _selectedTransactionTypes = <String>[];
+  String _format = 'PDF';
 
   bool get _isCustom => _transactionType == 'Custom';
 
@@ -63,77 +70,122 @@ class _BillingTransactionReportScreenState
       );
       return;
     }
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Transaction Report…',
-      isSuccess: true,
-    );
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
-    return ReportFormLayout(
-      title: 'Transaction Report',
-      onGenerate: _onGenerate,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const ReportFieldLabel(label: 'Start Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _startDate,
-            onDateSelected: (d) => setState(() => _startDate = d),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          const ReportFieldLabel(label: 'End Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _endDate,
-            onDateSelected: (d) => setState(() => _endDate = d),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomDropdown(
-            label: 'Transactions',
-            hintText: 'Select',
-            items: _transactionOptions,
-            selectedItem: _transactionType,
-            labelStyle: TextStyle(
-              fontSize: responsive.labelFontSize,
-              fontFamily: 'Manrope',
-              fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationError != current.generationError,
+          listener: (context, state) {
+            if (state.generationError != null &&
+                state.generationError!.isNotEmpty) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.generationError!,
+                isError: true,
+              );
+            }
+          },
+        ),
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.generationSuccess != current.generationSuccess,
+          listener: (context, state) {
+            if (state.generationSuccess != null &&
+                state.generationSuccess!.isNotEmpty &&
+                state.generatedReport != null) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: 'Report generated successfully',
+                isSuccess: true,
+              );
+
+              if (mounted) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (!mounted) return;
+
+                  context.go('/dashboard/reports?tab=0');
+                  context.read<ReportsCubit>().clearGeneratedReport();
+                });
+              }
+            }
+          },
+        ),
+      ],
+      child: ReportFormLayout(
+        title: 'Transaction Report',
+        onGenerate: _onGenerate,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ReportFieldLabel(label: 'Start Date'),
+            CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: _startDate,
+              onDateSelected: (d) => setState(() => _startDate = d),
             ),
-            showAsterisk: true,
-            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-            prependHintAsSelectableItem: false,
-            onSelect: (val) {
-              if (val == null) return;
-              setState(() {
-                _transactionType = val;
-                if (!_isCustom) {
-                  _selectedTransactionTypes = <String>[];
-                }
-              });
-            },
-          ),
-          if (_isCustom) ...[
             SizedBox(height: responsive.verticalSpacing),
-            CustomMultiSelectDropdown(
-              label: 'Transaction Type',
-              hintText: 'Select Transactions Types',
-              items: _transactionTypeOptions,
-              selectedItems: _selectedTransactionTypes,
-              showSelectAll: true,
-              onChanged: (s) =>
-                  setState(() => _selectedTransactionTypes = s),
+            const ReportFieldLabel(label: 'End Date'),
+            CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: _endDate,
+              onDateSelected: (d) => setState(() => _endDate = d),
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            CustomDropdown(
+              label: 'Transactions',
+              hintText: 'Select',
+              items: _transactionOptions,
+              selectedItem: _transactionType,
+              labelStyle: TextStyle(
+                fontSize: responsive.labelFontSize,
+                fontFamily: 'Manrope',
+                fontWeight: FontWeight.w400,
+                color: const Color(0xff573353),
+              ),
+              showAsterisk: true,
+              labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+              prependHintAsSelectableItem: false,
+              onSelect: (val) {
+                if (val == null) return;
+                setState(() {
+                  _transactionType = val;
+                  if (!_isCustom) {
+                    _selectedTransactionTypes = <String>[];
+                  }
+                });
+              },
+            ),
+            if (_isCustom) ...[
+              SizedBox(height: responsive.verticalSpacing),
+              CustomMultiSelectDropdown(
+                label: 'Transaction Type',
+                hintText: 'Select Transactions Types',
+                items: _transactionTypeOptions,
+                selectedItems: _selectedTransactionTypes,
+                showSelectAll: true,
+                onChanged: (s) => setState(() => _selectedTransactionTypes = s),
+              ),
+            ],
+            SizedBox(height: responsive.verticalSpacing),
+            const ReportFieldLabel(label: 'Export Format'),
+            ReportFormatSelector(
+              selectedFormat: _format,
+              onFormatChanged: (value) => setState(() => _format = value),
+              showLabel: false,
             ),
           ],
-        ],
+        ),
       ),
     );
   }

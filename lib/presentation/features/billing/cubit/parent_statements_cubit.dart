@@ -5,32 +5,33 @@ import '../widgets/parent_transaction_card.dart';
 
 part 'parent_statements_state.dart';
 
-/// Owns the parent "Statements" tab state: the selected date range, the
-/// generate/refresh loading flags, and the (demo) statements list.
 class ParentStatementsCubit extends Cubit<ParentStatementsState> {
   ParentStatementsCubit() : super(const ParentStatementsState.initial());
 
-  /// Seeds the date range, defaulting to the current month when not provided.
+  static const int _pageSize = 10;
+
   void initialize(DateTime? start, DateTime? end) {
     if (start == null || end == null) {
       final now = DateTime.now();
       emit(state.copyWith(
         customStartDate: () => DateTime(now.year, now.month, 1),
         customEndDate: () => DateTime(now.year, now.month + 1, 0),
+        displayCount: _pageSize,
       ));
     } else {
       emit(state.copyWith(
         customStartDate: () => start,
         customEndDate: () => end,
+        displayCount: _pageSize,
       ));
     }
   }
 
-  /// Syncs the date range from the parent widget (didUpdateWidget).
   void syncDates(DateTime? start, DateTime? end) {
     emit(state.copyWith(
       customStartDate: () => start,
       customEndDate: () => end,
+      displayCount: _pageSize, // reset page on date change
     ));
   }
 
@@ -53,7 +54,14 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
       customStartDate: () => startDate,
       customEndDate: () => endDate ??
           DateTime(startDate.year, startDate.month, startDate.day, 23, 59, 59),
+      displayCount: _pageSize, // reset page on filter change
     ));
     await refresh();
+  }
+
+  /// Shows the next page of statements (client-side pagination).
+  void loadNextPage() {
+    if (!state.hasMoreStatements) return;
+    emit(state.copyWith(displayCount: state.displayCount + _pageSize));
   }
 }

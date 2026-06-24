@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -7,7 +8,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 class AnnualStateImmunizationReportScreen extends StatefulWidget {
   const AnnualStateImmunizationReportScreen({super.key});
 
-  static const String routeName = '/reports/compliance/annual-state-immunization';
+  static const String routeName =
+      '/reports/compliance/annual-state-immunization';
 
   @override
   State<AnnualStateImmunizationReportScreen> createState() =>
@@ -18,6 +20,7 @@ class _AnnualStateImmunizationReportScreenState
     extends State<AnnualStateImmunizationReportScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
+  String _format = 'PDF';
 
   @override
   void initState() {
@@ -36,12 +39,9 @@ class _AnnualStateImmunizationReportScreenState
       );
       return;
     }
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Generating Annual State Immunization Report…',
-      isSuccess: true,
-    );
-    Navigator.pop(context);
+    if (mounted) {
+      Navigator.of(context).pop(true);
+    }
   }
 
   @override
@@ -68,6 +68,13 @@ class _AnnualStateImmunizationReportScreenState
             fetchInitialTime: false,
             initialDate: _endDate,
             onDateSelected: (d) => setState(() => _endDate = d),
+          ),
+          SizedBox(height: responsive.verticalSpacing),
+          const ReportFieldLabel(label: 'Export Format'),
+          ReportFormatSelector(
+            selectedFormat: _format,
+            onFormatChanged: (value) => setState(() => _format = value),
+            showLabel: false,
           ),
         ],
       ),

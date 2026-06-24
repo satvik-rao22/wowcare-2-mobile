@@ -19,10 +19,17 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
-
 import '../../../../../core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
+    as student_sign_in;
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
+    as student_sign_out;
+
+import 'package:wowcare/domain/features/student/entities/student_regular_schedule.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -30,76 +37,66 @@ import 'package:wowcare/core/storage/storage_service.dart';
 
 String _twoDigits(int n) => n.toString().padLeft(2, '0');
 
-TimeOfDay? _parseTime(String timeStr) {
-  try {
-    final parts = timeStr.split(' ');
-    final timeParts = parts[0].split(':');
-    int hours = int.parse(timeParts[0]);
-    int minutes = int.parse(timeParts[1]);
-    if (parts.length > 1) {
-      final isPM = parts[1].toLowerCase() == 'pm';
-      if (isPM && hours != 12) hours += 12;
-      if (!isPM && hours == 12) hours = 0;
-    }
-    return TimeOfDay(hour: hours, minute: minutes);
-  } catch (_) {
-    return null;
-  }
+/// Robust day-of-week → Dart weekday mapping.
+/// Supports both full names (MONDAY) and 3-letter abbreviations (MON).
+const _kDayToWeekday = <String, int>{
+  'MONDAY': 1,
+  'MON': 1,
+  'TUESDAY': 2,
+  'TUE': 2,
+  'WEDNESDAY': 3,
+  'WED': 3,
+  'THURSDAY': 4,
+  'THU': 4,
+  'FRIDAY': 5,
+  'FRI': 5,
+  'SATURDAY': 6,
+  'SAT': 6,
+  'SUNDAY': 7,
+  'SUN': 7,
+};
+
+/// Returns the full display name for a Dart weekday integer.
+String _getDayName(int weekday) {
+  const names = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+  if (weekday < 1 || weekday > 7) return '';
+  return names[weekday - 1];
 }
 
-/// Compute the mock countdown status and duration based on current time vs
-/// today's (or tomorrow's) schedule.
-({String statusText, Duration duration}) _computeCountdown({
-  required DateTime schoolNow,
-  required String scheduleRange,
-}) {
-  final range = scheduleRange.trim();
-  if (range.isEmpty) {
-    return (statusText: 'No schedule available', duration: Duration.zero);
-  }
-  final parts = range.split('-');
-  if (parts.length < 2) {
-    return (statusText: 'No schedule available', duration: Duration.zero);
-  }
-  final startLabel = parts.first.trim();
-  final endLabel = parts.sublist(1).join('-').trim();
-  final start = _parseTime(startLabel);
-  final end = _parseTime(endLabel);
-  if (start == null || end == null) {
-    return (statusText: 'No schedule available', duration: Duration.zero);
-  }
-  final todayStr =
-      '${schoolNow.year}-${_twoDigits(schoolNow.month)}-${_twoDigits(schoolNow.day)}';
-  final schoolStart = DateTime.parse(
-    '$todayStr ${_twoDigits(start.hour)}:${_twoDigits(start.minute)}:00',
-  );
-  final schoolEnd = DateTime.parse(
-    '$todayStr ${_twoDigits(end.hour)}:${_twoDigits(end.minute)}:00',
-  );
+/// Finds the schedule for [weekday] from [all].
+/// Returns null when not found or when times are unset (all zeros).
+StudentRegularScheduleEntry? _resolveScheduleForDay(
+  int weekday,
+  List<StudentRegularScheduleEntry> all,
+) {
+  for (final entry in all) {
+    if (_kDayToWeekday[entry.dayOfWeek.trim().toUpperCase()] != weekday)
+      continue;
 
-  if (schoolNow.isBefore(schoolStart)) {
-    return (
-      statusText: 'School starts in',
-      duration: schoolStart.difference(schoolNow),
-    );
-  } else if (schoolNow.isBefore(schoolEnd)) {
-    return (
-      statusText: 'School ends in',
-      duration: schoolEnd.difference(schoolNow),
-    );
-  } else {
-    // School done for today – show tomorrow
-    final tomorrow = schoolNow.add(const Duration(days: 1));
-    final tomorrowStr =
-        '${tomorrow.year}-${_twoDigits(tomorrow.month)}-${_twoDigits(tomorrow.day)}';
-    final nextStart = DateTime.parse(
-      '$tomorrowStr ${_twoDigits(start.hour)}:${_twoDigits(start.minute)}:00',
-    );
-    return (
-      statusText: "Tomorrow's school starts in",
-      duration: nextStart.difference(schoolNow),
-    );
+    // Reject if EITHER start OR end time is completely unset (0:00)
+    final startTimeSet = entry.startHour != 0 || entry.startMinute != 0;
+    final endTimeSet = entry.endHour != 0 || entry.endMinute != 0;
+
+    if (!startTimeSet || !endTimeSet) {
+      AppLogger.d(
+        '[MyChildsDayCard._resolveScheduleForDay] Skipping ${entry.dayOfWeek}: '
+        'start=${entry.startHour}:${entry.startMinute}, '
+        'end=${entry.endHour}:${entry.endMinute} (unset)',
+      );
+      continue;
+    }
+
+    return entry;
   }
+  return null;
 }
 
 class MyChildsDayCard extends StatefulWidget {
@@ -115,6 +112,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   String _selectedChildCode = '';
   bool _didLoadCommunication = false;
 
+  // Children sign-in status map
+  Map<String, String> _childrenSignInStatusMap = {};
+
   Timer? _countdownTimer;
   final ValueNotifier<String> _statusText = ValueNotifier<String>(
     'Loading schedule...',
@@ -125,6 +125,17 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // Reminder toggle
   bool _isReminder = false;
+
+  // Prevents didChangeDependencies from stacking multiple geofence-init
+  // callbacks when ancestor InheritedWidgets rebuild.
+  bool _geofenceInitScheduled = false;
+
+  /// Returns true when the selected child is currently signed in.
+  bool get _isSelectedChildSignedIn {
+    final code = _selectedChildCode;
+    if (code.isEmpty) return false;
+    return (_childrenSignInStatusMap[code] ?? '').toUpperCase() == 'SIGNED_IN';
+  }
 
   @override
   void initState() {
@@ -148,6 +159,57 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         );
       });
     }
+    // Load sign-in status for all children
+    final allChildCodes = parentChildProvider.children
+        .map((c) => c.code)
+        .toList();
+    if (allChildCodes.isNotEmpty) {
+      unawaited(_loadChildrenSignInStatus(allChildCodes));
+    }
+
+    // Initialize GPS geofencing for the current school.
+    // Guard ensures exactly one callback is queued even when
+    // didChangeDependencies fires multiple times per frame.
+    if (!_geofenceInitScheduled) {
+      _geofenceInitScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_initializeGeofencing());
+      });
+    }
+  }
+
+  Future<void> _initializeGeofencing() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
+      debugPrint('[MyChildsDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted');
+      if (schoolCode.isEmpty) {
+        debugPrint('[MyChildsDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.');
+        return;
+      }
+      if (!mounted) return;
+
+      // Initialize GPS geofencing with the school code
+      await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
+    } catch (e, st) {
+      debugPrint('[MyChildsDayCard] ❌ _initializeGeofencing error: $e\n$st');
+    }
+  }
+
+  Future<void> _loadChildrenSignInStatus(List<String> childCodes) async {
+    if (childCodes.isEmpty) return;
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: childCodes);
+      if (!mounted) return;
+      setState(() {
+        _childrenSignInStatusMap = map;
+      });
+    } catch (_) {
+      // If status check fails, keep empty map
+    }
   }
 
   void _stopCountdownTimer() {
@@ -157,7 +219,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   void _startCountdownTimer({
     required String schoolTimeZone,
-    required String todayScheduleRange,
+    required List<StudentRegularScheduleEntry> allSchedules,
   }) {
     _stopCountdownTimer();
 
@@ -166,9 +228,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         DateTime.now().toUtc(),
         schoolTimeZone,
       );
-      final result = _computeCountdown(
+      final result = _computeCountdownFromSchedule(
         schoolNow: schoolNow,
-        scheduleRange: todayScheduleRange,
+        schoolTimeZone: schoolTimeZone,
+        allSchedules: allSchedules,
       );
       _statusText.value = result.statusText;
       _duration.value = result.duration;
@@ -176,6 +239,145 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
     tick();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => tick());
+  }
+
+  /// Countdown using ONLY student schedules with school timezone.
+  ///
+  /// Uses school timezone for calculating current time.
+  /// Uses ONLY student schedules API (never school regular schedule).
+  /// Priority:
+  ///   1. Today's student schedule if it exists and hasn't passed
+  ///   2. Today's student schedule if currently active (count down to end)
+  ///   3. Nearest upcoming student schedule (within next 7 days)
+  ///   4. Empty state if no student schedules exist
+  ({String statusText, Duration duration}) _computeCountdownFromSchedule({
+    required DateTime schoolNow,
+    required String schoolTimeZone,
+    required List<StudentRegularScheduleEntry> allSchedules,
+  }) {
+    final todayWeekday = schoolNow.weekday; // 1 = Monday, 7 = Sunday
+    final todayDateKey = _getDayName(todayWeekday);
+
+    AppLogger.d(
+      '[MyChildsDayCard] Computing countdown: '
+      'schoolTimezone=$schoolTimeZone, '
+      'currentSchoolTime=${schoolNow.year}-${schoolNow.month.toString().padLeft(2, '0')}-${schoolNow.day.toString().padLeft(2, '0')} ${schoolNow.hour}:${schoolNow.minute}, '
+      'today=$todayDateKey, '
+      'allScheduleCount=${allSchedules.length}',
+    );
+
+    // Find today's student schedule (ONLY from student schedules)
+    final todaySchedule = _resolveScheduleForDay(todayWeekday, allSchedules);
+
+    // ── Case 1: Today has a student schedule ──────────────────────────────
+    if (todaySchedule != null) {
+      // Build today's schedule times using school timezone's date
+      final startDt = DateTime(
+        schoolNow.year,
+        schoolNow.month,
+        schoolNow.day,
+        todaySchedule.startHour,
+        todaySchedule.startMinute,
+        0,
+      );
+      final endDt = DateTime(
+        schoolNow.year,
+        schoolNow.month,
+        schoolNow.day,
+        todaySchedule.endHour,
+        todaySchedule.endMinute,
+        0,
+      );
+
+      AppLogger.d(
+        '[MyChildsDayCard] Today ($todayDateKey) has student schedule: '
+        '${todaySchedule.startHour}:${todaySchedule.startMinute} - '
+        '${todaySchedule.endHour}:${todaySchedule.endMinute}',
+      );
+
+      // If schedule hasn't started yet
+      if (schoolNow.isBefore(startDt)) {
+        return (
+          statusText: 'School starts in',
+          duration: startDt.difference(schoolNow),
+        );
+      }
+
+      // If schedule is currently active
+      if (schoolNow.isBefore(endDt)) {
+        return (
+          statusText: 'School ends in',
+          duration: endDt.difference(schoolNow),
+        );
+      }
+
+      AppLogger.d(
+        '[MyChildsDayCard] Today ($todayDateKey) schedule already passed. Finding next schedule...',
+      );
+    } else {
+      AppLogger.d(
+        '[MyChildsDayCard] Today ($todayDateKey) has no student schedule. Finding next schedule...',
+      );
+    }
+
+    // ── Case 2: Find nearest upcoming schedule (ONLY from student schedules) ──
+    return _findNextStudentSchedule(schoolNow, todayWeekday, allSchedules);
+  }
+
+  /// Searches forward 1–7 days for the nearest upcoming scheduled day.
+  ({String statusText, Duration duration}) _findNextStudentSchedule(
+    DateTime now,
+    int todayWeekday,
+    List<StudentRegularScheduleEntry> allSchedules,
+  ) {
+    if (allSchedules.isEmpty) {
+      return (statusText: 'No schedules available', duration: Duration.zero);
+    }
+
+    // Build maps: weekday → schedule
+    final schedulesByWeekday = <int, StudentRegularScheduleEntry>{};
+
+    for (final entry in allSchedules) {
+      final wd = _kDayToWeekday[entry.dayOfWeek.trim().toUpperCase()];
+      if (wd != null) {
+        schedulesByWeekday[wd] = entry;
+      }
+    }
+
+    if (schedulesByWeekday.isEmpty) {
+      return (statusText: 'No schedules available', duration: Duration.zero);
+    }
+
+    // Search next 7 days for upcoming schedule (starting tomorrow)
+    for (int daysAhead = 1; daysAhead <= 7; daysAhead++) {
+      final futureDate = now.add(Duration(days: daysAhead));
+      final futureWeekday = futureDate.weekday;
+
+      if (schedulesByWeekday.containsKey(futureWeekday)) {
+        final schedule = schedulesByWeekday[futureWeekday]!;
+        final startDt = DateTime(
+          futureDate.year,
+          futureDate.month,
+          futureDate.day,
+          schedule.startHour,
+          schedule.startMinute,
+          0,
+        );
+
+        AppLogger.d(
+          '[MyChildsDayCard] Next schedule found: ${_getDayName(futureWeekday)} ${schedule.startHour}:${schedule.startMinute}',
+        );
+
+        final nextDayName = _getDayName(futureWeekday);
+        final statusText = daysAhead == 1
+            ? 'Tomorrow\'s school starts in'
+            : '$nextDayName starts in';
+
+        return (statusText: statusText, duration: startDt.difference(now));
+      }
+    }
+
+    return (statusText: 'No schedules available', duration: Duration.zero);
   }
 
   @override
@@ -381,31 +583,138 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // ----- Sign-In/Out gradient button -----
 
-  Widget _buildSignInOutButton({required GeofenceState geofenceState}) {
+  Widget _buildSignInOutButton({
+    required GeofenceState geofenceState,
+    required ParentChildState parentChildState,
+  }) {
     final bool enabled =
         geofenceState.status == GeofenceCubitStatus.withinRange;
+
+    final children = parentChildState.children;
+    final signedInCodes = <String>[];
+    final signedOutCodes = <String>[];
+    for (final child in children) {
+      final code = child.code.trim();
+      if (code.isEmpty) continue;
+      final isSignedIn =
+          (_childrenSignInStatusMap[code] ?? '').toUpperCase() == 'SIGNED_IN';
+      if (isSignedIn) {
+        signedInCodes.add(code);
+      } else {
+        signedOutCodes.add(code);
+      }
+    }
+
+    final String buttonLabel;
+    final VoidCallback? onPressed;
+
+    final bool isMixed = signedInCodes.isNotEmpty && signedOutCodes.isNotEmpty;
+
+    if (isMixed) {
+      buttonLabel = 'Sign In / Out';
+      onPressed = enabled
+          ? () => context.go(
+              '/dashboard/student-sign-in-out-selection',
+              extra: <String, dynamic>{
+                'signedInCodes': signedInCodes,
+                'signedOutCodes': signedOutCodes,
+              },
+            )
+          : null;
+    } else if (signedOutCodes.isEmpty) {
+      buttonLabel = 'Sign Out';
+      onPressed = enabled
+          ? () {
+              final signedInChildren = children
+                  .where((c) => signedInCodes.contains(c.code.trim()))
+                  .toList();
+              final students = signedInChildren.asMap().entries.map((entry) {
+                final index = entry.key;
+                final child = entry.value;
+                return student_sign_out.StudentEntity(
+                  id: index + 1,
+                  studentCode: child.code,
+                  fullName: child.name,
+                  roomId: 0,
+                  roomName: child.primaryClassroomName ?? child.classroom,
+                  classroomCode: '',
+                  photoUuid: '',
+                );
+              }).toList();
+
+              unawaited(
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => student_sign_out.StudentSignOutForm(
+                      students: students,
+                      popOnSuccess: true,
+                      refreshCallback: () {},
+                    ),
+                  ),
+                ),
+              );
+            }
+          : null;
+    } else {
+      buttonLabel = 'Sign In';
+      onPressed = enabled
+          ? () {
+              final signedOutChildren = children
+                  .where((c) => signedOutCodes.contains(c.code.trim()))
+                  .toList();
+              final students = signedOutChildren.asMap().entries.map((entry) {
+                final index = entry.key;
+                final child = entry.value;
+                return student_sign_in.StudentEntity(
+                  id: index + 1,
+                  studentCode: child.code,
+                  fullName: child.name,
+                  roomId: 0,
+                  roomName: child.primaryClassroomName ?? child.classroom,
+                  classroomCode: '',
+                  photoUuid: null,
+                  isExpectedToday: true,
+                );
+              }).toList();
+
+              unawaited(
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => student_sign_in.StudentSignInForm(
+                      students: students,
+                      refreshCallback: () {},
+                      popOnSuccess: true,
+                    ),
+                  ),
+                ),
+              );
+            }
+          : null;
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0),
       child: CustomButtonLayout(
         isForm: false,
         showCancelButton: false,
-        confirmButtonLabel: 'Sign-In / Out',
+        confirmButtonLabel: buttonLabel,
         confirmButtonChild: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(
+          children: [
+            const Icon(
               Icons.location_on_outlined,
               size: 18,
               color: AppColors.billingBackgroundColor,
             ),
-            SizedBox(width: 8),
+            const SizedBox(width: 8),
             Flexible(
               child: Text(
-                'Sign-In / Out',
+                buttonLabel,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                   color: AppColors.billingBackgroundColor,
@@ -414,15 +723,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ),
           ],
         ),
-        onPressedConfirm: enabled
-            ? () => context.go('/dashboard/student-selection-sign-in-form')
-            : null,
+        onPressedConfirm: onPressed,
         disabledConfirmTooltip: 'You are not within  geofencing Range',
         onDisabledConfirmTap: () {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
             isWarning: true,
-
             message: 'You are not within geofencing Range',
             context: context,
           );
@@ -473,6 +779,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   Widget _buildSignInPinRow({required ParentChildRef selectedChild}) {
     return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         ShaderMask(
           shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
@@ -480,7 +788,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             end: Alignment.bottomCenter,
           ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
           child: const Text(
-            'Student Sign In/Out Pin : ',
+            'Your Sign-In Pin : ',
             style: TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -488,27 +796,30 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ),
           ),
         ),
-        const SizedBox(height: 10),
         BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
           buildWhen: (prev, curr) =>
               prev.guardianClockPin != curr.guardianClockPin ||
               prev.status != curr.status,
           builder: (context, state) {
             final pin = state.guardianClockPin.trim();
-            return Text(
-              pin.isEmpty ? '—' : pin,
-              style: TextStyle(
-                color: AppColors.themeColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-                fontFeatures: const [FontFeature.tabularFigures()],
+            return ShaderMask(
+              shaderCallback: (bounds) => AppColors.buildPrimaryGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
+              child: Text(
+                pin.isEmpty ? '—' : pin,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             );
           },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(width: 16),
         const QrScanButton(),
       ],
     );
@@ -551,12 +862,28 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
                 return MultiBlocListener(
                   listeners: [
+                    BlocListener<ParentChildCubit, ParentChildState>(
+                      listenWhen: (prev, curr) =>
+                          prev.refreshNonce != curr.refreshNonce ||
+                          prev.selectedChild?.code !=
+                              curr.selectedChild?.code ||
+                          prev.children.length != curr.children.length,
+                      listener: (context, parentState) {
+                        final allChildCodes = parentState.children
+                            .map((c) => c.code)
+                            .toList();
+                        if (allChildCodes.isNotEmpty) {
+                          unawaited(_loadChildrenSignInStatus(allChildCodes));
+                        }
+                      },
+                    ),
                     // ── MyChildsDay state changes ──────────────────────
                     BlocListener<MyChildsDayCubit, MyChildsDayState>(
                       listenWhen: (prev, curr) =>
                           prev.status != curr.status ||
                           prev.studentCode != curr.studentCode ||
-                          prev.todayScheduleRange != curr.todayScheduleRange ||
+                          prev.allRegularSchedules !=
+                              curr.allRegularSchedules ||
                           prev.schoolTimeZone != curr.schoolTimeZone ||
                           prev.schoolCode != curr.schoolCode,
                       listener: (context, s) {
@@ -567,15 +894,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                             s.schoolTimeZone.trim().isNotEmpty) {
                           _startCountdownTimer(
                             schoolTimeZone: s.schoolTimeZone,
-                            todayScheduleRange: s.todayScheduleRange,
+                            allSchedules: s.allRegularSchedules,
                           );
-                          if (s.schoolCode.isNotEmpty) {
-                            unawaited(
-                              context.read<GeofenceCubit>().initForSchool(
-                                schoolCode: s.schoolCode,
-                              ),
-                            );
-                          }
                         } else {
                           _stopCountdownTimer();
                           _statusText.value = 'Loading schedule...';
@@ -589,14 +909,20 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                           prev.status != GeofenceCubitStatus.withinRange &&
                           curr.status == GeofenceCubitStatus.withinRange,
                       listener: (context, _) {
-                        unawaited(
-                          GeofenceSignInSheet.show(
-                            context,
-                            role: 'parent',
-                            isSignedIn: false,
-                            studentName: selectedChild?.name,
-                          ),
-                        );
+                        // GeofenceCubit already fires the notification via
+                        // _triggerNotificationIfNeeded — no need to do it here.
+                        if (!context.mounted) return;
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (!mounted) return;
+                          unawaited(
+                            GeofenceSignInSheet.show(
+                              context,
+                              role: 'parent',
+                              isSignedIn: _isSelectedChildSignedIn,
+                              studentName: selectedChild?.name,
+                            ),
+                          );
+                        });
                       },
                     ),
                   ],
@@ -607,7 +933,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                         prev.fullName != curr.fullName ||
                         prev.classroomName != curr.classroomName ||
                         prev.todayDayOfWeek != curr.todayDayOfWeek ||
-                        prev.todayScheduleRange != curr.todayScheduleRange ||
+                        prev.allRegularSchedules != curr.allRegularSchedules ||
                         prev.schoolTimeZone != curr.schoolTimeZone,
                     builder: (context, myChildsDayState) {
                       final isLoading =
@@ -720,6 +1046,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                                     children: [
                                       _buildSignInOutButton(
                                         geofenceState: geofenceState,
+                                        parentChildState: state,
                                       ),
                                       if (geofenceState.status ==
                                           GeofenceCubitStatus.permissionDenied)
@@ -820,8 +1147,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           ),
 
           // if (!_isMinimized) _buildCommunicationSection(),
-          if (!_isMinimized)
-            const _CommunicationRowWidget(),
+          if (!_isMinimized) const _CommunicationRowWidget(),
         ],
       ),
     );

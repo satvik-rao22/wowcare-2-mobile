@@ -28,6 +28,7 @@ class StaffCard extends StatefulWidget {
     required this.isActive,
     this.status,
     this.onPrimaryAction,
+    this.onDeleteAction,
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
@@ -51,6 +52,8 @@ class StaffCard extends StatefulWidget {
   final bool isActive;
   final String? status;
   final VoidCallback? onPrimaryAction;
+  /// Permanently deletes the staff member. Only surfaced for deactivated staff.
+  final VoidCallback? onDeleteAction;
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
@@ -652,6 +655,57 @@ class _StaffCardState extends State<StaffCard> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
+                                // Deactivated staff can be permanently deleted.
+                                if (!widget.isActive) ...[
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 40,
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (ctx) {
+                                              return DeleteConfirmationBottomSheet(
+                                                name: widget.name,
+                                                type: 'staff_delete',
+                                                onDelete: () {
+                                                  widget.onDeleteAction?.call();
+                                                  return Future.value();
+                                                },
+                                                onCancel: () {
+                                                  Navigator.of(ctx).pop();
+                                                },
+                                              );
+                                            },
+                                          );
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(
+                                            color: Color(0xFF6C7FD8),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF6C7FD8),
+                                            height: 16 / 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                ],
                                 Expanded(
                                   child: Container(
                                     height: 40,

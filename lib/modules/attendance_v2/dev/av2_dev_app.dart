@@ -51,6 +51,12 @@ class _DevHostState extends State<_DevHost> {
         period: _period,
         loadDetail: (date) async => StaffOvertimeFixtures.dayDetail(date),
         onPeriodChanged: (p) => setState(() => _period = p),
+        canEdit: true,
+        onEditSession: ({
+          required recordCode,
+          required signInLocal,
+          signOutLocal,
+        }) async {},
       ),
     );
   }

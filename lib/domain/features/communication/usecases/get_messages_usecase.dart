@@ -11,7 +11,14 @@ class GetMessagesUseCase {
   Future<Either<Failure, List<Message>>> call(
     String threadId, {
     String? currentUserId,
+    int page = 0,
+    int size = 100,
   }) async {
-    return await repository.getMessages(threadId, currentUserId: currentUserId);
+    return await repository.getMessages(
+      threadId,
+      currentUserId: currentUserId,
+      page: page,
+      size: size,
+    );
   }
 }

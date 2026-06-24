@@ -5,9 +5,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/newsletter_tab.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_view_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -96,9 +95,6 @@ class _MessagingScreenState extends State<MessagingScreen>
       create: (context) => serviceLocator<CommunicationCubit>(),
       child: GlobalScaffold(
         hasBackButton: widget.userPersona == UserPersona.parent ? false : true,
-        studentList: widget.userPersona == UserPersona.parent
-            ? ['Ajay Sundaram', 'Jaya Sundaram']
-            : null,
         showCustomNavigationBar: !isLandscape,
         body: Column(
           mainAxisSize: MainAxisSize.min,
@@ -134,7 +130,7 @@ class _MessagingScreenState extends State<MessagingScreen>
                 ],
               ),
             if (isParentPersona)
-              const Expanded(child: ParentViewScreen())
+              const Expanded(child: ParentDirectMessagingScreen())
             else
               Expanded(
                 child: TabBarView(

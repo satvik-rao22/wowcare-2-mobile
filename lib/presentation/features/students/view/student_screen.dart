@@ -42,11 +42,15 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as absent_form;
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -128,10 +132,18 @@ class _StudentScreenState extends State<StudentScreen> {
     _applyIncomingStatusFilter();
     _applyIncomingClassroomSelections();
     _searchController.addListener(_onSearchChanged);
+    // Refresh the list when a background profile-photo upload finishes, so the
+    // new photo shows — same refresh as after an add.
+    ProfilePhotoUploadEvents.studentTick.addListener(_onProfilePhotoUploaded);
     // Load students from API via cubit after first frame to ensure BlocProvider is available
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _bootstrapList();
     });
+  }
+
+  void _onProfilePhotoUploaded() {
+    if (!mounted) return;
+    context.read<StudentCubit>().refreshWithCacheReset();
   }
 
   Future<void> _bootstrapList() async {
@@ -271,6 +283,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   @override
   void dispose() {
+    ProfilePhotoUploadEvents.studentTick.removeListener(_onProfilePhotoUploaded);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.dispose();
@@ -567,6 +580,10 @@ class _StudentScreenState extends State<StudentScreen> {
           final trimmed = value.trim();
           if (trimmed.isEmpty) return null;
           if (validCodes.contains(trimmed)) return trimmed;
+          // Accept a raw classroom code even before ClassroomCubit has loaded
+          // (e.g. deep-linked from the classroom info screen) so the filter
+          // applies automatically instead of waiting for the classroom list.
+          if (trimmed.toUpperCase().startsWith('CLS_')) return trimmed;
           return nameToCode[trimmed]?.trim();
         })
         .whereType<String>()
@@ -742,6 +759,14 @@ class _StudentScreenState extends State<StudentScreen> {
     return selected;
   }
 
+  /// True when at least one selected student is inactive. Attendance and
+  /// Activities cannot be performed on inactive students, so both actions are
+  /// disabled for the whole selection when this is true.
+  bool _hasInactiveSelected(List<Student> students) {
+    return _getSelectedStudents(students)
+        .any((s) => s.status.trim().toUpperCase() != 'ACTIVE');
+  }
+
   String _resolveClassroomCodeForStudent(
     Student student, {
     required Map<String, String> classroomCodeByName,
@@ -849,6 +874,9 @@ class _StudentScreenState extends State<StudentScreen> {
       return StudentAttendanceActionAvailability.allDisabled;
     }
     if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
       return StudentAttendanceActionAvailability.allDisabled;
     }
 
@@ -1143,6 +1171,7 @@ class _StudentScreenState extends State<StudentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<GeofenceCubit>();
     final double titleFontSize = ResponsiveSizing.titleFontSize(context);
     final double titleLineHeight = ResponsiveSizing.titleLineHeight(context);
     final classroomState = context.watch<ClassroomCubit>().state;
@@ -1159,6 +1188,8 @@ class _StudentScreenState extends State<StudentScreen> {
         _scheduleClassroomDetailFetchesIfNeeded(students, classroomNameByCode);
         final bool anySelected = _selectedDemo.any((e) => e);
         final int selectedCount = _selectedDemo.where((e) => e).length;
+        // Attendance + Activities are not allowed on inactive students.
+        final bool hasInactiveSelected = _hasInactiveSelected(students);
 
         // Update selection list when students list changes
         if (_selectedDemo.length != students.length) {
@@ -1195,6 +1226,10 @@ class _StudentScreenState extends State<StudentScreen> {
                               : null,
                       attendanceAvailability:
                           _attendanceAvailabilityForSelection(students),
+                      attendanceEnabled: !hasInactiveSelected,
+                      attendanceDisabledHint: hasInactiveSelected
+                          ? 'You cannot mark attendance for inactive student.'
+                          : null,
                       onAttendanceTap: (){
                         setState(() {
                           final open = _currentPanel == StudentPanelType.attendance;
@@ -1202,7 +1237,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           _showActivitiesPanel = false;
                         });
                       },
-                      onActivitiesTap: _canShowActivitiesButton(selectedCount, students) ? () {
+                      onActivitiesTap: (_canShowActivitiesButton(selectedCount, students) && !hasInactiveSelected) ? () {
                         setState(() {
                           _showActivitiesPanel = !_showActivitiesPanel;
                           _currentPanel = _showActivitiesPanel ? StudentPanelType.activities : StudentPanelType.none;
@@ -1255,7 +1290,10 @@ class _StudentScreenState extends State<StudentScreen> {
                         _refreshAttendanceStatusForSelection(students);
                       },
                       isProfileEnabled: selectedCount == 1,
-                      activitiesEnabled: _canShowActivitiesButton(selectedCount, students),
+                      activitiesEnabled: _canShowActivitiesButton(selectedCount, students) && !hasInactiveSelected,
+                      activitiesDisabledHint: hasInactiveSelected
+                          ? 'You cannot record activities for inactive student.'
+                          : null,
                       showAttendanceActions: _currentPanel == StudentPanelType.attendance,
                       isAttendanceActionLoading: _isAttendanceActionLoading,
                       onSignInTap: () => _openAttendanceActionFlow(
@@ -1274,6 +1312,18 @@ class _StudentScreenState extends State<StudentScreen> {
                         students: students,
                         actionName: 'mark_absent',
                       ),
+                      onActivityRecorded: () {
+                        setState(() {
+                          for (int i = 0; i < _selectedDemo.length; i++) {
+                            _selectedDemo[i] = false;
+                          }
+                          _selectAll = false;
+                          _showActivitiesPanel = false;
+                          _currentPanel = StudentPanelType.none;
+                        });
+                        _refreshAttendanceStatusForSelection(students);
+                        context.read<StudentCubit>().refresh();
+                      },
                       ),
                     ],
                   ),
@@ -1662,18 +1712,17 @@ class _StudentScreenState extends State<StudentScreen> {
                               crossAxisAlignment: CrossAxisAlignment.center,
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                // const CustomChip(
-                                //   label: 'Active',
-                                //   labelStyle: TextStyle(
-                                //     color: AppColors.secondaryColor,
-                                //     fontSize: 13,
-                                //     fontWeight: FontWeight.w500,
-                                //   ),
-                                //   color: Color.fromRGBO(177, 175, 233, 0.3),
-                                // ),
-                                CustomClearAllChip(
-                                  onTap: null,
+                                // Status chip matches the staff screen: a light
+                                // lavender pill (display-only) showing the active
+                                // status filter, next to the gradient Clear All.
+                                CustomChip(
                                   label: _statusChipLabel(),
+                                  labelStyle: const TextStyle(
+                                    color: AppColors.secondaryColor,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  color: const Color.fromRGBO(177, 175, 233, 0.3),
                                 ),
                                 const SizedBox(width: 8),
                                 CustomClearAllChip(onTap: () => _clearAllFilters()),
@@ -1749,10 +1798,7 @@ class _StudentScreenState extends State<StudentScreen> {
                   const SizedBox(height: 16),
                   // Student list from API
                   if (state.isLoading && students.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(32.0),
-                      child: Center(child: PrimaryCircularLoader()),
-                    )
+                    const StudentListShimmer()
                   else if (state.errorMessage != null && students.isEmpty)
                     Padding(
                       padding: const EdgeInsets.all(32.0),

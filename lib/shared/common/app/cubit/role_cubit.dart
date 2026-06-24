@@ -66,6 +66,7 @@ class RoleCubit extends Cubit<RoleState> {
   bool get isParent => state.role == 'parent';
   bool get isAdmin => state.role == 'admin' || state.role == 'staff';
   bool get isStaff => state.role == 'staff';
+  bool get isKiosk => state.role == 'kiosk';
   bool get hasResolvedAccess => _initialized;
 
   /// Whether the active school context uses API module rows for this user.
@@ -179,7 +180,9 @@ class RoleCubit extends Cubit<RoleState> {
     // Fallback derives role from API-provided roles only.
     final roleJson =
         (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
-    if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
+    if (roleJson.contains('KIOSK')) {
+      return 'kiosk';
+    } else if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
       return 'parent';
     } else if (roleJson.contains('STAFF') || roleJson.contains('TEACHER')) {
       return 'staff';
@@ -251,7 +254,9 @@ class RoleCubit extends Cubit<RoleState> {
 
     String role;
     final backendRole = chosenRole.toLowerCase();
-    if (backendRole.contains('guardian') || backendRole.contains('parent')) {
+    if (backendRole.contains('kiosk')) {
+      role = 'kiosk';
+    } else if (backendRole.contains('guardian') || backendRole.contains('parent')) {
       role = 'parent';
     } else if (backendRole.contains('staff') ||
         backendRole.contains('teacher')) {

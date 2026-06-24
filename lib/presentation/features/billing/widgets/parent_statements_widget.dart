@@ -20,15 +20,9 @@ class ParentStatementsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
+    // The sibling list/balance is static data, so it stays visible at all times.
+    // `isLoading` only reflects the (simulated) "Generate" action, which is shown
+    // on the Generate button below — it must not blank out the panel.
     if (familyChildren.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -66,8 +60,7 @@ class ParentStatementsWidget extends StatelessWidget {
                   DocumentImageWidget(
                     fileUuid: '',
                     name: name,
-                    size: 30,
-                    fontSize: 12,
+                    size: 50,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -130,7 +123,7 @@ class ParentStatementsWidget extends StatelessWidget {
               ),
               const Spacer(),
               OutlinedButton(
-                onPressed: onGenerate,
+                onPressed: isLoading ? null : onGenerate,
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.themeColor, width: 1.5),
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
@@ -138,14 +131,25 @@ class ParentStatementsWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: AppText.value(
-                  'Generate',
-                  style: AppTextStyles.value.copyWith(
-                    color: AppColors.themeColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.themeColor,
+                          ),
+                        ),
+                      )
+                    : AppText.value(
+                        'Generate',
+                        style: AppTextStyles.value.copyWith(
+                          color: AppColors.themeColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ],
           ),

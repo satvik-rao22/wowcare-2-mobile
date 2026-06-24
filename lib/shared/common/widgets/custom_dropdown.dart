@@ -149,6 +149,7 @@ class CustomDropdown extends StatefulWidget {
     this.contentPadding,
     this.height = null,
     this.leadingIcon,
+
     /// When true (default), [hintText] is the first menu item; choosing it clears the selection.
     /// Set false when a value must always stay chosen (e.g. parent global child picker).
     this.prependHintAsSelectableItem = true,
@@ -250,7 +251,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
               ),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withOpacity(0.102),
+                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
                 //color: const Color(0xFFF8F7FA),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -336,7 +337,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                                             widget.popupItemTextStyle ??
                                             TextStyle(
                                               color: AppColors.primaryColor
-                                                  .withOpacity(0.9),
+                                                  .withValues(alpha: 0.9),
                                               fontSize: widget.isField
                                                   ? 17
                                                   : 15,

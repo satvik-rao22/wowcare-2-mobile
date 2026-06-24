@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
@@ -76,6 +77,9 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
             return _ErrorState(message: state.errorMessage, onRetry: _fetch);
           }
           if (state.isLoaded) {
+            // Edit is admin-only (org/school admin). RoleCubit is provided
+            // app-wide in main.dart.
+            final canEdit = context.watch<RoleCubit>().state.role == 'admin';
             return RefreshIndicator(
               color: Av2Colors.theme,
               onRefresh: _cubit.refresh,
@@ -84,6 +88,17 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
                 period: _period,
                 loadDetail: _cubit.dayDetail,
                 onPeriodChanged: _onPeriodChanged,
+                canEdit: canEdit,
+                onEditSession: ({
+                  required recordCode,
+                  required signInLocal,
+                  signOutLocal,
+                }) =>
+                    _cubit.editSession(
+                  recordCode: recordCode,
+                  signInLocal: signInLocal,
+                  signOutLocal: signOutLocal,
+                ),
               ),
             );
           }

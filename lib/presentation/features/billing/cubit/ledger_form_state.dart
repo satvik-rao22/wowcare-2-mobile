@@ -2,44 +2,43 @@ part of 'ledger_form_cubit.dart';
 
 class LedgerFormState extends Equatable {
   const LedgerFormState({
-    required this.selectedType,
+    required this.selectedCategory,
     required this.isSubmitting,
     required this.isLoading,
     required this.titleError,
-    required this.typeError,
+    required this.categoryError,
   });
 
-  const LedgerFormState.initial(String? initialType)
-      : selectedType = initialType,
+  const LedgerFormState.initial(String? initialCategory)
+      : selectedCategory = initialCategory,
         isSubmitting = false,
         isLoading = false,
         titleError = false,
-        typeError = false;
+        categoryError = false;
 
-  final String? selectedType;
+  final String? selectedCategory;
   final bool isSubmitting;
   final bool isLoading;
   final bool titleError;
-  final bool typeError;
+  final bool categoryError;
 
-  /// [selectedType] is passed as a getter so callers can explicitly set null.
   LedgerFormState copyWith({
-    String? Function()? selectedType,
+    String? Function()? selectedCategory,
     bool? isSubmitting,
     bool? isLoading,
     bool? titleError,
-    bool? typeError,
+    bool? categoryError,
   }) {
     return LedgerFormState(
-      selectedType: selectedType != null ? selectedType() : this.selectedType,
+      selectedCategory: selectedCategory != null ? selectedCategory() : this.selectedCategory,
       isSubmitting: isSubmitting ?? this.isSubmitting,
       isLoading: isLoading ?? this.isLoading,
       titleError: titleError ?? this.titleError,
-      typeError: typeError ?? this.typeError,
+      categoryError: categoryError ?? this.categoryError,
     );
   }
 
   @override
   List<Object?> get props =>
-      [selectedType, isSubmitting, isLoading, titleError, typeError];
+      [selectedCategory, isSubmitting, isLoading, titleError, categoryError];
 }

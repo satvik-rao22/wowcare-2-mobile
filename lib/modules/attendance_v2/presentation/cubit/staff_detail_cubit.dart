@@ -4,6 +4,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../domain/entities/day_detail.dart';
 import '../../domain/usecases/calculate_overtime_usecase.dart';
+import '../../domain/usecases/edit_session_usecase.dart';
 import '../../domain/usecases/get_day_detail_usecase.dart';
 import '../../domain/usecases/get_staff_overview_usecase.dart';
 import 'staff_detail_state.dart';
@@ -18,11 +19,13 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
     required this.calculateOvertimeUseCase,
     required this.getStaffOverviewUseCase,
     required this.getDayDetailUseCase,
+    required this.editSessionUseCase,
   }) : super(const StaffDetailState.initial());
 
   final CalculateOvertimeUseCase calculateOvertimeUseCase;
   final GetStaffOverviewUseCase getStaffOverviewUseCase;
   final GetDayDetailUseCase getDayDetailUseCase;
+  final EditSessionUseCase editSessionUseCase;
 
   String _staffCode = '';
   String _staffName = '';
@@ -86,6 +89,24 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
         ));
       }
     }
+  }
+
+  /// Edits a session's sign-in/out (admin), then recomputes + reloads so the
+  /// day totals and overtime reflect the change. Rethrows so the caller can
+  /// surface the error.
+  Future<void> editSession({
+    required String recordCode,
+    required DateTime signInLocal,
+    DateTime? signOutLocal,
+  }) async {
+    await editSessionUseCase(
+      recordCode: recordCode,
+      staffCode: _staffCode,
+      signInLocal: signInLocal,
+      signOutLocal: signOutLocal,
+      timeZone: state.profile?.timeZone ?? '',
+    );
+    await _calculateThenLoad(emitLoaded: true, emitError: false);
   }
 
   /// Lazily loads (and memoizes) the sessions for one day.

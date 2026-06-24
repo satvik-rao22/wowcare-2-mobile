@@ -14,6 +14,7 @@ import '../../../../domain/features/student/entities/student_physical_exam.dart'
 import '../../../../domain/features/student/entities/student_physician.dart';
 import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
+import '../../../../domain/features/student/entities/student_regular_schedule.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../mappers/student_guardian_mapper.dart';
@@ -91,6 +92,35 @@ class StudentRepositoryImpl
       }
     }
     return scheduleByDay;
+  }
+
+  @override
+  Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
+    required String studentCode,
+  }) async {
+    final rawList = await _remoteDataSource.getStudentRegularSchedules(
+      studentCode: studentCode,
+    );
+
+    int _extractInt(dynamic timeMap, String key) {
+      if (timeMap is! Map) return 0;
+      final v = timeMap[key];
+      if (v == null) return 0;
+      if (v is int) return v;
+      return int.tryParse(v.toString()) ?? 0;
+    }
+
+    return rawList.map((e) {
+      final startTime = e['startTime'];
+      final endTime = e['endTime'];
+      return StudentRegularScheduleEntry(
+        dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
+        startHour: _extractInt(startTime, 'hour'),
+        startMinute: _extractInt(startTime, 'minute'),
+        endHour: _extractInt(endTime, 'hour'),
+        endMinute: _extractInt(endTime, 'minute'),
+      );
+    }).toList(growable: false);
   }
 
   @override
@@ -316,6 +346,14 @@ class StudentRepositoryImpl
     );
   }
 
+  @override
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+    return _remoteDataSource.getStudentPhysicalCheckupCount(
+      schoolCode: schoolCode,
+    );
+  }
+
   static String _studentImmunizationCacheKey(String studentCode) =>
       CacheManager.buildCacheKey(
         feature: 'student',
@@ -433,6 +471,7 @@ class StudentRepositoryImpl
         documentUrl: documentUrl,
         documentSizeKb: m.size > 0 ? (m.size / 1024).ceil() : 0,
         mimeType: m.mimeType,
+        assetCode: m.assetCode,
         expiryDate: m.expiryDate,
         expired: false,
         createdAt: m.createdAt,
@@ -1035,7 +1074,7 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<String> createGuardianUser({
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -1049,7 +1088,7 @@ class StudentRepositoryImpl
     String? userCode,
     String? organizationCode,
   }) async {
-    final message = await _remoteDataSource.createGuardianUser(
+    final result = await _remoteDataSource.createGuardianUser(
       schoolCode: schoolCode,
       studentCode: studentCode,
       firstName: firstName,
@@ -1071,7 +1110,7 @@ class StudentRepositoryImpl
       includeFilterMetadata: true,
     );
 
-    return message;
+    return result;
   }
 
   @override
@@ -1306,7 +1345,13 @@ class StudentRepositoryImpl
             .map(StudentGuardianModel.fromJson)
             .toList(growable: false);
         if (list.isNotEmpty) {
-          return list.map((m) => m.toEntity()).toList(growable: false);
+          // Older cached payloads may not include the guardian code. If so,
+          // bypass cache so the edit/delete flows can resolve a valid code.
+          final hasMissingCode =
+              list.any((g) => g.guardianCode.trim().isEmpty);
+          if (!hasMissingCode) {
+            return list.map((m) => m.toEntity()).toList(growable: false);
+          }
         }
       }
     }

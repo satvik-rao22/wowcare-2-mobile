@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/responsive/av2_breakpoints.dart';
 import '../../core/theme/av2_spacing.dart';
+import '../../domain/entities/attendance_session.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../controllers/av2_day_filter.dart';
 import '../controllers/av2_period.dart';
@@ -8,10 +9,18 @@ import '../controllers/day_detail_loader.dart';
 import '../widgets/av2_action_sheet.dart';
 import '../widgets/av2_day_table.dart';
 import '../widgets/av2_day_timeline.dart';
+import '../widgets/av2_edit_attendance_sheet.dart';
 import '../widgets/av2_filter_chips.dart';
 import '../widgets/av2_hero_card.dart';
 import '../widgets/av2_identity_row.dart';
 import '../widgets/av2_period_sheet.dart';
+
+/// Edits a session: returns true on success so the screen can toast.
+typedef Av2EditSession = Future<void> Function({
+  required String recordCode,
+  required DateTime signInLocal,
+  DateTime? signOutLocal,
+});
 
 /// Pure presentation of a loaded [StaffOvertimeProfile]. Day sessions load
 /// lazily through [loadDetail] when a row expands. Responsive: card timeline on
@@ -23,12 +32,18 @@ class StaffDetailView extends StatefulWidget {
     required this.period,
     required this.loadDetail,
     this.onPeriodChanged,
+    this.canEdit = false,
+    this.onEditSession,
   });
 
   final StaffOvertimeProfile profile;
   final Av2Period period;
   final DayDetailLoader loadDetail;
   final ValueChanged<Av2Period>? onPeriodChanged;
+
+  /// Admin-only: when false, no edit affordance is shown on session rows.
+  final bool canEdit;
+  final Av2EditSession? onEditSession;
 
   @override
   State<StaffDetailView> createState() => _StaffDetailViewState();
@@ -46,13 +61,40 @@ class _StaffDetailViewState extends State<StaffDetailView> {
     if (picked != null) widget.onPeriodChanged?.call(picked);
   }
 
-  Future<void> _editSession(String recordCode) async {
+  Future<void> _onSessionAction(AttendanceSession session) async {
     final action = await showAv2ActionSheet(context, title: 'Edit attendance');
     if (action == null || !mounted) return;
-    final verb = action == Av2RecordAction.edit ? 'Edit' : 'Delete';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$verb · $recordCode')),
-    );
+    if (action == Av2RecordAction.edit) {
+      await _editSession(session);
+    } else {
+      // Delete endpoint not wired yet — surface intent for now.
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Delete is not available yet')),
+      );
+    }
+  }
+
+  Future<void> _editSession(AttendanceSession session) async {
+    final result = await showAv2EditAttendanceSheet(context, session: session);
+    if (result == null || !mounted) return;
+    final edit = widget.onEditSession;
+    if (edit == null) return;
+    try {
+      await edit(
+        recordCode: session.recordCode,
+        signInLocal: result.signInLocal,
+        signOutLocal: result.signOutLocal,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Attendance updated')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Couldn’t update attendance. Try again.')),
+      );
+    }
   }
 
   @override
@@ -94,7 +136,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
                 days: filtered,
                 loadDetail: widget.loadDetail,
                 emptyMessage: _emptyMessage(),
-                onSessionAction: _editSession,
+                onSessionAction: widget.canEdit ? _onSessionAction : null,
               ),
             ],
           ),
@@ -132,7 +174,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
                 Av2DayTable(
                   days: filtered,
                   loadDetail: widget.loadDetail,
-                  onSessionAction: _editSession,
+                  onSessionAction: widget.canEdit ? _onSessionAction : null,
                 ),
             ],
           ),

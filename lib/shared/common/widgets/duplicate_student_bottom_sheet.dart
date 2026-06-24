@@ -41,23 +41,23 @@ class _DuplicateStudentBottomSheetState
     final horizontalPadding = isLargeTablet
         ? 32.0
         : isTablet
-            ? 24.0
-            : 16.0;
+        ? 24.0
+        : 16.0;
     final verticalPadding = isLargeTablet
         ? 32.0
         : isTablet
-            ? 24.0
-            : 16.0;
+        ? 24.0
+        : 16.0;
     final titleFontSize = isLargeTablet
         ? 20.0
         : isTablet
-            ? 18.0
-            : 16.0;
+        ? 18.0
+        : 16.0;
     final borderRadius = isLargeTablet
         ? 24.0
         : isTablet
-            ? 20.0
-            : 16.0;
+        ? 20.0
+        : 16.0;
 
     return SafeArea(
       top: false,
@@ -101,7 +101,9 @@ class _DuplicateStudentBottomSheetState
               ),
               SizedBox(height: verticalPadding),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   'Duplicate student found',
                   style: TextStyle(
@@ -116,14 +118,16 @@ class _DuplicateStudentBottomSheetState
               ),
               const SizedBox(height: 8),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   'A student with the name "${widget.enteredName}" already exists. Tap a name to view the profile, or add anyway to continue.',
                   style: TextStyle(
                     fontFamily: "Manrope",
                     fontSize: isTablet ? 14 : 13,
                     fontWeight: FontWeight.w400,
-                    color: AppColors.primaryColor.withOpacity(0.65),
+                    color: AppColors.primaryColor.withValues(alpha: 0.65),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -187,4 +191,3 @@ class _DuplicateStudentBottomSheetState
     );
   }
 }
-

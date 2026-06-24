@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+
 // Backend/bloc imports disabled for UI-only mode
 // import 'package:carousel_slider/carousel_slider.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
@@ -98,15 +99,13 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
       ),
       ClassroomMessage(
         id: '2',
-        text:
-            'Children are sleeping now, Please feed them once they wake up',
+        text: 'Children are sleeping now, Please feed them once they wake up',
         senderId: 'staff_2',
         timestamp: now - 300000,
       ),
       ClassroomMessage(
         id: '3',
-        text:
-            'Children are sleeping now, Please feed them once they wake up',
+        text: 'Children are sleeping now, Please feed them once they wake up',
         senderId: 'staff_2',
         timestamp: now - 120000,
       ),
@@ -130,10 +129,10 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
   void _handleSendMessage(String content) {
     if (content.isEmpty) return;
     final msg = ClassroomMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          text: content,
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      text: content,
       senderId: 'staff_1',
-          timestamp: DateTime.now().millisecondsSinceEpoch,
+      timestamp: DateTime.now().millisecondsSinceEpoch,
     );
     setState(() {
       _messages.add(msg);
@@ -142,8 +141,9 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
 
   String getSenderNameCode(String name) {
     List<String> parts = name.split(' ');
-    String firstLetter =
-        parts.isNotEmpty && parts[0].isNotEmpty ? parts[0][0] : '';
+    String firstLetter = parts.isNotEmpty && parts[0].isNotEmpty
+        ? parts[0][0]
+        : '';
     String secondLetter = '';
     if (parts.length >= 2) {
       secondLetter = parts[1].isNotEmpty ? parts[1][0] : '';
@@ -170,6 +170,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                       left: BorderSide(color: AppColors.themeColor),
                       top: BorderSide(color: AppColors.themeColor),
                       right: BorderSide(color: AppColors.themeColor),
+                      bottom: BorderSide(color: AppColors.themeColor),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(8, 20, 8, 10),
@@ -189,38 +190,41 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                                     ),
                                     backgroundColor:
                                         const WidgetStatePropertyAll<Color>(
-                                      Colors.white,
-                                    ),
+                                          Colors.white,
+                                        ),
                                     surfaceTintColor:
                                         const WidgetStatePropertyAll<Color>(
-                                      Colors.white,
-                                    ),
+                                          Colors.white,
+                                        ),
                                     hintText: 'Search Messages',
                                     hintStyle: WidgetStatePropertyAll(
                                       TextStyle(
                                         fontFamily: 'Manrope',
-                                        color:
-                                            const Color.fromRGBO(87, 51, 83, 1)
-                                                .withOpacity(0.7),
+                                        color: const Color.fromRGBO(
+                                          87,
+                                          51,
+                                          83,
+                                          1,
+                                        ).withValues(alpha: 0.7),
                                         fontSize: 13,
                                       ),
                                     ),
-                                    leading: const Icon(
-                                      Icons.search,
-                                      size: 18,
-                                    ),
+                                    leading: const Icon(Icons.search, size: 18),
                                     elevation: const WidgetStatePropertyAll(0),
                                     side: const WidgetStatePropertyAll(
                                       BorderSide(
                                         width: 1,
-                                        color:
-                                            Color.fromARGB(255, 188, 173, 186),
+                                        color: Color.fromARGB(
+                                          255,
+                                          188,
+                                          173,
+                                          186,
+                                        ),
                                       ),
                                     ),
                                     shape: WidgetStatePropertyAll(
                                       RoundedRectangleBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(9),
+                                        borderRadius: BorderRadius.circular(9),
                                       ),
                                     ),
                                   ),
@@ -231,35 +235,40 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                           const SizedBox(height: 15.0),
                           Row(
                             children: _users
-                                .map((user) => Tooltip(
-                                      message: user.profile.name,
-                                  child: Container(
-                                    width: 40,
-                                    height: 40,
-                                    margin: const EdgeInsets.symmetric(
-                                            horizontal: 4),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: const Color.fromRGBO(
-                                            89, 120, 247, 1),
-                                        width: 1,
+                                .map(
+                                  (user) => Tooltip(
+                                    message: user.profile.name,
+                                    child: Container(
+                                      width: 40,
+                                      height: 40,
+                                      margin: const EdgeInsets.symmetric(
+                                        horizontal: 4,
                                       ),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                    ),
-                                    child: Stack(
-                                          alignment: Alignment.center,
-                                      children: [
-                                            DocumentImageWidget(
-                                              fileUuid: user.profile.photoURL,
-                                              name: user.profile.name,
-                                              size: 40,
-                                            ),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: const Color.fromRGBO(
+                                            89,
+                                            120,
+                                            247,
+                                            1,
+                                          ),
+                                          width: 1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          DocumentImageWidget(
+                                            fileUuid: user.profile.photoURL,
+                                            name: user.profile.name,
+                                            size: 40,
+                                          ),
                                           Positioned(
                                             top: 3,
                                             right: 3,
                                             child: Container(
-                                                width: 10,
+                                              width: 10,
                                               height: 10,
                                               decoration: BoxDecoration(
                                                 color: Colors.green,
@@ -271,15 +280,16 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                                               ),
                                             ),
                                           ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                    ))
+                                )
                                 .toList(),
                           ),
                           const SizedBox(height: 12),
                           Row(
-                                children: [
+                            children: [
                               Checkbox(
                                 value: _showUnreadOnly,
                                 onChanged: (v) => setState(() {
@@ -294,31 +304,35 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                                   fontSize: 15,
                                   fontWeight: FontWeight.w500,
                                 ),
-                              )
+                              ),
                             ],
                           ),
                           const SizedBox(
-                              height:
-                                  10.0), // Spacing before messages or loading
-                            Expanded(
+                            height: 10.0,
+                          ), // Spacing before messages or loading
+                          Expanded(
                             child: ListView.builder(
                               controller: widget.scrollController,
                               itemCount: _messages.length,
                               itemBuilder: (context, index) {
                                 final m = _messages[index];
-                                final sender = _users
-                                    .firstWhere((u) => u.id == m.senderId);
+                                final sender = _users.firstWhere(
+                                  (u) => u.id == m.senderId,
+                                );
                                 final time = TimeOfDay.fromDateTime(
                                   DateTime.fromMillisecondsSinceEpoch(
-                                      m.timestamp),
+                                    m.timestamp,
+                                  ),
                                 );
                                 return Padding(
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 8, horizontal: 8),
-                                child: Column(
+                                    vertical: 8,
+                                    horizontal: 8,
+                                  ),
+                                  child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
-                                  children: [
+                                    children: [
                                       Row(
                                         children: [
                                           DocumentImageWidget(
@@ -327,56 +341,74 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
                                             size: 20,
                                           ),
                                           const SizedBox(width: 8),
-                                          Text(sender.profile.name,
-                                              style: const TextStyle(
-                                                  fontFamily: 'Manrope',
-                                                  color: Color(0xff573353),
-                                                  fontWeight: FontWeight.w500)),
+                                          Text(
+                                            sender.profile.name,
+                                            style: const TextStyle(
+                                              fontFamily: 'Manrope',
+                                              color: Color(0xff573353),
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                       const SizedBox(height: 6),
                                       Container(
                                         padding: const EdgeInsets.symmetric(
-                                            horizontal: 14, vertical: 12),
+                                          horizontal: 14,
+                                          vertical: 12,
+                                        ),
                                         decoration: BoxDecoration(
                                           color: const Color.fromRGBO(
-                                              220, 230, 255, 1),
-                                          borderRadius:
-                                              BorderRadius.circular(22),
+                                            220,
+                                            230,
+                                            255,
+                                            1,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            22,
+                                          ),
                                         ),
-                                child: Text(
+                                        child: Text(
                                           m.text,
                                           style: const TextStyle(
                                             fontFamily: 'Manrope',
-                                            color:
-                                                Color.fromRGBO(87, 51, 83, 1),
+                                            color: Color.fromRGBO(
+                                              87,
+                                              51,
+                                              83,
+                                              1,
+                                            ),
                                             fontSize: 14,
                                             fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
+                                          ),
+                                        ),
+                                      ),
                                       const SizedBox(height: 6),
                                       Text(
                                         time.format(context),
                                         style: const TextStyle(
                                           fontFamily: 'Manrope',
-                                          color:
-                                              Color.fromRGBO(65, 65, 78, 0.5),
+                                          color: Color.fromRGBO(
+                                            65,
+                                            65,
+                                            78,
+                                            0.5,
+                                          ),
                                           fontSize: 12,
                                         ),
-                          ),
-                        ],
-                      ),
+                                      ),
+                                    ],
+                                  ),
                                 );
                               },
+                            ),
+                          ),
+                          MessageInputField(onSendMessage: _handleSendMessage),
+                        ],
+                      ),
                     ),
                   ),
-                          MessageInputField(onSendMessage: _handleSendMessage),
-              ],
-            ),
-          ),
-        ),
-                )
+                ),
               ],
             ),
           ),
@@ -385,6 +417,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
     );
   }
 }
+
 class MessageInputField extends StatefulWidget {
   const MessageInputField({
     super.key, // Corrected Key usage
@@ -419,7 +452,9 @@ class _MessageInputFieldState extends State<MessageInputField> {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.symmetric(
-          horizontal: 8, vertical: 5), // Added vertical margin
+        horizontal: 8,
+        vertical: 5,
+      ), // Added vertical margin
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -435,18 +470,19 @@ class _MessageInputFieldState extends State<MessageInputField> {
             child: TextField(
               controller: _messageController,
               maxLength: 2000,
-                  decoration: const InputDecoration(
-                      hintText: 'Type your message here ...',
-                      hintStyle: TextStyle(
-                        fontFamily: 'Manrope',
-                        color: Color.fromRGBO(87, 51, 83, 0.6),
-                        fontSize: 14,
-                      ),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10) // Added padding for text field
-                  ),
+              decoration: const InputDecoration(
+                hintText: 'Type your message here ...',
+                hintStyle: TextStyle(
+                  fontFamily: 'Manrope',
+                  color: Color.fromRGBO(87, 51, 83, 0.6),
+                  fontSize: 14,
+                ),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ), // Added padding for text field
+              ),
               cursorColor: const Color.fromRGBO(87, 51, 83, 1),
               textInputAction:
                   TextInputAction.send, // Allows sending via keyboard action
@@ -471,10 +507,7 @@ class _MessageInputFieldState extends State<MessageInputField> {
                 borderRadius: BorderRadius.circular(20),
                 onTap: _sendMessage,
                 child: const Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 8,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: Text(
                     'Send',
                     style: TextStyle(
@@ -493,4 +526,5 @@ class _MessageInputFieldState extends State<MessageInputField> {
     );
   }
 }
+
 // Removed complex ClassroomMessagesList and bubble widgets for UI-only flow

@@ -366,19 +366,24 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _effectiveActiveBackendRoleForSwitch().trim().isNotEmpty
             ? _effectiveActiveBackendRoleForSwitch().trim()
             : (_cachedActiveSchoolRole ?? '').trim();
+    // Non-parent: show the job designation (e.g. Director / Lead Teacher),
+    // preferring the live profile, then the cached designation-first persona,
+    // and only falling back to the role/staffType when no designation exists.
+    final String _profileDesignation = (_profile?.designation ?? '').trim();
+    final String _profileStaffType = (_profile?.staffType ?? '').trim();
     final String roleDisplay = isParentPersona
         ? StringUtils.staffTypeToDisplayRole(
             activeRoleForDisplay.isNotEmpty ? activeRoleForDisplay : 'GUARDIAN',
           )
-        : _profile != null
-            ? StringUtils.staffTypeToDisplayRole(
-                _profile!.designation.trim().isNotEmpty
-                    ? _profile!.designation
-                    : _profile!.staffType,
-              )
-            : (activeRoleForDisplay.isNotEmpty
-                ? StringUtils.staffTypeToDisplayRole(activeRoleForDisplay)
-                : _loginPersona);
+        : _profileDesignation.isNotEmpty
+            ? StringUtils.staffTypeToDisplayRole(_profileDesignation)
+            : (_loginPersona.trim().isNotEmpty
+                ? _loginPersona.trim()
+                : (_profileStaffType.isNotEmpty
+                    ? StringUtils.staffTypeToDisplayRole(_profileStaffType)
+                    : (activeRoleForDisplay.isNotEmpty
+                        ? StringUtils.staffTypeToDisplayRole(activeRoleForDisplay)
+                        : '')));
     final String displayPersona =
         roleDisplay.isNotEmpty ? roleDisplay : '-';
 
@@ -683,10 +688,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         await _viewStudentProfileForParent();
                                         return;
                                       }
-                                      // For staff persona, open StaffProfileScreen.
-                                      if (displayPersona != 'Admin') {
-                                        await _openStaffProfile();
-                                      }
+                                      // Staff and Admin both open the Staff
+                                      // Profile screen.
+                                      await _openStaffProfile();
                                     },
                                     style: TextButton.styleFrom(
                                         padding: EdgeInsets.symmetric(horizontal: 8),
@@ -695,9 +699,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     child: CustomTextWidget(
                                       text: isParentPersona
                                           ? 'View Student Profile'
-                                          : displayPersona == 'Admin'
-                                              ? 'View Admin Profile'
-                                              : 'View Staff Profile',
+                                          : 'View Staff Profile',
                                       textStyle: TextStyle(
                                         fontFamily: 'Manrope',
                                         fontSize: 16,

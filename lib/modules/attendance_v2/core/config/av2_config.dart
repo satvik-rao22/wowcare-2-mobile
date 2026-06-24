@@ -17,4 +17,13 @@ class Av2Config {
   /// Page size for the profile fetch. A staff-month is a small number of
   /// sessions, so we pull them all in one page to group by day client-side.
   static const int profilePageSize = 500;
+
+  /// Used to convert an admin's wall-clock edit (school-local) to UTC when the
+  /// overview doesn't return a real IANA timezone (e.g. sends "Z"). The edit
+  /// PATCH needs a real zone so the instant is correct regardless of the
+  /// admin's device timezone.
+  static const String fallbackTimeZone = 'America/New_York';
+
+  /// Method recorded when an admin edits a record from the app.
+  static const String editMethod = 'APP';
 }

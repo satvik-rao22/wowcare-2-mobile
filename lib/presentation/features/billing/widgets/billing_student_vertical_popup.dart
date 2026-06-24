@@ -5,12 +5,20 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 
-enum BillingPopupType { student, invoice, payment }
+enum BillingPopupType { student, invoice, payment, refund }
+
+/// Which invoice action set to show, driven by the invoice status:
+/// - [draft]: View, Send, More (Edit, Billing Profile, Cancel).
+/// - [sent]: View, Resend, Receive Payment, More (Edit, Billing Profile, Cancel).
+/// - [paid]: Issue Refund, View, More (Billing Profile).
+/// - [cancelled]: View, Delete.
+enum BillingInvoiceMenuVariant { draft, sent, paid, cancelled }
 
 class BillingStudentVerticalPopUp extends StatelessWidget {
   const BillingStudentVerticalPopUp({
     super.key,
     this.popupType = BillingPopupType.student,
+    this.invoiceVariant,
     this.onMessageTap,
     this.onBillingProfileTap,
     this.onClose,
@@ -19,11 +27,18 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
     this.onResendTap,
     this.onReceivePaymentTap,
     this.onIssueRefundTap,
+    this.onCancelTap,
+    this.onDeleteTap,
     this.onMoreTap,
     this.transaction,
+    this.showBillingProfile = true,
   });
 
   final BillingPopupType popupType;
+
+  /// Invoice action set; only used when [popupType] is [BillingPopupType.invoice].
+  /// Defaults to [BillingInvoiceMenuVariant.sent] when null.
+  final BillingInvoiceMenuVariant? invoiceVariant;
   final VoidCallback? onMessageTap;
   final VoidCallback? onBillingProfileTap;
   final VoidCallback? onClose;
@@ -32,8 +47,13 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
   final VoidCallback? onResendTap;
   final VoidCallback? onReceivePaymentTap;
   final VoidCallback? onIssueRefundTap;
+  final VoidCallback? onCancelTap;
+  final VoidCallback? onDeleteTap;
   final VoidCallback? onMoreTap;
   final TransactionItem? transaction;
+
+  /// Hide the "Billing Profile" action (e.g. when already on that screen).
+  final bool showBillingProfile;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +79,8 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
                 for (int i = 0; i < actions.length; i++) ...<Widget>[
                   _PopupActionButton(
                     iconPath: actions[i].iconPath,
+                    iconData: actions[i].iconData,
+                    iconSize: actions[i].iconSize,
                     label: actions[i].label,
                     onTap: actions[i].onTap,
                   ),
@@ -77,7 +99,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               color: const Color.fromRGBO(156, 132, 255, 1),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.2),
+                  color: Colors.black.withValues(alpha: 0.2),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -90,11 +112,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
                 customBorder: const CircleBorder(),
                 child: const Padding(
                   padding: EdgeInsets.all(10.0),
-                  child: Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  child: Icon(Icons.close, color: Colors.white, size: 20),
                 ),
               ),
             ),
@@ -110,45 +128,100 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
     switch (popupType) {
       case BillingPopupType.student:
         return <_PopupActionConfig>[
-          _PopupActionConfig(
-            iconPath: MediaRes.message_panel_icon,
-            label: 'Message',
-            onTap: onMessageTap,
-          ),
-          _PopupActionConfig(
-            iconPath: MediaRes.profile_panel_icon,
-            label: 'Billing Profile',
-            onTap: defaultBillingProfileTap,
-          ),
+          // Message temporarily disabled.
+          // _PopupActionConfig(
+          //   iconPath: MediaRes.message_panel_icon,
+          //   label: 'Message',
+          //   onTap: onMessageTap,
+          // ),
+          if (showBillingProfile)
+            _PopupActionConfig(
+              iconPath: MediaRes.profile_panel_icon,
+              label: 'Billing Profile',
+              onTap: defaultBillingProfileTap,
+            ),
         ];
       case BillingPopupType.invoice:
-        return <_PopupActionConfig>[
-          _PopupActionConfig(
-            iconPath: MediaRes.docsIcon,
-            label: 'View',
-            onTap: onViewTap,
-          ),
-          _PopupActionConfig(
-            iconPath: MediaRes.communicationIcon,
-            label: 'Edit',
-            onTap: onEditTap,
-          ),
-          _PopupActionConfig(
-            iconPath: MediaRes.redirectArrowGradientIcon,
-            label: 'Resend',
-            onTap: onResendTap,
-          ),
-          _PopupActionConfig(
-            iconPath: MediaRes.transactions_Billing_Drawer_Icon,
-            label: 'Receive Payment',
-            onTap: onReceivePaymentTap,
-          ),
-          _PopupActionConfig(
-            iconPath: MediaRes.moreIcon,
-            label: 'More',
-            onTap: onMoreTap,
-          ),
-        ];
+        switch (invoiceVariant ?? BillingInvoiceMenuVariant.sent) {
+          case BillingInvoiceMenuVariant.draft:
+            // Edit + Billing Profile + Cancel live under More.
+            return <_PopupActionConfig>[
+              _PopupActionConfig(
+                iconPath: MediaRes.docsIcon,
+                label: 'View',
+                onTap: onViewTap,
+              ),
+              _PopupActionConfig(
+                iconPath: MediaRes.redirectArrowGradientIcon,
+                label: 'Send',
+                onTap: onResendTap,
+                // This SVG fills its viewBox; shrink it to match the others.
+                iconSize: 19,
+              ),
+              _PopupActionConfig(
+                iconPath: MediaRes.moreIcon,
+                label: 'More',
+                onTap: onMoreTap,
+              ),
+            ];
+          case BillingInvoiceMenuVariant.sent:
+            return <_PopupActionConfig>[
+              _PopupActionConfig(
+                iconPath: MediaRes.docsIcon,
+                label: 'View',
+                onTap: onViewTap,
+              ),
+              _PopupActionConfig(
+                iconPath: MediaRes.redirectArrowGradientIcon,
+                label: 'Resend',
+                onTap: onResendTap,
+                // This SVG fills its viewBox; shrink it to match the others.
+                iconSize: 19,
+              ),
+              _PopupActionConfig(
+                iconData: Icons.attach_money,
+                label: 'Receive Payment',
+                onTap: onReceivePaymentTap,
+              ),
+              _PopupActionConfig(
+                iconPath: MediaRes.moreIcon,
+                label: 'More',
+                onTap: onMoreTap,
+              ),
+            ];
+          case BillingInvoiceMenuVariant.paid:
+            return <_PopupActionConfig>[
+              _PopupActionConfig(
+                iconData: Icons.attach_money,
+                label: 'Issue Refund',
+                onTap: onIssueRefundTap,
+              ),
+              _PopupActionConfig(
+                iconPath: MediaRes.docsIcon,
+                label: 'View',
+                onTap: onViewTap,
+              ),
+              _PopupActionConfig(
+                iconPath: MediaRes.moreIcon,
+                label: 'More',
+                onTap: onMoreTap,
+              ),
+            ];
+          case BillingInvoiceMenuVariant.cancelled:
+            // Cancelled invoice: View + Delete.
+            return <_PopupActionConfig>[
+              _PopupActionConfig(
+                iconPath: MediaRes.docsIcon,
+                label: 'View',
+                onTap: onViewTap,
+              ),
+              _PopupActionConfig(
+                iconData: Icons.delete_outline,
+                label: 'Delete',
+                onTap: onDeleteTap,
+              ),
+            ];
+        }
       case BillingPopupType.payment:
         return <_PopupActionConfig>[
           _PopupActionConfig(
@@ -157,7 +230,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             onTap: onViewTap,
           ),
           _PopupActionConfig(
-            iconPath: MediaRes.transactions_Billing_Drawer_Icon,
+            iconData: Icons.attach_money,
             label: 'Issue Refund',
             onTap: onIssueRefundTap,
           ),
@@ -165,6 +238,14 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
             iconPath: MediaRes.moreIcon,
             label: 'More',
             onTap: onMoreTap,
+          ),
+        ];
+      case BillingPopupType.refund:
+        return <_PopupActionConfig>[
+          _PopupActionConfig(
+            iconPath: MediaRes.docsIcon,
+            label: 'View',
+            onTap: onViewTap,
           ),
         ];
     }
@@ -181,12 +262,18 @@ class _PopupActionConfig {
     this.iconData,
     required this.label,
     this.onTap,
+    this.iconSize = 24,
   }) : assert(iconPath != null || iconData != null);
 
   final String? iconPath;
   final IconData? iconData;
   final String label;
   final VoidCallback? onTap;
+
+  /// Per-icon glyph size. Some SVGs fill their viewBox edge-to-edge (e.g. the
+  /// resend arrow) and read as oversized at 24; override to keep them visually
+  /// consistent. All icons share the same 24×24 footprint regardless.
+  final double iconSize;
 }
 
 class _PopupActionButton extends StatelessWidget {
@@ -195,12 +282,14 @@ class _PopupActionButton extends StatelessWidget {
     this.iconData,
     required this.label,
     this.onTap,
+    this.iconSize = 24,
   }) : assert(iconPath != null || iconData != null);
 
   final String? iconPath;
   final IconData? iconData;
   final String label;
   final VoidCallback? onTap;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -214,32 +303,33 @@ class _PopupActionButton extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (iconPath != null)
-                SvgPicture.asset(
-                  iconPath!,
-                  height: 24,
-                  width: 24,
-                  colorFilter: const ColorFilter.mode(
-                    Colors.white,
-                    BlendMode.srcIn,
-                  ),
-                )
-              else if (iconData != null)
-                Icon(
-                  iconData,
-                  color: Colors.white,
-                  size: 24,
+              // Fixed 24×24 footprint so every label sits on the same baseline,
+              // while the glyph itself can be sized per icon.
+              SizedBox(
+                height: 24,
+                width: 24,
+                child: Center(
+                  child: iconPath != null
+                      ? SvgPicture.asset(
+                          iconPath!,
+                          height: iconSize,
+                          width: iconSize,
+                          fit: BoxFit.contain,
+                          colorFilter: const ColorFilter.mode(
+                            Colors.white,
+                            BlendMode.srcIn,
+                          ),
+                        )
+                      : Icon(iconData, color: Colors.white, size: iconSize),
                 ),
+              ),
               const SizedBox(height: 4),
               Text(
                 label,
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ],
           ),
@@ -253,38 +343,90 @@ class BillingMoreOptionsPopup extends StatelessWidget {
   const BillingMoreOptionsPopup({
     super.key,
     required this.popupType,
+    this.invoiceVariant,
     this.onMessageTap,
     this.onBillingProfileTap,
+    this.onEditTap,
     this.onCancelTap,
+    this.onDeleteTap,
     this.transaction,
+    this.showBillingProfile = true,
   });
 
   final BillingPopupType popupType;
+  final BillingInvoiceMenuVariant? invoiceVariant;
   final VoidCallback? onMessageTap;
   final VoidCallback? onBillingProfileTap;
+  final VoidCallback? onEditTap;
   final VoidCallback? onCancelTap;
+  final VoidCallback? onDeleteTap;
   final TransactionItem? transaction;
+
+  /// Hide the "Billing Profile" action (e.g. when already on that screen).
+  final bool showBillingProfile;
 
   @override
   Widget build(BuildContext context) {
-    final List<_PopupActionConfig> actions = <_PopupActionConfig>[
-      _PopupActionConfig(
-        iconPath: MediaRes.message_panel_icon,
-        label: 'Message',
-        onTap: onMessageTap,
-      ),
-      _PopupActionConfig(
-        iconPath: MediaRes.profile_panel_icon,
-        label: 'Billing Profile',
-        onTap: onBillingProfileTap ?? _transactionDetailsOpener(context, transaction),
-      ),
-      if (popupType == BillingPopupType.invoice)
-        _PopupActionConfig(
-          iconData: Icons.close,
-          label: 'Cancel',
-          onTap: onCancelTap,
-        ),
-    ];
+    final VoidCallback? billingProfileTap =
+        onBillingProfileTap ?? _transactionDetailsOpener(context, transaction);
+    // Message temporarily disabled.
+    // final _PopupActionConfig messageAction = _PopupActionConfig(
+    //   iconPath: MediaRes.message_panel_icon,
+    //   label: 'Message',
+    //   onTap: onMessageTap,
+    // );
+    final _PopupActionConfig billingProfileAction = _PopupActionConfig(
+      iconPath: MediaRes.profile_panel_icon,
+      label: 'Billing Profile',
+      onTap: billingProfileTap,
+    );
+
+    final _PopupActionConfig editAction = _PopupActionConfig(
+      iconPath: MediaRes.communicationIcon,
+      label: 'Edit',
+      onTap: onEditTap,
+    );
+
+    final _PopupActionConfig cancelAction = _PopupActionConfig(
+      iconData: Icons.close,
+      label: 'Cancel',
+      onTap: onCancelTap,
+    );
+
+    final List<_PopupActionConfig> actions;
+    if (popupType == BillingPopupType.invoice) {
+      switch (invoiceVariant ?? BillingInvoiceMenuVariant.sent) {
+        case BillingInvoiceMenuVariant.draft:
+          // Draft: Edit + Billing Profile + Cancel under More (no Delete).
+          actions = <_PopupActionConfig>[
+            editAction,
+            if (showBillingProfile) billingProfileAction,
+            cancelAction,
+          ];
+          break;
+        case BillingInvoiceMenuVariant.sent:
+          // Sent: Edit + standard options + Cancel. Delete is only for cancelled.
+          actions = <_PopupActionConfig>[
+            // messageAction,
+            editAction,
+            if (showBillingProfile) billingProfileAction,
+            cancelAction,
+          ];
+          break;
+        case BillingInvoiceMenuVariant.paid:
+        case BillingInvoiceMenuVariant.cancelled:
+          actions = <_PopupActionConfig>[
+            if (showBillingProfile) billingProfileAction,
+            // messageAction,
+          ];
+          break;
+      }
+    } else {
+      actions = <_PopupActionConfig>[
+        // messageAction,
+        if (showBillingProfile) billingProfileAction,
+      ];
+    }
 
     return Container(
       width: 80,
@@ -296,7 +438,7 @@ class BillingMoreOptionsPopup extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -347,11 +489,7 @@ class _MoreOptionItem extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            _GradientIcon(
-              iconPath: iconPath,
-              iconData: iconData,
-              size: 24,
-            ),
+            _GradientIcon(iconPath: iconPath, iconData: iconData, size: 24),
             const SizedBox(height: 4),
             Text(
               displayLabel,
@@ -373,11 +511,8 @@ class _MoreOptionItem extends StatelessWidget {
 }
 
 class _GradientIcon extends StatelessWidget {
-  const _GradientIcon({
-    this.iconPath,
-    this.iconData,
-    required this.size,
-  }) : assert(iconPath != null || iconData != null);
+  const _GradientIcon({this.iconPath, this.iconData, required this.size})
+    : assert(iconPath != null || iconData != null);
 
   final String? iconPath;
   final IconData? iconData;
@@ -402,11 +537,7 @@ class _GradientIcon extends StatelessWidget {
                 BlendMode.srcIn,
               ),
             )
-          : Icon(
-              iconData,
-              size: size,
-              color: Colors.white,
-            ),
+          : Icon(iconData, size: size, color: Colors.white),
     );
   }
 }
@@ -425,12 +556,10 @@ VoidCallback? _transactionDetailsOpener(
     WidgetsBinding.instance.addPostFrameCallback((_) {
       navigator.push(
         MaterialPageRoute(
-          builder: (context) => TransactionDetailsScreen(
-            transaction: transactionItem,
-          ),
+          builder: (context) =>
+              TransactionDetailsScreen(transaction: transactionItem),
         ),
       );
     });
   };
 }
-

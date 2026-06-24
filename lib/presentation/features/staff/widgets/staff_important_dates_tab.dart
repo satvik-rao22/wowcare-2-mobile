@@ -5,13 +5,10 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 class StaffImportantDatesTab extends StatefulWidget {
-  const StaffImportantDatesTab({
-    super.key,
-    required this.staffCode,
-  });
+  const StaffImportantDatesTab({super.key, required this.staffCode});
 
   final String staffCode;
 
@@ -141,13 +138,40 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
     }
   }
 
+  /// Patterns the API may send when the value isn't ISO-8601. We try each so
+  /// the date always renders as "MMM dd, yyyy" (with the year), e.g. for a past
+  /// date "Jun 02, 2025".
+  static final List<DateFormat> _fallbackParsers = <DateFormat>[
+    DateFormat('MM/dd/yyyy'),
+    DateFormat('dd/MM/yyyy'),
+    DateFormat('dd-MM-yyyy'),
+    DateFormat('yyyy/MM/dd'),
+    DateFormat('MMM dd, yyyy'),
+    DateFormat('MMM dd yyyy'),
+    DateFormat('dd MMM yyyy'),
+  ];
+
   String _formatDate(String isoDate) {
-    try {
-      final date = DateTime.parse(isoDate);
-      return _displayFormatter.format(date);
-    } catch (_) {
-      return isoDate;
+    final raw = isoDate.trim();
+    if (raw.isEmpty) return raw;
+
+    // ISO-8601 first (e.g. 2025-06-02 / 2025-06-02T00:00:00Z).
+    DateTime? parsed = DateTime.tryParse(raw);
+
+    // Fall back to common non-ISO formats so the year is still shown.
+    if (parsed == null) {
+      for (final parser in _fallbackParsers) {
+        try {
+          parsed = parser.parseStrict(raw);
+          break;
+        } catch (_) {
+          // Try the next pattern.
+        }
+      }
     }
+
+    if (parsed == null) return raw;
+    return _displayFormatter.format(parsed);
   }
 
   @override
@@ -170,16 +194,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
 
   Widget _buildContent(List<Map<String, String>> items) {
     if (_isLoading) {
-      return Container(
-        margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
-        padding: const EdgeInsets.all(8),
-        child: const Center(
-          child: PrimaryCircularLoader(
-            size: 24,
-            strokeWidth: 2,
-          ),
-        ),
-      );
+      return const StaffImportantDatesShimmer();
     }
 
     if (_errorMessage != null) {
@@ -188,10 +203,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
         padding: const EdgeInsets.all(8),
         child: Text(
           _errorMessage!,
-          style: const TextStyle(
-            color: Colors.redAccent,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: Colors.redAccent, fontSize: 14),
         ),
       );
     }
@@ -230,7 +242,9 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: Colors.transparent,
-            border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+            border: Border.all(
+              color: AppColors.primaryColor.withValues(alpha: 0.2),
+            ),
             borderRadius: BorderRadius.circular(14),
           ),
           child: _DateRow(
@@ -249,7 +263,12 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
 }
 
 class _DateRow extends StatelessWidget {
-  const _DateRow({required this.label, required this.text, this.showInfo = false, this.infoText});
+  const _DateRow({
+    required this.label,
+    required this.text,
+    this.showInfo = false,
+    this.infoText,
+  });
   final String label;
   final String text;
   final bool showInfo;
@@ -257,7 +276,10 @@ class _DateRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayText = (text.trim().isEmpty || text.trim().toLowerCase() == 'no cda') ? '-' : text;
+    final displayText =
+        (text.trim().isEmpty || text.trim().toLowerCase() == 'no cda')
+        ? '-'
+        : text;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,7 +289,7 @@ class _DateRow extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: AppColors.primaryColor.withOpacity(0.5),
+              color: AppColors.primaryColor.withValues(alpha: 0.5),
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -309,14 +331,21 @@ class _DateRow extends StatelessWidget {
                         child: Material(
                           color: Colors.transparent,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
                             decoration: BoxDecoration(
-                              color: Colors.black.withOpacity(0.9),
+                              color: Colors.black.withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               infoText ?? 'CDA - Child Development Associate',
-                              style: const TextStyle(color: Colors.white, fontSize: 12, fontFamily: 'Manrope'),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontFamily: 'Manrope',
+                              ),
                             ),
                           ),
                         ),
@@ -324,9 +353,15 @@ class _DateRow extends StatelessWidget {
                     );
 
                     overlay.insert(entry);
-                    Future.delayed(const Duration(seconds: 2)).then((_) => entry.remove());
+                    Future.delayed(
+                      const Duration(seconds: 2),
+                    ).then((_) => entry.remove());
                   },
-                  child: const Icon(Icons.info_outline, size: 24, color: AppColors.primaryColor),
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 24,
+                    color: AppColors.primaryColor,
+                  ),
                 ),
               ],
             ],

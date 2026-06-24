@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -16,15 +15,17 @@ import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_i
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../core/util/core_utils.dart';
-
-// TODO: replace _mockIsSignedIn with real sign-in state from attendance cubit.
-const bool _mockIsSignedIn = false;
-const bool _mockIsReminder = true;
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 // ---------------------------------------------------------------------------
 // MyDayCard
@@ -54,10 +55,25 @@ class _MyDayCardState extends State<MyDayCard> {
   // the popup appears again on the next entry (e.g. after sign-out).
   bool _geofencePopupShownThisEntry = false;
 
+  // Prevents didChangeDependencies from stacking multiple geofence-init
+  // callbacks when ancestor InheritedWidgets rebuild.
+  bool _geofenceInitScheduled = false;
+
+  // ---- sign-in status ----
+  bool _isSignedIn = false;
+
+  // Cached staff identity — loaded once in initState so button taps never hit
+  // a timing window where storage hasn't resolved yet.
+  String _staffCode = '';
+  String _staffDisplayName = '';
+  String _staffDesignation = '';
+  bool _staffIdentityLoaded = false;
+  String _nextDayName = ''; // For upcoming shifts
+  bool _isTodayShift = true; // Important flag
   // ---- shift countdown display state ----
   String _statusText = 'Loading schedule…';
-  String _workTime = '- -';
-  String _breakTime = '- -';
+  String _workTime = '--:--';
+  String _breakTime = '--:--';
   bool _hasShifts = false;
   Duration _duration = Duration.zero;
 
@@ -68,18 +84,122 @@ class _MyDayCardState extends State<MyDayCard> {
   // Helpers – time conversion (24h API format → 12h display / DateTime)
   // ---------------------------------------------------------------------------
 
-  /// Pads a 24h time string to `HH:mm:ss` for `DateTime.parse`.
-  static String _normalize24h(String raw) {
-    final parts = raw.trim().split(':');
-    if (parts.length < 2) return '00:00:00';
-    final h = parts[0].padLeft(2, '0');
-    final m = parts[1].padLeft(2, '0');
-    final s = parts.length > 2
-        ? parts[2].split('.').first.padLeft(2, '0')
-        : '00';
-    return '$h:$m:$s';
+  /// Robust day-of-week → Dart weekday mapping.
+  /// Supports both full names (MONDAY) and 3-letter abbreviations (MON).
+  static const _kDayToWeekday = <String, int>{
+    'MONDAY': 1,
+    'MON': 1,
+    'TUESDAY': 2,
+    'TUE': 2,
+    'WEDNESDAY': 3,
+    'WED': 3,
+    'THURSDAY': 4,
+    'THU': 4,
+    'FRIDAY': 5,
+    'FRI': 5,
+    'SATURDAY': 6,
+    'SAT': 6,
+    'SUNDAY': 7,
+    'SUN': 7,
+  };
+
+  /// Returns the 3-letter uppercase abbreviation for any day-of-week string.
+  static String _dayAbbr(String dayOfWeek) {
+    final upper = dayOfWeek.trim().toUpperCase();
+    return upper.length >= 3 ? upper.substring(0, 3) : upper;
   }
 
+  /// Returns the full display name for a Dart weekday integer (1 = Monday … 7 = Sunday).
+  /// e.g. _getDayName(3) → "Wednesday"
+  static String _getDayName(int weekday) {
+    const names = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    if (weekday < 1 || weekday > 7) return '';
+    return names[weekday - 1];
+  }
+
+  /// Finds the work schedule for [weekday] from [all].
+  /// Returns null when not found or when times are unset (all zeros).
+  /// IMPORTANT: Rejects schedules where either start OR end time is all-zero.
+  static StaffProfileWorkSchedule? _resolveWorkScheduleForDay(
+    int weekday,
+    List<StaffProfileWorkSchedule> all,
+  ) {
+    for (final ws in all) {
+      if (_kDayToWeekday[ws.dayOfWeek.trim().toUpperCase()] != weekday)
+        continue;
+
+      // Reject if EITHER start OR end time is completely unset (0:00)
+      final startTimeSet =
+          ws.workStartTime.hour != 0 || ws.workStartTime.minute != 0;
+      final endTimeSet = ws.workEndTime.hour != 0 || ws.workEndTime.minute != 0;
+
+      if (!startTimeSet || !endTimeSet) {
+        debugPrint(
+          '[MyDayCard._resolveWorkScheduleForDay] Skipping ${ws.dayOfWeek}: '
+          'start=${ws.workStartTime.hour}:${ws.workStartTime.minute}, '
+          'end=${ws.workEndTime.hour}:${ws.workEndTime.minute} (unset)',
+        );
+        continue;
+      }
+
+      return ws;
+    }
+    return null;
+  }
+
+  /// Finds the break schedule for [weekday] from [all].
+  static StaffProfileBreakSchedule? _resolveBreakScheduleForDay(
+    int weekday,
+    List<StaffProfileBreakSchedule> all,
+  ) {
+    for (final bs in all) {
+      if (_kDayToWeekday[bs.dayOfWeek.trim().toUpperCase()] == weekday)
+        return bs;
+    }
+    return null;
+  }
+
+  /// Returns `true` when [bs] has at least one non-zero time component.
+  static bool _breakIsSet(StaffProfileBreakSchedule? bs) {
+    if (bs == null) return false;
+    return bs.breakStartTime.hour != 0 ||
+        bs.breakStartTime.minute != 0 ||
+        bs.breakEndTime.hour != 0 ||
+        bs.breakEndTime.minute != 0;
+  }
+
+  /// Builds the break-time display string with day and time.
+  static String _formatBreakDisplay(StaffProfileBreakSchedule? bs) {
+    if (!_breakIsSet(bs)) return '--:--';
+    final dayLabel = _formatDayOfWeek(bs!.dayOfWeek);
+    return '$dayLabel: ${_formatStaffTime(bs.breakStartTime)} - '
+        '${_formatStaffTime(bs.breakEndTime)}';
+  }
+
+  /// Formats day of week string (e.g., "MONDAY" → "Mon").
+  static String _formatDayOfWeek(String dayOfWeek) {
+    final day = dayOfWeek.trim().toUpperCase();
+    return switch (day) {
+      'MONDAY' => 'Mon',
+      'TUESDAY' => 'Tue',
+      'WEDNESDAY' => 'Wed',
+      'THURSDAY' => 'Thu',
+      'FRIDAY' => 'Fri',
+      'SATURDAY' => 'Sat',
+      'SUNDAY' => 'Sun',
+      _ => day.substring(0, 3),
+    };
+  }
+
+  /// Pads a 24h time string to `HH:mm:ss` for `DateTime.parse`.
   /// Formats a [StaffProfileTime] as `h:mm AM/PM` (space before period).
   static String _formatStaffTime(StaffProfileTime t) {
     final period = t.hour >= 12 ? 'PM' : 'AM';
@@ -92,6 +212,7 @@ class _MyDayCardState extends State<MyDayCard> {
   void initState() {
     super.initState();
     unawaited(_loadClockPin());
+    unawaited(_loadStaffIdentity());
   }
 
   @override
@@ -106,8 +227,47 @@ class _MyDayCardState extends State<MyDayCard> {
         cubitState.todaySchedule,
         staffSchedule: cubitState.todayWorkSchedule,
         breakSchedule: cubitState.todayBreakSchedule,
+        schoolTimeZone: cubitState.schoolTimeZone,
+        allWorkSchedules: cubitState.allWorkSchedules,
+        allBreakSchedules: cubitState.allBreakSchedules,
       );
       _startTicker();
+    } else if (cubitState.isInitial) {
+      // First open: load data immediately to avoid default display states
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(context.read<MyDayCubit>().load());
+      });
+    }
+
+    // Initialize GPS geofencing for the current school.
+    // Guard ensures exactly one callback is queued even when
+    // didChangeDependencies fires multiple times per frame.
+    if (!_geofenceInitScheduled) {
+      _geofenceInitScheduled = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        unawaited(_initializeGeofencing());
+      });
+    }
+  }
+
+  Future<void> _initializeGeofencing() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
+      debugPrint('[MyDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted');
+      if (schoolCode.isEmpty) {
+        debugPrint('[MyDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.');
+        return;
+      }
+      if (!mounted) return;
+
+      // Initialize GPS geofencing with the school code
+      await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
+    } catch (e, st) {
+      debugPrint('[MyDayCard] ❌ _initializeGeofencing error: $e\n$st');
     }
   }
 
@@ -129,6 +289,9 @@ class _MyDayCardState extends State<MyDayCard> {
           cubitState.todaySchedule,
           staffSchedule: cubitState.todayWorkSchedule,
           breakSchedule: cubitState.todayBreakSchedule,
+          schoolTimeZone: cubitState.schoolTimeZone,
+          allWorkSchedules: cubitState.allWorkSchedules,
+          allBreakSchedules: cubitState.allBreakSchedules,
         );
       }
     });
@@ -141,12 +304,64 @@ class _MyDayCardState extends State<MyDayCard> {
     setState(() => _clockInPin = pin);
   }
 
-  Future<void> _openMarkAbsentForSelf() async {
+  /// Loads staff identity and sign-in status in one pass so button taps
+  /// never hit a timing window where storage hasn't resolved yet.
+  Future<void> _loadStaffIdentity() async {
     final storage = serviceLocator<StorageService>();
-    final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+    final code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    final name = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
-    if (staffCode.isEmpty) {
+    final designation =
+        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+    if (!mounted) return;
+    setState(() {
+      _staffCode = code;
+      _staffDisplayName = name;
+      _staffDesignation = designation;
+      _staffIdentityLoaded = true;
+    });
+    if (code.isEmpty) return;
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
+      final status = await useCase(staffCode: code);
       if (!mounted) return;
+      setState(() => _isSignedIn = status?.toUpperCase() == 'SIGNED_IN');
+    } catch (_) {
+      // sign-in status check is best-effort
+    }
+  }
+
+  Future<void> _openTransferForSelf() async {
+    if (_staffCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to find your staff profile to transfer.',
+        isWarning: true,
+      );
+      return;
+    }
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => StaffTransferForm(
+          staff: StaffEntity(
+            id: 0,
+            name: _staffDisplayName.isNotEmpty ? _staffDisplayName : '—',
+            primaryRoomId: 0,
+            designation: _staffDesignation.isNotEmpty
+                ? _staffDesignation
+                : 'Staff',
+            staffCode: _staffCode,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openMarkAbsentForSelf() async {
+    final staff = _buildSelfStaffEntity();
+    if (!mounted) return;
+    if (staff == null) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Unable to find your staff profile to mark absent.',
@@ -154,162 +369,324 @@ class _MyDayCardState extends State<MyDayCard> {
       );
       return;
     }
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
+    );
+    if (mounted) {
+      unawaited(_loadStaffIdentity());
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+    }
+  }
 
-    final displayName = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
-    final designation =
-        (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
+  StaffEntity? _buildSelfStaffEntity() {
+    if (_staffCode.isEmpty) return null;
+    return StaffEntity(
+      id: 0,
+      name: _staffDisplayName.isNotEmpty ? _staffDisplayName : '—',
+      primaryRoomId: 0,
+      designation: _staffDesignation.isNotEmpty ? _staffDesignation : 'Staff',
+      staffCode: _staffCode,
+    );
+  }
 
+  Future<void> _openSignInForm() async {
+    final staff = _buildSelfStaffEntity();
     if (!mounted) return;
+    if (staff == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to find your staff profile.',
+        isWarning: true,
+      );
+      return;
+    }
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => StaffMarkAbsentForm(
-          staff: StaffEntity(
-            id: 0,
-            name: displayName.isNotEmpty ? displayName : '—',
-            primaryRoomId: 0,
-            designation: designation.isNotEmpty ? designation : 'Staff',
-            staffCode: staffCode,
-          ),
-        ),
+        builder: (_) => StaffSignInForm(staff: staff, forceSelf: true),
       ),
     );
+    if (mounted) {
+      unawaited(_loadStaffIdentity());
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+    }
+  }
+
+  Future<void> _openSignOutForm() async {
+    final staff = _buildSelfStaffEntity();
+    if (!mounted) return;
+    if (staff == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to find your staff profile.',
+        isWarning: true,
+      );
+      return;
+    }
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)));
+    if (mounted) {
+      unawaited(_loadStaffIdentity());
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+    }
   }
 
   // ---------------------------------------------------------------------------
   // Countdown computation
   // ---------------------------------------------------------------------------
 
-  /// Derives countdown display state from the staff's personal schedule or,
-  /// if unavailable, from the school's regular schedule.
+  /// Countdown using ONLY staff work schedules with school timezone.
   ///
-  /// [staffSchedule] is preferred when present — it contains the staff
-  /// member's own day-specific start/end times from their profile.
-  /// Uses device local time so the countdown matches the user's clock.
+  /// Uses school timezone for calculating current time.
+  /// Uses ONLY staff workSchedules API (never school regular schedule).
+  /// Priority:
+  ///   1. Today's staff schedule if it exists and hasn't passed
+  ///   2. Today's staff schedule if currently active (count down to end)
+  ///   3. Nearest upcoming staff schedule (within next 7 days)
+  ///   4. Empty state if no staff schedules exist
   void _computeCountdownFromSchedule(
     SchoolRegularScheduleDay? schedule, {
     StaffProfileWorkSchedule? staffSchedule,
     StaffProfileBreakSchedule? breakSchedule,
+    String schoolTimeZone = '',
+    List<StaffProfileWorkSchedule> allWorkSchedules = const [],
+    List<StaffProfileBreakSchedule> allBreakSchedules = const [],
   }) {
-    final now = DateTime.now();
+    // Get current time in SCHOOL TIMEZONE (for accurate countdown)
+    final now = schoolTimeZone.isNotEmpty
+        ? SchoolZoneDateTime.dateTimeFromInstantInSchool(
+            DateTime.now().toUtc(),
+            schoolTimeZone,
+          )
+        : DateTime.now();
 
-    // Shared 3-letter day abbreviation — from profile when available, otherwise
-    // from the device clock so the format is always "h:mm AM/PM - h:mm AM/PM (DAY)".
-    const _weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    final dayAbbr = staffSchedule != null
-        ? (staffSchedule.dayOfWeek.length >= 3
-              ? staffSchedule.dayOfWeek.substring(0, 3).toUpperCase()
-              : staffSchedule.dayOfWeek.toUpperCase())
-        : _weekdays[now.weekday - 1];
+    final todayWeekday = now.weekday; // 1 = Monday, 7 = Sunday
 
-    DateTime? startDt;
-    DateTime? endDt;
-    String displayStart;
-    String displayEnd;
-    String displayBreak;
+    // debugPrint('[MyDayCard] Computing countdown: '
+    //     'schoolTimezone=$schoolTimeZone, '
+    //     'currentSchoolTime=${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour}:${now.minute}, '
+    //     'today=$todayDateKey, '
+    //     'allScheduleCount=${allWorkSchedules.length}');
 
-    if (staffSchedule != null) {
-      startDt = DateTime(
+    // Find today's staff schedule (ONLY from staff schedules, not school schedule)
+    final todaySchedule = _resolveWorkScheduleForDay(
+      todayWeekday,
+      allWorkSchedules,
+    );
+
+    // ── Case 1: Today has a staff schedule ──────────────────────────────────────
+    if (todaySchedule != null) {
+      final startTime = todaySchedule.workStartTime;
+      final endTime = todaySchedule.workEndTime;
+
+      // Build today's schedule times using school timezone's date
+      final startDt = DateTime(
         now.year,
         now.month,
         now.day,
-        staffSchedule.workStartTime.hour,
-        staffSchedule.workStartTime.minute,
-        staffSchedule.workStartTime.second,
+        startTime.hour,
+        startTime.minute,
+        startTime.second,
       );
-      endDt = DateTime(
+      final endDt = DateTime(
         now.year,
         now.month,
         now.day,
-        staffSchedule.workEndTime.hour,
-        staffSchedule.workEndTime.minute,
-        staffSchedule.workEndTime.second,
-      );
-      displayStart = _formatStaffTime(staffSchedule.workStartTime);
-      displayEnd = _formatStaffTime(staffSchedule.workEndTime);
-      displayBreak = breakSchedule != null
-          ? '${_formatStaffTime(breakSchedule.breakStartTime)} - ${_formatStaffTime(breakSchedule.breakEndTime)} ($dayAbbr)'
-          : 'N/A';
-    } else if (schedule != null) {
-      final dateStr =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-      final start24 = _normalize24h(schedule.startTime);
-      final end24 = _normalize24h(schedule.endTime);
-      startDt = DateTime.tryParse('$dateStr $start24');
-      endDt = DateTime.tryParse('$dateStr $end24');
-
-      // Parse hours/minutes from the normalised string so we can apply the
-      // same h:mm AM/PM format (no leading zero) as the staff schedule branch.
-      final sParts = start24.split(':');
-      final eParts = end24.split(':');
-      displayStart = _fmtHM(
-        int.tryParse(sParts[0]) ?? 0,
-        int.tryParse(sParts[1]) ?? 0,
-      );
-      displayEnd = _fmtHM(
-        int.tryParse(eParts[0]) ?? 0,
-        int.tryParse(eParts[1]) ?? 0,
+        endTime.hour,
+        endTime.minute,
+        endTime.second,
       );
 
-      // Half-day field: format as time if it looks like one.
-      final hd = schedule.halfDay;
-      if (hd != null && hd.contains(':')) {
-        final hd24 = _normalize24h(hd);
-        final hdParts = hd24.split(':');
-        displayBreak = _fmtHM(
-          int.tryParse(hdParts[0]) ?? 0,
-          int.tryParse(hdParts[1]) ?? 0,
+      // debugPrint(
+      //   '[MyDayCard] Today ($todayDateKey) has staff schedule: '
+      //   '${startTime.hour}:${startTime.minute} - '
+      //   '${endTime.hour}:${endTime.minute}',
+      // );
+
+      // If shift hasn't started yet
+      if (now.isBefore(startDt)) {
+        _setCountdownState(
+          isTodayShift: true,
+          hasShifts: true,
+          duration: startDt.difference(now),
+          workStart: _formatStaffTime(startTime),
+          workEnd: _formatStaffTime(endTime),
+          dayAbbr: _dayAbbr(todaySchedule.dayOfWeek),
+          breakTime: _formatBreakDisplay(
+            _resolveBreakScheduleForDay(todayWeekday, allBreakSchedules),
+          ),
+          statusText: 'Your shift starts in',
         );
-      } else {
-        displayBreak = (hd == null || hd.isEmpty) ? 'N/A' : hd;
+        return;
       }
+
+      // If shift is currently active
+      if (now.isBefore(endDt)) {
+        _setCountdownState(
+          isTodayShift: true,
+          hasShifts: true,
+          duration: endDt.difference(now),
+          workStart: _formatStaffTime(startTime),
+          workEnd: _formatStaffTime(endTime),
+          dayAbbr: _dayAbbr(todaySchedule.dayOfWeek),
+          breakTime: _formatBreakDisplay(
+            _resolveBreakScheduleForDay(todayWeekday, allBreakSchedules),
+          ),
+          statusText: 'Your shift ends in',
+        );
+        return;
+      }
+
+      // debugPrint(
+      //   '[MyDayCard] Today ($todayDateKey) schedule already passed. Finding next schedule...',
+      // );
     } else {
-      setState(() {
-        _hasShifts = false;
-        _statusText = 'School Closed';
-        _workTime = '- -';
-        _breakTime = '- -';
-        _duration = Duration.zero;
-      });
-      return;
+      // debugPrint(
+      //   '[MyDayCard] Today ($todayDateKey) has no staff schedule. Finding next schedule...',
+      // );
     }
 
-    if (startDt == null || endDt == null) {
-      setState(() {
-        _hasShifts = false;
-        _statusText = 'Schedule unavailable';
-        _workTime = '- -';
-        _breakTime = '- -';
-        _duration = Duration.zero;
-      });
-      return;
-    }
+    // ── Case 2: Find nearest upcoming schedule (ONLY from staff schedules) ──────
+    _applyNextStaffShift(
+      now,
+      todayWeekday,
+      allWorkSchedules,
+      allBreakSchedules,
+    );
+  }
 
+  /// Helper to set countdown state with all display values.
+  void _setCountdownState({
+    required bool isTodayShift,
+    required bool hasShifts,
+    required Duration duration,
+    required String workStart,
+    required String workEnd,
+    required String dayAbbr,
+    required String breakTime,
+    required String statusText,
+    String nextDayName = '',
+  }) {
     setState(() {
-      _hasShifts = true;
-      _workTime = '$displayStart - $displayEnd ($dayAbbr)';
-      _breakTime = displayBreak;
-
-      if (now.isBefore(startDt!)) {
-        _duration = startDt.difference(now);
-        _statusText = 'Your shift starts in';
-      } else if (now.isBefore(endDt!)) {
-        _duration = endDt.difference(now);
-        _statusText = 'Your shift ends in';
-      } else {
-        _hasShifts = false;
-        _statusText = 'School day ended';
-        _duration = Duration.zero;
-      }
+      _isTodayShift = isTodayShift;
+      _nextDayName = nextDayName;
+      _hasShifts = hasShifts;
+      _duration = duration;
+      _workTime = '$workStart - $workEnd ($dayAbbr)';
+      _breakTime = breakTime;
+      _statusText = statusText;
     });
   }
 
-  /// Formats hour + minute as `h:mm AM/PM` (no leading zero on hour,
-  /// space before period) — shared by both schedule branches.
-  static String _fmtHM(int hour, int minute) {
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final h = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    return '$h:${minute.toString().padLeft(2, '0')} $period';
+  /// Searches forward 1–7 days for the nearest upcoming scheduled work day.
+  ///
+  /// Uses [_kDayToWeekday] (supports "TUESDAY" and "TUE") so no entry is ever
+  /// silently dropped. Wraps the full week — e.g. today=Sunday, next=Monday.
+  ///
+  /// Sets [_isTodayShift] = false and [_nextDayName] to the full day name
+  /// (e.g. "Wednesday") so [_buildAlignedTimerDisplay] can show it above the
+  /// countdown.
+  /// Finds nearest upcoming staff schedule within 7 days (using device local time).
+  void _applyNextStaffShift(
+    DateTime now,
+    int todayWeekday,
+    List<StaffProfileWorkSchedule> allWork,
+    List<StaffProfileBreakSchedule> allBreak,
+  ) {
+    if (allWork.isEmpty) {
+      _setCountdownState(
+        isTodayShift: true,
+        hasShifts: false,
+        duration: Duration.zero,
+        workStart: '--:--',
+        workEnd: '--:--',
+        dayAbbr: '',
+        breakTime: '--:--',
+        statusText: 'No schedules available',
+      );
+      return;
+    }
+
+    // Build maps: weekday → schedule
+    final schedulesByWeekday = <int, StaffProfileWorkSchedule>{};
+    final breaksByWeekday = <int, StaffProfileBreakSchedule>{};
+
+    for (final ws in allWork) {
+      final wd = _kDayToWeekday[ws.dayOfWeek.trim().toUpperCase()];
+      if (wd != null) {
+        schedulesByWeekday[wd] = ws;
+      }
+    }
+
+    for (final bs in allBreak) {
+      final wd = _kDayToWeekday[bs.dayOfWeek.trim().toUpperCase()];
+      if (wd != null) {
+        breaksByWeekday[wd] = bs;
+      }
+    }
+
+    if (schedulesByWeekday.isEmpty) {
+      _setCountdownState(
+        isTodayShift: true,
+        hasShifts: false,
+        duration: Duration.zero,
+        workStart: '--:--',
+        workEnd: '--:--',
+        dayAbbr: '',
+        breakTime: '--:--',
+        statusText: 'No schedules available',
+      );
+      return;
+    }
+
+    // Search next 7 days for upcoming schedule (starting tomorrow)
+    for (int daysAhead = 1; daysAhead <= 7; daysAhead++) {
+      final futureDate = now.add(Duration(days: daysAhead));
+      final futureWeekday = futureDate.weekday;
+      final schedule = schedulesByWeekday[futureWeekday];
+
+      if (schedule == null) continue;
+
+      final startTime = schedule.workStartTime;
+      final startDt = DateTime(
+        futureDate.year,
+        futureDate.month,
+        futureDate.day,
+        startTime.hour,
+        startTime.minute,
+        startTime.second,
+      );
+
+      // debugPrint(
+      //   '[MyDayCard] Next schedule found: '
+      //   '${_getDayName(futureWeekday)} ${startTime.hour}:${startTime.minute}',
+      // );
+
+      _setCountdownState(
+        isTodayShift: false,
+        hasShifts: true,
+        duration: startDt.difference(now),
+        workStart: _formatStaffTime(startTime),
+        workEnd: _formatStaffTime(schedule.workEndTime),
+        dayAbbr: _dayAbbr(schedule.dayOfWeek),
+        breakTime: _formatBreakDisplay(breaksByWeekday[futureWeekday]),
+        statusText: 'Your next shift starts in',
+        nextDayName: _getDayName(futureWeekday),
+      );
+      return;
+    }
+
+    // No schedule found in next 7 days
+    _setCountdownState(
+      isTodayShift: true,
+      hasShifts: false,
+      duration: Duration.zero,
+      workStart: '--:--',
+      workEnd: '--:--',
+      dayAbbr: '',
+      breakTime: '--:--',
+      statusText: 'No upcoming shifts in next 7 days',
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -363,17 +740,50 @@ class _MyDayCardState extends State<MyDayCard> {
       return Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _buildTimeUnit('- -', 'HH'),
+          _buildTimeUnit('--', 'HH'),
           _buildTimeSeparator(),
-          _buildTimeUnit('- -', 'MM'),
+          _buildTimeUnit('--', 'MM'),
           _buildTimeSeparator(),
-          _buildTimeUnit('- -', 'SS'),
+          _buildTimeUnit('--', 'SS'),
         ],
       );
     }
 
     final bool showDays = duration.inHours >= 24;
 
+    // ── Upcoming shift: show full day name above the countdown ───────────────
+    if (!_isTodayShift && _nextDayName.isNotEmpty) {
+      return Column(
+        children: [
+          Text(
+            _nextDayName,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColor,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Show days unit when shift is more than 24 hours away.
+              if (showDays) ...[
+                _buildTimeUnit(twoDigits(duration.inDays), 'DD'),
+                _buildTimeSeparator(),
+              ],
+              _buildTimeUnit(twoDigits(duration.inHours.remainder(24)), 'HH'),
+              _buildTimeSeparator(),
+              _buildTimeUnit(twoDigits(duration.inMinutes.remainder(60)), 'MM'),
+              _buildTimeSeparator(),
+              _buildTimeUnit(twoDigits(duration.inSeconds.remainder(60)), 'SS'),
+            ],
+          ),
+        ],
+      );
+    }
+
+    // ── Today's shift ────────────────────────────────────────────────────────
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -389,7 +799,6 @@ class _MyDayCardState extends State<MyDayCard> {
       ],
     );
   }
-
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -411,26 +820,40 @@ class _MyDayCardState extends State<MyDayCard> {
       listener: (context, _) {
         if (_geofencePopupShownThisEntry) return;
         _geofencePopupShownThisEntry = true;
-        unawaited(
-          GeofenceSignInSheet.show(
-            context,
-            role: 'staff',
-            isSignedIn: _mockIsSignedIn,
-          ),
-        );
+        // GeofenceCubit already fires the notification via
+        // _triggerNotificationIfNeeded — no need to do it here too.
+        if (!context.mounted) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          unawaited(
+            GeofenceSignInSheet.show(
+              context,
+              role: 'staff',
+              isSignedIn: _isSignedIn,
+            ),
+          );
+        });
       },
       child: BlocConsumer<MyDayCubit, MyDayState>(
-        // Re-compute countdown whenever the schedule data changes.
+        // Re-compute countdown whenever schedule data changes or first loads.
         listenWhen: (prev, curr) =>
             curr.isLoaded &&
-            (prev.todaySchedule != curr.todaySchedule ||
+            (!prev.isLoaded ||
+                prev.todaySchedule != curr.todaySchedule ||
                 prev.todayWorkSchedule != curr.todayWorkSchedule ||
-                prev.schoolClosed != curr.schoolClosed),
+                prev.todayBreakSchedule != curr.todayBreakSchedule ||
+                prev.schoolClosed != curr.schoolClosed ||
+                prev.allWorkSchedules != curr.allWorkSchedules ||
+                prev.allBreakSchedules != curr.allBreakSchedules ||
+                prev.schoolTimeZone != curr.schoolTimeZone),
         listener: (context, state) {
           _computeCountdownFromSchedule(
             state.todaySchedule,
             staffSchedule: state.todayWorkSchedule,
             breakSchedule: state.todayBreakSchedule,
+            schoolTimeZone: state.schoolTimeZone,
+            allWorkSchedules: state.allWorkSchedules,
+            allBreakSchedules: state.allBreakSchedules,
           );
           _startTicker();
         },
@@ -510,9 +933,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                           ),
                                         ),
                                 child: Text(
-                                  _mockIsReminder
-                                      ? 'Turn off reminder'
-                                      : 'Send reminder',
+                                  'Send reminder',
                                   style: const TextStyle(
                                     color: AppColors.cardColor,
                                     fontWeight: FontWeight.w500,
@@ -561,7 +982,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                 ),
                               ),
                           child: Text(
-                            'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : 'N/A'}',
+                            'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : '--'}',
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 17,
@@ -579,112 +1000,187 @@ class _MyDayCardState extends State<MyDayCard> {
                     // ── GPS-gated attendance button ──────────────────────────
                     BlocBuilder<GeofenceCubit, GeofenceState>(
                       builder: (context, geofenceState) {
-                        final bool enabled =
-                            geofenceState.status ==
-                            GeofenceCubitStatus.withinRange;
+                        final roleProvider = context.watch<RoleCubit>();
+                        final bool isStaff = roleProvider.isStaff;
+                        final bool isAdmin = roleProvider.isAdmin;
+                        final bool isWithinGeofence =
+                            geofenceState.isWithinGeofence;
+                        // Both staff and admin: button enabled only when within geofence.
+                        final bool signButtonEnabled =
+                            (isStaff || isAdmin) && isWithinGeofence;
+                        // Show attendance buttons for both staff and admin
+                        final bool showSignButton = isStaff || isAdmin;
+                        // Show Transfer/Mark-Absent for staff and admin equally.
+                        final bool showSecondaryButtons = isStaff || isAdmin;
+
                         return Column(
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24.0,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: OutlinedButton.icon(
-                                      onPressed: _mockIsSignedIn
-                                          ? null
-                                          : _openMarkAbsentForSelf,
-
-                                      label: const Text(
-                                        'Mark Absent',
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: AppColors.themeColor,
-                                        side: const BorderSide(
-                                          color: AppColors.themeColor,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 14,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            14,
+                            if (showSignButton)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24.0,
+                                ),
+                                child: Row(
+                                  children: [
+                                    // Transfer (signed-in) or Mark Absent (not signed-in)
+                                    if (showSecondaryButtons && _isSignedIn)
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          onPressed:
+                                              (!_staffIdentityLoaded ||
+                                                  _staffCode.isEmpty)
+                                                  ? null
+                                                  : _openTransferForSelf,
+                                          icon: !_staffIdentityLoaded
+                                              ? const SizedBox(
+                                                  width: 14,
+                                                  height: 14,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 1.5,
+                                                        color: AppColors
+                                                            .themeColor,
+                                                      ),
+                                                )
+                                              : const SizedBox.shrink(),
+                                          label: const Text(
+                                            'Transfer',
+                                            overflow: TextOverflow.ellipsis,
                                           ),
-                                        ),
-                                        textStyle: const TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: CustomButtonLayout(
-                                      isForm: false,
-                                      showCancelButton: false,
-                                      confirmButtonLabel: _mockIsSignedIn
-                                          ? 'Sign-Out'
-                                          : 'Sign-In',
-                                      confirmButtonChild: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Icon(
-                                            Icons.location_on_outlined,
-                                            size: 18,
-                                            color: AppColors
-                                                .billingBackgroundColor,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Flexible(
-                                            child: Text(
-                                              _mockIsSignedIn
-                                                  ? 'Sign-Out'
-                                                  : 'Sign-In',
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                                color: AppColors
-                                                    .billingBackgroundColor,
-                                              ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor:
+                                                AppColors.themeColor,
+                                            side: const BorderSide(
+                                              color: AppColors.themeColor,
+                                            ),
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                  vertical: 14,
+                                                ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                        ],
+                                        ),
+                                      )
+                                    else if (showSecondaryButtons &&
+                                        !_isSignedIn)
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          onPressed:
+                                              (!_staffIdentityLoaded ||
+                                                  _staffCode.isEmpty)
+                                                  ? null
+                                                  : _openMarkAbsentForSelf,
+                                          icon: !_staffIdentityLoaded
+                                              ? const SizedBox(
+                                                  width: 14,
+                                                  height: 14,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 1.5,
+                                                        color: AppColors
+                                                            .themeColor,
+                                                      ),
+                                                )
+                                              : const SizedBox.shrink(),
+                                          label: const Text(
+                                            'Mark Absent',
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor:
+                                                AppColors.themeColor,
+                                            side: const BorderSide(
+                                              color: AppColors.themeColor,
+                                            ),
+                                            padding:
+                                                const EdgeInsets.symmetric(
+                                                  vertical: 14,
+                                                ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(14),
+                                            ),
+                                            textStyle: const TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      onPressedConfirm: enabled
-                                          ? () {
-                                              if (_mockIsSignedIn) {
-                                                context.go(
-                                                  '/dashboard/staff-sign-out-form',
-                                                );
-                                              } else {
-                                                context.go(
-                                                  '/dashboard/staff-sign-in-form',
-                                                );
+                                    if (showSecondaryButtons)
+                                      const SizedBox(width: 12),
+                                    Expanded(
+                                      child: CustomButtonLayout(
+                                        isForm: false,
+                                        showCancelButton: false,
+                                        confirmButtonLabel: _isSignedIn
+                                            ? 'Sign-Out'
+                                            : 'Sign-In',
+                                        confirmButtonChild: Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.location_on_outlined,
+                                              size: 18,
+                                              color: signButtonEnabled
+                                                  ? AppColors
+                                                        .billingBackgroundColor
+                                                  : Colors.grey[600],
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Flexible(
+                                              child: Text(
+                                                _isSignedIn
+                                                    ? 'Sign-Out'
+                                                    : 'Sign-In',
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                  color: signButtonEnabled
+                                                      ? AppColors
+                                                            .billingBackgroundColor
+                                                      : Colors.grey[600],
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        onPressedConfirm: signButtonEnabled
+                                            ? () {
+                                                if (_isSignedIn) {
+                                                  unawaited(_openSignOutForm());
+                                                } else {
+                                                  unawaited(_openSignInForm());
+                                                }
                                               }
-                                            }
-                                          : null,
-                                      disabledConfirmTooltip:
-                                          'You are not within  geofencing Range',
-                                      onDisabledConfirmTap: () {
-                                        CoreUtils.showTopSnackBar(
-                                          isWarning: true,
-                                          message:
-                                              'You are not within geofencing Range',
-                                          context: context,
-                                        );
-                                      },
+                                            : null,
+                                        disabledConfirmTooltip:
+                                            'You are not within geofencing Range',
+                                        onDisabledConfirmTap: () {
+                                          CoreUtils.showTopSnackBar(
+                                            isWarning: true,
+                                            message:
+                                                'You are not within geofencing Range',
+                                            context: context,
+                                          );
+                                        },
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                            _buildGeofenceStatusLabel(context, geofenceState),
+                            if (isStaff || isAdmin)
+                              _buildGeofenceStatusLabel(context, geofenceState),
                           ],
                         );
                       },
@@ -707,6 +1203,11 @@ class _MyDayCardState extends State<MyDayCard> {
   // ── Geofence status label ────────────────────────────────────────────────────
 
   Widget _buildGeofenceStatusLabel(BuildContext context, GeofenceState state) {
+    final roleProvider = context.read<RoleCubit>();
+    if (!roleProvider.isStaff && !roleProvider.isAdmin) {
+      return const SizedBox.shrink();
+    }
+
     const style = TextStyle(fontSize: 12, height: 1.4);
     const pad = EdgeInsets.only(top: 10, left: 24, right: 24);
 

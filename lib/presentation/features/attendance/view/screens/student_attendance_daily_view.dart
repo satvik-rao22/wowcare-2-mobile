@@ -31,6 +31,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
@@ -399,30 +400,14 @@ class _StudentAttendanceDailyViewScreenState
 
   List<String>? _resolveSelectedClassroomCodes() {
     if (_selectedClassroomNames.isNotEmpty) {
-      // Ensure classroom data is loaded
-      if (_classroomCubit.state.classrooms.isEmpty) {
+      final codes = resolveClassroomNamesToCodes(
+        selectedNamesOrCodes: _selectedClassroomNames,
+        classrooms: _classroomCubit.state.classrooms,
+      );
+      if (codes == null) {
         debugPrint('Warning: No classroom data available for code resolution');
-        return null;
       }
-
-      final nameToCode = <String, String>{
-        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-      };
-      final codes = _selectedClassroomNames
-          .map((n) => nameToCode[n])
-          .whereType<String>()
-          .toList();
-
-      if (codes.length < _selectedClassroomNames.length) {
-        final unresolved = _selectedClassroomNames
-            .where((n) => !nameToCode.containsKey(n))
-            .toList();
-        debugPrint(
-          'Warning: Could not resolve classroom codes for: $unresolved',
-        );
-      }
-
-      return codes.isEmpty ? null : codes;
+      return codes;
     }
 
     // Pre-seeded from navigation (e.g. classroom info): [FilterData.classrooms] are codes.
@@ -766,8 +751,20 @@ class _StudentAttendanceDailyViewScreenState
           _normalizeByName(item.signedOutBy) ??
           (transferSignOut ? _loggedInUserName : null),
       // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
-      signInMethod: _mapMethodStringToEnum(item.signedInMethod),
-      signOutMethod: _mapMethodStringToEnum(item.signedOutMethod),
+      signInMethod: _resolveSignMethodForDisplay(
+        method: item.signedInMethod,
+        hasRecordedTime:
+            (effectiveSignIn ?? item.formattedSignInTime)?.trim().isNotEmpty ==
+            true,
+      ),
+      signOutMethod: _resolveSignMethodForDisplay(
+        method: item.signedOutMethod,
+        hasRecordedTime:
+            (effectiveSignOut ?? item.formattedSignOutTime)
+                ?.trim()
+                .isNotEmpty ==
+            true,
+      ),
       tags: item.tagNames.isNotEmpty ? item.tagNames : null,
       studentId: index, // Use index as placeholder
       roomId: index, // Use index as placeholder
@@ -813,12 +810,27 @@ class _StudentAttendanceDailyViewScreenState
       case 'QR':
         return SignMethod.qr;
       case 'APP':
+      case 'MOBILE':
+      case 'DIRECT':
+      case 'MANUAL':
         return SignMethod.direct;
       case 'WEB':
         return SignMethod.web;
       default:
         return null;
     }
+  }
+
+  /// Maps API method codes; when a time is present but method is missing (common
+  /// after edit-attendance), default to the mobile/APP icon.
+  SignMethod? _resolveSignMethodForDisplay({
+    required String? method,
+    required bool hasRecordedTime,
+  }) {
+    final mapped = _mapMethodStringToEnum(method);
+    if (mapped != null) return mapped;
+    if (hasRecordedTime) return SignMethod.direct;
+    return null;
   }
 
   AbsentMarkMethod? _mapAbsentMethodStringToEnum(String? method) {
@@ -1006,8 +1018,8 @@ class _StudentAttendanceDailyViewScreenState
                             padding: EdgeInsets.all(
                               responsive.horizontalSpacing,
                             ),
-                            backgroundColor: AppColors.errorColor.withOpacity(
-                              0.1,
+                            backgroundColor: AppColors.errorColor.withValues(
+                              alpha: 0.1,
                             ),
                             child: Row(
                               children: [
@@ -1095,6 +1107,7 @@ class _StudentAttendanceDailyViewScreenState
                                                 student.expectedToday,
                                             isPresentToday: false,
                                             profileStatus: 'A',
+                                            initialShowAbsentDays: true,
                                           ),
                                     ),
                                   ).then((_) {
@@ -1140,22 +1153,30 @@ class _StudentAttendanceDailyViewScreenState
                             ).asMap().entries.map((entry) {
                               final index = entry.key;
                               final student = entry.value;
-                              final isHighlightTarget =
-                                  _isHighlightTarget(student.studentCode);
-                              if (isHighlightTarget && !_highlightApplied) {
+                              final isHighlightTarget = _isHighlightTarget(
+                                student.studentCode,
+                              );
+                              // Capture before mutating _highlightApplied so
+                              // the key is only assigned on the very first
+                              // build — removing it afterward prevents the
+                              // GlobalKey duplicate when the SliverList
+                              // deactivates/reactivates this item on fling.
+                              final needsHighlightKey =
+                                  isHighlightTarget && !_highlightApplied;
+                              if (needsHighlightKey) {
                                 _highlightApplied = true;
-                                WidgetsBinding.instance
-                                    .addPostFrameCallback((_) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
                                   if (!mounted) return;
-                                  setState(
-                                      () => _expandedStudentIndex = index);
-                                  final ctx =
-                                      _highlightCardKey.currentContext;
+                                  setState(() => _expandedStudentIndex = index);
+                                  final ctx = _highlightCardKey.currentContext;
                                   if (ctx != null) {
                                     Scrollable.ensureVisible(
                                       ctx,
-                                      duration:
-                                          const Duration(milliseconds: 400),
+                                      duration: const Duration(
+                                        milliseconds: 400,
+                                      ),
                                       alignment: 0.1,
                                       curve: Curves.easeOut,
                                     );
@@ -1163,98 +1184,76 @@ class _StudentAttendanceDailyViewScreenState
                                 });
                               }
                               return HighlightableCard(
-                                key: isHighlightTarget
+                                key: needsHighlightKey
                                     ? _highlightCardKey
                                     : null,
                                 code: student.studentCode,
                                 highlightCode: _highlightStudentCode,
                                 borderRadius: 12,
                                 child: StudentAttendanceCard(
-                                student: student,
-                                index: index,
-                                isExpanded: _expandedStudentIndex == index,
-                                onTap: () {
-                                  setState(() {
-                                    if (_expandedStudentIndex == index) {
-                                      _expandedStudentIndex = null;
-                                    } else {
-                                      _expandedStudentIndex = index;
-                                    }
-                                  });
-                                },
-                                onEdit: () async {
-                                  await Navigator.push<bool>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => StudentEditAttendanceForm(
-                                        studentAttendance: student,
-                                        attendanceDate: _selectedDate,
-                                      ),
-                                    ),
-                                  );
-                                  if (mounted) {
-                                    refreshAfterReturningFromAttendanceFlow();
-                                  }
-                                },
-                                onDelete: () {
-                                  // Deletion validation: allow delete only if this is the last sequence entry
-                                  if ((student.totalSequenceCount ?? 1) !=
-                                      (student.sequenceNumber ?? 1)) {
-                                    CoreUtils.showTopSnackBarFromSnackBar(
-                                      context: context,
-                                      snackBar: const SnackBar(
-                                        content: Text(
-                                          'Only the latest transfer entry can be deleted.',
-                                        ),
-                                        backgroundColor: AppColors.errorColor,
+                                  student: student,
+                                  index: index,
+                                  isExpanded: _expandedStudentIndex == index,
+                                  onTap: () {
+                                    setState(() {
+                                      if (_expandedStudentIndex == index) {
+                                        _expandedStudentIndex = null;
+                                      } else {
+                                        _expandedStudentIndex = index;
+                                      }
+                                    });
+                                  },
+                                  onEdit: () async {
+                                    await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            StudentEditAttendanceForm(
+                                              studentAttendance: student,
+                                              attendanceDate: _selectedDate,
+                                            ),
                                       ),
                                     );
-                                    return;
-                                  }
-                                  showModalBottomSheet(
-                                    context: context,
-                                    isScrollControlled: true,
-                                    backgroundColor: Colors.transparent,
-                                    builder: (ctx) {
-                                      return DeleteConfirmationBottomSheet(
-                                        name: student.studentName,
-                                        type: 'attendance',
-                                        onDelete: () async {
-                                          Navigator.of(ctx).pop();
+                                    if (mounted) {
+                                      refreshAfterReturningFromAttendanceFlow();
+                                    }
+                                  },
+                                  onDelete: () {
+                                    // Deletion validation: allow delete only if this is the last sequence entry
+                                    if ((student.totalSequenceCount ?? 1) !=
+                                        (student.sequenceNumber ?? 1)) {
+                                      CoreUtils.showTopSnackBarFromSnackBar(
+                                        context: context,
+                                        snackBar: const SnackBar(
+                                          content: Text(
+                                            'Only the latest transfer entry can be deleted.',
+                                          ),
+                                          backgroundColor: AppColors.errorColor,
+                                        ),
+                                      );
+                                      return;
+                                    }
+                                    showModalBottomSheet(
+                                      context: context,
+                                      isScrollControlled: true,
+                                      backgroundColor: Colors.transparent,
+                                      builder: (ctx) {
+                                        return DeleteConfirmationBottomSheet(
+                                          name: student.studentName,
+                                          type: 'attendance',
+                                          onDelete: () async {
+                                            Navigator.of(ctx).pop();
 
-                                          if (student.attendanceRecordCode ==
-                                                  null ||
-                                              student
-                                                  .attendanceRecordCode!
-                                                  .isEmpty) {
-                                            CoreUtils.showTopSnackBarFromSnackBar(
-                                              context: context,
-                                              snackBar: const SnackBar(
-                                                content: Text(
-                                                  'Unable to delete: missing attendance record code.',
-                                                ),
-                                                backgroundColor:
-                                                    AppColors.errorColor,
-                                              ),
-                                            );
-                                            return;
-                                          }
-
-                                          try {
-                                            final normalizedAttendanceCode =
-                                                _resolveStudentDeleteAttendanceRecordCode(
-                                                  card: student,
-                                                  allItems: state.items,
-                                                );
-                                            if (normalizedAttendanceCode ==
+                                            if (student.attendanceRecordCode ==
                                                     null ||
-                                                normalizedAttendanceCode
+                                                student
+                                                    .attendanceRecordCode!
                                                     .isEmpty) {
                                               CoreUtils.showTopSnackBarFromSnackBar(
                                                 context: context,
                                                 snackBar: const SnackBar(
                                                   content: Text(
-                                                    'Unable to delete: invalid attendance record code.',
+                                                    'Unable to delete: missing attendance record code.',
                                                   ),
                                                   backgroundColor:
                                                       AppColors.errorColor,
@@ -1263,104 +1262,129 @@ class _StudentAttendanceDailyViewScreenState
                                               return;
                                             }
 
-                                            final storageService =
-                                                serviceLocator<
-                                                  StorageService
-                                                >();
-                                            final staffCode =
-                                                (await storageService.getString(
-                                                          StorageKeys.staffCode,
-                                                        ) ??
-                                                        '')
-                                                    .trim();
-                                            if (staffCode.isEmpty) {
-                                              if (!context.mounted) return;
+                                            try {
+                                              final normalizedAttendanceCode =
+                                                  _resolveStudentDeleteAttendanceRecordCode(
+                                                    card: student,
+                                                    allItems: state.items,
+                                                  );
+                                              if (normalizedAttendanceCode ==
+                                                      null ||
+                                                  normalizedAttendanceCode
+                                                      .isEmpty) {
+                                                CoreUtils.showTopSnackBarFromSnackBar(
+                                                  context: context,
+                                                  snackBar: const SnackBar(
+                                                    content: Text(
+                                                      'Unable to delete: invalid attendance record code.',
+                                                    ),
+                                                    backgroundColor:
+                                                        AppColors.errorColor,
+                                                  ),
+                                                );
+                                                return;
+                                              }
+
+                                              final storageService =
+                                                  serviceLocator<
+                                                    StorageService
+                                                  >();
+                                              final staffCode =
+                                                  (await storageService
+                                                              .getString(
+                                                                StorageKeys
+                                                                    .staffCode,
+                                                              ) ??
+                                                          '')
+                                                      .trim();
+                                              if (staffCode.isEmpty) {
+                                                if (!context.mounted) return;
+                                                CoreUtils.showTopSnackBarFromSnackBar(
+                                                  context: context,
+                                                  snackBar: const SnackBar(
+                                                    content: Text(
+                                                      'Unable to resolve staffCode. Please re-login.',
+                                                    ),
+                                                    backgroundColor:
+                                                        AppColors.errorColor,
+                                                  ),
+                                                );
+                                                return;
+                                              }
+
+                                              await serviceLocator<
+                                                    AttendanceRepository
+                                                  >()
+                                                  .deleteStudentAttendanceRecord(
+                                                    attendanceRecordCode:
+                                                        normalizedAttendanceCode,
+                                                    staffCode: staffCode,
+                                                  );
+
                                               CoreUtils.showTopSnackBarFromSnackBar(
                                                 context: context,
                                                 snackBar: const SnackBar(
                                                   content: Text(
-                                                    'Unable to resolve staffCode. Please re-login.',
+                                                    'Attendance deleted',
                                                   ),
+                                                  backgroundColor:
+                                                      AppColors.successColor,
+                                                ),
+                                              );
+
+                                              _loadAttendanceData(reset: true);
+                                            } catch (e) {
+                                              final message =
+                                                  ApiErrorHandler.extractErrorMessage(
+                                                    e,
+                                                  );
+                                              CoreUtils.showTopSnackBarFromSnackBar(
+                                                context: context,
+                                                snackBar: SnackBar(
+                                                  content: Text(message),
                                                   backgroundColor:
                                                       AppColors.errorColor,
                                                 ),
                                               );
-                                              return;
                                             }
-
-                                            await serviceLocator<
-                                                  AttendanceRepository
-                                                >()
-                                                .deleteStudentAttendanceRecord(
-                                                  attendanceRecordCode:
-                                                      normalizedAttendanceCode,
-                                                  staffCode: staffCode,
-                                                );
-
-                                            CoreUtils.showTopSnackBarFromSnackBar(
-                                              context: context,
-                                              snackBar: const SnackBar(
-                                                content: Text(
-                                                  'Attendance deleted',
-                                                ),
-                                                backgroundColor:
-                                                    AppColors.successColor,
-                                              ),
-                                            );
-
-                                            _loadAttendanceData(reset: true);
-                                          } catch (e) {
-                                            final message =
-                                                ApiErrorHandler.extractErrorMessage(
-                                                  e,
-                                                );
-                                            CoreUtils.showTopSnackBarFromSnackBar(
-                                              context: context,
-                                              snackBar: SnackBar(
-                                                content: Text(message),
-                                                backgroundColor:
-                                                    AppColors.errorColor,
-                                              ),
-                                            );
-                                          }
-                                        },
-                                        onCancel: () {
-                                          Navigator.of(ctx).pop();
-                                        },
-                                      );
-                                    },
-                                  );
-                                },
-                                onView: () {
-                                  Navigator.push<void>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          StudentAttendanceProfile(
-                                            studentCode:
-                                                student.studentCode ?? '',
-                                            studentId: student.studentId,
-                                            studentName: student.studentName,
-                                            studentPhotoUuid:
-                                                student.studentPhotoUuid,
-                                            roomName: student.roomName,
-                                            isSignedIn: student.hasSignIn,
-                                            isAbsent:
-                                                !student.hasSignIn &&
-                                                student.expectedToday,
-                                            isExpectedToday:
-                                                student.expectedToday,
-                                            isPresentToday: student.hasSignIn,
-                                            profileStatus: 'A',
-                                          ),
-                                    ),
-                                  ).then((_) {
-                                    if (mounted) {
-                                      refreshAfterReturningFromAttendanceFlow();
-                                    }
-                                  });
-                                },
-                              ),
+                                          },
+                                          onCancel: () {
+                                            Navigator.of(ctx).pop();
+                                          },
+                                        );
+                                      },
+                                    );
+                                  },
+                                  onView: () {
+                                    Navigator.push<void>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            StudentAttendanceProfile(
+                                              studentCode:
+                                                  student.studentCode ?? '',
+                                              studentId: student.studentId,
+                                              studentName: student.studentName,
+                                              studentPhotoUuid:
+                                                  student.studentPhotoUuid,
+                                              roomName: student.roomName,
+                                              isSignedIn: student.hasSignIn,
+                                              isAbsent:
+                                                  !student.hasSignIn &&
+                                                  student.expectedToday,
+                                              isExpectedToday:
+                                                  student.expectedToday,
+                                              isPresentToday: student.hasSignIn,
+                                              profileStatus: 'A',
+                                            ),
+                                      ),
+                                    ).then((_) {
+                                      if (mounted) {
+                                        refreshAfterReturningFromAttendanceFlow();
+                                      }
+                                    });
+                                  },
+                                ),
                               );
                             }).toList(),
                           // Loading more indicator

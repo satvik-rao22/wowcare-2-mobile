@@ -28,9 +28,34 @@ import 'student_sign_out_form.dart';
 class StudentSelectionSignOutForm extends StatefulWidget {
   static const String routeName = '/student-selection-sign-out-form';
 
-  const StudentSelectionSignOutForm({super.key, this.isQrScan = false});
+  const StudentSelectionSignOutForm({
+    super.key,
+    this.isQrScan = false,
+    this.qrToken = '',
+    this.preSelectedStudentCode,
+    this.allowedStudentCodes,
+    this.isKiosk = false,
+    this.guardianCode,
+    this.pin,
+  });
 
   final bool isQrScan;
+  final String qrToken;
+
+  /// When set (GPS flow), this student is pre-selected after the list loads.
+  final String? preSelectedStudentCode;
+
+  /// List of student codes that are allowed to be shown/selected.
+  final List<String>? allowedStudentCodes;
+
+  /// True when called from kiosk flow (guardian persona).
+  final bool isKiosk;
+
+  /// Guardian code from kiosk PIN verification.
+  final String? guardianCode;
+
+  /// PIN from kiosk access. Passed to StudentSignOutForm for API payload.
+  final String? pin;
 
   @override
   State<StudentSelectionSignOutForm> createState() =>
@@ -39,6 +64,7 @@ class StudentSelectionSignOutForm extends StatefulWidget {
 
 class _StudentSelectionSignOutFormState
     extends State<StudentSelectionSignOutForm> {
+  bool _preSelectionApplied = false;
   bool isSelectAllChecked = false;
   String? _selectedClassroom = null;
   String? _selectedClassroomCode;
@@ -99,9 +125,7 @@ class _StudentSelectionSignOutFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms(
-      applyAttendanceStaffScope: true,
-    );
+    _classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -241,6 +265,18 @@ class _StudentSelectionSignOutFormState
             .toList();
       }
 
+      if (widget.allowedStudentCodes != null) {
+        final allowedUpper = widget.allowedStudentCodes!
+            .map((c) => c.trim().toUpperCase())
+            .toSet();
+        items = items
+            .where(
+              (i) => i.studentCode.trim().isNotEmpty &&
+                  allowedUpper.contains(i.studentCode.trim().toUpperCase()),
+            )
+            .toList();
+      }
+
       final students = items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
@@ -259,12 +295,19 @@ class _StudentSelectionSignOutFormState
         (s) => !students.any((e) => e.studentCode == s.studentCode),
       );
 
+      if (!_preSelectionApplied && widget.preSelectedStudentCode != null) {
+        _preSelectionApplied = true;
+        final code = widget.preSelectedStudentCode!.trim();
+        final match = students.where((s) => s.studentCode == code).firstOrNull;
+        if (match != null) selectedStudents.add(match);
+      }
+
       setState(() {
         _filteredStudents = List.from(students);
         _isLoading = false;
-        isSelectAllChecked =
-            _filteredStudents.isNotEmpty &&
-            _filteredStudents.every((s) => selectedStudents.contains(s));
+        // Auto-select all signed-in students
+        selectedStudents.addAll(_filteredStudents);
+        isSelectAllChecked = _filteredStudents.isNotEmpty;
       });
     } catch (e) {
       setState(() {
@@ -321,6 +364,10 @@ class _StudentSelectionSignOutFormState
         builder: (context) => StudentSignOutForm(
           students: selectedStudents.toList(),
           isQrScan: widget.isQrScan,
+          qrToken: widget.qrToken,
+          isKiosk: widget.isKiosk,
+          guardianCode: widget.guardianCode,
+          pin: widget.pin,
         ),
       ),
     );
@@ -333,106 +380,109 @@ class _StudentSelectionSignOutFormState
     final safeAreaBottom = mediaQuery.padding.bottom;
 
     return StaffFormLayout(
+      isKiosk: widget.isKiosk,
       title: 'Sign-Out',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppText.subtitle(
-            _restrictToGuardianChildren
-                ? 'Select your children'
-                : 'Select Students',
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.grey),
+          if (!widget.isKiosk) ...[
+            AppText.subtitle(
+              _restrictToGuardianChildren
+                  ? 'Select your children'
+                  : 'Select Students',
             ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: _restrictToGuardianChildren
-                    ? 'Search your children'
-                    : 'Search Students',
-                hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
-                border: InputBorder.none,
-                icon: const Icon(Icons.search, color: Colors.grey),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.grey),
               ),
-              onChanged: (_) => _loadStudents(),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: _restrictToGuardianChildren
+                      ? 'Search your children'
+                      : 'Search Students',
+                  hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
+                  border: InputBorder.none,
+                  icon: const Icon(Icons.search, color: Colors.grey),
+                ),
+                onChanged: (_) => _loadStudents(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          if (!_restrictToGuardianChildren) ...[
+            const SizedBox(height: 12),
+            if (!_restrictToGuardianChildren) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                      bloc: _classroomCubit,
+                      builder: (context, classroomState) {
+                        final items = _classroomList.isNotEmpty
+                            ? _classroomList
+                            : classroomState.classrooms
+                                  .map((c) => c.name)
+                                  .toList(growable: false);
+                        final isLoading =
+                            classroomState.isLoading || !_isClassroomDataReady;
+
+                        if (isLoading && items.isEmpty) {
+                          return const ShimmerLoader(height: 40);
+                        }
+
+                        return CustomDropdown(
+                          hintText: 'Classroom',
+                          items: items,
+                          selectedItem: _selectedClassroom,
+                          onSelect: (value) {
+                            if (isLoading) return;
+                            setState(() {
+                              _selectedClassroom = value;
+                              _selectedClassroomCode = value == null
+                                  ? null
+                                  : _classroomNameToCode[value];
+                            });
+                            _loadStudents();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CustomMultiSelectDropdown(
+                      hintText: 'Tags',
+                      items: _tagsList,
+                      selectedItems: _selectedTag,
+                      onChanged: (selectedItems) {
+                        setState(() {
+                          _selectedTag = selectedItems;
+                        });
+                        _loadStudents();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
-                Expanded(
-                  child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                    bloc: _classroomCubit,
-                    builder: (context, classroomState) {
-                      final items = _classroomList.isNotEmpty
-                          ? _classroomList
-                          : classroomState.classrooms
-                                .map((c) => c.name)
-                                .toList(growable: false);
-                      final isLoading =
-                          classroomState.isLoading || !_isClassroomDataReady;
-
-                      if (isLoading && items.isEmpty) {
-                        return const ShimmerLoader(height: 40);
-                      }
-
-                      return CustomDropdown(
-                        hintText: 'Classroom',
-                        items: items,
-                        selectedItem: _selectedClassroom,
-                        onSelect: (value) {
-                          if (isLoading) return;
-                          setState(() {
-                            _selectedClassroom = value;
-                            _selectedClassroomCode = value == null
-                                ? null
-                                : _classroomNameToCode[value];
-                          });
-                          _loadStudents();
-                        },
-                      );
-                    },
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: CustomCheckbox(
+                    value: isSelectAllChecked,
+                    onChanged: _toggleSelectAll,
+                    borderColor: AppColors.themeColor,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CustomMultiSelectDropdown(
-                    hintText: 'Tags',
-                    items: _tagsList,
-                    selectedItems: _selectedTag,
-                    onChanged: (selectedItems) {
-                      setState(() {
-                        _selectedTag = selectedItems;
-                      });
-                      _loadStudents();
-                    },
-                  ),
-                ),
+                const AppText.body('Select All'),
               ],
             ),
             const SizedBox(height: 12),
           ],
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  value: isSelectAllChecked,
-                  onChanged: _toggleSelectAll,
-                  borderColor: AppColors.themeColor,
-                ),
-              ),
-              const AppText.body('Select All'),
-            ],
-          ),
-          const SizedBox(height: 12),
           Expanded(
             child: _isLoading
                 ? const Center(child: PrimaryCircularLoader())

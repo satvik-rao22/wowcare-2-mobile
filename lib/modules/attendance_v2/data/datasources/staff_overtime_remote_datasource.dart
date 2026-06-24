@@ -35,6 +35,19 @@ class StaffOvertimeRemoteDataSource {
     );
   }
 
+  /// Edits a single attendance (sign-in/out) record. [body] already contains
+  /// the UTC `signedInAt`/`signedOutAt`, methods and `timeZone`.
+  Future<void> editDailyRecord({
+    required String recordCode,
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffAttendanceDailyRecordByRowCode(recordCode),
+      ApiConstants.attendanceBaseUrl,
+    );
+    await _client.patch<dynamic>(endpoint, data: body);
+  }
+
   /// Reads the calculated per-day overview.
   Future<Map<String, dynamic>?> getOverview({
     required String staffCode,

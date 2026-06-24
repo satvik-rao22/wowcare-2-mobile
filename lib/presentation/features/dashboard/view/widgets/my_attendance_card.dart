@@ -268,10 +268,7 @@ class _AttendanceReportColumn extends StatelessWidget {
           valueColor: const Color.fromRGBO(52, 199, 89, 1),
         ),
         const SizedBox(height: 16),
-        _AttendanceHoursTile(
-          hours: attendedHours,
-          minutes: attendedMinutes,
-        ),
+        _AttendanceHoursTile(hours: attendedHours, minutes: attendedMinutes),
         const SizedBox(height: 16),
         _AttendanceInfoTile(
           icon: MediaRes.calenderClockIcon,
@@ -350,10 +347,7 @@ class _AttendanceInfoTile extends StatelessWidget {
 }
 
 class _AttendanceHoursTile extends StatelessWidget {
-  const _AttendanceHoursTile({
-    required this.hours,
-    required this.minutes,
-  });
+  const _AttendanceHoursTile({required this.hours, required this.minutes});
 
   final int hours;
   final int minutes;
@@ -408,16 +402,13 @@ class _ValueCircle extends StatelessWidget {
       width: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.secondaryColor,
-          width: 1.5,
-        ),
+        border: Border.all(color: Color(0xFF4285F4), width: 1.5),
         shape: BoxShape.circle,
       ),
       child: Text(
         text,
         style: const TextStyle(
-          color: AppColors.secondaryColor,
+          color: Color(0xFF4285F4),
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),

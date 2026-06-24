@@ -1,51 +1,103 @@
-import 'dart:io';
+import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
-import 'package:thumbnailer/thumbnailer.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/attachment_widget.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_attachment_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
+import '../util/message_content_processor.dart';
+import '../../../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
-import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
-import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
-import '../widgets/message_bubble_widget.dart';
+import '../util/chat_scroll_behavior.dart';
+import '../widgets/chat_thread_shimmer.dart';
+import '../widgets/loading_older_indicator.dart';
+import '../widgets/new_messages_indicator.dart';
+import '../widgets/thread_message_tile.dart';
 
 class ParentMessagingThread extends StatefulWidget {
-  const ParentMessagingThread({super.key, required this.parentInfo});
+  const ParentMessagingThread({
+    super.key,
+    required this.parentInfo,
+    this.showOwnScaffold = true,
+  });
   final Map<String, dynamic> parentInfo;
-  final String currentSender =
-      'Eddie Barnes'; // later this can be taken from logged in user profile
+
+  /// When false the widget renders only its body content (no [GlobalScaffold]).
+  /// Use this when embedding the thread inside another scaffold.
+  final bool showOwnScaffold;
 
   @override
   State<ParentMessagingThread> createState() => _ParentMessagingThreadState();
 }
 
 class _ParentMessagingThreadState extends State<ParentMessagingThread>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final TextEditingController _controller = TextEditingController();
 
   final AutoScrollController _groupController = AutoScrollController();
   final AutoScrollController _parent1Controller = AutoScrollController();
   final AutoScrollController _parent2Controller = AutoScrollController();
+  // These lists are built with `reverse: true` (index 0 = newest, resting at
+  // pixels == 0) — must tell ChatScrollBehavior, or "scroll to bottom" would
+  // land on the oldest message instead.
+  late final ChatScrollBehavior _groupScrollBehavior = ChatScrollBehavior(
+    _groupController,
+    reverse: true,
+  );
+  late final ChatScrollBehavior _parent1ScrollBehavior = ChatScrollBehavior(
+    _parent1Controller,
+    reverse: true,
+  );
+  late final ChatScrollBehavior _parent2ScrollBehavior = ChatScrollBehavior(
+    _parent2Controller,
+    reverse: true,
+  );
+  double _lastKeyboardInset = 0;
+  // Tracks the latest message's id rather than a raw count — a raw count
+  // can desync across edits/deletes/optimistic-rollbacks (e.g. a reaction
+  // mutation that fails and reverts touches `threads` without changing the
+  // message count, but a delete does change it without anything being
+  // "new" to scroll to), silently breaking the "did a new message arrive"
+  // check this drives. Identity comparison is correct regardless of why
+  // the list changed.
+  String? _lastMessageId;
+  bool _initialLoadInFlight = true;
+  bool _ownSendPending = false;
   TabController? _tabController;
 
-  //late final ReactionsController _reactionsController;
+  /// False until the very first scroll-to-bottom has actually landed on the
+  /// true latest message. The real message list stays hidden behind the
+  /// shimmer until this flips, so opening a thread shows the conversation
+  /// already sitting at the latest message instead of visibly scrolling
+  /// down to it from the top.
+  bool _isPositionedAtBottom = false;
+
+  late final ReactionsController _reactionsController;
   Message? _quotedMessage = null;
   String? _quotedMessageId;
   List<ChatAttachment> _pendingAttachments = [];
+  String? _currentUserCode;
+  String? _currentSender;
+  Message? _editingMessage;
+  final FocusNode _inputFocusNode = FocusNode();
+
+  bool _isLoadingOlder = false;
+  static const double _loadOlderScrollThreshold = 200.0;
 
   bool isPrivateModeEnabled(Map<String, dynamic> parentInfo) {
     final privateParents =
@@ -67,7 +119,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   @override
   void initState() {
     super.initState();
-    //_reactionsController = ReactionsController(currentUserId: 'me');
+    WidgetsBinding.instance.addObserver(this);
+    _reactionsController = ReactionsController(currentUserId: '');
     final parents =
         (widget.parentInfo['parents'] as List<dynamic>?)?.cast<String>() ?? [];
     parent1Name = parents.isNotEmpty ? parents[0] : 'Parent 1';
@@ -82,34 +135,173 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       if (mounted) setState(() {});
     });
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        final authState = context.read<AuthCubit>().state;
-        final userCode = authState is AuthLoaded
-            ? authState.loginResponse.userCode
-            : null;
-        context.read<CommunicationCubit>().loadMessages(
-          widget.parentInfo['code'] as String,
-          currentUserId: userCode,
-        );
+    // All three lists render the same underlying thread, just filtered
+    // differently per tab — one scroll-near-top check per controller is
+    // enough, since only the currently-visible one ever receives user-driven
+    // scroll events.
+    _groupController.addListener(_onScroll);
+    _parent1Controller.addListener(_onScroll);
+    _parent2Controller.addListener(_onScroll);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      final authState = context.read<AuthCubit>().state;
+      if (authState is AuthLoaded) {
+        setState(() {
+          _currentSender = authState.loginResponse.displayName.isNotEmpty
+              ? authState.loginResponse.displayName
+              : authState.loginResponse.userCode;
+        });
       }
+      // senderUserCode from the backend is the USR-/STF-... userCode, not the
+      // JWT sub UUID. Always compare against userCode.
+      final storage = serviceLocator<StorageService>();
+      final storedUserCode =
+          (await storage.getString(StorageKeys.userCode) ?? '').trim();
+      final authUserCode = authState is AuthLoaded
+          ? authState.loginResponse.userCode
+          : null;
+      final currentUserId = (authUserCode?.isNotEmpty ?? false)
+          ? authUserCode
+          : (storedUserCode.isNotEmpty ? storedUserCode : null);
+      if (!mounted) return;
+      setState(() {
+        _currentUserCode = currentUserId;
+      });
+      final convCode = widget.parentInfo['code'] as String;
+      AppLogger.d(
+        '[ParentThread] loading messages for $convCode '
+        'currentUserId=$currentUserId',
+      );
+      await context.read<CommunicationCubit>().loadMessages(
+        convCode,
+        currentUserId: currentUserId,
+      );
+      if (!mounted) return;
+      // Realtime listener starts only after the API/Isar history has
+      // loaded — Firestore only ever applies deltas on top of it.
+      context.read<CommunicationCubit>().startWatchingThread(convCode);
+      final initialMessages = _activeMessages;
+      _lastMessageId = initialMessages.isNotEmpty
+          ? initialMessages.last.id
+          : null;
+      _initialLoadInFlight = false;
+      _getActiveScrollBehavior().scrollToBottom(
+        animate: false,
+        onSettled: () {
+          if (!mounted) return;
+          setState(() => _isPositionedAtBottom = true);
+        },
+      );
     });
   }
 
   @override
   void dispose() {
-    //_reactionsController.dispose();
+    WidgetsBinding.instance.removeObserver(this);
+    _reactionsController.dispose();
+    _groupController.removeListener(_onScroll);
+    _parent1Controller.removeListener(_onScroll);
+    _parent2Controller.removeListener(_onScroll);
+    _groupScrollBehavior.dispose();
+    _parent1ScrollBehavior.dispose();
+    _parent2ScrollBehavior.dispose();
     _controller.dispose();
     _groupController.dispose();
     _parent1Controller.dispose();
     _parent2Controller.dispose();
     _tabController?.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onScroll() {
+    final controller = _getActiveScrollController();
+    if (!controller.hasClients) return;
+    // Lists here are `reverse: true` (index 0 = newest, resting at
+    // pixels == 0) — the oldest message is at the *far* end of the scroll
+    // range, so "near the top of history" means near `maxScrollExtent`,
+    // the opposite of the non-reversed case.
+    final position = controller.position;
+    if (position.maxScrollExtent - position.pixels > _loadOlderScrollThreshold) {
+      return;
+    }
+    _loadOlderMessages();
+  }
+
+  /// Fetches the next older page. Unlike a non-reversed list, no scroll-
+  /// position-preservation step is needed: because each `itemBuilder` maps
+  /// `index -> _messages[length - 1 - index]`, prepending older messages to
+  /// the front of `_messages` only adds new, higher indices at the far end
+  /// — every currently-visible item keeps the exact index (and therefore
+  /// position) it already had.
+  Future<void> _loadOlderMessages() async {
+    if (_isLoadingOlder) return;
+    final cubit = context.read<CommunicationCubit>();
+    final state = cubit.state;
+    if (state is! CommunicationLoaded) return;
+    if (state.isLoadingOlderMessages || !state.hasMoreOlderMessages) return;
+
+    _isLoadingOlder = true;
+    final threadId = widget.parentInfo['code'] as String;
+    await cubit.loadOlderMessages(threadId, currentUserId: _currentUserCode);
+    _isLoadingOlder = false;
+  }
+
+  /// WhatsApp/Telegram-style keyboard handling: when the keyboard opens,
+  /// scroll to the latest message — but only if the user was already near
+  /// the bottom, never while they're reading older history.
+  @override
+  void didChangeMetrics() {
+    super.didChangeMetrics();
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+      final keyboardOpened = bottomInset > _lastKeyboardInset + 20;
+      _lastKeyboardInset = bottomInset;
+      if (keyboardOpened) {
+        _getActiveScrollBehavior().onKeyboardOpened();
+      }
+    });
+  }
+
+  /// Reacts to the latest message changing identity from any source (API
+  /// refresh, realtime delta, or our own optimistic send): scrolls to
+  /// bottom when the user is already there, otherwise surfaces the "new
+  /// messages" indicator rather than forcing a jump while they're reading
+  /// older history. Skipped while the initial load is still in flight (that
+  /// case is handled explicitly).
+  void _onMessagesChanged(List<Message> messages) {
+    if (_initialLoadInFlight) {
+      _lastMessageId = messages.isNotEmpty ? messages.last.id : null;
+      return;
+    }
+    final wasOwnSend = _ownSendPending;
+    _ownSendPending = false;
+    final latestId = messages.isNotEmpty ? messages.last.id : null;
+    final hasNewLatest = latestId != null && latestId != _lastMessageId;
+    _lastMessageId = latestId;
+    if (!hasNewLatest) return;
+    // Sending always scrolls to bottom, regardless of scroll position.
+    // Other growth (realtime/API) only scrolls when already near bottom.
+    if (wasOwnSend) {
+      _getActiveScrollBehavior().scrollToBottom();
+    } else {
+      _getActiveScrollBehavior().onIncomingMessage();
+    }
   }
 
   AutoScrollController _getActiveScrollController() {
     if (!_privateModeEnabled) return _groupController;
     return _tabController?.index == 0 ? _parent1Controller : _parent2Controller;
+  }
+
+  ChatScrollBehavior _getActiveScrollBehavior() {
+    if (!_privateModeEnabled) return _groupScrollBehavior;
+    return _tabController?.index == 0
+        ? _parent1ScrollBehavior
+        : _parent2ScrollBehavior;
   }
 
   String? _getTagetParentForCurrentTab() {
@@ -128,6 +320,26 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
   void _sendMessage() {
     final text = _controller.text.trim();
+    if (_editingMessage != null) {
+      if (text.isNotEmpty && text != _editingMessage!.text) {
+        context.read<CommunicationCubit>().editMessage(
+          widget.parentInfo['code'] as String,
+          _editingMessage!.code,
+          text,
+        );
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Message updated successfully',
+          isSuccess: true,
+        );
+      }
+      setState(() {
+        _editingMessage = null;
+        _controller.clear();
+      });
+      return;
+    }
+
     final hasText = text.isNotEmpty;
     final hasAttachments = _pendingAttachments.isNotEmpty;
 
@@ -135,7 +347,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     List<String> receivers = [];
     receivers.addAll(
-      (widget.parentInfo['staffList'] as List<dynamic>).cast<String>(),
+      (widget.parentInfo['staffList'] as List<dynamic>? ?? []).cast<String>(),
     );
 
     if (_privateModeEnabled) {
@@ -145,22 +357,23 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       }
     } else {
       receivers.addAll(
-        (widget.parentInfo['parents'] as List<dynamic>).cast<String>(),
+        (widget.parentInfo['parents'] as List<dynamic>? ?? []).cast<String>(),
       );
     }
 
-    final now = DateTime.now();
     final authState = context.read<AuthCubit>().state;
     final senderName = authState is AuthLoaded
         ? authState.loginResponse.displayName
-        : widget.currentSender;
+        : _currentSender;
 
+    _ownSendPending = true;
     context.read<CommunicationCubit>().sendMessage(
       widget.parentInfo['code'] as String,
       text,
       attachments: List.from(_pendingAttachments),
       quotedMessageId: _quotedMessageId,
       senderName: senderName,
+      senderUserCode: _currentUserCode,
       receivers: receivers,
     );
 
@@ -169,28 +382,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       _pendingAttachments.clear();
       _quotedMessage = null;
       _quotedMessageId = null;
-    });
-
-    // setState(() {
-    //   _messages.add(
-    //     Message(
-    //       text: _controller.text.trim(),
-    //       isSentByMe: true,
-    //       time: DateTime.now(),
-    //       deliveredAt: null,
-    //       readAt: null
-    //     ),
-    //   );
-    // });
-
-    //_controller.clear();
-    final scrollController = _getActiveScrollController();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      scrollController.scrollToIndex(
-        0,
-        preferPosition: AutoScrollPosition.begin,
-        duration: const Duration(milliseconds: 300),
-      );
     });
   }
 
@@ -214,165 +405,59 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  void _showMessageOptions(
-    BuildContext context,
-    Message message,
-    LongPressStartDetails details,
-  ) {
-    final RenderBox overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromRect(
-        Rect.fromLTWH(
-          details.globalPosition.dx,
-          details.globalPosition.dy,
-          40,
-          40,
-        ),
-        Offset.zero & overlay.size,
-      ),
-      items: <PopupMenuEntry<String>>[
-        if (message.isSentByMe) ...[
-          const PopupMenuItem<String>(
-            value: 'edit',
-            child: ListTile(
-              leading: Icon(Icons.edit, color: AppColors.primaryColor),
-              title: CustomTextWidget(
-                text: 'Edit',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                applyLetterSpacing: false,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-          const PopupMenuItem<String>(
-            value: 'delete',
-            child: ListTile(
-              leading: Icon(
-                Icons.delete_outline,
-                color: AppColors.primaryColor,
-              ),
-              title: CustomTextWidget(
-                text: 'Delete',
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                applyLetterSpacing: false,
-              ),
-              contentPadding: EdgeInsets.zero,
-            ),
-          ),
-        ],
-        const PopupMenuItem<String>(
-          value: 'reply',
-          child: ListTile(
-            leading: Icon(Icons.reply, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Reply',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'copy',
-          child: ListTile(
-            leading: Icon(Icons.copy, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Copy',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'info',
-          child: ListTile(
-            leading: Icon(Icons.info, color: AppColors.primaryColor),
-            title: CustomTextWidget(
-              text: 'Info',
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
-              applyLetterSpacing: false,
-            ),
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem<String>(
-          value: 'react',
-          child: ListTile(
-            leading: Icon(Icons.emoji_emotions_outlined),
-            title: Text('React'),
-          ),
-        ),
-      ],
-      elevation: 8,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      color: Colors.white,
-    ).then((value) {
-      if (!mounted || value == null) return;
-
-      switch (value) {
-        case 'reply':
-          setState(() {
-            _quotedMessageId = message.id;
-            _quotedMessage = message;
-          });
-          break;
-        case 'copy':
-          Clipboard.setData(ClipboardData(text: message.text));
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Message copied successfully',
-            isSuccess: true,
-          );
-          break;
-        case 'info':
-          _showMessageStatusDialog(context, message);
-          break;
-        case 'edit':
-          _showEditDialog(context, message);
-          break;
-
-        case 'delete':
-          setState(() {
-            _activeMessages.removeWhere((m) => m.id == message.id);
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Message deleted successfully',
-              isSuccess: true,
-            );
-          });
-          break;
-        case 'react':
-          _showEmojiPicker(context, message);
-          break;
-      }
-    });
+  /// Returns true when [current] is a continuation of [prev]:
+  /// same sender and sent within 5 minutes (don't group across date separators).
+  bool _isSameSender(Message? prev, Message current) {
+    if (prev == null) return false;
+    final prevCode = prev.senderUserCode ?? '';
+    final currCode = current.senderUserCode ?? '';
+    if (prevCode.isNotEmpty && currCode.isNotEmpty) {
+      return prevCode == currCode &&
+          current.time.difference(prev.time).inMinutes <= 5;
+    }
+    return prev.isSentByMe == current.isSentByMe &&
+        current.time.difference(prev.time).inMinutes <= 5;
   }
 
   void _showEmojiPicker(BuildContext context, Message message) {
+    // Capture cubit before entering the bottom sheet route so it's reachable
+    // even though the sheet's BuildContext has no CommunicationCubit ancestor.
+    final cubit = context.read<CommunicationCubit>();
+    final convCode = widget.parentInfo['code'] as String;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) {
+      builder: (sheetContext) {
+        final sheetHeight =
+            (MediaQuery.of(sheetContext).size.height * 0.55).clamp(240.0, 400.0) +
+            MediaQuery.of(sheetContext).padding.bottom;
         return Container(
-          height: 380 + MediaQuery.of(context).padding.bottom,
+          height: sheetHeight,
           decoration: const BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: EmojiPicker(
             onEmojiSelected: (category, emoji) {
-              Navigator.pop(context); // close picker
-              // _onReactionAdded(message, emoji.emoji);
+              Navigator.pop(sheetContext); // close picker
+              final myReaction = message.reactions[_currentUserCode ?? 'me'];
+              if (myReaction == emoji.emoji) {
+                cubit.removeReaction(
+                  convCode,
+                  message.code,
+                  emoji.emoji,
+                  currentUserCode: _currentUserCode,
+                );
+              } else {
+                cubit.addReaction(
+                  convCode,
+                  message.code,
+                  emoji.emoji,
+                  currentUserCode: _currentUserCode,
+                );
+              }
             },
             config: const Config(
               //height: 380,
@@ -397,667 +482,65 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  // void _onReactionAdded(Message message, String emoji) {
-  //   final tabIndex = _tabController.index;
-  //   final String activeTabKey;
-  //   if (_privateModeEnabled) {
-  //     activeTabKey =
-  //         tabIndex == 0 ? 'parent_group_parent1' : 'parent_group_parent2';
-  //   } else {
-  //     activeTabKey = 'parent_group_default';
-  //   }
-  //   context.read<CommunicationCubit>().addReaction(
-  //     activeTabKey,
-  //     message.id,
-  //     emoji,
-  //   );
-  // }
-
-  void _showEditDialog(BuildContext context, Message message) {
-    final TextEditingController editingController = TextEditingController(
-      text: message.text,
-    );
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
-
-        title: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-          //height: 60,
-          decoration: BoxDecoration(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
-              ],
-            ),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              CustomTextWidget(text: 'Edit message'),
-              IconButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                icon: Icon(Icons.clear, color: AppColors.primaryColor),
-              ),
-            ],
-          ),
-        ),
-        content: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: TextField(
-            controller: editingController,
-            autofocus: true,
-            minLines: 3,
-            maxLines: 8,
-            decoration: InputDecoration(
-              hintText: 'Edit your message...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: AppColors.primaryColor,
-                  width: 1.2,
-                ),
-              ),
-              errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Colors.redAccent,
-                  width: 1.5,
-                ),
-              ),
-              focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.redAccent, width: 2),
-              ),
-              //border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            width: double.infinity,
-            height: 60,
-            //padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: TextButton(
-              onPressed: () {
-                final newText = editingController.text.trim();
-                if (newText.isNotEmpty && newText != message.text) {
-                  if (!mounted) return;
-                  setState(() {
-                    final _messages = _activeMessages;
-                    final idx = _messages.indexWhere((m) => m.id == message.id);
-                    if (idx != -1) {
-                      _messages[idx] = Message(
-                        id: message.id,
-                        code: message.code,
-                        text: newText,
-                        senderName: widget.currentSender,
-                        isSentByMe: message.isSentByMe,
-                        time: message.time,
-                        deliveredAt: message.deliveredAt,
-                        readAt: message.readAt,
-                        deliveredTo: message.deliveredTo,
-                        readBy: message.readBy,
-                        attachments: message.attachments,
-                        reactions: message.reactions,
-                      );
-                      CoreUtils.showTopSnackBar(
-                        context: context,
-                        message: 'Message updated successfully',
-                        isSuccess: true,
-                      );
-                    }
-                  });
-                }
-                Navigator.pop(dialogContext);
-              },
-              style: TextButton.styleFrom(overlayColor: Colors.transparent),
-              child: Text(
-                'Save',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  void _startEditing(Message message) {
+    setState(() {
+      _editingMessage = message;
+      _controller.text = MessageContentProcessor.stripHtmlTags(message.text);
+    });
+    _inputFocusNode.requestFocus();
   }
 
   @override
   Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
     final bool isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
     final tabNames = _privateModeEnabled
         ? [parent1Name, parent2Name]
         : ['${parent1Name}, ${parent2Name} and Staff'];
 
-    return BlocBuilder<CommunicationCubit, CommunicationState>(
+    return BlocConsumer<CommunicationCubit, CommunicationState>(
+      listener: (context, state) {
+        if (state is CommunicationLoaded) {
+          _onMessagesChanged(_activeMessages);
+        }
+      },
       builder: (context, state) {
         final _messages = _activeMessages;
         if (state is CommunicationLoading && _messages.isEmpty) {
-          return const GlobalScaffold(
-            hasBackButton: true,
-            body: Center(child: CircularProgressIndicator()),
+          if (!widget.showOwnScaffold) return const ChatThreadShimmer();
+          return Scaffold(
+            body: const ChatThreadShimmer(),
           );
         }
-        return GlobalScaffold(
-          hasBackButton: true,
-          showCustomNavigationBar: !isLandscape,
-          body: Padding(
-            padding: const EdgeInsets.all(10.0),
-            child: isLandscape
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Flexible(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: const Color(0xFFF4F7FD),
-                          ),
-                          child: NestedScrollView(
-                            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                              SliverToBoxAdapter(
-                                child: TabBar(
-                                  controller: _tabController,
-                                  isScrollable: true,
-                                  tabAlignment: TabAlignment.start,
-                                  padding: EdgeInsets.all(0),
-                                  labelColor: AppColors.primaryColor,
-                                  unselectedLabelColor: Colors.grey,
-                                  indicatorColor: AppColors.themeColor,
-                                  dividerColor: Colors.transparent,
-                                  //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
-                                  tabs: tabNames
-                                      .map((name) => _buildTab(name))
-                                      .toList(),
-                                ),
-                              ),
-                            ],
-                            body: TabBarView(
-                              controller: _tabController,
-                              children: _privateModeEnabled
-                                  ? [
-                                      ListView.builder(
-                                        controller:
-                                            _getActiveScrollController(),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 12,
-                                        ),
-                                        reverse: true,
-                                        itemCount: _messages.length,
-                                        itemBuilder: (context, index) {
-                                          final message =
-                                              _messages[_messages.length -
-                                                  1 -
-                                                  index];
-                                          final messageId = message.id;
-                                          //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                          // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                          // final key = keyMap.putIfAbsent(
-                                          //   messageId,
-                                          //   () => GlobalKey(),
-                                          // );
-                                          Message? quotedMessage;
-                                          if (message.quotedMessageId != null) {
-                                            quotedMessage = _messages
-                                                .firstWhere(
-                                                  (m) =>
-                                                      m.id ==
-                                                      message.quotedMessageId,
-                                                ); // ?? null;
-                                          }
-                                          bool showDateHeader = false;
-                                          final prevListIndex =
-                                              _messages.length - 2 - index;
-
-                                          if (prevListIndex >= 0) {
-                                            final prevMessage =
-                                                _messages[prevListIndex];
-
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
-                                            showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
-                                                _currDate.day != _prevDate.day;
-                                          } else {
-                                            showDateHeader = true;
-                                          }
-
-                                          return AutoScrollTag(
-                                            key: ValueKey(messageId),
-                                            controller:
-                                                _getActiveScrollController(),
-                                            index: index,
-                                            highlightColor: Colors.green
-                                                .withValues(alpha: 0.7),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (showDateHeader)
-                                                  Center(
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            top: 8.0,
-                                                          ),
-                                                      child: _buildDateChip(
-                                                        message.time,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                if (showDateHeader)
-                                                  const SizedBox(height: 10),
-
-                                                // MessageBubble(
-                                                //   //key: key,
-                                                //   //scrollKey: scrollKey,
-                                                //   message: message,
-                                                //   isParentMessaging: true,
-                                                //   quotedMessage: quotedMessage,
-                                                //   onLongPress:
-                                                //       (
-                                                //         LongPressStartDetails
-                                                //         details,
-                                                //       ) {
-                                                //         _showMessageOptions(
-                                                //           context,
-                                                //           message,
-                                                //           details,
-                                                //         );
-                                                //       },
-                                                //   onScrollToQuoted: (quoteId) {
-                                                //     _scrollToMessage(quoteId);
-                                                //   },
-                                                // ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      ListView.builder(
-                                        controller:
-                                            _getActiveScrollController(),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 12,
-                                        ),
-                                        reverse: true,
-                                        itemCount: _messages.length,
-                                        itemBuilder: (context, index) {
-                                          final message =
-                                              _messages[_messages.length -
-                                                  1 -
-                                                  index];
-                                          final messageId = message.id;
-
-                                          Message? quotedMessage;
-                                          if (message.quotedMessageId != null) {
-                                            quotedMessage = _messages
-                                                .firstWhere(
-                                                  (m) =>
-                                                      m.id ==
-                                                      message.quotedMessageId,
-                                                ); // ?? null;
-                                          }
-                                          bool showDateHeader = false;
-                                          final prevListIndex =
-                                              _messages.length - 2 - index;
-
-                                          if (prevListIndex >= 0) {
-                                            final prevMessage =
-                                                _messages[prevListIndex];
-
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
-                                            showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
-                                                _currDate.day != _prevDate.day;
-                                          } else {
-                                            showDateHeader = true;
-                                          }
-
-                                          return AutoScrollTag(
-                                            key: ValueKey(messageId),
-                                            controller:
-                                                _getActiveScrollController(),
-                                            index: index,
-                                            highlightColor: Colors.green
-                                                .withValues(alpha: 0.7),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (showDateHeader)
-                                                  Center(
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            top: 8.0,
-                                                          ),
-                                                      child: _buildDateChip(
-                                                        message.time,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                if (showDateHeader)
-                                                  const SizedBox(height: 10),
-
-                                                // MessageBubble(
-                                                //   //key: key,
-                                                //   //scrollKey: scrollKey,
-                                                //   message: message,
-                                                //   isParentMessaging: true,
-                                                //   quotedMessage: quotedMessage,
-                                                //   onLongPress:
-                                                //       (
-                                                //         LongPressStartDetails
-                                                //         details,
-                                                //       ) {
-                                                //         _showMessageOptions(
-                                                //           context,
-                                                //           message,
-                                                //           details,
-                                                //         );
-                                                //       },
-                                                //   onScrollToQuoted: (quoteId) {
-                                                //     _scrollToMessage(quoteId);
-                                                //   },
-                                                // ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ]
-                                  : [
-                                      ListView.builder(
-                                        controller:
-                                            _getActiveScrollController(),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 12,
-                                        ),
-                                        reverse: true,
-                                        itemCount: _messages.length,
-                                        itemBuilder: (context, index) {
-                                          final message =
-                                              _messages[_messages.length -
-                                                  1 -
-                                                  index];
-                                          final messageId = message.id;
-                                          //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                          // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                          // final key = keyMap.putIfAbsent(
-                                          //   messageId,
-                                          //   () => GlobalKey(),
-                                          // );
-                                          Message? quotedMessage;
-                                          if (message.quotedMessageId != null) {
-                                            quotedMessage = _messages
-                                                .firstWhere(
-                                                  (m) =>
-                                                      m.id ==
-                                                      message.quotedMessageId,
-                                                ); // ?? null;
-                                          }
-                                          bool showDateHeader = false;
-                                          final prevListIndex =
-                                              _messages.length - 2 - index;
-
-                                          if (prevListIndex >= 0) {
-                                            final prevMessage =
-                                                _messages[prevListIndex];
-
-                                            final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                            final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                            final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
-                                            showDateHeader =
-                                                _currDate.year != _prevDate.year ||
-                                                _currDate.month != _prevDate.month ||
-                                                _currDate.day != _prevDate.day;
-                                          } else {
-                                            showDateHeader = true;
-                                          }
-
-                                          return AutoScrollTag(
-                                            key: ValueKey(messageId),
-                                            controller:
-                                                _getActiveScrollController(),
-                                            index: index,
-                                            highlightColor: Colors.green
-                                                .withValues(alpha: 0.7),
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                if (showDateHeader)
-                                                  Center(
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            top: 8.0,
-                                                          ),
-                                                      child: _buildDateChip(
-                                                        message.time,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                if (showDateHeader)
-                                                  const SizedBox(height: 10),
-
-                                                // MessageBubble(
-                                                //   //key: key,
-                                                //   //scrollKey: scrollKey,
-                                                //   message: message,
-                                                //   isParentMessaging: true,
-                                                //   quotedMessage: quotedMessage,
-                                                //   onLongPress:
-                                                //       (
-                                                //         LongPressStartDetails
-                                                //         details,
-                                                //       ) {
-                                                //         _showMessageOptions(
-                                                //           context,
-                                                //           message,
-                                                //           details,
-                                                //         );
-                                                //       },
-                                                //   onScrollToQuoted: (quoteId) {
-                                                //     _scrollToMessage(quoteId);
-                                                //   },
-                                                //   // onHeightMeasured: (id, height) {
-                                                //   //   if (_bubbleHeights[id] != height) {
-                                                //   //     setState(() {
-                                                //   //       _bubbleHeights[id] = height;
-                                                //   //     });
-                                                //   //   }
-                                                //   // },
-                                                //   //onHeightMeasured:
-                                                //   // onContextReady: (id, ctx) {
-                                                //   //   if (_messageContexts[id] != ctx) {
-                                                //   //     setState(() {
-                                                //   //       _messageContexts[id] = ctx;
-                                                //   //     });
-                                                //   //   }
-                                                //   // },
-                                                // ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                            ),
-                          ),
+        if (state is CommunicationError && _messages.isEmpty) {
+          final errorBody = _buildErrorState(context, state.message);
+          if (!widget.showOwnScaffold) return errorBody;
+          return Scaffold(body: SafeArea(child: errorBody));
+        }
+        if (state is CommunicationLoaded && _messages.isEmpty) {
+          final emptyBody = _buildEmptyConversationState(context);
+          if (!widget.showOwnScaffold) return emptyBody;
+          return Scaffold(body: SafeArea(child: emptyBody));
+        }
+        final threadBody = GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Padding(
+          padding: const EdgeInsets.all(10.0),
+          child: isLandscape
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Flexible(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: const Color(0xFFF4F7FD),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      SizedBox(
-                        width: MediaQuery.of(context).size.width * 0.35,
-                        child: SingleChildScrollView(
-                          reverse: true, // new messages appear at bottom
-                          padding: EdgeInsets.only(
-                            bottom: MediaQuery.of(context).viewInsets.bottom,
-                          ),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(12),
-                              color: Colors.white,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 16,
-                              ),
-                              child: _buildMessageInput(),
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // SizedBox(
-                      //   width: MediaQuery.of(context).size.width * 0.35,
-                      //   child: Container(
-                      //     decoration: BoxDecoration(
-                      //       borderRadius: BorderRadius.circular(12),
-                      //       color: Colors.white,
-                      //     ),
-                      //     child: Padding(
-                      //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
-                      //       child: _buildMessageInput(),
-                      //     ),
-                      //   ),// 35% is usually good balance
-                      // )
-                    ],
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      CustomTextWidget(text: 'Messaging', fontSize: 16),
-                      const SizedBox(height: 10),
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            color: const Color(0xFFF4F7FD),
-                          ),
-                          child: Column(
-                            children: [
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.transparent,
-                                  border: const Border(
-                                    bottom: BorderSide(
-                                      color: Color(0xFFE9ECEF),
-                                      width: 1,
-                                    ),
-                                  ),
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 24.0,
-                                    vertical: 10,
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    children: [
-                                      Stack(
-                                        children: [
-                                          DocumentImageWidget(
-                                            fileUuid:
-                                                widget.parentInfo['avatar'] ??
-                                                null,
-                                            name:
-                                                widget.parentInfo['name'] ??
-                                                null,
-                                            size: 45,
-                                          ),
-                                          Positioned(
-                                            right: 0,
-                                            top: 0,
-                                            child: Container(
-                                              width: 12,
-                                              height: 12,
-                                              decoration: BoxDecoration(
-                                                color:
-                                                    widget
-                                                        .parentInfo['isSigned']
-                                                    ? const Color.fromRGBO(
-                                                        0,
-                                                        177,
-                                                        21,
-                                                        1,
-                                                      )
-                                                    : Colors.transparent,
-                                                shape: BoxShape.circle,
-                                                border: Border.all(
-                                                  color:
-                                                      widget
-                                                          .parentInfo['isSigned']
-                                                      ? Colors.white
-                                                      : Colors.transparent,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Flexible(
-                                        child: CustomTextWidget(
-                                          text: widget.parentInfo['name'],
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 20,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              //const SizedBox(height: 10,),
-                              TabBar(
+                        child: NestedScrollView(
+                          headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                            SliverToBoxAdapter(
+                              child: TabBar(
                                 controller: _tabController,
                                 isScrollable: true,
                                 tabAlignment: TabAlignment.start,
@@ -1071,637 +554,1738 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                     .map((name) => _buildTab(name))
                                     .toList(),
                               ),
-                              Expanded(
-                                child: TabBarView(
-                                  controller: _tabController,
-                                  children: _privateModeEnabled
-                                      ? [
-                                          ListView.builder(
-                                            controller:
-                                                _getActiveScrollController(),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 12,
-                                            ),
-                                            reverse: true,
-                                            itemCount: _messages.length,
-                                            itemBuilder: (context, index) {
-                                              final message =
-                                                  _messages[_messages.length -
-                                                      1 -
-                                                      index];
-                                              final messageId = message.id;
-                                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                              // final key = keyMap.putIfAbsent(
-                                              //   messageId,
-                                              //   () => GlobalKey(),
-                                              // );
-                                              Message? quotedMessage;
-                                              if (message.quotedMessageId !=
-                                                  null) {
-                                                quotedMessage = _messages
-                                                    .firstWhere(
-                                                      (m) =>
-                                                          m.id ==
-                                                          message
-                                                              .quotedMessageId,
-                                                    ); // ?? null;
-                                              }
-                                              bool showDateHeader = false;
-                                              final prevListIndex =
-                                                  _messages.length - 2 - index;
+                            ),
+                          ],
+                          body: TabBarView(
+                            controller: _tabController,
+                            children: _privateModeEnabled
+                                ? [
+                                    Stack(
+                                      children: [
+                                    ListView.builder(
+                                      controller: _getActiveScrollController(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      reverse: true,
+                                      itemCount: _messages.length,
+                                      itemBuilder: (context, index) {
+                                        final message =
+                                            _messages[_messages.length -
+                                                1 -
+                                                index];
+                                        final messageId = message.id;
+                                        //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                        // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                        // final key = keyMap.putIfAbsent(
+                                        //   messageId,
+                                        //   () => GlobalKey(),
+                                        // );
+                                        bool showDateHeader = false;
+                                        final prevListIndex =
+                                            _messages.length - 2 - index;
 
-                                              if (prevListIndex >= 0) {
-                                                final prevMessage =
-                                                    _messages[prevListIndex];
+                                        if (prevListIndex >= 0) {
+                                          final prevMessage =
+                                              _messages[prevListIndex];
 
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
-                                                showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
-                                              } else {
-                                                showDateHeader = true;
-                                              }
-
-                                              return AutoScrollTag(
-                                                key: ValueKey(messageId),
-                                                controller:
-                                                    _getActiveScrollController(),
-                                                index: index,
-                                                highlightColor: Colors.green
-                                                    .withValues(alpha: 0.7),
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    if (showDateHeader)
-                                                      Center(
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsets.only(
-                                                                top: 8.0,
-                                                              ),
-                                                          child: _buildDateChip(
-                                                            message.time,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    if (showDateHeader)
-                                                      const SizedBox(
-                                                        height: 10,
-                                                      ),
-
-                                                    // MessageBubble(
-                                                    //   //key: key,
-                                                    //   //scrollKey: scrollKey,
-                                                    //   message: message,
-                                                    //   isParentMessaging: true,
-                                                    //   quotedMessage:
-                                                    //       quotedMessage,
-                                                    //   onLongPress:
-                                                    //       (
-                                                    //         LongPressStartDetails
-                                                    //         details,
-                                                    //       ) {
-                                                    //         _showMessageOptions(
-                                                    //           context,
-                                                    //           message,
-                                                    //           details,
-                                                    //         );
-                                                    //       },
-                                                    //   onScrollToQuoted:
-                                                    //       (quoteId) {
-                                                    //         _scrollToMessage(
-                                                    //           quoteId,
-                                                    //         );
-                                                    //       },
-                                                    // ),
-                                                  ],
-                                                ),
+                                          final _schoolTz =
+                                              SchoolTimezoneResolver
+                                                  .lastKnownTimeZone;
+                                          final _currDate =
+                                              SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                message.time,
+                                                _schoolTz,
                                               );
-                                            },
-                                          ),
-                                          ListView.builder(
-                                            controller:
-                                                _getActiveScrollController(),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 12,
-                                            ),
-                                            reverse: true,
-                                            itemCount: _messages.length,
-                                            itemBuilder: (context, index) {
-                                              final message =
-                                                  _messages[_messages.length -
-                                                      1 -
-                                                      index];
-                                              final messageId = message.id;
-                                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                              // final key = keyMap.putIfAbsent(
-                                              //   messageId,
-                                              //   () => GlobalKey(),
-                                              // );
-                                              Message? quotedMessage;
-                                              if (message.quotedMessageId !=
-                                                  null) {
-                                                quotedMessage = _messages
-                                                    .firstWhere(
-                                                      (m) =>
-                                                          m.id ==
-                                                          message
-                                                              .quotedMessageId,
-                                                    ); // ?? null;
-                                              }
-                                              bool showDateHeader = false;
-                                              final prevListIndex =
-                                                  _messages.length - 2 - index;
-
-                                              if (prevListIndex >= 0) {
-                                                final prevMessage =
-                                                    _messages[prevListIndex];
-
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
-                                                showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
-                                              } else {
-                                                showDateHeader = true;
-                                              }
-
-                                              return AutoScrollTag(
-                                                key: ValueKey(messageId),
-                                                controller:
-                                                    _getActiveScrollController(),
-                                                index: index,
-                                                highlightColor: Colors.green
-                                                    .withValues(alpha: 0.7),
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    if (showDateHeader)
-                                                      Center(
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsets.only(
-                                                                top: 8.0,
-                                                              ),
-                                                          child: _buildDateChip(
-                                                            message.time,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    if (showDateHeader)
-                                                      const SizedBox(
-                                                        height: 10,
-                                                      ),
-
-                                                    // MessageBubble(
-                                                    //   //key: key,
-                                                    //   //scrollKey: scrollKey,
-                                                    //   message: message,
-                                                    //   isParentMessaging: true,
-                                                    //   quotedMessage:
-                                                    //       quotedMessage,
-                                                    //   onLongPress:
-                                                    //       (
-                                                    //         LongPressStartDetails
-                                                    //         details,
-                                                    //       ) {
-                                                    //         _showMessageOptions(
-                                                    //           context,
-                                                    //           message,
-                                                    //           details,
-                                                    //         );
-                                                    //       },
-                                                    //   onScrollToQuoted:
-                                                    //       (quoteId) {
-                                                    //         _scrollToMessage(
-                                                    //           quoteId,
-                                                    //         );
-                                                    //       },
-                                                    // ),
-                                                  ],
-                                                ),
+                                          final _prevDate =
+                                              SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                prevMessage.time,
+                                                _schoolTz,
                                               );
-                                            },
-                                          ),
-                                        ]
-                                      : [
-                                          ListView.builder(
-                                            controller:
-                                                _getActiveScrollController(),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 12,
-                                            ),
-                                            reverse: true,
-                                            itemCount: _messages.length,
-                                            itemBuilder: (context, index) {
-                                              final message =
-                                                  _messages[_messages.length -
-                                                      1 -
-                                                      index];
-                                              final messageId = message.id;
-                                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                              // final key = keyMap.putIfAbsent(
-                                              //   messageId,
-                                              //   () => GlobalKey(),
-                                              // );
-                                              Message? quotedMessage;
-                                              if (message.quotedMessageId !=
-                                                  null) {
-                                                quotedMessage = _messages
-                                                    .firstWhere(
-                                                      (m) =>
-                                                          m.id ==
-                                                          message
-                                                              .quotedMessageId,
-                                                    ); // ?? null;
-                                              }
-                                              bool showDateHeader = false;
-                                              final prevListIndex =
-                                                  _messages.length - 2 - index;
+                                          showDateHeader =
+                                              _currDate.year !=
+                                                  _prevDate.year ||
+                                              _currDate.month !=
+                                                  _prevDate.month ||
+                                              _currDate.day != _prevDate.day;
+                                        } else {
+                                          showDateHeader = true;
+                                        }
+                                        final prevMessage = prevListIndex >= 0
+                                            ? _messages[prevListIndex]
+                                            : null;
+                                        final isGrouped =
+                                            !showDateHeader &&
+                                            _isSameSender(prevMessage, message);
 
-                                              if (prevListIndex >= 0) {
-                                                final prevMessage =
-                                                    _messages[prevListIndex];
-
-                                                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-                                                final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(message.time, _schoolTz);
-                                                final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(prevMessage.time, _schoolTz);
-                                                showDateHeader =
-                                                    _currDate.year != _prevDate.year ||
-                                                    _currDate.month != _prevDate.month ||
-                                                    _currDate.day != _prevDate.day;
-                                              } else {
-                                                showDateHeader = true;
-                                              }
-
-                                              return AutoScrollTag(
-                                                key: ValueKey(messageId),
-                                                controller:
-                                                    _getActiveScrollController(),
-                                                index: index,
-                                                highlightColor: Colors.green
-                                                    .withValues(alpha: 0.7),
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    if (showDateHeader)
-                                                      Center(
-                                                        child: Padding(
-                                                          padding:
-                                                              const EdgeInsets.only(
-                                                                top: 8.0,
-                                                              ),
-                                                          child: _buildDateChip(
-                                                            message.time,
-                                                          ),
+                                        return AutoScrollTag(
+                                          key: ValueKey(messageId),
+                                          controller:
+                                              _getActiveScrollController(),
+                                          index: index,
+                                          highlightColor: Colors.green
+                                              .withValues(alpha: 0.7),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (showDateHeader)
+                                                Center(
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 8.0,
                                                         ),
-                                                      ),
-                                                    if (showDateHeader)
-                                                      const SizedBox(
-                                                        height: 10,
-                                                      ),
-
-                                                    // MessageBubble(
-                                                    //   //key: key,
-                                                    //   //scrollKey: scrollKey,
-                                                    //   message: message,
-                                                    //   isParentMessaging: true,
-                                                    //   quotedMessage:
-                                                    //       quotedMessage,
-                                                    //   onLongPress:
-                                                    //       (
-                                                    //         LongPressStartDetails
-                                                    //         details,
-                                                    //       ) {
-                                                    //         _showMessageOptions(
-                                                    //           context,
-                                                    //           message,
-                                                    //           details,
-                                                    //         );
-                                                    //       },
-                                                    //   onScrollToQuoted:
-                                                    //       (quoteId) {
-                                                    //         _scrollToMessage(
-                                                    //           quoteId,
-                                                    //         );
-                                                    //       },
-                                                    // ),
-                                                  ],
+                                                    child: _buildDateChip(
+                                                      message.time,
+                                                    ),
+                                                  ),
                                                 ),
-                                              );
-                                            },
+                                              if (showDateHeader)
+                                                const SizedBox(height: 10),
+                                              // Spacing: compact for grouped, normal for new group
+                                              SizedBox(height: isGrouped ? 2.0 : 8.0),
+                                              ThreadMessageTile(
+                                                threadId: widget.parentInfo['code']
+                                                    as String,
+                                                messageCode: message.code,
+                                                quotedMessageId:
+                                                    message.quotedMessageId,
+                                                onDeleteAttachment: (attachment) {
+                                                  if (attachment.attachmentId != null) {
+                                                    context.read<CommunicationCubit>().deleteAttachment(
+                                                      widget.parentInfo['code'] as String,
+                                                      attachment.attachmentId!,
+                                                    );
+                                                  }
+                                                },
+                                                currentUserCode:
+                                                    _currentUserCode,
+                                                reactionsController:
+                                                    _reactionsController,
+                                                isParentMessaging: true,
+                                                onReplyFromMenu: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  setState(() {
+                                                    _quotedMessageId =
+                                                        message.id;
+                                                    _quotedMessage = message;
+                                                  });
+                                                },
+                                                onCopy: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  Clipboard.setData(
+                                                    ClipboardData(
+                                                      text: MessageContentProcessor.stripHtmlTags(message.text),
+                                                    ),
+                                                  );
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message:
+                                                        'Message copied successfully',
+                                                    isSuccess: true,
+                                                  );
+                                                },
+                                                onEdit: message.isDeleted
+                                                    ? null
+                                                    : () =>
+                                                    _startEditing(message),
+                                                onDelete: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  context
+                                                      .read<
+                                                        CommunicationCubit
+                                                      >()
+                                                      .deleteMessage(
+                                                        widget.parentInfo['code']
+                                                            as String,
+                                                        message.code,
+                                                      );
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message:
+                                                        'Message deleted successfully',
+                                                    isSuccess: true,
+                                                  );
+                                                },
+                                                onInfo: message.isDeleted
+                                                    ? null
+                                                    : () =>
+                                                    _showMessageStatusDialog(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                onScrollToQuoted: (quoteId) {
+                                                  _scrollToMessage(quoteId);
+                                                },
+                                                onReactionAdded: (emoji) {
+                                                  final myReaction =
+                                                      message
+                                                          .reactions[_currentUserCode ??
+                                                          'me'];
+                                                  if (myReaction == emoji) {
+                                                    context
+                                                        .read<
+                                                          CommunicationCubit
+                                                        >()
+                                                        .removeReaction(
+                                                          widget.parentInfo['code']
+                                                              as String,
+                                                          message.code,
+                                                          emoji,
+                                                          currentUserCode:
+                                                              _currentUserCode,
+                                                        );
+                                                  } else {
+                                                    context
+                                                        .read<
+                                                          CommunicationCubit
+                                                        >()
+                                                        .addReaction(
+                                                          widget.parentInfo['code']
+                                                              as String,
+                                                          message.code,
+                                                          emoji,
+                                                          currentUserCode:
+                                                              _currentUserCode,
+                                                        );
+                                                  }
+                                                },
+                                                onRemoveReaction: (emoji) {
+                                                  context
+                                                      .read<
+                                                        CommunicationCubit
+                                                      >()
+                                                      .removeReaction(
+                                                        widget.parentInfo['code']
+                                                            as String,
+                                                        message.code,
+                                                        emoji,
+                                                        currentUserCode:
+                                                            _currentUserCode,
+                                                      );
+                                                },
+                                                onReactionTap: () =>
+                                                    _showEmojiPicker(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                isGrouped: isGrouped,
+                                              ),
+                                            ],
                                           ),
-                                        ],
-                                ),
+                                        );
+                                      },
+                                    ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 8,
+                                        child: ValueListenableBuilder<bool>(
+                                          valueListenable: _getActiveScrollBehavior()
+                                              .showNewMessageIndicator,
+                                          builder: (_, visible, __) =>
+                                              NewMessagesIndicator(
+                                            visible: visible,
+                                            onTap: () => _getActiveScrollBehavior()
+                                                .scrollToBottom(),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        top: 0,
+                                        child: LoadingOlderIndicator(
+                                          visible: state is CommunicationLoaded &&
+                                              state.isLoadingOlderMessages,
+                                        ),
+                                      ),
+                                      ],
+                                    ),
+                                    Stack(
+                                      children: [
+                                    ListView.builder(
+                                      controller: _getActiveScrollController(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      reverse: true,
+                                      itemCount: _messages.length,
+                                      itemBuilder: (context, index) {
+                                        final message =
+                                            _messages[_messages.length -
+                                                1 -
+                                                index];
+                                        final messageId = message.id;
+
+                                        bool showDateHeader = false;
+                                        final prevListIndex =
+                                            _messages.length - 2 - index;
+
+                                        if (prevListIndex >= 0) {
+                                          final prevMessage =
+                                              _messages[prevListIndex];
+
+                                          final _schoolTz =
+                                              SchoolTimezoneResolver
+                                                  .lastKnownTimeZone;
+                                          final _currDate =
+                                              SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                message.time,
+                                                _schoolTz,
+                                              );
+                                          final _prevDate =
+                                              SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                prevMessage.time,
+                                                _schoolTz,
+                                              );
+                                          showDateHeader =
+                                              _currDate.year !=
+                                                  _prevDate.year ||
+                                              _currDate.month !=
+                                                  _prevDate.month ||
+                                              _currDate.day != _prevDate.day;
+                                        } else {
+                                          showDateHeader = true;
+                                        }
+                                        final prevMessage = prevListIndex >= 0
+                                            ? _messages[prevListIndex]
+                                            : null;
+                                        final isGrouped =
+                                            !showDateHeader &&
+                                            _isSameSender(prevMessage, message);
+
+                                        return AutoScrollTag(
+                                          key: ValueKey(messageId),
+                                          controller:
+                                              _getActiveScrollController(),
+                                          index: index,
+                                          highlightColor: Colors.green
+                                              .withValues(alpha: 0.7),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (showDateHeader)
+                                                Center(
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 8.0,
+                                                        ),
+                                                    child: _buildDateChip(
+                                                      message.time,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (showDateHeader)
+                                                const SizedBox(height: 10),
+                                              // Spacing: compact for grouped, normal for new group
+                                              SizedBox(height: isGrouped ? 2.0 : 8.0),
+                                              ThreadMessageTile(
+                                                threadId: widget.parentInfo['code']
+                                                    as String,
+                                                messageCode: message.code,
+                                                quotedMessageId:
+                                                    message.quotedMessageId,
+                                                onDeleteAttachment: (attachment) {
+                                                  if (attachment.attachmentId != null) {
+                                                    context.read<CommunicationCubit>().deleteAttachment(
+                                                      widget.parentInfo['code'] as String,
+                                                      attachment.attachmentId!,
+                                                    );
+                                                  }
+                                                },
+                                                currentUserCode:
+                                                    _currentUserCode,
+                                                reactionsController:
+                                                    _reactionsController,
+                                                isParentMessaging: true,
+                                                onReplyFromMenu: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  setState(() {
+                                                    _quotedMessageId =
+                                                        message.id;
+                                                    _quotedMessage = message;
+                                                  });
+                                                },
+                                                onCopy: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  Clipboard.setData(
+                                                    ClipboardData(
+                                                      text: MessageContentProcessor.stripHtmlTags(message.text),
+                                                    ),
+                                                  );
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message:
+                                                        'Message copied successfully',
+                                                    isSuccess: true,
+                                                  );
+                                                },
+                                                onEdit: message.isDeleted
+                                                    ? null
+                                                    : () =>
+                                                    _startEditing(message),
+                                                onDelete: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  context
+                                                      .read<
+                                                        CommunicationCubit
+                                                      >()
+                                                      .deleteMessage(
+                                                        widget.parentInfo['code']
+                                                            as String,
+                                                        message.code,
+                                                      );
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message:
+                                                        'Message deleted successfully',
+                                                    isSuccess: true,
+                                                  );
+                                                },
+                                                onInfo: message.isDeleted
+                                                    ? null
+                                                    : () =>
+                                                    _showMessageStatusDialog(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                onScrollToQuoted: (quoteId) {
+                                                  _scrollToMessage(quoteId);
+                                                },
+                                                onReactionAdded: (emoji) {
+                                                  final myReaction =
+                                                      message
+                                                          .reactions[_currentUserCode ??
+                                                          'me'];
+                                                  if (myReaction == emoji) {
+                                                    context
+                                                        .read<
+                                                          CommunicationCubit
+                                                        >()
+                                                        .removeReaction(
+                                                          widget.parentInfo['code']
+                                                              as String,
+                                                          message.code,
+                                                          emoji,
+                                                          currentUserCode:
+                                                              _currentUserCode,
+                                                        );
+                                                  } else {
+                                                    context
+                                                        .read<
+                                                          CommunicationCubit
+                                                        >()
+                                                        .addReaction(
+                                                          widget.parentInfo['code']
+                                                              as String,
+                                                          message.code,
+                                                          emoji,
+                                                          currentUserCode:
+                                                              _currentUserCode,
+                                                        );
+                                                  }
+                                                },
+                                                onRemoveReaction: (emoji) {
+                                                  context
+                                                      .read<
+                                                        CommunicationCubit
+                                                      >()
+                                                      .removeReaction(
+                                                        widget.parentInfo['code']
+                                                            as String,
+                                                        message.code,
+                                                        emoji,
+                                                        currentUserCode:
+                                                            _currentUserCode,
+                                                      );
+                                                },
+                                                onReactionTap: () =>
+                                                    _showEmojiPicker(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                isGrouped: isGrouped,
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 8,
+                                        child: ValueListenableBuilder<bool>(
+                                          valueListenable: _getActiveScrollBehavior()
+                                              .showNewMessageIndicator,
+                                          builder: (_, visible, __) =>
+                                              NewMessagesIndicator(
+                                            visible: visible,
+                                            onTap: () => _getActiveScrollBehavior()
+                                                .scrollToBottom(),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        top: 0,
+                                        child: LoadingOlderIndicator(
+                                          visible: state is CommunicationLoaded &&
+                                              state.isLoadingOlderMessages,
+                                        ),
+                                      ),
+                                      ],
+                                    ),
+                                  ]
+                                : [
+                                    Stack(
+                                      children: [
+                                    ListView.builder(
+                                      controller: _getActiveScrollController(),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      reverse: true,
+                                      itemCount: _messages.length,
+                                      itemBuilder: (context, index) {
+                                        final message =
+                                            _messages[_messages.length -
+                                                1 -
+                                                index];
+                                        final messageId = message.id;
+                                        bool showDateHeader = false;
+                                        final prevListIndex =
+                                            _messages.length - 2 - index;
+
+                                        if (prevListIndex >= 0) {
+                                          final prevMessage =
+                                              _messages[prevListIndex];
+
+                                          final _schoolTz =
+                                              SchoolTimezoneResolver
+                                                  .lastKnownTimeZone;
+                                          final _currDate =
+                                              SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                message.time,
+                                                _schoolTz,
+                                              );
+                                          final _prevDate =
+                                              SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                prevMessage.time,
+                                                _schoolTz,
+                                              );
+                                          showDateHeader =
+                                              _currDate.year !=
+                                                  _prevDate.year ||
+                                              _currDate.month !=
+                                                  _prevDate.month ||
+                                              _currDate.day != _prevDate.day;
+                                        } else {
+                                          showDateHeader = true;
+                                        }
+                                        final prevMessage = prevListIndex >= 0
+                                            ? _messages[prevListIndex]
+                                            : null;
+                                        final isGrouped =
+                                            !showDateHeader &&
+                                            _isSameSender(prevMessage, message);
+
+                                        return AutoScrollTag(
+                                          key: ValueKey(messageId),
+                                          controller:
+                                              _getActiveScrollController(),
+                                          index: index,
+                                          highlightColor: Colors.green
+                                              .withValues(alpha: 0.7),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (showDateHeader)
+                                                Center(
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 8.0,
+                                                        ),
+                                                    child: _buildDateChip(
+                                                      message.time,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (showDateHeader)
+                                                const SizedBox(height: 10),
+                                              // Spacing: compact for grouped, normal for new group
+                                              SizedBox(height: isGrouped ? 2.0 : 8.0),
+                                              ThreadMessageTile(
+                                                threadId: widget.parentInfo['code']
+                                                    as String,
+                                                messageCode: message.code,
+                                                quotedMessageId:
+                                                    message.quotedMessageId,
+                                                onDeleteAttachment: (attachment) {
+                                                  if (attachment.attachmentId != null) {
+                                                    context.read<CommunicationCubit>().deleteAttachment(
+                                                      widget.parentInfo['code'] as String,
+                                                      attachment.attachmentId!,
+                                                    );
+                                                  }
+                                                },
+                                                currentUserCode:
+                                                    _currentUserCode,
+                                                reactionsController:
+                                                    _reactionsController,
+                                                isParentMessaging: true,
+                                                onReplyFromMenu: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  setState(() {
+                                                    _quotedMessageId =
+                                                        message.id;
+                                                    _quotedMessage = message;
+                                                  });
+                                                },
+                                                onCopy: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  Clipboard.setData(
+                                                    ClipboardData(
+                                                      text: MessageContentProcessor.stripHtmlTags(message.text),
+                                                    ),
+                                                  );
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message:
+                                                        'Message copied successfully',
+                                                    isSuccess: true,
+                                                  );
+                                                },
+                                                onEdit: message.isDeleted
+                                                    ? null
+                                                    : () =>
+                                                    _startEditing(message),
+                                                onDelete: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                  context
+                                                      .read<
+                                                        CommunicationCubit
+                                                      >()
+                                                      .deleteMessage(
+                                                        widget.parentInfo['code']
+                                                            as String,
+                                                        message.code,
+                                                      );
+                                                  CoreUtils.showTopSnackBar(
+                                                    context: context,
+                                                    message:
+                                                        'Message deleted successfully',
+                                                    isSuccess: true,
+                                                  );
+                                                },
+                                                onInfo: message.isDeleted
+                                                    ? null
+                                                    : () =>
+                                                    _showMessageStatusDialog(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                onScrollToQuoted: (quoteId) {
+                                                  _scrollToMessage(quoteId);
+                                                },
+                                                onReactionAdded: (emoji) {
+                                                  final myReaction =
+                                                      message
+                                                          .reactions[_currentUserCode ??
+                                                          'me'];
+                                                  if (myReaction == emoji) {
+                                                    context
+                                                        .read<
+                                                          CommunicationCubit
+                                                        >()
+                                                        .removeReaction(
+                                                          widget.parentInfo['code']
+                                                              as String,
+                                                          message.code,
+                                                          emoji,
+                                                          currentUserCode:
+                                                              _currentUserCode,
+                                                        );
+                                                  } else {
+                                                    context
+                                                        .read<
+                                                          CommunicationCubit
+                                                        >()
+                                                        .addReaction(
+                                                          widget.parentInfo['code']
+                                                              as String,
+                                                          message.code,
+                                                          emoji,
+                                                          currentUserCode:
+                                                              _currentUserCode,
+                                                        );
+                                                  }
+                                                },
+                                                onRemoveReaction: (emoji) {
+                                                  context
+                                                      .read<
+                                                        CommunicationCubit
+                                                      >()
+                                                      .removeReaction(
+                                                        widget.parentInfo['code']
+                                                            as String,
+                                                        message.code,
+                                                        emoji,
+                                                        currentUserCode:
+                                                            _currentUserCode,
+                                                      );
+                                                },
+                                                onReactionTap: () =>
+                                                    _showEmojiPicker(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                isGrouped: isGrouped,
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        bottom: 8,
+                                        child: ValueListenableBuilder<bool>(
+                                          valueListenable: _getActiveScrollBehavior()
+                                              .showNewMessageIndicator,
+                                          builder: (_, visible, __) =>
+                                              NewMessagesIndicator(
+                                            visible: visible,
+                                            onTap: () => _getActiveScrollBehavior()
+                                                .scrollToBottom(),
+                                          ),
+                                        ),
+                                      ),
+                                      Positioned(
+                                        left: 0,
+                                        right: 0,
+                                        top: 0,
+                                        child: LoadingOlderIndicator(
+                                          visible: state is CommunicationLoaded &&
+                                              state.isLoadingOlderMessages,
+                                        ),
+                                      ),
+                                      ],
+                                    ),
+                                  ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width * 0.35,
+                      child: SingleChildScrollView(
+                        reverse: true, // new messages appear at bottom
+                        padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom,
+                        ),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: Colors.white,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, -2),
                               ),
                             ],
                           ),
+                          child: ChatInputBar(
+                            controller: _controller,
+                            focusNode: _inputFocusNode,
+                            onSend: _sendMessage,
+                            onAttachmentTap: _showAttachmentSheet,
+                            isSending: state is CommunicationSending,
+                            pendingAttachments: _pendingAttachments,
+                            quotedMessage: _quotedMessage,
+                            onCancelQuote: () => setState(() {
+                              _quotedMessage = null;
+                              _quotedMessageId = null;
+                            }),
+                            onRemoveAttachment: (i) => setState(() {
+                              _pendingAttachments.removeAt(i);
+                            }),
+                            editingMessage: _editingMessage,
+                            onCancelEdit: () => setState(() {
+                              _editingMessage = null;
+                              _controller.clear();
+                            }),
+                          ),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      Container(
+                    ),
+
+                    // SizedBox(
+                    //   width: MediaQuery.of(context).size.width * 0.35,
+                    //   child: Container(
+                    //     decoration: BoxDecoration(
+                    //       borderRadius: BorderRadius.circular(12),
+                    //       color: Colors.white,
+                    //     ),
+                    //     child: Padding(
+                    //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+                    //       child: _buildMessageInput(),
+                    //     ),
+                    //   ),// 35% is usually good balance
+                    // )
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: const Color(0xFFF4F7FD),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildParticipantHeader(),
+                            //const SizedBox(height: 10,),
+                            TabBar(
+                              controller: _tabController,
+                              isScrollable: true,
+                              tabAlignment: TabAlignment.start,
+                              padding: EdgeInsets.all(0),
+                              labelColor: AppColors.primaryColor,
+                              unselectedLabelColor: Colors.grey,
+                              indicatorColor: AppColors.themeColor,
+                              dividerColor: Colors.transparent,
+                              //tabs: tabNames.map((name) => Tab(text: name,)).toList(),
+                              tabs: tabNames
+                                  .map((name) => _buildTab(name))
+                                  .toList(),
+                            ),
+                            Expanded(
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: _privateModeEnabled
+                                    ? [
+                                        Stack(
+                                          children: [
+                                        ListView.builder(
+                                          controller:
+                                              _getActiveScrollController(),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 12,
+                                          ),
+                                          reverse: true,
+                                          itemCount: _messages.length,
+                                          itemBuilder: (context, index) {
+                                            final message =
+                                                _messages[_messages.length -
+                                                    1 -
+                                                    index];
+                                            final messageId = message.id;
+                                            //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                            // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                            // final key = keyMap.putIfAbsent(
+                                            //   messageId,
+                                            //   () => GlobalKey(),
+                                            // );
+                                            bool showDateHeader = false;
+                                            final prevListIndex =
+                                                _messages.length - 2 - index;
+
+                                            if (prevListIndex >= 0) {
+                                              final prevMessage =
+                                                  _messages[prevListIndex];
+
+                                              final _schoolTz =
+                                                  SchoolTimezoneResolver
+                                                      .lastKnownTimeZone;
+                                              final _currDate =
+                                                  SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                    message.time,
+                                                    _schoolTz,
+                                                  );
+                                              final _prevDate =
+                                                  SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                    prevMessage.time,
+                                                    _schoolTz,
+                                                  );
+                                              showDateHeader =
+                                                  _currDate.year !=
+                                                      _prevDate.year ||
+                                                  _currDate.month !=
+                                                      _prevDate.month ||
+                                                  _currDate.day !=
+                                                      _prevDate.day;
+                                            } else {
+                                              showDateHeader = true;
+                                            }
+                                            final prevMessage = prevListIndex >= 0
+                                                ? _messages[prevListIndex]
+                                                : null;
+                                            final isGrouped =
+                                                !showDateHeader &&
+                                                _isSameSender(prevMessage, message);
+
+                                            return AutoScrollTag(
+                                              key: ValueKey(messageId),
+                                              controller:
+                                                  _getActiveScrollController(),
+                                              index: index,
+                                              highlightColor: Colors.green
+                                                  .withValues(alpha: 0.7),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  if (showDateHeader)
+                                                    Center(
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              top: 8.0,
+                                                            ),
+                                                        child: _buildDateChip(
+                                                          message.time,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  if (showDateHeader)
+                                                    const SizedBox(height: 10),
+
+                                                  ThreadMessageTile(
+                                                    threadId: widget.parentInfo['code']
+                                                        as String,
+                                                    messageCode: message.code,
+                                                    quotedMessageId:
+                                                        message.quotedMessageId,
+                                                    onDeleteAttachment: (attachment) {
+                                                      if (attachment.attachmentId != null) {
+                                                        context.read<CommunicationCubit>().deleteAttachment(
+                                                          widget.parentInfo['code'] as String,
+                                                          attachment.attachmentId!,
+                                                        );
+                                                      }
+                                                    },
+                                                    currentUserCode:
+                                                        _currentUserCode,
+                                                    reactionsController:
+                                                        _reactionsController,
+                                                    isParentMessaging: true,
+                                                    onReplyFromMenu: () {
+                                                      setState(() {
+                                                        _quotedMessageId =
+                                                            message.id;
+                                                        _quotedMessage =
+                                                            message;
+                                                      });
+                                                    },
+                                                    onCopy: () {
+                                                      Clipboard.setData(
+                                                        ClipboardData(
+                                                          text: MessageContentProcessor.stripHtmlTags(message.text),
+                                                        ),
+                                                      );
+                                                      CoreUtils.showTopSnackBar(
+                                                        context: context,
+                                                        message:
+                                                            'Message copied',
+                                                        isSuccess: true,
+                                                      );
+                                                    },
+                                                    onEdit: () {
+                                                      setState(() {
+                                                        _editingMessage =
+                                                            message;
+                                                        _controller.text =
+                                                            MessageContentProcessor.stripHtmlTags(message.text);
+                                                        _inputFocusNode
+                                                            .requestFocus();
+                                                      });
+                                                    },
+                                                    onDelete: () {
+                                                      context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .deleteMessage(
+                                                            widget.parentInfo['code']
+                                                                as String,
+                                                            message.code,
+                                                          );
+                                                      CoreUtils.showTopSnackBar(
+                                                        context: context,
+                                                        message:
+                                                            'Message deleted',
+                                                        isSuccess: true,
+                                                      );
+                                                    },
+                                                    onInfo: () =>
+                                                        _showMessageStatusDialog(
+                                                          context,
+                                                          message,
+                                                        ),
+                                                    onScrollToQuoted:
+                                                        (quoteId) =>
+                                                            _scrollToMessage(
+                                                              quoteId,
+                                                            ),
+                                                    onReactionAdded: (emoji) {
+                                                      final myReaction =
+                                                          message
+                                                              .reactions[_currentUserCode ??
+                                                              'me'];
+                                                      if (myReaction == emoji) {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .removeReaction(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              message.code,
+                                                              emoji,
+                                                              currentUserCode:
+                                                                  _currentUserCode,
+                                                            );
+                                                      } else {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .addReaction(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              message.code,
+                                                              emoji,
+                                                              currentUserCode:
+                                                                  _currentUserCode,
+                                                            );
+                                                      }
+                                                    },
+                                                    onRemoveReaction: (emoji) {
+                                                      context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .removeReaction(
+                                                            widget.parentInfo['code']
+                                                                as String,
+                                                            message.code,
+                                                            emoji,
+                                                            currentUserCode:
+                                                                _currentUserCode,
+                                                          );
+                                                    },
+                                                    onReactionTap: () =>
+                                                        _showEmojiPicker(
+                                                          context,
+                                                          message,
+                                                        ),
+                                                    isGrouped: isGrouped,
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 8,
+                                            child: ValueListenableBuilder<bool>(
+                                              valueListenable:
+                                                  _getActiveScrollBehavior()
+                                                      .showNewMessageIndicator,
+                                              builder: (_, visible, __) =>
+                                                  NewMessagesIndicator(
+                                                visible: visible,
+                                                onTap: () =>
+                                                    _getActiveScrollBehavior()
+                                                        .scrollToBottom(),
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            top: 0,
+                                            child: LoadingOlderIndicator(
+                                              visible: state is CommunicationLoaded &&
+                                                  state.isLoadingOlderMessages,
+                                            ),
+                                          ),
+                                          ],
+                                        ),
+                                        Stack(
+                                          children: [
+                                        ListView.builder(
+                                          controller:
+                                              _getActiveScrollController(),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 12,
+                                          ),
+                                          reverse: true,
+                                          itemCount: _messages.length,
+                                          itemBuilder: (context, index) {
+                                            final message =
+                                                _messages[_messages.length -
+                                                    1 -
+                                                    index];
+                                            final messageId = message.id;
+                                            //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                            // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                            // final key = keyMap.putIfAbsent(
+                                            //   messageId,
+                                            //   () => GlobalKey(),
+                                            // );
+                                            bool showDateHeader = false;
+                                            final prevListIndex =
+                                                _messages.length - 2 - index;
+
+                                            if (prevListIndex >= 0) {
+                                              final prevMessage =
+                                                  _messages[prevListIndex];
+
+                                              final _schoolTz =
+                                                  SchoolTimezoneResolver
+                                                      .lastKnownTimeZone;
+                                              final _currDate =
+                                                  SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                    message.time,
+                                                    _schoolTz,
+                                                  );
+                                              final _prevDate =
+                                                  SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                    prevMessage.time,
+                                                    _schoolTz,
+                                                  );
+                                              showDateHeader =
+                                                  _currDate.year !=
+                                                      _prevDate.year ||
+                                                  _currDate.month !=
+                                                      _prevDate.month ||
+                                                  _currDate.day !=
+                                                      _prevDate.day;
+                                            } else {
+                                              showDateHeader = true;
+                                            }
+                                            final prevMessage = prevListIndex >= 0
+                                                ? _messages[prevListIndex]
+                                                : null;
+                                            final isGrouped =
+                                                !showDateHeader &&
+                                                _isSameSender(prevMessage, message);
+
+                                            return AutoScrollTag(
+                                              key: ValueKey(messageId),
+                                              controller:
+                                                  _getActiveScrollController(),
+                                              index: index,
+                                              highlightColor: Colors.green
+                                                  .withValues(alpha: 0.7),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  if (showDateHeader)
+                                                    Center(
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              top: 8.0,
+                                                            ),
+                                                        child: _buildDateChip(
+                                                          message.time,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  if (showDateHeader)
+                                                    const SizedBox(height: 10),
+
+                                                  ThreadMessageTile(
+                                                    threadId: widget.parentInfo['code']
+                                                        as String,
+                                                    messageCode: message.code,
+                                                    quotedMessageId:
+                                                        message.quotedMessageId,
+                                                    onDeleteAttachment: (attachment) {
+                                                      if (attachment.attachmentId != null) {
+                                                        context.read<CommunicationCubit>().deleteAttachment(
+                                                          widget.parentInfo['code'] as String,
+                                                          attachment.attachmentId!,
+                                                        );
+                                                      }
+                                                    },
+                                                    currentUserCode:
+                                                        _currentUserCode,
+                                                    reactionsController:
+                                                        _reactionsController,
+                                                    isParentMessaging: true,
+                                                    onReplyFromMenu: () {
+                                                      setState(() {
+                                                        _quotedMessageId =
+                                                            message.id;
+                                                        _quotedMessage =
+                                                            message;
+                                                      });
+                                                    },
+                                                    onCopy: () {
+                                                      Clipboard.setData(
+                                                        ClipboardData(
+                                                          text: MessageContentProcessor.stripHtmlTags(message.text),
+                                                        ),
+                                                      );
+                                                      CoreUtils.showTopSnackBar(
+                                                        context: context,
+                                                        message:
+                                                            'Message copied',
+                                                        isSuccess: true,
+                                                      );
+                                                    },
+                                                    onEdit: () {
+                                                      setState(() {
+                                                        _editingMessage =
+                                                            message;
+                                                        _controller.text =
+                                                            MessageContentProcessor.stripHtmlTags(message.text);
+                                                        _inputFocusNode
+                                                            .requestFocus();
+                                                      });
+                                                    },
+                                                    onDelete: () {
+                                                      context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .deleteMessage(
+                                                            widget.parentInfo['code']
+                                                                as String,
+                                                            message.code,
+                                                          );
+                                                      CoreUtils.showTopSnackBar(
+                                                        context: context,
+                                                        message:
+                                                            'Message deleted',
+                                                        isSuccess: true,
+                                                      );
+                                                    },
+                                                    onInfo: () =>
+                                                        _showMessageStatusDialog(
+                                                          context,
+                                                          message,
+                                                        ),
+                                                    onScrollToQuoted:
+                                                        (quoteId) =>
+                                                            _scrollToMessage(
+                                                              quoteId,
+                                                            ),
+                                                    onReactionAdded: (emoji) {
+                                                      final myReaction =
+                                                          message
+                                                              .reactions[_currentUserCode ??
+                                                              'me'];
+                                                      if (myReaction == emoji) {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .removeReaction(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              message.code,
+                                                              emoji,
+                                                              currentUserCode:
+                                                                  _currentUserCode,
+                                                            );
+                                                      } else {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .addReaction(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              message.code,
+                                                              emoji,
+                                                              currentUserCode:
+                                                                  _currentUserCode,
+                                                            );
+                                                      }
+                                                    },
+                                                    onRemoveReaction: (emoji) {
+                                                      context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .removeReaction(
+                                                            widget.parentInfo['code']
+                                                                as String,
+                                                            message.code,
+                                                            emoji,
+                                                            currentUserCode:
+                                                                _currentUserCode,
+                                                          );
+                                                    },
+                                                    onReactionTap: () =>
+                                                        _showEmojiPicker(
+                                                          context,
+                                                          message,
+                                                        ),
+                                                    isGrouped: isGrouped,
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 8,
+                                            child: ValueListenableBuilder<bool>(
+                                              valueListenable:
+                                                  _getActiveScrollBehavior()
+                                                      .showNewMessageIndicator,
+                                              builder: (_, visible, __) =>
+                                                  NewMessagesIndicator(
+                                                visible: visible,
+                                                onTap: () =>
+                                                    _getActiveScrollBehavior()
+                                                        .scrollToBottom(),
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            top: 0,
+                                            child: LoadingOlderIndicator(
+                                              visible: state is CommunicationLoaded &&
+                                                  state.isLoadingOlderMessages,
+                                            ),
+                                          ),
+                                          ],
+                                        ),
+                                      ]
+                                    : [
+                                        Stack(
+                                          children: [
+                                        ListView.builder(
+                                          controller:
+                                              _getActiveScrollController(),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 12,
+                                          ),
+                                          reverse: true,
+                                          itemCount: _messages.length,
+                                          itemBuilder: (context, index) {
+                                            final message =
+                                                _messages[_messages.length -
+                                                    1 -
+                                                    index];
+                                            final messageId = message.id;
+                                            //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                            // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                            // final key = keyMap.putIfAbsent(
+                                            //   messageId,
+                                            //   () => GlobalKey(),
+                                            // );
+                                            bool showDateHeader = false;
+                                            final prevListIndex =
+                                                _messages.length - 2 - index;
+
+                                            if (prevListIndex >= 0) {
+                                              final prevMessage =
+                                                  _messages[prevListIndex];
+
+                                              final _schoolTz =
+                                                  SchoolTimezoneResolver
+                                                      .lastKnownTimeZone;
+                                              final _currDate =
+                                                  SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                    message.time,
+                                                    _schoolTz,
+                                                  );
+                                              final _prevDate =
+                                                  SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                    prevMessage.time,
+                                                    _schoolTz,
+                                                  );
+                                              showDateHeader =
+                                                  _currDate.year !=
+                                                      _prevDate.year ||
+                                                  _currDate.month !=
+                                                      _prevDate.month ||
+                                                  _currDate.day !=
+                                                      _prevDate.day;
+                                            } else {
+                                              showDateHeader = true;
+                                            }
+                                            final prevMessage = prevListIndex >= 0
+                                                ? _messages[prevListIndex]
+                                                : null;
+                                            final isGrouped =
+                                                !showDateHeader &&
+                                                _isSameSender(prevMessage, message);
+
+                                            return AutoScrollTag(
+                                              key: ValueKey(messageId),
+                                              controller:
+                                                  _getActiveScrollController(),
+                                              index: index,
+                                              highlightColor: Colors.green
+                                                  .withValues(alpha: 0.7),
+                                              child: Column(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  if (showDateHeader)
+                                                    Center(
+                                                      child: Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              top: 8.0,
+                                                            ),
+                                                        child: _buildDateChip(
+                                                          message.time,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  if (showDateHeader)
+                                                    const SizedBox(height: 10),
+
+                                                  ThreadMessageTile(
+                                                    threadId: widget.parentInfo['code']
+                                                        as String,
+                                                    messageCode: message.code,
+                                                    quotedMessageId:
+                                                        message.quotedMessageId,
+                                                    onDeleteAttachment: (attachment) {
+                                                      if (attachment.attachmentId != null) {
+                                                        context.read<CommunicationCubit>().deleteAttachment(
+                                                          widget.parentInfo['code'] as String,
+                                                          attachment.attachmentId!,
+                                                        );
+                                                      }
+                                                    },
+                                                    currentUserCode:
+                                                        _currentUserCode,
+                                                    reactionsController:
+                                                        _reactionsController,
+                                                    isParentMessaging: true,
+                                                    onReplyFromMenu: () {
+                                                      setState(() {
+                                                        _quotedMessageId =
+                                                            message.id;
+                                                        _quotedMessage =
+                                                            message;
+                                                      });
+                                                    },
+                                                    onCopy: () {
+                                                      Clipboard.setData(
+                                                        ClipboardData(
+                                                          text: MessageContentProcessor.stripHtmlTags(message.text),
+                                                        ),
+                                                      );
+                                                      CoreUtils.showTopSnackBar(
+                                                        context: context,
+                                                        message:
+                                                            'Message copied',
+                                                        isSuccess: true,
+                                                      );
+                                                    },
+                                                    onEdit: () {
+                                                      setState(() {
+                                                        _editingMessage =
+                                                            message;
+                                                        _controller.text =
+                                                            MessageContentProcessor.stripHtmlTags(message.text);
+                                                        _inputFocusNode
+                                                            .requestFocus();
+                                                      });
+                                                    },
+                                                    onDelete: () {
+                                                      context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .deleteMessage(
+                                                            widget.parentInfo['code']
+                                                                as String,
+                                                            message.code,
+                                                          );
+                                                      CoreUtils.showTopSnackBar(
+                                                        context: context,
+                                                        message:
+                                                            'Message deleted',
+                                                        isSuccess: true,
+                                                      );
+                                                    },
+                                                    onInfo: () =>
+                                                        _showMessageStatusDialog(
+                                                          context,
+                                                          message,
+                                                        ),
+                                                    onScrollToQuoted:
+                                                        (quoteId) =>
+                                                            _scrollToMessage(
+                                                              quoteId,
+                                                            ),
+                                                    onReactionAdded: (emoji) {
+                                                      final myReaction =
+                                                          message
+                                                              .reactions[_currentUserCode ??
+                                                              'me'];
+                                                      if (myReaction == emoji) {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .removeReaction(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              message.code,
+                                                              emoji,
+                                                              currentUserCode:
+                                                                  _currentUserCode,
+                                                            );
+                                                      } else {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .addReaction(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              message.code,
+                                                              emoji,
+                                                              currentUserCode:
+                                                                  _currentUserCode,
+                                                            );
+                                                      }
+                                                    },
+                                                    onRemoveReaction: (emoji) {
+                                                      context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .removeReaction(
+                                                            widget.parentInfo['code']
+                                                                as String,
+                                                            message.code,
+                                                            emoji,
+                                                            currentUserCode:
+                                                                _currentUserCode,
+                                                          );
+                                                    },
+                                                    onReactionTap: () =>
+                                                        _showEmojiPicker(
+                                                          context,
+                                                          message,
+                                                        ),
+                                                    isGrouped: isGrouped,
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            bottom: 8,
+                                            child: ValueListenableBuilder<bool>(
+                                              valueListenable:
+                                                  _getActiveScrollBehavior()
+                                                      .showNewMessageIndicator,
+                                              builder: (_, visible, __) =>
+                                                  NewMessagesIndicator(
+                                                visible: visible,
+                                                onTap: () =>
+                                                    _getActiveScrollBehavior()
+                                                        .scrollToBottom(),
+                                              ),
+                                            ),
+                                          ),
+                                          Positioned(
+                                            left: 0,
+                                            right: 0,
+                                            top: 0,
+                                            child: LoadingOlderIndicator(
+                                              visible: state is CommunicationLoaded &&
+                                                  state.isLoadingOlderMessages,
+                                            ),
+                                          ),
+                                          ],
+                                        ),
+                                      ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    SafeArea(
+                      top: false,
+                      child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
                           color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 6,
+                              offset: const Offset(0, -2),
+                            ),
+                          ],
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 16,
-                          ),
-                          child: _buildMessageInput(),
+                        child: ChatInputBar(
+                          controller: _controller,
+                          focusNode: _inputFocusNode,
+                          onSend: _sendMessage,
+                          onAttachmentTap: _showAttachmentSheet,
+                          pendingAttachments: _pendingAttachments,
+                          quotedMessage: _quotedMessage,
+                          onCancelQuote: () => setState(() {
+                            _quotedMessage = null;
+                            _quotedMessageId = null;
+                          }),
+                          onRemoveAttachment: (i) => setState(() {
+                            _pendingAttachments.removeAt(i);
+                          }),
+                          editingMessage: _editingMessage,
+                          onCancelEdit: () => setState(() {
+                            _editingMessage = null;
+                            _controller.clear();
+                          }),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
+                ),
+          ), // Padding
+        ); // GestureDetector
+        // The list (and its scroll controllers) must stay mounted — and
+        // therefore attached — the whole time, or `scrollToBottom()` has
+        // nothing to scroll and silently no-ops. So instead of swapping the
+        // shimmer in for the real list, keep the real list underneath at
+        // all times and just hide it with opacity until the first
+        // scroll-to-bottom has actually settled, with the shimmer painted
+        // on top in the meantime.
+        final positionedBody = Stack(
+          children: [
+            Opacity(
+              opacity: _isPositionedAtBottom ? 1 : 0,
+              child: threadBody,
+            ),
+            if (!_isPositionedAtBottom)
+              const Positioned.fill(child: ChatThreadShimmer()),
+          ],
+        );
+        if (!widget.showOwnScaffold) return positionedBody;
+        return Scaffold(
+          body: SafeArea(
+            child: positionedBody,
           ),
         );
       },
     );
   }
 
-  Widget _buildMessageInput() {
-    return SafeArea(
+  /// Shown when the thread has loaded successfully but has no messages yet —
+  /// the input bar stays usable so the user can start the conversation,
+  /// unlike the loading/error states which replace the whole screen.
+  Widget _buildEmptyConversationState(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTap: () => FocusScope.of(context).unfocus(),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 12),
+        padding: const EdgeInsets.all(10.0),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            if (_quotedMessage != null)
-              Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Color.fromRGBO(89, 120, 247, 0.1),
-                      Color.fromRGBO(156, 132, 255, 0.1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: CustomTextWidget(
-                        text: _quotedMessage?.text,
-                        fontSize: 14,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    Icon(
+                      Icons.chat_bubble_outline_rounded,
+                      size: 56,
+                      color: AppColors.primaryColor.withValues(alpha: 0.35),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      onPressed: () {
-                        setState(() {
-                          _quotedMessage = null;
-                        });
-                      },
+                    const SizedBox(height: 12),
+                    const CustomTextWidget(
+                      text: 'No messages yet',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    const SizedBox(height: 4),
+                    CustomTextWidget(
+                      text: 'Say hello to start the conversation',
+                      fontSize: 13,
+                      fontColor: Colors.grey[600],
                     ),
                   ],
                 ),
               ),
-
-            if (_pendingAttachments.isNotEmpty)
-              Container(
-                constraints: const BoxConstraints(maxHeight: 90),
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: ListView.separated(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _pendingAttachments.length,
-                  separatorBuilder: (context, index) =>
-                      const SizedBox(width: 8),
-                  itemBuilder: (context, index) {
-                    final att = _pendingAttachments[index];
-
-                    return SizedBox(
-                      width: 80,
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ShowFullScreenMediaView(
-                                imageFile: File(att.localPath!),
-                                title: att.name,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Stack(
-                          fit: StackFit.loose,
-                          children: [
-                            ClipRRect(
-                              clipBehavior: Clip.none,
-                              borderRadius: BorderRadius.circular(12),
-                              child: Thumbnail(
-                                mimeType: att.mimeType,
-                                dataResolver: () async {
-                                  return await File(
-                                    att.localPath!,
-                                  ).readAsBytes();
-                                },
-                                widgetSize: 80,
-                                decoration: WidgetDecoration(
-                                  backgroundColor: Colors.white,
-                                  iconColor: AppColors.primaryColor,
-                                  textColor: AppColors.primaryColor,
-                                  wrapperBgColor: Colors.transparent,
-                                  wrapperSize: 84,
-                                ),
-                                errorBuilder: (context, error) => Container(
-                                  color: Colors.grey[200],
-                                  child: Center(
-                                    child: Icon(
-                                      att.isImage
-                                          ? Icons.image
-                                          : Icons.picture_as_pdf,
-                                      size: 40,
-                                      color: AppColors.primaryColor,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            Positioned(
-                              top: -2.5,
-                              right: -2.5,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _pendingAttachments.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.red,
-                                    shape: BoxShape.circle,
-                                    border: Border.fromBorderSide(
-                                      BorderSide(color: Colors.white, width: 2),
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 14,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
-
-                            if (!att.isImage)
-                              Positioned(
-                                bottom: 4,
-                                left: 4,
-                                right: 4,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.6),
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(
-                                    att.name.length > 15
-                                        ? '${att.name.substring(0, 12)}...'
-                                        : att.name,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
+            ),
+            SafeArea(
+              top: false,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 6,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: ChatInputBar(
+                  controller: _controller,
+                  focusNode: _inputFocusNode,
+                  onSend: _sendMessage,
+                  onAttachmentTap: _showAttachmentSheet,
+                  pendingAttachments: _pendingAttachments,
+                  quotedMessage: _quotedMessage,
+                  onCancelQuote: () => setState(() {
+                    _quotedMessage = null;
+                    _quotedMessageId = null;
+                  }),
+                  onRemoveAttachment: (i) => setState(() {
+                    _pendingAttachments.removeAt(i);
+                  }),
+                  editingMessage: _editingMessage,
+                  onCancelEdit: () => setState(() {
+                    _editingMessage = null;
+                    _controller.clear();
+                  }),
                 ),
               ),
-
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(24),
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Color.fromRGBO(89, 120, 247, 0.1),
-                          Color.fromRGBO(156, 132, 255, 0.1),
-                        ],
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _controller,
-                            minLines: 1,
-                            maxLines: 10,
-                            maxLength: 2000,
-                            textCapitalization: TextCapitalization.sentences,
-                            decoration: InputDecoration(
-                              hintText: "Type your message here...",
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(24),
-                                borderSide: BorderSide.none,
-                              ),
-                            ),
-                            buildCounter:
-                                (
-                                  context, {
-                                  required currentLength,
-                                  required isFocused,
-                                  maxLength,
-                                }) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      '$currentLength / $maxLength',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: currentLength >= maxLength!
-                                            ? Colors.red
-                                            : Colors.grey,
-                                      ),
-                                    ),
-                                  );
-                                },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(
-                            vertical: 8.0,
-                            horizontal: 12,
-                          ),
-                          child: AttachmentWidget(
-                            iconWidget: GradientAddButton(
-                              wantedButtonSize: 28,
-                              isRectangle: false,
-                            ),
-                            onAttachmentsSelected: (attachments) {
-                              setState(() {
-                                _pendingAttachments.addAll(attachments);
-                              });
-                            },
-                          ),
-                          // child: GradientAddButton(
-                          //   onTap: () {},
-                          //   wantedButtonSize: 26,
-                          //   isRectangle: false,
-                          // ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CustomClearAllChip(
-                  onTap: () {
-                    _sendMessage();
-                  },
-                  label: 'Send',
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  borderRadius: 8,
-                ),
-              ],
             ),
           ],
         ),
@@ -1709,27 +2293,272 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
+  /// True for a backend "you're not a participant of this conversation"
+  /// response (403 Access denied) — happens for a conversation that was
+  /// never actually created properly. Retrying the same load will just
+  /// 403 again forever, so this gets a different message/CTA than a
+  /// transient network failure.
+  bool _isUnauthorizedConversationError(String message) {
+    final lower = message.toLowerCase();
+    return lower.contains('access denied') ||
+        lower.contains('not authorized') ||
+        lower.contains('403');
+  }
+
+  /// Shown when [CommunicationCubit] has no cached history to fall back on
+  /// and the latest fetch failed — gives the user a way to retry instead of
+  /// staring at a blank screen. A 403/"not authorized" failure means this
+  /// conversation was never actually created properly, so it offers "Go
+  /// back" instead of a "Retry" that would just fail the same way again.
+  Widget _buildErrorState(BuildContext context, String message) {
+    final isUnauthorized = _isUnauthorizedConversationError(message);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isUnauthorized
+                  ? Icons.chat_bubble_outline_rounded
+                  : Icons.error_outline_rounded,
+              size: 48,
+              color: isUnauthorized ? Colors.grey : Colors.redAccent,
+            ),
+            const SizedBox(height: 12),
+            CustomTextWidget(
+              text: isUnauthorized
+                  ? 'This chat hasn\'t been created yet'
+                  : 'Unable to load messages',
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+            const SizedBox(height: 6),
+            CustomTextWidget(
+              text: isUnauthorized
+                  ? 'Go back and start a new conversation.'
+                  : message,
+              fontSize: 13,
+              fontColor: Colors.grey[600],
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () {
+                if (isUnauthorized) {
+                  Navigator.of(context).pop();
+                  return;
+                }
+                final convCode = widget.parentInfo['code'] as String;
+                context.read<CommunicationCubit>().loadMessages(
+                  convCode,
+                  currentUserId: _currentUserCode,
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  gradient: AppColors.buildPrimaryGradient(),
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: CustomTextWidget(
+                  text: isUnauthorized ? 'Go back' : 'Retry',
+                  fontColor: Colors.white,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<ConversationParticipant> get _participants {
+    final raw = widget.parentInfo['participants'];
+    if (raw is List) {
+      return raw.whereType<ConversationParticipant>().toList();
+    }
+    return [];
+  }
+
+
+  List<ParticipantDisplayData> get _participantDisplayData =>
+      _participants.map((p) {
+        final roleStr = p.role.toUpperCase();
+        final normalised = roleStr == 'PARENT' ? 'GUARDIAN' : roleStr;
+        return ParticipantDisplayData(
+          userCode: p.userCode,
+          displayName: p.userName.isNotEmpty ? p.userName : p.userCode,
+          role: normalised,
+        );
+      }).toList();
+
+  void _showParticipantsDialog() {
+    final studentName = widget.parentInfo['name'] as String? ?? '';
+    final avatarUuid = widget.parentInfo['avatar'] as String?;
+    ParticipantInfoDialog.show(
+      context,
+      participants: _participantDisplayData,
+      studentName: studentName,
+      studentAvatarUuid: avatarUuid,
+    );
+  }
+
+  void _showAttachmentSheet() {
+    MessageAttachmentBottomSheet.show(
+      context,
+      onAttachmentsSelected: (attachments) {
+        if (attachments.isEmpty) return;
+        // Only one attachment may be pending at a time — a new pick
+        // replaces whatever was previously staged.
+        setState(() {
+          _pendingAttachments = [attachments.first];
+        });
+      },
+      onEmojiSelected: (emoji) {
+        final pos = _controller.selection.isValid
+            ? _controller.selection.baseOffset
+            : _controller.text.length;
+        final text = _controller.text;
+        _controller.value = _controller.value.copyWith(
+          text: text.substring(0, pos) + emoji + text.substring(pos),
+          selection: TextSelection.collapsed(offset: pos + emoji.length),
+        );
+      },
+      onViewParticipants: _showParticipantsDialog,
+    );
+  }
+
+  Widget _buildParticipantHeader() {
+    final participants = _participants;
+    final title = widget.parentInfo['name'] as String? ?? '';
+    final count = participants.isNotEmpty ? participants.length : null;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.of(context).pop(),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.arrow_back_rounded,
+                size: 18,
+                color: AppColors.primaryColor,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          DocumentImageWidget(
+            fileUuid: widget.parentInfo['avatar'] as String? ?? '',
+            name: title,
+            size: 34,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomTextWidget(
+                  text: title,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+                if (count != null)
+                  Text(
+                    '$count participant${count == 1 ? '' : 's'}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFF636E72),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          // Private mode toggle inline with the title row
+          if (_privateModeEnabled)
+            Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: Tooltip(
+                message: 'Private Mode ON',
+                child: Icon(
+                  Icons.visibility_off,
+                  size: 18,
+                  color: Colors.red.shade400,
+                ),
+              ),
+            ),
+          Tooltip(
+            message: 'View Participants',
+            child: IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
+                Icons.info_outline_rounded,
+                color: AppColors.primaryColor,
+                size: 20,
+              ),
+              onPressed: _showParticipantsDialog,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDateChip(DateTime date) {
     final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final schoolDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(date, schoolTz);
-    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(DateTime.now().toUtc(), schoolTz);
+    final schoolDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      date,
+      schoolTz,
+    );
+    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+      DateTime.now().toUtc(),
+      schoolTz,
+    );
 
     const monthNames = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
     ];
 
     String label;
     if (schoolDate.year == now.year &&
         schoolDate.month == now.month &&
         schoolDate.day == now.day) {
-      label = "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     } else if (schoolDate.year == now.year &&
         schoolDate.month == now.month &&
         schoolDate.day == now.day - 1) {
-      label = "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     } else {
-      label = "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label =
+          "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     }
 
     return CustomTextWidget(
@@ -1804,7 +2633,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           ),
         ),
         content: ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 320),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(dialogContext).size.height * 0.55,
+          ),
           child: SingleChildScrollView(
             scrollDirection: Axis.vertical,
             child: Column(
@@ -1825,7 +2656,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     border: Border.all(color: AppColors.primaryColor, width: 1),
                   ),
                   child: CustomTextWidget(
-                    text: message.text,
+                    text: MessageContentProcessor.stripHtmlTags(message.text),
                     fontSize: 15,
                     unlimitedLines: true,
                     overflow: TextOverflow.visible,
@@ -1960,7 +2791,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         children: [
                           Flexible(
                             fit: FlexFit.loose,
-                            child: CustomTextWidget(text: r.name, fontSize: 13),
+                            child: CustomTextWidget(
+                              text: r.name.trim().isNotEmpty
+                                  ? r.name
+                                  : 'Participant',
+                              fontSize: 13,
+                            ),
                           ),
                           if (r.timestamp != null) ...[
                             const SizedBox(width: 10),
@@ -2032,9 +2868,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     return '$hour12$separator$minute $period';
   }
-  // String _formatTimeShort(DateTime dt) {
-  //   return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
-  // }
 
   String _formatFullTime(DateTime dt) {
     final now = DateTime.now();

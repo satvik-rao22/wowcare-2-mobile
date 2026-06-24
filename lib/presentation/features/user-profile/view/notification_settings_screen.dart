@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -27,8 +29,11 @@ enum UserPersona {
 }
 
 class NotificationSettingsScreen extends StatefulWidget {
-  const NotificationSettingsScreen({super.key, this.persona = UserPersona.staff});
-  final UserPersona persona;
+  const NotificationSettingsScreen({super.key, this.persona});
+
+  /// Persona whose rows to show. When null it's derived from the logged-in role
+  /// ([RoleCubit]) so the correct Admin / Staff / Parent rows appear.
+  final UserPersona? persona;
 
   static const String routeName = '/dashboard/notificationSettings';
 
@@ -38,18 +43,53 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
   late UserPersona persona;
+  late final NotificationSettingsCubit _cubit;
+
+  /// Role to send only when no active-school role is stored.
+  String get _roleFallback => switch (persona) {
+        UserPersona.parent => 'GUARDIAN',
+        UserPersona.admin => 'ADMIN',
+        UserPersona.staff => 'STAFF',
+      };
 
   @override
   void initState(){
     super.initState();
-    persona = widget.persona;
+    persona = widget.persona ?? _personaFromRole();
+    _cubit = serviceLocator<NotificationSettingsCubit>()
+      ..load(roleFallback: _roleFallback);
+  }
+
+  /// Maps the resolved [RoleCubit] role to a [UserPersona].
+  /// RoleCubit.role is one of: 'parent' (GUARDIAN), 'admin' (SCHOOL/ORG admin),
+  /// 'staff', 'kiosk'. Anything that isn't parent/admin falls back to staff.
+  UserPersona _personaFromRole() {
+    final role = context.read<RoleCubit>().role;
+    return switch (role) {
+      'parent' => UserPersona.parent,
+      'admin' => UserPersona.admin,
+      _ => UserPersona.staff,
+    };
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => NotificationSettingsCubit(),
-      child: BlocBuilder<NotificationSettingsCubit, NotificationSettingsState>(
+    return BlocProvider<NotificationSettingsCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<NotificationSettingsCubit, NotificationSettingsState>(
+        listenWhen: (prev, curr) =>
+            prev.errorMessage != curr.errorMessage && curr.errorMessage != null,
+        listener: (context, state) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.errorMessage ?? 'Something went wrong')),
+          );
+        },
         builder: (context, state) => _buildContent(context, state),
       ),
     );
@@ -571,12 +611,16 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           )
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(context, responsive),
+      bottomNavigationBar: _buildBottomBar(context, responsive, state),
     );
   }
 
 
-  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
+  Widget _buildBottomBar(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    NotificationSettingsState state,
+  ) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
@@ -659,17 +703,42 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 ),
               ),
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: state.isSaving
+                    ? null
+                    : () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final navigator = Navigator.of(context);
+                        final ok =
+                            await _cubit.save(roleFallback: _roleFallback);
+                        if (!mounted) return;
+                        if (ok) {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Notification settings saved'),
+                            ),
+                          );
+                          navigator.pop();
+                        }
+                      },
                 style: TextButton.styleFrom(overlayColor: Colors.transparent),
-                child: Text(
-                  'Save',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
+                child: state.isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        'Save',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: responsive.buttonFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ),

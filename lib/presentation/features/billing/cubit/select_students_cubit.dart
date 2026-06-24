@@ -1,97 +1,202 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/student/entities/student.dart' as domain;
+import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+
 import '../widgets/models/student_models.dart';
 
 part 'select_students_state.dart';
 
-/// Owns the select-students screen state: the student list, classroom/tag
-/// filters, search query, and the selected-id set. Data is dummy today; swap
-/// [initialize] for a repository call when billing has a backend.
+/// Owns the billing select-students screen: loads ACTIVE students via the
+/// student-overview API (default `firstName,asc` sort), populates the classroom
+/// and tag filters from their APIs, and applies them server-side. Search is
+/// client-side over the loaded page. Pure ViewModel — the screen only reads
+/// [state] and calls these intents.
 class SelectStudentsCubit extends Cubit<SelectStudentsState> {
-  SelectStudentsCubit() : super(const SelectStudentsState.initial());
+  SelectStudentsCubit({
+    required GetStudentPageUseCase getStudentPage,
+    required GetActiveClassroomsUseCase getActiveClassrooms,
+    required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMap,
+    required StorageService storage,
+  })  : _getStudentPage = getStudentPage,
+        _getActiveClassrooms = getActiveClassrooms,
+        _getTagNameCodeMap = getTagNameCodeMap,
+        _storage = storage,
+        super(const SelectStudentsState.initial());
 
-  void initialize() {
-    final reading = Tag(id: 1, name: 'Reading');
-    final sports = Tag(id: 2, name: 'Sports');
-    final arts = Tag(id: 3, name: 'Arts');
+  final GetStudentPageUseCase _getStudentPage;
+  final GetActiveClassroomsUseCase _getActiveClassrooms;
+  final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMap;
+  final StorageService _storage;
 
-    final students = <Student>[
-      Student(id: 1, fullName: 'Alex Johnson', roomName: 'Room 101', roomId: 101, tags: [reading, sports]),
-      Student(id: 2, fullName: 'Maria Gomez', roomName: 'Room 102', roomId: 102, tags: [arts]),
-      Student(id: 3, fullName: 'Liam Chen', roomName: 'Room 101', roomId: 101, tags: [sports]),
-      Student(id: 4, fullName: 'Sophia Patel', roomName: 'Room 103', roomId: 103, tags: [reading, arts]),
-      Student(id: 5, fullName: 'Noah Smith', roomName: 'Room 102', roomId: 102, tags: [reading]),
-      Student(id: 6, fullName: 'Emma Brown', roomName: 'Room 104', roomId: 104, tags: [sports, arts]),
-    ];
+  String _schoolCode = '';
 
-    final classroomSet = <String>{};
-    for (final s in students) {
-      if (s.roomName != null) classroomSet.add(s.roomName!);
+  static const int _pageSize = 300;
+
+  /// Loads filter options (classrooms + tags) then the ACTIVE student list.
+  Future<void> initialize() async {
+    emit(state.copyWith(isLoading: true, errorMessage: null));
+    try {
+      _schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+      final List<Classroom> classrooms =
+          await _getActiveClassrooms(schoolCode: _schoolCode);
+      final Map<String, String> tagNameToCode =
+          await _getTagNameCodeMap(schoolCode: _schoolCode);
+
+      final classroomNameToCode = <String, String>{
+        for (final c in classrooms)
+          if (c.name.trim().isNotEmpty) c.name.trim(): c.code.trim(),
+      };
+
+      emit(state.copyWith(
+        classroomNames: classroomNameToCode.keys.toList(),
+        classroomNameToCode: classroomNameToCode,
+        tagNames: tagNameToCode.keys.toList()..sort(),
+        tagNameToCode: tagNameToCode,
+      ));
+
+      await _fetchStudents();
+    } catch (e) {
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
     }
-    final classrooms = ['Select Classroom', ...classroomSet.toList()..sort()];
-
-    final tagSet = <String>{};
-    for (final s in students) {
-      for (final t in s.tags) {
-        tagSet.add(t.name);
-      }
-    }
-    final tags = ['Select Tags', ...tagSet.toList()..sort()];
-
-    emit(state.copyWith(
-      students: students,
-      classrooms: classrooms,
-      tags: tags,
-      isLoading: false,
-    ));
   }
+
+  /// Re-fetches ACTIVE students for the current classroom/tag selection.
+  Future<void> _fetchStudents() async {
+    emit(state.copyWith(isLoading: true, errorMessage: null));
+    try {
+      final classroomCodes = state.selectedClassroomNames
+          .map((n) => state.classroomNameToCode[n])
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+      final tagCodes = state.selectedTagNames
+          .map((n) => state.tagNameToCode[n])
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      final result = await _getStudentPage(
+        schoolCode: _schoolCode,
+        status: state.selectedStatus.trim().toUpperCase(),
+        classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+        tagCodes: tagCodes.isEmpty ? null : tagCodes,
+        page: 0,
+        size: _pageSize,
+      );
+      final all = result.items.map(_toBillingStudent).toList();
+
+      // Drop any selections that are no longer in the filtered result.
+      final presentCodes = all.map((s) => s.code).toSet();
+      final keptSelection =
+          state.selectedStudentCodes.where(presentCodes.contains).toSet();
+
+      emit(state.copyWith(
+        students: all,
+        selectedStudentCodes: keptSelection,
+        isLoading: false,
+      ));
+    } catch (e) {
+      emit(state.copyWith(
+        isLoading: false,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+    }
+  }
+
+  Student _toBillingStudent(domain.Student s) {
+    final room = s.classroom.trim().isNotEmpty
+        ? s.classroom.trim()
+        : (s.primaryClassroomName ?? '').trim();
+    return Student(
+      code: s.code,
+      fullName: s.fullName,
+      photoUuid: s.code,
+      photoAssetCode: s.profilePhotoAssetCode,
+      roomName: room.isEmpty ? null : room,
+      dob: s.dob,
+      ageLabel: Student.ageLabelFromDob(s.dob),
+      tags: <Tag>[
+        for (var i = 0; i < s.tags.length; i++) Tag(id: i + 1, name: s.tags[i]),
+      ],
+    );
+  }
+
+  // ── Intents ────────────────────────────────────────────────────────────────
 
   void setSearchQuery(String query) =>
       emit(state.copyWith(searchQuery: query));
 
-  void setClassroom(String value) =>
-      emit(state.copyWith(selectedClassroom: value));
+  Future<void> setClassrooms(List<String> names) async {
+    emit(state.copyWith(selectedClassroomNames: names));
+    await _fetchStudents();
+  }
 
-  void setTag(String value) => emit(state.copyWith(selectedTag: value));
+  Future<void> setTags(List<String> names) async {
+    emit(state.copyWith(selectedTagNames: names));
+    await _fetchStudents();
+  }
 
-  void clearAll() {
+  /// Single-select status filter. Keeps the last picked value, falling back to
+  /// 'Active' when cleared, then re-fetches.
+  Future<void> setStatus(List<String> names) async {
+    final status = names.isEmpty ? 'Active' : names.last;
+    if (status == state.selectedStatus) return;
+    emit(state.copyWith(selectedStatus: status));
+    await _fetchStudents();
+  }
+
+  Future<void> clearAll() async {
     emit(state.copyWith(
       searchQuery: '',
-      selectedClassroom: state.classrooms.first,
-      selectedTag: state.tags.first,
-      selectedStudentIds: const <int>{},
+      selectedClassroomNames: const <String>[],
+      selectedTagNames: const <String>[],
+      selectedStatus: 'Active',
+      selectedStudentCodes: const <String>{},
     ));
+    await _fetchStudents();
   }
 
-  void toggleStudent(int id) {
-    final ids = Set<int>.from(state.selectedStudentIds);
-    if (!ids.add(id)) ids.remove(id);
-    emit(state.copyWith(selectedStudentIds: ids));
+  void toggleStudent(String code) {
+    final codes = Set<String>.from(state.selectedStudentCodes);
+    if (!codes.add(code)) codes.remove(code);
+    emit(state.copyWith(selectedStudentCodes: codes));
   }
 
-  void setStudentSelected(int id, bool selected) {
-    final ids = Set<int>.from(state.selectedStudentIds);
+  void setStudentSelected(String code, bool selected) {
+    final codes = Set<String>.from(state.selectedStudentCodes);
     if (selected) {
-      ids.add(id);
+      codes.add(code);
     } else {
-      ids.remove(id);
+      codes.remove(code);
     }
-    emit(state.copyWith(selectedStudentIds: ids));
+    emit(state.copyWith(selectedStudentCodes: codes));
   }
 
-  /// Selects or clears every id in [filteredIds] (the currently visible rows).
-  void setAllSelected(Iterable<int> filteredIds, bool selected) {
-    final ids = Set<int>.from(state.selectedStudentIds);
+  /// Selects/clears every code in [codes] (the currently visible rows).
+  void setAllSelected(Iterable<String> codes, bool selected) {
+    final set = Set<String>.from(state.selectedStudentCodes);
     if (selected) {
-      ids.addAll(filteredIds);
+      set.addAll(codes);
     } else {
-      ids.removeAll(filteredIds);
+      set.removeAll(codes);
     }
-    emit(state.copyWith(selectedStudentIds: ids));
+    emit(state.copyWith(selectedStudentCodes: set));
   }
 
   List<Student> get selectedStudents => state.students
-      .where((s) => state.selectedStudentIds.contains(s.id))
+      .where((s) => state.selectedStudentCodes.contains(s.code))
       .toList();
 }

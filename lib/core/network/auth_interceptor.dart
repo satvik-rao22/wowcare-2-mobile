@@ -72,6 +72,16 @@ class AuthInterceptor extends Interceptor {
       options.headers['schoolCode'] = resolvedSchoolCode;
     }
 
+    // Staff-scoped services (e.g. student MS writes) require the acting staff
+    // code. Attach when the logged-in user has a cached staff profile.
+    final staffCode =
+        (await _storage.getString(StorageKeys.staffCode) ?? '').trim();
+    if (staffCode.isNotEmpty) {
+      options.headers['X-Staff-Code'] = staffCode;
+      options.headers['x-staff-code'] = staffCode;
+      options.headers['staffCode'] = staffCode;
+    }
+
     handler.next(options);
   }
 }

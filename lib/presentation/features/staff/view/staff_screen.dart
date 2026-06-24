@@ -17,6 +17,7 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/post_add_staff_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
@@ -41,6 +42,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
@@ -97,6 +99,9 @@ class _StaffScreenState extends State<StaffScreen> {
     super.initState();
     _highlightStaffCode = widget.incomingHighlightCode?.trim();
     _scrollController.addListener(_onScroll);
+    // Refresh the list when a background profile-photo upload finishes, so the
+    // new photo shows — same refresh as after an add.
+    ProfilePhotoUploadEvents.staffTick.addListener(_onProfilePhotoUploaded);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // Staff list must resolve names for all ACTIVE locations (e.g. admin/office).
@@ -225,10 +230,16 @@ class _StaffScreenState extends State<StaffScreen> {
 
   @override
   void dispose() {
+    ProfilePhotoUploadEvents.staffTick.removeListener(_onProfilePhotoUploaded);
     _scrollController.removeListener(_onScroll);
     _searchController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onProfilePhotoUploaded() {
+    if (!mounted) return;
+    context.read<StaffCubit>().refresh(ignoreRefreshingGuard: true);
   }
 
   // (Unused for now) Helper that can detect active filters/search on staff list.
@@ -613,6 +624,14 @@ class _StaffScreenState extends State<StaffScreen> {
           ),
         );
       }
+      if (!mounted) return;
+      setState(() {
+        _selectAll = false;
+        _selectedStaffCodes.clear();
+        _currentPanel = StaffPanelType.none;
+      });
+      _refreshAttendanceStatusForSelection();
+      await context.read<StaffCubit>().refresh();
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -621,6 +640,49 @@ class _StaffScreenState extends State<StaffScreen> {
         isError: true,
       );
     }
+  }
+
+  Future<void> _openEditProfileDetailsFromPostAdd(
+    Map<String, dynamic> args,
+  ) async {
+    List<String>? listArg(String key) {
+      final raw = args[key];
+      if (raw is List) return List<String>.from(raw);
+      return null;
+    }
+
+    Map<String, String>? mapArg(String key) {
+      final raw = args[key];
+      if (raw is Map) {
+        return raw.map((k, v) => MapEntry(k.toString(), v?.toString() ?? ''));
+      }
+      return null;
+    }
+
+    final staffCode = ((args['staffCode'] as String?)?.trim().isNotEmpty == true
+            ? (args['staffCode'] as String).trim()
+            : (args['userCode'] as String?)?.trim()) ??
+        '';
+    if (staffCode.isEmpty) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditProfileDetailsScreen(
+          staffCode: staffCode,
+          initialFirstName: args['initialFirstName'] as String?,
+          initialLastName: args['initialLastName'] as String?,
+          initialEmail: args['initialEmail'] as String?,
+          initialStatus: args['initialStatus'] as String?,
+          initialDesignation: args['initialDesignation'] as String?,
+          initialAllowedClassrooms: listArg('initialAllowedClassrooms'),
+          initialPrimaryClassroom: args['initialPrimaryClassroom'] as String?,
+          initialPhoneNumber: args['initialPhoneNumber'] as String?,
+          initialClassroomNames: listArg('initialClassroomNames'),
+          initialClassroomCodeByName: mapArg('initialClassroomCodeByName'),
+        ),
+      ),
+    );
   }
 
   @override
@@ -751,15 +813,11 @@ class _StaffScreenState extends State<StaffScreen> {
                                         onLater: () => Navigator.of(ctx).pop(),
                                         onYes: () {
                                           Navigator.of(ctx).pop();
-                                          Navigator.of(context)
-                                              .pushNamed(
-                                                '/edit-profile-details-screen',
-                                                arguments: editArgs,
-                                              )
-                                              .then((_) {
-                                                if (mounted)
-                                                  staffCubit.refresh();
-                                              });
+                                          _openEditProfileDetailsFromPostAdd(
+                                            editArgs,
+                                          ).then((_) {
+                                            if (mounted) staffCubit.refresh();
+                                          });
                                         },
                                       ),
                                     );
@@ -1473,6 +1531,28 @@ class _StaffScreenState extends State<StaffScreen> {
                                               );
                                             }
                                           },
+                                          onDeleteAction: () async {
+                                            try {
+                                              final message = await staffCubit
+                                                  .deleteStaff(staff.code);
+                                              if (!mounted) return;
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message: message,
+                                                isSuccess: true,
+                                              );
+                                              // Close the bottom sheet after success if it's open.
+                                              Navigator.of(context).maybePop();
+                                            } catch (e) {
+                                              if (!mounted) return;
+                                              CoreUtils.showTopSnackBar(
+                                                context: context,
+                                                message: ApiErrorHandler
+                                                    .extractErrorMessage(e),
+                                                isError: true,
+                                              );
+                                            }
+                                          },
                                           isSelected: isSelected,
                                           onSelected: (checked) {
                                             setState(() {
@@ -1535,14 +1615,6 @@ class _StaffScreenState extends State<StaffScreen> {
                             : StaffPanelType.attendance;
                       });
                     },
-                    onActivitiesTap: () {
-                      setState(() {
-                        _currentPanel =
-                            _currentPanel == StaffPanelType.activities
-                            ? StaffPanelType.none
-                            : StaffPanelType.activities;
-                      });
-                    },
                     onMessageTap: () {},
                     onProfileTap: selectedCount == 1
                         ? () {
@@ -1597,7 +1669,7 @@ class _StaffScreenState extends State<StaffScreen> {
                       _refreshAttendanceStatusForSelection();
                     },
                     isProfileEnabled: selectedCount == 1,
-                    activitiesEnabled: selectedCount > 0,
+                    activitiesEnabled: false,
                     ),
                   ),
                 ),

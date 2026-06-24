@@ -21,11 +21,13 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class StaffTransferForm extends StatefulWidget {
@@ -107,10 +109,60 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   Future<void> _hydrateSelfStaffClassroomDataIfNeeded({
     required bool isAdmin,
   }) async {
-    if (isAdmin || _selectedStaff.length != 1) return;
+    // Run for all roles (including admins) when a single staff member is
+    // selected and their entity has no classroom code. Admins can be assigned
+    // to a classroom too — skipping them caused 'N/A' in the Current Classroom
+    // field for every admin-initiated transfer.
+    if (_selectedStaff.length != 1) return;
     final selected = _selectedStaff.first;
     final selectedStaffCode = (selected.staffCode ?? '').trim();
     if (selectedStaffCode.isEmpty) return;
+
+    final todayStr = '${_selectedTransferDate.year.toString().padLeft(4, '0')}-${_selectedTransferDate.month.toString().padLeft(2, '0')}-${_selectedTransferDate.day.toString().padLeft(2, '0')}';
+
+    try {
+      final attendanceRepo = serviceLocator<AttendanceRepository>();
+      final dailyPage = await attendanceRepo.getStaffAttendanceDaily(
+        fromAttendanceDate: todayStr,
+        toAttendanceDate: todayStr,
+        search: selectedStaffCode,
+        page: 0,
+        size: 50,
+      );
+
+      final staffItems = dailyPage.items
+          .where((i) => i.staffCode.trim() == selectedStaffCode)
+          .toList();
+
+      if (staffItems.isNotEmpty) {
+        staffItems.sort((a, b) {
+          final seqA = a.sequenceNumber ?? 0;
+          final seqB = b.sequenceNumber ?? 0;
+          return seqB.compareTo(seqA);
+        });
+        final latestItem = staffItems.first;
+        final latestClassroom = latestItem.classroomCode.trim();
+        if (latestClassroom.isNotEmpty) {
+          if (!mounted) return;
+          setState(() {
+            _currentClassroomCodeForSelection = latestClassroom;
+          });
+          return;
+        }
+      }
+    } catch (_) {
+      // Keep going to fallback paths
+    }
+
+    // If the entity already carries a classroom code (from the transfer-list
+    // API), use it directly without an extra round-trip.
+    final existingCode = (selected.classroomCode ?? '').trim();
+    if (existingCode.isNotEmpty) {
+      if (!mounted) return;
+      setState(() => _currentClassroomCodeForSelection = existingCode);
+      return;
+    }
+
     try {
       final repo = serviceLocator<StaffRepository>();
       final profile = await repo.getStaffProfile(
@@ -151,32 +203,48 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     }
   }
 
-  /// Resolves display name from API [classroomName] / [classroomCode], matching daily attendance behavior.
+  /// Resolves the human-readable current classroom label for display.
+  ///
+  /// Resolution order:
+  ///   1. [staff.classroomName] — if the entity already carries a display name.
+  ///   2. Classroom list lookup by [staff.classroomCode] or
+  ///      [_currentClassroomCodeForSelection] (set asynchronously from profile
+  ///      API by [_hydrateSelfStaffClassroomDataIfNeeded]).
+  ///   3. Raw code — shown while the classroom list is still loading.
+  ///   4. 'N/A' — only when no code or name is available at all.
   String _resolveCurrentClassroomDisplay(
     StaffEntity? staff,
     List<Classroom> classrooms,
   ) {
-    if (staff == null && (_currentClassroomCodeForSelection ?? '').trim().isEmpty) {
-      return 'N/A';
-    }
     final apiName = (staff?.classroomName ?? '').trim();
-    final fallbackCode = (_currentClassroomCodeForSelection ?? '').trim();
-    final code = (staff?.classroomCode ?? '').trim().isNotEmpty
-        ? (staff?.classroomCode ?? '').trim()
-        : fallbackCode;
+    final entityCode = (staff?.classroomCode ?? '').trim();
+    final hydratedCode = (_currentClassroomCodeForSelection ?? '').trim();
+    // Prefer the entity's code; fall back to the async-hydrated one.
+    final code = entityCode.isNotEmpty ? entityCode : hydratedCode;
+
+    // If we have no data at all yet, return N/A.
+    if (apiName.isEmpty && code.isEmpty) return 'N/A';
+
     final apiNameLooksLikeCode =
         apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+
+    // Return the human-readable API name directly if it doesn't look like a code.
     if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
-    if (code.isEmpty) {
-      return apiName.isNotEmpty ? apiName : 'N/A';
-    }
-    for (final c in classrooms) {
-      if (c.code.trim() == code) {
-        final n = c.name.trim();
-        return n.isNotEmpty ? n : code;
+
+    // Resolve code → name from the classrooms list.
+    if (code.isNotEmpty) {
+      for (final c in classrooms) {
+        if (c.code.trim() == code) {
+          final n = c.name.trim();
+          return n.isNotEmpty ? n : code;
+        }
       }
+      // Classrooms list may still be loading — show the raw code as a fallback
+      // so the field is never blank/N/A while waiting.
+      return code;
     }
-    return code;
+
+    return apiName.isNotEmpty ? apiName : 'N/A';
   }
 
   void _handleSubmit() {
@@ -224,7 +292,6 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     setState(() {
       _isSubmitting = true;
     });
-
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -347,16 +414,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       );
 
       if (success) {
-        if (isStaffAdmin) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StaffAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
-        } else {
-          Navigator.pop(context);
-        }
+        redirectToAttendanceDaily(
+            context, StaffAttendanceTabbedView.routeName);
       }
     } catch (e) {
       if (!mounted) return;
@@ -499,7 +558,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             const SizedBox(height: 8),
                             IgnorePointer(
                               ignoring: _isStaffAdminPersona == false,
-                              child: SimpleTimePickerField(
+                              child: GradientTimePickerField(
                                 time: _selectedTransferTime,
                                 onTimeSelected: (t) {
                                   setState(() {

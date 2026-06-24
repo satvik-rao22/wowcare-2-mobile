@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/common/widgets/expandable_info_card.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -58,6 +57,8 @@ class BillingStudentCard extends StatefulWidget {
 class _BillingStudentCardState extends State<BillingStudentCard> {
   late final BoolToggleCubit _cubit = BoolToggleCubit(initial: widget.isSelected);
   bool get _localSelected => _cubit.state;
+
+  bool isExpanded = false;
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
@@ -127,81 +128,343 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
       value: _cubit,
       child: BlocBuilder<BoolToggleCubit, bool>(
         builder: (context, _) {
-    Color statusColor;
-    switch (widget.lastPaymentStatus) {
-      case 'Success':
-        statusColor = AppColors.successColor;
-        break;
-      case 'Pending':
-        statusColor = Colors.orange;
-        break;
-      case 'Failed':
-        statusColor = AppColors.errorColor;
-        break;
-      default:
-        statusColor = AppColors.billingTextColor;
-    }
+          final screenWidth = MediaQuery.of(context).size.width;
+          final isTablet = screenWidth > 600;
 
-    return ExpandableInfoCard(
-      collapsedPrefix: widget.showSelection
-          ? Builder(
-              builder: (context) => CustomCheckbox(
-                value: _checkboxValue,
-                onChanged: (value) => _handleSelectionChanged(context, value),
-                scale: 1.2,
-                borderColor: null,
-                label: null,
-              ),
-            )
-          : null,
-      leading: DocumentImageWidget(
-        fileUuid: widget.fileUuid ?? '',
-        name: widget.name,
-        size: 48,
-        shape: BoxShape.circle,
-        fit: BoxFit.cover,
-        fontSize: 14,
-        statusColor: statusColor,
-      ),
-      titleText: widget.name,
-      titleStyle: const TextStyle(
-        fontFamily: 'Manrope',
-        fontWeight: FontWeight.w600,
-        fontSize: 14,
-        color: AppColors.billingTextColor,
-        height: 19 / 14,
-      ),
-      subtitleText: widget.classroom,
-      onLongPress: widget.onLongPress,
-      rows: [
-        InfoRowItem(
-          label: 'Payment Method',
-          valueText: widget.paymentMethod,
-          noteText: widget.paymentNote,
-        ),
-        InfoRowItem(
-          label: 'Last Payment Status',
-          valueText: widget.lastPaymentStatus,
-          valueStyle: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: statusColor,
-          ),
-        ),
-        InfoRowItem(
-          label: 'Last Invoice',
-          valueText: '\$${widget.lastInvoiceAmount.toStringAsFixed(0)}',
-          noteText: 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}',
-        ),
-        InfoRowItem(
-          label: 'Open Balance',
-          valueText: '\$${widget.openBalance.toStringAsFixed(0)}',
-        ),
-      ],
-    );
+          Color statusColor;
+          switch (widget.lastPaymentStatus) {
+            case 'Success':
+              statusColor = AppColors.successColor;
+              break;
+            case 'Pending':
+              statusColor = Colors.orange;
+              break;
+            case 'Failed':
+              statusColor = AppColors.errorColor;
+              break;
+            default:
+              statusColor = AppColors.billingTextColor;
+          }
+
+          // Friendly placeholders for families with nothing set up yet
+          // (the billing summary API returns nulls → empty strings / zeros).
+          final bool hasGuardian = widget.classroom.trim().isNotEmpty;
+          final bool hasPaymentMethod = widget.paymentMethod.trim().isNotEmpty;
+          final String paymentStatusText =
+              widget.lastPaymentStatus.trim().isNotEmpty
+                  ? widget.lastPaymentStatus
+                  : 'NOT PAID';
+          final bool hasInvoice = widget.lastInvoiceAmount > 0 ||
+              widget.lastInvoiceSent.trim() != '-';
+
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              return IntrinsicHeight(
+                child: Container(
+                  width: constraints.maxWidth,
+                  height: isExpanded ? null : 64.0,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: AppColors.cardBorderColor,
+                      width: 1,
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          isExpanded = !isExpanded;
+                        });
+                      },
+                      onLongPress: widget.onLongPress,
+                      child: Column(
+                        children: [
+                          Container(
+                            height: 60,
+                            padding: EdgeInsets.symmetric(
+                                horizontal: isTablet ? 24 : 16),
+                            alignment: Alignment.center,
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                if (!isExpanded && widget.showSelection) ...[
+                                  Builder(
+                                    builder: (context) => CustomCheckbox(
+                                      value: _checkboxValue,
+                                      onChanged: (value) =>
+                                          _handleSelectionChanged(
+                                              context, value),
+                                      scale: 1.2,
+                                      borderColor: null,
+                                      label: null,
+                                    ),
+                                  ),
+                                  SizedBox(width: isTablet ? 16 : 9),
+                                ],
+                                DocumentImageWidget(
+                                  fileUuid: widget.fileUuid ?? '',
+                                  name: widget.name,
+                                  size: 50,
+                                  shape: BoxShape.circle,
+                                  fit: BoxFit.cover,
+                                  // No status dot here — dots are reserved for
+                                  // attendance (present/absent) as elsewhere in
+                                  // the app, and a family has no single
+                                  // attendance status.
+                                ),
+                                SizedBox(width: isTablet ? 16 : 9),
+                                Expanded(
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          widget.name,
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: isTablet ? 16 : 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: const Color(0xff573353),
+                                            height: 19 / 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        // Priority for the right-hand subtitle:
+                                        // guardian name → payment method (when
+                                        // billing is set up) → "Not setup".
+                                        child: hasGuardian
+                                            ? Text(
+                                                widget.classroom,
+                                                style: TextStyle(
+                                                  fontFamily: 'Manrope',
+                                                  fontSize: isTablet ? 16 : 14,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: const Color(0xff573353),
+                                                  height: 19 / 14,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                                textAlign: TextAlign.right,
+                                              )
+                                            : hasPaymentMethod
+                                                ? Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.end,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment.center,
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        'Payment',
+                                                        style: TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize:
+                                                              isTablet ? 14 : 12,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                          color: const Color(
+                                                              0xff573353),
+                                                          height: 16 / 12,
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        textAlign:
+                                                            TextAlign.right,
+                                                      ),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        widget.paymentMethod,
+                                                        style: TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize:
+                                                              isTablet ? 14 : 12,
+                                                          fontWeight:
+                                                              FontWeight.w500,
+                                                          color: AppColors
+                                                              .billingTextColor,
+                                                          height: 16 / 12,
+                                                        ),
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        textAlign:
+                                                            TextAlign.right,
+                                                      ),
+                                                    ],
+                                                  )
+                                                : Text(
+                                                    'Not setup',
+                                                    style: TextStyle(
+                                                      fontFamily: 'Manrope',
+                                                      fontSize:
+                                                          isTablet ? 16 : 14,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: const Color(
+                                                          0xff573353),
+                                                      height: 19 / 14,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    textAlign: TextAlign.right,
+                                                  ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (isExpanded) ...[
+                            const Divider(
+                              height: 1,
+                              thickness: 1,
+                              indent: 16,
+                              endIndent: 16,
+                              color: Color(0xFFE9ECEF),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  _buildDetailRow(
+                                    label: 'Payment Method',
+                                    value: widget.paymentMethod,
+                                    note: widget.paymentNote,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildDetailRow(
+                                    label: 'Last Payment Status',
+                                    value: paymentStatusText,
+                                    valueColor: statusColor,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildDetailRow(
+                                    label: 'Last Invoice',
+                                    value: hasInvoice
+                                        ? '\$${widget.lastInvoiceAmount.toStringAsFixed(0)}'
+                                        : 'NO INVOICE',
+                                    note: hasInvoice
+                                        ? 'SENT: ${widget.lastInvoiceSent}   DUE: ${widget.lastInvoiceDue}'
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 10),
+                                  _buildDetailRow(
+                                    label: 'Open Balance',
+                                    value:
+                                        '\$${widget.openBalance.toStringAsFixed(0)}',
+                                  ),
+                                  if (widget.onBillingProfile != null) ...[
+                                    const SizedBox(height: 16),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      height: 40,
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(8),
+                                          gradient:
+                                              AppColors.buildPrimaryGradient(),
+                                        ),
+                                        child: TextButton(
+                                          onPressed: widget.onBillingProfile,
+                                          style: TextButton.styleFrom(
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          child: const Text(
+                                            'View',
+                                            style: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              height: 16 / 16,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
         },
       ),
+    );
+  }
+
+  Widget _buildDetailRow({
+    required String label,
+    required String value,
+    String? note,
+    Color? valueColor,
+  }) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: Color(0xff573353),
+            height: 16 / 13,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                value,
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: valueColor ?? const Color(0xff573353),
+                  height: 19 / 14,
+                ),
+                textAlign: TextAlign.right,
+              ),
+              if (note != null && note.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  note,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xff573353),
+                    height: 14 / 10,
+                  ),
+                  textAlign: TextAlign.right,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

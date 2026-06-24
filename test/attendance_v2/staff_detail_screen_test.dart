@@ -7,7 +7,7 @@ import 'package:wowcare/modules/attendance_v2/presentation/screens/staff_detail_
 import 'package:wowcare/modules/attendance_v2/presentation/widgets/av2_detail_scaffold.dart';
 import 'package:wowcare/modules/attendance_v2/presentation/widgets/av2_split_bar.dart';
 
-Widget _harness() {
+Widget _harness({bool canEdit = true}) {
   final profile = StaffOvertimeFixtures.sample;
   return MaterialApp(
     home: Av2DetailScaffold(
@@ -19,6 +19,12 @@ Widget _harness() {
           isWholeMonth: true,
         ),
         loadDetail: (date) async => StaffOvertimeFixtures.dayDetail(date),
+        canEdit: canEdit,
+        onEditSession: ({
+          required recordCode,
+          required signInLocal,
+          signOutLocal,
+        }) async {},
       ),
     ),
   );
@@ -116,6 +122,43 @@ void main() {
 
     expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Edit action opens the edit attendance sheet', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_harness());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    // Edit sheet shows the Sign in / Sign out sections + Submit.
+    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.text('Sign out'), findsOneWidget);
+    expect(find.text('Submit'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('non-admin (canEdit=false) shows no edit affordance',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_harness(canEdit: false));
+    await tester.pumpAndSettle();
+
+    // Jun 11 still auto-expands its sessions, but no ⋮ action is rendered.
+    expect(find.text('Office'), findsWidgets);
+    expect(find.byIcon(Icons.more_vert), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

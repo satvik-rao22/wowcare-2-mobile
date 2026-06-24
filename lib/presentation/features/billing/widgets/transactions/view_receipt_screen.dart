@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 
@@ -21,7 +22,6 @@ class ViewReceiptScreen extends StatefulWidget {
 
 class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   // Dummy data for UI
-  Map<String, dynamic>? _addressEntity;
   Map<String, dynamic>? _invoiceDetails;
   List<Map<String, dynamic>>? _invoiceItems;
 
@@ -32,15 +32,6 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   }
 
   void _initializeDummyData() {
-    // Load dummy data once during init (no rebuild needed: build runs after).
-    _addressEntity = {
-      'line': '123 Main Street',
-      'city': 'New York',
-      'state': 'NY',
-      'country': 'USA',
-      'zipcode': '10001',
-    };
-
     _invoiceDetails = {
       'invoiceNumber': 'INV-2025-${widget.transaction.id}',
       'date': widget.transaction.date.toIso8601String(),
@@ -51,8 +42,8 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
       'dueDate': widget.transaction.endDate != null
           ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
           : widget.transaction.date
-              .add(const Duration(days: 7))
-              .toIso8601String(),
+                .add(const Duration(days: 7))
+                .toIso8601String(),
     };
 
     // Generate dummy invoice items
@@ -77,7 +68,9 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
   String _getDueDate() {
     if (_invoiceDetails != null && _invoiceDetails!['dueDate'] != null) {
       try {
-        final dueDateParsed = DateTime.parse(_invoiceDetails!['dueDate'].toString());
+        final dueDateParsed = DateTime.parse(
+          _invoiceDetails!['dueDate'].toString(),
+        );
         return DateUtilsNew.formatToReadableDate(dueDateParsed);
       } catch (e) {
         // Fall through
@@ -142,10 +135,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 ),
               ],
             ),
-            Divider(
-              thickness: 0.5,
-              color: AppColors.billingGreyTransparent,
-            ),
+            Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
             // Data row
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
@@ -253,10 +243,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 ),
               ],
             ),
-            Divider(
-              thickness: 0.5,
-              color: AppColors.billingGreyTransparent,
-            ),
+            Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
             // Payment mode row
             Row(
               mainAxisAlignment: MainAxisAlignment.start,
@@ -385,10 +372,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 4,
               child: Text(
                 'Description',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey.shade500,
-                ),
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
                 textAlign: TextAlign.start,
               ),
             ),
@@ -396,19 +380,13 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 2,
               child: Text(
                 'Amount',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.grey.shade500,
-                ),
+                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
                 textAlign: TextAlign.end,
               ),
             ),
           ],
         ),
-        Divider(
-          thickness: 0.5,
-          color: Colors.grey.withOpacity(0.3),
-        ),
+        Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
         // Invoice items
         ..._invoiceItems!.map((item) {
           final type = item['type']?.toString() ?? '';
@@ -469,49 +447,6 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
     );
   }
 
-  Widget _buildCurrentSchoolDetail() {
-    // Dummy school data
-    const schoolName = 'WowCare School';
-    const schoolDescription = 'Excellence in Education';
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DocumentImageWidget(
-          fileUuid: '',
-          size: 60,
-          name: schoolName,
-          fontSize: 18,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          schoolName,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        Text(
-          schoolDescription,
-          style: const TextStyle(
-            fontWeight: FontWeight.w500,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        if (_addressEntity != null)
-          Text(
-            '${_addressEntity!['line']}, ${_addressEntity!['city']}, ${_addressEntity!['state']}, ${_addressEntity!['country']}, ${_addressEntity!['zipcode']}',
-            style: const TextStyle(
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
-          ),
-      ],
-    );
-  }
-
   Widget _buildPaymentForRow() {
     return Row(
       children: [
@@ -526,8 +461,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
         DocumentImageWidget(
           fileUuid: widget.transaction.studentPhotoUuid ?? '',
           name: widget.transaction.studentName,
-          size: 32,
-          fontSize: 14,
+          size: 50,
         ),
         const SizedBox(width: 5),
         Text(
@@ -633,10 +567,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             const SizedBox(height: 10),
           ],
           _buildInvoiceItemsTable(),
-          Divider(
-            thickness: 0.5,
-            color: Colors.grey.withOpacity(0.3),
-          ),
+          Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
@@ -647,9 +578,9 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   fontSize: 20,
                   fontWeight: FontWeight.w500,
                 ),
-              )
+              ),
             ],
-          )
+          ),
         ],
       ),
     );
@@ -657,64 +588,21 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return GlobalScaffold(
-      hasBackButton: true,
-      showCustomNavigationBar: true,
-      body: SingleChildScrollView(
-        child: Container(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Row(
-                  children: [
-                    Text(
-                      widget.viewType == 'invoice' ? 'View Invoice' : 'View Receipt',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: AppColors.primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Card(
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  side: BorderSide(
-                    color: AppColors.primaryColor.withOpacity(0.1),
-                  ),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: 8,
-                          top: 8,
-                        ),
-                        child: _buildCurrentSchoolDetail(),
-                      ),
-                      const SizedBox(height: 15),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8),
-                        child: _buildPaymentForRow(),
-                      ),
-                      const SizedBox(height: 15),
-                      _buildPaymentDetailContainer(),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+    return StaffFormLayout(
+      title: widget.viewType == 'invoice' ? 'View Invoice' : 'View Receipt',
+      bottomBar: const SizedBox.shrink(),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const BillingSchoolHeader(),
+            const SizedBox(height: 16),
+            _buildPaymentForRow(),
+            const SizedBox(height: 16),
+            _buildPaymentDetailContainer(),
+          ],
         ),
       ),
     );
   }
 }
-

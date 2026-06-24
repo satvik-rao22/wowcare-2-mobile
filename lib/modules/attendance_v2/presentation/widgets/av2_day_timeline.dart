@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../domain/entities/attendance_day.dart';
+import '../../domain/entities/attendance_session.dart';
 import '../controllers/day_detail_loader.dart';
 import 'av2_absent_day_card.dart';
 import 'av2_attended_day_card.dart';
@@ -20,7 +21,7 @@ class Av2DayTimeline extends StatelessWidget {
   final List<AttendanceDay> days;
   final DayDetailLoader loadDetail;
   final String emptyMessage;
-  final ValueChanged<String>? onSessionAction;
+  final ValueChanged<AttendanceSession>? onSessionAction;
 
   @override
   Widget build(BuildContext context) {

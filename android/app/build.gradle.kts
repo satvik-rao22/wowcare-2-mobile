@@ -1,3 +1,4 @@
+import java.util.Base64
 import java.util.Properties
 
 plugins {
@@ -24,6 +25,64 @@ val flutterProguardRules: java.io.File =
         rootProject.file("$sdk/packages/flutter_tools/gradle/flutter_proguard_rules.pro")
     }
 
+// ---------------------------------------------------------------------------
+// Firebase multi-environment: decode --dart-define=ENVIRONMENT passed by Flutter.
+// Flutter encodes each dart-define as a base64 string, comma-separated, in the
+// "dart.defines" Gradle property. We decode and extract ENVIRONMENT, defaulting
+// to "local" so a bare `./gradlew` still builds a valid variant.
+// ---------------------------------------------------------------------------
+val dartEnvironment: String by lazy {
+    val encoded = (project.findProperty("dart.defines") as? String) ?: ""
+    if (encoded.isBlank()) return@lazy "local"
+    val decoded: List<String> = encoded.split(",")
+        .filter { it.isNotBlank() }
+        .mapNotNull { entry ->
+            try {
+                String(Base64.getDecoder().decode(entry.trim()))
+            } catch (_: Exception) {
+                null
+            }
+        }
+    val env: String = decoded
+        .firstOrNull { it.startsWith("ENVIRONMENT=") }
+        ?.removePrefix("ENVIRONMENT=")
+        ?: "local"
+    env.lowercase()
+}
+
+// Copy the environment-specific google-services.json into the position the
+// google-services plugin expects before it runs. Implemented as an ad-hoc
+// `copy {}` action (not a `Copy` task with `into(projectDir)`) so the project
+// directory is not registered as a tracked task output — otherwise Gradle 8.12
+// reports implicit-dependency validation errors for every task that reads from
+// android/app (mergeAssets, mergeShaders, compileFlutterBuild, ...).
+val copyGoogleServices by tasks.registering {
+    val srcPath = "firebase/$dartEnvironment/google-services.json"
+    doLast {
+        val src = file(srcPath)
+        require(src.exists()) {
+            "Missing android/app/$srcPath\n" +
+                "Download it from the Firebase console for the '$dartEnvironment' project and place it there."
+        }
+        copy {
+            from(src)
+            into(layout.projectDirectory)
+            rename { "google-services.json" }
+        }
+    }
+}
+
+afterEvaluate {
+    // Ensure the file is in place before anything builds, and before the
+    // google-services plugin's own processing task runs.
+    tasks.named("preBuild").configure { dependsOn(copyGoogleServices) }
+    tasks.matching { t ->
+        t.name.startsWith("process") && t.name.endsWith("GoogleServices")
+    }.configureEach {
+        dependsOn(copyGoogleServices)
+    }
+}
+
 android {
     namespace = "com.wiseowl.wowcareapp"
     compileSdk = 36
@@ -47,10 +106,12 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // ✅ IMPORTANT: Reduce native size
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
+        // Commented out for split APK builds
+        // When building split APKs with --split-per-abi, this conflicts with splits
+        // Uncomment if building a single monolithic APK
+        // ndk {
+        //     abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        // }
     }
 
     buildTypes {
@@ -86,4 +147,7 @@ flutter {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // Provides Theme.MaterialComponents.* used by LaunchTheme/NormalTheme — the
+    // AppCompat host theme local_auth's BiometricPrompt requires.
+    implementation("com.google.android.material:material:1.12.0")
 }

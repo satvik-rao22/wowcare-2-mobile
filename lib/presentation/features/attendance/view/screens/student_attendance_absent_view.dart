@@ -20,11 +20,11 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
@@ -70,23 +70,28 @@ class StudentAttendanceAbsentView extends StatefulWidget {
     this.contentOnly = false,
     this.staffAllowedClassrooms,
     this.staffAllowedClassroomIds,
+    this.refreshNotifier,
   });
 
   final bool contentOnly;
   final List<String>? staffAllowedClassrooms;
   final List<int>? staffAllowedClassroomIds;
+  final ValueNotifier<int>? refreshNotifier;
 
   @override
-  State<StudentAttendanceAbsentView> createState() => _StudentAttendanceAbsentViewState();
+  State<StudentAttendanceAbsentView> createState() =>
+      _StudentAttendanceAbsentViewState();
 }
 
-class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentView>
+class _StudentAttendanceAbsentViewState
+    extends State<StudentAttendanceAbsentView>
     implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
+  List<String>? _selectedClassroomCodes;
   List<String> _selectedTagNames = <String>[];
   List<String> _availableTagNames = <String>[];
   Map<String, String> _tagNameToCode = <String, String>{};
@@ -122,20 +127,23 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     _cacheManager = CacheManager(serviceLocator<StorageService>());
     _initializeDefaultRange();
     _searchController.addListener(_onSearchChanged);
+    widget.refreshNotifier?.addListener(_onRefreshRequested);
     _classroomCubit = serviceLocator<ClassroomCubit>();
     // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
     _loadTagData();
-    
+
     // Set up scroll listener for pagination
     _scrollController.addListener(_onScroll);
-    
+
     // Load initial data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadInitialData();
     });
   }
+
+  void _onRefreshRequested() => refreshAfterReturningFromAttendanceFlow();
 
   @override
   void refreshAfterReturningFromAttendanceFlow() {
@@ -144,9 +152,11 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   Future<void> _loadClassroomData() async {
+    final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
-      onlyTypeClassroom: true,
+      // Match custom/daily: include all location types for reliable name→code mapping.
+      onlyTypeClassroom: false,
       applyAttendanceStaffScope: true,
     );
 
@@ -154,6 +164,12 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
+      if (hadClassroomSelection) {
+        _syncClassroomFilterCodes();
+        if (_selectedClassroomCodes != null) {
+          _loadAbsentStudents(reset: true);
+        }
+      }
       return;
     }
 
@@ -165,9 +181,16 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
     if (!mounted) return;
     setState(() {
-      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+      _isClassroomDataReady =
+          !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+    if (hadClassroomSelection && _isClassroomDataReady) {
+      _syncClassroomFilterCodes();
+      if (_selectedClassroomCodes != null) {
+        _loadAbsentStudents(reset: true);
+      }
+    }
   }
 
   Future<void> _loadTagData() async {
@@ -198,7 +221,9 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _tagNameToCode = map;
         _availableTagNames = names;
         // Remove any previously-selected tags that no longer exist
-        _selectedTagNames.removeWhere((name) => !_availableTagNames.contains(name));
+        _selectedTagNames.removeWhere(
+          (name) => !_availableTagNames.contains(name),
+        );
         _isLoadingTagMap = false;
       });
     } catch (e) {
@@ -212,6 +237,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
   @override
   void dispose() {
+    widget.refreshNotifier?.removeListener(_onRefreshRequested);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
@@ -287,21 +313,30 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   void _triggerSearchReload() {
-      _loadAbsentStudents(reset: true);
+    _loadAbsentStudents(reset: true);
   }
 
-  List<String>? _resolveSelectedClassroomCodes() {
-    if (_selectedClassroomNames.isEmpty) return null;
-    if (_classroomCubit.state.classrooms.isEmpty) return null;
-    final nameToCode = <String, String>{
-      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-    };
-    final codes = _selectedClassroomNames
-        .map((n) => nameToCode[n])
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toList();
-    return codes.isEmpty ? null : codes;
+  void _syncClassroomFilterCodes() {
+    _selectedClassroomCodes = resolveClassroomNamesToCodes(
+      selectedNamesOrCodes: _selectedClassroomNames,
+      classrooms: _classroomCubit.state.classrooms,
+    );
+  }
+
+  List<String>? _effectiveClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) {
+      _selectedClassroomCodes = null;
+      return null;
+    }
+    _syncClassroomFilterCodes();
+    return _selectedClassroomCodes;
+  }
+
+  void _reloadIfPendingClassroomFilter() {
+    if (_selectedClassroomNames.isEmpty) return;
+    _syncClassroomFilterCodes();
+    if (_selectedClassroomCodes == null) return;
+    _loadAbsentStudents(reset: true);
   }
 
   List<String>? _resolveSelectedTagCodes() {
@@ -318,7 +353,8 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   void _onScroll() {
     if (!_scrollController.hasClients ||
         _isLoadingStudents ||
-        _isInitialLoadingStudents) return;
+        _isInitialLoadingStudents)
+      return;
     final position = _scrollController.position;
     final threshold = position.maxScrollExtent > 200
         ? position.maxScrollExtent - 100
@@ -327,38 +363,50 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
         _studentsHasMore &&
         position.pixels >= threshold) {
       setState(() => _isBackgroundFetchingStudents = true);
-        _loadAbsentStudents(fromBackground: true);
+      _loadAbsentStudents(fromBackground: true);
     }
   }
 
-  Future<void> _loadInitialData({bool reset = false, bool fromBackground = false}) async {
+  Future<void> _loadInitialData({
+    bool reset = false,
+    bool fromBackground = false,
+  }) async {
     // Try cache first to mirror cache integration used in student lists.
     if (!reset) {
       final from = _rangeStart ?? DateTime.now();
       final to = _rangeEnd ?? DateTime.now();
-      final classroomCodes = _resolveSelectedClassroomCodes();
+      final classroomCodes = _effectiveClassroomCodes();
+      final tagCodes = _resolveSelectedTagCodes();
       final trimmedSearch = _searchQuery.trim();
-      final cacheKey = _studentAttendanceAbsentCacheKey(
-        from,
-        to,
-        classroomCodes: classroomCodes,
-        search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
-      );
+      final hasActiveFilters =
+          (classroomCodes != null && classroomCodes.isNotEmpty) ||
+          (tagCodes != null && tagCodes.isNotEmpty) ||
+          trimmedSearch.isNotEmpty;
 
-      final cachedPayload = await _cacheManager.loadCache(cacheKey);
-      if (cachedPayload != null) {
-        _applyPagePayload(
-          cachedPayload,
-          reset: true,
+      if (!hasActiveFilters) {
+        final cacheKey = _studentAttendanceAbsentCacheKey(
+          from,
+          to,
+          classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
+          search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
         );
-        return;
+
+        final cachedPayload = await _cacheManager.loadCache(cacheKey);
+        if (cachedPayload != null) {
+          _applyPagePayload(cachedPayload, reset: true);
+          return;
+        }
       }
     }
 
     await _loadAbsentStudents(reset: reset, fromBackground: fromBackground);
   }
 
-  Future<void> _loadAbsentStudents({bool reset = false, bool fromBackground = false}) async {
+  Future<void> _loadAbsentStudents({
+    bool reset = false,
+    bool fromBackground = false,
+  }) async {
     if (_isLoadingStudents && !reset) return;
 
     if (_rangeStart == null || _rangeEnd == null) {
@@ -375,11 +423,11 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
       if (reset || _studentsPage == 0) {
         if (reset || !fromBackground) {
-        _isInitialLoadingStudents = true;
+          _isInitialLoadingStudents = true;
         }
         _isBackgroundFetchingStudents = false;
         if (reset) {
-        _absentStudents.clear();
+          _absentStudents.clear();
         }
       }
 
@@ -392,39 +440,32 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
     final toStr = DateFormat('yyyy-MM-dd').format(to);
 
-    final classroomCodes = _resolveSelectedClassroomCodes();
+    final classroomCodes = _effectiveClassroomCodes();
+    if (_selectedClassroomNames.isNotEmpty && classroomCodes == null) {
+      setState(() {
+        _isInitialLoadingStudents = false;
+        _isLoadingStudents = false;
+        isLoading = false;
+      });
+      return;
+    }
+
     final tagCodes = _resolveSelectedTagCodes();
 
-    final queryParameters = <String, dynamic>{
-      'fromAbsenceDate': fromStr,
-      'toAbsenceDate': toStr,
-      'page': _studentsPage,
-      'size': _pageSize,
-      'sort': <String>['studentName,asc'],
-    };
-
-    if (classroomCodes != null && classroomCodes.isNotEmpty) {
-      queryParameters['classroomCodes'] = classroomCodes;
-    }
-    if (tagCodes != null && tagCodes.isNotEmpty) {
-      queryParameters['tagCodes'] = tagCodes;
-    }
-
     final trimmedSearch = _searchQuery.trim();
-    if (trimmedSearch.isNotEmpty) {
-      queryParameters['search'] = trimmedSearch;
-    }
-
-    final allowedClassroomCodes =
-        await resolveAttendanceAllowedClassroomCodes(
-      storage: serviceLocator<StorageService>(),
-    );
-    queryParameters['allowedClassroomCodes'] =
-        List<String>.from(allowedClassroomCodes);
 
     try {
       final data = await serviceLocator<AttendanceRepository>()
-          .fetchStudentAttendanceAbsentView(queryParameters: queryParameters);
+          .getStudentAttendanceAbsentView(
+            fromAbsenceDate: fromStr,
+            toAbsenceDate: toStr,
+            classroomCodes: classroomCodes,
+            tagCodes: tagCodes,
+            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+            page: _studentsPage,
+            size: _pageSize,
+            sort: const <String>['studentName,asc'],
+          );
 
       if (!mounted) return;
 
@@ -448,13 +489,13 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
           from,
           to,
           classroomCodes: classroomCodes,
+          tagCodes: tagCodes,
           search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
         );
         await _cacheManager.saveCache(cacheKey, root);
       }
 
       _applyPagePayload(root, reset: reset);
-
     } catch (error) {
       debugPrint('StudentAbsent API error: $error');
       if (!mounted) return;
@@ -484,6 +525,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     DateTime from,
     DateTime to, {
     List<String>? classroomCodes,
+    List<String>? tagCodes,
     String? search,
   }) {
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
@@ -493,6 +535,10 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
 
     if (classroomCodes != null && classroomCodes.isNotEmpty) {
       parts.add('classrooms=${classroomCodes.join(',')}');
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      parts.add('tags=${tagCodes.join(',')}');
     }
 
     final searchKey = (search ?? '').trim().toLowerCase();
@@ -519,10 +565,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
   }
 
   /// Applies a paged API/cache payload to local state and list.
-  void _applyPagePayload(
-    Map<String, dynamic> root, {
-    required bool reset,
-  }) {
+  void _applyPagePayload(Map<String, dynamic> root, {required bool reset}) {
     final content = root['content'] as List<dynamic>? ?? const [];
     final last = root['last'] as bool? ?? true;
     final number = root['number'] as int? ?? _studentsPage;
@@ -605,7 +648,6 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     });
   }
 
-
   @override
   Widget build(BuildContext context) {
     if (widget.contentOnly) {
@@ -624,198 +666,240 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     final contentPadding = ResponsiveSizing.contentPadding(context);
     final filtered = _absentStudents;
 
-    return CustomRefreshIndicator(
-      onRefresh: _handleRefresh,
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.symmetric(
-          horizontal: contentPadding.left,
-          vertical: responsive.verticalSpacing / 4,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: responsive.verticalSpacing / 4),
-            // Filter section
-            CustomSectionCard(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                children: [
-                  // Row 1: Full-width Search Bar
-                  Row(
-                    children: [
-                      Expanded(child: CustomSearchBar(controller: _searchController, hintText: 'Search Students')),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Row 2: Date Range (70%) + Clear All (30%)
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: 7,
-                        child: CustomDateTimeField(
-                          hasLabel: false,
-                          isRangePicker: true,
-                          // Let the field compute and DISPLAY a default start–end (current month)
-                          // so both dates are visible on first open.
-                          fetchInitialTime: true,
-                          onRangeSelected: (start, end) {
-                            setState(() {
-                              _rangeStart = start;
-                              _rangeEnd = end;
-                            });
-                            _loadAbsentStudents(reset: true);
-                          },
+    return BlocListener<ClassroomCubit, ClassroomState>(
+      bloc: _classroomCubit,
+      listenWhen: (previous, current) =>
+          previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
+      listener: (_, __) => _reloadIfPendingClassroomFilter(),
+      child: CustomRefreshIndicator(
+        onRefresh: _handleRefresh,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+            horizontal: contentPadding.left,
+            vertical: responsive.verticalSpacing / 4,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: responsive.verticalSpacing / 4),
+              // Filter section
+              CustomSectionCard(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    // Row 1: Full-width Search Bar
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomSearchBar(
+                            controller: _searchController,
+                            hintText: 'Search Students',
+                          ),
                         ),
-                      ),
-                      SizedBox(width: responsive.horizontalSpacing / 2),
-                      Expanded(
-                        flex: 3,
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: CustomClearAllChip(
-                            onTap: () {
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Row 2: Date Range (70%) + Clear All (30%)
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 7,
+                          child: CustomDateTimeField(
+                            hasLabel: false,
+                            isRangePicker: true,
+                            // Let the field compute and DISPLAY a default start–end (current month)
+                            // so both dates are visible on first open.
+                            fetchInitialTime: true,
+                            onRangeSelected: (start, end) {
                               setState(() {
-                                _searchController.clear();
-                                _selectedClassroomNames = <String>[];
-                                _selectedTagNames = <String>[];
-                                // Reset to current month
-                                final now = DateTime.now();
-                                _rangeStart = DateTime(now.year, now.month, 1);
-                                _rangeEnd = DateTime(now.year, now.month + 1, 0);
+                                _rangeStart = start;
+                                _rangeEnd = end;
                               });
                               _loadAbsentStudents(reset: true);
                             },
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  // Row 3: Classroom (50%) + Tags (50%)
-                  Row(
-                    children: [
-                      Expanded(
-                        child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                          bloc: _classroomCubit,
-                          builder: (context, state) {
-                            final items = state.classrooms.map((c) => c.name).toList();
-                            final isLoading = state.isLoading || !_isClassroomDataReady;
-                            if (isLoading && items.isEmpty) {
-                              return ShimmerLoader(height: 40);
-                            }
-                            return CustomMultiSelectDropdown(
-                              hintText: 'Classroom',
-                              items: items,
-                              selectedItems: _selectedClassroomNames,
-                              onChanged: (values) {
-                                if (isLoading) return;
+                        SizedBox(width: responsive.horizontalSpacing / 2),
+                        Expanded(
+                          flex: 3,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: CustomClearAllChip(
+                              onTap: () {
                                 setState(() {
-                                  _selectedClassroomNames = List<String>.from(values);
+                                  _searchController.clear();
+                                  _selectedClassroomNames = <String>[];
+                                  _selectedClassroomCodes = null;
+                                  _selectedTagNames = <String>[];
+                                  // Reset to current month
+                                  final now = DateTime.now();
+                                  _rangeStart = DateTime(
+                                    now.year,
+                                    now.month,
+                                    1,
+                                  );
+                                  _rangeEnd = DateTime(
+                                    now.year,
+                                    now.month + 1,
+                                    0,
+                                  );
                                 });
                                 _loadAbsentStudents(reset: true);
                               },
-                            );
-                          },
+                            ),
+                          ),
                         ),
-                      ),
-                      SizedBox(width: responsive.horizontalSpacing / 2),
-                      Expanded(
-                        child: _isLoadingTagMap && _availableTagNames.isEmpty
-                            ? ShimmerLoader(height: 40)
-                            : CustomMultiSelectDropdown(
-                                hintText: 'Tags',
-                                items: _availableTagNames,
-                                selectedItems: _selectedTagNames,
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Row 3: Classroom (50%) + Tags (50%)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                            bloc: _classroomCubit,
+                            builder: (context, state) {
+                              final items = state.classrooms
+                                  .map((c) => c.name)
+                                  .toList();
+                              final isLoading =
+                                  state.isLoading || !_isClassroomDataReady;
+                              if (isLoading && items.isEmpty) {
+                                return ShimmerLoader(height: 40);
+                              }
+                              return CustomMultiSelectDropdown(
+                                hintText: 'Classroom',
+                                items: items,
+                                selectedItems: _selectedClassroomNames,
                                 onChanged: (values) {
                                   setState(() {
-                                    _selectedTagNames = List<String>.from(values);
+                                    _selectedClassroomNames = List<String>.from(
+                                      values,
+                                    );
+                                    _syncClassroomFilterCodes();
                                   });
+                                  if (_selectedClassroomNames.isNotEmpty &&
+                                      _selectedClassroomCodes == null) {
+                                    return;
+                                  }
                                   _loadAbsentStudents(reset: true);
                                 },
-                              ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            // Content section
-            if (_isInitialLoadingStudents)
-              Column(
-                children: List.generate(
-                  6,
-                  (index) => StudentAbsentCardShimmer(
-                    key: ValueKey('shimmer_$index'),
-                  ),
-                ),
-              )
-            else if (errorMessage != null)
-              CustomSectionCard(
-                padding: EdgeInsets.all(responsive.horizontalSpacing),
-                backgroundColor: AppColors.errorColor.withOpacity(0.1),
-                child: Column(
-                  children: [
-                    Icon(Icons.error_outline, color: AppColors.errorColor, size: 48),
-                    SizedBox(height: responsive.verticalSpacing / 2),
-                    AppText.body(
-                      errorMessage ?? 'Unable to load absent students.',
-                      style: TextStyle(color: AppColors.errorColor),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: responsive.verticalSpacing / 2),
-                    ElevatedButton(
-                      onPressed: () => _loadInitialData(reset: true),
-                      child: AppText.body('Retry', style: TextStyle(color: Colors.white)),
+                              );
+                            },
+                          ),
+                        ),
+                        SizedBox(width: responsive.horizontalSpacing / 2),
+                        Expanded(
+                          child: _isLoadingTagMap && _availableTagNames.isEmpty
+                              ? ShimmerLoader(height: 40)
+                              : CustomMultiSelectDropdown(
+                                  hintText: 'Tags',
+                                  items: _availableTagNames,
+                                  selectedItems: _selectedTagNames,
+                                  onChanged: (values) {
+                                    setState(() {
+                                      _selectedTagNames = List<String>.from(
+                                        values,
+                                      );
+                                    });
+                                    _loadAbsentStudents(reset: true);
+                                  },
+                                ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              )
-            else if (filtered.isEmpty)
-              Center(
-                child: Padding(
-                  padding: EdgeInsets.all(responsive.verticalSpacing),
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              // Content section
+              if (_isInitialLoadingStudents)
+                Column(
+                  children: List.generate(
+                    6,
+                    (index) => StudentAbsentCardShimmer(
+                      key: ValueKey('shimmer_$index'),
+                    ),
+                  ),
+                )
+              else if (errorMessage != null)
+                CustomSectionCard(
+                  padding: EdgeInsets.all(responsive.horizontalSpacing),
+                  backgroundColor: AppColors.errorColor.withValues(alpha: 0.1),
                   child: Column(
                     children: [
                       Icon(
-                        Icons.search_off,
+                        Icons.error_outline,
+                        color: AppColors.errorColor,
                         size: 48,
-                        color: AppColors.secondaryColor.withOpacity(0.5),
                       ),
                       SizedBox(height: responsive.verticalSpacing / 2),
                       AppText.body(
-                        _absentStudents.isEmpty
-                            ? 'No absent students found'
-                            : 'No students match your filters',
-                        style: TextStyle(color: AppColors.secondaryColor),
+                        errorMessage ?? 'Unable to load absent students.',
+                        style: TextStyle(color: AppColors.errorColor),
                         textAlign: TextAlign.center,
+                      ),
+                      SizedBox(height: responsive.verticalSpacing / 2),
+                      ElevatedButton(
+                        onPressed: () => _loadInitialData(reset: true),
+                        child: AppText.body(
+                          'Retry',
+                          style: TextStyle(color: Colors.white),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              )
-            else
-              Column(
-                children: [
-                  ...filtered.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final student = entry.value;
-                    return _buildAbsentStudentCard(student, index);
-                  }).toList(),
-                  // Pagination loader
-                  if (_isLoadingStudents &&
-                      _studentsHasMore &&
-                      _studentsPage > 0 &&
-                      !_isInitialLoadingStudents)
-                    Padding(
-                      padding: EdgeInsets.symmetric(vertical: responsive.verticalSpacing),
-                      child: const PrimaryCircularLoader(),
+                )
+              else if (filtered.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(responsive.verticalSpacing),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.search_off,
+                          size: 48,
+                          color: AppColors.secondaryColor.withValues(
+                            alpha: 0.5,
+                          ),
+                        ),
+                        SizedBox(height: responsive.verticalSpacing / 2),
+                        AppText.body(
+                          _absentStudents.isEmpty
+                              ? 'No absent students found'
+                              : 'No students match your filters',
+                          style: TextStyle(color: AppColors.secondaryColor),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
-                ],
-              ),
-          ],
+                  ),
+                )
+              else
+                Column(
+                  children: [
+                    ...filtered.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final student = entry.value;
+                      return _buildAbsentStudentCard(student, index);
+                    }).toList(),
+                    // Pagination loader
+                    if (_isLoadingStudents &&
+                        _studentsHasMore &&
+                        _studentsPage > 0 &&
+                        !_isInitialLoadingStudents)
+                      Padding(
+                        padding: EdgeInsets.symmetric(
+                          vertical: responsive.verticalSpacing,
+                        ),
+                        child: const PrimaryCircularLoader(),
+                      ),
+                  ],
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -850,7 +934,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -864,31 +948,48 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                 // Profile photo
                 DocumentImageWidget(
                   fileUuid: student.photoUuid ?? '',
+                  studentCode: student.id,
                   size: avatarSize,
                   name: student.name,
                   fontSize: responsive.isTablet ? 18 : 16,
                 ),
                 SizedBox(width: spacing),
+                // Header matches staff_card.dart: name (left) + classroom (right).
                 Expanded(
-                  child: AppText.body(
-                    student.name,
-                    style: TextStyle(
-                      fontSize: responsive.labelFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                SizedBox(width: spacing / 2),
-                Flexible(
-                  child: AppText.body(
-                    'Absent: ${student.absentDays} days',
-                    style: TextStyle(
-                      fontSize: responsive.isTablet ? 15 : 14,
-                      color: AppColors.primaryColor,
-                    ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          student.name,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          student.roomName,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -901,6 +1002,12 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(
                 responsive,
+                'Absent Days',
+                '${student.absentDays} days',
+              ),
+              SizedBox(height: responsive.isTablet ? 8 : 6),
+              _buildDetailRow(
+                responsive,
                 'Absent Date',
                 DateFormat('MMM dd, yyyy').format(student.startDate),
               ),
@@ -908,14 +1015,14 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
               _buildDetailRow(responsive, 'Absent Time', student.absentTime),
               SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(responsive, 'Marked By', student.absentBy),
-                SizedBox(height: responsive.isTablet ? 8 : 6),
+              SizedBox(height: responsive.isTablet ? 8 : 6),
               _buildDetailRow(
                 responsive,
                 'Absent Note',
                 (student.note != null && student.note!.trim().isNotEmpty)
                     ? student.note!.trim()
                     : '-',
-                      ),
+              ),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -925,7 +1032,9 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                       ? Container(
                           height: 48,
                           decoration: BoxDecoration(
-                            color: AppColors.cardBorderColor.withOpacity(0.1),
+                            color: AppColors.cardBorderColor.withValues(
+                              alpha: 0.1,
+                            ),
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(
                               color: AppColors.cardBorderColor,
@@ -962,6 +1071,7 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
                                   isExpectedToday: true,
                                   isPresentToday: false,
                                   profileStatus: 'A',
+                                  initialShowAbsentDays: true,
                                 ),
                               ),
                             );
@@ -976,22 +1086,39 @@ class _StudentAttendanceAbsentViewState extends State<StudentAttendanceAbsentVie
     );
   }
 
-  Widget _buildDetailRow(ResponsiveHelper responsive, String label, String value) {
+  Widget _buildDetailRow(
+    ResponsiveHelper responsive,
+    String label,
+    String value,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
           flex: responsive.isTablet ? 2 : 1,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(color: AppColors.secondaryColor.withOpacity(0.6)),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
           ),
         ),
         SizedBox(width: responsive.horizontalSpacing / 2),
         Expanded(
           flex: responsive.isTablet ? 3 : 2,
-          child: AppText.value(
+          child: Text(
             value,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xff573353),
+              height: 19 / 14,
+            ),
             textAlign: TextAlign.end,
             maxLines: 3,
             overflow: TextOverflow.ellipsis,

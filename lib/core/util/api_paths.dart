@@ -15,6 +15,7 @@ import 'api_paths_uat.dart';
 //
 //   // Users
 //   static const String userRoot = '/api/v1/users';
+
 //   static String userEmailChange(String userCode) =>
 //       '$userRoot/$userCode/email-change';
 //
@@ -227,9 +228,25 @@ class ApiPaths {
         }
         return ApiMicroservices.user;
       case 'conversations':
-      // case 'newsletters':
       case 'messages':
         return ApiMicroservices.communication;
+      case 'newsletters':
+        return ApiMicroservices.newsLatter;
+      case 'notification':
+        return ApiMicroservices.notification;
+      case 'kiosk':
+        return ApiMicroservices.attendance;
+      case 'billing':
+      case 'discount':
+      case 'subsidy':
+      case 'fee-structure':
+      case 'other-fees':
+      case 'invoices':
+      case 'ledgers':
+      case 'ledger-transactions':
+      case 'school-forte-configs':
+      case 'payment-gateway':
+        return ApiMicroservices.billing;
       default:
         return ApiMicroservices.user;
     }
@@ -240,7 +257,29 @@ class ApiPaths {
     if (ApiConstants.isUat) return ApiPathsUat.url(path);
     final p = path.startsWith('/') ? path : '/$path';
     final ms = microserviceKeyFromPath(p);
-    return '${ApiConstants.baseUrlForMicroservice(ms)}$p';
+    final localPath = _stripLocalMsPrefix(p, ms);
+    return '${ApiConstants.baseUrlForMicroservice(ms)}$localPath';
+  }
+
+  /// For LOCAL devtunnel builds the base URL already encodes the microservice
+  /// context path (e.g. /attendance).  Strip the matching segment from the API
+  /// path so it isn't duplicated.
+  ///
+  /// Example:
+  ///   path = /api/v1/attendance/schools/{code}/…
+  ///   base = https://tunnel-8083.devtunnels.ms/attendance
+  ///   → strip "attendance/" from path → /api/v1/schools/{code}/…
+  ///   → full URL = https://tunnel-8083.devtunnels.ms/attendance/api/v1/schools/{code}/…
+  static String _stripLocalMsPrefix(String path, String ms) {
+    const _msPrefixMap = <String, String>{
+      ApiMicroservices.attendance: '/api/v1/attendance/',
+      ApiMicroservices.activity: '/api/v1/activity/',
+    };
+    final prefix = _msPrefixMap[ms];
+    if (prefix != null && path.startsWith(prefix)) {
+      return '/api/v1/${path.substring(prefix.length)}';
+    }
+    return path;
   }
 
   /// Same as [url]; the [baseUrl] argument is ignored (kept for call-site compatibility).
@@ -265,13 +304,17 @@ class ApiPaths {
       '$schoolNamesByOrg/$orgCode';
   static const String organizationNames = '/api/v1/organizations/names';
 
-  /// GET /api/v1/school/{schoolCode}/regular-schedule
+  /// Legacy regular-schedule list (prefer [schoolByCode] + `childcareSchedule`).
   static String schoolRegularSchedule(String schoolCode) =>
       '/api/v1/school/$schoolCode/regular-schedule';
 
-  /// School entity root (gateway: school host).
+  /// School settings (`data.childcareSchedule`, timezone, address, …).
+  /// Served by the organization microservice at
+  /// `/api/v1/organization/schools/{schoolCode}`; the bare
+  /// `/api/v1/schools/{code}` form is not exposed.
   static const String schools = '/api/v1/schools';
-  static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
+  static String schoolByCode(String schoolCode) =>
+      '/api/v1/organization/schools/$schoolCode';
 
   /// GET /api/v1/schools/{schoolCode}/timezone
   static String schoolTimezone(String schoolCode) =>
@@ -392,8 +435,15 @@ class ApiPaths {
   static const String studentClassroomAssignStudent =
       '/api/v1/student-classroom/assign-student';
   static const String studentDocuments = '/api/v1/student-documents';
+  // `student-documents` is its own top-level route on the student MS; the extra
+  // `student/` prefix is the UAT gateway segment (re-inserted by UAT), so writing
+  // it here 404s in LOCAL ("No static resource"). Keep direct-MS form.
   static const String studentDocumentExpiryCount =
-      '/api/v1/student/student-documents/expiry-count';
+      '/api/v1/student-documents/expiry-count';
+  // Direct-MS form (controller root `/api/v1/student`); UAT re-inserts the
+  // gateway segment. The doubled `student/student` form 404s in LOCAL.
+  static String studentPhysicalCheckupCount(String schoolCode) =>
+      '/api/v1/student/physical-checkup-count/$schoolCode';
   static String studentProfile(String code) => '$studentList/$code';
   static String studentProfileUpdate(String code) =>
       '$studentList/$code/profile';
@@ -406,9 +456,10 @@ class ApiPaths {
   static const String studentRegularSchedules = '/api/v1/regular-schedules';
   static String studentAddress(String code) => '$studentList/$code/address';
 
-  /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`
-  static String studentSiblings(String code) =>
-      '$studentList/student/$code/siblings';
+  /// UAT/backend route: `PUT /api/v1/student/student/{studentCode}/siblings`.
+  /// Direct-MS form here (`/api/v1/student/{code}/siblings`); UAT re-inserts the
+  /// gateway `student` segment — the doubled form 404s in LOCAL.
+  static String studentSiblings(String code) => '$studentList/$code/siblings';
   static const String studentTags = '/api/v1/student-tags';
 
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
@@ -566,11 +617,20 @@ class ApiPaths {
       '/api/v1/staff-attendance-records/sign-in/self';
   static const String staffAttendanceRecordsSignOut =
       '/api/v1/staff-attendance-records/sign-out';
+  static const String staffAttendanceRecordsSignOutSelf =
+      '/api/v1/staff-attendance-records/sign-out/self';
   static const String staffAttendanceRecordsTransfer =
       '/api/v1/staff-attendance-records/transfer';
 
+  /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings/qr-code/validate
+  /// Validate QR code for a school's attendance settings.
   static String qrCodeValidate(String schoolCode) =>
-      '/api/v1/schools/$schoolCode/attendance-settings/qr-code/validate';
+      '/api/v1/attendance/schools/$schoolCode/attendance-settings/qr-code/validate';
+
+  /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings/qr-code/active
+  /// Get active QR code for a school's attendance settings.
+  static String qrCodeActive(String schoolCode) =>
+      '/api/v1/attendance/schools/$schoolCode/attendance-settings/qr-code/active';
 
   /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings
   /// Single source of truth for GPS sign-in toggle, geofence radius, and
@@ -578,13 +638,57 @@ class ApiPaths {
   static String attendanceSettings(String schoolCode) =>
       '/api/v1/attendance/schools/$schoolCode/attendance-settings';
 
+  // —— Kiosk (attendance MS) ——
+  /// POST /api/v1/kiosk/verify-pin — Verify PIN for guardian/staff access.
+  static const String kioskVerifyPin = '/api/v1/kiosk/verify-pin';
+
+  // —— Reports (multiple microservices) ——
+  /// POST /api/v1/attendance/student-attendance/reports/generate — Generate student attendance reports.
+  static const String studentAttendanceReportsGenerate =
+      '/api/v1/attendance/student-attendance/reports/generate';
+
+  /// GET /api/v1/attendance/student-attendance/reports/recent — Get recent student attendance reports.
+  static const String studentAttendanceReportsRecent =
+      '/api/v1/attendance/student-attendance/reports/recent';
+
+  /// POST /api/v1/attendance/staff-attendance/reports/generate — Generate staff attendance reports.
+  static const String staffAttendanceReportsGenerate =
+      '/api/v1/attendance/staff-attendance/reports/generate';
+
+  /// GET /api/v1/attendance/staff-attendance/reports/recent — Get recent staff attendance reports.
+  static const String staffAttendanceReportsRecent =
+      '/api/v1/attendance/staff-attendance/reports/recent';
+
+  /// POST /api/v1/staff/reports/generate — Generate staff directory reports (staff MS).
+  static const String staffReportsGenerate = '/api/v1/staff/reports/generate';
+
+  /// GET /api/v1/staff/reports/recent — Get recent staff directory reports (staff MS).
+  static const String staffReportsRecent = '/api/v1/staff/reports/recent';
+
+  /// POST /api/v1/student/reports/generate — Generate student management reports (student MS).
+  static const String studentManagementReportsGenerate =
+      '/api/v1/student/reports/generate';
+
+  /// GET /api/v1/student/reports/recent — Get recent student management reports (student MS).
+  static const String studentManagementReportsRecent =
+      '/api/v1/student/reports/recent';
+
+  /// POST /api/v1/student/settings/immunization/report — Generate immunization reports (student MS).
+  static const String studentImmunizationReport =
+      '/api/v1/student/settings/immunization/report';
+
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
   static const String classroomAll = '/api/v1/classroom/all';
 
   /// `GET /api/v1/classroom/classroom?schoolCode=&page=&size=&status=&type=&sort=`
   /// Paginated classroom list with ratio and capacity data.
-  static const String classroomPaginated = '/api/v1/classroom/classroom';
+  ///
+  /// Direct-MS form: the classroom controller root is `/api/v1/classroom`. The
+  /// UAT gateway segment (`…/classroom/classroom`) is re-inserted by
+  /// [ApiPathsUat._ensureUatMicroserviceSegment]; writing the doubled form here
+  /// breaks LOCAL (the MS is hit directly by port and has no `/classroom/classroom`).
+  static const String classroomPaginated = '/api/v1/classroom';
 
   /// `GET /api/v1/attendance/student-attendance/expected/summary/card/by-classrooms`
   static const String studentAttendanceExpectedSummaryCardByClassrooms =
@@ -593,12 +697,14 @@ class ApiPaths {
   /// `GET /api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms`
   static const String staffAttendanceExpectedSummaryCardByClassrooms =
       '/api/v1/attendance/staff-attendance/expected/summary/card/by-classrooms';
-  
-  static String schoolCapacityAge(String schoolCode) =>
-      '/api/v1/organization/schools/$schoolCode/capacity-age';
 
-  static const String classroomCount = '/api/v1/classroom/classroom/count';
-  static const String classroomSchoolFte = '/api/v1/classroom/classroom/school-fte';
+  static String schoolCapacityAge(String schoolCode) =>
+      '/api/v1/schools/$schoolCode/capacity-age';
+
+  // Direct-MS form (controller root `/api/v1/classroom`); UAT re-inserts the
+  // gateway segment. The doubled form 404s in LOCAL (hit by port directly).
+  static const String classroomCount = '/api/v1/classroom/count';
+  static const String classroomSchoolFte = '/api/v1/classroom/school-fte';
   static String classroomByCode(String code) => '/api/v1/classroom/$code';
   static const String classroomLogoAssetCodes =
       '/api/v1/classroom/classroom-logo/asset-codes';
@@ -642,8 +748,9 @@ class ApiPaths {
 
   // —— Document host (base path returned by upload-session response) ——
 
-  static String get documentUploadSessionsRoot =>
-      ApiConstants.isUat ? '/upload-sessions' : '/api/v1/upload-sessions';
+  static String get documentUploadSessionsRoot => ApiConstants.isUat
+      ? '/api/v1/document/upload-sessions'
+      : '/api/v1/upload-sessions';
 
   static String documentAssetPresignPath({
     required String documentApiBasePath,
@@ -661,12 +768,10 @@ class ApiPaths {
       base = base.replaceFirst('/document-ms', '');
       if (base.isEmpty) base = defaultDocumentBasePath;
     }
+    // UAT: documentMsBaseUrl is the bare gateway host, so the document MS
+    // namespace (`/api/v1/document`) must live in the path itself.
     if (ApiConstants.isUat && !base.startsWith('/api/v1/document')) {
       base = '/api/v1/document';
-    }
-    if (ApiConstants.isUat && base.startsWith('/api/v1/document')) {
-      base = base.replaceFirst('/api/v1/document', '');
-      if (base.isEmpty) base = '';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
     return '${base.isEmpty ? '' : base}/upload-sessions/$sessionCode/assets/presign/batch';
@@ -689,12 +794,10 @@ class ApiPaths {
       base = base.replaceFirst('/document-ms', '');
       if (base.isEmpty) base = defaultDocumentBasePath;
     }
+    // UAT: documentMsBaseUrl is the bare gateway host, so the document MS
+    // namespace (`/api/v1/document`) must live in the path itself.
     if (ApiConstants.isUat && !base.startsWith('/api/v1/document')) {
       base = '/api/v1/document';
-    }
-    if (ApiConstants.isUat && base.startsWith('/api/v1/document')) {
-      base = base.replaceFirst('/api/v1/document', '');
-      if (base.isEmpty) base = '';
     }
     base = base.replaceAll(RegExp(r'/+$'), '');
     final s = sessionCode.trim();
@@ -706,12 +809,95 @@ class ApiPaths {
       '$documentUploadSessionsRoot/$sessionCode';
   static String documentMediaAssetByCodePath(String assetCode) =>
       ApiConstants.isUat
-      ? '/media-assets/${Uri.encodeComponent(assetCode.trim())}'
+      ? '/api/v1/document/media-assets/${Uri.encodeComponent(assetCode.trim())}'
       : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
-  static const String messagingCreateMessage =
-      '/api/v1/messaging/conversations';
-  static const String messagingMessages = '/api/v1/messaging/messages';
+  /// POST /api/v1/document/media-assets/resolve — Resolve media asset codes to download URLs.
+  static const String documentMediaAssetsResolve =
+      '/api/v1/document/media-assets/resolve';
+
+  // ─── Messaging / Communication microservice ──────────────────────────────
+  // Base resource roots (new backend — no /messaging/ prefix).
+  static const String conversations = '/api/v1/conversations';
+  static const String messages = '/api/v1/messages';
+
+  // Keep old names as aliases so call sites that haven't been migrated yet
+  // still compile — they now resolve to the correct paths.
+  static const String messagingConversations = conversations;
+  static const String messagingCreateMessage = conversations;
+  static const String messagingMessages = messages;
+
+  // POST /api/v1/messages/conversations/{code}/attachments/upload-session
+  // (resolves to .../messaging/messages/conversations/{code}/attachments/
+  // upload-session in UAT, confirmed against the working web-app request) —
+  // mirrors the student-documents/staff-documents upload-session bootstrap
+  // so message attachments can use the same generic presign → S3 PUT →
+  // complete flow.
+  static String messagingConversationUploadSessionPath(String code) =>
+      '$messages/conversations/$code/attachments/upload-session';
+
+  // DELETE /api/v1/messages/attachments/{attachmentId} — removes a single
+  // attachment (by the messaging-service attachment id, not the document
+  // asset code) from its message without deleting the whole message.
+  static String messagingAttachmentPath(int attachmentId) =>
+      '$messages/attachments/$attachmentId';
+
+  // POST /api/v1/messages/conversations/{code}/attachments — registers a
+  // completed document-service asset against the conversation and returns
+  // the messaging-service attachment id required by [messagingMessages]'s
+  // `attachmentIds` (the asset code alone is not a valid send-message
+  // reference — confirmed against the working web-app request for this
+  // endpoint).
+  static String messagingConversationAttachmentsPath(String code) =>
+      '$messages/conversations/$code/attachments';
+
+  // ── Conversation sub-resources ────────────────────────────────────────────
+  static String messagingConversation(String code) => '$conversations/$code';
+  static String messagingConversationsByType(String type) =>
+      '$conversations/type/$type';
+  static String messagingConversationsByStudent(String studentCode) =>
+      '$conversations/student/$studentCode';
+  static String messagingConversationsByClassroom(String classroomCode) =>
+      '$conversations/classroom/$classroomCode';
+  static String messagingConversationParticipants(String code) =>
+      '$conversations/$code/participants';
+  // DELETE /api/v1/conversations/{code}/participants/{userCode}
+  static String conversationParticipant(String code, String userCode) =>
+      '$conversations/$code/participants/$userCode';
+  static String messagingConversationPrivateMode(String code) =>
+      '$conversations/$code/private-mode';
+  // Mark-read moved to messages controller:
+  // POST /api/v1/messages/conversation/{code}/receipts/read-all
+  static String messagingConversationMarkRead(String code) =>
+      '$messages/conversation/$code/receipts/read-all';
+  // POST /api/v1/messages/conversation/{code}/receipts/delivered-all — marks
+  // every unread message in the conversation as delivered for the current
+  // user, even with the thread closed, so the sender's ticks advance
+  // promptly (mirrors the web app's markAllAsDelivered).
+  static String messagingConversationMarkDelivered(String code) =>
+      '$messages/conversation/$code/receipts/delivered-all';
+
+  // ── Message sub-resources ─────────────────────────────────────────────────
+  static String messagingMessage(String code) => '$messages/$code';
+  static String messagingMessageReactions(String code) =>
+      '$messages/$code/reactions';
+  static String messagingMessageReaction(String code, String emoji) =>
+      '$messages/$code/reactions/${Uri.encodeComponent(emoji)}';
+  // Per new contract: POST /api/v1/messages/{code}/receipts/read
+  static String messagingMessageRead(String code) =>
+      '$messages/$code/receipts/read';
+  // GET messages for a conversation
+  static String messagesForConversation(String conversationCode) =>
+      '$messages/conversation/$conversationCode';
+
+  // ── Unread ────────────────────────────────────────────────────────────────
+  // GET /api/v1/messages/unread-summary  (replaces /messaging/unread/counts)
+  static const String messagingUnreadCounts = '$messages/unread-summary';
+  static const String messagesUnreadSummary = '$messages/unread-summary';
+  static const String messagesUnreadPerConversation =
+      '$messages/unread-per-conversation';
+  static String messagesConversationUnreadCount(String conversationCode) =>
+      '$messages/conversation/$conversationCode/unread-count';
   // static String studentnewsLatter = 'api/v1/newsletters/student/';
   static String studentNewslettersByStudentCode(String studentCode) =>
       '/api/v1/newsletters/student/${Uri.encodeComponent(studentCode.trim())}';
@@ -723,4 +909,105 @@ class ApiPaths {
   /// GET /api/v1/newsletters/{code}
   static String newsletterByCode(String code) =>
       '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
+
+  // —— Notification service (FCM + delivery logs) ——
+  static const String notificationFcmRegister =
+      '/api/v1/notification/fcm/register';
+  static String notificationFcmToken(String fcmToken) =>
+      '/api/v1/notification/fcm/token/${Uri.encodeComponent(fcmToken.trim())}';
+  static String notificationFcmUser(String userCode) =>
+      '/api/v1/notification/fcm/user/${Uri.encodeComponent(userCode.trim())}';
+  static const String notificationLogs = '/api/v1/notification/logs';
+  static String notificationLogRead(String code) =>
+      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/read';
+  static String notificationLogClick(String code) =>
+      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/click';
+  static const String notificationLogsReadAll =
+      '/api/v1/notification/logs/read-all';
+
+  /// GET/PATCH user notification preferences (in-app / push / email per
+  /// notification definition). Notification MS.
+  static const String notificationPreferences =
+      '/api/v1/notification/preferences';
+
+  // —— Billing MS ——
+  static const String billingStatements = '/api/v1/billing/statements';
+  static String billingStatementDownload(String code) =>
+      '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';
+  static const String discounts = '/api/v1/discount';
+  static const String subsidies = '/api/v1/subsidy';
+  static const String feeStructures = '/api/v1/fee-structure';
+  static const String otherFees = '/api/v1/other-fees';
+  static const String invoices = '/api/v1/invoices';
+  static const String invoicesOverview = '/api/v1/invoices/overview';
+  static const String invoicesAnalytics = '/api/v1/invoices/analytics';
+  static const String invoicesTransactions = '/api/v1/invoices/transactions';
+  static const String invoicesFamilySummary = '/api/v1/invoices/family-summary';
+  static const String invoicesFamilyLedger = '/api/v1/invoices/family-ledger';
+  static const String invoicesFamilyLedgerByGuardian =
+      '/api/v1/invoices/family-ledger/by-guardian';
+  static const String invoicePayments = '/api/v1/invoices/payments';
+  static const String invoiceRefunds = '/api/v1/invoices/refunds';
+  static const String invoiceCredits = '/api/v1/invoices/credits';
+
+  /// Paginated invoice list for an organization. Note: same URL shape as
+  /// [invoiceByCode] but a GET that returns a page — keep them distinct.
+  static String invoicesByOrganization(String organizationCode) =>
+      '/api/v1/invoices/${Uri.encodeComponent(organizationCode.trim())}';
+  static String invoiceByCode(String code) =>
+      '/api/v1/invoices/${Uri.encodeComponent(code.trim())}';
+
+  /// Full invoice detail (incl. line items) for the edit form.
+  static String invoiceDetailByCode(String code) =>
+      '/api/v1/invoices/by-code/${Uri.encodeComponent(code.trim())}';
+  static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';
+  static String invoiceIssue(String code) => '${invoiceByCode(code)}/issue';
+  static String invoiceResend(String code) => '${invoiceByCode(code)}/resend';
+  static String discountByCode(String code) =>
+      '/api/v1/discount/${Uri.encodeComponent(code.trim())}';
+  static String discountDeactivate(String code) =>
+      '/api/v1/discount/${Uri.encodeComponent(code.trim())}/deactivate';
+  static String discountReactivate(String code) =>
+      '/api/v1/discount/${Uri.encodeComponent(code.trim())}/reactivate';
+
+  static const String ledgers = '/api/v1/ledgers';
+  static String ledgerByCode(String code) =>
+      '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}';
+  static String ledgerDeactivate(String code) =>
+      '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}/deactivate';
+  static String ledgerReactivate(String code) =>
+      '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}/reactivate';
+
+  static String ledgerEntries(String code) =>
+      '/api/v1/ledgers/${Uri.encodeComponent(code.trim())}/entries';
+
+  // —— Ledger Transactions (Billing MS) ——
+  static const String ledgerTransactions = '/api/v1/ledger-transactions';
+
+  // —— Auto Pay / Forte payment methods (Billing MS) ——
+  /// School-level Forte config (returns `apiLoginId`).
+  static const String schoolForteConfigs = '/api/v1/school-forte-configs';
+
+  /// Whether auto-pay is enabled for a guardian.
+  static const String autopayStatus =
+      '/api/v1/payment-gateway/autopay/status';
+
+  /// List/create saved payment methods (up to 4 per guardian).
+  static const String paymentGatewayMethods =
+      '/api/v1/payment-gateway/payment-methods';
+
+  /// A single saved payment method (used for DELETE).
+  static String paymentGatewayMethodByCode(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}';
+
+  /// Mark a saved payment method as primary (the default payment method).
+  static String paymentGatewayMethodPrimary(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}/primary';
+
+  /// Mark a saved payment method as the auto-pay method.
+  static String paymentGatewayMethodAutopay(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}/autopay';
 }

@@ -5,6 +5,7 @@ import '../../core/theme/av2_text_styles.dart';
 import '../../core/utils/av2_date_formatter.dart';
 import '../../core/utils/av2_duration_formatter.dart';
 import '../../domain/entities/attendance_day.dart';
+import '../../domain/entities/attendance_session.dart';
 import '../../domain/entities/day_detail.dart';
 import '../controllers/day_detail_loader.dart';
 import 'av2_break_row.dart';
@@ -25,7 +26,7 @@ class Av2AttendedDayCard extends StatefulWidget {
   final AttendanceDay day;
   final DayDetailLoader loadDetail;
   final bool initiallyExpanded;
-  final ValueChanged<String>? onSessionAction;
+  final ValueChanged<AttendanceSession>? onSessionAction;
 
   @override
   State<Av2AttendedDayCard> createState() => _Av2AttendedDayCardState();
@@ -168,7 +169,7 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
               showDivider: false,
               onAction: widget.onSessionAction == null
                   ? null
-                  : () => widget.onSessionAction!(sessions[i].recordCode),
+                  : () => widget.onSessionAction!(sessions[i]),
             ),
             if (i < sessions.length - 1 && sessions[i].signOutAt != null)
               ...(() {

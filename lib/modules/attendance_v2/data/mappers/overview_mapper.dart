@@ -17,6 +17,7 @@ class OverviewMapper {
   }) {
     final data = _map(body?['data']);
     final staff = _map(data['staff']);
+    final period = _map(data['period']);
     final summary = _map(data['summary']);
     final daysJson = (data['days'] as List?) ?? const [];
 
@@ -40,6 +41,7 @@ class OverviewMapper {
       rangeEnd: rangeEnd,
       aggregation: _aggregation(summary, days),
       days: days,
+      timeZone: (period['timeZone'] as String?)?.trim() ?? '',
     );
   }
 

@@ -13,6 +13,7 @@ class ClassroomSelectionWidgetExact extends StatefulWidget {
   final String? primaryClassroomError;
   final String? allowedClassroomsError;
   final bool showPrimaryClassroom;
+
   /// When false, shows greyish disabled state; values remain visible but not editable.
   final bool isEnabled;
 
@@ -31,10 +32,12 @@ class ClassroomSelectionWidgetExact extends StatefulWidget {
   });
 
   @override
-  State<ClassroomSelectionWidgetExact> createState() => _ClassroomSelectionWidgetExactState();
+  State<ClassroomSelectionWidgetExact> createState() =>
+      _ClassroomSelectionWidgetExactState();
 }
 
-class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidgetExact> {
+class _ClassroomSelectionWidgetExactState
+    extends State<ClassroomSelectionWidgetExact> {
   bool _isPrimaryDropdownOpen = false;
   bool _isAllowedDropdownOpen = false;
   OverlayEntry? _primaryOverlayEntry;
@@ -46,8 +49,11 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
   Color _getClassroomColor(String classroom) {
     // Use profile avatar colors for chips with transparency
     final hash = classroom.hashCode;
-    final baseColor = AppColors.profileAvatarColors[hash.abs() % AppColors.profileAvatarColors.length];
-    return baseColor.withOpacity(0.2); // Make it lighter for chip background
+    final baseColor = AppColors
+        .profileAvatarColors[hash.abs() % AppColors.profileAvatarColors.length];
+    return baseColor.withValues(
+      alpha: 0.2,
+    ); // Make it lighter for chip background
   }
 
   @override
@@ -92,7 +98,8 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
   }
 
   OverlayEntry _createPrimaryOverlayEntry() {
-    final RenderBox renderBox = _primaryDropdownKey.currentContext!.findRenderObject() as RenderBox;
+    final RenderBox renderBox =
+        _primaryDropdownKey.currentContext!.findRenderObject() as RenderBox;
     final size = renderBox.size;
     final offset = renderBox.localToGlobal(Offset.zero);
 
@@ -116,7 +123,7 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
               itemBuilder: (context, index) {
                 final classroom = widget.availableClassrooms[index];
                 final isSelected = widget.primaryClassroom == classroom;
-                
+
                 return InkWell(
                   onTap: () {
                     widget.onPrimaryClassroomChanged(classroom);
@@ -126,7 +133,9 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                     height: 56,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: isSelected ? const Color(0x1A573353) : Colors.white,
+                      color: isSelected
+                          ? const Color(0x1A573353)
+                          : Colors.white,
                     ),
                     child: Row(
                       children: [
@@ -159,7 +168,12 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
     );
   }
 
-  void _showAllowedDropdown(BuildContext context, Offset position, double fieldWidth, double fieldHeight) {
+  void _showAllowedDropdown(
+    BuildContext context,
+    Offset position,
+    double fieldWidth,
+    double fieldHeight,
+  ) {
     if (_allowedOverlayEntry != null) {
       _allowedOverlayEntry!.remove();
       _allowedOverlayEntry = null;
@@ -172,8 +186,13 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
     List<String> localAllowedClassrooms = List.from(widget.allowedClassrooms);
 
     // Calculate the height of the dropdown based on the number of items
-    double dropdownHeight = filteredClassrooms.length * 56.0 + 48.0; // 56 for each item + 48 for search bar
-    dropdownHeight = dropdownHeight.clamp(0, MediaQuery.of(context).size.height * 0.3); // Limit to 30% of screen height
+    double dropdownHeight =
+        filteredClassrooms.length * 56.0 +
+        48.0; // 56 for each item + 48 for search bar
+    dropdownHeight = dropdownHeight.clamp(
+      0,
+      MediaQuery.of(context).size.height * 0.3,
+    ); // Limit to 30% of screen height
 
     _allowedOverlayEntry = OverlayEntry(
       builder: (context) {
@@ -222,13 +241,21 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                   elevation: 4,
                   borderRadius: BorderRadius.circular(8),
                   child: StatefulBuilder(
-                  builder: (BuildContext context, StateSetter setOverlayState) {
-                    filteredClassrooms = widget.availableClassrooms
-                        .where((c) => c.toLowerCase().contains(searchQuery.toLowerCase()))
-                        .toList();
+                    builder: (BuildContext context, StateSetter setOverlayState) {
+                      filteredClassrooms = widget.availableClassrooms
+                          .where(
+                            (c) => c.toLowerCase().contains(
+                              searchQuery.toLowerCase(),
+                            ),
+                          )
+                          .toList();
                       // Recalculate height based on filtered items
-                      double updatedHeight = filteredClassrooms.length * 56.0 + 48.0;
-                      updatedHeight = updatedHeight.clamp(0, MediaQuery.of(context).size.height * 0.3);
+                      double updatedHeight =
+                          filteredClassrooms.length * 56.0 + 48.0;
+                      updatedHeight = updatedHeight.clamp(
+                        0,
+                        MediaQuery.of(context).size.height * 0.3,
+                      );
 
                       return Container(
                         height: updatedHeight,
@@ -240,12 +267,18 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                                vertical: 8.0,
+                              ),
                               child: TextField(
                                 decoration: const InputDecoration(
                                   hintText: "Search...",
                                   border: InputBorder.none,
-                                  prefixIcon: Icon(Icons.search, color: Color(0xff573353)),
+                                  prefixIcon: Icon(
+                                    Icons.search,
+                                    color: Color(0xff573353),
+                                  ),
                                 ),
                                 onChanged: (value) {
                                   setOverlayState(() {
@@ -264,49 +297,74 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                                     child: SingleChildScrollView(
                                       controller: scrollController,
                                       child: Column(
-                                    children: filteredClassrooms.map((classroom) {
-                                      final isChecked = localAllowedClassrooms.contains(classroom);
-                                      return InkWell(
-                                        onTap: () {
-                                          setOverlayState(() {
-                                            if (isChecked) {
-                                              localAllowedClassrooms.remove(classroom);
-                                              widget.onAllowedClassroomsChanged(List.from(localAllowedClassrooms));
-                                            } else {
-                                              localAllowedClassrooms.add(classroom);
-                                              widget.onAllowedClassroomsChanged(List.from(localAllowedClassrooms));
-                                            }
-                                          });
-                                        },
-                                        child: Container(
-                                          height: 56,
-                                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                                          decoration: const BoxDecoration(
-                                            color: Colors.white,
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              GradientCheckbox(
-                                                value: isChecked,
-                                                onChanged: null,
-                                              ),
-                                              const SizedBox(width: 16),
-                                              Expanded(
-                                                child: Text(
-                                                  classroom,
-                                                  style: const TextStyle(
-                                                    fontFamily: "Manrope",
-                                                    fontSize: 14,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: Color(0xff573353),
+                                        children: filteredClassrooms.map((
+                                          classroom,
+                                        ) {
+                                          final isChecked =
+                                              localAllowedClassrooms.contains(
+                                                classroom,
+                                              );
+                                          return InkWell(
+                                            onTap: () {
+                                              setOverlayState(() {
+                                                if (isChecked) {
+                                                  localAllowedClassrooms.remove(
+                                                    classroom,
+                                                  );
+                                                  widget
+                                                      .onAllowedClassroomsChanged(
+                                                        List.from(
+                                                          localAllowedClassrooms,
+                                                        ),
+                                                      );
+                                                } else {
+                                                  localAllowedClassrooms.add(
+                                                    classroom,
+                                                  );
+                                                  widget
+                                                      .onAllowedClassroomsChanged(
+                                                        List.from(
+                                                          localAllowedClassrooms,
+                                                        ),
+                                                      );
+                                                }
+                                              });
+                                            },
+                                            child: Container(
+                                              height: 56,
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16,
                                                   ),
-                                                ),
+                                              decoration: const BoxDecoration(
+                                                color: Colors.white,
                                               ),
-                                            ],
-                                          ),
-                                        ),
-                                      );
-                                    }).toList(),
+                                              child: Row(
+                                                children: [
+                                                  GradientCheckbox(
+                                                    value: isChecked,
+                                                    onChanged: null,
+                                                  ),
+                                                  const SizedBox(width: 16),
+                                                  Expanded(
+                                                    child: Text(
+                                                      classroom,
+                                                      style: const TextStyle(
+                                                        fontFamily: "Manrope",
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: Color(
+                                                          0xff573353,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          );
+                                        }).toList(),
                                       ),
                                     ),
                                   );
@@ -354,7 +412,11 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
               ),
               children: [
                 const TextSpan(text: 'Primary Classroom'),
-                if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                if (widget.isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: Colors.red),
+                  ),
               ],
             ),
           ),
@@ -370,11 +432,13 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
               ),
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: widget.primaryClassroomError != null 
-                    ? Colors.red 
-                    : const Color(0x66573353),
+                  color: widget.primaryClassroomError != null
+                      ? Colors.red
+                      : const Color(0x66573353),
                 ),
-                borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+                borderRadius: BorderRadius.circular(
+                  responsive.isTablet ? 12.0 : 8.0,
+                ),
                 color: widget.isEnabled ? Colors.white : Colors.grey.shade200,
               ),
               child: Row(
@@ -383,7 +447,9 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                     child: Text(
                       widget.primaryClassroom ?? 'Select Primary Classroom',
                       style: TextStyle(
-                        color: widget.primaryClassroom == null ? const Color(0xff573353) : Colors.black,
+                        color: widget.primaryClassroom == null
+                            ? const Color(0xff573353)
+                            : Colors.black,
                         fontSize: inputFontSize,
                         fontFamily: 'Manrope',
                         fontWeight: FontWeight.w500,
@@ -393,8 +459,8 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                   if (widget.isEnabled)
                     Icon(
                       _isPrimaryDropdownOpen
-                        ? Icons.keyboard_arrow_up_rounded
-                        : Icons.keyboard_arrow_down_rounded,
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
                       color: const Color(0xff573353),
                       size: responsive.isTablet ? 28.0 : 24.0,
                     ),
@@ -415,7 +481,7 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
           ],
           const SizedBox(height: 16),
         ],
-        
+
         // Allowed Classrooms Section - Exact UI from WowInventory
         RichText(
           text: TextSpan(
@@ -427,7 +493,10 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
             ),
             children: const [
               TextSpan(text: "Allowed Classrooms"),
-              TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: Colors.red),
+              ),
             ],
           ),
         ),
@@ -453,16 +522,23 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                     return;
                   }
 
-                  final RenderBox? box = _allowedDropdownKey.currentContext?.findRenderObject() as RenderBox?;
+                  final RenderBox? box =
+                      _allowedDropdownKey.currentContext?.findRenderObject()
+                          as RenderBox?;
                   if (box == null) {
                     return;
                   }
-                  
+
                   final Offset position = box.localToGlobal(Offset.zero);
                   final double fieldWidth = box.size.width;
                   final double fieldHeight = box.size.height;
 
-                  _showAllowedDropdown(context, position, fieldWidth, fieldHeight);
+                  _showAllowedDropdown(
+                    context,
+                    position,
+                    fieldWidth,
+                    fieldHeight,
+                  );
                 },
                 child: Container(
                   width: double.infinity,
@@ -472,12 +548,16 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                   ),
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: widget.allowedClassroomsError != null 
-                        ? Colors.red 
-                        : const Color(0x66573353),
+                      color: widget.allowedClassroomsError != null
+                          ? Colors.red
+                          : const Color(0x66573353),
                     ),
-                    borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-                    color: widget.isEnabled ? Colors.white : Colors.grey.shade200,
+                    borderRadius: BorderRadius.circular(
+                      responsive.isTablet ? 12.0 : 8.0,
+                    ),
+                    color: widget.isEnabled
+                        ? Colors.white
+                        : Colors.grey.shade200,
                   ),
                   child: Stack(
                     children: [
@@ -486,7 +566,8 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                         child: widget.allowedClassrooms.isEmpty
                             ? Padding(
                                 padding: EdgeInsets.symmetric(
-                                    vertical: responsive.isTablet ? 4.0 : 2.0),
+                                  vertical: responsive.isTablet ? 4.0 : 2.0,
+                                ),
                                 child: Text(
                                   "Select",
                                   style: TextStyle(
@@ -499,12 +580,17 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                               )
                             : Padding(
                                 padding: EdgeInsets.only(
-                                    right: responsive.isTablet ? 40.0 : 32.0),
+                                  right: responsive.isTablet ? 40.0 : 32.0,
+                                ),
                                 child: Wrap(
                                   spacing: responsive.isTablet ? 12.0 : 8.0,
                                   runSpacing: responsive.isTablet ? 12.0 : 8.0,
-                                  children: widget.allowedClassrooms.map((classroom) {
-                                    final chipColor = _getClassroomColor(classroom);
+                                  children: widget.allowedClassrooms.map((
+                                    classroom,
+                                  ) {
+                                    final chipColor = _getClassroomColor(
+                                      classroom,
+                                    );
                                     return Chip(
                                       label: Text(
                                         classroom,
@@ -523,11 +609,20 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
                                       backgroundColor: chipColor,
                                       onDeleted: widget.isEnabled
                                           ? () {
-                                              final newAllowed = List<String>.from(widget.allowedClassrooms);
+                                              final newAllowed =
+                                                  List<String>.from(
+                                                    widget.allowedClassrooms,
+                                                  );
                                               newAllowed.remove(classroom);
-                                              widget.onAllowedClassroomsChanged(newAllowed);
-                                              if (widget.primaryClassroom == classroom) {
-                                                widget.onPrimaryClassroomChanged(null);
+                                              widget.onAllowedClassroomsChanged(
+                                                newAllowed,
+                                              );
+                                              if (widget.primaryClassroom ==
+                                                  classroom) {
+                                                widget
+                                                    .onPrimaryClassroomChanged(
+                                                      null,
+                                                    );
                                               }
                                             }
                                           : null,
@@ -569,10 +664,7 @@ class _ClassroomSelectionWidgetExactState extends State<ClassroomSelectionWidget
     );
 
     if (!widget.isEnabled) {
-      content = Opacity(
-        opacity: 0.7,
-        child: AbsorbPointer(child: content),
-      );
+      content = Opacity(opacity: 0.7, child: AbsorbPointer(child: content));
     }
     return content;
   }
@@ -583,7 +675,7 @@ class GradientCheckbox extends StatelessWidget {
   final ValueChanged<bool?>? onChanged;
 
   const GradientCheckbox({Key? key, required this.value, this.onChanged})
-      : super(key: key);
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {

@@ -86,10 +86,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.disableAttendanceStatusLookup = false,
   }) : super(key: key);
 
-  static void clearProfilePhotoCache({
-    String? studentCode,
-    String? staffCode,
-  }) {
+  static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
     final student = (studentCode ?? '').trim();
     final staff = (staffCode ?? '').trim();
     if (student.isEmpty && staff.isEmpty) {
@@ -205,7 +202,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final cached = _profilePhotoUrlCache[key];
     final fetchedAt = _profilePhotoFetchedAt[key];
     if (cached == null || fetchedAt == null) return null;
-    if (DateTime.now().difference(fetchedAt) > DocumentImageWidget._profilePhotoCacheTtl) {
+    if (DateTime.now().difference(fetchedAt) >
+        DocumentImageWidget._profilePhotoCacheTtl) {
       _profilePhotoUrlCache.remove(key);
       _profilePhotoFetchedAt.remove(key);
       return null;
@@ -238,8 +236,10 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final cacheKey = mediaAssetCode.isNotEmpty
         ? 'asset:$mediaAssetCode'
         : classroomCode.isNotEmpty
-            ? 'classroom:$classroomCode'
-            : (studentCode.isNotEmpty ? 'student:$studentCode' : 'staff:$staffCode');
+        ? 'classroom:$classroomCode'
+        : (studentCode.isNotEmpty
+              ? 'student:$studentCode'
+              : 'staff:$staffCode');
     final cached = _cachedUrlIfFresh(cacheKey);
     if (cached != null && cached.isNotEmpty) {
       if (!mounted) return;
@@ -274,6 +274,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if ((resolved ?? '').trim().isNotEmpty) {
         setState(() => _resolvedImageUrl = resolved!.trim());
       }
+    } catch (_) {
+      // Photo resolution failed (e.g. network / 404). Keep the initials
+      // fallback instead of letting the error propagate unhandled.
     } finally {
       _profilePhotoInFlight.remove(cacheKey);
     }
@@ -303,18 +306,27 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return documentUrl.isEmpty ? null : documentUrl;
     }
     if (studentCode.isNotEmpty) {
-      final endpoint = ApiPaths.urlWithBase(
-        ApiPaths.studentProfile(studentCode),
-        ApiConstants.studentBaseUrl,
-      );
-      final response = await apiClient.client.get<dynamic>(endpoint);
-      final data = _extractDataMap(response.data);
-      final directUrl = _extractPhotoUrl(data);
+      String? directUrl;
+      String assetCode = '';
+      String schoolCode = '';
+      // The student profile endpoint may 404; don't throw uncaught — fall back
+      // to the asset-code lookup below.
+      try {
+        final endpoint = ApiPaths.urlWithBase(
+          ApiPaths.studentProfile(studentCode),
+          ApiConstants.studentBaseUrl,
+        );
+        final response = await apiClient.client.get<dynamic>(endpoint);
+        final data = _extractDataMap(response.data);
+        directUrl = _extractPhotoUrl(data);
+        assetCode = _extractAssetCode(data);
+        schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+      } catch (_) {
+        // Ignore and try the asset-code lookup.
+      }
       if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
-
-      String assetCode = _extractAssetCode(data);
       if (assetCode.isEmpty) {
-        final schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+        if (schoolCode.isEmpty) schoolCode = await _currentSchoolCode();
         assetCode = await _fetchStudentProfilePhotoAssetCode(
           studentCode: studentCode,
           schoolCode: schoolCode,
@@ -325,18 +337,28 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return documentUrl.isEmpty ? null : documentUrl;
     }
     if (staffCode.isNotEmpty) {
-      final endpoint = ApiPaths.urlWithBase(
-        ApiPaths.staffProfileByCodePath(staffCode),
-        ApiConstants.staffBaseUrl,
-      );
-      final response = await apiClient.client.get<dynamic>(endpoint);
-      final data = _extractDataMap(response.data);
-      final directUrl = _extractPhotoUrl(data);
+      String? directUrl;
+      String assetCode = '';
+      String schoolCode = '';
+      // The staff profile-by-code endpoint may 404 (e.g. local backends). Don't
+      // let that throw uncaught — fall back to the asset-code lookup below, the
+      // same way daily/custom views resolve the photo.
+      try {
+        final endpoint = ApiPaths.urlWithBase(
+          ApiPaths.staffProfileByCodePath(staffCode),
+          ApiConstants.staffBaseUrl,
+        );
+        final response = await apiClient.client.get<dynamic>(endpoint);
+        final data = _extractDataMap(response.data);
+        directUrl = _extractPhotoUrl(data);
+        assetCode = _extractAssetCode(data);
+        schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+      } catch (_) {
+        // Ignore and try the asset-code lookup.
+      }
       if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
-
-      String assetCode = _extractAssetCode(data);
       if (assetCode.isEmpty) {
-        final schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+        if (schoolCode.isEmpty) schoolCode = await _currentSchoolCode();
         assetCode = await _fetchStaffProfilePhotoAssetCode(
           staffCode: staffCode,
           schoolCode: schoolCode,
@@ -665,8 +687,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrlToShow =
-        (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
+    final imageUrlToShow = (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
     final hasImageUrl = imageUrlToShow.isNotEmpty;
     return GestureDetector(
       onTap: widget.onTap,
@@ -715,7 +736,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.95),
+              color: AppColors.primaryColor.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(

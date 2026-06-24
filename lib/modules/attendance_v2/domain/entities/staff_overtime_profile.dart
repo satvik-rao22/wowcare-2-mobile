@@ -45,6 +45,7 @@ class StaffOvertimeProfile {
     required this.rangeEnd,
     required this.aggregation,
     required this.days,
+    this.timeZone = '',
   });
 
   final String staffCode;
@@ -57,6 +58,10 @@ class StaffOvertimeProfile {
   final DateTime rangeEnd;
   final OvertimeAggregation aggregation;
   final List<AttendanceDay> days;
+
+  /// School IANA timezone from the overview (e.g. "America/New_York"). Used to
+  /// convert an admin's wall-clock edit to a UTC instant.
+  final String timeZone;
 
   /// Initials for the avatar, e.g. "Devi Vempati" -> "DV".
   String get initials {

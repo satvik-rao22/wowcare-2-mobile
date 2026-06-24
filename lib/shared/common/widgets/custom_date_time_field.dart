@@ -15,6 +15,7 @@ class CustomDateTimeField extends StatefulWidget {
   const CustomDateTimeField({
     this.label,
     this.hasLabel = true,
+    this.labelStyle,
     this.isTime = false,
     this.isRangePicker = false,
     this.onDateSelected,
@@ -35,6 +36,7 @@ class CustomDateTimeField extends StatefulWidget {
 
   final String? label;
   final bool hasLabel;
+  final TextStyle? labelStyle;
   final bool isRequired;
   final bool isTime;
   final bool isRangePicker;
@@ -215,11 +217,12 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
           RichText(
             text: TextSpan(
               text: widget.label!,
-              style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontSize: calHelper.headerFontSize * 0.7,
-                fontWeight: FontWeight.w400,
-              ),
+              style: widget.labelStyle ??
+                  TextStyle(
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    fontSize: calHelper.headerFontSize * 0.7,
+                    fontWeight: FontWeight.w400,
+                  ),
               children: [
                 if (widget.isRequired)
                   const TextSpan(

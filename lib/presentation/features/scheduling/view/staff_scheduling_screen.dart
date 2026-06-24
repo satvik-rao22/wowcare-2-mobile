@@ -17,7 +17,7 @@ import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_shift.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/add_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/view/edit_shift_screen.dart';
@@ -269,8 +269,12 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
 
   Future<void> _openAddShiftScreen(
     BuildContext context,
-    StaffSchedulingState state,
-  ) async {
+    StaffSchedulingState state, {
+    String? initialStaffCode,
+    String? initialClassroomCode,
+    TimeOfDay? initialShiftStart,
+    TimeOfDay? initialShiftEnd,
+  }) async {
     final classroomCubit = context.read<ClassroomCubit>();
     final schedulingStaffListCubit =
         context.read<SchedulingStaffListCubit>();
@@ -289,7 +293,11 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
           ],
           child: AddShiftScreen(
             initialDate: state.selectedDay,
-            prefillStaff: false,
+            initialClassroomCode: initialClassroomCode,
+            initialStaffCode: initialStaffCode,
+            initialShiftStart: initialShiftStart,
+            initialShiftEnd: initialShiftEnd,
+            prefillStaff: initialStaffCode != null,
           ),
         ),
       ),
@@ -297,6 +305,128 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
     if (saved == true && mounted) {
       await schedulingCubit.refresh();
     }
+  }
+
+  int _minutesOf(TimeOfDay time) => time.hour * 60 + time.minute;
+
+  TimeOfDay _timeFromMinutes(int minutes) {
+    final normalized = minutes.clamp(0, (24 * 60) - 1);
+    return TimeOfDay(hour: normalized ~/ 60, minute: normalized % 60);
+  }
+
+  String _formatTimeLabel(TimeOfDay time) {
+    final period = time.hour >= 12 ? 'PM' : 'AM';
+    final hour = time.hour % 12 == 0 ? 12 : time.hour % 12;
+    return '$hour:${time.minute.toString().padLeft(2, '0')} $period';
+  }
+
+  String? _defaultClassroomCodeForStaff(StaffMember? staff) {
+    if (staff == null) return null;
+    final primary = staff.primaryClassroomCode.trim();
+    if (primary.isNotEmpty) return primary;
+    for (final code in staff.allowedClassroomCodes) {
+      final trimmed = code.trim();
+      if (trimmed.isNotEmpty) return trimmed;
+    }
+    return null;
+  }
+
+  TimeOfDay _defaultShiftEndForSlot(
+    StaffSchedulingState state,
+    TimeOfDay start,
+  ) {
+    final endLimit = state.schoolEndTime == null
+        ? null
+        : _parseClockTime(state.schoolEndTime!);
+    final preferredEnd = _minutesOf(start) + 60;
+    final limit = endLimit == null ? preferredEnd : _minutesOf(endLimit);
+    return _timeFromMinutes(preferredEnd <= limit ? preferredEnd : limit);
+  }
+
+  Future<void> _openAddShiftForEmptySlot(
+    BuildContext context,
+    StaffSchedulingState state,
+    TimeOfDay start,
+  ) async {
+    if (state.isStaffPersonaScope) return;
+    final staffCode = state.selectedStaffCode;
+    if (staffCode == null || staffCode.isEmpty) return;
+    final end = _defaultShiftEndForSlot(state, start);
+    if (_minutesOf(end) <= _minutesOf(start)) return;
+
+    final shouldAdd = await showModalBottomSheet<bool>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Add shift',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${DateFormat('EEE, MMM d').format(state.selectedDay)} '
+                  '${_formatTimeLabel(start)} - ${_formatTimeLabel(end)}',
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.buildPrimaryGradient(),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextButton(
+                      onPressed: () => Navigator.of(sheetContext).pop(true),
+                      child: const Text(
+                        'Add Shift',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (shouldAdd != true || !context.mounted) return;
+    await _openAddShiftScreen(
+      context,
+      state,
+      initialStaffCode: staffCode,
+      initialClassroomCode: _defaultClassroomCodeForStaff(state.selectedStaff),
+      initialShiftStart: start,
+      initialShiftEnd: end,
+    );
   }
 
   List<Shift> _shiftsFromSummary(StaffShiftDaySummary summary) {
@@ -729,7 +859,10 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                     child: StaffSchedulingStaffDropdown(
                       staffNames: state.staffDropdownNames,
                       selectedStaffName: state.selectedStaffDropdownLabel,
-                      isLoading: state.isLoadingStaff,
+                      // Keep the dropdown visible during loads — the body shimmer
+                      // is the loading indicator; a circular loader here is
+                      // redundant (and hides the dropdown).
+                      isLoading: false,
                       onSelected: cubit.selectStaffByName,
                     ),
                   ),
@@ -830,6 +963,13 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                                   state,
                                   shift,
                                 ),
+                                onEmptySlotTap: state.isStaffPersonaScope
+                                    ? null
+                                    : (time) => _openAddShiftForEmptySlot(
+                                          context,
+                                          state,
+                                          time,
+                                        ),
                               ),
                           ],
                         ],

@@ -1,7 +1,11 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
@@ -23,12 +27,15 @@ class MyDayCubit extends Cubit<MyDayState> {
   MyDayCubit({
     required StaffRepository staffRepository,
     required StorageService storageService,
+    required ApiClient apiClient,
   })  : _staffRepository = staffRepository,
         _storageService = storageService,
+        _apiClient = apiClient,
         super(const MyDayState());
 
   final StaffRepository _staffRepository;
   final StorageService _storageService;
+  final ApiClient _apiClient;
 
   bool _isFetching = false;
 
@@ -76,12 +83,30 @@ class MyDayCubit extends Cubit<MyDayState> {
       return;
     }
 
-    final staffCode =
-        (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
+    // Use the canonical resolver — handles stale cache, context validation,
+    // and admin/director accounts that may not have a cached staffCode.
+    // If the resolver fails (e.g. getStaffCodeForUser API down), it clears the
+    // cached staffCode and returns ''. In that case fall back to the raw cached
+    // value so the staff profile can still be fetched for the schedule display.
+    String staffCode = await resolveStaffCodeForLoggedInUser();
+    if (staffCode.isEmpty) {
+      staffCode =
+          (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
+    }
 
     try {
-      // Fetch school schedule and staff profile in parallel.
-      // Staff profile failure is swallowed — we fall back to school schedule.
+      // Fetch school schedule and staff schedules in parallel.
+      // Staff schedule failure is swallowed — we fall back to school schedule.
+      final schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: _storageService,
+        apiClient: _apiClient,
+      );
+      final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+        DateTime.now().toUtc(),
+        schoolIana,
+      );
+      final todayKey = SchoolHoursResolver.dayOfWeekKey(schoolNow);
+
       final results = await Future.wait([
         _staffRepository
             .getSchoolRegularSchedules(schoolCode: schoolCode.trim())
@@ -89,7 +114,7 @@ class MyDayCubit extends Cubit<MyDayState> {
             .onError((_, __) => null),
         staffCode.isNotEmpty
             ? _staffRepository
-                .getStaffProfile(staffCode: staffCode)
+                .getStaffSchedules(staffCode: staffCode)
                 .then<Object?>((v) => v)
                 .onError((_, __) => null)
             : Future.value(null),
@@ -97,10 +122,10 @@ class MyDayCubit extends Cubit<MyDayState> {
 
       final days =
           results[0] as List<SchoolRegularScheduleDay>? ?? <SchoolRegularScheduleDay>[];
-      final staffProfile = results[1] as StaffProfile?;
-
-      final now = DateTime.now();
-      final todayKey = SchoolHoursResolver.dayOfWeekKey(now);
+      final staffSchedules = results[1] as ({
+        List<StaffProfileWorkSchedule> workSchedules,
+        List<StaffProfileBreakSchedule> breakSchedules,
+      })?;
 
       // School schedule for today.
       SchoolRegularScheduleDay? todayEntry;
@@ -111,23 +136,21 @@ class MyDayCubit extends Cubit<MyDayState> {
         }
       }
 
-      // Staff's personal work schedule for today (day-specific hours).
+      // Staff's personal work schedule for today from the dedicated schedule API.
       StaffProfileWorkSchedule? todayWorkSchedule;
       StaffProfileBreakSchedule? todayBreakSchedule;
-      if (staffProfile != null) {
-        for (final ws in staffProfile.workSchedules) {
-          if (ws.dayOfWeek.toUpperCase() == todayKey) {
-            // Treat an all-zero entry (unset) as absent.
-            final isSet = ws.workStartTime.hour != 0 ||
-                ws.workStartTime.minute != 0 ||
-                ws.workEndTime.hour != 0 ||
-                ws.workEndTime.minute != 0;
-            if (isSet) todayWorkSchedule = ws;
-            break;
-          }
+      if (staffSchedules != null) {
+        for (final ws in staffSchedules.workSchedules) {
+          if (!_matchesDay(ws.dayOfWeek, todayKey)) continue;
+          final isSet = ws.workStartTime.hour != 0 ||
+              ws.workStartTime.minute != 0 ||
+              ws.workEndTime.hour != 0 ||
+              ws.workEndTime.minute != 0;
+          if (isSet) todayWorkSchedule = ws;
+          break;
         }
-        for (final bs in staffProfile.breakSchedules) {
-          if (bs.dayOfWeek.toUpperCase() == todayKey) {
+        for (final bs in staffSchedules.breakSchedules) {
+          if (_matchesDay(bs.dayOfWeek, todayKey)) {
             todayBreakSchedule = bs;
             break;
           }
@@ -147,7 +170,11 @@ class MyDayCubit extends Cubit<MyDayState> {
         todaySchedule: closed ? null : todayEntry,
         todayWorkSchedule: todayWorkSchedule,
         todayBreakSchedule: todayBreakSchedule,
+        allSchoolSchedules: days,
+        allWorkSchedules: staffSchedules?.workSchedules ?? [],
+        allBreakSchedules: staffSchedules?.breakSchedules ?? [],
         schoolClosed: closed,
+        schoolTimeZone: schoolIana,
         clearTodaySchedule: closed,
         clearWorkSchedule: todayWorkSchedule == null,
         clearBreakSchedule: todayBreakSchedule == null,
@@ -159,5 +186,14 @@ class MyDayCubit extends Cubit<MyDayState> {
         errorMessage: e.toString(),
       ));
     }
+  }
+
+  /// Returns true when [dayOfWeek] (from the API — may be "TUESDAY" or "TUE")
+  /// matches [todayKey] (always a full uppercase name like "TUESDAY").
+  static bool _matchesDay(String dayOfWeek, String todayKey) {
+    final upper = dayOfWeek.trim().toUpperCase();
+    if (upper == todayKey) return true;
+    // Allow 3-letter abbreviation: "TUE" matches "TUESDAY" etc.
+    return todayKey.startsWith(upper) && upper.length == 3;
   }
 }
