@@ -217,6 +217,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
         items: items,
         invoiceDate: () => invoice.issueDate ?? state.invoiceDate,
         dueDate: () => invoice.dueDate ?? state.dueDate,
+        serviceDate: () => invoice.periodStart ?? state.serviceDate,
+        serviceDateEnd: () => invoice.periodEnd ?? state.serviceDateEnd,
         revision: state.revision + 1,
       ));
     } catch (_) {

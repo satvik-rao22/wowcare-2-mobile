@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_details_cubit.dart';
@@ -119,10 +120,20 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     } else {
       _cubit.initialize();
     }
+    // Reload this family's ledger after any billing mutation (payment / refund /
+    // credit / invoice change) triggered here or in a pushed sub-screen.
+    BillingEvents.tick.addListener(_onBillingChanged);
+  }
+
+  void _onBillingChanged() {
+    if (!mounted) return;
+    if ((widget.ownerCode?.trim() ?? '').isEmpty) return;
+    _cubit.refresh();
   }
 
   @override
   void dispose() {
+    BillingEvents.tick.removeListener(_onBillingChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _tabController.dispose();

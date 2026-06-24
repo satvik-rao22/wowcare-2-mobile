@@ -1,5 +1,4 @@
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -86,11 +85,6 @@ StudentRegularScheduleEntry? _resolveScheduleForDay(
     final endTimeSet = entry.endHour != 0 || entry.endMinute != 0;
 
     if (!startTimeSet || !endTimeSet) {
-      AppLogger.d(
-        '[MyChildsDayCard._resolveScheduleForDay] Skipping ${entry.dayOfWeek}: '
-        'start=${entry.startHour}:${entry.startMinute}, '
-        'end=${entry.endHour}:${entry.endMinute} (unset)',
-      );
       continue;
     }
 
@@ -184,17 +178,13 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       final storage = serviceLocator<StorageService>();
       final schoolCode =
           (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-      debugPrint('[MyChildsDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted');
-      if (schoolCode.isEmpty) {
-        debugPrint('[MyChildsDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.');
-        return;
-      }
+      if (schoolCode.isEmpty) return;
       if (!mounted) return;
 
       // Initialize GPS geofencing with the school code
       await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
-    } catch (e, st) {
-      debugPrint('[MyChildsDayCard] ❌ _initializeGeofencing error: $e\n$st');
+    } catch (_) {
+      // Geofencing is best-effort; ignore init failures.
     }
   }
 
@@ -256,15 +246,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     required List<StudentRegularScheduleEntry> allSchedules,
   }) {
     final todayWeekday = schoolNow.weekday; // 1 = Monday, 7 = Sunday
-    final todayDateKey = _getDayName(todayWeekday);
-
-    AppLogger.d(
-      '[MyChildsDayCard] Computing countdown: '
-      'schoolTimezone=$schoolTimeZone, '
-      'currentSchoolTime=${schoolNow.year}-${schoolNow.month.toString().padLeft(2, '0')}-${schoolNow.day.toString().padLeft(2, '0')} ${schoolNow.hour}:${schoolNow.minute}, '
-      'today=$todayDateKey, '
-      'allScheduleCount=${allSchedules.length}',
-    );
 
     // Find today's student schedule (ONLY from student schedules)
     final todaySchedule = _resolveScheduleForDay(todayWeekday, allSchedules);
@@ -289,12 +270,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         0,
       );
 
-      AppLogger.d(
-        '[MyChildsDayCard] Today ($todayDateKey) has student schedule: '
-        '${todaySchedule.startHour}:${todaySchedule.startMinute} - '
-        '${todaySchedule.endHour}:${todaySchedule.endMinute}',
-      );
-
       // If schedule hasn't started yet
       if (schoolNow.isBefore(startDt)) {
         return (
@@ -310,14 +285,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           duration: endDt.difference(schoolNow),
         );
       }
-
-      AppLogger.d(
-        '[MyChildsDayCard] Today ($todayDateKey) schedule already passed. Finding next schedule...',
-      );
-    } else {
-      AppLogger.d(
-        '[MyChildsDayCard] Today ($todayDateKey) has no student schedule. Finding next schedule...',
-      );
+      // Today's schedule already passed → fall through to the next-schedule search.
     }
 
     // ── Case 2: Find nearest upcoming schedule (ONLY from student schedules) ──
@@ -362,10 +330,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           schedule.startHour,
           schedule.startMinute,
           0,
-        );
-
-        AppLogger.d(
-          '[MyChildsDayCard] Next schedule found: ${_getDayName(futureWeekday)} ${schedule.startHour}:${schedule.startMinute}',
         );
 
         final nextDayName = _getDayName(futureWeekday);
@@ -745,14 +709,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         setState(() {
           _isReminder = !_isReminder;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isReminder
-                  ? 'Remind set successfully'
-                  : 'Remind timer has turned off successfully',
-            ),
-          ),
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: _isReminder
+              ? 'Remind set successfully'
+              : 'Remind timer has turned off successfully',
+          isSuccess: true,
         );
       },
       child: Row(
@@ -887,9 +849,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                           prev.schoolTimeZone != curr.schoolTimeZone ||
                           prev.schoolCode != curr.schoolCode,
                       listener: (context, s) {
-                        AppLogger.d(
-                          '[MyChildsDayCard] status=${s.status}, schoolCode=${s.schoolCode}',
-                        );
                         if (s.status == MyChildsDayStatus.loaded &&
                             s.schoolTimeZone.trim().isNotEmpty) {
                           _startCountdownTimer(
@@ -1039,9 +998,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                               const SizedBox(height: 16),
                               BlocBuilder<GeofenceCubit, GeofenceState>(
                                 builder: (context, geofenceState) {
-                                  AppLogger.d(
-                                    '[SignInButton-BlocBuilder] Rebuilding with state: ${geofenceState.status}',
-                                  );
                                   return Column(
                                     children: [
                                       _buildSignInOutButton(

@@ -362,6 +362,7 @@ import '../../data/features/billing/repositories/ledger_transaction_repository_i
 import '../../domain/features/billing/repositories/billing_statements_repository.dart';
 import '../../domain/features/billing/usecases/get_billing_statements_usecase.dart';
 import '../../presentation/features/billing/cubit/admin_statements_cubit.dart';
+import '../../presentation/features/billing/cubit/parent_statements_cubit.dart';
 import '../../domain/features/billing/repositories/ledger_repository.dart';
 import '../../domain/features/billing/repositories/ledger_transaction_repository.dart';
 import '../../domain/features/billing/usecases/get_ledgers_usecase.dart';
@@ -2080,7 +2081,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => InvoiceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceRepository>(
-    () => InvoiceRepositoryImpl(serviceLocator<InvoiceRemoteDataSource>()),
+    () => InvoiceRepositoryImpl(
+          serviceLocator<InvoiceRemoteDataSource>(),
+          serviceLocator<CacheManager>(),
+        ),
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
@@ -2141,6 +2145,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<AdminStatementsCubit>(
     () => AdminStatementsCubit(
+      getStatements: serviceLocator<GetBillingStatementsUseCase>(),
+      statementsRepository: serviceLocator<BillingStatementsRepository>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+    ),
+  );
+  serviceLocator.registerFactory<ParentStatementsCubit>(
+    () => ParentStatementsCubit(
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
       fileDownloadService: serviceLocator<FileDownloadService>(),

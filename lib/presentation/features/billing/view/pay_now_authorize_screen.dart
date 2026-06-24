@@ -8,7 +8,6 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/payment_settings_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
-import 'package:wowcare/presentation/features/billing/cubit/payment_settings_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 /// Pay Now — step 3: review + authorize. Charges the selected saved method via
@@ -20,6 +19,7 @@ class PayNowAuthorizeScreen extends StatefulWidget {
     required this.method,
     required this.amount,
     required this.charges,
+    required this.settings,
   });
 
   final PaymentMethodEntity method;
@@ -31,6 +31,10 @@ class PayNowAuthorizeScreen extends StatefulWidget {
   /// idempotency key minted on step 2 and reused across retries.
   final List<PayNowCharge> charges;
 
+  /// School payment settings, preloaded earlier in the Pay Now flow so the
+  /// convenience-fee row renders correctly on the first frame (no flicker).
+  final PaymentSettingsEntity settings;
+
   @override
   State<PayNowAuthorizeScreen> createState() => _PayNowAuthorizeScreenState();
 }
@@ -39,12 +43,12 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
   static const Color _accent = Color(0xFF6F8CFF);
 
   final PayNowAuthorizeCubit _cubit = serviceLocator<PayNowAuthorizeCubit>();
-  final PaymentSettingsCubit _settingsCubit =
-      serviceLocator<PaymentSettingsCubit>();
 
   bool get _authorizing => _cubit.state.isSubmitting;
 
   bool get _isEcheck => widget.method.isEcheck;
+
+  PaymentSettingsEntity get _settings => widget.settings;
 
   /// The convenience fee is only charged to (and shown to) the parent when the
   /// school's settings say the parent pays it for this method type. For ACH that
@@ -53,15 +57,8 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
       _isEcheck ? s.achFeePaidByParent : s.cardFeePaidByParent;
 
   @override
-  void initState() {
-    super.initState();
-    _settingsCubit.load();
-  }
-
-  @override
   void dispose() {
     _cubit.close();
-    _settingsCubit.close();
     super.dispose();
   }
 
@@ -92,17 +89,10 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider<PayNowAuthorizeCubit>.value(value: _cubit),
-        BlocProvider<PaymentSettingsCubit>.value(value: _settingsCubit),
-      ],
-      child: BlocBuilder<PaymentSettingsCubit, PaymentSettingsState>(
-        builder: (context, settingsState) =>
-            BlocBuilder<PayNowAuthorizeCubit, PayNowAuthorizeState>(
-          builder: (context, _) =>
-              _buildContent(context, settingsState.settings),
-        ),
+    return BlocProvider<PayNowAuthorizeCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<PayNowAuthorizeCubit, PayNowAuthorizeState>(
+        builder: (context, _) => _buildContent(context, _settings),
       ),
     );
   }
@@ -379,14 +369,17 @@ class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
       final bool initiated = result != null &&
           (result.status.toUpperCase() == 'INITIATED' ||
               result.status.toUpperCase() == 'PENDING');
-      final double total = _totalFor(_settingsCubit.state.settings);
+      final double total = _totalFor(_settings);
       CoreUtils.showTopSnackBar(
         context: context,
         message:
             'Payment of \$${_money(total)} ${initiated ? 'initiated' : 'confirmed'}',
         isSuccess: true,
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      // Return `true` so the amount screen (and then the billing screen) can
+      // reload the family ledger — the new payment shows as In Process and
+      // later flips to Success/Failed once settled.
+      Navigator.of(context).pop(true);
     } else {
       CoreUtils.showTopSnackBar(
         context: context,

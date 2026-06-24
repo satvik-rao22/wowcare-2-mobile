@@ -42,6 +42,19 @@ class PayNowState extends Equatable {
   double get customTotal =>
       customAmounts.values.fold<double>(0, (sum, v) => sum + v);
 
+  /// Per-child allocations for the charge — only the children the parent
+  /// entered a positive amount against. Empty unless in [PayNowAmountMode.custom],
+  /// so "Current Outstanding" pays family-wide (oldest invoice first).
+  List<PaymentAllocationEntity> get allocations {
+    if (mode != PayNowAmountMode.custom) return const [];
+    final entries = customAmounts.entries
+        .where((e) => e.value > 0)
+        .map((e) =>
+            PaymentAllocationEntity(studentCode: e.key, amount: e.value))
+        .toList();
+    return entries;
+  }
+
   /// The amount that will actually be charged based on the selected mode.
   double get amount =>
       mode == PayNowAmountMode.custom ? customTotal : currentAmount;

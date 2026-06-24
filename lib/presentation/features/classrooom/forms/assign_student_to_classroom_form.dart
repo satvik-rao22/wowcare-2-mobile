@@ -17,6 +17,7 @@ import 'package:wowcare/domain/features/student/usecases/get_student_page_usecas
 import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 
 // UI-only lightweight types
@@ -409,7 +410,7 @@ class _AssignStudentToClassroomFormState
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          mainAxisExtent: 52,
+                          mainAxisExtent: 72,
                         ),
                     itemCount: _getVisibleStudents().length,
                     itemBuilder: (context, index) {
@@ -550,7 +551,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                   crossAxisCount: 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  mainAxisExtent: 52,
+                  mainAxisExtent: 72,
                 ),
                 itemCount: currentSelectedStudents.length,
                 itemBuilder: (context, index) {
@@ -576,9 +577,12 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                         ),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: Text(
-                            student.fullName,
-                            overflow: TextOverflow.ellipsis,
+                          child: EllipsisTooltipText(
+                            text: student.fullName.trim().isEmpty
+                                ? 'Student'
+                                : student.fullName.trim(),
+                            maxLines: 2,
+                            preferLongPress: true,
                             style: const TextStyle(
                               fontFamily: 'Manrope',
                               color: AppColors.primaryColor,
@@ -720,9 +724,12 @@ class StudentListItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  student.fullName,
-                  overflow: TextOverflow.ellipsis,
+                child: EllipsisTooltipText(
+                  text: student.fullName.trim().isEmpty
+                      ? 'Student'
+                      : student.fullName.trim(),
+                  maxLines: 2,
+                  preferLongPress: true,
                   style: const TextStyle(
                     fontFamily: 'Manrope',
                     color: AppColors.primaryColor,

@@ -29,6 +29,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
@@ -394,9 +395,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         return DateFormat('hh:mm a').format(dt);
       }
 
-      final iso = DateTime.tryParse(s);
-      if (iso != null) {
-        return DateFormat('hh:mm a').format(iso.toLocal());
+      // Render ISO instants in the school's zone (not the device zone) so
+      // sign-in/out times match the backend regardless of where the user is.
+      final schoolDt = attendanceDisplayDateTimeFromIso(s);
+      if (schoolDt != null) {
+        return DateFormat('hh:mm a').format(schoolDt);
       }
 
       final amPmMatch = RegExp(
