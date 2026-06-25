@@ -40,7 +40,6 @@ class _SignInFormState extends State<SignInForm> {
             usePrimaryGradientText: true,
             textFontSize: 16,
             textFontWeight: FontWeight.w400,
-            onChanged: (_) => setState(() {}),
             suffixIcon: const Icon(
               IconlyBroken.message,
               color: AppColors.primaryColor,
@@ -68,7 +67,6 @@ class _SignInFormState extends State<SignInForm> {
             usePrimaryGradientText: true,
             textFontSize: 16,
             textFontWeight: FontWeight.w400,
-            onChanged: (_) => setState(() {}),
             suffixIcon: IconButton(
               color: Colors.black,
               onPressed: () => setState(() {

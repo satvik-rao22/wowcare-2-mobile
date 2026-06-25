@@ -136,41 +136,6 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppText.label('Reason'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _reasonController,
-              decoration: InputDecoration(
-                hintText: 'Enter absence reason',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: const Color.fromRGBO(87, 51, 83, 0.5),
-                  fontSize: 15,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: AppColors.cardColor,
-              ),
-            ),
-            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(

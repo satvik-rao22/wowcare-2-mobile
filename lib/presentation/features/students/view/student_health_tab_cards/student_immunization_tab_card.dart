@@ -9,6 +9,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_immunization.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -624,12 +625,23 @@ class _DoseRow extends StatelessWidget {
     return const Color(0xFFF3F4FB);
   }
 
-  String _doseDateText(StudentImmunization model) {
-    if ((model.administeredDate ?? '').isNotEmpty) {
-      return model.administeredDate!;
+  DateTime? _parseIsoDate(String? iso) {
+    if (iso == null || iso.trim().isEmpty) return null;
+    try {
+      return DateTime.parse(iso.trim());
+    } catch (_) {
+      return null;
     }
-    if ((model.dueDate ?? '').isNotEmpty) {
-      return model.dueDate!;
+  }
+
+  String _doseDateText(StudentImmunization model) {
+    final administered = _parseIsoDate(model.administeredDate);
+    if (administered != null) {
+      return DateUtilsNew.formatToReadableDate(administered);
+    }
+    final due = _parseIsoDate(model.dueDate);
+    if (due != null) {
+      return DateUtilsNew.formatToReadableDate(due);
     }
     return '-';
   }

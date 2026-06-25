@@ -146,11 +146,11 @@ class _AttendanceField extends StatelessWidget {
         );
       case ProfileAbsentMarkMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
-          child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
-            width: size,
-            height: size,
+          message: 'Kiosk',
+          child: Icon(
+            Icons.point_of_sale_outlined,
+            size: size,
+            color: AppColors.themeColor,
           ),
         );
       case ProfileAbsentMarkMethod.app:

@@ -24,6 +24,9 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -97,6 +100,12 @@ class _EditStudentProfileDetailsScreenState
   String? _selectedState;
   String? _selectedCountry;
   bool _isSubmitting = false;
+
+  // Today's sign-in status — drives disabling the Classroom dropdown while
+  // the student is currently signed in. Fails closed (disabled) on error or
+  // while loading, matching the convention in student_attendance_profile.dart.
+  bool _isTodayStatusLoading = true;
+  bool _isSignedInToday = false;
 
   // API-backed options and mappings
   List<String> _availableTagNames = [];
@@ -209,6 +218,40 @@ class _EditStudentProfileDetailsScreenState
     _loadTags();
     _loadStudentsForSiblings();
     _loadGuardiansForCustody();
+    _loadTodayStatus();
+  }
+
+  /// Mirrors student_attendance_profile.dart's `_loadTodayStatus()` — reuses
+  /// the same use case so "currently signed in" is determined identically
+  /// everywhere in the app.
+  Future<void> _loadTodayStatus() async {
+    final code = widget.studentCode.trim();
+    if (code.isEmpty) {
+      if (!mounted) return;
+      setState(() => _isTodayStatusLoading = false);
+      return;
+    }
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusUseCase>();
+      final status = await useCase(studentCode: code);
+      if (!mounted) return;
+      final gate = studentAttendanceGateFromTodayStatus(
+        isActiveProfile: true,
+        todayStatusRaw: status,
+      );
+      setState(() {
+        _isSignedInToday = gate.isSignedInToday;
+        _isTodayStatusLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Fail closed: keep the Classroom field disabled if the status can't
+      // be determined, same convention as student_attendance_profile.dart.
+      setState(() {
+        _isSignedInToday = true;
+        _isTodayStatusLoading = false;
+      });
+    }
   }
 
   Future<void> _loadTags() async {
@@ -862,6 +905,36 @@ class _EditStudentProfileDetailsScreenState
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
+                        // Same green/red "signed in today" indicator used in
+                        // the Student Attendance module — gives a visible
+                        // reason alongside the disabled Classroom field.
+                        Row(
+                          children: [
+                            DocumentImageWidget(
+                              fileUuid: '',
+                              studentCode: widget.studentCode,
+                              name:
+                                  '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}',
+                              size: 40,
+                              fontSize: 14,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
+                                    .trim(),
+                                style: const TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xff573353),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
                         Row(
                           children: [
                             Expanded(
@@ -908,6 +981,11 @@ class _EditStudentProfileDetailsScreenState
                           selectedClassroomName,
                           (v) => setState(() => _selectedClassroom = v),
                           isRequired: true,
+                          isEnabled:
+                              !_isTodayStatusLoading && !_isSignedInToday,
+                          disabledTooltip: _isTodayStatusLoading
+                              ? null
+                              : "Classroom can't be changed while the student is signed in.",
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
@@ -1160,15 +1238,18 @@ class _EditStudentProfileDetailsScreenState
     String? selectedItem,
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
+    bool isEnabled = true,
+    String? disabledTooltip,
   }) {
     final responsive = ResponsiveHelper(context);
-    return CustomDropdown(
+    final dropdown = CustomDropdown(
       label: label,
       hintText: hintText,
       items: items,
       selectedItem: selectedItem,
       onSelect: onSelect,
       showAsterisk: isRequired,
+      isEnabled: isEnabled,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
         fontFamily: "Manrope",
@@ -1195,6 +1276,11 @@ class _EditStudentProfileDetailsScreenState
         vertical: responsive.isTablet ? 16.0 : 12.0,
       ),
     );
+
+    if (!isEnabled && disabledTooltip != null) {
+      return Tooltip(message: disabledTooltip, child: dropdown);
+    }
+    return dropdown;
   }
 
   Widget _buildDateField(String label, DateTime? selectedDate) {

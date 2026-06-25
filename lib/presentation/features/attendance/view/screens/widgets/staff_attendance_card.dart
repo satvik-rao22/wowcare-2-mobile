@@ -396,11 +396,11 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         );
       case SignMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
-          child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
-            width: size,
-            height: size,
+          message: 'Kiosk',
+          child: Icon(
+            Icons.point_of_sale_outlined,
+            size: size,
+            color: AppColors.themeColor,
           ),
         );
       case SignMethod.direct:

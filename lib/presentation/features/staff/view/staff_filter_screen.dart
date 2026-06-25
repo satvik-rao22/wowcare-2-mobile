@@ -82,7 +82,6 @@ class StaffFilterScreen extends StatefulWidget {
       StaffFilterSection.allowedClassroom,
       StaffFilterSection.status,
       StaffFilterSection.designation,
-      StaffFilterSection.sortBy,
       StaffFilterSection.attendanceStatus,
     ],
     super.key,
