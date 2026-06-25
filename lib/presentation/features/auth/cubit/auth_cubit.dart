@@ -199,6 +199,15 @@ class AuthCubit extends Cubit<AuthState> {
         emit(AuthError(message));
       },
       (response) async {
+        // SUPERADMIN SHORT-CIRCUIT: this role is web-portal only. Block before
+        // anything is cached or persisted so no mobile session is established.
+        if (loginResponseIsSuperAdmin(response.roles)) {
+          emit(const AuthError(
+            'Super Admin accounts can only be accessed through the web portal.',
+          ));
+          return;
+        }
+
         // KIOSK SHORT-CIRCUIT: check role BEFORE any further processing.
         // This prevents all unnecessary APIs (context, staff lookup, profile, PIN) for kiosk users.
         if (loginResponseIsKioskUser(response.roles)) {
@@ -908,10 +917,18 @@ class AuthCubit extends Cubit<AuthState> {
 
       final staffRepository = serviceLocator<StaffRepository>();
       if (trimmed.isEmpty) {
+        // Org admins are mapped org-level: the /staff/code lookup expects '-'
+        // and 404s on a real school code. The persisted staffCodeSchool below
+        // still keeps the real selected school for cache keying.
+        final staffLookupSchoolCode = staffCodeLookupSchoolCode(
+          rolesJson: rolesJson,
+          organizationCode: org,
+          schoolCode: school,
+        );
         final resolved = await staffRepository.getStaffCodeForUser(
           userCode: login.userCode,
           organizationCode: org,
-          schoolCode: school,
+          schoolCode: staffLookupSchoolCode,
         );
         trimmed = (resolved ?? '').trim();
         if (trimmed.isEmpty) {

@@ -166,6 +166,21 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     return value;
   }
 
+  /// FTE for display: the API value (0–1 fraction) multiplied by 100 (front end
+  /// only) and shown as a percentage, with a trailing `.0` dropped.
+  /// Null/blank/non-numeric → '-'.
+  String _fteDisplay() {
+    final raw = (widget.studentProfile?.fte ?? '').trim();
+    if (raw.isEmpty) return '-';
+    final value = double.tryParse(raw);
+    if (value == null) return '-';
+    final scaled = value * 100;
+    final number = scaled == scaled.roundToDouble()
+        ? scaled.toStringAsFixed(0)
+        : scaled.toString();
+    return '$number%';
+  }
+
   String? _prettyGender(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
     switch (raw.trim().toUpperCase()) {
@@ -412,7 +427,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 initialClassroom: profile.classroom ?? '',
                 initialBirthDate: birthDate,
                 initialNotes: profile.notes ?? '',
-                initialFTE: profile.fte ?? '',
                 initialStreet: street,
                 initialCity: city,
                 initialState: state,
@@ -522,6 +536,11 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           value: widget.studentProfile != null
               ? (widget.studentProfile!.subsidy ? 'Yes' : 'No')
               : '-',
+        ),
+
+        ProfileField(
+          label: 'Full Time Equivalent (FTE)',
+          value: _fteDisplay(),
         ),
 
         Builder(

@@ -108,11 +108,15 @@ Future<String> resolveStaffCodeForLoggedInUser({
   }
 
   // Candidates:
+  // - org admin: mapped org-level, so the backend expects '-' and 404s on a
+  //   real school code. Send '-' only.
   // - normal: use stored schoolCode
-  // - org admin: optionally also try '-'
   final candidates = <String>{};
-  if (schoolCode.isNotEmpty) candidates.add(schoolCode);
-  if (allowOrganizationLevelFallback && isOrgAdmin) candidates.add('-');
+  if (isOrgAdmin) {
+    candidates.add('-');
+  } else if (schoolCode.isNotEmpty) {
+    candidates.add(schoolCode);
+  }
   if (candidates.isEmpty && allowOrganizationLevelFallback) {
     candidates.add('-'); // last-resort fallback
   }

@@ -38,7 +38,6 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
     this.initialClassroom,
     this.initialBirthDate,
     this.initialNotes,
-    this.initialFTE,
     this.initialStreet,
     this.initialCity,
     this.initialState,
@@ -59,7 +58,6 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
   final String? initialNotes;
   final String? initialClassroom;
   final DateTime? initialBirthDate;
-  final String? initialFTE;
   final String? initialStreet;
   final String? initialCity;
   final String? initialState;
@@ -84,7 +82,6 @@ class _EditStudentProfileDetailsScreenState
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _FTEController = TextEditingController();
   final TextEditingController _streetController = TextEditingController();
   final TextEditingController _street2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
@@ -133,7 +130,6 @@ class _EditStudentProfileDetailsScreenState
   // Simple validators (align with Add Staff)
   // First character A-Z, then up to 49 letters/space/hyphen/apostrophe.
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
-  static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
   static final RegExp _zipDigitsRegex = RegExp(
     r'^\d{5}(\d{4})?$',
   ); // 5 or 9 digits (ZIP / ZIP+4)
@@ -180,7 +176,6 @@ class _EditStudentProfileDetailsScreenState
     _firstNameController.text = widget.initialFirstName ?? '';
     _lastNameController.text = widget.initialLastName ?? '';
     _notesController.text = widget.initialNotes ?? '';
-    _FTEController.text = widget.initialFTE ?? '';
     _selectedStatus = widget.initialStatus;
     _selectedStateSubsidyOption = widget.initialSubsidy ? 'Yes' : 'No';
     _selectedClassroom = widget.initialClassroom;
@@ -420,7 +415,6 @@ class _EditStudentProfileDetailsScreenState
     _firstNameController.dispose();
     _lastNameController.dispose();
     _notesController.dispose();
-    _FTEController.dispose();
     _street2Controller.dispose();
     _streetController.dispose();
     _cityController.dispose();
@@ -431,7 +425,6 @@ class _EditStudentProfileDetailsScreenState
   Future<void> _saveProfileDetails() async {
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
-    final fte = _FTEController.text.trim();
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -512,15 +505,6 @@ class _EditStudentProfileDetailsScreenState
       );
       return;
     }
-    if (fte.isNotEmpty && !_fteRegex.hasMatch(fte)) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'FTE must be a number between 0 and 100.',
-        isError: true,
-      );
-      return;
-    }
-
     final street = _streetController.text.trim();
     final city = _cityController.text.trim();
     final zipDigits = _digitsOnly(_zipCodeController.text);
@@ -653,12 +637,6 @@ class _EditStudentProfileDetailsScreenState
       // Map subsidy
       final subsidy = _selectedStateSubsidyOption == 'Yes';
 
-      // Map FTE to number
-      int? fteNumber;
-      if (fte.isNotEmpty) {
-        fteNumber = int.tryParse(fte);
-      }
-
       final repository = serviceLocator<StudentRepository>();
 
       // 1) Core profile PATCH /api/v1/student/{code}/profile
@@ -670,7 +648,6 @@ class _EditStudentProfileDetailsScreenState
         'status': statusApi,
         if (dobFormatted != null) 'dob': dobFormatted,
         'notes': _notesController.text.trim(),
-        if (fteNumber != null) 'fte': fteNumber,
         'subsidy': subsidy,
         if (genderApi != null) 'gender': genderApi.toUpperCase(),
         'classroom': <String, dynamic>{

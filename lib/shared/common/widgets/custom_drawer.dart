@@ -36,6 +36,7 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/activity_feed_invalidation.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
@@ -382,6 +383,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
       _selectedSchoolName = schoolName;
       _isSchoolDropdownOpen = false;
     });
+
+    // Tell every kept-alive branch screen (Dashboard, Classroom, Activity,
+    // Messaging, Billing) to reload fresh for the new school. Only when the
+    // school actually changed — re-selecting the same school is a no-op.
+    if (isSchoolChanged) {
+      SchoolSwitchEvents.notifySwitched();
+    }
 
     // Close drawer and send user to Dashboard for the newly selected school.
     if (!mounted) return;
