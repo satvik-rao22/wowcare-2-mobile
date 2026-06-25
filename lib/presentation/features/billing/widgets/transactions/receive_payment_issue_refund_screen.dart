@@ -35,6 +35,11 @@ class ReceivePaymentIssueRefundScreen extends StatefulWidget {
 
 class _ReceivePaymentIssueRefundScreenState
     extends State<ReceivePaymentIssueRefundScreen> {
+  /// Note character limits (PRD §2): a Receive Payment note can be up to 250
+  /// chars; staff ("Admin Only") notes and refund notes stay 150.
+  static const int _paymentNoteMaxLength = 250;
+  static const int _staffNoteMaxLength = 150;
+
   late final ReceivePaymentRefundCubit _cubit =
       serviceLocator<ReceivePaymentRefundCubit>();
   late final TextEditingController _amountController;
@@ -272,6 +277,7 @@ class _ReceivePaymentIssueRefundScreenState
     required String hint,
     int minLines = 1,
     int maxLines = 1,
+    int? maxLength,
     TextInputType? keyboardType,
     ValueChanged<String>? onChanged,
   }) {
@@ -282,6 +288,10 @@ class _ReceivePaymentIssueRefundScreenState
         keyboardType: keyboardType,
         minLines: minLines,
         maxLines: maxLines,
+        maxLength: maxLength,
+        // Hide the character counter so enforcing a limit doesn't change the
+        // field's footprint; the cap is still enforced on input.
+        buildCounter: (_, {required currentLength, maxLength, required isFocused}) => null,
         onChanged: onChanged,
         style: TextStyle(
           fontFamily: 'Manrope',
@@ -343,6 +353,10 @@ class _ReceivePaymentIssueRefundScreenState
                   hint: 'Add Optional Note',
                   minLines: 3,
                   maxLines: 4,
+                  // Payment notes allow 250 chars; refund notes stay 150.
+                  maxLength: widget.isRefund
+                      ? _staffNoteMaxLength
+                      : _paymentNoteMaxLength,
                 ),
                 SizedBox(height: verticalSpacing),
                 CustomCheckbox(
@@ -361,6 +375,7 @@ class _ReceivePaymentIssueRefundScreenState
                   hint: 'Admin Only Note',
                   minLines: 3,
                   maxLines: 4,
+                  maxLength: _staffNoteMaxLength,
                 ),
               ],
             ),

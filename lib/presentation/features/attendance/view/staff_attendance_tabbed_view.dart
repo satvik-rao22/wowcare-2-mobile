@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -66,6 +67,24 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   // Hide the floating add button while the drawer is open so it isn't painted
   // on top of (and brighter than) the drawer's dim scrim.
   bool _isDrawerOpen = false;
+
+  // Show/hide the bottom nav bar on scroll, mirroring GlobalScaffold (this view
+  // uses its own Scaffold for the tabbed app bar, so it replicates that here).
+  bool _showBars = true;
+
+  /// Hide the bottom nav while scrolling down (reverse), reveal it scrolling up.
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _showBars) {
+        setState(() => _showBars = false);
+      } else if (direction == ScrollDirection.forward && !_showBars) {
+        setState(() => _showBars = true);
+      }
+    }
+    return false;
+  }
 
   // Keys to reach each tab's state so an attendance action can reload all
   // three tabs (Daily, Custom, Absent) — see _refreshAllAfterAttendanceFlow.
@@ -269,7 +288,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               onDrawerChanged: (isOpen) {
                 if (mounted) setState(() => _isDrawerOpen = isOpen);
               },
-              body: SafeArea(
+              body: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: SafeArea(
                 // Allow the tab contents to respect the device's bottom inset
                 // so that the scrollable lists aren't clipped underneath
                 // the bottom navigation bar and can scroll naturally.
@@ -319,11 +340,17 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   ),
                 ),
               ),
+              ),
               extendBody: true,
               // Attendance is the bottom-nav slot at index 1 (a popup slot with
               // no branch), so highlight it explicitly while on this view.
-              bottomNavigationBar: const CustomNavigationBar(
-                activeTabIndexOverride: 1,
+              // Animate the bar away while scrolling down, like GlobalScaffold.
+              bottomNavigationBar: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? const CustomNavigationBar(activeTabIndexOverride: 1)
+                    : const SizedBox.shrink(),
               ),
             ),
           ),

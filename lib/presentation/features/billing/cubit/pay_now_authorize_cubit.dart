@@ -19,6 +19,7 @@ class PayNowCharge extends Equatable {
     required this.amount,
     required this.idempotencyKey,
     this.familyName = '',
+    this.allocations = const <PaymentAllocationEntity>[],
   });
 
   final String ownerType;
@@ -27,9 +28,12 @@ class PayNowCharge extends Equatable {
   final String idempotencyKey;
   final String familyName;
 
+  /// Per-child split of [amount] (empty = family-wide oldest-invoice-first).
+  final List<PaymentAllocationEntity> allocations;
+
   @override
   List<Object?> get props =>
-      [ownerType, ownerCode, amount, idempotencyKey, familyName];
+      [ownerType, ownerCode, amount, idempotencyKey, familyName, allocations];
 }
 
 /// Submits the Pay Now charge (`POST /payment-gateway/guardian/pay`). The
@@ -83,6 +87,7 @@ class PayNowAuthorizeCubit extends Cubit<PayNowAuthorizeState> {
           amount: c.amount,
           idempotencyKey: c.idempotencyKey,
           payMethodHolderName: payMethodHolderName,
+          allocations: c.allocations,
         ));
       }
       if (isClosed) return true;

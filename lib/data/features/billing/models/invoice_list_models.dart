@@ -64,6 +64,8 @@ class InvoiceListItemModel {
     required this.items,
     this.issueDate,
     this.dueDate,
+    this.periodStart,
+    this.periodEnd,
     this.createdDate,
     this.createdBy,
     this.subscriptionCode,
@@ -83,6 +85,11 @@ class InvoiceListItemModel {
   final List<InvoiceListLineItemModel> items;
   final DateTime? issueDate;
   final DateTime? dueDate;
+
+  /// Optional service period (Date of Service from/to) — used to repopulate the
+  /// edit form's Date-of-Service fields.
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
   final DateTime? createdDate;
   final String? createdBy;
   final String? subscriptionCode;
@@ -116,6 +123,8 @@ class InvoiceListItemModel {
       items: items,
       issueDate: dt('issueDate'),
       dueDate: dt('dueDate'),
+      periodStart: dt('periodStart'),
+      periodEnd: dt('periodEnd'),
       createdDate: dt('createdDate'),
       createdBy: json['createdBy'] as String?,
       subscriptionCode: json['subscriptionCode'] as String?,
@@ -137,6 +146,8 @@ class InvoiceListItemModel {
         items: items.map((e) => e.toEntity()).toList(growable: false),
         issueDate: issueDate,
         dueDate: dueDate,
+        periodStart: periodStart,
+        periodEnd: periodEnd,
         createdDate: createdDate,
         createdBy: createdBy,
         subscriptionCode: subscriptionCode,

@@ -351,6 +351,15 @@ class GuardianPayRequestModel {
         'amount': params.amount,
         'idempotencyKey': params.idempotencyKey,
         'payMethodHolderName': params.payMethodHolderName,
+        // Only send per-child allocations when the parent split the amount;
+        // omitted means the backend applies it family-wide (oldest first).
+        if (params.allocations.isNotEmpty)
+          'allocations': params.allocations
+              .map((a) => <String, dynamic>{
+                    'studentCode': a.studentCode,
+                    'amount': a.amount,
+                  })
+              .toList(),
       };
 }
 

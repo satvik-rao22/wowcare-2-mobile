@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_guardian_family_ledger_usecase.dart';
 

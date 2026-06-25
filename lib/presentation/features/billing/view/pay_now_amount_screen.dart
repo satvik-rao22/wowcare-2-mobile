@@ -11,6 +11,7 @@ import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/payment_settings_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/auto_pay_payment_methods_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/pay_now_authorize_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -33,14 +34,23 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
   static const Color _accent = Color(0xFF6F8CFF);
 
   final PayNowCubit _cubit = serviceLocator<PayNowCubit>();
+  final PaymentSettingsCubit _settingsCubit =
+      serviceLocator<PaymentSettingsCubit>();
   final TextEditingController _currentController = TextEditingController();
   final Map<String, TextEditingController> _customControllers = {};
   bool _seededCurrent = false;
+
+  /// Kicked off on open so the school payment settings are ready by the time the
+  /// review screen is reached — avoids the convenience-fee row flickering.
+  /// Nullable (not `late`) so a hot reload, which re-runs build but not
+  /// initState, can't trip a LateInitializationError.
+  Future<void>? _settingsFuture;
 
   @override
   void initState() {
     super.initState();
     unawaited(_cubit.load());
+    _settingsFuture = _settingsCubit.load();
   }
 
   @override
@@ -50,6 +60,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       c.dispose();
     }
     unawaited(_cubit.close());
+    unawaited(_settingsCubit.close());
     super.dispose();
   }
 
@@ -402,6 +413,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       familyName: state.ledger?.familyName ?? '',
       amount: total,
       idempotencyKey: idempotencyKey,
+      // Custom mode splits the amount per child; Current Outstanding leaves
+      // allocations empty so the backend applies it family-wide (oldest first).
+      allocations: state.allocations,
     );
 
     // Step 2: the Saved Payment Methods picker (AutoPay UI without auto-pay).
@@ -411,16 +425,27 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       ),
     );
     if (!mounted || method == null) return;
+    // Ensure the school payment settings have resolved before showing the
+    // review screen, so the convenience-fee row is correct on the first frame
+    // (no show-then-hide flicker). The fetch started on screen open, so this is
+    // usually already done by now (??= guards a hot-reloaded state where
+    // initState didn't run).
+    await (_settingsFuture ??= _settingsCubit.load());
+    if (!mounted) return;
     // Step 3: review + authorize (real charge via the payment gateway).
-    await Navigator.of(context).push(
+    final paid = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => PayNowAuthorizeScreen(
           method: method,
           amount: total,
           charges: <PayNowCharge>[charge],
+          settings: _settingsCubit.state.settings,
         ),
       ),
     );
+    // A payment was made — dismiss the entry screen and signal the billing
+    // screen to reload its ledger so the new transaction appears.
+    if (paid == true && mounted) Navigator.of(context).pop(true);
   }
 
   String _money(double v) => v.toStringAsFixed(2);

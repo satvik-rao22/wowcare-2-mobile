@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -203,22 +204,45 @@ class ParentTransactionCard extends StatelessWidget {
   }
 }
 
-/// Statement card — styled to match the staff card.
+/// Statement card — styled to match the staff card. Backed by a real
+/// [BillingStatementEntity]; Download (and View) fetch the statement PDF and
+/// open it on the device.
 class ParentStatementCard extends StatelessWidget {
-  final DemoStatement statement;
+  final BillingStatementEntity statement;
+
+  /// Names of the children this statement covers (shown as the card title).
+  final String studentNames;
+
+  /// Whether this statement's PDF is currently downloading.
+  final bool isDownloading;
+
+  final VoidCallback onDownload;
+  final VoidCallback? onView;
 
   const ParentStatementCard({
     super.key,
     required this.statement,
+    required this.studentNames,
+    required this.isDownloading,
+    required this.onDownload,
+    this.onView,
   });
+
+  String get _title => studentNames.isNotEmpty ? studentNames : 'Statement';
+
+  String get _formattedType => statement.statementType.isEmpty
+      ? '—'
+      : statement.statementType[0].toUpperCase() +
+          statement.statementType.substring(1).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
+    final generatedAt = statement.generatedAt;
     return StaffStyleCard(
       leading: DocumentImageWidget(
         fileUuid: '',
-        name: statement.studentName,
+        name: _title,
         size: 50,
       ),
       header: Row(
@@ -226,7 +250,7 @@ class ParentStatementCard extends StatelessWidget {
         children: [
           Flexible(
             child: Text(
-              statement.studentName,
+              _title,
               style: BillingCardText.name(isTablet),
               overflow: TextOverflow.ellipsis,
             ),
@@ -242,25 +266,27 @@ class ParentStatementCard extends StatelessWidget {
       expandedChildren: [
         StaffCardDetailRow(
           label: 'Statement Type',
-          value: statement.statementType,
+          value: _formattedType,
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
           label: 'Generated On',
-          value: DateUtilsNew.formatToReadableDate(statement.generatedOn),
+          value: generatedAt != null
+              ? DateUtilsNew.formatToReadableDate(generatedAt)
+              : '—',
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
           label: 'Statement Period',
           value:
-              '${DateUtilsNew.formatToReadableDate(statement.periodFrom)} - ${DateUtilsNew.formatToReadableDate(statement.periodTo)}',
+              '${DateUtilsNew.formatToReadableDate(statement.periodStart)} - ${DateUtilsNew.formatToReadableDate(statement.periodEnd)}',
         ),
         const SizedBox(height: 16),
         StaffCardActions(
           secondaryLabel: 'View',
-          onSecondary: () {/* TODO: view */},
-          primaryLabel: 'Download',
-          onPrimary: () {/* TODO: download */},
+          onSecondary: isDownloading ? null : onView,
+          primaryLabel: isDownloading ? 'Downloading…' : 'Download',
+          onPrimary: isDownloading ? null : onDownload,
         ),
       ],
     );

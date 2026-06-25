@@ -18,6 +18,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -67,6 +68,28 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
     // Guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
     _loadAttendanceData(reset: true);
+    // Resolve the school timezone, then re-seed the default range to the school
+    // month if it differs (handles a device in a different zone on cold start).
+    _initSchoolTimezone();
+  }
+
+  Future<void> _initSchoolTimezone() async {
+    final beforeStart = _customRangeStart;
+    final beforeEnd = _customRangeEnd;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final now = attendanceSchoolToday();
+    final schoolStart = DateTime(now.year, now.month, 1);
+    // Re-seed only if the range is still the initial default (untouched).
+    if (beforeStart == _customRangeStart &&
+        beforeEnd == _customRangeEnd &&
+        (_customRangeStart != schoolStart || _customRangeEnd != now)) {
+      setState(() {
+        _customRangeStart = schoolStart;
+        _customRangeEnd = now;
+      });
+      _loadAttendanceData(reset: true);
+    }
   }
 
   @override
@@ -176,7 +199,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
   }
 
   void _initializeDefaultRange() {
-    final now = DateTime.now();
+    final now = attendanceSchoolToday();
     _customRangeStart = DateTime(now.year, now.month, 1);
     _customRangeEnd = now;
   }
@@ -449,7 +472,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                       _searchQuery = '';
                                       _selectedClassroomNames = <String>[];
                                       _selectedClassroomCodes = null;
-                                      final now = DateTime.now();
+                                      final now = attendanceSchoolToday();
                                       _customRangeStart = DateTime(
                                         now.year,
                                         now.month,

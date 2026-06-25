@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_summary.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
@@ -69,7 +70,9 @@ class _StaffAttendanceDailyViewScreenState
     implements DailyAttendanceParentRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  DateTime _selectedDate = DateTime.now();
+  // Seeded with the school's "today" (device-today until the zone resolves, then
+  // re-seeded by _initSchoolTimezone) so the daily query uses the school day.
+  DateTime _selectedDate = attendanceSchoolToday();
   String _searchQuery = '';
   bool _showAbsentOnly = false;
   String? _statusLegendFilter;
@@ -136,10 +139,31 @@ class _StaffAttendanceDailyViewScreenState
 
     // Load initial data from API
     _loadAttendanceData(context, reset: true);
+    // Resolve the school timezone, then re-seed the selected day to the school's
+    // "today" if it differs (handles a device in a different zone on cold start).
+    unawaited(_initSchoolTimezone());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadStaffCounts();
     });
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  /// Resolves the school timezone and, if the user is still on the default
+  /// "today", re-seeds [_selectedDate] to the school's today and reloads.
+  Future<void> _initSchoolTimezone() async {
+    final provisional = _selectedDate;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final schoolToday = attendanceSchoolToday();
+    if (!_isSameDay(_selectedDate, provisional) ||
+        _isSameDay(_selectedDate, schoolToday)) {
+      return;
+    }
+    setState(() => _selectedDate = schoolToday);
+    _loadAttendanceData(context, reset: true);
   }
 
   @override
@@ -466,7 +490,7 @@ class _StaffAttendanceDailyViewScreenState
     setState(() {
       _searchController.clear();
       _searchQuery = '';
-      _selectedDate = DateTime.now();
+      _selectedDate = attendanceSchoolToday();
       _showAbsentOnly = false;
       _statusLegendFilter = null;
       _signInAtFilter = null;

@@ -27,6 +27,7 @@ import 'package:wowcare/core/util/api_paths.dart';
 // import 'package:wowcare/features/...'; // UI-only
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 
 class RoomDTO {
@@ -439,7 +440,7 @@ class _AssignStaffToClassroomFormState
                           crossAxisCount: 2,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
-                          mainAxisExtent: 52,
+                          mainAxisExtent: 72,
                         ),
                     itemCount: _getVisibleStaffs().length,
                     itemBuilder: (context, index) {
@@ -579,7 +580,7 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                   crossAxisCount: 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  mainAxisExtent: 52,
+                  mainAxisExtent: 72,
                 ),
                 itemCount: currentSelectedStaffs.length,
                 itemBuilder: (context, index) {
@@ -605,9 +606,12 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
                         ),
                         const SizedBox(width: 6),
                         Expanded(
-                          child: Text(
-                            staff.name,
-                            overflow: TextOverflow.ellipsis,
+                          child: EllipsisTooltipText(
+                            text: staff.name.trim().isEmpty
+                                ? 'Staff'
+                                : staff.name.trim(),
+                            maxLines: 2,
+                            preferLongPress: true,
                             style: const TextStyle(
                               fontFamily: 'Manrope',
                               color: AppColors.primaryColor,
@@ -742,9 +746,10 @@ class StaffListItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  staff.name,
-                  overflow: TextOverflow.ellipsis,
+                child: EllipsisTooltipText(
+                  text: staff.name.trim().isEmpty ? 'Staff' : staff.name.trim(),
+                  maxLines: 2,
+                  preferLongPress: true,
                   style: const TextStyle(
                     fontFamily: 'Manrope',
                     color: AppColors.primaryColor,
