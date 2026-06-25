@@ -134,6 +134,20 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
                   bottom: false,
                   child: Row(
                     children: [
+                      // Back arrow
+                      IconButton(
+                        icon: const Icon(
+                          Icons.arrow_back,
+                          color: AppColors.primaryColor,
+                        ),
+                        onPressed: () async {
+                          AppLogger.d('[Kiosk] Back button pressed');
+                          // go back to the previous screen
+                          if (mounted) {
+                            GoRouter.of(context).pop();
+                          }
+                        },
+                      ),
                       const Padding(
                         padding: EdgeInsets.only(left: 16.0),
                         child: CircleAvatar(

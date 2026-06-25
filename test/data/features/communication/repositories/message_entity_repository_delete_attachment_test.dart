@@ -119,6 +119,9 @@ class _FakeRemoteDataSource implements MessageEntityRemoteDataSource {
     required String conversationCode,
     required String text,
     List<int> attachmentIds = const [],
+    required String schoolCode,
+    required String currentUserCode,
+    required bool isStaff,
     bool isPrivate = false,
     String? threadParentCode,
   }) async => throw UnimplementedError();
@@ -156,6 +159,9 @@ class _FakeRealtimeDataSource implements MessageRealtimeDataSource {
     required String organizationCode,
     required String schoolCode,
     required String conversationCode,
+    required String currentUserCode,
+    required bool isStaff,
+    required bool isAdmin,
     int limit = 100,
   }) => const Stream.empty();
 }
