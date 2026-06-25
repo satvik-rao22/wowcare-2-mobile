@@ -109,6 +109,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                         : staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
+                    disableAttendanceStatusLookup: true,
                   ),
                   SizedBox(width: spacing),
                   Expanded(

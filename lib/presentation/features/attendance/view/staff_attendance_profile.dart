@@ -214,6 +214,7 @@ class _AbsentDayModel {
   final String absentBy;
   final String note;
   final StaffProfileAbsentMarkMethod? markAbsentMethod;
+  final String classroomName;
 
   _AbsentDayModel({
     required this.startDate,
@@ -222,6 +223,7 @@ class _AbsentDayModel {
     required this.absentBy,
     required this.note,
     this.markAbsentMethod,
+    this.classroomName = '',
   });
 }
 
@@ -487,9 +489,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   Future<void> _ensureHeaderIdentityLoaded() async {
     final hasName =
         widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-';
-    final hasClassroom = (staff?.roomName ?? widget.roomName).trim().isNotEmpty;
-    // Skip the fetch only when both the name and the primary classroom name
-    // (shown in the header) are already available.
+    final _classroomVal = (staff?.roomName ?? widget.roomName).trim();
+    final hasClassroom =
+        _classroomVal.isNotEmpty && _classroomVal != '-' && _classroomVal != '—';
+    // Skip the fetch only when both the name and a real primary classroom name
+    // (not a placeholder) are already available.
     if (hasName && hasClassroom) return;
     final code = widget.staffCode.trim();
     if (code.isEmpty) return;
@@ -707,6 +711,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             markAbsentMethod: _mapAbsentMethodStringToEnum(
               m['markAbsentMethod'] as String?,
             ),
+            classroomName: () {
+              final name = (m['classroomName'] as String?)?.trim() ?? '';
+              if (name.isNotEmpty) return name;
+              final code = (m['classroomCode'] as String?)?.trim() ?? '';
+              return code; // render-time fallback uses staff?.roomName
+            }(),
           );
         }).toList();
 
@@ -1477,7 +1487,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(label: 'Classroom', text: staff?.roomName ?? ''),
+          _AttendanceField(
+            label: 'Classroom',
+            text: () {
+              if (absentDay.classroomName.isNotEmpty) {
+                return absentDay.classroomName;
+              }
+              final fallback = staff?.roomName ?? widget.roomName;
+              return (fallback.trim().isNotEmpty &&
+                      fallback != '-' &&
+                      fallback != '—')
+                  ? fallback
+                  : '';
+            }(),
+          ),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Date',

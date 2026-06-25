@@ -406,7 +406,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
 
     final bool isQrSignOut = widget.qrToken.isNotEmpty;
-    final String signOutMethod = isQrSignOut ? 'QR' : 'GPS';
+    final String signOutMethod = isQrSignOut ? 'QR' : (isStaffAdmin ? 'APP' : 'GPS');
 
     // QR scan is always self sign-out — the person holding the phone is signing
     // themselves out. Kiosk is always self sign-out (staff member via PIN).
