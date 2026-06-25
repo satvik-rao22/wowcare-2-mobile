@@ -4,6 +4,9 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../domain/entities/day_detail.dart';
 import '../../domain/usecases/calculate_overtime_usecase.dart';
+import '../../domain/usecases/delete_absence_usecase.dart';
+import '../../domain/usecases/delete_session_usecase.dart';
+import '../../domain/usecases/edit_absence_usecase.dart';
 import '../../domain/usecases/edit_session_usecase.dart';
 import '../../domain/usecases/get_day_detail_usecase.dart';
 import '../../domain/usecases/get_staff_overview_usecase.dart';
@@ -20,12 +23,18 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
     required this.getStaffOverviewUseCase,
     required this.getDayDetailUseCase,
     required this.editSessionUseCase,
+    required this.deleteSessionUseCase,
+    required this.editAbsenceUseCase,
+    required this.deleteAbsenceUseCase,
   }) : super(const StaffDetailState.initial());
 
   final CalculateOvertimeUseCase calculateOvertimeUseCase;
   final GetStaffOverviewUseCase getStaffOverviewUseCase;
   final GetDayDetailUseCase getDayDetailUseCase;
   final EditSessionUseCase editSessionUseCase;
+  final DeleteSessionUseCase deleteSessionUseCase;
+  final EditAbsenceUseCase editAbsenceUseCase;
+  final DeleteAbsenceUseCase deleteAbsenceUseCase;
 
   String _staffCode = '';
   String _staffName = '';
@@ -78,7 +87,11 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
       );
       if (isClosed) return;
       if (emitLoaded) {
-        emit(state.copyWith(status: Av2Status.loaded, profile: profile));
+        emit(state.copyWith(
+          status: Av2Status.loaded,
+          profile: profile,
+          reloadId: state.reloadId + 1,
+        ));
       }
     } catch (e) {
       if (isClosed) return;
@@ -106,6 +119,40 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
       signOutLocal: signOutLocal,
       timeZone: state.profile?.timeZone ?? '',
     );
+    await _calculateThenLoad(emitLoaded: true, emitError: false);
+  }
+
+  /// Deletes a session (admin), then recomputes + reloads. Rethrows so the
+  /// caller can surface the error.
+  Future<void> deleteSession({required String recordCode}) async {
+    await deleteSessionUseCase(recordCode: recordCode, staffCode: _staffCode);
+    await _calculateThenLoad(emitLoaded: true, emitError: false);
+  }
+
+  /// Edits an absence (admin), then recomputes + reloads.
+  Future<void> editAbsence({
+    required String code,
+    required DateTime fromDate,
+    required DateTime toDate,
+    required String reason,
+    required String type,
+    required String note,
+  }) async {
+    await editAbsenceUseCase(
+      code: code,
+      staffCode: _staffCode,
+      fromDate: fromDate,
+      toDate: toDate,
+      reason: reason,
+      type: type,
+      note: note,
+    );
+    await _calculateThenLoad(emitLoaded: true, emitError: false);
+  }
+
+  /// Deletes an absence (admin), then recomputes + reloads.
+  Future<void> deleteAbsence({required String code}) async {
+    await deleteAbsenceUseCase(code: code, staffCode: _staffCode);
     await _calculateThenLoad(emitLoaded: true, emitError: false);
   }
 

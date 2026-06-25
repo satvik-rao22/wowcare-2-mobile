@@ -8,9 +8,10 @@ import 'av2_pill.dart';
 
 /// Absent day, shown inline in the timeline with a red left accent.
 class Av2AbsentDayCard extends StatelessWidget {
-  const Av2AbsentDayCard({super.key, required this.day});
+  const Av2AbsentDayCard({super.key, required this.day, this.onAction});
 
   final AttendanceDay day;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -45,6 +46,18 @@ class Av2AbsentDayCard extends StatelessWidget {
                       fill: Av2Colors.dangerFill,
                       textColor: Av2Colors.danger,
                     ),
+                    if (onAction != null) ...[
+                      const SizedBox(width: 4),
+                      InkWell(
+                        onTap: onAction,
+                        borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
+                        child: const Padding(
+                          padding: EdgeInsets.all(2),
+                          child: Icon(Icons.more_vert,
+                              size: 18, color: Av2Colors.textTertiary),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

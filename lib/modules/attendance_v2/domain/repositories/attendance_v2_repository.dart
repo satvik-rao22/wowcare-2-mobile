@@ -35,4 +35,27 @@ abstract class AttendanceV2Repository {
     DateTime? signOutLocal,
     required String timeZone,
   });
+
+  /// Deletes an attendance session record (admin only).
+  Future<void> deleteSession({
+    required String recordCode,
+    required String staffCode,
+  });
+
+  /// Edits an absence record (admin only); also syncs the shift calendar.
+  Future<void> editAbsence({
+    required String code,
+    required String staffCode,
+    required DateTime fromDate,
+    required DateTime toDate,
+    required String reason,
+    required String type,
+    required String note,
+  });
+
+  /// Deletes an absence record (admin only).
+  Future<void> deleteAbsence({
+    required String code,
+    required String staffCode,
+  });
 }

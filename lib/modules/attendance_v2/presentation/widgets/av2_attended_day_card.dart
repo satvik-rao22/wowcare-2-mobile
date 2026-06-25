@@ -19,12 +19,14 @@ class Av2AttendedDayCard extends StatefulWidget {
     super.key,
     required this.day,
     required this.loadDetail,
+    this.reloadId = 0,
     this.initiallyExpanded = false,
     this.onSessionAction,
   });
 
   final AttendanceDay day;
   final DayDetailLoader loadDetail;
+  final int reloadId;
   final bool initiallyExpanded;
   final ValueChanged<AttendanceSession>? onSessionAction;
 
@@ -40,6 +42,16 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
   void initState() {
     super.initState();
     if (_expanded) _future = widget.loadDetail(widget.day.date);
+  }
+
+  @override
+  void didUpdateWidget(covariant Av2AttendedDayCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // After an edit/delete the data reloaded (reloadId bumped); the cached
+    // sessions are stale, so re-fetch if this card is currently expanded.
+    if (widget.reloadId != oldWidget.reloadId && _expanded) {
+      _future = widget.loadDetail(widget.day.date);
+    }
   }
 
   void _toggle() {

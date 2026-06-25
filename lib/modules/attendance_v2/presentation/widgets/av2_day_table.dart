@@ -20,11 +20,13 @@ class Av2DayTable extends StatefulWidget {
     super.key,
     required this.days,
     required this.loadDetail,
+    this.reloadId = 0,
     this.onSessionAction,
   });
 
   final List<AttendanceDay> days;
   final DayDetailLoader loadDetail;
+  final int reloadId;
   final ValueChanged<AttendanceSession>? onSessionAction;
 
   @override
@@ -44,6 +46,21 @@ class _Av2DayTableState extends State<Av2DayTable> {
       _expanded.add(index);
       _futures.putIfAbsent(index, () => widget.loadDetail(day.date));
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant Av2DayTable oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Reloaded after edit/delete → cached session futures are stale; re-fetch
+    // for any expanded rows.
+    if (widget.reloadId != oldWidget.reloadId) {
+      _futures.clear();
+      for (final i in _expanded) {
+        if (i < widget.days.length) {
+          _futures[i] = widget.loadDetail(widget.days[i].date);
+        }
+      }
+    }
   }
 
   @override

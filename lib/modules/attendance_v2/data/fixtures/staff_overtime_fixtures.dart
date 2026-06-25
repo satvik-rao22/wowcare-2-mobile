@@ -26,7 +26,17 @@ class StaffOvertimeFixtures {
           totalBreakMinutes: 71,
         ),
         days: [
-          _day('2026-06-12', DayStatus.absent),
+          AttendanceDay(
+            date: DateTime(2026, 6, 12),
+            status: DayStatus.absent,
+            absenceCode: 'SFAR_DEMO_1',
+            absenceReason: 'sick',
+            absenceType: 'FULL_DAY',
+            absenceFromDate: DateTime(2026, 6, 12),
+            absenceToDate: DateTime(2026, 6, 12),
+            absenceNote: '',
+            absenceMarkedByName: 'Spandana Marri',
+          ),
           _day('2026-06-11', DayStatus.signedOut,
               regular: 480, ot: 16, brk: 71, needsAttention: true),
           _day('2026-06-10', DayStatus.signedOut, regular: 480, ot: 85),

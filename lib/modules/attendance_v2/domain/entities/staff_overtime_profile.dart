@@ -73,4 +73,20 @@ class StaffOvertimeProfile {
   }
 
   int get needsAttentionCount => days.where((d) => d.needsAttention).length;
+
+  StaffOvertimeProfile copyWith({List<AttendanceDay>? days}) {
+    return StaffOvertimeProfile(
+      staffCode: staffCode,
+      staffName: staffName,
+      designation: designation,
+      classroomName: classroomName,
+      todayStatus: todayStatus,
+      dailyRegularMinutes: dailyRegularMinutes,
+      rangeStart: rangeStart,
+      rangeEnd: rangeEnd,
+      aggregation: aggregation,
+      days: days ?? this.days,
+      timeZone: timeZone,
+    );
+  }
 }

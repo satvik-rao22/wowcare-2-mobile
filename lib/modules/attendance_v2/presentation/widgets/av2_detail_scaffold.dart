@@ -4,13 +4,21 @@ import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
 
 /// Shared chrome for the detail screen: brand scaffold gradient + a transparent
-/// AppBar with an explicit "Export CSV" action. Wraps loading, error and loaded
-/// states so they share the same frame.
+/// AppBar with a visible Refresh action and an "Export CSV" action. Wraps
+/// loading, error and loaded states so they share the same frame.
 class Av2DetailScaffold extends StatelessWidget {
-  const Av2DetailScaffold({super.key, required this.body, this.onExport});
+  const Av2DetailScaffold({
+    super.key,
+    required this.body,
+    this.onExport,
+    this.onRefresh,
+    this.isRefreshing = false,
+  });
 
   final Widget body;
   final VoidCallback? onExport;
+  final VoidCallback? onRefresh;
+  final bool isRefreshing;
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +34,19 @@ class Av2DetailScaffold extends StatelessWidget {
           title: Text('Staff attendance', style: Av2Text.title),
           centerTitle: false,
           actions: [
+            if (onRefresh != null)
+              IconButton(
+                onPressed: isRefreshing ? null : onRefresh,
+                tooltip: 'Refresh',
+                icon: isRefreshing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Av2Colors.theme),
+                      )
+                    : const Icon(Icons.refresh, color: Av2Colors.primary),
+              ),
             Padding(
               padding: const EdgeInsets.only(right: Av2Spacing.sm),
               child: TextButton.icon(

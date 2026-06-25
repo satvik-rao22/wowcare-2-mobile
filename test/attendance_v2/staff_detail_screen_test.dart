@@ -25,6 +25,16 @@ Widget _harness({bool canEdit = true}) {
           required signInLocal,
           signOutLocal,
         }) async {},
+        onDeleteSession: (recordCode) async {},
+        onEditAbsence: ({
+          required code,
+          required fromDate,
+          required toDate,
+          required reason,
+          required type,
+          required note,
+        }) async {},
+        onDeleteAbsence: (code) async {},
       ),
     ),
   );
@@ -134,7 +144,8 @@ void main() {
     await tester.pumpWidget(_harness());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert).first);
+    // .last is a session row's action (the absent card's ⋮ is first).
+    await tester.tap(find.byIcon(Icons.more_vert).at(1));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Edit'));
     await tester.pumpAndSettle();
@@ -143,6 +154,44 @@ void main() {
     expect(find.text('Sign in'), findsOneWidget);
     expect(find.text('Sign out'), findsOneWidget);
     expect(find.text('Submit'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Delete action shows a confirmation with what will be deleted',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_harness());
+    await tester.pumpAndSettle();
+
+    // .last is a session row's action (the absent card's ⋮ is first).
+    await tester.tap(find.byIcon(Icons.more_vert).at(1));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete attendance?'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('absent day shows an action that opens edit/delete', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_harness());
+    await tester.pumpAndSettle();
+
+    // Absent card (Jun 12) is first; tap its ⋮ → action sheet with Edit/Delete.
+    await tester.tap(find.byIcon(Icons.more_vert).first);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit'), findsOneWidget);
+    expect(find.text('Delete'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

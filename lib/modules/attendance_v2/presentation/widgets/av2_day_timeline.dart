@@ -14,14 +14,18 @@ class Av2DayTimeline extends StatelessWidget {
     super.key,
     required this.days,
     required this.loadDetail,
+    this.reloadId = 0,
     this.emptyMessage = 'No days match this filter',
     this.onSessionAction,
+    this.onAbsentAction,
   });
 
   final List<AttendanceDay> days;
   final DayDetailLoader loadDetail;
+  final int reloadId;
   final String emptyMessage;
   final ValueChanged<AttendanceSession>? onSessionAction;
+  final ValueChanged<AttendanceDay>? onAbsentAction;
 
   @override
   Widget build(BuildContext context) {
@@ -44,11 +48,16 @@ class Av2DayTimeline extends StatelessWidget {
 
   Widget _card(AttendanceDay day, bool expand) {
     if (day.isAbsent) {
-      return Av2AbsentDayCard(day: day);
+      return Av2AbsentDayCard(
+        day: day,
+        onAction:
+            onAbsentAction == null ? null : () => onAbsentAction!(day),
+      );
     }
     return Av2AttendedDayCard(
       day: day,
       loadDetail: loadDetail,
+      reloadId: reloadId,
       initiallyExpanded: expand,
       onSessionAction: onSessionAction,
     );

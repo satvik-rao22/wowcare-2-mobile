@@ -6,6 +6,9 @@ import '../data/datasources/staff_overtime_remote_datasource.dart';
 import '../data/repositories/attendance_v2_repository_impl.dart';
 import '../domain/repositories/attendance_v2_repository.dart';
 import '../domain/usecases/calculate_overtime_usecase.dart';
+import '../domain/usecases/delete_absence_usecase.dart';
+import '../domain/usecases/delete_session_usecase.dart';
+import '../domain/usecases/edit_absence_usecase.dart';
 import '../domain/usecases/edit_session_usecase.dart';
 import '../domain/usecases/get_day_detail_usecase.dart';
 import '../domain/usecases/get_staff_overview_usecase.dart';
@@ -37,12 +40,24 @@ void registerAttendanceV2(GetIt sl) {
   sl.registerFactory<EditSessionUseCase>(
     () => EditSessionUseCase(sl<AttendanceV2Repository>()),
   );
+  sl.registerFactory<DeleteSessionUseCase>(
+    () => DeleteSessionUseCase(sl<AttendanceV2Repository>()),
+  );
+  sl.registerFactory<EditAbsenceUseCase>(
+    () => EditAbsenceUseCase(sl<AttendanceV2Repository>()),
+  );
+  sl.registerFactory<DeleteAbsenceUseCase>(
+    () => DeleteAbsenceUseCase(sl<AttendanceV2Repository>()),
+  );
   sl.registerFactory<StaffDetailCubit>(
     () => StaffDetailCubit(
       calculateOvertimeUseCase: sl(),
       getStaffOverviewUseCase: sl(),
       getDayDetailUseCase: sl(),
       editSessionUseCase: sl(),
+      deleteSessionUseCase: sl(),
+      editAbsenceUseCase: sl(),
+      deleteAbsenceUseCase: sl(),
     ),
   );
 }

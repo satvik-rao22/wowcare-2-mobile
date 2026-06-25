@@ -34,6 +34,7 @@ class StaffDetailScreen extends StatefulWidget {
 class _StaffDetailScreenState extends State<StaffDetailScreen> {
   late final StaffDetailCubit _cubit;
   late Av2Period _period;
+  bool _refreshing = false;
 
   @override
   void initState() {
@@ -60,6 +61,13 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
     _fetch();
   }
 
+  /// App-bar refresh button: recompute + reload, with a spinner on the icon.
+  Future<void> _onRefreshTap() async {
+    setState(() => _refreshing = true);
+    await _cubit.refresh();
+    if (mounted) setState(() => _refreshing = false);
+  }
+
   @override
   void dispose() {
     unawaited(_cubit.close());
@@ -70,6 +78,8 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
   Widget build(BuildContext context) {
     return Av2DetailScaffold(
       onExport: () {},
+      onRefresh: _onRefreshTap,
+      isRefreshing: _refreshing,
       body: BlocBuilder<StaffDetailCubit, StaffDetailState>(
         bloc: _cubit,
         builder: (context, state) {
@@ -87,6 +97,7 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
                 profile: state.profile!,
                 period: _period,
                 loadDetail: _cubit.dayDetail,
+                reloadId: state.reloadId,
                 onPeriodChanged: _onPeriodChanged,
                 canEdit: canEdit,
                 onEditSession: ({
@@ -99,6 +110,25 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
                   signInLocal: signInLocal,
                   signOutLocal: signOutLocal,
                 ),
+                onDeleteSession: (recordCode) =>
+                    _cubit.deleteSession(recordCode: recordCode),
+                onEditAbsence: ({
+                  required code,
+                  required fromDate,
+                  required toDate,
+                  required reason,
+                  required type,
+                  required note,
+                }) =>
+                    _cubit.editAbsence(
+                  code: code,
+                  fromDate: fromDate,
+                  toDate: toDate,
+                  reason: reason,
+                  type: type,
+                  note: note,
+                ),
+                onDeleteAbsence: (code) => _cubit.deleteAbsence(code: code),
               ),
             );
           }

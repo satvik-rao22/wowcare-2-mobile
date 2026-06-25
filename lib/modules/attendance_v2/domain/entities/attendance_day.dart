@@ -28,6 +28,13 @@ class AttendanceDay {
     this.totalMinutes = 0,
     this.hasOvertime = false,
     this.needsAttention = false,
+    this.absenceCode,
+    this.absenceReason,
+    this.absenceType,
+    this.absenceFromDate,
+    this.absenceToDate,
+    this.absenceNote,
+    this.absenceMarkedByName,
   });
 
   final DateTime date;
@@ -39,6 +46,45 @@ class AttendanceDay {
   final bool hasOvertime;
   final bool needsAttention;
 
+  // Absence record details (present on ABSENT days when the overview includes
+  // them). [absenceCode] is required to edit/delete the absence.
+  final String? absenceCode;
+  final String? absenceReason;
+  final String? absenceType; // FULL_DAY | HALF_DAY
+  final DateTime? absenceFromDate;
+  final DateTime? absenceToDate;
+  final String? absenceNote;
+  final String? absenceMarkedByName;
+
   bool get isAbsent => status == DayStatus.absent;
   bool get hasBreaks => breakMinutes > 0;
+  bool get canEditAbsence => isAbsent && (absenceCode?.isNotEmpty ?? false);
+
+  AttendanceDay copyWith({
+    String? absenceCode,
+    String? absenceReason,
+    String? absenceType,
+    DateTime? absenceFromDate,
+    DateTime? absenceToDate,
+    String? absenceNote,
+    String? absenceMarkedByName,
+  }) {
+    return AttendanceDay(
+      date: date,
+      status: status,
+      regularMinutes: regularMinutes,
+      overtimeMinutes: overtimeMinutes,
+      breakMinutes: breakMinutes,
+      totalMinutes: totalMinutes,
+      hasOvertime: hasOvertime,
+      needsAttention: needsAttention,
+      absenceCode: absenceCode ?? this.absenceCode,
+      absenceReason: absenceReason ?? this.absenceReason,
+      absenceType: absenceType ?? this.absenceType,
+      absenceFromDate: absenceFromDate ?? this.absenceFromDate,
+      absenceToDate: absenceToDate ?? this.absenceToDate,
+      absenceNote: absenceNote ?? this.absenceNote,
+      absenceMarkedByName: absenceMarkedByName ?? this.absenceMarkedByName,
+    );
+  }
 }

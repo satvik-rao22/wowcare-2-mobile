@@ -1,3 +1,6 @@
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 
 import '../../core/config/av2_config.dart';
@@ -43,13 +46,106 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
       fromDate: _fmt(from),
       toDate: _fmt(to),
     );
-    return OverviewMapper.fromResponse(
+    final profile = OverviewMapper.fromResponse(
       body,
       fallbackStaffCode: staffCode,
       fallbackStaffName: staffName,
       rangeStart: from,
       rangeEnd: to,
     );
+
+    // The overview's absent days don't carry the absence record `code` (needed
+    // to edit/delete). Backfill it (and details) from the absence list, which
+    // does include it. Best-effort — never block the screen if it fails.
+    final needsBackfill = profile.days.any((d) => d.isAbsent && !d.canEditAbsence);
+    if (!needsBackfill) return profile;
+    try {
+      final absences = await _fetchAbsences(staffCode, from, to);
+      if (absences.isEmpty) return profile;
+      final enrichedDays = profile.days.map((d) {
+        if (!d.isAbsent || d.canEditAbsence) return d;
+        final a = _absenceForDate(absences, d.date);
+        if (a == null) return d;
+        return d.copyWith(
+          absenceCode: a['code'] as String?,
+          absenceReason: a['reason'] as String?,
+          absenceType: a['type'] as String?,
+          absenceFromDate: a['from'] as DateTime?,
+          absenceToDate: a['to'] as DateTime?,
+          absenceNote: a['note'] as String?,
+          absenceMarkedByName: a['markedBy'] as String?,
+        );
+      }).toList();
+      return profile.copyWith(days: enrichedDays);
+    } catch (_) {
+      return profile;
+    }
+  }
+
+  /// Fetches absence records (which carry the `code`) for the range via the
+  /// existing absent-toggle endpoint, returning lightweight maps.
+  Future<List<Map<String, dynamic>>> _fetchAbsences(
+    String staffCode,
+    DateTime from,
+    DateTime to,
+  ) async {
+    final body = await _attendanceSource.fetchStaffAttendanceProfileAbsentToggle(
+      queryParameters: <String, dynamic>{
+        'staffCode': staffCode,
+        'fromAbsenceDate': _fmt(from),
+        'toAbsenceDate': _fmt(to),
+        'page': 0,
+        'size': Av2Config.profilePageSize,
+        'pageable.page': 0,
+        'pageable.size': Av2Config.profilePageSize,
+        'sort': <String>['absenceDate,desc'],
+      },
+    );
+    final map = body ?? const <String, dynamic>{};
+    final data = map['data'] as Map?;
+    final records = data?['records'] as Map?;
+    final content = (records?['content'] as List?) ?? const [];
+    return content.whereType<Map>().map((e) {
+      final m = e.cast<String, dynamic>();
+      return <String, dynamic>{
+        'code': (m['code'] ?? m['absenceCode'])?.toString(),
+        'date': DateTime.tryParse((m['absenceDate'] ?? '').toString()),
+        'from': DateTime.tryParse((m['absenceFromDate'] ?? '').toString()),
+        'to': DateTime.tryParse((m['absenceToDate'] ?? '').toString()),
+        'reason': m['absenceReason']?.toString(),
+        'type': m['absenceType']?.toString(),
+        'note': m['absenceNote']?.toString(),
+        'markedBy': (m['markedAbsentByName'] ?? m['markedAbsentBy'])?.toString(),
+      };
+    }).where((m) => (m['code'] as String?)?.isNotEmpty ?? false).toList();
+  }
+
+  /// Matches an absent day to its absence record (by exact date, else by the
+  /// record's from..to range).
+  Map<String, dynamic>? _absenceForDate(
+    List<Map<String, dynamic>> absences,
+    DateTime date,
+  ) {
+    final d = DateTime(date.year, date.month, date.day);
+    for (final a in absences) {
+      final ad = a['date'] as DateTime?;
+      if (ad != null &&
+          ad.year == d.year &&
+          ad.month == d.month &&
+          ad.day == d.day) {
+        return a;
+      }
+    }
+    for (final a in absences) {
+      final f = a['from'] as DateTime?;
+      final t = a['to'] as DateTime?;
+      if (f != null && t != null) {
+        final fd = DateTime(f.year, f.month, f.day);
+        final td = DateTime(t.year, t.month, t.day);
+        if (!d.isBefore(fd) && !d.isAfter(td)) return a;
+      }
+    }
+    return null;
   }
 
   @override
@@ -90,6 +186,72 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
       body['signedOutMethod'] = Av2Config.editMethod;
     }
     return _overviewSource.editDailyRecord(recordCode: recordCode, body: body);
+  }
+
+  @override
+  Future<void> deleteSession({
+    required String recordCode,
+    required String staffCode,
+  }) {
+    return _overviewSource.deleteDailyRecord(
+      recordCode: recordCode,
+      staffCode: staffCode,
+    );
+  }
+
+  @override
+  Future<void> editAbsence({
+    required String code,
+    required String staffCode,
+    required DateTime fromDate,
+    required DateTime toDate,
+    required String reason,
+    required String type,
+    required String note,
+  }) async {
+    await _overviewSource.editAbsence(
+      code: code,
+      body: <String, dynamic>{
+        'staffCode': staffCode,
+        'absenceFromDate': _fmt(fromDate),
+        'absenceToDate': _fmt(toDate),
+        'absenceReason': reason,
+        'absenceType': type,
+        'absenceNote': note,
+      },
+    );
+    // Best-effort shift sync — never fail the edit if it errors.
+    try {
+      final schoolCode =
+          (await serviceLocator<StorageService>().getString(StorageKeys.schoolCode) ?? '')
+              .trim();
+      if (schoolCode.isNotEmpty) {
+        await _overviewSource.markAbsentDays(
+          staffCode: staffCode,
+          absentDates: _dateRange(fromDate, toDate),
+          schoolCode: schoolCode,
+        );
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Future<void> deleteAbsence({
+    required String code,
+    required String staffCode,
+  }) {
+    return _overviewSource.deleteAbsence(code: code, staffCode: staffCode);
+  }
+
+  List<String> _dateRange(DateTime from, DateTime to) {
+    final out = <String>[];
+    var d = DateTime(from.year, from.month, from.day);
+    final end = DateTime(to.year, to.month, to.day);
+    while (!d.isAfter(end)) {
+      out.add(_fmt(d));
+      d = d.add(const Duration(days: 1));
+    }
+    return out;
   }
 
   String _fmt(DateTime d) =>

@@ -46,6 +46,7 @@ class _DevHostState extends State<_DevHost> {
   Widget build(BuildContext context) {
     return Av2DetailScaffold(
       onExport: () {},
+      onRefresh: () {},
       body: StaffDetailView(
         profile: _profile,
         period: _period,
@@ -57,6 +58,16 @@ class _DevHostState extends State<_DevHost> {
           required signInLocal,
           signOutLocal,
         }) async {},
+        onDeleteSession: (recordCode) async {},
+        onEditAbsence: ({
+          required code,
+          required fromDate,
+          required toDate,
+          required reason,
+          required type,
+          required note,
+        }) async {},
+        onDeleteAbsence: (code) async {},
       ),
     );
   }

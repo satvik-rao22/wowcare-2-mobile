@@ -56,6 +56,7 @@ class OverviewMapper {
   static AttendanceDay? _mapDay(Map<String, dynamic> m) {
     final date = DateTime.tryParse((m['date'] as String?) ?? '');
     if (date == null) return null;
+    final absence = _map(m['absence']);
     return AttendanceDay(
       date: date,
       status: _parseDayStatus(m['status'] as String?),
@@ -65,6 +66,19 @@ class OverviewMapper {
       totalMinutes: _int(m['totalMinutes']),
       hasOvertime: _bool(m['hasOvertime']),
       needsAttention: _bool(m['needsAttention']),
+      // Absence details — read from a nested `absence` block or flat fields,
+      // whichever the overview provides. `code` is what edit/delete target.
+      absenceCode: (absence['code'] ?? absence['recordCode'] ?? m['absenceCode'])
+          ?.toString(),
+      absenceReason: (absence['reason'] ?? m['absenceReason'])?.toString(),
+      absenceType: (absence['type'] ?? m['absenceType'])?.toString(),
+      absenceFromDate: DateTime.tryParse(
+          (absence['fromDate'] ?? absence['absenceFromDate'] ?? '').toString()),
+      absenceToDate: DateTime.tryParse(
+          (absence['toDate'] ?? absence['absenceToDate'] ?? '').toString()),
+      absenceNote: (absence['note'] ?? m['absenceNote'])?.toString(),
+      absenceMarkedByName:
+          (absence['markedByName'] ?? m['markedByName'])?.toString(),
     );
   }
 
