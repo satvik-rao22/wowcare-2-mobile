@@ -16,6 +16,7 @@ import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/safe_state_mixin.dart';
 import '../../../../../../core/util/storage_keys.dart';
 import '../../../../../../app/di/di.dart';
+import '../../../../classrooom/views/filters/designation_display_utils.dart';
 import '../../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -28,10 +29,23 @@ class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
     super.key,
     this.isStaffSelection = true,
     this.conversationType = 'ROOM_CHAT',
+    this.restrictToDesignationCodes,
+    this.hideFilters = false,
   });
   final bool showLoading = false;
   final bool isStaffSelection;
   final String conversationType;
+
+  /// When set, only staff whose designation code is in this list are shown
+  /// — used for the Parent/Guardian "Admin Chat" compose flow, where the
+  /// only valid recipients are Admins/Directors, not the full staff roster.
+  final List<String>? restrictToDesignationCodes;
+
+  /// Hides the Classroom/Status/Designation/Tags filter UI entirely — paired
+  /// with [restrictToDesignationCodes] so the Parent/Guardian Admin Chat
+  /// compose screen shows a plain grid (search + select), not staff filters
+  /// that don't make sense for that flow.
+  final bool hideFilters;
 
   @override
   State<StaffOrStudentSelectionBulkMessaging> createState() =>
@@ -113,9 +127,16 @@ class _StaffOrStudentSelectionBulkMessagingState
     final Map<String, String> classroomMap = {
       for (var c in classrooms) c.code: c.name,
     };
-    final staffMembers = context.read<StaffCubit>().state.items.where(
-      (s) => s.code != _currentStaffCode,
-    );
+    final staffMembers = context
+        .read<StaffCubit>()
+        .state
+        .items
+        .where((s) => s.code != _currentStaffCode)
+        .where(
+          (s) =>
+              widget.restrictToDesignationCodes == null ||
+              widget.restrictToDesignationCodes!.contains(s.designation),
+        );
     return staffMembers
         .map(
           (s) => {
@@ -156,17 +177,28 @@ class _StaffOrStudentSelectionBulkMessagingState
         .toList();
   }
 
-  final List<String> _designationOptions = [
-    'Kiosk',
-    'Director',
-    'Assistant Director',
-    'Admin',
-    'Lead Teacher',
-    'Associate Teacher',
-    'Assistant Teacher',
-    'Owner',
-    'Floater',
+  /// Backend designation codes (matches staff_filter_screen.dart /
+  /// staff_messaging_tab.dart) used to turn the Designation filter's
+  /// human-readable selections back into the API value.
+  static const List<String> _designationCodes = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
   ];
+
+  Map<String, String> get _designationLabelToCode => {
+    for (final code in _designationCodes)
+      formatDesignationForDisplay(code): code,
+  };
+
+  List<String> get _designationOptions =>
+      _designationLabelToCode.keys.toList()..sort();
   List<String> _tagOptions = [];
   Map<String, String> _tagNameToCode = {};
   late final GetTagNamesForSchoolUseCase _getTagNamesForSchoolUseCase =
@@ -229,6 +261,42 @@ class _StaffOrStudentSelectionBulkMessagingState
     );
     await context.read<StudentCubit>().refreshWithCacheReset();
   }
+
+  /// Pushes the current classroom/status/designation selections to
+  /// [StaffCubit] as server-side filters and refreshes — same reasoning as
+  /// [_applyStudentFiltersToCubit], but for the Staff selection mode.
+  Future<void> _applyStaffFiltersToCubit() async {
+    if (!widget.isStaffSelection) return;
+
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final nameToCode = {for (final c in classrooms) c.name: c.code};
+    final classCodes = _selectedClassrooms
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    final designation = _selectedDesignations.isEmpty
+        ? null
+        : _designationLabelToCode[_selectedDesignations.first];
+
+    context.read<StaffCubit>().updateFilters(
+      status: _selectedStatus?.toUpperCase(),
+      designation: designation,
+      classCodes: classCodes,
+    );
+    await context.read<StaffCubit>().refreshWithCacheReset();
+  }
+
+  /// Dispatches to whichever cubit backs the currently-shown list.
+  Future<void> _applyContactFiltersToCubit() async {
+    if (widget.isStaffSelection) {
+      await _applyStaffFiltersToCubit();
+    } else {
+      await _applyStudentFiltersToCubit();
+    }
+  }
+
   Set<String> _selectedStaffCodes = <String>{};
   Set<String> _selectedStudentCodes = <String>{};
 
@@ -250,13 +318,11 @@ class _StaffOrStudentSelectionBulkMessagingState
         return classroom != null && _selectedClassrooms.contains(classroom);
       }).toList();
     }
-    if (_selectedDesignations.isNotEmpty && widget.isStaffSelection) {
-      filtered = filtered.where((person) {
-        final designation = person['designation'] as String?;
-        return designation != null &&
-            _selectedDesignations.contains(designation);
-      }).toList();
-    }
+    // Designation isn't filtered here: `person['designation']` is the raw
+    // backend code (e.g. "LEAD_TEACHER") while `_selectedDesignations` holds
+    // display labels (e.g. "Lead Teacher"), so a direct match always misses.
+    // StaffCubit already filters by designation server-side via
+    // `_applyStaffFiltersToCubit`, so `staffList` is pre-filtered correctly.
     if (_selectedTags.isNotEmpty && !widget.isStaffSelection) {
       filtered = filtered.where((person) {
         final tags = List<String>.from(person['tags']);
@@ -335,19 +401,33 @@ class _StaffOrStudentSelectionBulkMessagingState
         classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
         context.read<StudentCubit>().loadInitial();
         if (widget.isStaffSelection) {
-          context.read<StaffCubit>().loadInitial();
+          unawaited(
+            context.read<StaffCubit>().loadInitial().then((_) {
+              // The Admin/Director-only flow needs the full roster client-side
+              // since StaffCubit's designation filter only supports one value
+              // at a time — loadInitial() alone only fetches the first couple
+              // of pages.
+              if (widget.restrictToDesignationCodes != null) {
+                return _ensureAllMatchingPagesLoaded();
+              }
+            }),
+          );
           unawaited(_loadCurrentStaffCode());
         } else {
           unawaited(_loadTags());
         }
 
-        // Auto-select first classroom if already available
+        // Auto-select first classroom if already available. Skipped when
+        // filters are hidden (e.g. Admin/Director-only picker) — that flow
+        // wants every matching staff member, not just one classroom's.
         final classrooms = classroomCubit.state.classrooms;
-        if (classrooms.isNotEmpty && _selectedClassrooms.isEmpty) {
+        if (!widget.hideFilters &&
+            classrooms.isNotEmpty &&
+            _selectedClassrooms.isEmpty) {
           setState(() {
             _selectedClassrooms = [classrooms.first.name];
           });
-          unawaited(_applyStudentFiltersToCubit());
+          unawaited(_applyContactFiltersToCubit());
         }
       }
     });
@@ -377,11 +457,13 @@ class _StaffOrStudentSelectionBulkMessagingState
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: BlocListener<ClassroomCubit, ClassroomState>(
           listener: (context, state) {
-            if (state.classrooms.isNotEmpty && _selectedClassrooms.isEmpty) {
+            if (!widget.hideFilters &&
+                state.classrooms.isNotEmpty &&
+                _selectedClassrooms.isEmpty) {
               setState(() {
                 _selectedClassrooms = [state.classrooms.first.name];
               });
-              unawaited(_applyStudentFiltersToCubit());
+              unawaited(_applyContactFiltersToCubit());
             }
           },
           child: BlocBuilder<ClassroomCubit, ClassroomState>(
@@ -523,7 +605,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                   _updateSelectAllState();
                                                 });
                                                 unawaited(
-                                                  _applyStudentFiltersToCubit(),
+                                                  _applyContactFiltersToCubit(),
                                                 );
                                               },
                                               label: 'Clear All',
@@ -531,87 +613,98 @@ class _StaffOrStudentSelectionBulkMessagingState
                                           ),
                                         ],
                                       ),
-                                      const SizedBox(height: 10),
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: MessagingFilterDropdown(
-                                              hintText: 'Status',
-                                              items: _statusOptions,
-                                              selectedItem: _selectedStatus,
-                                              onSelect: (v) {
-                                                setState(() {
-                                                  _selectedStatus = v;
-                                                  _selectedStaffCodes.clear();
-                                                  _selectedStudentCodes
-                                                      .clear();
-                                                  _selectAll = false;
-                                                });
-                                                unawaited(
-                                                  _applyStudentFiltersToCubit(),
-                                                );
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          if (widget.isStaffSelection)
+                                      if (!widget.hideFilters) ...[
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          children: [
                                             Expanded(
                                               child: CustomMultiSelectDropdown(
                                                 showSelectAll: true,
-                                                hintText: 'Select Designation',
-                                                items: _designationOptions,
+                                                hintText: 'Select Classroom',
+                                                items: _classroomOptions,
                                                 selectedItems:
-                                                    _selectedDesignations,
+                                                    _selectedClassrooms,
                                                 gapHeight: 40,
                                                 onChanged: (selectedItems) {
                                                   setState(() {
-                                                    _selectedDesignations =
-                                                        selectedItems;
-                                                    _updateSelectAllState();
-                                                  });
-                                                },
-                                              ),
-                                            )
-                                          else
-                                            Expanded(
-                                              child: CustomMultiSelectDropdown(
-                                                showSelectAll: true,
-                                                hintText: 'Select Tags',
-                                                items: _tagOptions,
-                                                selectedItems: _selectedTags,
-                                                gapHeight: 40,
-                                                onChanged: (selectedItems) {
-                                                  setState(() {
-                                                    _selectedTags =
+                                                    _selectedClassrooms =
                                                         selectedItems;
                                                     _updateSelectAllState();
                                                   });
                                                   unawaited(
-                                                    _applyStudentFiltersToCubit(),
+                                                    _applyContactFiltersToCubit(),
                                                   );
                                                 },
                                               ),
                                             ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      CustomMultiSelectDropdown(
-                                        showSelectAll: true,
-                                        hintText: 'Select Classroom',
-                                        items: _classroomOptions,
-                                        selectedItems: _selectedClassrooms,
-                                        gapHeight: 40,
-                                        onChanged: (selectedItems) {
-                                          setState(() {
-                                            _selectedClassrooms = selectedItems;
-                                            _updateSelectAllState();
-                                          });
-                                          unawaited(
-                                            _applyStudentFiltersToCubit(),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(height: 12),
+                                            const SizedBox(width: 8),
+                                            if (widget.isStaffSelection)
+                                              Expanded(
+                                                child:
+                                                    CustomMultiSelectDropdown(
+                                                      showSelectAll: true,
+                                                      hintText:
+                                                          'Select Designation',
+                                                      items:
+                                                          _designationOptions,
+                                                      selectedItems:
+                                                          _selectedDesignations,
+                                                      gapHeight: 40,
+                                                      onChanged: (selectedItems) {
+                                                        setState(() {
+                                                          _selectedDesignations =
+                                                              selectedItems;
+                                                          _updateSelectAllState();
+                                                        });
+                                                        unawaited(
+                                                          _applyContactFiltersToCubit(),
+                                                        );
+                                                      },
+                                                    ),
+                                              )
+                                            else
+                                              Expanded(
+                                                child:
+                                                    CustomMultiSelectDropdown(
+                                                      showSelectAll: true,
+                                                      hintText: 'Select Tags',
+                                                      items: _tagOptions,
+                                                      selectedItems:
+                                                          _selectedTags,
+                                                      gapHeight: 40,
+                                                      onChanged: (selectedItems) {
+                                                        setState(() {
+                                                          _selectedTags =
+                                                              selectedItems;
+                                                          _updateSelectAllState();
+                                                        });
+                                                        unawaited(
+                                                          _applyContactFiltersToCubit(),
+                                                        );
+                                                      },
+                                                    ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        MessagingFilterDropdown(
+                                          hintText: 'Status',
+                                          items: _statusOptions,
+                                          selectedItem: _selectedStatus,
+                                          onSelect: (v) {
+                                            setState(() {
+                                              _selectedStatus = v;
+                                              _selectedStaffCodes.clear();
+                                              _selectedStudentCodes.clear();
+                                              _selectAll = false;
+                                            });
+                                            unawaited(
+                                              _applyContactFiltersToCubit(),
+                                            );
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ],
                                       // Select All
                                       Align(
                                         alignment: Alignment.centerLeft,

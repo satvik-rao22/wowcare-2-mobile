@@ -12,6 +12,7 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
@@ -176,6 +177,11 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   }
 
   Future<void> _showGroupChatSheet() async {
+    // A parent/guardian starting an Admin Chat is choosing which admin or
+    // director to talk to — not a student, and the Classroom/Status/Tags
+    // filters built for staff picking a student don't apply here.
+    final isGuardian = context.read<RoleCubit>().isParent;
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => MultiBlocProvider(
@@ -184,10 +190,17 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
             BlocProvider(create: (_) => serviceLocator<ClassroomCubit>()),
             BlocProvider(create: (_) => serviceLocator<StudentCubit>()),
           ],
-          child: const StaffOrStudentSelectionBulkMessaging(
-            isStaffSelection: false,
-            conversationType: 'ADMIN_CHAT',
-          ),
+          child: isGuardian
+              ? const StaffOrStudentSelectionBulkMessaging(
+                  isStaffSelection: true,
+                  conversationType: 'ADMIN_CHAT',
+                  restrictToDesignationCodes: ['ADMIN', 'DIRECTOR'],
+                  hideFilters: true,
+                )
+              : const StaffOrStudentSelectionBulkMessaging(
+                  isStaffSelection: false,
+                  conversationType: 'ADMIN_CHAT',
+                ),
         ),
       ),
     );
