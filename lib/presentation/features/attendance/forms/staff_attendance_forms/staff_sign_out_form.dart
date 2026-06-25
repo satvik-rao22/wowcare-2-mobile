@@ -419,7 +419,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       'staffCodes': staffCodes,
       'classroomCode': classroomCode,
       'classroomCodeByStaffCode': classroomCodeByStaffCode,
-      'method': widget.isKiosk ? 'KIOSK' : signOutMethod,
+      'method': widget.isKiosk ? 'KIOSK' : 'APP',// signOutMethod,
       'latitude': position?.latitude ?? 0,
       'longitude': position?.longitude ?? 0,
       'withinGeofence': withinGeofence,

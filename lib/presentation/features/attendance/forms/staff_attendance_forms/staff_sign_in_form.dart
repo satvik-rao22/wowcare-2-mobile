@@ -604,7 +604,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
       payload = <String, dynamic>{
         'staffCode': staffCode,
-        'method': widget.isKiosk ? 'KIOSK' : signInMethod,
+        'method':  widget.isKiosk ? 'KIOSK' :  signInMethod,
         'latitude': position?.latitude ?? 0,
         'longitude': position?.longitude ?? 0,
         'withinGeofence': withinGeofence,
@@ -643,7 +643,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'staffCodes': staffCodes,
         'classroomCode': classroomCode,
         'classroomCodeByStaffCode': classroomCodeByStaffCode,
-        'method': signInMethod,
+        'method': 'APP',// signInMethod,
         'latitude': position?.latitude ?? 0,
         'longitude': position?.longitude ?? 0,
         'withinGeofence': withinGeofence,
