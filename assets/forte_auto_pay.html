@@ -341,9 +341,20 @@
             type="text"
             maxlength="60"
             class="custom-input uppercase"
-            placeholder="ENTER ACCOUNT HOLDER NAME"
+            placeholder="ENTER FIRST AND LAST NAME"
             autocomplete="off"
           />
+          <div
+            id="accountHolderHint"
+            style="
+              display: none;
+              margin-top: 6px;
+              font-size: 12px;
+              color: #c05621;
+            "
+          >
+            Please enter both a first and last name.
+          </div>
         </div>
 
         <div id="cardFields" style="display: none">
@@ -633,6 +644,13 @@
           return;
         }
         const holder = document.getElementById('accountHolder').value.trim();
+        // Forte requires both a first AND last name on the holder/cardholder,
+        // so the name must contain at least two words.
+        const holderValid = isFullName(holder);
+        const hint = document.getElementById('accountHolderHint');
+        if (hint) {
+          hint.style.display = holder && !holderValid ? 'block' : 'none';
+        }
         const isCard = value !== 'echeck';
         if (isCard) {
           const cardNumber = document.getElementById('cardNumber').value.trim();
@@ -640,7 +658,7 @@
           const expYear = document.getElementById('expYear').value;
           const cvv = document.getElementById('cvv').value.trim();
           btn.disabled =
-            !holder || !cardNumber || !expMonth || !expYear || !cvv;
+            !holderValid || !cardNumber || !expMonth || !expYear || !cvv;
         } else {
           const account = document
             .getElementById('accountNumber')
@@ -649,8 +667,13 @@
             .getElementById('routingNumber')
             .value.trim();
           const type = document.getElementById('accountType').value;
-          btn.disabled = !holder || !account || !routing || !type;
+          btn.disabled = !holderValid || !account || !routing || !type;
         }
+      }
+
+      // True when [name] has at least two non-empty words (first + last).
+      function isFullName(name) {
+        return (name || '').trim().split(/\s+/).filter(Boolean).length >= 2;
       }
 
       // UPPERCASE letters only, max 4 words, single space between, no leading space.

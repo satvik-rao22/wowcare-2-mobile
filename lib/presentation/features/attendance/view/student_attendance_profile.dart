@@ -28,6 +28,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
@@ -460,9 +461,11 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         return DateFormat('hh:mm a').format(dt);
       }
 
-      final iso = DateTime.tryParse(s);
-      if (iso != null) {
-        return DateFormat('hh:mm a').format(iso.toLocal());
+      // Render ISO instants in the school's zone (not the device zone) so
+      // sign-in/out times match the backend regardless of where the user is.
+      final schoolDt = attendanceDisplayDateTimeFromIso(s);
+      if (schoolDt != null) {
+        return DateFormat('hh:mm a').format(schoolDt);
       }
 
       final amPmMatch = RegExp(

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -130,7 +131,8 @@ class _StudentSelectionMarkAbsentFormState
     });
 
     try {
-      final today = DateTime.now();
+      await bootstrapAttendanceSchoolTimezone();
+      final today = attendanceSchoolToday();
       final dateString = _formatDate(today);
 
       final selectedClassroomCode = _selectedClassroomCode?.trim();

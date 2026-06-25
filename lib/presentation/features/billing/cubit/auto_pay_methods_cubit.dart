@@ -171,6 +171,11 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
           'allowedMethods': state.allowedMethods,
       };
 
+  /// Number of whitespace-separated words in [name] (used to require a first
+  /// and last name before sending a holder name to Forte).
+  int _nameWordCount(String name) =>
+      name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+
   Future<(String, String)> _guardianNames() async {
     final firstName =
         (await _storage.getString(StorageKeys.guardianProfileFirstName) ?? '')
@@ -205,10 +210,14 @@ class AutoPayMethodsCubit extends Cubit<AutoPayMethodsState> {
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
       var holderName = (accountHolder ?? '').trim();
-      if (holderName.isEmpty) {
-        // Fall back to the stored guardian name when the form left it blank.
+      // Forte mandates BOTH a first and last name on the card-holder /
+      // account-holder. If the form left it blank or only captured a single
+      // word, supplement it with the stored guardian name so the request isn't
+      // rejected ("MANDATORY FIELD MISSING: ... name_on_card / account_holder").
+      if (_nameWordCount(holderName) < 2) {
         final (firstName, lastName) = await _guardianNames();
-        holderName = [firstName, lastName]
+        final first = holderName.isNotEmpty ? holderName : firstName;
+        holderName = [first, lastName]
             .where((p) => p.trim().isNotEmpty)
             .join(' ')
             .trim();

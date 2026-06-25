@@ -271,6 +271,23 @@ class GuardianScopeParams extends Equatable {
   List<Object?> get props => [organizationCode, schoolCode, guardianCode];
 }
 
+/// A guardian's per-child split of a Pay Now charge. When the parent enters an
+/// amount against individual children, each child becomes one allocation so the
+/// backend applies the money to that student's invoices instead of the
+/// family-wide oldest-invoice-first default.
+class PaymentAllocationEntity extends Equatable {
+  const PaymentAllocationEntity({
+    required this.studentCode,
+    required this.amount,
+  });
+
+  final String studentCode;
+  final double amount;
+
+  @override
+  List<Object?> get props => [studentCode, amount];
+}
+
 /// Request to charge a guardian's saved payment method
 /// (`POST /payment-gateway/guardian/pay`).
 class GuardianPayParams extends Equatable {
@@ -285,6 +302,7 @@ class GuardianPayParams extends Equatable {
     required this.idempotencyKey,
     required this.payMethodHolderName,
     this.preference = 'SELECTED',
+    this.allocations = const <PaymentAllocationEntity>[],
   });
 
   final String organizationCode;
@@ -301,6 +319,10 @@ class GuardianPayParams extends Equatable {
   final String payMethodHolderName;
   final String preference;
 
+  /// Per-child split of [amount]. Empty means pay the whole [amount]
+  /// family-wide (oldest invoice first); non-empty splits it per student.
+  final List<PaymentAllocationEntity> allocations;
+
   @override
   List<Object?> get props => [
         organizationCode,
@@ -313,6 +335,7 @@ class GuardianPayParams extends Equatable {
         idempotencyKey,
         payMethodHolderName,
         preference,
+        allocations,
       ];
 }
 

@@ -56,6 +56,8 @@ class InvoiceListItemEntity extends Equatable {
     required this.items,
     this.issueDate,
     this.dueDate,
+    this.periodStart,
+    this.periodEnd,
     this.createdDate,
     this.createdBy,
     this.subscriptionCode,
@@ -75,6 +77,10 @@ class InvoiceListItemEntity extends Equatable {
   final List<InvoiceListLineItemEntity> items;
   final DateTime? issueDate;
   final DateTime? dueDate;
+
+  /// Optional service period (Date of Service from/to).
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
   final DateTime? createdDate;
   final String? createdBy;
   final String? subscriptionCode;
@@ -98,6 +104,8 @@ class InvoiceListItemEntity extends Equatable {
         items,
         issueDate,
         dueDate,
+        periodStart,
+        periodEnd,
         createdDate,
         createdBy,
         subscriptionCode,
