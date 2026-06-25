@@ -92,6 +92,7 @@ Future<void> showActivityStudentListSheet(
                               studentCode: codes[i],
                               size: 40,
                               fontSize: 14,
+                              disableAttendanceStatusLookup: true,
                             ),
                             const SizedBox(width: 12),
                             Expanded(
@@ -172,6 +173,7 @@ Widget activityFeedStudentAvatarStack(
           studentCode: codeAt(0),
           size: size,
           fontSize: 10,
+          disableAttendanceStatusLookup: true,
         ),
         const SizedBox(width: 8),
         Flexible(
@@ -206,6 +208,7 @@ Widget activityFeedStudentAvatarStack(
               studentCode: codeAt(i),
               size: size,
               fontSize: 10,
+              disableAttendanceStatusLookup: true,
             ),
           ),
         if (students.length > maxShow)
@@ -218,6 +221,7 @@ Widget activityFeedStudentAvatarStack(
                 name: '+${students.length - maxShow}',
                 size: size,
                 fontSize: 10,
+                disableAttendanceStatusLookup: true,
               ),
             ),
           ),

@@ -93,22 +93,16 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
     emit(state.copyWith(students: updated));
   }
 
-  /// Picks the absence start date, clamped to (not after) the school's today
-  /// and keeping the end date on/after the start date.
+  /// Picks the absence start date, keeping end date on/after the start date.
   void selectStartDate(DateTime date) {
-    final today = _schoolToday();
-    final picked = DateTime(date.year, date.month, date.day);
-    final start = picked.isAfter(today) ? today : picked;
+    final start = DateTime(date.year, date.month, date.day);
     final end = state.endDate.isBefore(start) ? start : state.endDate;
     emit(state.copyWith(startDate: start, endDate: end));
   }
 
-  /// Picks the absence end date, clamped to (not after) the school's today and
-  /// never before the start date.
+  /// Picks the absence end date, never before the start date.
   void selectEndDate(DateTime date) {
-    final today = _schoolToday();
-    final picked = DateTime(date.year, date.month, date.day);
-    var end = picked.isAfter(today) ? today : picked;
+    var end = DateTime(date.year, date.month, date.day);
     if (end.isBefore(state.startDate)) end = state.startDate;
     emit(state.copyWith(endDate: end));
   }
@@ -186,13 +180,6 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
       return MarkAbsentSubmitOutcome.error(e);
     }
-  }
-
-  DateTime _schoolToday() {
-    final iana = state.schoolIana;
-    return (iana != null && iana.isNotEmpty)
-        ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-        : _localToday();
   }
 
   static DateTime _localToday() {

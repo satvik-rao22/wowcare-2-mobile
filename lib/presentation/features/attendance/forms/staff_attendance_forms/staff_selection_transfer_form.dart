@@ -219,7 +219,7 @@ class _StaffSelectionTransferFormState
       context,
       MaterialPageRoute(
         builder: (context) => StaffTransferForm(
-          staff: selectedStaff.first,
+          staffList: selectedStaff.toList(),
         ),
       ),
     );

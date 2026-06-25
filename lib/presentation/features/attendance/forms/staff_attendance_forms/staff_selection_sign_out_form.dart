@@ -219,7 +219,7 @@ class _StaffSelectionSignOutFormState
       context,
       MaterialPageRoute(
         builder: (context) => StaffSignOutForm(
-          staff: selectedStaff.first,
+          staffList: selectedStaff.toList(),
         ),
       ),
     );
