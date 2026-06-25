@@ -167,10 +167,18 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
       final t = txns[i];
       // Family-level transactions (Payment / Credit / Refund) carry no student.
       final isFamilyLevel = t.studentName.isEmpty && t.studentCode.isEmpty;
-      // Header label: the specific student, else the family name.
+      // Header label: the specific student, else the family name. For nameless
+      // family-level rows (e.g. a guardian card payment), append the payment
+      // status in brackets — e.g. "Fisher Family (In Process)".
+      final familyLabel = (isFamilyLevel && familyName.isNotEmpty)
+          ? () {
+              final status = _formatTxnStatus(t.status);
+              return status.isEmpty ? familyName : '$familyName ($status)';
+            }()
+          : familyName;
       final resolvedName = t.studentName.isNotEmpty
           ? t.studentName
-          : (t.studentCode.isNotEmpty ? t.studentCode : familyName);
+          : (t.studentCode.isNotEmpty ? t.studentCode : familyLabel);
       // "Student Name" row: all family students for family-level transactions,
       // otherwise the single student.
       final studentNames = isFamilyLevel && familyStudentNames.isNotEmpty
@@ -198,6 +206,18 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         studentOpenBalance: t.balance,
       );
     });
+  }
+
+  /// Human-friendly status for the family-row label, e.g. `IN_PROCESS` /
+  /// `In_Process` → `In Process`, `SUCCESS` → `Success`.
+  String _formatTxnStatus(String status) {
+    final trimmed = status.trim();
+    if (trimmed.isEmpty) return '';
+    return trimmed
+        .split(RegExp(r'[_\s]+'))
+        .where((w) => w.isNotEmpty)
+        .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+        .join(' ');
   }
 
   /// Opened without a family code (e.g. from a single transaction): there is no

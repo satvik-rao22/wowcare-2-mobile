@@ -23,6 +23,8 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -761,7 +763,10 @@ class _StaffScreenState extends State<StaffScreen> {
                                 textAlign: TextAlign.left,
                               ),
                             ),
-                            GradientAddButton(
+                            if (context
+                                .read<RoleCubit>()
+                                .canWriteModule(AppAccessModules.staff))
+                              GradientAddButton(
                               onTap: () async {
                                 final result = await Navigator.push(
                                   context,

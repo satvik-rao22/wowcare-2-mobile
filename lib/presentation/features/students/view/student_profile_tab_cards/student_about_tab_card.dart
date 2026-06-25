@@ -277,10 +277,17 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
+    final canTagsWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.studentTags) &&
+            !role.isParent;
     // Staff persona (teachers/floaters) may edit only tags here — not the full
     // profile or schedule. Admins keep full profile edit.
     final isStaffPersona = role.isStaff;
     final canEditProfile = canStudentWrite && !isStaffPersona;
+    // The edit pencil opens the full profile editor for admins (STUDENT write)
+    // or the tags-only sheet for staff (STUDENT_TAGS write).
+    final canEdit = widget.studentProfile != null &&
+        (canEditProfile || (isStaffPersona && canTagsWrite));
 
     return CustomRefreshIndicator(
       onRefresh: () async {
@@ -300,7 +307,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         // (rounded top would bump/overlap the tab borders).
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
         scrollController: widget.scrollController,
-        onEdit: widget.studentProfile != null && canStudentWrite
+        onEdit: canEdit
             ? (isStaffPersona
                 ? _openTagsEditSheet
                 : () {

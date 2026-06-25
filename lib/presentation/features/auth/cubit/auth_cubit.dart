@@ -463,12 +463,31 @@ class AuthCubit extends Cubit<AuthState> {
               await storage.remove(StorageKeys.staffCodeSchool);
             } else if (orgCode.isNotEmpty && staffLookupSchoolCode.isNotEmpty) {
               final staffRepository = serviceLocator<StaffRepository>();
-              final staffCode = await staffRepository.getStaffCodeForUser(
-                userCode: response.userCode,
-                organizationCode: orgCode,
-                schoolCode: staffLookupSchoolCode,
-              );
-              final trimmed = (staffCode ?? '').trim();
+              String trimmed = '';
+              try {
+                final staffCode = await staffRepository.getStaffCodeForUser(
+                  userCode: response.userCode,
+                  organizationCode: orgCode,
+                  schoolCode: staffLookupSchoolCode,
+                );
+                trimmed = (staffCode ?? '').trim();
+              } catch (_) {
+                // 403/404 — no staff record for this user, or the gateway
+                // rejects the staff-code bootstrap. Treat as "not staff".
+                trimmed = '';
+              }
+              if (trimmed.isEmpty) {
+                // The admin/staff bootstrap produced no staffCode. If this user
+                // is ALSO a guardian for this org/school, switch the active
+                // persona to guardian so the session works (the guardian path
+                // never sends x-staff-code) instead of dying on every call.
+                await _maybeFallbackToGuardianPersona(
+                  storage: storage,
+                  roles: response.roles,
+                  organizationCode: orgCode,
+                  schoolCode: schoolCode,
+                );
+              }
               if (trimmed.isNotEmpty) {
                 if (schoolCode.isNotEmpty) {
                   await _localDataSource.setSelectedOrgAndSchool(
@@ -551,6 +570,57 @@ class AuthCubit extends Cubit<AuthState> {
           AppLogger.w('[AUTH] FCM registration failed after login (non-fatal): $e');
         }
       },
+    );
+  }
+
+  /// When the admin/staff bootstrap can't resolve a staffCode but the user is
+  /// also a guardian for [organizationCode]/[schoolCode], switch the active
+  /// persona to that guardian role so the session works (guardian calls never
+  /// send `x-staff-code`). Only sets [StorageKeys.activeSchoolRole] — it does
+  /// NOT rewrite the roles list, so the admin persona stays available for the
+  /// manual switcher.
+  Future<void> _maybeFallbackToGuardianPersona({
+    required StorageService storage,
+    required List<RoleModel> roles,
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final org = organizationCode.trim();
+    final school = schoolCode.trim();
+    if (org.isEmpty) return;
+
+    bool matchesContext(RoleModel r) {
+      if (r.organizationCode.trim() != org) return false;
+      final rSchool = r.schoolCode.trim();
+      // School-scoped roles must match; org-wide ('' or '-') always apply.
+      return school.isEmpty ||
+          rSchool.isEmpty ||
+          rSchool == '-' ||
+          rSchool == school;
+    }
+
+    final contextRoles = roles.where(matchesContext).toList();
+    if (contextRoles.isEmpty) return;
+
+    RoleModel? guardianRole;
+    var hasNonGuardian = false;
+    for (final r in contextRoles) {
+      if (roleStringIsGuardianPersona(r.role)) {
+        guardianRole ??= r;
+      } else {
+        hasNonGuardian = true;
+      }
+    }
+    // Only fall back for genuine dual-role accounts (admin/staff AND guardian).
+    if (guardianRole == null || !hasNonGuardian) return;
+
+    await storage.saveString(
+      StorageKeys.activeSchoolRole,
+      guardianRole.role.trim(),
+    );
+    AppLogger.d(
+      '[AUTH] Staff bootstrap failed for a dual-role user — '
+      'falling back to guardian persona (${guardianRole.role}).',
     );
   }
 

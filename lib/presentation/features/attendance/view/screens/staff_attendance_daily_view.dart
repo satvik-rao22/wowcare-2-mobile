@@ -8,6 +8,8 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_summary.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
@@ -990,6 +992,11 @@ class _StaffAttendanceDailyViewScreenState
       );
     }
 
+    // Editing/deleting attendance records is a STAFF_ATTENDANCE write — hide
+    // both actions for view-only personas (the card omits a null callback).
+    final canWriteStaffAttendance = context
+        .read<RoleCubit>()
+        .canWriteModule(AppAccessModules.staffAttendance);
     return Column(
       children: filtered.asMap().entries.map((entry) {
         final index = entry.key;
@@ -1003,7 +1010,9 @@ class _StaffAttendanceDailyViewScreenState
               _expandedStaffIndex = _expandedStaffIndex == index ? null : index;
             });
           },
-          onEdit: () async {
+          onEdit: !canWriteStaffAttendance
+              ? null
+              : () async {
             await Navigator.push<bool>(
               context,
               MaterialPageRoute(
@@ -1017,7 +1026,9 @@ class _StaffAttendanceDailyViewScreenState
               refreshAfterReturningFromAttendanceFlow();
             }
           },
-          onDelete: () {
+          onDelete: !canWriteStaffAttendance
+              ? null
+              : () {
             showModalBottomSheet(
               context: context,
               isScrollControlled: true,

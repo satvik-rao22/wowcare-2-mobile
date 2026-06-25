@@ -19,6 +19,8 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 class ClassroomScreen extends StatefulWidget {
@@ -443,6 +445,11 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     // Show respective FAB only on Students (0) and Staff (1) tabs
     if (selectedRoom == null) return null;
     if (_hideAssignFabForStaffPersona) return null;
+    // Assigning students/staff to a room is a CLASSROOM write — hide for
+    // view-only personas.
+    if (!context.read<RoleCubit>().canWriteModule(AppAccessModules.classroom)) {
+      return null;
+    }
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600;
     final isLargeTablet = screenWidth >= 900;

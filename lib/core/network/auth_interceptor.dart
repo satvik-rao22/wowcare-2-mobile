@@ -109,14 +109,18 @@ class AuthInterceptor extends Interceptor {
 
     // ── Role-conditional headers ─────────────────────────────────────────────
     final staffHeader = staffCode.isNotEmpty ? staffCode : '-';
+    // Mirror the staff `-` placeholder for guardians: send the real code once
+    // resolved, otherwise a `-` so the bootstrap call (`/guardian/profile`,
+    // which is what RESOLVES the code) isn't rejected for a "missing header"
+    // before it can return the code. Real (post-bootstrap) requests are
+    // unaffected — they carry the actual guardianCode.
+    final guardianHeader = guardianCode.isNotEmpty ? guardianCode : '-';
     switch (bucket) {
       case _RoleBucket.guardian:
-        if (guardianCode.isNotEmpty) {
-          _setMulti(options, guardianCode,
-              lower: 'x-guardian-code',
-              pascal: 'X-Guardian-Code',
-              camel: 'guardianCode');
-        }
+        _setMulti(options, guardianHeader,
+            lower: 'x-guardian-code',
+            pascal: 'X-Guardian-Code',
+            camel: 'guardianCode');
         _setSchool(options, resolvedSchoolCode);
         break;
       case _RoleBucket.staff:
@@ -142,8 +146,15 @@ class AuthInterceptor extends Interceptor {
     handler.next(options);
   }
 
-  void _setStaff(RequestOptions options, String code) => _setMulti(options, code,
-      lower: 'x-staff-code', pascal: 'X-Staff-Code', camel: 'staffCode');
+  void _setStaff(RequestOptions options, String code) {
+    // The staff-code bootstrap (`/staff/code` → `/staff/staff/code` on UAT) is
+    // the call that RESOLVES the staff code, so it must NOT carry one. Sending a
+    // placeholder (`-`) makes the gateway reject it with "Staff code does not
+    // belong to the authenticated user" before it can return the real code.
+    if (options.path.contains('staff/code')) return;
+    _setMulti(options, code,
+        lower: 'x-staff-code', pascal: 'X-Staff-Code', camel: 'staffCode');
+  }
 
   void _setSchool(RequestOptions options, String code) {
     if (code.isEmpty) return;

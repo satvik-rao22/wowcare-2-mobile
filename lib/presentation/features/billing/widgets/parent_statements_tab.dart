@@ -25,6 +25,10 @@ class ParentStatementsTab extends StatefulWidget {
   final List<Map<String, dynamic>> familyChildren;
   final String subscriberCode;
   final String ownerType;
+
+  /// The family's current open balance, shown alongside the Generate button —
+  /// mirrors the value on the parent Billing tab.
+  final double currentBalance;
   final DateTime? customStartDate;
   final DateTime? customEndDate;
 
@@ -33,6 +37,7 @@ class ParentStatementsTab extends StatefulWidget {
     required this.familyChildren,
     required this.subscriberCode,
     required this.ownerType,
+    this.currentBalance = 0,
     this.customStartDate,
     this.customEndDate,
   });
@@ -209,7 +214,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
       child: BlocBuilder<ParentStatementsCubit, ParentStatementsState>(
         builder: (context, state) {
           final visibleStatements = state.visibleStatements;
-          final currentBalance = 0.0;
+          final currentBalance = widget.currentBalance;
 
           final studentNames = widget.familyChildren
               .map((c) => (c['fullName'] ?? c['name'] ?? '').toString())

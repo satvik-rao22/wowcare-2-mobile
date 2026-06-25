@@ -261,7 +261,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                     children: state.visibleTransactions.map((txn) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: ParentTransactionCard(transaction: txn),
+                        child: ParentTransactionCard(
+                          transaction: txn,
+                          familyName: state.ledger?.familyName ?? '',
+                        ),
                       );
                     }).toList(),
                   ),
@@ -292,6 +295,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       }).toList(),
       subscriberCode: state.ledger?.ownerCode ?? '',
       ownerType: state.ledger?.ownerType ?? 'GUARDIAN',
+      currentBalance: state.openBalance,
       customStartDate: state.startDate,
       customEndDate: state.endDate,
     );

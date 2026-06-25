@@ -49,12 +49,29 @@ final List<DemoStatement> demoStatements = [
 class ParentTransactionCard extends StatelessWidget {
   final FamilyLedgerTransactionEntity transaction;
 
+  /// Family name, used as the row label for guardian-level rows (e.g. a card
+  /// payment) that carry no student.
+  final String familyName;
+
   const ParentTransactionCard({
     super.key,
     required this.transaction,
+    this.familyName = '',
   });
 
   String get _type => transaction.transactionType.toLowerCase();
+
+  /// Header label: the student when present, otherwise the family name (for
+  /// guardian-level rows such as a card payment). The status is shown on the
+  /// right, not appended here.
+  String get _displayName {
+    if (transaction.studentName.trim().isNotEmpty) {
+      return transaction.studentName;
+    }
+    return familyName.trim().isNotEmpty
+        ? familyName.trim()
+        : transaction.studentName;
+  }
 
   /// Title-cases a raw backend status, treating underscores as word breaks so
   /// `IN_PROCESS` renders as `In Process` rather than `In_process`.
@@ -72,6 +89,13 @@ class ParentTransactionCard extends StatelessWidget {
     // Labels (Due Date / Paid On / Refunded On) are dropped to save horizontal
     // space; the badge already conveys the transaction type.
     return DateUtilsNew.formatToReadableDate(transaction.date!);
+  }
+
+  /// Badge text: the transaction type with the status in brackets, e.g.
+  /// `Payment (In Process)` / `Invoice (Sent)`.
+  String _badgeLabel(String type) {
+    final status = _formatStatus(transaction.status);
+    return status.isEmpty ? type : '$type ($status)';
   }
 
   ({String label, Color color, Color textColor}) _badge() {
@@ -153,7 +177,7 @@ class ParentTransactionCard extends StatelessWidget {
     return StaffStyleCard(
       leading: DocumentImageWidget(
         fileUuid: '',
-        name: transaction.studentName,
+        name: _displayName,
         size: 50,
       ),
       header: Row(
@@ -165,14 +189,14 @@ class ParentTransactionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction.studentName,
+                  _displayName,
                   style: BillingCardText.name(isTablet),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
                 const SizedBox(height: 4),
                 _Badge(
-                  label: badge.label,
+                  label: _badgeLabel(badge.label),
                   color: badge.color,
                   textColor: badge.textColor,
                 ),
