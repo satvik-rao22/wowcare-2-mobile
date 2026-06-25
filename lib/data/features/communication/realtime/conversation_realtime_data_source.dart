@@ -23,6 +23,8 @@ class ConversationInboxItem {
     this.lastMessageSenderName,
     this.schoolCode,
     this.privateModeActive,
+    this.privateModeActivatedBy,
+    this.privateModeActivatedAt,
   });
 
   final String conversationCode;
@@ -36,7 +38,17 @@ class ConversationInboxItem {
   final String? lastMessageSenderCode;
   final String? lastMessageSenderName;
   final String? schoolCode;
+
+  /// Parsed but intentionally not merged into [ConversationEntity] yet — this
+  /// is a single bool on a per-user inbox doc, while [ConversationEntity]
+  /// tracks private mode per-guardian via `privateModeStates`. Whether this
+  /// means "private mode is on for the recipient of this inbox doc" or
+  /// something else needs confirming with the backend before merging it; a
+  /// wrong guess here would mis-flag a conversation as private/not-private
+  /// for the wrong guardian.
   final bool? privateModeActive;
+  final String? privateModeActivatedBy;
+  final DateTime? privateModeActivatedAt;
 
   factory ConversationInboxItem.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -55,6 +67,8 @@ class ConversationInboxItem {
       lastMessageSenderName: d['lastMessageSenderName'] as String?,
       schoolCode: d['schoolCode'] as String?,
       privateModeActive: d['privateModeActive'] as bool?,
+      privateModeActivatedBy: d['privateModeActivatedBy'] as String?,
+      privateModeActivatedAt: _parseTimestamp(d['privateModeActivatedAt']),
     );
   }
 
@@ -87,6 +101,11 @@ class ConversationInboxItem {
       participants: cached.participants,
       studentCode: cached.studentCode,
       classroomCode: cached.classroomCode,
+      privateModeActive: privateModeActive ?? cached.privateModeActive,
+      privateModeActivatedBy:
+          privateModeActivatedBy ?? cached.privateModeActivatedBy,
+      privateModeActivatedAt:
+          privateModeActivatedAt ?? cached.privateModeActivatedAt,
       privateModeStates: cached.privateModeStates,
     );
   }
@@ -116,6 +135,9 @@ class ConversationInboxItem {
       lastMessageAt: lastMessageAt,
       lastMessageBy: lastMessageSenderCode,
       lastMessageSenderName: lastMessageSenderName,
+      privateModeActive: privateModeActive ?? false,
+      privateModeActivatedBy: privateModeActivatedBy,
+      privateModeActivatedAt: privateModeActivatedAt,
       participants: const [],
     );
   }

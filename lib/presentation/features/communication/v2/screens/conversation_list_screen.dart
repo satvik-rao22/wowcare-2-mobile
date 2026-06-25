@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -20,6 +19,9 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../core/storage/storage_service.dart';
+import '../../../../../core/util/storage_keys.dart';
 
 /// Reusable conversation list for STAFF_DIRECT, ROOM_CHAT, and ADMIN_CHAT.
 ///
@@ -59,6 +61,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   bool _showUnreadOnly = false;
   late final ConversationListCubit _cubit;
   Timer? _searchDebounce;
+  bool _isGuardian = false;
 
   @override
   void initState() {
@@ -73,7 +76,21 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     );
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
+    _initRole();
     unawaited(_cubit.startWatching());
+  }
+
+  Future<void> _initRole() async {
+    final role = await serviceLocator<StorageService>().getString(
+      StorageKeys.activeSchoolRole,
+    );
+    if (mounted) {
+      setState(() {
+        _isGuardian =
+            role?.toUpperCase() == 'GUARDIAN' ||
+            role?.toUpperCase() == 'PARENT';
+      });
+    }
   }
 
   @override
@@ -188,18 +205,19 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                               ),
                               Row(
                                 children: [
-                                  // Filter button (STAFF_DIRECT only)
+                                  // Filter button (STAFF_DIRECT and ADMIN_CHAT for non-guardians)
                                   if (widget.conversationType ==
-                                      ConversationType.staffDirect)
+                                          ConversationType.staffDirect ||
+                                      (widget.conversationType ==
+                                              ConversationType.adminChat &&
+                                          !_isGuardian))
                                     FilterIndicator(
                                       hasActiveFilters: state.hasActiveFilters,
                                       filterCount: [
                                         state.activeDesignation,
                                         state.activeStaffStatus,
                                         state.activeClassroom,
-                                      ]
-                                          .where((f) => f != null)
-                                          .length,
+                                      ].where((f) => f != null).length,
                                       onTap: () => _showFilterSheet(context),
                                     ),
                                   _TypeChip(type: state.conversationType),
@@ -210,8 +228,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                           // Active filter chips
                           if (state.hasActiveFilters)
                             Padding(
-                              padding:
-                                  const EdgeInsets.fromLTRB(0, 8, 0, 0),
+                              padding: const EdgeInsets.fromLTRB(0, 8, 0, 0),
                               child: Wrap(
                                 spacing: 6,
                                 children: [
@@ -285,8 +302,9 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                     SliverFillRemaining(
                       child: _FullScreenError(
                         message: state.errorMessage!,
-                        onRetry: () =>
-                            context.read<ConversationListCubit>().startWatching(),
+                        onRetry: () => context
+                            .read<ConversationListCubit>()
+                            .startWatching(),
                       ),
                     ),
 
@@ -404,13 +422,17 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                 ),
                 const SizedBox(height: 8),
                 ElevatedButton.icon(
-                  onPressed: () => context.read<ConversationListCubit>().retryStaffSearch(),
+                  onPressed: () =>
+                      context.read<ConversationListCubit>().retryStaffSearch(),
                   icon: const Icon(Icons.refresh, size: 16),
                   label: const Text('Retry'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFC62828),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
@@ -474,25 +496,25 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
         ),
 
         SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (context, index) {
-              final staff = state.staffSearchResults[index];
-              return _StaffDirectoryTile(
-                staff: staff,
-                isCreating: state.isSearchingStaff && state.staffSearchErrorMessage == null,
-                onTap: () async {
-                  // Create or get existing STAFF_DIRECT conversation
-                  await context.read<ConversationListCubit>()
-                      .createOrGetStaffDirectConversation(
-                    staff.userCode,
-                    staff.name,
-                    staff.avatarAssetCode,
-                  );
-                },
-              );
-            },
-            childCount: state.staffSearchResults.length,
-          ),
+          delegate: SliverChildBuilderDelegate((context, index) {
+            final staff = state.staffSearchResults[index];
+            return _StaffDirectoryTile(
+              staff: staff,
+              isCreating:
+                  state.isSearchingStaff &&
+                  state.staffSearchErrorMessage == null,
+              onTap: () async {
+                // Create or get existing STAFF_DIRECT conversation
+                await context
+                    .read<ConversationListCubit>()
+                    .createOrGetStaffDirectConversation(
+                      staff.userCode,
+                      staff.name,
+                      staff.avatarAssetCode,
+                    );
+              },
+            );
+          }, childCount: state.staffSearchResults.length),
         ),
       ],
     );
@@ -552,7 +574,10 @@ class _StaffDirectoryTile extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF6C5CE7).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
@@ -659,7 +684,9 @@ class _ConversationTileContent extends StatelessWidget {
                     Text(
                       conversation.lastMessagePreview.isEmpty
                           ? 'Start a new conversation'
-                          : MessageContentProcessor.previewText(conversation.lastMessagePreview),
+                          : MessageContentProcessor.previewText(
+                              conversation.lastMessagePreview,
+                            ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -920,10 +947,7 @@ class _FullScreenError extends StatelessWidget {
 // ─── Filter chip ──────────────────────────────────────────────────────────────
 
 class _FilterChip extends StatelessWidget {
-  const _FilterChip({
-    required this.label,
-    required this.onRemove,
-  });
+  const _FilterChip({required this.label, required this.onRemove});
 
   final String label;
   final VoidCallback onRemove;

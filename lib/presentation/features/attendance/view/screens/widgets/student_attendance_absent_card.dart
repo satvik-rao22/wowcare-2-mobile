@@ -292,7 +292,11 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
       case AbsentMarkMethod.qr:
         return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
       case AbsentMarkMethod.kiosk:
-        return SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size);
+        return Icon(
+          Icons.point_of_sale_outlined,
+          size: size,
+          color: AppColors.themeColor,
+        );
       case AbsentMarkMethod.app:
         return SvgPicture.asset(
           MediaRes.appMethodIcon,

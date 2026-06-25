@@ -1,8 +1,6 @@
 import 'dart:convert';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../../../../../core/network/api_client.dart';
 import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/school_timezone_resolver.dart';
@@ -10,7 +8,6 @@ import '../../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../../core/util/staff_code_resolver.dart';
 import '../../../../../../core/util/storage_keys.dart';
 import '../../../../../../domain/features/attendance/usecases/mark_students_absent_usecase.dart';
-
 part 'student_mark_absent_state.dart';
 
 /// Cubit for [StudentMarkAbsentForm].
@@ -26,10 +23,10 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
     required MarkStudentsAbsentUseCase markStudentsAbsentUseCase,
     required StorageService storageService,
     required ApiClient apiClient,
-  })  : _markStudentsAbsentUseCase = markStudentsAbsentUseCase,
-        _storageService = storageService,
-        _apiClient = apiClient,
-        super(StudentMarkAbsentState.initial());
+  }) : _markStudentsAbsentUseCase = markStudentsAbsentUseCase,
+       _storageService = storageService,
+       _apiClient = apiClient,
+       super(StudentMarkAbsentState.initial());
 
   final MarkStudentsAbsentUseCase _markStudentsAbsentUseCase;
   final StorageService _storageService;
@@ -66,7 +63,8 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
             final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
                 .toString()
                 .toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+            if (roleCode == 'SCHOOL_ADMIN' ||
+                roleCode == 'ORGANIZATION_ADMIN') {
               isAdmin = true;
               break;
             }
@@ -77,12 +75,14 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
       final DateTime start = (schoolIana != null && schoolIana.isNotEmpty)
           ? SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana)
           : _localToday();
-      emit(state.copyWith(
-        schoolIana: schoolIana,
-        isStaffAdminPersona: isAdmin,
-        startDate: start,
-        endDate: start,
-      ));
+      emit(
+        state.copyWith(
+          schoolIana: schoolIana,
+          isStaffAdminPersona: isAdmin,
+          startDate: start,
+          endDate: start,
+        ),
+      );
     } catch (_) {}
   }
 
@@ -153,8 +153,9 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
       );
     }
 
-    final absenceReason =
-        reason.trim().isNotEmpty ? reason.trim() : 'Marked Absent';
+    final absenceReason = reason.trim().isNotEmpty
+        ? reason.trim()
+        : 'Marked Absent';
     final absenceNotes = <String, String>{};
     for (final code in studentCodes) {
       final note = (notes[code] ?? '').trim();
@@ -218,13 +219,13 @@ class MarkAbsentSubmitOutcome {
   });
 
   const MarkAbsentSubmitOutcome.success(String message)
-      : this._(success: true, message: message);
+    : this._(success: true, message: message);
 
   const MarkAbsentSubmitOutcome.failure(String message)
-      : this._(success: false, message: message);
+    : this._(success: false, message: message);
 
   const MarkAbsentSubmitOutcome.error(Object error)
-      : this._(success: false, error: error);
+    : this._(success: false, error: error);
 
   const MarkAbsentSubmitOutcome.noop() : this._(success: false);
 

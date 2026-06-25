@@ -25,6 +25,7 @@ class MessageModel extends Message {
     super.senderName,
     super.receivers,
     super.isPrivate = false,
+    super.privateParentUserCode,
   }) : super(senderUserCode: senderUserCode);
 
   factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
@@ -83,6 +84,7 @@ class MessageModel extends Message {
           : json['senderName'] as String?,
       receivers: const [],
       isPrivate: json['isPrivate'] as bool? ?? false,
+      privateParentUserCode: json['privateParentUserCode'] as String?,
     );
   }
 
@@ -97,6 +99,7 @@ class MessageModel extends Message {
       'replyToMessageId': quotedMessageId,
       'attachments': attachments.map((e) => (e as ChatAttachmentModel).toJson()).toList(),
       'senderName': senderName,
+      if (privateParentUserCode != null) 'privateParentUserCode': privateParentUserCode,
     };
   }
 }

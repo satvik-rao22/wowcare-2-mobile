@@ -27,6 +27,9 @@ class ConversationEntityDto {
     this.lastMessageAt,
     this.lastMessageBy,
     this.lastMessageSenderName,
+    this.privateModeActive = false,
+    this.privateModeActivatedBy,
+    this.privateModeActivatedAt,
     this.privateModeStates = const [],
   });
 
@@ -52,6 +55,9 @@ class ConversationEntityDto {
   final DateTime? lastMessageAt;
   final String? lastMessageBy;
   final String? lastMessageSenderName;
+  final bool privateModeActive;
+  final String? privateModeActivatedBy;
+  final DateTime? privateModeActivatedAt;
   final List<PrivateModeStateDto> privateModeStates;
 
   factory ConversationEntityDto.fromJson(Map<String, dynamic> json) {
@@ -83,6 +89,11 @@ class ConversationEntityDto {
           : null,
       lastMessageBy: json['lastMessageBy'] as String?,
       lastMessageSenderName: json['lastMessageSenderName'] as String?,
+      privateModeActive: json['privateModeActive'] as bool? ?? false,
+      privateModeActivatedBy: json['privateModeActivatedBy'] as String?,
+      privateModeActivatedAt: json['privateModeActivatedAt'] != null
+          ? DateTime.tryParse(json['privateModeActivatedAt'] as String)
+          : null,
       privateModeStates: (json['privateModeStates'] as List<dynamic>?)
               ?.map((e) => PrivateModeStateDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
@@ -113,6 +124,11 @@ class ConversationEntityDto {
         if (lastMessageAt != null) 'lastMessageAt': lastMessageAt!.toIso8601String(),
         if (lastMessageBy != null) 'lastMessageBy': lastMessageBy,
         if (lastMessageSenderName != null) 'lastMessageSenderName': lastMessageSenderName,
+        'privateModeActive': privateModeActive,
+        if (privateModeActivatedBy != null)
+          'privateModeActivatedBy': privateModeActivatedBy,
+        if (privateModeActivatedAt != null)
+          'privateModeActivatedAt': privateModeActivatedAt!.toIso8601String(),
         'privateModeStates': privateModeStates.map((e) => e.toJson()).toList(),
       };
 
@@ -141,6 +157,9 @@ class ConversationEntityDto {
       lastMessageAt: lastMessageAt,
       lastMessageBy: lastMessageBy,
       lastMessageSenderName: lastMessageSenderName,
+      privateModeActive: privateModeActive,
+      privateModeActivatedBy: privateModeActivatedBy,
+      privateModeActivatedAt: privateModeActivatedAt,
       privateModeStates: {
         for (final s in privateModeStates) s.parentCode: s.toEntity()
       },

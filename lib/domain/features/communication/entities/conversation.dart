@@ -16,6 +16,9 @@ class Conversation extends Equatable {
   final String updatedBy;
   final DateTime? lastMessageAt;
   final String? lastMessageBy;
+  final bool privateModeActive;
+  final String? privateModeActivatedBy;
+  final DateTime? privateModeActivatedAt;
   final int participantCount;
   final int unreadCount;
   final String lastMessagePreview;
@@ -37,6 +40,9 @@ class Conversation extends Equatable {
     required this.updatedBy,
     this.lastMessageAt,
     this.lastMessageBy,
+    this.privateModeActive = false,
+    this.privateModeActivatedBy,
+    this.privateModeActivatedAt,
     required this.participantCount,
     required this.unreadCount,
     required this.lastMessagePreview,
@@ -60,6 +66,9 @@ class Conversation extends Equatable {
         updatedBy,
         lastMessageAt,
         lastMessageBy,
+        privateModeActive,
+        privateModeActivatedBy,
+        privateModeActivatedAt,
         participantCount,
         unreadCount,
         lastMessagePreview,
@@ -81,6 +90,11 @@ class ConversationParticipant extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  /// Room Chat Private Mode: true when this participant (a guardian) has
+  /// turned Private Mode on for their own messages in this conversation.
+  /// Only meaningful for guardian/parent participants.
+  final bool privateModeEnabled;
+
   const ConversationParticipant({
     required this.id,
     required this.conversationId,
@@ -94,6 +108,7 @@ class ConversationParticipant extends Equatable {
     required this.notificationsEnabled,
     required this.createdAt,
     required this.updatedAt,
+    this.privateModeEnabled = false,
   });
 
   @override
@@ -110,6 +125,7 @@ class ConversationParticipant extends Equatable {
         notificationsEnabled,
         createdAt,
         updatedAt,
+        privateModeEnabled,
       ];
 }
 

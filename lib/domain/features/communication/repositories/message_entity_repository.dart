@@ -59,6 +59,7 @@ abstract class MessageEntityRepository {
     required String text,
     List<int> attachmentIds = const [],
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   });
 

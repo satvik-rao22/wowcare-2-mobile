@@ -301,7 +301,11 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
       case StaffAbsentMarkMethod.qr:
         return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
       case StaffAbsentMarkMethod.kiosk:
-        return SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size);
+        return Icon(
+          Icons.point_of_sale_outlined,
+          size: size,
+          color: AppColors.themeColor,
+        );
       case StaffAbsentMarkMethod.app:
         return SvgPicture.asset(
           MediaRes.appMethodIcon,

@@ -115,6 +115,7 @@ class _ParentDirectMessagingScreenState
         notificationsEnabled: true,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
+        privateModeEnabled: conv.isPrivateModeEnabledFor(p.userCode),
       );
     }).toList();
 
@@ -122,10 +123,28 @@ class _ParentDirectMessagingScreenState
         .where((p) => p.role == 'GUARDIAN' || p.role == 'PARENT')
         .map((p) => p.userName)
         .toList();
+    final guardians = legacyParticipants
+        .where((p) => p.role == 'GUARDIAN' || p.role == 'PARENT')
+        .toList();
 
     final staffCodes = legacyParticipants
-        .where((p) => p.role == 'STAFF' || p.role == 'ADMIN')
+        .where(
+          (p) =>
+              p.role == 'STAFF' ||
+              p.role == 'ADMIN' ||
+              p.role == 'DIRECTOR' ||
+              p.role == 'TEACHER',
+        )
         .map((p) => p.userCode)
+        .toList();
+
+    final privateModeParentNames = legacyParticipants
+        .where(
+          (p) =>
+              (p.role == 'GUARDIAN' || p.role == 'PARENT') &&
+              p.privateModeEnabled,
+        )
+        .map((p) => p.userName)
         .toList();
 
     return {
@@ -133,9 +152,15 @@ class _ParentDirectMessagingScreenState
       'avatar': conv.avatarUrl,
       'code': conv.code,
       'parents': parentNames,
+      'guardianMap': {
+        for (final guardian in guardians) guardian.userCode: guardian.userName,
+      },
       'participants': legacyParticipants,
       'staffList': staffCodes,
-      'privateModeParents': <String>[],
+      'privateModeParents': privateModeParentNames,
+      'privateModeActive': conv.privateModeActive,
+      'privateModeActivatedBy': conv.privateModeActivatedBy,
+      'privateModeActivatedAt': conv.privateModeActivatedAt,
     };
   }
 
@@ -265,6 +290,7 @@ class _ParentDirectMessagingScreenState
         key: ValueKey(selected.code),
         parentInfo: _buildParentInfo(selected),
         showOwnScaffold: false,
+        isGuardian: true,
       ),
     );
   }
@@ -299,8 +325,9 @@ class _ParentDirectMessagingScreenState
                     children: [
                       CircleAvatar(
                         radius: 17,
-                        backgroundColor:
-                            AppColors.primaryColor.withValues(alpha: 0.12),
+                        backgroundColor: AppColors.primaryColor.withValues(
+                          alpha: 0.12,
+                        ),
                         child: Text(
                           childName.isNotEmpty
                               ? childName[0].toUpperCase()

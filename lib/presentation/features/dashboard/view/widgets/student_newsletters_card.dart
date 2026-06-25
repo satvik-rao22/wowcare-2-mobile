@@ -181,7 +181,7 @@ class _NewsletterRow extends StatelessWidget {
     final createdByName = item.createdByName.trim().isEmpty
         ? '-'
         : item.createdByName.trim();
-    final recipientCount = item.recipientCount;
+    // final recipientCount = item.recipientCount;
 
     return InkWell(
       onTap: () {

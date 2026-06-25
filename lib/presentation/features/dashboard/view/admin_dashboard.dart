@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -38,7 +37,7 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   late final AdminDashboardCoordinatorCubit _coordinator;
 
-  static const double _maxContentWidth = 640;
+  // static const double _maxContentWidth = 640;
 
   @override
   void initState() {
@@ -103,14 +102,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
           final coordinator = context.read<AdminDashboardCoordinatorCubit>();
           return MultiBlocProvider(
             providers: [
-              BlocProvider<AdminDashboardCubit>.value(value: coordinator.dashboardCubit),
-              BlocProvider<GeofenceCubit>.value(value: coordinator.geofenceCubit),
-              BlocProvider<SchoolStatusCubit>.value(value: coordinator.schoolStatusCubit),
-              BlocProvider<RatioMonitoringCubit>.value(value: coordinator.ratioMonitoringCubit),
-              BlocProvider<ClassroomShiftsCubit>.value(value: coordinator.classroomShiftsCubit),
-              BlocProvider<IndividualMovementsCubit>.value(value: coordinator.movementsCubit),
-              BlocProvider<FutureAvailabilityCubit>.value(value: coordinator.availabilityCubit),
-              BlocProvider<DashboardAttentionCubit>.value(value: coordinator.attentionCubit),
+              BlocProvider<AdminDashboardCubit>.value(
+                value: coordinator.dashboardCubit,
+              ),
+              BlocProvider<GeofenceCubit>.value(
+                value: coordinator.geofenceCubit,
+              ),
+              BlocProvider<SchoolStatusCubit>.value(
+                value: coordinator.schoolStatusCubit,
+              ),
+              BlocProvider<RatioMonitoringCubit>.value(
+                value: coordinator.ratioMonitoringCubit,
+              ),
+              BlocProvider<ClassroomShiftsCubit>.value(
+                value: coordinator.classroomShiftsCubit,
+              ),
+              BlocProvider<IndividualMovementsCubit>.value(
+                value: coordinator.movementsCubit,
+              ),
+              BlocProvider<FutureAvailabilityCubit>.value(
+                value: coordinator.availabilityCubit,
+              ),
+              BlocProvider<DashboardAttentionCubit>.value(
+                value: coordinator.attentionCubit,
+              ),
               BlocProvider<MyDayCubit>.value(value: coordinator.myDayCubit),
             ],
             child: _buildScaffold(context),
@@ -133,7 +148,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
         if (state.isFailure) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: state.errorMessage ?? 'Unable to load dashboard data. Please try again.',
+            message:
+                state.errorMessage ??
+                'Unable to load dashboard data. Please try again.',
             isError: true,
           );
         } else if (state.isPartialError) {
@@ -178,7 +195,9 @@ class _DashboardCardList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName = context.select<AdminDashboardCubit, String>((cubit) => cubit.state.userName);
+    final userName = context.select<AdminDashboardCubit, String>(
+      (cubit) => cubit.state.userName,
+    );
 
     return BlocBuilder<AdminDashboardCubit, AdminDashboardState>(
       buildWhen: (prev, curr) => prev.cards != curr.cards,
@@ -190,17 +209,13 @@ class _DashboardCardList extends StatelessWidget {
             return Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: _maxContentWidth,
-                ),
+                constraints: const BoxConstraints(maxWidth: _maxContentWidth),
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
-                      sliver: SliverToBoxAdapter(
-                        child: buildHeader(userName),
-                      ),
+                      sliver: SliverToBoxAdapter(child: buildHeader(userName)),
                     ),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),

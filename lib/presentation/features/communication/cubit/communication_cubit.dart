@@ -6,6 +6,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
+import '../../../../domain/features/communication/entities/enums.dart';
 import '../../../../domain/features/communication/entities/message.dart';
 import '../../../../domain/features/communication/usecases/get_conversations_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_messages_usecase.dart';
@@ -97,7 +98,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// message with its pre-edit version, making the reaction/attachment
   /// appear to revert itself a moment after the user's action.
   final Map<String, DateTime> _recentLocalMutations = {};
-
   static const Duration _localMutationGuardWindow = Duration(seconds: 8);
 
   void _markRecentlyMutated(String messageCode) {
@@ -141,14 +141,18 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // edit/delete mutation, keep our in-memory version rather than the
         // realtime/Isar one, which doesn't know about it yet.
         final reconciled = messages.map((incoming) {
-          if (!_recentLocalMutations.containsKey(incoming.code)) return incoming;
+          if (!_recentLocalMutations.containsKey(incoming.code))
+            return incoming;
           return currentByCode[incoming.code] ?? incoming;
         });
-
-        newThreads[threadId] = _sortByTime([...reconciled, ...stillPending]);
+        final mergedMessages = _sortByTime([...reconciled, ...stillPending]);
+        newThreads[threadId] = mergedMessages;
         emit(
           priorState?.copyWith(threads: newThreads, activeThreadId: threadId) ??
-              CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
+              CommunicationLoaded(
+                threads: newThreads,
+                activeThreadId: threadId,
+              ),
         );
       },
       // Firestore is a notification layer on top of API/Isar — if the
@@ -164,7 +168,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// (or all types when null). Mirrors [startWatchingThread] — only deltas
   /// flow through; [loadConversations] remains the source of history.
   void startWatchingConversations({String? type}) {
-    if (_watchedConversationsType == type && _conversationsSubscription != null) {
+    if (_watchedConversationsType == type &&
+        _conversationsSubscription != null) {
       return;
     }
     _conversationsSubscription?.cancel();
@@ -201,7 +206,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       // Same rationale as startWatchingThread — never let a Firestore
       // failure crash the screen; it just keeps showing API/Isar data.
       onError: (Object error, StackTrace stackTrace) {
-        AppLogger.e('[Realtime] watchConversations(type: $type) failed: $error');
+        AppLogger.e(
+          '[Realtime] watchConversations(type: $type) failed: $error',
+        );
       },
     );
   }
@@ -214,8 +221,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   Future<void> _markDeliveredForIncomingMessages(
     List<Conversation> conversations,
   ) async {
-    final currentUserCode =
-        (await storageService.getString(StorageKeys.userCode))?.trim();
+    final currentUserCode = (await storageService.getString(
+      StorageKeys.userCode,
+    ))?.trim();
     if (currentUserCode == null || currentUserCode.isEmpty) return;
 
     for (final conversation in conversations) {
@@ -266,7 +274,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           if (conversations.isNotEmpty && !isClosed) {
             // Merge into existing map so both tabs keep their own data.
             final currentMap = state is CommunicationConversationsLoaded
-                ? (state as CommunicationConversationsLoaded).conversationsByType
+                ? (state as CommunicationConversationsLoaded)
+                      .conversationsByType
                 : <String?, List<Conversation>>{};
             final mergedMap = Map<String?, List<Conversation>>.from(currentMap);
             mergedMap[null] = conversations;
@@ -389,8 +398,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         final existingCodes = existing.map((c) => c.code).toSet();
         // Dedupe — a conversation that received a new message between the
         // first page load and this one can otherwise show up twice.
-        final appended = conversationsPage.items
-            .where((c) => !existingCodes.contains(c.code));
+        final appended = conversationsPage.items.where(
+          (c) => !existingCodes.contains(c.code),
+        );
         existing.addAll(appended);
         existing.sort((a, b) {
           final aTime = a.lastMessageAt ?? a.updatedAt;
@@ -451,7 +461,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       (cachedMessages) {
         if (cachedMessages.isNotEmpty && !isClosed) {
           final newThreads = Map<String, List<Message>>.from(currentThreads);
-          newThreads[threadId] = _sortByTime(cachedMessages);
+          final sortedCached = _sortByTime(cachedMessages);
+          newThreads[threadId] = sortedCached;
           emit(
             CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
           );
@@ -494,7 +505,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             ? (state as CommunicationLoaded).threads
             : {};
         final newThreads = Map<String, List<Message>>.from(latestThreads);
-        newThreads[threadId] = _sortByTime(messages);
+        final sortedMessages = _sortByTime(messages);
+        newThreads[threadId] = sortedMessages;
         emit(
           CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
         );
@@ -516,7 +528,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// v1 endpoint's `asc` actually means page 0 is the *oldest* window (as
   /// the literal query string suggests), this page-number scheme fetches the
   /// wrong direction and should be replaced with the same cursor approach.
-  Future<void> loadOlderMessages(String threadId, {String? currentUserId}) async {
+  Future<void> loadOlderMessages(
+    String threadId, {
+    String? currentUserId,
+  }) async {
     if (state is! CommunicationLoaded) return;
     final currentState = state as CommunicationLoaded;
     if (currentState.threadsLoadingOlder.contains(threadId)) return;
@@ -541,7 +556,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     result.fold(
       (failure) {
-        AppLogger.e('[Pagination] loadOlderMessages($threadId, page=$page) failed: ${failure.message}');
+        AppLogger.e(
+          '[Pagination] loadOlderMessages($threadId, page=$page) failed: ${failure.message}',
+        );
         emit(
           latestState.copyWith(
             threadsLoadingOlder: {...latestState.threadsLoadingOlder}
@@ -557,12 +574,17 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // The realtime/Isar layers could already have pulled in some of
         // these by code — only add ones we don't already have so a message
         // is never duplicated in the list.
-        final newOnes = olderMessages.where((m) => !existingCodes.contains(m.code));
+        final newOnes = olderMessages.where(
+          (m) => !existingCodes.contains(m.code),
+        );
 
-        final mergedThreads = Map<String, List<Message>>.from(latestState.threads);
+        final mergedThreads = Map<String, List<Message>>.from(
+          latestState.threads,
+        );
         mergedThreads[threadId] = _sortByTime([...existing, ...newOnes]);
 
-        final loadingOlder = {...latestState.threadsLoadingOlder}..remove(threadId);
+        final loadingOlder = {...latestState.threadsLoadingOlder}
+          ..remove(threadId);
         final noMoreHistory = {...latestState.threadsWithNoMoreHistory};
         if (olderMessages.length < _olderPageSize) {
           noMoreHistory.add(threadId);
@@ -587,6 +609,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     String? senderName,
     String? senderUserCode,
     List<String> receivers = const [],
+    bool isPrivate = false,
+    String? privateParentUserCode,
   }) async {
     if (state is! CommunicationLoaded) return;
     final currentState = state as CommunicationLoaded;
@@ -608,6 +632,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       quotedMessageId: quotedMessageId,
       senderName: senderName,
       receivers: receivers,
+      isPrivate: isPrivate,
+      privateParentUserCode: privateParentUserCode,
     );
 
     // Optimistic update — append then re-sort so the new bubble lands at bottom
@@ -653,6 +679,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       quotedMessageId: tempMessage.quotedMessageId,
       senderName: tempMessage.senderName,
       receivers: tempMessage.receivers,
+      isPrivate: tempMessage.isPrivate,
+      privateParentUserCode: tempMessage.privateParentUserCode,
     );
 
     final result = await sendMessageUseCase(threadId, messageToSend);
@@ -733,12 +761,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final result = await addReactionUseCase(threadId, messageCode, emoji);
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        emit(currentState.copyWith(threads: originalThreads));
-      },
-      (_) {},
-    );
+    result.fold((failure) {
+      emit(currentState.copyWith(threads: originalThreads));
+    }, (_) {});
   }
 
   Future<void> editMessage(
@@ -786,18 +811,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final result = await editMessageUseCase(messageCode, content);
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        emit(currentState.copyWith(threads: originalThreads));
-      },
-      (_) {},
-    );
+    result.fold((failure) {
+      emit(currentState.copyWith(threads: originalThreads));
+    }, (_) {});
   }
 
-  Future<void> deleteMessage(
-    String threadId,
-    String messageCode,
-  ) async {
+  Future<void> deleteMessage(String threadId, String messageCode) async {
     if (state is! CommunicationLoaded) return;
     final currentState = state as CommunicationLoaded;
     final originalThreads = currentState.threads;
@@ -828,12 +847,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final result = await deleteMessageUseCase(messageCode);
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        emit(currentState.copyWith(threads: originalThreads));
-      },
-      (_) {},
-    );
+    result.fold((failure) {
+      emit(currentState.copyWith(threads: originalThreads));
+    }, (_) {});
   }
 
   /// Removes a single attachment from its message without deleting the
@@ -870,12 +886,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final result = await deleteAttachmentUseCase(attachmentId);
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        emit(currentState.copyWith(threads: originalThreads));
-      },
-      (_) {},
-    );
+    result.fold((failure) {
+      emit(currentState.copyWith(threads: originalThreads));
+    }, (_) {});
   }
 
   Future<void> removeReaction(
@@ -924,14 +937,14 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     emit(currentState.copyWith(threads: updatedThreads));
     _markRecentlyMutated(messageCode);
 
-    final result = await removeReactionLegacyUseCase(messageCode: messageCode, emoji: emoji);
+    final result = await removeReactionLegacyUseCase(
+      messageCode: messageCode,
+      emoji: emoji,
+    );
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        emit(currentState.copyWith(threads: originalThreads));
-      },
-      (_) {},
-    );
+    result.fold((failure) {
+      emit(currentState.copyWith(threads: originalThreads));
+    }, (_) {});
   }
 }

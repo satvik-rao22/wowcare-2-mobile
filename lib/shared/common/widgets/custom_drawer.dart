@@ -857,7 +857,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      MessagingScreen.parentMessagingRoute,
+                                    );
                                   },
                                 ),
                               if (showAdminChatDrawer)
@@ -1088,7 +1090,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      MessagingScreen.parentMessagingRoute,
+                                    );
                                   },
                                 ),
                               if (showAdminChatDrawer)

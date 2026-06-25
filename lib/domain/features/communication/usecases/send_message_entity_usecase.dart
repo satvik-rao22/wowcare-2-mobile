@@ -13,6 +13,7 @@ class SendMessageEntityUseCase {
     required String text,
     List<int> attachmentIds = const [],
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) {
     return _repository.sendMessage(
@@ -20,6 +21,7 @@ class SendMessageEntityUseCase {
       text: text,
       attachmentIds: attachmentIds,
       isPrivate: isPrivate,
+      privateParentUserCode: privateParentUserCode,
       threadParentCode: threadParentCode,
     );
   }

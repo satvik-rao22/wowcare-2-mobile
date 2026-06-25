@@ -132,7 +132,6 @@ import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
 import '../../data/features/kiosk/datasources/kiosk_attendance_remote_datasource.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
-import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
 import '../../domain/features/kiosk/repositories/kiosk_attendance_repository.dart';
 import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
@@ -744,8 +743,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ParentBillingCubit>(
     () => ParentBillingCubit(
-      getGuardianFamilyLedger:
-          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -1649,7 +1647,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
       deleteMessageUseCase: serviceLocator<DeleteMessageUseCase>(),
       deleteAttachmentUseCase: serviceLocator<DeleteAttachmentUseCase>(),
-      removeReactionLegacyUseCase: serviceLocator<RemoveReactionLegacyUseCase>(),
+      removeReactionLegacyUseCase:
+          serviceLocator<RemoveReactionLegacyUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
       clearConversationsCacheUseCase:
           serviceLocator<ClearConversationsCacheUseCase>(),
@@ -1945,13 +1944,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Legacy cubit (kept for backwards compatibility if needed)
-  serviceLocator.registerFactory<KioskAttendanceCubit>(
-    () => KioskAttendanceCubit(
-      attendanceRepository: serviceLocator(),
-      storageService: serviceLocator(),
-      apiClient: serviceLocator(),
-    ),
-  );
+  // serviceLocator.registerFactory<KioskAttendanceCubit>(
+  //   () => KioskAttendanceCubit(
+  //     attendanceRepository: serviceLocator(),
+  //     storageService: serviceLocator(),
+  //     apiClient: serviceLocator(),
+  //   ),
+  // );
 
   // ── Billing ───────────────────────────────────────────────────────────────
   serviceLocator.registerLazySingleton<LedgerRemoteDataSource>(
@@ -2062,11 +2061,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // ── Invoice catalog (fee structures / other fees / subsidies) ───────────────
   serviceLocator.registerLazySingleton<InvoiceCatalogRemoteDataSource>(
-    () => InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () =>
+        InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceCatalogRepository>(
     () => InvoiceCatalogRepositoryImpl(
-        serviceLocator<InvoiceCatalogRemoteDataSource>()),
+      serviceLocator<InvoiceCatalogRemoteDataSource>(),
+    ),
   );
   serviceLocator.registerFactory<GetFeeStructuresUseCase>(
     () => GetFeeStructuresUseCase(serviceLocator<InvoiceCatalogRepository>()),
@@ -2131,7 +2132,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerLazySingleton<BillingStatementsRemoteDataSource>(
-    () => BillingStatementsRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () => BillingStatementsRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+    ),
   );
   serviceLocator.registerLazySingleton<BillingStatementsRepository>(
     () => BillingStatementsRepositoryImpl(
