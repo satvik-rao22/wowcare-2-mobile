@@ -49,7 +49,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     AppLogger.d('Posting to $endpoint with payload: $requestBody');
     final response = await _dio.post<Map<String, dynamic>>(
-      endpoint,
+      ApiPaths.url(endpoint),
       data: requestBody,
     );
 
@@ -67,7 +67,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     try {
       final response = await _dio.get<Map<String, dynamic>>(
-        endpoint,
+        ApiPaths.url(endpoint),
         queryParameters: {'schoolCode': schoolCode},
       );
 
@@ -96,6 +96,17 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
             .toList();
       }
 
+      // Try data['data']['reports'] (nested format)
+      if (dataField is Map) {
+        reportsList = dataField['reports'] as List?;
+        if (reportsList != null) {
+          AppLogger.d('[REPORTS] Student Attendance Reports Count: ${reportsList.length}');
+          return reportsList
+              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+      }
+
       AppLogger.d('[REPORTS] Student Attendance Reports Count: 0 (no reports array found)');
       return [];
     } catch (e) {
@@ -113,7 +124,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     try {
       final response = await _dio.get<Map<String, dynamic>>(
-        endpoint,
+        ApiPaths.url(endpoint),
         queryParameters: {'schoolCode': schoolCode},
       );
 
@@ -142,6 +153,17 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
             .toList();
       }
 
+      // Try data['data']['reports'] (nested format)
+      if (dataField is Map) {
+        reportsList = dataField['reports'] as List?;
+        if (reportsList != null) {
+          AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${reportsList.length}');
+          return reportsList
+              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+      }
+
       AppLogger.d('[REPORTS] Staff Attendance Reports Count: 0 (no reports array found)');
       return [];
     } catch (e) {
@@ -159,7 +181,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     try {
       final response = await _dio.get<Map<String, dynamic>>(
-        endpoint,
+        ApiPaths.url(endpoint),
         queryParameters: {'schoolCode': schoolCode},
       );
 
@@ -188,6 +210,17 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
             .toList();
       }
 
+      // Try data['data']['reports'] (nested format)
+      if (dataField is Map) {
+        reportsList = dataField['reports'] as List?;
+        if (reportsList != null) {
+          AppLogger.d('[REPORTS] Staff Reports Count: ${reportsList.length}');
+          return reportsList
+              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+      }
+
       AppLogger.d('[REPORTS] Staff Reports Count: 0 (no reports array found)');
       return [];
     } catch (e) {
@@ -205,7 +238,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     try {
       final response = await _dio.get<Map<String, dynamic>>(
-        endpoint,
+        ApiPaths.url(endpoint),
         queryParameters: {'schoolCode': schoolCode},
       );
 
@@ -234,6 +267,17 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
             .toList();
       }
 
+      // Try data['data']['reports'] (nested format)
+      if (dataField is Map) {
+        reportsList = dataField['reports'] as List?;
+        if (reportsList != null) {
+          AppLogger.d('[REPORTS] Student Management Reports Count: ${reportsList.length}');
+          return reportsList
+              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
+              .toList();
+        }
+      }
+
       AppLogger.d('[REPORTS] Student Management Reports Count: 0 (no reports array found)');
       return [];
     } catch (e) {
@@ -245,7 +289,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
   @override
   Future<List<String>> getStudentTags() async {
     final response = await _dio.get<Map<String, dynamic>>(
-      ApiPaths.studentTags,
+      ApiPaths.url(ApiPaths.studentTags),
     );
 
     final data = response.data ?? {};
@@ -259,7 +303,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     AppLogger.d('Resolving asset code to get download URL: $assetCode');
 
     final response = await _dio.post<Map<String, dynamic>>(
-      ApiPaths.documentMediaAssetsResolve,
+      ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
       data: {
         'assetCodes': [assetCode],
       },

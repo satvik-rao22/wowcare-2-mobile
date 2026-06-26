@@ -177,7 +177,8 @@ class SchoolStatusState extends Equatable {
       studentAbsent: studentAbsent ?? this.studentAbsent,
       studentSignOut: studentSignOut ?? this.studentSignOut,
       studentNotMarked: studentNotMarked ?? this.studentNotMarked,
-      errorMessage: errorMessage ?? this.errorMessage,
+      // Naked assignment — allows null to explicitly clear a stale error.
+      errorMessage: errorMessage,
     );
   }
 

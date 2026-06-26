@@ -12,6 +12,9 @@ class NotificationCenterState extends Equatable {
     required this.isLoading,
     required this.isRefreshing,
     required this.isMutating,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.page,
     required this.categoryFilter,
     required this.onlyUnread,
     required this.errorMessage,
@@ -22,6 +25,9 @@ class NotificationCenterState extends Equatable {
         isLoading = true,
         isRefreshing = false,
         isMutating = false,
+        isLoadingMore = false,
+        hasMore = false,
+        page = 0,
         categoryFilter = null,
         onlyUnread = false,
         errorMessage = null;
@@ -32,6 +38,15 @@ class NotificationCenterState extends Equatable {
 
   /// True while a mark-read / mark-all-read request is in flight.
   final bool isMutating;
+
+  /// True while the next page is being fetched (infinite scroll).
+  final bool isLoadingMore;
+
+  /// Whether the backend has more pages after [page].
+  final bool hasMore;
+
+  /// Zero-based index of the last loaded page.
+  final int page;
 
   /// `null` means "All". Otherwise restrict to a single category.
   final NotificationCategory? categoryFilter;
@@ -56,6 +71,9 @@ class NotificationCenterState extends Equatable {
     bool? isLoading,
     bool? isRefreshing,
     bool? isMutating,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? page,
     NotificationCategory? categoryFilter,
     bool clearCategoryFilter = false,
     bool? onlyUnread,
@@ -66,6 +84,9 @@ class NotificationCenterState extends Equatable {
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,
       isMutating: isMutating ?? this.isMutating,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      page: page ?? this.page,
       categoryFilter:
           clearCategoryFilter ? null : (categoryFilter ?? this.categoryFilter),
       onlyUnread: onlyUnread ?? this.onlyUnread,
@@ -79,6 +100,9 @@ class NotificationCenterState extends Equatable {
         isLoading,
         isRefreshing,
         isMutating,
+        isLoadingMore,
+        hasMore,
+        page,
         categoryFilter,
         onlyUnread,
         errorMessage,

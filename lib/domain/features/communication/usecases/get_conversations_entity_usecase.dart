@@ -14,12 +14,18 @@ class GetConversationsEntityUseCase {
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   }) {
     return _repository.getConversations(
       type: type,
       status: status,
       page: page,
       size: size,
+      designation: designation,
+      staffStatus: staffStatus,
+      classroom: classroom,
     );
   }
 }

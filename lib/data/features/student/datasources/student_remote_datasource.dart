@@ -176,6 +176,16 @@ abstract class StudentRemoteDataSource {
     required List<String> siblingCodes,
   });
 
+  /// Links siblings onto a newly created student via
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling`.
+  ///
+  /// Used by the add-student dialog flow; edit-profile keeps using
+  /// [updateStudentSiblings].
+  Future<String> addStudentSibling({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
   /// Updates the student's tags via `POST /api/v1/student-tags`.
   ///
   /// Query params: studentCode, schoolCode
@@ -1020,6 +1030,29 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ??
         'Student siblings updated successfully';
+  }
+
+  @override
+  Future<String> addStudentSibling({
+    required String studentCode,
+    required List<String> siblingCodes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAddSibling(studentCode),
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'siblingCodes': siblingCodes},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected add-sibling API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Sibling added successfully';
   }
 
   @override

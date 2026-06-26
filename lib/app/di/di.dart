@@ -10,20 +10,26 @@ import '../../data/features/notifications/datasources/fcm_remote_data_source.dar
 import '../../data/features/notifications/datasources/notification_center_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_logs_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_preferences_remote_data_source.dart';
 import '../../data/features/notifications/repositories/fcm_registration_repository_impl.dart';
+import '../../data/features/notifications/repositories/notification_preferences_repository_impl.dart';
 import '../../data/features/notifications/repositories/notification_center_repository_impl.dart';
 import '../../data/features/notifications/repositories/push_notification_repository_impl.dart';
 import '../../data/features/notifications/services/fcm_token_registration_service.dart';
 import '../../domain/features/notifications/repositories/fcm_registration_repository.dart';
 import '../../domain/features/notifications/repositories/notification_center_repository.dart';
+import '../../domain/features/notifications/repositories/notification_preferences_repository.dart';
 import '../../domain/features/notifications/repositories/push_notification_repository.dart';
+import '../../domain/features/notifications/usecases/get_notification_preferences_usecase.dart';
 import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
+import '../../domain/features/notifications/usecases/update_notification_preferences_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
 import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
+import '../../presentation/features/user-profile/view_model/notification_settings_cubit.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
@@ -126,7 +132,6 @@ import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
 import '../../data/features/kiosk/datasources/kiosk_attendance_remote_datasource.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
-import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
 import '../../domain/features/kiosk/repositories/kiosk_attendance_repository.dart';
 import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
@@ -269,6 +274,12 @@ import '../../domain/features/communication/usecases/get_cached_messages_usecase
 import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_usecase.dart';
 import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
+import '../../domain/features/communication/usecases/delete_message_usecase.dart';
+import '../../domain/features/communication/usecases/delete_attachment_usecase.dart';
+import '../../domain/features/communication/usecases/remove_reaction_legacy_usecase.dart';
+import '../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
+import '../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
+import '../../domain/features/communication/usecases/mark_conversation_delivered_usecase.dart';
 import '../../data/features/communication/datasources/communication_remote_data_source.dart';
 import '../../data/features/communication/repositories/communication_repository_impl.dart';
 // Communication v2.1 — Phase 1B
@@ -285,10 +296,14 @@ import '../../domain/features/communication/usecases/get_messages_entity_usecase
 import '../../domain/features/communication/usecases/send_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/delete_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
 import '../../domain/features/communication/usecases/search_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import '../../domain/features/communication/usecases/remove_reaction_usecase.dart';
 import '../../domain/features/communication/usecases/sync_pending_operations_usecase.dart';
+import '../../domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
+import '../../domain/features/communication/repositories/reaction_repository.dart';
+import '../../data/features/communication/repositories/reaction_repository_impl.dart';
 import '../../data/features/communication/datasources/conversation_entity_remote_data_source.dart';
 import '../../data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import '../../data/features/communication/datasources/message_entity_remote_data_source.dart';
@@ -305,6 +320,7 @@ import '../../domain/features/communication/usecases/watch_total_unread_count_us
 import '../../domain/features/communication/usecases/watch_messages_usecase.dart';
 import '../../domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import '../../domain/features/communication/usecases/register_firebase_token_usecase.dart';
+import '../../presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
 import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../data/features/newsletter/datasources/newsletter_remote_datasource.dart';
@@ -316,6 +332,7 @@ import '../../presentation/features/communication/presentation/messaging/cubit/n
 import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
+import '../../presentation/features/communication/presentation/messaging/util/chat_attachment_uploader.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
@@ -335,10 +352,16 @@ import '../../shared/common/app/cubit/parent_child_cubit.dart';
 import '../../shared/services/geofence_notification_service.dart';
 import '../../data/services/file_download_service.dart';
 import '../../data/features/reports/repositories/file_download_repository.dart';
+import '../../data/features/billing/datasources/billing_statements_remote_datasource.dart';
 import '../../data/features/billing/datasources/ledger_remote_datasource.dart';
 import '../../data/features/billing/datasources/ledger_transaction_remote_datasource.dart';
+import '../../data/features/billing/repositories/billing_statements_repository_impl.dart';
 import '../../data/features/billing/repositories/ledger_repository_impl.dart';
 import '../../data/features/billing/repositories/ledger_transaction_repository_impl.dart';
+import '../../domain/features/billing/repositories/billing_statements_repository.dart';
+import '../../domain/features/billing/usecases/get_billing_statements_usecase.dart';
+import '../../presentation/features/billing/cubit/admin_statements_cubit.dart';
+import '../../presentation/features/billing/cubit/parent_statements_cubit.dart';
 import '../../domain/features/billing/repositories/ledger_repository.dart';
 import '../../domain/features/billing/repositories/ledger_transaction_repository.dart';
 import '../../domain/features/billing/usecases/get_ledgers_usecase.dart';
@@ -372,20 +395,48 @@ import '../../domain/features/billing/usecases/cancel_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/issue_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/resend_invoice_usecase.dart';
 import '../../domain/features/billing/usecases/get_invoice_overview_usecase.dart';
+import '../../domain/features/billing/usecases/get_invoice_transactions_usecase.dart';
+import '../../domain/features/billing/usecases/get_invoices_usecase.dart';
+import '../../domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import '../../domain/features/billing/usecases/get_family_summary_usecase.dart';
+import '../../domain/features/billing/usecases/get_family_ledger_usecase.dart';
 import '../../domain/features/billing/usecases/create_payment_usecase.dart';
 import '../../domain/features/billing/usecases/create_refund_usecase.dart';
+import '../../domain/features/billing/usecases/create_credit_usecase.dart';
 import '../../presentation/features/billing/cubit/create_invoice_cubit.dart';
 import '../../presentation/features/billing/cubit/transactions_cubit.dart';
 import '../../presentation/features/billing/cubit/family_summary_cubit.dart';
+import '../../presentation/features/billing/cubit/transaction_details_cubit.dart';
 import '../../presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
+import '../../presentation/features/billing/cubit/add_credit_cubit.dart';
+import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart';
+import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
+import '../../domain/features/billing/repositories/auto_pay_repository.dart';
+import '../../domain/features/billing/usecases/get_school_forte_config_usecase.dart';
+import '../../domain/features/billing/usecases/get_payment_settings_usecase.dart';
+import '../../domain/features/billing/usecases/get_autopay_status_usecase.dart';
+import '../../domain/features/billing/usecases/set_autopay_status_usecase.dart';
+import '../../domain/features/billing/usecases/get_payment_methods_usecase.dart';
+import '../../domain/features/billing/usecases/add_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/set_primary_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/set_autopay_method_usecase.dart';
+import '../../domain/features/billing/usecases/delete_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/update_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/guardian_pay_usecase.dart';
+import '../../presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
+import '../../presentation/features/billing/cubit/payment_settings_cubit.dart';
+import '../../presentation/features/billing/cubit/pay_now_cubit.dart';
+import '../../presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
 import '../../domain/features/billing/usecases/create_discount_usecase.dart';
 import '../../domain/features/billing/usecases/update_discount_usecase.dart';
 import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
 import '../../domain/features/billing/usecases/deactivate_discount_usecase.dart';
 import '../../domain/features/billing/usecases/reactivate_discount_usecase.dart';
+import '../../presentation/features/billing/cubit/analytics_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_cubit.dart';
 import '../../presentation/features/billing/cubit/discount_form_cubit.dart';
+import '../../domain/features/billing/usecases/get_guardian_family_ledger_usecase.dart';
+import '../../domain/features/billing/usecases/get_invoice_analytics_usecase.dart';
 
 final GetIt serviceLocator = GetIt.instance;
 
@@ -571,13 +622,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<ActivityRepository>(
     () => ActivityRepositoryImpl(serviceLocator(), serviceLocator()),
   );
-  serviceLocator.registerLazySingleton<CommunicationRepository>(
-    () => CommunicationRepositoryImpl(
-      remoteDataSource: serviceLocator(),
-      cacheService: serviceLocator(),
-    ),
-  );
-
   // ===== COMMUNICATION V2.1 — REALTIME DATA SOURCES (Firestore) =====
   serviceLocator.registerLazySingleton<ConversationRealtimeDataSource>(
     () => FirebaseConversationRealtimeDataSource(
@@ -589,6 +633,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => FirebaseMessageRealtimeDataSource(
       firestore: FirebaseFirestore.instance,
     ),
+  );
+
+  serviceLocator.registerLazySingleton<CommunicationRepository>(
+    () => CommunicationRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      cacheService: serviceLocator(),
+      conversationRealtimeDataSource: serviceLocator(),
+      messageRealtimeDataSource: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
+  serviceLocator.registerLazySingleton<ChatAttachmentUploader>(
+    () => ChatAttachmentUploader(serviceLocator(), serviceLocator()),
   );
 
   serviceLocator.registerLazySingleton<FirebaseTokenDataSource>(
@@ -626,12 +684,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
+  serviceLocator.registerLazySingleton<ReactionRepository>(
+    () => ReactionRepositoryImpl(
+      remoteDataSource: serviceLocator(),
+      localDataSource: serviceLocator(),
+      storageService: serviceLocator(),
+    ),
+  );
+
   serviceLocator.registerLazySingleton<MessageEntityRepository>(
     () => MessageEntityRepositoryImpl(
       remoteDataSource: serviceLocator(),
       localDataSource: serviceLocator(),
       storageService: serviceLocator(),
       realtimeDataSource: serviceLocator(),
+      reactionRepository: serviceLocator(),
     ),
   );
 
@@ -671,8 +738,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ProfileMenuHeaderCubit>(
     () => ProfileMenuHeaderCubit(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetGuardianFamilyLedgerUseCase>(
+    () => GetGuardianFamilyLedgerUseCase(serviceLocator<InvoiceRepository>()),
+  );
   serviceLocator.registerFactory<ParentBillingCubit>(
-    () => ParentBillingCubit(),
+    () => ParentBillingCubit(
+      getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
   );
 
   // Reports - Data Layer
@@ -1136,11 +1209,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<EditMessageUseCase>(
     () => EditMessageUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<DeleteMessageUseCase>(
+    () => DeleteMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteAttachmentUseCase>(
+    () => DeleteAttachmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<RemoveReactionLegacyUseCase>(
+    () => RemoveReactionLegacyUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<ClearMessagesCacheUseCase>(
     () => ClearMessagesCacheUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<ClearConversationsCacheUseCase>(
     () => ClearConversationsCacheUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchMessagesLegacyUseCase>(
+    () => WatchMessagesLegacyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<WatchConversationsLegacyUseCase>(
+    () => WatchConversationsLegacyUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkConversationDeliveredUseCase>(
+    () => MarkConversationDeliveredUseCase(serviceLocator()),
   );
 
   // ===== COMMUNICATION V2.1 — USE CASES (Phase 1C) =====
@@ -1157,6 +1248,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<CreateConversationEntityUseCase>(
     () => CreateConversationEntityUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<CreateOrOpenConversationUseCase>(
+    () => CreateOrOpenConversationUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetConversationsForStudentUseCase>(
     () => GetConversationsForStudentUseCase(serviceLocator()),
   );
@@ -1172,6 +1266,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetUnreadAggregatesUseCase>(
     () => GetUnreadAggregatesUseCase(serviceLocator()),
   );
+  // Single app-session instance — previously each consumer (GlobalScaffold,
+  // StaffAttendanceTabbedView, StudentAttendanceTabbedView) constructed its
+  // own UnreadBadgeCubit, opening up to 3x the Firestore listeners for the
+  // same data whenever more than one was mounted at once.
+  serviceLocator.registerLazySingleton<UnreadBadgeCubit>(
+    () => UnreadBadgeCubit(
+      watchUnreadCountForTypeUseCase: serviceLocator(),
+      getUnreadAggregatesUseCase: serviceLocator(),
+    ),
+  );
   // MessageEntityRepository use cases
   serviceLocator.registerFactory<GetMessagesEntityUseCase>(
     () => GetMessagesEntityUseCase(serviceLocator()),
@@ -1184,6 +1288,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteMessageEntityUseCase>(
     () => DeleteMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteAttachmentEntityUseCase>(
+    () => DeleteAttachmentEntityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<SearchMessagesUseCase>(
     () => SearchMessagesUseCase(serviceLocator()),
@@ -1538,9 +1645,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getCachedMessagesUseCase: serviceLocator<GetCachedMessagesUseCase>(),
       addReactionUseCase: serviceLocator<AddReactionUseCase>(),
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
+      deleteMessageUseCase: serviceLocator<DeleteMessageUseCase>(),
+      deleteAttachmentUseCase: serviceLocator<DeleteAttachmentUseCase>(),
+      removeReactionLegacyUseCase:
+          serviceLocator<RemoveReactionLegacyUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
       clearConversationsCacheUseCase:
           serviceLocator<ClearConversationsCacheUseCase>(),
+      attachmentUploader: serviceLocator<ChatAttachmentUploader>(),
+      watchMessagesUseCase: serviceLocator<WatchMessagesLegacyUseCase>(),
+      watchConversationsUseCase:
+          serviceLocator<WatchConversationsLegacyUseCase>(),
+      markConversationDeliveredUseCase:
+          serviceLocator<MarkConversationDeliveredUseCase>(),
+      storageService: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<CreateConversationCubit>(
@@ -1711,6 +1829,29 @@ Future<void> configureDependencies({String? baseUrl}) async {
       markAllNotificationsReadUseCase: serviceLocator(),
     ),
   );
+
+  // Notification preferences (settings screen) — GET/PATCH /preferences.
+  serviceLocator.registerLazySingleton<NotificationPreferencesRemoteDataSource>(
+    () => NotificationPreferencesRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+    ),
+  );
+  serviceLocator.registerLazySingleton<NotificationPreferencesRepository>(
+    () => NotificationPreferencesRepositoryImpl(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetNotificationPreferencesUseCase>(
+    () => GetNotificationPreferencesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateNotificationPreferencesUseCase>(
+    () => UpdateNotificationPreferencesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<NotificationSettingsCubit>(
+    () => NotificationSettingsCubit(
+      getPreferences: serviceLocator(),
+      updatePreferences: serviceLocator(),
+      storage: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<CheckLocationPermissionUseCase>(
     () => CheckLocationPermissionUseCase(serviceLocator()),
   );
@@ -1803,13 +1944,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Legacy cubit (kept for backwards compatibility if needed)
-  serviceLocator.registerFactory<KioskAttendanceCubit>(
-    () => KioskAttendanceCubit(
-      attendanceRepository: serviceLocator(),
-      storageService: serviceLocator(),
-      apiClient: serviceLocator(),
-    ),
-  );
+  // serviceLocator.registerFactory<KioskAttendanceCubit>(
+  //   () => KioskAttendanceCubit(
+  //     attendanceRepository: serviceLocator(),
+  //     storageService: serviceLocator(),
+  //     apiClient: serviceLocator(),
+  //   ),
+  // );
 
   // ── Billing ───────────────────────────────────────────────────────────────
   serviceLocator.registerLazySingleton<LedgerRemoteDataSource>(
@@ -1920,11 +2061,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // ── Invoice catalog (fee structures / other fees / subsidies) ───────────────
   serviceLocator.registerLazySingleton<InvoiceCatalogRemoteDataSource>(
-    () => InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () =>
+        InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceCatalogRepository>(
     () => InvoiceCatalogRepositoryImpl(
-        serviceLocator<InvoiceCatalogRemoteDataSource>()),
+      serviceLocator<InvoiceCatalogRemoteDataSource>(),
+    ),
   );
   serviceLocator.registerFactory<GetFeeStructuresUseCase>(
     () => GetFeeStructuresUseCase(serviceLocator<InvoiceCatalogRepository>()),
@@ -1939,7 +2082,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => InvoiceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceRepository>(
-    () => InvoiceRepositoryImpl(serviceLocator<InvoiceRemoteDataSource>()),
+    () => InvoiceRepositoryImpl(
+          serviceLocator<InvoiceRemoteDataSource>(),
+          serviceLocator<CacheManager>(),
+        ),
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
@@ -1962,12 +2108,64 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetInvoiceOverviewUseCase>(
     () => GetInvoiceOverviewUseCase(serviceLocator<InvoiceRepository>()),
   );
+  serviceLocator.registerFactory<GetInvoiceTransactionsUseCase>(
+    () => GetInvoiceTransactionsUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<GetInvoicesUseCase>(
+    () => GetInvoicesUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<GetInvoiceByCodeUseCase>(
+    () => GetInvoiceByCodeUseCase(serviceLocator<InvoiceRepository>()),
+  );
   serviceLocator.registerFactory<GetFamilySummaryUseCase>(
     () => GetFamilySummaryUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<GetFamilyLedgerUseCase>(
+    () => GetFamilyLedgerUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<TransactionDetailsCubit>(
+    () => TransactionDetailsCubit(
+      getFamilyLedger: serviceLocator<GetFamilyLedgerUseCase>(),
+      cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
+      deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerLazySingleton<BillingStatementsRemoteDataSource>(
+    () => BillingStatementsRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+    ),
+  );
+  serviceLocator.registerLazySingleton<BillingStatementsRepository>(
+    () => BillingStatementsRepositoryImpl(
+      serviceLocator<BillingStatementsRemoteDataSource>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetBillingStatementsUseCase>(
+    () => GetBillingStatementsUseCase(
+      serviceLocator<BillingStatementsRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<AdminStatementsCubit>(
+    () => AdminStatementsCubit(
+      getStatements: serviceLocator<GetBillingStatementsUseCase>(),
+      statementsRepository: serviceLocator<BillingStatementsRepository>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+    ),
+  );
+  serviceLocator.registerFactory<ParentStatementsCubit>(
+    () => ParentStatementsCubit(
+      getStatements: serviceLocator<GetBillingStatementsUseCase>(),
+      statementsRepository: serviceLocator<BillingStatementsRepository>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+    ),
   );
   serviceLocator.registerFactory<TransactionsCubit>(
     () => TransactionsCubit(
       getOverview: serviceLocator<GetInvoiceOverviewUseCase>(),
+      getTransactions: serviceLocator<GetInvoiceTransactionsUseCase>(),
+      cancelInvoice: serviceLocator<CancelInvoiceUseCase>(),
+      deleteInvoice: serviceLocator<DeleteInvoiceUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -1987,6 +2185,100 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => ReceivePaymentRefundCubit(
       createPayment: serviceLocator<CreatePaymentUseCase>(),
       createRefund: serviceLocator<CreateRefundUseCase>(),
+      getFamilyLedger: serviceLocator<GetFamilyLedgerUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<CreateCreditUseCase>(
+    () => CreateCreditUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<AddCreditCubit>(
+    () => AddCreditCubit(
+      createCredit: serviceLocator<CreateCreditUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+
+  // ── Auto Pay / Forte payment methods ──
+  serviceLocator.registerLazySingleton<AutoPayRemoteDataSource>(
+    () => AutoPayRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+  );
+  serviceLocator.registerLazySingleton<AutoPayRepository>(
+    () => AutoPayRepositoryImpl(serviceLocator<AutoPayRemoteDataSource>()),
+  );
+  serviceLocator.registerFactory<GetSchoolForteConfigUseCase>(
+    () => GetSchoolForteConfigUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<GetPaymentSettingsUseCase>(
+    () => GetPaymentSettingsUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PaymentSettingsCubit>(
+    () => PaymentSettingsCubit(
+      getPaymentSettings: serviceLocator<GetPaymentSettingsUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetAutoPayStatusUseCase>(
+    () => GetAutoPayStatusUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<SetAutoPayStatusUseCase>(
+    () => SetAutoPayStatusUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<GetPaymentMethodsUseCase>(
+    () => GetPaymentMethodsUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<AddPaymentMethodUseCase>(
+    () => AddPaymentMethodUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<SetPrimaryPaymentMethodUseCase>(
+    () => SetPrimaryPaymentMethodUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<DeletePaymentMethodUseCase>(
+    () => DeletePaymentMethodUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<UpdatePaymentMethodUseCase>(
+    () => UpdatePaymentMethodUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<SetAutopayMethodUseCase>(
+    () => SetAutopayMethodUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PayNowCubit>(
+    () => PayNowCubit(
+      getGuardianFamilyLedger:
+          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GuardianPayUseCase>(
+    () => GuardianPayUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PayNowAuthorizeCubit>(
+    () => PayNowAuthorizeCubit(
+      guardianPay: serviceLocator<GuardianPayUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<AutoPayMethodsCubit>(
+    () => AutoPayMethodsCubit(
+      getForteConfig: serviceLocator<GetSchoolForteConfigUseCase>(),
+      getPaymentSettings: serviceLocator<GetPaymentSettingsUseCase>(),
+      getStatus: serviceLocator<GetAutoPayStatusUseCase>(),
+      setStatus: serviceLocator<SetAutoPayStatusUseCase>(),
+      getMethods: serviceLocator<GetPaymentMethodsUseCase>(),
+      addMethod: serviceLocator<AddPaymentMethodUseCase>(),
+      setPrimary: serviceLocator<SetPrimaryPaymentMethodUseCase>(),
+      setAutopay: serviceLocator<SetAutopayMethodUseCase>(),
+      deleteMethod: serviceLocator<DeletePaymentMethodUseCase>(),
+      updateMethod: serviceLocator<UpdatePaymentMethodUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GetInvoiceAnalyticsUseCase>(
+    () => GetInvoiceAnalyticsUseCase(serviceLocator<InvoiceRepository>()),
+  );
+  serviceLocator.registerFactory<AnalyticsCubit>(
+    () => AnalyticsCubit(
+      getAnalytics: serviceLocator<GetInvoiceAnalyticsUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -1998,6 +2290,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getSubsidies: serviceLocator<GetSubsidiesUseCase>(),
       createInvoice: serviceLocator<CreateInvoiceUseCase>(),
       issueInvoice: serviceLocator<IssueInvoiceUseCase>(),
+      updateInvoice: serviceLocator<UpdateInvoiceUseCase>(),
+      getInvoiceByCode: serviceLocator<GetInvoiceByCodeUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

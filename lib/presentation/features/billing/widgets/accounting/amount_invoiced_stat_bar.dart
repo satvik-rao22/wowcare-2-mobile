@@ -3,30 +3,83 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 
-class AmountInvoicedStatBar extends StatefulWidget {
-  final double totalAmount;
-  final double paidPercentage;
+/// The five tappable summary-card filters. Four scope the Transactions list
+/// (see [TransactionFilter]); [outstanding] routes to the Student(s) tab and
+/// filters families with an open balance.
+enum BillingSummaryFilter { netPaid, paid, inProcess, refund, outstanding }
 
-  /// Gross paid share (before refunds), shown as the "Paid" item in the
-  /// expanded view. Defaults to [paidPercentage] when not provided.
-  final double? grossPaidPercentage;
-  final double inProcessPercentage;
-  final double unpaidPercentage;
-  final double refundPercentage;
+/// Maps a summary-card filter to the Transactions list filter, or null for
+/// [BillingSummaryFilter.outstanding] (which is a Student(s)-tab concern).
+TransactionFilter? transactionFilterOf(BillingSummaryFilter? filter) {
+  switch (filter) {
+    case BillingSummaryFilter.netPaid:
+      return TransactionFilter.netPaid;
+    case BillingSummaryFilter.paid:
+      return TransactionFilter.paid;
+    case BillingSummaryFilter.inProcess:
+      return TransactionFilter.inProcess;
+    case BillingSummaryFilter.refund:
+      return TransactionFilter.refund;
+    case BillingSummaryFilter.outstanding:
+    case null:
+      return null;
+  }
+}
+
+/// The summary-card filter that highlights the given active Transactions
+/// filter, or null when none is active.
+BillingSummaryFilter? billingFilterOf(TransactionFilter? filter) {
+  switch (filter) {
+    case TransactionFilter.netPaid:
+      return BillingSummaryFilter.netPaid;
+    case TransactionFilter.paid:
+      return BillingSummaryFilter.paid;
+    case TransactionFilter.inProcess:
+      return BillingSummaryFilter.inProcess;
+    case TransactionFilter.refund:
+      return BillingSummaryFilter.refund;
+    case null:
+      return null;
+  }
+}
+
+class AmountInvoicedStatBar extends StatefulWidget {
+  /// Actual amounts straight from the billing overview API. The label values
+  /// are shown verbatim (no clamping) so negatives and >100% shares display
+  /// correctly; percentages are derived as `amount / totalAmount` and only
+  /// clamped for the progress-bar segment widths.
+  final double totalAmount;
+  final double netPaidAmount;
+
+  /// Gross paid (before refunds), shown as the "Paid" item in the expanded view.
+  final double paidAmount;
+  final double inProcessAmount;
+  final double outstandingAmount;
+  final double refundedAmount;
   final String title;
+
+  /// Called when a summary card / legend item is tapped. Null disables tapping.
+  final ValueChanged<BillingSummaryFilter>? onFilterTap;
+
+  /// The filter to highlight as currently selected (e.g. the active
+  /// Transactions filter, or Outstanding when the Student(s) toggle is on).
+  final BillingSummaryFilter? selectedFilter;
 
   const AmountInvoicedStatBar({
     super.key,
     required this.totalAmount,
-    required this.paidPercentage,
-    this.grossPaidPercentage,
-    required this.inProcessPercentage,
-    required this.unpaidPercentage,
-    this.refundPercentage = 0,
+    required this.netPaidAmount,
+    required this.paidAmount,
+    required this.inProcessAmount,
+    required this.outstandingAmount,
+    this.refundedAmount = 0,
     this.title = 'Amount Invoiced',
+    this.onFilterTap,
+    this.selectedFilter,
   });
 
   @override
@@ -51,131 +104,138 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
       value: _cubit,
       child: BlocBuilder<BoolToggleCubit, bool>(
         builder: (context, _) {
-    final numberFormat = NumberFormat('#,##0');
-    String formatAmount(double value) => '\$${numberFormat.format(value)}';
+          final numberFormat = NumberFormat('#,##0');
+          String formatAmount(double value) {
+            final sign = value < 0 ? '-' : '';
+            return '$sign\$${numberFormat.format(value.abs())}';
+          }
 
-    final double paidAmt = (widget.totalAmount *
-            (widget.paidPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
-    final double inProcessAmt = (widget.totalAmount *
-            (widget.inProcessPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
-    final double unpaidAmt = (widget.totalAmount *
-            (widget.unpaidPercentage.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
+          // Share of the invoiced amount; shown verbatim in labels.
+          double pct(double value) =>
+              widget.totalAmount <= 0 ? 0 : (value / widget.totalAmount) * 100;
+          String pctText(double value) => '${pct(value).toStringAsFixed(1)}%';
+          // Clamped only for the progress-bar segment width.
+          double barValue(double value) => pct(value).clamp(0, 100).toDouble();
 
-    // Keep Net Paid and Outstanding as the first-row items
-    final netPaidItem = ProgressItemHelper(
-      label:
-          'Net Paid\n${formatAmount(paidAmt)} (${widget.paidPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.paidPercentage.clamp(0, 100).toDouble(),
-      color: Colors.greenAccent.shade100,
-    );
+          String labelFor(String name, double amount) =>
+              '$name\n${formatAmount(amount)} (${pctText(amount)})';
 
-    final outstandingItem = ProgressItemHelper(
-      label:
-          'Outstanding\n${formatAmount(unpaidAmt)} (${widget.unpaidPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.unpaidPercentage.clamp(0, 100).toDouble(),
-      color: Colors.redAccent.shade100,
-    );
+          // Keep Net Paid and Outstanding as the first-row items
+          final netPaidItem = ProgressItemHelper(
+            label: labelFor('Net Paid', widget.netPaidAmount),
+            value: barValue(widget.netPaidAmount),
+            color: Colors.greenAccent.shade100,
+            filterValue: BillingSummaryFilter.netPaid.name,
+          );
 
-    final inProcessItem = ProgressItemHelper(
-      label:
-          'In Process\n${formatAmount(inProcessAmt)} (${widget.inProcessPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.inProcessPercentage.clamp(0, 100).toDouble(),
-      color: Colors.yellow,
-    );
+          final outstandingItem = ProgressItemHelper(
+            label: labelFor('Outstanding', widget.outstandingAmount),
+            value: barValue(widget.outstandingAmount),
+            color: Colors.redAccent.shade100,
+            filterValue: BillingSummaryFilter.outstanding.name,
+          );
 
-    final double refundAmt = widget.totalAmount *
-        (widget.refundPercentage.clamp(0, 100) / 100);
+          final inProcessItem = ProgressItemHelper(
+            label: labelFor('In Process', widget.inProcessAmount),
+            value: barValue(widget.inProcessAmount),
+            color: Colors.yellow,
+            filterValue: BillingSummaryFilter.inProcess.name,
+          );
 
-    final refundItem = ProgressItemHelper(
-      label:
-          'Refund\n${formatAmount(refundAmt)} (${widget.refundPercentage.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: widget.refundPercentage.clamp(0, 100).toDouble(),
-      color: AppColors.refundLegendColor,
-    );
+          final refundItem = ProgressItemHelper(
+            label: labelFor('Refund', widget.refundedAmount),
+            value: barValue(widget.refundedAmount),
+            color: AppColors.refundLegendColor,
+            filterValue: BillingSummaryFilter.refund.name,
+          );
 
-    final double grossPaidPct = widget.grossPaidPercentage ?? widget.paidPercentage;
-    final double grossPaidAmt = (widget.totalAmount *
-            (grossPaidPct.clamp(0, 100) / 100))
-        .clamp(0, widget.totalAmount);
+          final paidItem = ProgressItemHelper(
+            label: labelFor('Paid', widget.paidAmount),
+            value: barValue(widget.paidAmount),
+            color: AppColors.paidLegendColor,
+            filterValue: BillingSummaryFilter.paid.name,
+          );
 
-    final paidItem = ProgressItemHelper(
-      label:
-          'Paid\n${formatAmount(grossPaidAmt)} (${grossPaidPct.clamp(0, 100).toStringAsFixed(1)}%)',
-      value: grossPaidPct.clamp(0, 100).toDouble(),
-      color: AppColors.paidLegendColor,
-    );
+          final collapsedItems = <ProgressItemHelper>[
+            netPaidItem,
+            outstandingItem,
+          ];
 
-    final collapsedItems = <ProgressItemHelper>[
-      netPaidItem,
-      outstandingItem,
-    ];
+          final expandedItems = <ProgressItemHelper>[
+            netPaidItem,
+            outstandingItem,
+            inProcessItem,
+            refundItem,
+            paidItem,
+          ];
 
-    final expandedItems = <ProgressItemHelper>[
-      netPaidItem,
-      outstandingItem,
-      inProcessItem,
-      refundItem,
-      paidItem,
-    ];
+          final itemsToShow = _isExpanded ? expandedItems : collapsedItems;
+          final progressItems = <ProgressItemHelper>[
+            netPaidItem,
+            outstandingItem,
+            inProcessItem,
+          ];
 
-    final itemsToShow = _isExpanded ? expandedItems : collapsedItems;
-    final progressItems = <ProgressItemHelper>[
-      netPaidItem,
-      outstandingItem,
-      inProcessItem,
-    ];
+          final outstandingAmountText = formatAmount(widget.outstandingAmount);
+          final outstandingPercentage = pct(
+            widget.outstandingAmount,
+          ).toStringAsFixed(1);
 
-    final outstandingAmountText = formatAmount(unpaidAmt);
-    final outstandingPercentage =
-        widget.unpaidPercentage.clamp(0, 100).toStringAsFixed(1);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _TotalOutstandingSummary(
-          amountLabel: outstandingAmountText,
-          percentageLabel: '$outstandingPercentage%',
-        ),
-        const SizedBox(height: 8),
-        // Only the "Show more" / "Show less" button toggles expand/collapse —
-        // tapping the card body itself does nothing.
-        CustomStatBarCard(
-          title: widget.title,
-          number: '\$${numberFormat.format(widget.totalAmount)}',
-          numberFontSize: 26,
-          titleFontSize: 17,
-          items: itemsToShow,
-          progressItems: progressItems,
-          fullWidthBar: true,
-          footer: TextButton.icon(
-            onPressed: _toggleExpanded,
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(0, 0),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            icon: Icon(
-              _isExpanded
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              size: 16,
-              color: AppColors.primaryColor,
-            ),
-            label: Text(
-              _isExpanded ? 'Show less' : 'Show more',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: AppColors.primaryColor,
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _TotalOutstandingSummary(
+                amountLabel: outstandingAmountText,
+                percentageLabel: '$outstandingPercentage%',
               ),
-            ),
-          ),
-        ),
-      ],
-    );
+              const SizedBox(height: 8),
+              // Only the "Show more" / "Show less" button toggles expand/collapse —
+              // tapping the card body itself does nothing.
+              CustomStatBarCard(
+                title: widget.title,
+                number: '\$${numberFormat.format(widget.totalAmount)}',
+                numberFontSize: 26,
+                titleFontSize: 17,
+                items: itemsToShow,
+                progressItems: progressItems,
+                fullWidthBar: true,
+                selectedFilterValue: widget.selectedFilter?.name,
+                onLegendTap: widget.onFilterTap == null
+                    ? null
+                    : (label, filterValue) {
+                        for (final f in BillingSummaryFilter.values) {
+                          if (f.name == filterValue) {
+                            widget.onFilterTap!(f);
+                            return;
+                          }
+                        }
+                      },
+                footer: TextButton.icon(
+                  onPressed: _toggleExpanded,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 0),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: Icon(
+                    _isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 16,
+                    color: AppColors.primaryColor,
+                  ),
+                  label: Text(
+                    _isExpanded ? 'Show less' : 'Show more',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primaryColor,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
         },
       ),
     );
@@ -225,7 +285,7 @@ class _TotalOutstandingSummary extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.refundLegendColor.withOpacity(0.15),
+              color: AppColors.refundLegendColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(999),
             ),
             child: Row(
@@ -252,6 +312,3 @@ class _TotalOutstandingSummary extends StatelessWidget {
     );
   }
 }
-
-
-

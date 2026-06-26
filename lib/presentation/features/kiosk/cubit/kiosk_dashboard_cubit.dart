@@ -17,10 +17,10 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     required GetActiveKioskQrUseCase getActiveKioskQrUseCase,
     required VerifyKioskPinUseCase verifyKioskPinUseCase,
     required StorageService storageService,
-  })  : _getActiveKioskQr = getActiveKioskQrUseCase,
-        _verifyKioskPin = verifyKioskPinUseCase,
-        _storage = storageService,
-        super(const KioskDashboardInitial());
+  }) : _getActiveKioskQr = getActiveKioskQrUseCase,
+       _verifyKioskPin = verifyKioskPinUseCase,
+       _storage = storageService,
+       super(const KioskDashboardInitial());
 
   final GetActiveKioskQrUseCase _getActiveKioskQr;
   final VerifyKioskPinUseCase _verifyKioskPin;
@@ -36,13 +36,17 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     try {
       // Get school code from storage (set during kiosk login)
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);
-      final schoolName = await _storage.getString(StorageKeys.selectedSchoolName);
+      final schoolName = await _storage.getString(
+        StorageKeys.selectedSchoolName,
+      );
 
       if (schoolCode == null || schoolCode.isEmpty) {
         AppLogger.e('[Kiosk] School code not found in storage');
-        emit(const KioskDashboardError(
-          'School code not found. Please login again.',
-        ));
+        emit(
+          const KioskDashboardError(
+            'School code not found. Please login again.',
+          ),
+        );
         return;
       }
 
@@ -59,17 +63,19 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       AppLogger.d(
         '[Kiosk] ✅ QR code loaded successfully: ${qrCode.qrPayload.length} chars (FRESH)',
       );
-      emit(KioskDashboardQrLoaded(
-        qrCode: qrCode,
-        schoolName: schoolName ?? 'School',
-      ));
+      emit(
+        KioskDashboardQrLoaded(
+          qrCode: qrCode,
+          schoolName: schoolName ?? 'School',
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
 
       AppLogger.e('[Kiosk] ❌ QR load failed: $e');
-      emit(const KioskDashboardError(
-        'Unable to load QR code. Please try again.',
-      ));
+      emit(
+        const KioskDashboardError('Unable to load QR code. Please try again.'),
+      );
     }
   }
 
@@ -88,13 +94,17 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
 
       if (isClosed) return;
 
-      final schoolName = await _storage.getString(StorageKeys.selectedSchoolName);
+      final schoolName = await _storage.getString(
+        StorageKeys.selectedSchoolName,
+      );
 
       AppLogger.d('[Kiosk] QR refresh successful');
-      emit(KioskDashboardQrLoaded(
-        qrCode: qrCode,
-        schoolName: schoolName ?? 'School',
-      ));
+      emit(
+        KioskDashboardQrLoaded(
+          qrCode: qrCode,
+          schoolName: schoolName ?? 'School',
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
       AppLogger.w('[Kiosk] QR refresh failed (non-fatal): $e');
@@ -110,10 +120,12 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     // Emit validating state while keeping current QR data visible
     final currentState = state;
     if (currentState is KioskDashboardQrLoaded) {
-      emit(KioskDashboardPinValidating(
-        qrCode: currentState.qrCode,
-        schoolName: currentState.schoolName,
-      ));
+      emit(
+        KioskDashboardPinValidating(
+          qrCode: currentState.qrCode,
+          schoolName: currentState.schoolName,
+        ),
+      );
     } else {
       emit(const KioskDashboardPinValidating());
     }
@@ -122,7 +134,11 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);
 
       if (schoolCode == null || schoolCode.isEmpty) {
-        emit(const KioskDashboardError('School code not found. Please login again.'));
+        emit(
+          const KioskDashboardError(
+            'School code not found. Please login again.',
+          ),
+        );
         return null;
       }
 
@@ -134,14 +150,24 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
 
       // CRITICAL: Mark user as kiosk user - this enables the route guard
       try {
-        await serviceLocator<KioskAccessControl>().setKioskModeActive(result.persona.name);
-        AppLogger.d('[Kiosk] Kiosk mode activated: persona=${result.persona.name}');
+        await serviceLocator<KioskAccessControl>().setKioskModeActive(
+          result.persona.name,
+        );
+        AppLogger.d(
+          '[Kiosk] Kiosk mode activated: persona=${result.persona.name}',
+        );
       } catch (e) {
         // Fallback: Create KioskAccessControl on demand if not registered
-        AppLogger.w('[Kiosk] KioskAccessControl not registered in DI, creating on demand: $e');
-        final kioskAccess = KioskAccessControl(serviceLocator<StorageService>());
+        AppLogger.w(
+          '[Kiosk] KioskAccessControl not registered in DI, creating on demand: $e',
+        );
+        final kioskAccess = KioskAccessControl(
+          serviceLocator<StorageService>(),
+        );
         await kioskAccess.setKioskModeActive(result.persona.name);
-        AppLogger.d('[Kiosk] Kiosk mode activated (fallback): persona=${result.persona.name}');
+        AppLogger.d(
+          '[Kiosk] Kiosk mode activated (fallback): persona=${result.persona.name}',
+        );
       }
 
       // Emit success state with the result

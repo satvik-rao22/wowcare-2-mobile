@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/message_composition_bulk_messaging.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/selection_list_item.dart';
 import 'package:wowcare/shared/common/widgets/messaging_filter_dropdown.dart';
@@ -9,7 +12,11 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../app/theme/media_res.dart';
+import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/safe_state_mixin.dart';
+import '../../../../../../core/util/storage_keys.dart';
+import '../../../../../../app/di/di.dart';
+import '../../../../classrooom/views/filters/designation_display_utils.dart';
 import '../../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
@@ -22,10 +29,23 @@ class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
     super.key,
     this.isStaffSelection = true,
     this.conversationType = 'ROOM_CHAT',
+    this.restrictToDesignationCodes,
+    this.hideFilters = false,
   });
   final bool showLoading = false;
   final bool isStaffSelection;
   final String conversationType;
+
+  /// When set, only staff whose designation code is in this list are shown
+  /// — used for the Parent/Guardian "Admin Chat" compose flow, where the
+  /// only valid recipients are Admins/Directors, not the full staff roster.
+  final List<String>? restrictToDesignationCodes;
+
+  /// Hides the Classroom/Status/Designation/Tags filter UI entirely — paired
+  /// with [restrictToDesignationCodes] so the Parent/Guardian Admin Chat
+  /// compose screen shows a plain grid (search + select), not staff filters
+  /// that don't make sense for that flow.
+  final bool hideFilters;
 
   @override
   State<StaffOrStudentSelectionBulkMessaging> createState() =>
@@ -37,10 +57,61 @@ class _StaffOrStudentSelectionBulkMessagingState
     with SafeStateMixin {
   final TextEditingController _searchController = TextEditingController();
   List<String> _selectedClassrooms = [];
-  String? _selectedStatus;
+  // Default to Active-only (per spec); user can switch to Upcoming explicitly.
+  String? _selectedStatus = 'Active';
   bool _selectAll = false;
+  bool _isSelectingAll = false;
   List<String> _selectedDesignations = [];
   List<String> _selectedTags = [];
+
+  /// The logged-in staff member's own code — excluded from the staff
+  /// recipient list so a user can't start a conversation with themselves.
+  String? _currentStaffCode;
+
+  Future<void> _loadCurrentStaffCode() async {
+    final storageService = serviceLocator<StorageService>();
+    final code = (await storageService.getString(StorageKeys.staffCode) ?? '')
+        .trim();
+    if (!mounted || code.isEmpty) return;
+    setState(() => _currentStaffCode = code);
+  }
+
+  // Safety cap on how many extra pages "Select All" will fetch before
+  // selecting, so a very large filtered result can't trigger unbounded
+  // network calls.
+  static const int _maxSelectAllPages = 50;
+
+  /// Pages in the remaining filtered set that haven't been loaded into the
+  /// cubit yet (StaffCubit/StudentCubit only auto-load the first couple of
+  /// pages), so "Select All" would otherwise silently only select what's
+  /// already in memory.
+  Future<void> _ensureAllMatchingPagesLoaded() async {
+    if (widget.isStaffSelection) {
+      final cubit = context.read<StaffCubit>();
+      var pages = 0;
+      while (cubit.state.hasMore && pages < _maxSelectAllPages) {
+        await cubit.loadNextPage();
+        pages++;
+      }
+      if (cubit.state.hasMore) {
+        _showWarningMessage(
+          'Showing first ${cubit.state.items.length} staff matching filters.',
+        );
+      }
+    } else {
+      final cubit = context.read<StudentCubit>();
+      var pages = 0;
+      while (cubit.state.hasMore && pages < _maxSelectAllPages) {
+        await cubit.loadNextPage();
+        pages++;
+      }
+      if (cubit.state.hasMore) {
+        _showWarningMessage(
+          'Showing first ${cubit.state.items.length} students matching filters.',
+        );
+      }
+    }
+  }
 
   final List<String> _statusOptions = ['Active', 'Upcoming'];
 
@@ -56,7 +127,16 @@ class _StaffOrStudentSelectionBulkMessagingState
     final Map<String, String> classroomMap = {
       for (var c in classrooms) c.code: c.name,
     };
-    final staffMembers = context.read<StaffCubit>().state.items;
+    final staffMembers = context
+        .read<StaffCubit>()
+        .state
+        .items
+        .where((s) => s.code != _currentStaffCode)
+        .where(
+          (s) =>
+              widget.restrictToDesignationCodes == null ||
+              widget.restrictToDesignationCodes!.contains(s.designation),
+        );
     return staffMembers
         .map(
           (s) => {
@@ -97,30 +177,126 @@ class _StaffOrStudentSelectionBulkMessagingState
         .toList();
   }
 
-  final List<String> _designationOptions = [
-    'Kiosk',
-    'Director',
-    'Assistant Director',
-    'Admin',
-    'Lead Teacher',
-    'Associate Teacher',
-    'Assistant Teacher',
-    'Owner',
-    'Floater',
+  /// Backend designation codes (matches staff_filter_screen.dart /
+  /// staff_messaging_tab.dart) used to turn the Designation filter's
+  /// human-readable selections back into the API value.
+  static const List<String> _designationCodes = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
   ];
-  final List<String> _tagOptions = [
-    '5 Days',
-    'Full Day',
-    'Photo Permission',
-    'Vegetarian',
-    'First Aid',
-    'Allergy',
-    'Pickup Authorized',
-    'Medication',
-    'Half Day',
-    'Boy',
-    'Girl',
-  ];
+
+  Map<String, String> get _designationLabelToCode => {
+    for (final code in _designationCodes)
+      formatDesignationForDisplay(code): code,
+  };
+
+  List<String> get _designationOptions =>
+      _designationLabelToCode.keys.toList()..sort();
+  List<String> _tagOptions = [];
+  Map<String, String> _tagNameToCode = {};
+  late final GetTagNamesForSchoolUseCase _getTagNamesForSchoolUseCase =
+      serviceLocator<GetTagNamesForSchoolUseCase>();
+  late final GetTagNameCodeMapForSchoolUseCase
+  _getTagNameCodeMapForSchoolUseCase =
+      serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+
+  Future<void> _loadTags() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final names = await _getTagNamesForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
+      final nameToCode = await _getTagNameCodeMapForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _tagOptions = names;
+        _tagNameToCode = nameToCode;
+        _selectedTags.removeWhere((tag) => !_tagOptions.contains(tag));
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
+  }
+
+  /// Pushes the current classroom/status/tag selections to [StudentCubit] as
+  /// server-side filters and refreshes. Without this, the cubit only ever
+  /// loads the first couple of unfiltered pages, so selecting a classroom
+  /// whose students aren't in that initial page shows an empty list even
+  /// though matching students exist on the server.
+  Future<void> _applyStudentFiltersToCubit() async {
+    if (widget.isStaffSelection) return;
+
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final nameToCode = {for (final c in classrooms) c.name: c.code};
+    final classroomCodes = _selectedClassrooms
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    final tagCodes = _selectedTags
+        .map((name) => _tagNameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    context.read<StudentCubit>().updateFilters(
+      status: _selectedStatus,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      tagCodes: tagCodes.isEmpty ? null : tagCodes,
+    );
+    await context.read<StudentCubit>().refreshWithCacheReset();
+  }
+
+  /// Pushes the current classroom/status/designation selections to
+  /// [StaffCubit] as server-side filters and refreshes — same reasoning as
+  /// [_applyStudentFiltersToCubit], but for the Staff selection mode.
+  Future<void> _applyStaffFiltersToCubit() async {
+    if (!widget.isStaffSelection) return;
+
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final nameToCode = {for (final c in classrooms) c.name: c.code};
+    final classCodes = _selectedClassrooms
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    final designation = _selectedDesignations.isEmpty
+        ? null
+        : _designationLabelToCode[_selectedDesignations.first];
+
+    context.read<StaffCubit>().updateFilters(
+      status: _selectedStatus?.toUpperCase(),
+      designation: designation,
+      classCodes: classCodes,
+    );
+    await context.read<StaffCubit>().refreshWithCacheReset();
+  }
+
+  /// Dispatches to whichever cubit backs the currently-shown list.
+  Future<void> _applyContactFiltersToCubit() async {
+    if (widget.isStaffSelection) {
+      await _applyStaffFiltersToCubit();
+    } else {
+      await _applyStudentFiltersToCubit();
+    }
+  }
+
   Set<String> _selectedStaffCodes = <String>{};
   Set<String> _selectedStudentCodes = <String>{};
 
@@ -142,13 +318,11 @@ class _StaffOrStudentSelectionBulkMessagingState
         return classroom != null && _selectedClassrooms.contains(classroom);
       }).toList();
     }
-    if (_selectedDesignations.isNotEmpty && widget.isStaffSelection) {
-      filtered = filtered.where((person) {
-        final designation = person['designation'] as String?;
-        return designation != null &&
-            _selectedDesignations.contains(designation);
-      }).toList();
-    }
+    // Designation isn't filtered here: `person['designation']` is the raw
+    // backend code (e.g. "LEAD_TEACHER") while `_selectedDesignations` holds
+    // display labels (e.g. "Lead Teacher"), so a direct match always misses.
+    // StaffCubit already filters by designation server-side via
+    // `_applyStaffFiltersToCubit`, so `staffList` is pre-filtered correctly.
     if (_selectedTags.isNotEmpty && !widget.isStaffSelection) {
       filtered = filtered.where((person) {
         final tags = List<String>.from(person['tags']);
@@ -222,18 +396,38 @@ class _StaffOrStudentSelectionBulkMessagingState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final classroomCubit = context.read<ClassroomCubit>();
-        classroomCubit.loadActiveClassrooms();
+        // Non-admin staff only see the classrooms they're allowed to
+        // access when starting a new conversation; admins see all of them.
+        classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
         context.read<StudentCubit>().loadInitial();
         if (widget.isStaffSelection) {
-          context.read<StaffCubit>().loadInitial();
+          unawaited(
+            context.read<StaffCubit>().loadInitial().then((_) {
+              // The Admin/Director-only flow needs the full roster client-side
+              // since StaffCubit's designation filter only supports one value
+              // at a time — loadInitial() alone only fetches the first couple
+              // of pages.
+              if (widget.restrictToDesignationCodes != null) {
+                return _ensureAllMatchingPagesLoaded();
+              }
+            }),
+          );
+          unawaited(_loadCurrentStaffCode());
+        } else {
+          unawaited(_loadTags());
         }
 
-        // Auto-select first classroom if already available
+        // Auto-select first classroom if already available. Skipped when
+        // filters are hidden (e.g. Admin/Director-only picker) — that flow
+        // wants every matching staff member, not just one classroom's.
         final classrooms = classroomCubit.state.classrooms;
-        if (classrooms.isNotEmpty && _selectedClassrooms.isEmpty) {
+        if (!widget.hideFilters &&
+            classrooms.isNotEmpty &&
+            _selectedClassrooms.isEmpty) {
           setState(() {
             _selectedClassrooms = [classrooms.first.name];
           });
+          unawaited(_applyContactFiltersToCubit());
         }
       }
     });
@@ -262,239 +456,169 @@ class _StaffOrStudentSelectionBulkMessagingState
         behavior: HitTestBehavior.translucent,
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: BlocListener<ClassroomCubit, ClassroomState>(
-        listener: (context, state) {
-          if (state.classrooms.isNotEmpty && _selectedClassrooms.isEmpty) {
-            setState(() {
-              _selectedClassrooms = [state.classrooms.first.name];
-            });
-          }
-        },
-        child: BlocBuilder<ClassroomCubit, ClassroomState>(
-          builder: (context, classroomState) {
-            return BlocBuilder<StaffCubit, StaffState>(
-              builder: (context, staffState) {
-                return BlocBuilder<StudentCubit, StudentState>(
-                  builder: (context, studentState) {
-                    final bool isDataEmpty = widget.isStaffSelection
-                        ? staffState.items.isEmpty
-                        : studentState.items.isEmpty;
+          listener: (context, state) {
+            if (!widget.hideFilters &&
+                state.classrooms.isNotEmpty &&
+                _selectedClassrooms.isEmpty) {
+              setState(() {
+                _selectedClassrooms = [state.classrooms.first.name];
+              });
+              unawaited(_applyContactFiltersToCubit());
+            }
+          },
+          child: BlocBuilder<ClassroomCubit, ClassroomState>(
+            builder: (context, classroomState) {
+              return BlocBuilder<StaffCubit, StaffState>(
+                builder: (context, staffState) {
+                  return BlocBuilder<StudentCubit, StudentState>(
+                    builder: (context, studentState) {
+                      final bool isDataEmpty = widget.isStaffSelection
+                          ? staffState.items.isEmpty
+                          : studentState.items.isEmpty;
 
-                    final bool isLoading =
-                        classroomState.isLoading ||
-                        (widget.isStaffSelection && staffState.isLoading) ||
-                        (!widget.isStaffSelection && studentState.isLoading);
+                      final bool isLoading =
+                          classroomState.isLoading ||
+                          (widget.isStaffSelection && staffState.isLoading) ||
+                          (!widget.isStaffSelection && studentState.isLoading);
 
-                    // Show full screen loader only if no cached data exists at all
-                    // if (isLoading && isDataEmpty && classroomState.isLoading) {
-                    //   return const Center(child: CircularProgressIndicator());
-                    // }
-                    if (isLoading && isDataEmpty) {
-                      return SelectionShimmer(isTablet: responsive.isTablet);
-                    }
-                    return Stack(
-                      children: [
-                        Positioned.fill(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: AppColors.buildScaffoldGradient(),
-                            ),
-                            child: Image.asset(
-                              MediaRes.wowcareMobileBg,
-                              fit: BoxFit.cover,
-                              alignment: Alignment.topCenter,
+                      // Show full screen loader only if no cached data exists at all
+                      // if (isLoading && isDataEmpty && classroomState.isLoading) {
+                      //   return const Center(child: CircularProgressIndicator());
+                      // }
+                      if (isLoading && isDataEmpty) {
+                        return SelectionShimmer(isTablet: responsive.isTablet);
+                      }
+                      return Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: AppColors.buildScaffoldGradient(),
+                              ),
+                              child: Image.asset(
+                                MediaRes.wowcareMobileBg,
+                                fit: BoxFit.cover,
+                                alignment: Alignment.topCenter,
+                              ),
                             ),
                           ),
-                        ),
-                        Column(
-                          children: [
-                            Expanded(
-                              child: CustomScrollView(
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                                slivers: [
-                                  SliverToBoxAdapter(
-                                    child: Column(
-                                      children: [
-                                        const SizedBox(height: 16),
-                                        Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            horizontal:
-                                                responsive.horizontalSpacing,
+                          Column(
+                            children: [
+                              const SizedBox(height: 16),
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: responsive.horizontalSpacing,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'New Message',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: responsive.titleFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xff573353),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                height: responsive.isTablet ? 32.0 : 20.0,
+                              ),
+                              Expanded(
+                                child: Container(
+                                  width: responsive.containerWidth,
+                                  margin: EdgeInsets.only(
+                                    left: responsive.horizontalSpacing,
+                                    right: responsive.horizontalSpacing,
+                                    bottom: 10,
+                                  ),
+                                  padding: EdgeInsets.all(
+                                    responsive.isTablet ? 32.0 : 16.0,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(
+                                        responsive.isTablet ? 30.0 : 20.0,
+                                      ),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 10,
                                           ),
-                                          child: Align(
-                                            alignment: Alignment.centerLeft,
-                                            child: Text(
-                                              'New Message',
-                                              style: TextStyle(
-                                                fontFamily: 'Manrope',
-                                                fontSize:
-                                                    responsive.titleFontSize,
-                                                fontWeight: FontWeight.w600,
-                                                color: const Color(0xff573353),
-                                              ),
+                                          child: Text(
+                                            widget.isStaffSelection
+                                                ? 'Select Staff'
+                                                : 'Select Students',
+                                            style: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: const Color(0xff573353),
                                             ),
                                           ),
                                         ),
-                                        SizedBox(
-                                          height: responsive.isTablet
-                                              ? 32.0
-                                              : 20.0,
-                                        ),
-                                        Container(
-                                          width: responsive.containerWidth,
-                                          margin: EdgeInsets.symmetric(
-                                            horizontal:
-                                                responsive.horizontalSpacing,
-                                          ),
-                                          padding: EdgeInsets.all(
-                                            responsive.isTablet ? 32.0 : 16.0,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            borderRadius: BorderRadius.all(
-                                              Radius.circular(
-                                                responsive.isTablet
-                                                    ? 30.0
-                                                    : 20.0,
-                                              ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: CustomSearchBar(
+                                              controller: _searchController,
+                                              hintText: widget.isStaffSelection
+                                                  ? 'Search Staff'
+                                                  : 'Search Students',
                                             ),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(
-                                                  0.05,
-                                                ),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 2),
-                                              ),
-                                            ],
                                           ),
-                                          child: Column(
-                                            children: [
-                                              Align(
-                                                alignment: Alignment.centerLeft,
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        top: 10,
-                                                      ),
-                                                  child: Text(
-                                                    widget.isStaffSelection
-                                                        ? 'Select Staff'
-                                                        : 'Select Students',
-                                                    style: TextStyle(
-                                                      fontFamily: 'Manrope',
-                                                      fontSize: 14,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: const Color(
-                                                        0xff573353,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: CustomSearchBar(
-                                                      controller:
-                                                          _searchController,
-                                                      hintText:
-                                                          widget
-                                                              .isStaffSelection
-                                                          ? 'Search Staff'
-                                                          : 'Search Students',
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  SizedBox(
-                                                    height: 38,
-                                                    child: CustomClearAllChip(
-                                                      onTap: () {
-                                                        setState(() {
-                                                          _selectedClassrooms =
-                                                              [];
-                                                          _selectedStaffCodes
-                                                              .clear();
-                                                          _selectedStudentCodes
-                                                              .clear();
-                                                          _selectedTags = [];
-                                                          _searchController
-                                                              .clear();
-                                                          _selectedDesignations =
-                                                              [];
-                                                          _selectedStatus =
-                                                              null;
-                                                          _updateSelectAllState();
-                                                        });
-                                                      },
-                                                      label: 'Clear All',
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 10),
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: MessagingFilterDropdown(
-                                                      hintText: 'Status',
-                                                      items: _statusOptions,
-                                                      selectedItem:
-                                                          _selectedStatus,
-                                                      onSelect: (v) =>
-                                                          setState(() {
-                                                            _selectedStatus = v;
-                                                            _selectedStaffCodes
-                                                                .clear();
-                                                            _selectAll = false;
-                                                          }),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  if (widget.isStaffSelection)
-                                                    Expanded(
-                                                      child: CustomMultiSelectDropdown(
-                                                        showSelectAll: true,
-                                                        hintText:
-                                                            'Select Designation',
-                                                        items:
-                                                            _designationOptions,
-                                                        selectedItems:
-                                                            _selectedDesignations,
-                                                        gapHeight: 40,
-                                                        onChanged: (selectedItems) {
-                                                          setState(() {
-                                                            _selectedDesignations =
-                                                                selectedItems;
-                                                            _updateSelectAllState();
-                                                          });
-                                                        },
-                                                      ),
-                                                    )
-                                                  else
-                                                    Expanded(
-                                                      child: CustomMultiSelectDropdown(
-                                                        showSelectAll: true,
-                                                        hintText: 'Select Tags',
-                                                        items: _tagOptions,
-                                                        selectedItems:
-                                                            _selectedTags,
-                                                        gapHeight: 40,
-                                                        onChanged: (selectedItems) {
-                                                          setState(() {
-                                                            _selectedTags =
-                                                                selectedItems;
-                                                            _updateSelectAllState();
-                                                          });
-                                                        },
-                                                      ),
-                                                    ),
-                                                ],
-                                              ),
-                                              const SizedBox(height: 12),
-                                              CustomMultiSelectDropdown(
+                                          const SizedBox(width: 8),
+                                          SizedBox(
+                                            height: 38,
+                                            child: CustomClearAllChip(
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedClassrooms = [];
+                                                  _selectedStaffCodes.clear();
+                                                  _selectedStudentCodes.clear();
+                                                  _selectedTags = [];
+                                                  _searchController.clear();
+                                                  _selectedDesignations = [];
+                                                  // Reset to the
+                                                  // Active-only
+                                                  // default, not
+                                                  // "show everyone".
+                                                  _selectedStatus = 'Active';
+                                                  _updateSelectAllState();
+                                                });
+                                                unawaited(
+                                                  _applyContactFiltersToCubit(),
+                                                );
+                                              },
+                                              label: 'Clear All',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (!widget.hideFilters) ...[
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: CustomMultiSelectDropdown(
                                                 showSelectAll: true,
                                                 hintText: 'Select Classroom',
                                                 items: _classroomOptions,
@@ -507,163 +631,239 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                         selectedItems;
                                                     _updateSelectAllState();
                                                   });
+                                                  unawaited(
+                                                    _applyContactFiltersToCubit(),
+                                                  );
                                                 },
                                               ),
-                                              const SizedBox(height: 12),
-                                              // Select All
-                                              Align(
-                                                alignment: Alignment.centerLeft,
-                                                child: CustomCheckbox(
-                                                  label: 'Select All',
-                                                  value: _selectAll,
-                                                  borderColor:
-                                                      AppColors.themeColor,
-                                                  onChanged: (v) {
-                                                    final newVal = v ?? false;
-                                                    setState(() {
-                                                      _selectAll = newVal;
+                                            ),
+                                            const SizedBox(width: 8),
+                                            if (widget.isStaffSelection)
+                                              Expanded(
+                                                child:
+                                                    CustomMultiSelectDropdown(
+                                                      showSelectAll: true,
+                                                      hintText:
+                                                          'Select Designation',
+                                                      items:
+                                                          _designationOptions,
+                                                      selectedItems:
+                                                          _selectedDesignations,
+                                                      gapHeight: 40,
+                                                      onChanged: (selectedItems) {
+                                                        setState(() {
+                                                          _selectedDesignations =
+                                                              selectedItems;
+                                                          _updateSelectAllState();
+                                                        });
+                                                        unawaited(
+                                                          _applyContactFiltersToCubit(),
+                                                        );
+                                                      },
+                                                    ),
+                                              )
+                                            else
+                                              Expanded(
+                                                child:
+                                                    CustomMultiSelectDropdown(
+                                                      showSelectAll: true,
+                                                      hintText: 'Select Tags',
+                                                      items: _tagOptions,
+                                                      selectedItems:
+                                                          _selectedTags,
+                                                      gapHeight: 40,
+                                                      onChanged: (selectedItems) {
+                                                        setState(() {
+                                                          _selectedTags =
+                                                              selectedItems;
+                                                          _updateSelectAllState();
+                                                        });
+                                                        unawaited(
+                                                          _applyContactFiltersToCubit(),
+                                                        );
+                                                      },
+                                                    ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        MessagingFilterDropdown(
+                                          hintText: 'Status',
+                                          items: _statusOptions,
+                                          selectedItem: _selectedStatus,
+                                          onSelect: (v) {
+                                            setState(() {
+                                              _selectedStatus = v;
+                                              _selectedStaffCodes.clear();
+                                              _selectedStudentCodes.clear();
+                                              _selectAll = false;
+                                            });
+                                            unawaited(
+                                              _applyContactFiltersToCubit(),
+                                            );
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ],
+                                      // Select All
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CustomCheckbox(
+                                              label: 'Select All',
+                                              value: _selectAll,
+                                              borderColor: AppColors.themeColor,
+                                              onChanged: _isSelectingAll
+                                                  ? null
+                                                  : (v) async {
+                                                      final newVal = v ?? false;
                                                       if (newVal) {
-                                                        if (widget
-                                                            .isStaffSelection) {
-                                                          _selectedStaffCodes.addAll(
-                                                            _filteredList.map(
-                                                              (e) =>
-                                                                  e.value['code']
-                                                                      as String,
-                                                            ),
-                                                          );
-                                                        } else {
-                                                          _selectedStudentCodes.addAll(
-                                                            _filteredList.map(
-                                                              (e) =>
-                                                                  e.value['code']
-                                                                      as String,
-                                                            ),
-                                                          );
-                                                        }
-                                                      } else {
-                                                        if (widget
-                                                            .isStaffSelection) {
-                                                          _selectedStaffCodes
-                                                              .clear();
-                                                        } else {
-                                                          _selectedStudentCodes
-                                                              .clear();
+                                                        setState(
+                                                          () =>
+                                                              _isSelectingAll =
+                                                                  true,
+                                                        );
+                                                        await _ensureAllMatchingPagesLoaded();
+                                                        if (!mounted) {
+                                                          return;
                                                         }
                                                       }
-                                                    });
-                                                  },
-                                                ),
-                                              ),
-                                              const SizedBox(height: 20),
-                                              SizedBox(
-                                                height:
-                                                    300, // or responsive height
-                                                child: _filteredList.isEmpty
-                                                    ? Center(
-                                                        child: Text(
-                                                          widget.isStaffSelection
-                                                              ? 'No staff match the selected filters'
-                                                              : 'No student match the selected filters',
-                                                          style: TextStyle(
-                                                            color: Colors
-                                                                .grey[600],
-                                                            fontSize: 14,
-                                                          ),
-                                                        ),
-                                                      )
-                                                    : GridView.builder(
-                                                        itemCount: _filteredList
-                                                            .length,
-                                                        gridDelegate:
-                                                            SliverGridDelegateWithFixedCrossAxisCount(
-                                                              crossAxisCount:
-                                                                  responsive
-                                                                      .isTablet
-                                                                  ? 3
-                                                                  : 2,
-                                                              crossAxisSpacing:
-                                                                  12,
-                                                              mainAxisSpacing:
-                                                                  12,
-                                                              mainAxisExtent:
-                                                                  52,
-                                                            ),
-                                                        itemBuilder: (context, index) {
-                                                          final entry =
-                                                              _filteredList[index];
-                                                          final person =
-                                                              entry.value;
-
-                                                          final bool
-                                                          isSelected =
-                                                              widget
-                                                                  .isStaffSelection
-                                                              ? _selectedStaffCodes
-                                                                    .contains(
-                                                                      person['code'],
-                                                                    )
-                                                              : _selectedStudentCodes
-                                                                    .contains(
-                                                                      person['code'],
-                                                                    );
-
-                                                          return CommonSelectionItem(
-                                                            name:
-                                                                person['name'],
-                                                            avatarUuid:
-                                                                person['avatar'] ??
-                                                                '',
-                                                            isSelected:
-                                                                isSelected,
-                                                            onSelectionChanged: (bool? selected) {
-                                                              setState(() {
-                                                                final code =
-                                                                    person['code'];
-                                                                if (selected ==
-                                                                    true) {
-                                                                  (widget.isStaffSelection
-                                                                          ? _selectedStaffCodes
-                                                                          : _selectedStudentCodes)
-                                                                      .add(
-                                                                        code,
-                                                                      );
-                                                                } else {
-                                                                  (widget.isStaffSelection
-                                                                          ? _selectedStaffCodes
-                                                                          : _selectedStudentCodes)
-                                                                      .remove(
-                                                                        code,
-                                                                      );
-                                                                }
-                                                                _updateSelectAllState();
-                                                              });
-                                                            },
-                                                          );
-                                                        },
-                                                      ),
+                                                      setState(() {
+                                                        _isSelectingAll = false;
+                                                        _selectAll = newVal;
+                                                        if (newVal) {
+                                                          if (widget
+                                                              .isStaffSelection) {
+                                                            _selectedStaffCodes.addAll(
+                                                              _filteredList.map(
+                                                                (e) =>
+                                                                    e.value['code']
+                                                                        as String,
+                                                              ),
+                                                            );
+                                                          } else {
+                                                            _selectedStudentCodes.addAll(
+                                                              _filteredList.map(
+                                                                (e) =>
+                                                                    e.value['code']
+                                                                        as String,
+                                                              ),
+                                                            );
+                                                          }
+                                                        } else {
+                                                          if (widget
+                                                              .isStaffSelection) {
+                                                            _selectedStaffCodes
+                                                                .clear();
+                                                          } else {
+                                                            _selectedStudentCodes
+                                                                .clear();
+                                                          }
+                                                        }
+                                                      });
+                                                    },
+                                            ),
+                                            if (_isSelectingAll) ...[
+                                              const SizedBox(width: 8),
+                                              const SizedBox(
+                                                width: 14,
+                                                height: 14,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
                                               ),
                                             ],
-                                          ),
+                                          ],
                                         ),
-                                      ],
-                                    ),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      Expanded(
+                                        child: _filteredList.isEmpty
+                                            ? Center(
+                                                child: Text(
+                                                  widget.isStaffSelection
+                                                      ? 'No staff match the selected filters'
+                                                      : 'No student match the selected filters',
+                                                  style: TextStyle(
+                                                    color: Colors.grey[600],
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              )
+                                            : GridView.builder(
+                                                itemCount: _filteredList.length,
+                                                gridDelegate:
+                                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                                      crossAxisCount:
+                                                          responsive.isTablet
+                                                          ? 3
+                                                          : 2,
+                                                      crossAxisSpacing: 12,
+                                                      mainAxisSpacing: 12,
+                                                      mainAxisExtent: 52,
+                                                    ),
+                                                itemBuilder: (context, index) {
+                                                  final entry =
+                                                      _filteredList[index];
+                                                  final person = entry.value;
+
+                                                  final bool isSelected =
+                                                      widget.isStaffSelection
+                                                      ? _selectedStaffCodes
+                                                            .contains(
+                                                              person['code'],
+                                                            )
+                                                      : _selectedStudentCodes
+                                                            .contains(
+                                                              person['code'],
+                                                            );
+
+                                                  return CommonSelectionItem(
+                                                    name: person['name'],
+                                                    avatarUuid:
+                                                        person['avatar'] ?? '',
+                                                    isSelected: isSelected,
+                                                    onSelectionChanged: (bool? selected) {
+                                                      setState(() {
+                                                        final code =
+                                                            person['code'];
+                                                        if (selected == true) {
+                                                          (widget.isStaffSelection
+                                                                  ? _selectedStaffCodes
+                                                                  : _selectedStudentCodes)
+                                                              .add(code);
+                                                        } else {
+                                                          (widget.isStaffSelection
+                                                                  ? _selectedStaffCodes
+                                                                  : _selectedStudentCodes)
+                                                              .remove(code);
+                                                        }
+                                                        _updateSelectAllState();
+                                                      });
+                                                    },
+                                                  );
+                                                },
+                                              ),
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
                               ),
-                            ),
-                            Container(),
-                          ],
-                        ),
-                      ],
-                    );
-                  },
-                );
-              },
-            );
-          },
+                              Container(),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
         ),
-      ),
       ), // GestureDetector
       bottomNavigationBar: _buildBottomBar(context, responsive),
     );
@@ -683,7 +883,7 @@ class _StaffOrStudentSelectionBulkMessagingState
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),

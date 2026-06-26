@@ -138,7 +138,7 @@ class CoreUtils {
       context: context,
       message: message,
       backgroundColor: bg,
-      borderColor: bg.withOpacity(0.85),
+      borderColor: bg.withValues(alpha: 0.85),
       contentColor: onBg,
       icon: Icons.info_outline_rounded,
       duration: const Duration(seconds: 2),
@@ -233,7 +233,7 @@ class CoreUtils {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),

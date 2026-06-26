@@ -5,13 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-enum SignMethod {
-  gps,
-  qr,
-  kiosk,
-  direct,
-  web,
-}
+enum SignMethod { gps, qr, kiosk, direct, web }
 
 class StaffAttendanceCardData {
   final String? attendanceRecordCode;
@@ -20,6 +14,7 @@ class StaffAttendanceCardData {
   final String? staffPhotoUuid;
   final String? designationName;
   final String roomName;
+
   /// Backend classroom code for this row (for attendance mutations).
   final String? classroomCode;
   final bool expectedToday;
@@ -37,6 +32,7 @@ class StaffAttendanceCardData {
   final int? totalSequenceCount;
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
 
@@ -95,6 +91,18 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
   // Shared text tokens mirrored from StaffCard so attendance cards read with
   // the same Manrope/plum visual identity.
   static const Color _plum = Color(0xff573353);
+
+  Color? _attendanceStatusColor(StaffAttendanceCardData s) {
+    if (s.hasSignIn) return Colors.green;
+    if (s.expectedToday) return Colors.red;
+    return null;
+  }
+
+  String? _attendanceStatusTooltip(StaffAttendanceCardData s) {
+    if (s.hasSignIn) return 'Signed in';
+    if (s.expectedToday) return 'Absent';
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -159,6 +167,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                     staffCode: staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
+                    disableAttendanceStatusLookup: true,
+                    statusColor: _attendanceStatusColor(staff),
+                    statusTooltip: _attendanceStatusTooltip(staff),
                   ),
                   SizedBox(width: spacing),
                   Expanded(
@@ -190,7 +201,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                                     fontFamily: 'Manrope',
                                     fontSize: isTablet ? 13 : 12,
                                     fontWeight: FontWeight.w400,
-                                    color: _plum.withOpacity(0.6),
+                                    color: _plum.withValues(alpha: 0.6),
                                   ),
                                 ),
                               ],
@@ -232,8 +243,11 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildDetailRow(context, 'Expected Today?',
-                        staff.expectedToday ? 'Yes' : 'No'),
+                    _buildDetailRow(
+                      context,
+                      'Expected Today?',
+                      staff.expectedToday ? 'Yes' : 'No',
+                    ),
                     const SizedBox(height: 10),
                     _buildDetailRow(context, 'Classroom', staff.roomName),
                     const SizedBox(height: 10),
@@ -397,11 +411,11 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         );
       case SignMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
-          child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
-            width: size,
-            height: size,
+          message: 'Kiosk',
+          child: Icon(
+            Icons.point_of_sale_outlined,
+            size: size,
+            color: AppColors.themeColor,
           ),
         );
       case SignMethod.direct:
@@ -508,9 +522,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.white,
       ),

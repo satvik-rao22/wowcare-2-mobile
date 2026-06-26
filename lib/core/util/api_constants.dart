@@ -30,6 +30,15 @@ class ApiConstants {
 
   static bool get isUat => _environment.toUpperCase() == 'UAT';
 
+  /// Forte tokenization environment passed into the auto-pay webview.
+  ///
+  /// The Forte JS SDK is loaded from `sandbox.forte.net` for any value other
+  /// than `'prod'`, and from `api.forte.net` for `'prod'`. We use the sandbox
+  /// gateway for both LOCAL and UAT today; flip this to `'prod'` (or branch on
+  /// a future PROD environment) when the production Forte gateway is wired.
+  static String get forteEnv =>
+      isUat ? ApiConstantsUat.forteEnv : 'sandbox';
+
 
   static const _LocalDev _activeDev = _LocalDev.sairam;
 
@@ -48,6 +57,7 @@ class ApiConstants {
       attendancePort: 8083,
       activityPort: 8082,
       communicationPort: 8087,
+      // gatewayPort null → notification/billing/newsletter/document stay on ngrok.
     ),
     _LocalDev.preshita: _DevTunnel(
       id: 'qs176zl8',
@@ -59,12 +69,16 @@ class ApiConstants {
       attendancePort: 8089,
       activityPort: 8084,
       communicationPort: 8082,
+      // notification/billing/newsletter/document served from the devtunnel:8091.
+      gatewayPort: 8091,
     ),
   };
 
-
   static const String _ngrokHost =
       'https://fitten-vallie-forthrightly.ngrok-free.dev';
+
+
+
 
   // ─── Service base URLs ─────────────────────────────────────────────────────
 
@@ -73,6 +87,7 @@ class ApiConstants {
       isUat ? ApiConstantsUat.baseUrl : _dev.url(_dev.userPort);
 
   /// Student MS  (LOCAL: devtunnel | UAT: gateway)
+
   static String get studentBaseUrl =>
       isUat ? ApiConstantsUat.studentBaseUrl : _dev.url(_dev.studentPort);
 
@@ -98,27 +113,30 @@ class ApiConstants {
       ? ApiConstantsUat.activityBaseUrl
       : _dev.url(_dev.activityPort, 'wowcare-activity-ms');
 
-  /// Document MS  (LOCAL: ngrok | UAT: gateway)
+  /// Document MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
   static String get documentMsBaseUrl => isUat
       ? ApiConstantsUat.documentMsBaseUrl
-      : '$_ngrokHost/document-ms';
+      : _dev.gatewayUrl('document-ms');
 
-  /// Communication / Messaging MS  (LOCAL: devtunnel | UAT: gateway)
+  /// Communication / Messaging MS  (LOCAL: gateway:8091 when set, else devtunnel
+  /// communicationPort | UAT: gateway)
   static String get communicationBaseUrl => isUat
       ? ApiConstantsUat.communicationBaseUrl
-      : _dev.url(_dev.communicationPort);
+      : (_dev.gatewayPort != null
+            ? _dev.url(_dev.gatewayPort!)
+            : _dev.url(_dev.communicationPort));
 
-  /// Newsletter MS  (LOCAL: ngrok | UAT: gateway)
+  /// Newsletter MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
   static String get newsLatterBaseUrl =>
-      isUat ? ApiConstantsUat.newsLatterBaseUrl : _ngrokHost;
+      isUat ? ApiConstantsUat.newsLatterBaseUrl : _dev.gatewayUrl();
 
-  /// Notification MS  (LOCAL: ngrok | UAT: gateway)
+  /// Notification MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
   static String get notificationBaseUrl =>
-      isUat ? ApiConstantsUat.notificationBaseUrl : _ngrokHost;
+      isUat ? ApiConstantsUat.notificationBaseUrl : _dev.gatewayUrl();
 
-  /// Billing MS  (LOCAL: ngrok | UAT: gateway)
+  /// Billing MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
   static String get billingBaseUrl =>
-      isUat ? ApiConstantsUat.billingBaseUrl : _ngrokHost;
+      isUat ? ApiConstantsUat.billingBaseUrl : _dev.gatewayUrl();
 
   // ─── Endpoint helpers ──────────────────────────────────────────────────────
 
@@ -185,6 +203,7 @@ class _DevTunnel {
     required this.attendancePort,
     required this.activityPort,
     required this.communicationPort,
+    this.gatewayPort,
   });
 
   /// Tunnel prefix before `-PORT.inc1.devtunnels.ms`.
@@ -198,9 +217,22 @@ class _DevTunnel {
   final int activityPort;
   final int communicationPort;
 
+  /// Port for the shared gateway services (notification/billing/newsletter/
+  /// document). When null, those services fall back to ngrok.
+  final int? gatewayPort;
+
   /// `https://{id}-{port}.inc1.devtunnels.ms[/{path}]`
   String url(int port, [String? path]) {
     final base = 'https://$id-$port.inc1.devtunnels.ms';
+    return path == null ? base : '$base/$path';
+  }
+
+  /// Base URL for the shared gateway services: the devtunnel on [gatewayPort]
+  /// when set, otherwise ngrok.
+  String gatewayUrl([String? path]) {
+    final base = gatewayPort != null
+        ? 'https://$id-$gatewayPort.inc1.devtunnels.ms'
+        : ApiConstants._ngrokHost;
     return path == null ? base : '$base/$path';
   }
 }

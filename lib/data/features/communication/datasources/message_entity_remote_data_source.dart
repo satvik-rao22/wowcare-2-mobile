@@ -13,8 +13,9 @@ abstract class MessageEntityRemoteDataSource {
   Future<MessageEntityDto> sendMessage({
     required String conversationCode,
     required String text,
-    List<String> attachmentCodes,
+    List<int> attachmentIds,
     bool isPrivate,
+    String? privateParentUserCode,
     String? threadParentCode,
   });
 
@@ -36,6 +37,11 @@ abstract class MessageEntityRemoteDataSource {
   });
 
   Future<void> markMessageRead(String messageCode);
+
+  /// Removes a single attachment (by the messaging-service attachment id)
+  /// from its message without deleting the whole message. Same endpoint
+  /// legacy's `CommunicationRemoteDataSource.deleteAttachment` calls.
+  Future<void> deleteAttachment(int attachmentId);
 }
 
 class MessageEntityRemoteDataSourceImpl
@@ -74,8 +80,9 @@ class MessageEntityRemoteDataSourceImpl
   Future<MessageEntityDto> sendMessage({
     required String conversationCode,
     required String text,
-    List<String> attachmentCodes = const [],
+    List<int> attachmentIds = const [],
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) async {
     final endpoint = _url(ApiPaths.messagingMessages);
@@ -83,8 +90,15 @@ class MessageEntityRemoteDataSourceImpl
       'conversationCode': conversationCode,
       'type': 'TEXT',
       'content': text,
-      if (attachmentCodes.isNotEmpty) 'attachmentCodes': attachmentCodes,
+      // Backend tracks attachments by the messaging-service's own integer id
+      // (assigned at registration — see ChatAttachmentUploader.upload), not
+      // by the document-service asset code. Matches
+      // CommunicationRemoteDataSource.sendMessage's confirmed-working
+      // contract for this same endpoint.
+      if (attachmentIds.isNotEmpty) 'attachmentIds': attachmentIds,
       if (isPrivate) 'isPrivate': true,
+      if (privateParentUserCode != null)
+        'privateParentUserCode': privateParentUserCode,
       // Backend uses 'replyToMessageId' (confirmed from MessageModel.fromJson)
       if (threadParentCode != null) 'replyToMessageId': threadParentCode,
     };
@@ -142,6 +156,12 @@ class MessageEntityRemoteDataSourceImpl
   Future<void> markMessageRead(String messageCode) async {
     final endpoint = _url(ApiPaths.messagingMessageRead(messageCode));
     await apiClient.client.post(endpoint);
+  }
+
+  @override
+  Future<void> deleteAttachment(int attachmentId) async {
+    final endpoint = _url(ApiPaths.messagingAttachmentPath(attachmentId));
+    await apiClient.client.delete(endpoint);
   }
 
   void _assertSuccess(dynamic data, String fallback) {

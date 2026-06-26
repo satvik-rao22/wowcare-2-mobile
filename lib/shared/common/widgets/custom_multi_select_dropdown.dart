@@ -294,7 +294,7 @@
 //               width: widget.width,
 //               padding: const EdgeInsets.symmetric(horizontal: 10),
 //               decoration: BoxDecoration(
-//                 color: const Color(0xFFB1AFE9).withOpacity(0.102),
+//                 color: const Color(0xFFB1AFE9).withValues(alpha:0.102),
 //                 //color: const Color(0xFFF8F7FA),
 //                 borderRadius: BorderRadius.circular(8),
 //                 border: Border.all(color: Colors.transparent),
@@ -509,10 +509,12 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                       }
 
                       final visibleItems = filteredItems();
-                      final itemCount = visibleItems.length + (widget.showSelectAll ? 1 : 0);
+                      final itemCount =
+                          visibleItems.length + (widget.showSelectAll ? 1 : 0);
                       // final searchBoxHeight = widget.enableSearch ? 52.0 : 0.0;
                       const searchBoxHeight = 0.0;
-                      final targetHeight = (itemCount * _dropdownRowHeight) + searchBoxHeight;
+                      final targetHeight =
+                          (itemCount * _dropdownRowHeight) + searchBoxHeight;
                       final dropdownHeight =
                           targetHeight > widget.maxDropdownHeight
                           ? widget.maxDropdownHeight
@@ -565,18 +567,25 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                 itemBuilder: (context, index) {
                                   if (widget.showSelectAll && index == 0) {
                                     final isAllSelected =
-                                        _localSelectedItems.length == widget.items.length;
+                                        _localSelectedItems.length ==
+                                        widget.items.length;
                                     return InkWell(
                                       onTap: () {
                                         setOverlayState(() {
                                           if (isAllSelected) {
                                             _localSelectedItems.clear();
                                           } else {
-                                            _localSelectedItems = List.from(widget.items);
+                                            _localSelectedItems = List.from(
+                                              widget.items,
+                                            );
                                           }
                                         });
                                         setState(() {});
-                                        widget.onChanged(List<String>.from(_localSelectedItems));
+                                        widget.onChanged(
+                                          List<String>.from(
+                                            _localSelectedItems,
+                                          ),
+                                        );
                                       },
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(
@@ -589,7 +598,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                             const SizedBox(width: 12),
                                             const Text(
                                               'Select All',
-                                              style: TextStyle(fontWeight: FontWeight.w600),
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                              ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               softWrap: false,
@@ -600,10 +611,12 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                     );
                                   }
 
-                                  final actualIndex =
-                                      widget.showSelectAll ? index - 1 : index;
+                                  final actualIndex = widget.showSelectAll
+                                      ? index - 1
+                                      : index;
                                   final item = visibleItems[actualIndex];
-                                  final isSelected = _localSelectedItems.contains(item);
+                                  final isSelected = _localSelectedItems
+                                      .contains(item);
 
                                   return InkWell(
                                     onTap: () {
@@ -615,7 +628,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                         }
                                       });
                                       setState(() {});
-                                      widget.onChanged(List<String>.from(_localSelectedItems));
+                                      widget.onChanged(
+                                        List<String>.from(_localSelectedItems),
+                                      );
                                     },
                                     child: Container(
                                       padding: const EdgeInsets.symmetric(
@@ -629,7 +644,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                           Expanded(
                                             child: Text(
                                               item,
-                                              style: const TextStyle(fontSize: 14),
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                              ),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               softWrap: false,
@@ -665,9 +682,12 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
 
   @override
   Widget build(BuildContext context) {
+    final isClassroom = widget.hintText.toLowerCase().contains('classroom');
     String displayText = _localSelectedItems.isEmpty
         ? widget.hintText
-        : '${_localSelectedItems.length} $displaySuffix';
+        : isClassroom
+            ? _localSelectedItems.join(', ')
+            : '${_localSelectedItems.length} $displaySuffix';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -692,7 +712,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               width: widget.width,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withOpacity(0.102),
+                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -701,7 +721,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                   Expanded(
                     child: Text(
                       displayText,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      softWrap: false,
                       style: TextStyle(
                         color: _localSelectedItems.isEmpty
                             ? Colors.grey[600]

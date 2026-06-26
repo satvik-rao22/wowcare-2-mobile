@@ -29,6 +29,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
@@ -119,17 +120,29 @@ class _AttendanceField extends StatelessWidget {
       case StaffProfileAbsentMarkMethod.gps:
         return Tooltip(
           message: 'GPS',
-          child: SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size),
+          child: SvgPicture.asset(
+            MediaRes.gpsMethodIcon,
+            width: size,
+            height: size,
+          ),
         );
       case StaffProfileAbsentMarkMethod.qr:
         return Tooltip(
           message: 'QR',
-          child: SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size),
+          child: SvgPicture.asset(
+            MediaRes.qrAttendanceIcon,
+            width: size,
+            height: size,
+          ),
         );
       case StaffProfileAbsentMarkMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
-          child: SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size),
+          message: 'Kiosk',
+          child: Icon(
+            Icons.point_of_sale_outlined,
+            size: size,
+            color: AppColors.themeColor,
+          ),
         );
       case StaffProfileAbsentMarkMethod.app:
         return Tooltip(
@@ -201,6 +214,7 @@ class _AbsentDayModel {
   final String absentBy;
   final String note;
   final StaffProfileAbsentMarkMethod? markAbsentMethod;
+  final String classroomName;
 
   _AbsentDayModel({
     required this.startDate,
@@ -209,6 +223,7 @@ class _AbsentDayModel {
     required this.absentBy,
     required this.note,
     this.markAbsentMethod,
+    this.classroomName = '',
   });
 }
 
@@ -382,9 +397,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         return DateFormat('hh:mm a').format(dt);
       }
 
-      final iso = DateTime.tryParse(s);
-      if (iso != null) {
-        return DateFormat('hh:mm a').format(iso.toLocal());
+      // Render ISO instants in the school's zone (not the device zone) so
+      // sign-in/out times match the backend regardless of where the user is.
+      final schoolDt = attendanceDisplayDateTimeFromIso(s);
+      if (schoolDt != null) {
+        return DateFormat('hh:mm a').format(schoolDt);
       }
 
       final amPmMatch = RegExp(
@@ -472,9 +489,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   Future<void> _ensureHeaderIdentityLoaded() async {
     final hasName =
         widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-';
-    final hasClassroom = (staff?.roomName ?? widget.roomName).trim().isNotEmpty;
-    // Skip the fetch only when both the name and the primary classroom name
-    // (shown in the header) are already available.
+    final _classroomVal = (staff?.roomName ?? widget.roomName).trim();
+    final hasClassroom =
+        _classroomVal.isNotEmpty && _classroomVal != '-' && _classroomVal != '—';
+    // Skip the fetch only when both the name and a real primary classroom name
+    // (not a placeholder) are already available.
     if (hasName && hasClassroom) return;
     final code = widget.staffCode.trim();
     if (code.isEmpty) return;
@@ -616,10 +635,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             attendedMinutes: (m['attendedMinutes'] as int?) ?? 0,
             isTransferSignIn: isTransferSignIn,
             isTransferSignOut: isTransferSignOut,
-            signInMethod:
-                _mapAbsentMethodStringToEnum(m['signedInMethod'] as String?),
-            signOutMethod:
-                _mapAbsentMethodStringToEnum(m['signedOutMethod'] as String?),
+            signInMethod: _mapAbsentMethodStringToEnum(
+              m['signedInMethod'] as String?,
+            ),
+            signOutMethod: _mapAbsentMethodStringToEnum(
+              m['signedOutMethod'] as String?,
+            ),
           );
         }).toList();
 
@@ -690,6 +711,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             markAbsentMethod: _mapAbsentMethodStringToEnum(
               m['markAbsentMethod'] as String?,
             ),
+            classroomName: () {
+              final name = (m['classroomName'] as String?)?.trim() ?? '';
+              if (name.isNotEmpty) return name;
+              final code = (m['classroomCode'] as String?)?.trim() ?? '';
+              return code; // render-time fallback uses staff?.roomName
+            }(),
           );
         }).toList();
 
@@ -990,13 +1017,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         side: BorderSide(
-          color: AppColors.primaryColor.withOpacity(0.2),
+          color: AppColors.primaryColor.withValues(alpha: 0.2),
           width: 0.5,
         ),
         borderRadius: BorderRadius.circular(16),
       ),
       elevation: 6,
-      shadowColor: AppColors.primaryColor.withOpacity(0.2),
+      shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
@@ -1284,7 +1311,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+          border: Border.all(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
         ),
         child: Center(
           child: AppText.body(
@@ -1320,7 +1349,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+          border: Border.all(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
         ),
         child: Center(
           child: AppText.body(
@@ -1366,11 +1397,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1380,7 +1415,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           });
         },
         children: [
-          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
+          Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
           _AttendanceField(label: 'Classroom', text: attendance.roomName),
           const SizedBox(height: 16),
@@ -1432,11 +1467,15 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1446,9 +1485,22 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           });
         },
         children: [
-          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
+          Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(label: 'Classroom', text: staff?.roomName ?? ''),
+          _AttendanceField(
+            label: 'Classroom',
+            text: () {
+              if (absentDay.classroomName.isNotEmpty) {
+                return absentDay.classroomName;
+              }
+              final fallback = staff?.roomName ?? widget.roomName;
+              return (fallback.trim().isNotEmpty &&
+                      fallback != '-' &&
+                      fallback != '—')
+                  ? fallback
+                  : '';
+            }(),
+          ),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Date',

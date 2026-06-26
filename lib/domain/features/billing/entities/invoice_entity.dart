@@ -1,5 +1,70 @@
 import 'package:equatable/equatable.dart';
 
+/// A single row from the Transactions list (`GET /invoices/transactions`).
+class InvoiceTransactionEntity extends Equatable {
+  const InvoiceTransactionEntity({
+    required this.id,
+    required this.type,
+    required this.date,
+    required this.familyCode,
+    required this.familyName,
+    required this.studentCode,
+    required this.studentName,
+    required this.description,
+    required this.status,
+    required this.method,
+    required this.amount,
+    required this.paidAmount,
+    required this.refundedAmount,
+    required this.invoiceCode,
+  });
+
+  final String id;
+  final String type;
+  final DateTime? date;
+  final String familyCode;
+  final String familyName;
+  final String studentCode;
+  final String studentName;
+  final String description;
+  final String status;
+  final String? method;
+  final double amount;
+
+  /// Amount already paid against this invoice; `0` means it can still be cancelled.
+  final double paidAmount;
+
+  /// Amount already refunded against this invoice (max refundable = amount −
+  /// refundedAmount).
+  final double refundedAmount;
+  final String invoiceCode;
+
+  @override
+  List<Object?> get props => [
+        id,
+        type,
+        date,
+        familyCode,
+        familyName,
+        studentCode,
+        studentName,
+        description,
+        status,
+        method,
+        amount,
+        paidAmount,
+        refundedAmount,
+        invoiceCode,
+      ];
+}
+
+/// One page of transactions plus whether more pages exist.
+typedef InvoiceTransactionsPage = ({
+  List<InvoiceTransactionEntity> items,
+  bool hasMore,
+  int totalElements,
+});
+
 /// Params for creating a single invoice (one student per invoice).
 class CreateInvoiceItemParams extends Equatable {
   const CreateInvoiceItemParams({
@@ -33,6 +98,8 @@ class CreateInvoiceParams extends Equatable {
     required this.issueDate,
     required this.dueDate,
     required this.items,
+    this.periodStart,
+    this.periodEnd,
     this.notes,
     this.currency,
   });
@@ -42,6 +109,10 @@ class CreateInvoiceParams extends Equatable {
   final String studentCode;
   final DateTime issueDate;
   final DateTime dueDate;
+
+  /// Optional service period sent as `periodStart` / `periodEnd`.
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
   final List<CreateInvoiceItemParams> items;
   final String? notes;
   final String? currency;
@@ -53,75 +124,61 @@ class CreateInvoiceParams extends Equatable {
         studentCode,
         issueDate,
         dueDate,
+        periodStart,
+        periodEnd,
         items,
         notes,
         currency,
       ];
 }
 
-class UpdateInvoiceItemParams extends Equatable {
-  const UpdateInvoiceItemParams({
-    required this.description,
-    this.quantity,
-    this.unitPrice,
-    this.totalPrice,
-  });
-
-  final String description;
-  final int? quantity;
-  final double? unitPrice;
-  final double? totalPrice;
-
-  @override
-  List<Object?> get props => [description, quantity, unitPrice, totalPrice];
-}
-
-/// Params for `PATCH /api/v1/invoices/{invoiceCode}` (partial update).
+/// Params for `PATCH /api/v1/invoices/{invoiceCode}/draft` (edit draft invoice).
+///
+/// The draft endpoint takes the same body shape as create, so items reuse
+/// [CreateInvoiceItemParams] (each carries `itemType`/`amount`). `schoolCode` is
+/// required by the backend.
 class UpdateInvoiceParams extends Equatable {
   const UpdateInvoiceParams({
-    this.code,
+    this.organizationCode,
+    this.schoolCode,
     this.studentCode,
+    this.ownerType,
+    this.ownerCode,
     this.issueDate,
     this.dueDate,
-    this.status,
-    this.invoiceStatus,
-    this.amount,
-    this.total,
-    this.paidAmount,
-    this.subjectOwnerType,
-    this.subjectOwnerCode,
-    this.subscriptionCode,
+    this.periodStart,
+    this.periodEnd,
+    this.currency,
+    this.notes,
     this.items,
   });
 
-  final String? code;
+  final String? organizationCode;
+  final String? schoolCode;
   final String? studentCode;
+  final String? ownerType;
+  final String? ownerCode;
   final DateTime? issueDate;
   final DateTime? dueDate;
-  final String? status;
-  final String? invoiceStatus;
-  final double? amount;
-  final double? total;
-  final double? paidAmount;
-  final String? subjectOwnerType;
-  final String? subjectOwnerCode;
-  final String? subscriptionCode;
-  final List<UpdateInvoiceItemParams>? items;
+  final DateTime? periodStart;
+  final DateTime? periodEnd;
+  final String? currency;
+  final String? notes;
+  final List<CreateInvoiceItemParams>? items;
 
   @override
   List<Object?> get props => [
-        code,
+        organizationCode,
+        schoolCode,
         studentCode,
+        ownerType,
+        ownerCode,
         issueDate,
         dueDate,
-        status,
-        invoiceStatus,
-        amount,
-        total,
-        paidAmount,
-        subjectOwnerType,
-        subjectOwnerCode,
-        subscriptionCode,
+        periodStart,
+        periodEnd,
+        currency,
+        notes,
         items,
       ];
 }
@@ -193,6 +250,38 @@ class InvoicePaymentParams extends Equatable {
         method,
         reference,
         narration,
+      ];
+}
+
+/// Params for a credit (`POST /api/v1/invoices/credits`).
+class CreateCreditParams extends Equatable {
+  const CreateCreditParams({
+    required this.schoolCode,
+    required this.amount,
+    this.ownerType,
+    this.ownerCode,
+    this.studentCode,
+    this.reason,
+    this.description,
+  });
+
+  final String schoolCode;
+  final double amount;
+  final String? ownerType;
+  final String? ownerCode;
+  final String? studentCode;
+  final String? reason;
+  final String? description;
+
+  @override
+  List<Object?> get props => [
+        schoolCode,
+        amount,
+        ownerType,
+        ownerCode,
+        studentCode,
+        reason,
+        description,
       ];
 }
 

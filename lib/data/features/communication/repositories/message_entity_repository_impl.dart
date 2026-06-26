@@ -12,12 +12,14 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/repositories/reaction_repository.dart';
 
 class MessageEntityRepositoryImpl implements MessageEntityRepository {
   final MessageEntityRemoteDataSource _remote;
   final MessageEntityLocalDataSource _local;
   final MessageRealtimeDataSource _realtime;
   final StorageService _storage;
+  final ReactionRepository _reactionRepository;
 
   static const _uuid = Uuid();
 
@@ -26,10 +28,12 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required MessageEntityLocalDataSource localDataSource,
     required MessageRealtimeDataSource realtimeDataSource,
     required StorageService storageService,
-  })  : _remote = remoteDataSource,
-        _local = localDataSource,
-        _realtime = realtimeDataSource,
-        _storage = storageService;
+    required ReactionRepository reactionRepository,
+  }) : _remote = remoteDataSource,
+       _local = localDataSource,
+       _realtime = realtimeDataSource,
+       _storage = storageService,
+       _reactionRepository = reactionRepository;
 
   // ─── Tenancy helpers ────────────────────────────────────────────────────────
 
@@ -75,6 +79,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         organizationCode: org,
         schoolCode: school,
         limit: size,
+        beforeMessageCode: beforeMessageCode,
         currentUserCode: currentUser,
       );
       if (cached.isNotEmpty) {
@@ -111,8 +116,9 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   Future<Either<Failure, MessageEntity>> sendMessage({
     required String conversationCode,
     required String text,
-    List<String> attachmentCodes = const [],
+    List<int> attachmentIds = const [],
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) async {
     final org = await _orgCode;
@@ -135,6 +141,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       organizationCode: org,
       schoolCode: school,
       isPrivate: isPrivate,
+      // privateParentUserCode: privateParentUserCode,
       localTempCode: tempCode,
     );
 
@@ -145,8 +152,9 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       final dto = await _remote.sendMessage(
         conversationCode: conversationCode,
         text: text,
-        attachmentCodes: attachmentCodes,
+        attachmentIds: attachmentIds,
         isPrivate: isPrivate,
+        privateParentUserCode: privateParentUserCode,
         threadParentCode: threadParentCode,
       );
       final confirmed = dto.toEntity();
@@ -176,8 +184,10 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         payload: {
           'conversationCode': conversationCode,
           'text': text,
-          'attachmentCodes': attachmentCodes,
+          'attachmentIds': attachmentIds,
           'isPrivate': isPrivate,
+          if (privateParentUserCode != null)
+            'privateParentUserCode': privateParentUserCode,
           if (threadParentCode != null) 'threadParentCode': threadParentCode,
           'localTempCode': tempCode,
         },
@@ -201,6 +211,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       conversationCode: entity.conversationCode,
       text: entity.text,
       isPrivate: entity.isPrivate,
+      // privateParentUserCode: entity.privateParentUserCode,
       threadParentCode: entity.threadParentCode,
     );
   }
@@ -212,6 +223,18 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required String messageCode,
     required String newText,
   }) async {
+    final cached = await _local.getMessage(messageCode);
+    final originalEntity = cached?.toEntity();
+
+    if (cached != null) {
+      final updatedLocal = cached.toEntity().copyWith(
+        text: newText,
+        isEdited: true,
+        editedAt: DateTime.now(),
+      );
+      await _local.saveMessage(updatedLocal);
+    }
+
     try {
       final dto = await _remote.editMessage(
         messageCode: messageCode,
@@ -221,6 +244,9 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       await _local.saveMessage(updated);
       return Right(updated);
     } catch (e) {
+      if (originalEntity != null) {
+        await _local.saveMessage(originalEntity);
+      }
       // Queue for offline retry
       final org = await _orgCode;
       final school = await _schoolCode;
@@ -237,11 +263,20 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
 
   @override
   Future<Either<Failure, void>> deleteMessage(String messageCode) async {
+    final cached = await _local.getMessage(messageCode);
+    final originalEntity = cached?.toEntity();
+
+    if (cached != null) {
+      await _local.deleteMessage(messageCode);
+    }
+
     try {
       await _remote.deleteMessage(messageCode);
-      await _local.deleteMessage(messageCode);
       return const Right(null);
     } catch (e) {
+      if (originalEntity != null) {
+        await _local.saveMessage(originalEntity);
+      }
       final org = await _orgCode;
       final school = await _schoolCode;
       await _queueOperation(
@@ -255,50 +290,63 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     }
   }
 
+  // ─── Attachments ─────────────────────────────────────────────────────────────
+
+  @override
+  Future<Either<Failure, void>> deleteAttachment({
+    required String messageCode,
+    required int attachmentId,
+  }) async {
+    final cached = await _local.getMessage(messageCode);
+    final originalEntity = cached?.toEntity();
+
+    if (cached != null) {
+      final updated = originalEntity!.copyWith(
+        attachments: originalEntity.attachments
+            .where((a) => a.attachmentId != attachmentId)
+            .toList(),
+      );
+      await _local.saveMessage(updated);
+    }
+
+    try {
+      await _remote.deleteAttachment(attachmentId);
+      return const Right(null);
+    } catch (e) {
+      // No sync-queue entry — matches legacy CommunicationRepositoryImpl's
+      // exact behaviour for this operation (rollback only, no retry queue).
+      if (originalEntity != null) {
+        await _local.saveMessage(originalEntity);
+      }
+      return Left(NetworkFailure(e.toString()));
+    }
+  }
+
   // ─── Reactions ───────────────────────────────────────────────────────────────
+  // Delegated to the single, shared ReactionRepository implementation so
+  // every messaging surface goes through the same optimistic-update +
+  // offline-queue logic.
 
   @override
   Future<Either<Failure, void>> addReaction({
     required String messageCode,
     required String emoji,
-  }) async {
-    try {
-      await _remote.addReaction(messageCode: messageCode, emoji: emoji);
-      return const Right(null);
-    } catch (e) {
-      final org = await _orgCode;
-      final school = await _schoolCode;
-      await _queueOperation(
-        operation: SyncOperationType.addReaction,
-        entityCode: messageCode,
-        organizationCode: org,
-        schoolCode: school,
-        payload: {'messageCode': messageCode, 'emoji': emoji},
-      );
-      return Left(NetworkFailure(e.toString()));
-    }
+  }) {
+    return _reactionRepository.addReaction(
+      messageCode: messageCode,
+      emoji: emoji,
+    );
   }
 
   @override
   Future<Either<Failure, void>> removeReaction({
     required String messageCode,
     required String emoji,
-  }) async {
-    try {
-      await _remote.removeReaction(messageCode: messageCode, emoji: emoji);
-      return const Right(null);
-    } catch (e) {
-      final org = await _orgCode;
-      final school = await _schoolCode;
-      await _queueOperation(
-        operation: SyncOperationType.removeReaction,
-        entityCode: messageCode,
-        organizationCode: org,
-        schoolCode: school,
-        payload: {'messageCode': messageCode, 'emoji': emoji},
-      );
-      return Left(NetworkFailure(e.toString()));
-    }
+  }) {
+    return _reactionRepository.removeReaction(
+      messageCode: messageCode,
+      emoji: emoji,
+    );
   }
 
   // ─── Read receipt ────────────────────────────────────────────────────────────
@@ -336,7 +384,10 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
 
       final lowerQuery = query.toLowerCase();
       final results = all
-          .where((m) => m.textPlain.toLowerCase().contains(lowerQuery))
+          .where(
+            (m) =>
+                !m.isDeleted && m.textPlain.toLowerCase().contains(lowerQuery),
+          )
           .take(limit)
           .map((m) => m.toEntity())
           .toList();
@@ -350,7 +401,8 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   // ─── Sync queue ──────────────────────────────────────────────────────────────
 
   @override
-  Future<Either<Failure, List<SyncQueueEntity>>> getPendingSyncOperations() async {
+  Future<Either<Failure, List<SyncQueueEntity>>>
+  getPendingSyncOperations() async {
     try {
       final org = await _orgCode;
       final school = await _schoolCode;
@@ -365,9 +417,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   }
 
   @override
-  Future<Either<Failure, int>> cleanupSyncQueue({
-    int olderThanDays = 7,
-  }) async {
+  Future<Either<Failure, int>> cleanupSyncQueue({int olderThanDays = 7}) async {
     try {
       final org = await _orgCode;
       final school = await _schoolCode;
@@ -431,10 +481,20 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   }) async* {
     final org = await _orgCode;
     final school = await _schoolCode;
+    final user = await _currentUserCode;
+
+    final roleJson = (await _storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final activeRole = (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').toUpperCase();
+    
+    final isStaff = activeRole == 'STAFF' || activeRole == 'TEACHER' || (activeRole.isEmpty && (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
+    final isAdmin = activeRole.contains('ADMIN') || activeRole.contains('DIRECTOR') || (activeRole.isEmpty && (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
 
     yield* _realtime.watchMessages(
       organizationCode: org,
       schoolCode: school,
+      currentUserCode: user,
+      isStaff: isStaff,
+      isAdmin: isAdmin,
       conversationCode: conversationCode,
       limit: limit,
     );

@@ -1584,6 +1584,21 @@ class StudentRepositoryImpl
   }
 
   @override
+  Future<String> addStudentSibling({
+    required String studentCode,
+    required List<String> siblingCodes,
+  }) async {
+    final message = await _remoteDataSource.addStudentSibling(
+      studentCode: studentCode,
+      siblingCodes: siblingCodes,
+    );
+
+    await _invalidateAllStudentListAndSummaryCaches();
+
+    return message;
+  }
+
+  @override
   Future<String> updateStudentTags({
     required String studentCode,
     required String schoolCode,

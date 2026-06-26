@@ -93,10 +93,7 @@ class _EditStudentImportantDatesScreenState
       schoolStartDate: _schoolStartDate,
     );
 
-    _cubit.updateImportantDates(
-      studentCode: widget.studentCode,
-      dates: dates,
-    );
+    _cubit.updateImportantDates(studentCode: widget.studentCode, dates: dates);
   }
 
   @override
@@ -107,110 +104,116 @@ class _EditStudentImportantDatesScreenState
 
     return BlocProvider<StudentImportantDatesCubit>.value(
       value: _cubit,
-      child: BlocListener<StudentImportantDatesCubit, StudentImportantDatesState>(
-        listener: (context, state) {
-          if (state.isSuccess && state.message != null) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: state.message!,
-              isSuccess: true,
-            );
-            Navigator.pop(context, true);
-          } else if (state.isError && state.message != null) {
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message: state.message!,
-              isError: true,
-            );
-          }
-        },
-        child:
-            BlocBuilder<StudentImportantDatesCubit, StudentImportantDatesState>(
-          builder: (context, state) {
-            final isSubmitting = state.isLoading;
+      child:
+          BlocListener<StudentImportantDatesCubit, StudentImportantDatesState>(
+            listener: (context, state) {
+              if (state.isSuccess && state.message != null) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: state.message!,
+                  isSuccess: true,
+                );
+                Navigator.pop(context, true);
+              } else if (state.isError && state.message != null) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: state.message!,
+                  isError: true,
+                );
+              }
+            },
+            child:
+                BlocBuilder<
+                  StudentImportantDatesCubit,
+                  StudentImportantDatesState
+                >(
+                  builder: (context, state) {
+                    final isSubmitting = state.isLoading;
 
-            return StaffFormLayout(
-              title: 'Edit Important Dates',
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isTablet = constraints.maxWidth > 600;
+                    return StaffFormLayout(
+                      title: 'Edit Important Dates',
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isTablet = constraints.maxWidth > 600;
 
-                  if (isTablet) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: _buildDateField(
-                            label: 'Enroll Date',
-                            selectedDate: _enrollDate,
-                            fieldName: 'enroll',
+                          if (isTablet) {
+                            return Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: _buildDateField(
+                                    label: 'Enroll Date',
+                                    selectedDate: _enrollDate,
+                                    fieldName: 'enroll',
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildDateField(
+                                    label: 'School Start Date',
+                                    selectedDate: _schoolStartDate,
+                                    fieldName: 'schoolStart',
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+
+                          return ListView(
+                            padding: EdgeInsets.zero,
+                            children: [
+                              _buildDateField(
+                                label: 'Enroll Date',
+                                selectedDate: _enrollDate,
+                                fieldName: 'enroll',
+                              ),
+                              SizedBox(height: responsive.verticalSpacing),
+                              _buildDateField(
+                                label: 'School Start Date',
+                                selectedDate: _schoolStartDate,
+                                fieldName: 'schoolStart',
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                      bottomBar: Container(
+                        padding: EdgeInsets.only(
+                          bottom: safeAreaBottom,
+                          left: 16,
+                          right: 16,
+                          top: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              offset: const Offset(0, -4),
+                              blurRadius: 16,
+                            ),
+                          ],
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(
+                              responsive.isTablet ? 40.0 : 24.0,
+                            ),
+                            topRight: Radius.circular(
+                              responsive.isTablet ? 40.0 : 24.0,
+                            ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildDateField(
-                            label: 'School Start Date',
-                            selectedDate: _schoolStartDate,
-                            fieldName: 'schoolStart',
-                          ),
+                        child: CustomButtonLayout(
+                          confirmButtonLabel: 'Save',
+                          onPressedConfirm: isSubmitting ? null : _save,
+                          showCancelButton: false,
+                          isForm: false,
+                          isLoading: isSubmitting,
                         ),
-                      ],
+                      ),
                     );
-                  }
-
-                  return ListView(
-                    padding: EdgeInsets.zero,
-                    children: [
-                      _buildDateField(
-                        label: 'Enroll Date',
-                        selectedDate: _enrollDate,
-                        fieldName: 'enroll',
-                      ),
-                      SizedBox(height: responsive.verticalSpacing),
-                      _buildDateField(
-                        label: 'School Start Date',
-                        selectedDate: _schoolStartDate,
-                        fieldName: 'schoolStart',
-                      ),
-                    ],
-                  );
-                },
-              ),
-              bottomBar: Container(
-                padding: EdgeInsets.only(
-                  bottom: safeAreaBottom,
-                  left: 16,
-                  right: 16,
-                  top: 8,
+                  },
                 ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      offset: const Offset(0, -4),
-                      blurRadius: 16,
-                    ),
-                  ],
-                  borderRadius: BorderRadius.only(
-                    topLeft:
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight:
-                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  ),
-                ),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: 'Save',
-                  onPressedConfirm: isSubmitting ? null : _save,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading: isSubmitting,
-                ),
-              ),
-            );
-          },
-        ),
-      ),
+          ),
     );
   }
 
@@ -230,10 +233,7 @@ class _EditStudentImportantDatesScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: labelStyle,
-        ),
+        Text(label, style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         GestureDetector(
           onTap: () => _selectDate(fieldName),
@@ -284,4 +284,3 @@ class _EditStudentImportantDatesScreenState
     );
   }
 }
-

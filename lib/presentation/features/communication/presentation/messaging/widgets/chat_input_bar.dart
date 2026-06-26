@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
 /// WhatsApp-style composable chat input bar.
@@ -40,6 +44,12 @@ class ChatInputBar extends StatefulWidget {
     this.hintText = 'Type a message…',
     this.maxLength = 2000,
     this.showCharCounter = false,
+    this.focusNode,
+    this.editingMessage,
+    this.onCancelEdit,
+    /// When true a formatting toolbar (B/I/U/S/Bullet/Numbered) is shown
+    /// above the keyboard whenever the text field has focus.
+    this.showRichTextToolbar = true,
   });
 
   final TextEditingController controller;
@@ -53,6 +63,10 @@ class ChatInputBar extends StatefulWidget {
   final String hintText;
   final int maxLength;
   final bool showCharCounter;
+  final FocusNode? focusNode;
+  final Message? editingMessage;
+  final VoidCallback? onCancelEdit;
+  final bool showRichTextToolbar;
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -61,22 +75,74 @@ class ChatInputBar extends StatefulWidget {
 class _ChatInputBarState extends State<ChatInputBar> {
   bool _emojiPickerVisible = false;
   bool _hasText = false;
+  bool _hasFocus = false;
+
+  // Link preview state
+  String? _detectedUrl;
+  bool _linkPreviewDismissed = false;
+  Timer? _urlDetectDebounce;
+
+  late final FocusNode _internalFocusNode;
+
+  FocusNode get _effectiveFocusNode =>
+      widget.focusNode ?? _internalFocusNode;
 
   @override
   void initState() {
     super.initState();
+    _internalFocusNode = FocusNode();
     widget.controller.addListener(_onTextChanged);
+    _effectiveFocusNode.addListener(_onFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(ChatInputBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      _effectiveFocusNode.removeListener(_onFocusChanged);
+      _effectiveFocusNode.addListener(_onFocusChanged);
+    }
   }
 
   @override
   void dispose() {
+    _urlDetectDebounce?.cancel();
     widget.controller.removeListener(_onTextChanged);
+    _effectiveFocusNode.removeListener(_onFocusChanged);
+    _internalFocusNode.dispose();
     super.dispose();
   }
 
   void _onTextChanged() {
     final hasText = widget.controller.text.trim().isNotEmpty;
     if (hasText != _hasText) setState(() => _hasText = hasText);
+
+    // Debounce URL detection to avoid spamming on every keystroke.
+    _urlDetectDebounce?.cancel();
+    _urlDetectDebounce = Timer(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      final url = extractFirstUrl(widget.controller.text);
+      if (url != _detectedUrl) {
+        setState(() {
+          _detectedUrl = url;
+          // Reset dismiss flag whenever the URL changes.
+          if (url != null) _linkPreviewDismissed = false;
+        });
+      }
+    });
+  }
+
+  void _onFocusChanged() {
+    final focused = _effectiveFocusNode.hasFocus;
+    if (focused == _hasFocus) return;
+    setState(() {
+      _hasFocus = focused;
+      // The text field regaining focus brings up the system keyboard —
+      // without this, the custom emoji grid could stay open underneath it,
+      // both reserving bottom space at once (visible as a layout jump /
+      // "keyboard reopening" on top of the already-open panel).
+      if (focused && _emojiPickerVisible) _emojiPickerVisible = false;
+    });
   }
 
   void _toggleEmojiPicker() {
@@ -118,17 +184,35 @@ class _ChatInputBarState extends State<ChatInputBar> {
           message: widget.quotedMessage,
           onCancel: widget.onCancelQuote,
         ),
+        _EditPreview(
+          message: widget.editingMessage,
+          onCancel: widget.onCancelEdit,
+        ),
         _AttachmentPreviewStrip(
           attachments: widget.pendingAttachments,
           onRemove: widget.onRemoveAttachment,
         ),
+        // Composer link preview strip — shown when a URL is detected in the
+        // draft and the user has not dismissed it.
+        if (_detectedUrl != null && !_linkPreviewDismissed)
+          ComposerLinkPreview(
+            url: _detectedUrl!,
+            onDismiss: () => setState(() => _linkPreviewDismissed = true),
+          ),
+        // Rich-text formatting toolbar — visible when field is focused or text
+        // already contains formatted content (indicated by _hasText).
+        if (widget.showRichTextToolbar && (_hasFocus || _hasText))
+          RichTextToolbar(controller: widget.controller),
         _InputRow(
           controller: widget.controller,
+          focusNode: _effectiveFocusNode,
           hintText: widget.hintText,
           maxLength: widget.maxLength,
           showCharCounter: widget.showCharCounter,
           isSending: widget.isSending,
-          hasText: _hasText,
+          // An attachment-only message is valid too — the send button must
+          // not stay disabled just because the text field is empty.
+          hasText: _hasText || widget.pendingAttachments.isNotEmpty,
           emojiVisible: _emojiPickerVisible,
           onEmojiToggle: _toggleEmojiPicker,
           onAttachmentTap: widget.onAttachmentTap,
@@ -136,7 +220,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         ),
         if (_emojiPickerVisible)
           SizedBox(
-            height: 280,
+            height: (MediaQuery.of(context).size.height * 0.35).clamp(160.0, 280.0),
             child: EmojiPicker(
               onEmojiSelected: _onEmojiSelected,
               config: Config(
@@ -207,7 +291,72 @@ class _QuotePreview extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   CustomTextWidget(
-                    text: message!.text,
+                    text: MessageContentProcessor.previewText(message!.text),
+                    fontSize: 13,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    fontColor: const Color(0xFF4A5568),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: const Color(0xFF94A3B8),
+            onPressed: onCancel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditPreview extends StatelessWidget {
+  const _EditPreview({this.message, this.onCancel});
+
+  final Message? message;
+  final VoidCallback? onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    if (message == null) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(color: Colors.amber.shade600, width: 3),
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.edit, size: 14, color: AppColors.primaryColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Editing Message',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  CustomTextWidget(
+                    text: MessageContentProcessor.previewText(message!.text),
                     fontSize: 13,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -335,6 +484,7 @@ class _AttachmentPreviewStrip extends StatelessWidget {
 class _InputRow extends StatelessWidget {
   const _InputRow({
     required this.controller,
+    this.focusNode,
     required this.hintText,
     required this.maxLength,
     required this.showCharCounter,
@@ -347,6 +497,7 @@ class _InputRow extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final String hintText;
   final int maxLength;
   final bool showCharCounter;
@@ -406,6 +557,7 @@ class _InputRow extends StatelessWidget {
                   Expanded(
                     child: TextField(
                       controller: controller,
+                      focusNode: focusNode,
                       minLines: 1,
                       maxLines: 6,
                       maxLength: maxLength,
@@ -538,3 +690,4 @@ class _CircleActionButton extends StatelessWidget {
     );
   }
 }
+

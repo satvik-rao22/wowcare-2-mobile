@@ -1,7 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_coordinator_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/admin_dashboard_cubit.dart';
@@ -36,7 +37,7 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   late final AdminDashboardCoordinatorCubit _coordinator;
 
-  static const double _maxContentWidth = 640;
+  // static const double _maxContentWidth = 640;
 
   @override
   void initState() {
@@ -101,14 +102,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
           final coordinator = context.read<AdminDashboardCoordinatorCubit>();
           return MultiBlocProvider(
             providers: [
-              BlocProvider<AdminDashboardCubit>.value(value: coordinator.dashboardCubit),
-              BlocProvider<GeofenceCubit>.value(value: coordinator.geofenceCubit),
-              BlocProvider<SchoolStatusCubit>.value(value: coordinator.schoolStatusCubit),
-              BlocProvider<RatioMonitoringCubit>.value(value: coordinator.ratioMonitoringCubit),
-              BlocProvider<ClassroomShiftsCubit>.value(value: coordinator.classroomShiftsCubit),
-              BlocProvider<IndividualMovementsCubit>.value(value: coordinator.movementsCubit),
-              BlocProvider<FutureAvailabilityCubit>.value(value: coordinator.availabilityCubit),
-              BlocProvider<DashboardAttentionCubit>.value(value: coordinator.attentionCubit),
+              BlocProvider<AdminDashboardCubit>.value(
+                value: coordinator.dashboardCubit,
+              ),
+              BlocProvider<GeofenceCubit>.value(
+                value: coordinator.geofenceCubit,
+              ),
+              BlocProvider<SchoolStatusCubit>.value(
+                value: coordinator.schoolStatusCubit,
+              ),
+              BlocProvider<RatioMonitoringCubit>.value(
+                value: coordinator.ratioMonitoringCubit,
+              ),
+              BlocProvider<ClassroomShiftsCubit>.value(
+                value: coordinator.classroomShiftsCubit,
+              ),
+              BlocProvider<IndividualMovementsCubit>.value(
+                value: coordinator.movementsCubit,
+              ),
+              BlocProvider<FutureAvailabilityCubit>.value(
+                value: coordinator.availabilityCubit,
+              ),
+              BlocProvider<DashboardAttentionCubit>.value(
+                value: coordinator.attentionCubit,
+              ),
               BlocProvider<MyDayCubit>.value(value: coordinator.myDayCubit),
             ],
             child: _buildScaffold(context),
@@ -120,16 +137,47 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   Widget _buildScaffold(BuildContext context) {
     final coordinator = context.read<AdminDashboardCoordinatorCubit>();
-    return GlobalScaffold(
-      showCustomNavigationBar: true,
-      bodyPadding: EdgeInsets.zero,
-      body: Material(
-        type: MaterialType.transparency,
-        child: CustomRefreshIndicator(
-          onRefresh: () => coordinator.refresh(),
-          child: _DashboardCardList(
-            cardFor: _cardFor,
-            buildHeader: _buildHeader,
+    return BlocListener<AdminDashboardCoordinatorCubit, DashboardState>(
+      listenWhen: (prev, curr) {
+        if (curr.isFailure && !prev.isFailure) return true;
+        if (curr.isPartialError && !prev.isPartialError) return true;
+        if (prev.isRefreshing && curr.isReady) return true;
+        return false;
+      },
+      listener: (context, state) {
+        if (state.isFailure) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                state.errorMessage ??
+                'Unable to load dashboard data. Please try again.',
+            isError: true,
+          );
+        } else if (state.isPartialError) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Some sections could not be loaded. Pull down to retry.',
+            isWarning: true,
+          );
+        } else if (state.isReady) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Dashboard refreshed successfully.',
+            isSuccess: true,
+          );
+        }
+      },
+      child: GlobalScaffold(
+        showCustomNavigationBar: true,
+        bodyPadding: EdgeInsets.zero,
+        body: Material(
+          type: MaterialType.transparency,
+          child: CustomRefreshIndicator(
+            onRefresh: () => coordinator.refresh(),
+            child: _DashboardCardList(
+              cardFor: _cardFor,
+              buildHeader: _buildHeader,
+            ),
           ),
         ),
       ),
@@ -147,7 +195,9 @@ class _DashboardCardList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userName = context.select<AdminDashboardCubit, String>((cubit) => cubit.state.userName);
+    final userName = context.select<AdminDashboardCubit, String>(
+      (cubit) => cubit.state.userName,
+    );
 
     return BlocBuilder<AdminDashboardCubit, AdminDashboardState>(
       buildWhen: (prev, curr) => prev.cards != curr.cards,
@@ -159,17 +209,13 @@ class _DashboardCardList extends StatelessWidget {
             return Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: _maxContentWidth,
-                ),
+                constraints: const BoxConstraints(maxWidth: _maxContentWidth),
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
-                      sliver: SliverToBoxAdapter(
-                        child: buildHeader(userName),
-                      ),
+                      sliver: SliverToBoxAdapter(child: buildHeader(userName)),
                     ),
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),

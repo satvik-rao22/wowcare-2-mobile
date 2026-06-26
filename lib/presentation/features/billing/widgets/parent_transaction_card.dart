@@ -1,33 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
-
-/// Demo transaction data model for UI-only display
-class DemoTransaction {
-  final String id;
-  final String type; // 'Payment', 'Invoice', 'Refund'
-  final double amount;
-  final DateTime date;
-  final String status; // 'Completed', 'In Process', 'Cancelled'
-  final String? paymentMode;
-  final String description;
-  final String studentName;
-  final String studentRoom;
-
-  const DemoTransaction({
-    required this.id,
-    required this.type,
-    required this.amount,
-    required this.date,
-    required this.status,
-    this.paymentMode,
-    required this.description,
-    required this.studentName,
-    required this.studentRoom,
-  });
-}
 
 /// Demo statement data model for UI-only display
 class DemoStatement {
@@ -68,27 +45,57 @@ final List<DemoStatement> demoStatements = [
   ),
 ];
 
-/// Transaction card — styled to match the staff card.
+/// Transaction card backed by [FamilyLedgerTransactionEntity] from the API.
 class ParentTransactionCard extends StatelessWidget {
-  final DemoTransaction transaction;
+  final FamilyLedgerTransactionEntity transaction;
+
+  /// Family name, used as the row label for guardian-level rows (e.g. a card
+  /// payment) that carry no student.
+  final String familyName;
 
   const ParentTransactionCard({
     super.key,
     required this.transaction,
+    this.familyName = '',
   });
 
-  String get _type => transaction.type.toLowerCase();
+  String get _type => transaction.transactionType.toLowerCase();
+
+  /// Header label: the student when present, otherwise the family name (for
+  /// guardian-level rows such as a card payment). The status is shown on the
+  /// right, not appended here.
+  String get _displayName {
+    if (transaction.studentName.trim().isNotEmpty) {
+      return transaction.studentName;
+    }
+    return familyName.trim().isNotEmpty
+        ? familyName.trim()
+        : transaction.studentName;
+  }
+
+  /// Title-cases a raw backend status, treating underscores as word breaks so
+  /// `IN_PROCESS` renders as `In Process` rather than `In_process`.
+  String _formatStatus(String status) {
+    if (status.isEmpty) return status;
+    return status
+        .split(RegExp(r'[_\s]+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .join(' ');
+  }
 
   String _dateLabel() {
-    final date = DateUtilsNew.formatToReadableDate(transaction.date);
-    switch (_type) {
-      case 'invoice':
-        return 'Due Date: $date';
-      case 'refund':
-        return 'Refunded On: $date';
-      default:
-        return 'Paid On: $date';
-    }
+    if (transaction.date == null) return '';
+    // Labels (Due Date / Paid On / Refunded On) are dropped to save horizontal
+    // space; the badge already conveys the transaction type.
+    return DateUtilsNew.formatToReadableDate(transaction.date!);
+  }
+
+  /// Badge text: the transaction type with the status in brackets, e.g.
+  /// `Payment (In Process)` / `Invoice (Sent)`.
+  String _badgeLabel(String type) {
+    final status = _formatStatus(transaction.status);
+    return status.isEmpty ? type : '$type ($status)';
   }
 
   ({String label, Color color, Color textColor}) _badge() {
@@ -120,24 +127,36 @@ class ParentTransactionCard extends StatelessWidget {
     final badge = _badge();
 
     final expanded = <Widget>[];
-    if (transaction.paymentMode != null &&
-        transaction.paymentMode!.isNotEmpty &&
-        _type != 'invoice') {
+    if (transaction.method.isNotEmpty && _type != 'invoice') {
       expanded
         ..add(StaffCardDetailRow(
           label: 'Payment Method',
-          value: transaction.paymentMode!,
+          value: transaction.method,
         ))
         ..add(const SizedBox(height: 10));
     }
     expanded.add(StaffCardDetailRow(
       label: 'Status',
-      value: transaction.status,
+      value: _formatStatus(transaction.status),
     ));
     expanded.add(const SizedBox(height: 10));
+    if (transaction.description.isNotEmpty) {
+      expanded.add(StaffCardDetailRow(
+        label: 'Description',
+        value: transaction.description,
+      ));
+      expanded.add(const SizedBox(height: 10));
+    }
+    if (transaction.items.isNotEmpty) {
+      expanded.add(StaffCardDetailRow(
+        label: 'Items',
+        value: transaction.items.join(', '),
+      ));
+      expanded.add(const SizedBox(height: 10));
+    }
     expanded.add(StaffCardDetailRow(
-      label: 'Description',
-      value: transaction.description,
+      label: 'Amount',
+      value: '\$${transaction.amount.toStringAsFixed(2)}',
     ));
     if (_type == 'payment') {
       expanded
@@ -158,9 +177,8 @@ class ParentTransactionCard extends StatelessWidget {
     return StaffStyleCard(
       leading: DocumentImageWidget(
         fileUuid: '',
-        name: transaction.studentName,
+        name: _displayName,
         size: 50,
-        fontSize: 14,
       ),
       header: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -171,13 +189,17 @@ class ParentTransactionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  transaction.studentName,
+                  _displayName,
                   style: BillingCardText.name(isTablet),
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                 ),
                 const SizedBox(height: 4),
-                _Badge(label: badge.label, color: badge.color, textColor: badge.textColor),
+                _Badge(
+                  label: _badgeLabel(badge.label),
+                  color: badge.color,
+                  textColor: badge.textColor,
+                ),
               ],
             ),
           ),
@@ -206,31 +228,53 @@ class ParentTransactionCard extends StatelessWidget {
   }
 }
 
-/// Statement card — styled to match the staff card.
+/// Statement card — styled to match the staff card. Backed by a real
+/// [BillingStatementEntity]; Download (and View) fetch the statement PDF and
+/// open it on the device.
 class ParentStatementCard extends StatelessWidget {
-  final DemoStatement statement;
+  final BillingStatementEntity statement;
+
+  /// Names of the children this statement covers (shown as the card title).
+  final String studentNames;
+
+  /// Whether this statement's PDF is currently downloading.
+  final bool isDownloading;
+
+  final VoidCallback onDownload;
+  final VoidCallback? onView;
 
   const ParentStatementCard({
     super.key,
     required this.statement,
+    required this.studentNames,
+    required this.isDownloading,
+    required this.onDownload,
+    this.onView,
   });
+
+  String get _title => studentNames.isNotEmpty ? studentNames : 'Statement';
+
+  String get _formattedType => statement.statementType.isEmpty
+      ? '—'
+      : statement.statementType[0].toUpperCase() +
+          statement.statementType.substring(1).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
+    final generatedAt = statement.generatedAt;
     return StaffStyleCard(
       leading: DocumentImageWidget(
         fileUuid: '',
-        name: statement.studentName,
+        name: _title,
         size: 50,
-        fontSize: 14,
       ),
       header: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Flexible(
             child: Text(
-              statement.studentName,
+              _title,
               style: BillingCardText.name(isTablet),
               overflow: TextOverflow.ellipsis,
             ),
@@ -246,25 +290,27 @@ class ParentStatementCard extends StatelessWidget {
       expandedChildren: [
         StaffCardDetailRow(
           label: 'Statement Type',
-          value: statement.statementType,
+          value: _formattedType,
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
           label: 'Generated On',
-          value: DateUtilsNew.formatToReadableDate(statement.generatedOn),
+          value: generatedAt != null
+              ? DateUtilsNew.formatToReadableDate(generatedAt)
+              : '—',
         ),
         const SizedBox(height: 10),
         StaffCardDetailRow(
           label: 'Statement Period',
           value:
-              '${DateUtilsNew.formatToReadableDate(statement.periodFrom)} - ${DateUtilsNew.formatToReadableDate(statement.periodTo)}',
+              '${DateUtilsNew.formatToReadableDate(statement.periodStart)} - ${DateUtilsNew.formatToReadableDate(statement.periodEnd)}',
         ),
         const SizedBox(height: 16),
         StaffCardActions(
           secondaryLabel: 'View',
-          onSecondary: () {/* TODO: view */},
-          primaryLabel: 'Download',
-          onPrimary: () {/* TODO: download */},
+          onSecondary: isDownloading ? null : onView,
+          primaryLabel: isDownloading ? 'Downloading…' : 'Download',
+          onPrimary: isDownloading ? null : onDownload,
         ),
       ],
     );

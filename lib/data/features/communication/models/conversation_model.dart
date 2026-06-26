@@ -17,6 +17,9 @@ class ConversationModel extends Conversation {
     required super.updatedBy,
     super.lastMessageAt,
     super.lastMessageBy,
+    super.privateModeActive = false,
+    super.privateModeActivatedBy,
+    super.privateModeActivatedAt,
     required super.participantCount,
     required super.unreadCount,
     required super.lastMessagePreview,
@@ -46,6 +49,11 @@ class ConversationModel extends Conversation {
           ? DateTime.parse(json['lastMessageAt'] as String)
           : null,
       lastMessageBy: json['lastMessageBy'] as String?,
+      privateModeActive: json['privateModeActive'] as bool? ?? false,
+      privateModeActivatedBy: json['privateModeActivatedBy'] as String?,
+      privateModeActivatedAt: json['privateModeActivatedAt'] != null
+          ? DateTime.tryParse(json['privateModeActivatedAt'] as String)
+          : null,
       participantCount: json['participantCount'] as int? ?? 0,
       unreadCount: json['unreadCount'] as int? ?? 0,
       lastMessagePreview: json['lastMessagePreview'] as String? ?? '',
@@ -74,6 +82,9 @@ class ConversationModel extends Conversation {
       'updatedBy': updatedBy,
       'lastMessageAt': lastMessageAt?.toIso8601String(),
       'lastMessageBy': lastMessageBy,
+      'privateModeActive': privateModeActive,
+      'privateModeActivatedBy': privateModeActivatedBy,
+      'privateModeActivatedAt': privateModeActivatedAt?.toIso8601String(),
       'participantCount': participantCount,
       'unreadCount': unreadCount,
       'lastMessagePreview': lastMessagePreview,
@@ -98,6 +109,7 @@ class ConversationParticipantModel extends ConversationParticipant {
     required super.notificationsEnabled,
     required super.createdAt,
     required super.updatedAt,
+    super.privateModeEnabled = false,
   });
 
   factory ConversationParticipantModel.fromJson(Map<String, dynamic> json) {
@@ -105,6 +117,7 @@ class ConversationParticipantModel extends ConversationParticipant {
       id: json['id'] as int? ?? 0,
       conversationId: json['conversationId'] as int? ?? 0,
       userCode: json['userCode'] as String? ?? '',
+      privateModeEnabled: json['privateModeEnabled'] as bool? ?? false,
       // New API uses 'displayName'; old API used 'userName'. Accept both.
       userName: (json['displayName'] as String?)?.isNotEmpty == true
           ? json['displayName'] as String
@@ -143,6 +156,7 @@ class ConversationParticipantModel extends ConversationParticipant {
       'notificationsEnabled': notificationsEnabled,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'privateModeEnabled': privateModeEnabled,
     };
   }
 }

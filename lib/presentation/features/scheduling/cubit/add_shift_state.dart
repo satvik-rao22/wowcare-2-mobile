@@ -98,12 +98,9 @@ class AddShiftState extends Equatable {
   /// Returns the school open/close window for the given date, or null if the
   /// school is closed that day or no resolver has loaded yet.
   (TimeOfDay, TimeOfDay)? _schoolHoursForDate(DateTime forDate) {
-    final day = schoolHoursResolver?.dayFor(forDate);
-    if (day == null) return null;
-    final start = _parse24hTime(day.startTime);
-    final end = _parse24hTime(day.endTime);
-    if (start == null || end == null) return null;
-    return (start, end);
+    final hours = schoolHoursResolver?.hoursFor(forDate);
+    if (hours == null) return null;
+    return (hours.startTimeOfDay, hours.endTimeOfDay);
   }
 
   /// Returns the school window for [weekday] (1..7, Monday-first). Iterates

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
@@ -18,7 +21,7 @@ import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 class StudentAttendanceTabbedView extends StatefulWidget {
   const StudentAttendanceTabbedView({
-    super.key, 
+    super.key,
     this.initialTabIndex = 0,
     this.dailyIncomingFilter,
     this.classroomFilter,
@@ -39,16 +42,38 @@ class StudentAttendanceTabbedView extends StatefulWidget {
   final bool hasBackButton;
 
   @override
-  State<StudentAttendanceTabbedView> createState() => _StudentAttendanceTabbedViewState();
+  State<StudentAttendanceTabbedView> createState() =>
+      _StudentAttendanceTabbedViewState();
 }
 
-class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedView>
+class _StudentAttendanceTabbedViewState
+    extends State<StudentAttendanceTabbedView>
     with TickerProviderStateMixin {
   late final TabController _tabController;
+
+  late final UnreadBadgeCubit _unreadBadgeCubit;
 
   // Hide the floating add button while the drawer is open so it isn't painted
   // on top of (and brighter than) the drawer's dim scrim.
   bool _isDrawerOpen = false;
+
+  // Show/hide the bottom nav bar on scroll, mirroring GlobalScaffold (this view
+  // uses its own Scaffold for the tabbed app bar, so it replicates that here).
+  bool _showBars = true;
+
+  /// Hide the bottom nav while scrolling down (reverse), reveal it scrolling up.
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _showBars) {
+        setState(() => _showBars = false);
+      } else if (direction == ScrollDirection.forward && !_showBars) {
+        setState(() => _showBars = true);
+      }
+    }
+    return false;
+  }
 
   // Notifier incremented after any attendance mutation so Custom and Absent
   // tabs refresh without needing GlobalKeys on the TabBarView children.
@@ -57,7 +82,15 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
+    // Shared app-session singleton (registered in di.dart) — `startWatching`
+    // is idempotent, so re-calling it here on mount keeps badges fresh
+    // without opening a second, duplicate set of Firestore listeners.
+    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _tabController.addListener(_onTabChanged);
 
     // Refresh the operator's own sign-in status so the staff gating (which
@@ -70,9 +103,11 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
       context.read<GeofenceCubit>().checkStaffSignInStatus();
     });
 
-    debugPrint('[StudentAttendanceTabbedView] initialized: '
-        'filter=${widget.dailyIncomingFilter}, hasBackButton=${widget.hasBackButton}, '
-        'routeName=${StudentAttendanceTabbedView.routeName}');
+    debugPrint(
+      '[StudentAttendanceTabbedView] initialized: '
+      'filter=${widget.dailyIncomingFilter}, hasBackButton=${widget.hasBackButton}, '
+      'routeName=${StudentAttendanceTabbedView.routeName}',
+    );
   }
 
   void _onTabChanged() {
@@ -88,6 +123,8 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
     _refreshNotifier.dispose();
+    // Do NOT close _unreadBadgeCubit: it is a shared app-session singleton
+    // (registered in di.dart), not owned by this widget.
     super.dispose();
   }
 
@@ -103,157 +140,180 @@ class _StudentAttendanceTabbedViewState extends State<StudentAttendanceTabbedVie
     final double screenWidth = mediaQuery.size.width;
     final bool isTablet = screenWidth >= 600;
     final bool isLargeTablet = screenWidth >= 900;
-    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+    final double floatingButtonSize = isLargeTablet
+        ? 72.0
+        : (isTablet ? 56.0 : 40.0);
 
     // Align the button with the TabBar headings row (Daily/Custom/Absent)
     // by vertically centering it within the TabBar height.
     final floatingButtonTop =
-        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+        safeAreaTop +
+        appBarHeight +
+        (kTextTabBarHeight - floatingButtonSize) / 2;
     // Align the floating button horizontally with the main content padding,
     // similar to how GradientAddButton is aligned in StaffScreen.
     final floatingButtonRight = contentPadding.right;
-    
-    return Stack(
-      children: [
-        Container(
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage(MediaRes.wowcareMobileBg),
-              fit: BoxFit.cover,
-            ),
-          ),
-          child: Scaffold(
-            appBar: CustomAppBar(
-              hasBackButton: widget.hasBackButton,
-              tabController: _tabController,
-              tabBarStyle: TabBarStyle(
-                indicator: const UnderlineTabIndicator(
-                  borderSide: BorderSide(
-                    color: AppColors.themeColor,
-                  ),
-                ),
-                dividerColor: Colors.transparent,
-                indicatorPadding: EdgeInsets.only(
-                  bottom: responsive.isTablet ? 10 : 8,
-                ),
-                tabAlignment: TabAlignment.start,
-                isScrollable: true,
-                labelStyle: TextStyle(
-                  fontFamily: Fonts.manrope,
-                  color: Colors.black,
-                  fontSize: responsive.isTablet ? 18 : 16,
-                  fontWeight: FontWeight.w600,
-                ),
-                unselectedLabelStyle: TextStyle(
-                  fontFamily: Fonts.manrope,
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: responsive.isTablet ? 18 : 16,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              tabs: const [
-                Tab(text: 'Daily'),
-                Tab(text: 'Custom'),
-                Tab(text: 'Absent'),
-              ],
-            ),
-            drawer: const CustomDrawer(),
-            drawerEnableOpenDragGesture: false,
-            onDrawerChanged: (isOpen) {
-              if (mounted) setState(() => _isDrawerOpen = isOpen);
-            },
-            body: SafeArea(
-              bottom: false,
-              child: GradientBackground(
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    contentPadding.left,
-                    contentPadding.top,
-                    contentPadding.right,
-                    // Add extra bottom padding so tab content can scroll
-                    // fully above the bottom navigation bar.
-                    mediaQuery.padding.bottom + 80,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4, bottom: 8),
-                        child: Text(
-                          'Student Attendance',
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: responsive.isTablet ? 22 : 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primaryColor,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            StudentAttendanceDailyViewScreen(
-                        incomingFilter: widget.dailyIncomingFilter,
-                        contentOnly: true,
-                        classroomFilter: widget.classroomFilter,
-                        staffAllowedClassrooms: widget.staffAllowedClassrooms,
-                        staffAllowedClassroomIds: widget.staffAllowedClassroomIds,
-                        highlightCode: widget.highlightCode,
-                        onAttendanceMutated: _refreshSecondaryTabs,
-                      ),
-                      StudentAttendanceCustomView(
-                        contentOnly: true,
-                        staffAllowedClassrooms: widget.staffAllowedClassrooms,
-                        staffAllowedClassroomIds: widget.staffAllowedClassroomIds,
-                        refreshNotifier: _refreshNotifier,
-                      ),
-                      StudentAttendanceAbsentView(
-                        contentOnly: true,
-                        staffAllowedClassrooms: widget.staffAllowedClassrooms,
-                        staffAllowedClassroomIds: widget.staffAllowedClassroomIds,
-                        refreshNotifier: _refreshNotifier,
-                      ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+
+    return BlocProvider<UnreadBadgeCubit>.value(
+      value: _unreadBadgeCubit,
+      child: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage(MediaRes.wowcareMobileBg),
+                fit: BoxFit.cover,
               ),
             ),
-            extendBody: true,
-            // Attendance is the bottom-nav slot at index 1 (a popup slot with
-            // no branch), so highlight it explicitly while on this view.
-            bottomNavigationBar:
-                const CustomNavigationBar(activeTabIndexOverride: 1),
-          ),
-        ),
-        // Floating button positioned over the tab bar. Hidden while the drawer
-        // is open so it doesn't sit above the drawer's dim scrim.
-        if (!_isDrawerOpen)
-          Positioned(
-            top: floatingButtonTop,
-            right: floatingButtonRight,
-            child: Container(
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+            child: Scaffold(
+              appBar: CustomAppBar(
+                hasBackButton: widget.hasBackButton,
+                tabController: _tabController,
+                tabBarStyle: TabBarStyle(
+                  indicator: const UnderlineTabIndicator(
+                    borderSide: BorderSide(color: AppColors.themeColor),
                   ),
+                  dividerColor: Colors.transparent,
+                  indicatorPadding: EdgeInsets.only(
+                    bottom: responsive.isTablet ? 10 : 8,
+                  ),
+                  tabAlignment: TabAlignment.start,
+                  isScrollable: true,
+                  labelStyle: TextStyle(
+                    fontFamily: Fonts.manrope,
+                    color: Colors.black,
+                    fontSize: responsive.isTablet ? 18 : 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: TextStyle(
+                    fontFamily: Fonts.manrope,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    fontSize: responsive.isTablet ? 18 : 16,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                tabs: const [
+                  Tab(text: 'Daily'),
+                  Tab(text: 'Custom'),
+                  Tab(text: 'Absent'),
                 ],
               ),
-              child: StudentAttendanceVerticalPopUp(
-                students: const [],
-                refreshCallback: _refreshAllAfterAttendanceFlow,
-                topPosition: floatingButtonTop,
-                rightPosition: floatingButtonRight,
+              drawer: const CustomDrawer(),
+              drawerEnableOpenDragGesture: false,
+              onDrawerChanged: (isOpen) {
+                if (mounted) setState(() => _isDrawerOpen = isOpen);
+              },
+              body: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: SafeArea(
+                // Inset for the home indicator so the last card clears it once
+                // the bottom bar hides on scroll (matches GlobalScaffold).
+                bottom: true,
+                child: GradientBackground(
+                  child: Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      contentPadding.left,
+                      contentPadding.top,
+                      contentPadding.right,
+                      // No nav-height reservation: the bar hides on scroll, so
+                      // nothing is permanently occluded (no dead space).
+                      contentPadding.bottom,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4, bottom: 8),
+                          child: Text(
+                            'Student Attendance',
+                            style: TextStyle(
+                              fontFamily: Fonts.manrope,
+                              fontSize: responsive.isTablet ? 22 : 18,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryColor,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              StudentAttendanceDailyViewScreen(
+                                incomingFilter: widget.dailyIncomingFilter,
+                                contentOnly: true,
+                                classroomFilter: widget.classroomFilter,
+                                staffAllowedClassrooms:
+                                    widget.staffAllowedClassrooms,
+                                staffAllowedClassroomIds:
+                                    widget.staffAllowedClassroomIds,
+                                highlightCode: widget.highlightCode,
+                                onAttendanceMutated: _refreshSecondaryTabs,
+                                refreshNotifier: _refreshNotifier,
+                              ),
+                              StudentAttendanceCustomView(
+                                contentOnly: true,
+                                staffAllowedClassrooms:
+                                    widget.staffAllowedClassrooms,
+                                staffAllowedClassroomIds:
+                                    widget.staffAllowedClassroomIds,
+                                refreshNotifier: _refreshNotifier,
+                              ),
+                              StudentAttendanceAbsentView(
+                                contentOnly: true,
+                                staffAllowedClassrooms:
+                                    widget.staffAllowedClassrooms,
+                                staffAllowedClassroomIds:
+                                    widget.staffAllowedClassroomIds,
+                                refreshNotifier: _refreshNotifier,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              ),
+              extendBody: true,
+              // Attendance is the bottom-nav slot at index 1 (a popup slot with
+              // no branch), so highlight it explicitly while on this view.
+              // Animate the bar away while scrolling down, like GlobalScaffold.
+              bottomNavigationBar: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? const CustomNavigationBar(activeTabIndexOverride: 1)
+                    : const SizedBox.shrink(),
               ),
             ),
           ),
-      ],
+          // Floating button positioned over the tab bar. Hidden while the drawer
+          // is open so it doesn't sit above the drawer's dim scrim.
+          if (!_isDrawerOpen)
+            Positioned(
+              top: floatingButtonTop,
+              right: floatingButtonRight,
+              child: Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.1),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: StudentAttendanceVerticalPopUp(
+                  students: const [],
+                  refreshCallback: _refreshAllAfterAttendanceFlow,
+                  topPosition: floatingButtonTop,
+                  rightPosition: floatingButtonRight,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
   }
 

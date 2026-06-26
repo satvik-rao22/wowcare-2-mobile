@@ -2,79 +2,108 @@ part of 'parent_billing_cubit.dart';
 
 class ParentBillingState extends Equatable {
   const ParentBillingState({
-    required this.siblings,
-    required this.transactions,
-    required this.startDate,
-    required this.endDate,
-    required this.isInitialLoadingTransactions,
+    required this.isLoading,
     required this.isPaymentLoading,
     required this.isAutoPayLoading,
+    required this.displayCount,
+    this.ledger,
+    this.errorMessage,
+    this.startDate,
+    this.endDate,
   });
 
   const ParentBillingState.initial()
-      : siblings = const [],
-        transactions = const [],
-        startDate = null,
-        endDate = null,
-        isInitialLoadingTransactions = false,
+      : isLoading = false,
         isPaymentLoading = false,
-        isAutoPayLoading = false;
+        isAutoPayLoading = false,
+        displayCount = 10,
+        ledger = null,
+        errorMessage = null,
+        startDate = null,
+        endDate = null;
 
-  final List<Map<String, String>> siblings;
-  final List<DemoTransaction> transactions;
-  final DateTime? startDate;
-  final DateTime? endDate;
-  final bool isInitialLoadingTransactions;
+  final bool isLoading;
   final bool isPaymentLoading;
   final bool isAutoPayLoading;
 
-  /// Whether a date range is active.
-  bool get hasDateRange => startDate != null && endDate != null;
+  /// How many transactions to show (client-side pagination).
+  final int displayCount;
 
-  /// Transactions scoped to the active date range (if any), newest first.
-  List<DemoTransaction> get filteredTransactions {
-    Iterable<DemoTransaction> result = transactions;
+  final FamilyLedgerEntity? ledger;
+  final String? errorMessage;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  bool get hasDateRange => startDate != null && endDate != null;
+  double get openBalance => ledger?.openBalance ?? 0;
+  double get paid => ledger?.paid ?? 0;
+  double get refunded => ledger?.refunded ?? 0;
+  double get netPaid => ledger?.netPaid ?? 0;
+  double get inProcess => ledger?.inProcess ?? 0;
+  double get unpaid => ledger?.unpaid ?? 0;
+  List<FamilyLedgerPersonEntity> get students =>
+      ledger?.students ?? const [];
+
+  List<FamilyLedgerTransactionEntity> get filteredTransactions {
+    final txns = ledger?.transactions ?? const [];
+    Iterable<FamilyLedgerTransactionEntity> result = txns;
     if (hasDateRange) {
-      final start = DateTime(startDate!.year, startDate!.month, startDate!.day);
+      final start =
+          DateTime(startDate!.year, startDate!.month, startDate!.day);
       final end = DateTime(endDate!.year, endDate!.month, endDate!.day);
-      result = transactions.where((txn) {
-        final txnDate = DateTime(txn.date.year, txn.date.month, txn.date.day);
-        return (txnDate.isAtSameMomentAs(start) || txnDate.isAfter(start)) &&
-            (txnDate.isAtSameMomentAs(end) || txnDate.isBefore(end));
+      result = txns.where((t) {
+        if (t.date == null) return false;
+        final d = DateTime(t.date!.year, t.date!.month, t.date!.day);
+        return (d.isAtSameMomentAs(start) || d.isAfter(start)) &&
+            (d.isAtSameMomentAs(end) || d.isBefore(end));
       });
     }
-    return result.toList()..sort((a, b) => b.date.compareTo(a.date));
+    // Preserve the API order (already newest-first by createdAt). We must NOT
+    // re-sort by `date`, because payments carry a date-only `…T00:00:00Z` value
+    // that would wrongly sort them below same-day invoices even though they were
+    // created later.
+    return result.toList();
   }
 
+  /// Transactions visible in the current page window.
+  List<FamilyLedgerTransactionEntity> get visibleTransactions =>
+      filteredTransactions.take(displayCount).toList();
+
+  /// Whether there are more transactions beyond the current page window.
+  bool get hasMoreTransactions => filteredTransactions.length > displayCount;
+
   ParentBillingState copyWith({
-    List<Map<String, String>>? siblings,
-    List<DemoTransaction>? transactions,
-    DateTime? startDate,
-    DateTime? endDate,
-    bool? isInitialLoadingTransactions,
+    bool? isLoading,
     bool? isPaymentLoading,
     bool? isAutoPayLoading,
+    int? displayCount,
+    FamilyLedgerEntity? Function()? ledger,
+    String? Function()? errorMessage,
+    DateTime? startDate,
+    DateTime? endDate,
   }) {
     return ParentBillingState(
-      siblings: siblings ?? this.siblings,
-      transactions: transactions ?? this.transactions,
-      startDate: startDate ?? this.startDate,
-      endDate: endDate ?? this.endDate,
-      isInitialLoadingTransactions:
-          isInitialLoadingTransactions ?? this.isInitialLoadingTransactions,
+      isLoading: isLoading ?? this.isLoading,
       isPaymentLoading: isPaymentLoading ?? this.isPaymentLoading,
       isAutoPayLoading: isAutoPayLoading ?? this.isAutoPayLoading,
+      displayCount: displayCount ?? this.displayCount,
+      ledger: ledger != null ? ledger() : this.ledger,
+      errorMessage:
+          errorMessage != null ? errorMessage() : this.errorMessage,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
     );
   }
 
   @override
   List<Object?> get props => [
-        siblings,
-        transactions,
-        startDate,
-        endDate,
-        isInitialLoadingTransactions,
+        isLoading,
         isPaymentLoading,
         isAutoPayLoading,
+        displayCount,
+        ledger,
+        errorMessage,
+        startDate,
+        endDate,
       ];
 }

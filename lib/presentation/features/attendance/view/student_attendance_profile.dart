@@ -28,6 +28,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
@@ -128,17 +129,29 @@ class _AttendanceField extends StatelessWidget {
       case ProfileAbsentMarkMethod.gps:
         return Tooltip(
           message: 'GPS',
-          child: SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size),
+          child: SvgPicture.asset(
+            MediaRes.gpsMethodIcon,
+            width: size,
+            height: size,
+          ),
         );
       case ProfileAbsentMarkMethod.qr:
         return Tooltip(
           message: 'QR',
-          child: SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size),
+          child: SvgPicture.asset(
+            MediaRes.qrAttendanceIcon,
+            width: size,
+            height: size,
+          ),
         );
       case ProfileAbsentMarkMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
-          child: SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size),
+          message: 'Kiosk',
+          child: Icon(
+            Icons.point_of_sale_outlined,
+            size: size,
+            color: AppColors.themeColor,
+          ),
         );
       case ProfileAbsentMarkMethod.app:
         return Tooltip(
@@ -210,6 +223,7 @@ class _AbsentDayModel {
   final String absentBy;
   final String note;
   final ProfileAbsentMarkMethod? markAbsentMethod;
+  final String classroomName;
 
   _AbsentDayModel({
     required this.startDate,
@@ -218,6 +232,7 @@ class _AbsentDayModel {
     required this.absentBy,
     required this.note,
     this.markAbsentMethod,
+    this.classroomName = '',
   });
 }
 
@@ -448,9 +463,11 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         return DateFormat('hh:mm a').format(dt);
       }
 
-      final iso = DateTime.tryParse(s);
-      if (iso != null) {
-        return DateFormat('hh:mm a').format(iso.toLocal());
+      // Render ISO instants in the school's zone (not the device zone) so
+      // sign-in/out times match the backend regardless of where the user is.
+      final schoolDt = attendanceDisplayDateTimeFromIso(s);
+      if (schoolDt != null) {
+        return DateFormat('hh:mm a').format(schoolDt);
       }
 
       final amPmMatch = RegExp(
@@ -761,10 +778,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               attendedMinutes: m['attendedMinutes'] as int? ?? 0,
               isTransferSignIn: isTransferSignIn,
               isTransferSignOut: isTransferSignOut,
-              signInMethod:
-                  _mapAbsentMethodStringToEnum(m['signedInMethod'] as String?),
-              signOutMethod:
-                  _mapAbsentMethodStringToEnum(m['signedOutMethod'] as String?),
+              signInMethod: _mapAbsentMethodStringToEnum(
+                m['signedInMethod'] as String?,
+              ),
+              signOutMethod: _mapAbsentMethodStringToEnum(
+                m['signedOutMethod'] as String?,
+              ),
             ),
           );
         }
@@ -836,6 +855,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               note: m['absenceNote'] as String? ?? '',
               markAbsentMethod: _mapAbsentMethodStringToEnum(
                 m['markAbsentMethod'] as String?,
+              ),
+              classroomName: _resolveClassroomNameByCode(
+                m['classroomCode'] as String?,
+                codeToNameMap,
+                (m['classroomName'] as String?)?.trim() ?? '',
+                // render-time fallback uses student?.roomName
               ),
             ),
           );
@@ -912,19 +937,27 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
   bool get _canSignIn =>
       !_isTodayStatusLoading &&
       _todayGate.canSignIn &&
-      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(
+        context,
+      );
   bool get _canSignOut =>
       !_isTodayStatusLoading &&
       _todayGate.canSignOut &&
-      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(
+        context,
+      );
   bool get _canTransfer =>
       !_isTodayStatusLoading &&
       _todayGate.canTransfer &&
-      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(
+        context,
+      );
   bool get _canMarkAbsent =>
       !_isTodayStatusLoading &&
       _todayGate.canMarkAbsent &&
-      AttendancePermissionService.hasPermissionToManageStudentAttendance(context);
+      AttendancePermissionService.hasPermissionToManageStudentAttendance(
+        context,
+      );
 
   Future<Map<String, String>> _loadClassroomNameToCodeMap() async {
     try {
@@ -1176,13 +1209,13 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         side: BorderSide(
-          color: AppColors.primaryColor.withOpacity(0.2),
+          color: AppColors.primaryColor.withValues(alpha: 0.2),
           width: 0.5,
         ),
         borderRadius: BorderRadius.circular(16),
       ),
       elevation: 6,
-      shadowColor: AppColors.primaryColor.withOpacity(0.2),
+      shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
@@ -1571,7 +1604,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+          border: Border.all(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
         ),
         child: Center(
           child: AppText.body(
@@ -1607,7 +1642,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         decoration: BoxDecoration(
           color: AppColors.cardColor,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+          border: Border.all(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
         ),
         child: Center(
           child: AppText.body(
@@ -1654,11 +1691,15 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1668,7 +1709,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           });
         },
         children: [
-          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
+          Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
           _AttendanceField(label: 'Classroom', text: attendance.roomName),
           const SizedBox(height: 16),
@@ -1720,11 +1761,15 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         backgroundColor: AppColors.cardColor,
         collapsedBackgroundColor: AppColors.cardColor,
         collapsedShape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: AppColors.primaryColor.withOpacity(0.2)),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+          ),
           borderRadius: BorderRadius.circular(14),
         ),
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -1734,9 +1779,22 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           });
         },
         children: [
-          Divider(color: AppColors.primaryColor.withOpacity(0.1)),
+          Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(label: 'Classroom', text: student?.roomName ?? ''),
+          _AttendanceField(
+            label: 'Classroom',
+            text: () {
+              if (absentDay.classroomName.isNotEmpty) {
+                return absentDay.classroomName;
+              }
+              final fallback = student?.roomName ?? widget.roomName;
+              return (fallback.trim().isNotEmpty &&
+                      fallback != '-' &&
+                      fallback != '—')
+                  ? fallback
+                  : '';
+            }(),
+          ),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Date',

@@ -43,6 +43,7 @@ class StudentProfileScreen extends StatefulWidget {
     required this.schedule,
     required this.sibling,
     this.studentCode,
+
     /// Raw API status (e.g. ACTIVE, UPCOMING) so the header dot is correct before the profile tab loads.
     this.initialEnrollmentStatus,
     this.syncWithParentChildSelection = false,
@@ -99,8 +100,13 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late Future<StudentHealthModel?> _healthFuture;
   late String _displayName;
   late String _displayClassroom;
+
   /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
   String? _profileStatusUpper;
+
+  /// Raw FTE from the API (e.g. "1.0", "0.5"); set when the profile loads.
+  /// Displayed ×100 on the front end only (1.0 → 100, 0.5 → 50).
+  String? _profileFte;
   String? _activeStudentCode;
   late List<String> _profileTags;
   late List<String> _profileSchedule;
@@ -129,8 +135,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _healthFuture = _buildHealthFuture();
     _displayName = widget.name;
     _displayClassroom = widget.classroom;
-    _profileStatusUpper =
-        widget.initialEnrollmentStatus?.trim().toUpperCase();
+    _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
     _loadUploadContext();
     // Deep-link case: opened by code straight to a non-Profile tab. The profile
     // fetch that fills the header (name/classroom) lives inside the Profile tab,
@@ -157,8 +162,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     final code = (_activeStudentCode ?? '').trim();
     if (code.isEmpty || _displayName.trim().isNotEmpty) return;
     try {
-      final profile =
-          await serviceLocator<StudentRemoteDataSource>().getStudentProfile(code);
+      final profile = await serviceLocator<StudentRemoteDataSource>()
+          .getStudentProfile(code);
       _onProfileChanged(profile);
     } catch (_) {
       // Profile tab's FutureBuilder still surfaces load errors when visited.
@@ -175,22 +180,39 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       final nextName = profile.fullName.trim();
       _displayName = nextName.isEmpty ? _displayName : nextName;
       final nextClassroom = (profile.classroom ?? '').trim();
-      _displayClassroom =
-          nextClassroom.isEmpty ? _displayClassroom : nextClassroom;
+      _displayClassroom = nextClassroom.isEmpty
+          ? _displayClassroom
+          : nextClassroom;
       final nextStatus = profile.status.trim().toUpperCase();
       if (nextStatus.isNotEmpty) {
         _profileStatusUpper = nextStatus;
       }
+      _profileFte = profile.fte;
       _profilePhotoUrl = (profile.profilePhotoUrl ?? '').trim().isEmpty
           ? null
           : profile.profilePhotoUrl!.trim();
     });
   }
 
+  /// FTE for display: the API value multiplied by 100 (front end only) and shown
+  /// as a percentage, with a trailing `.0` dropped for whole numbers.
+  /// Null/blank/non-numeric → null so the field is hidden.
+  String? get _fteDisplay {
+    final raw = (_profileFte ?? '').trim();
+    if (raw.isEmpty) return null;
+    final value = double.tryParse(raw);
+    if (value == null) return null;
+    final scaled = value * 100;
+    final number = scaled == scaled.roundToDouble()
+        ? scaled.toStringAsFixed(0)
+        : scaled.toString();
+    return '$number%';
+  }
+
   Future<void> _loadUploadContext() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     if (!mounted) return;
@@ -234,43 +256,24 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (med.isNotEmpty) {
       addLine(
         med,
-        SvgPicture.asset(
-          MediaRes.healthIcon,
-          height: 22,
-          width: 22,
-        ),
+        SvgPicture.asset(MediaRes.healthIcon, height: 22, width: 22),
       );
     }
     final allergy = (health.allergy ?? '').trim();
     if (allergy.isNotEmpty) {
       addLine(
         allergy,
-        SvgPicture.asset(
-          MediaRes.alertIcon,
-          height: 22,
-          width: 22,
-        ),
+        SvgPicture.asset(MediaRes.alertIcon, height: 22, width: 22),
       );
     }
     final diet = (health.dietRestrictions ?? '').trim();
     if (diet.isNotEmpty) {
-      addLine(
-        diet,
-        Image.asset(
-          MediaRes.foodIcon2,
-          height: 22,
-          width: 22,
-        ),
-      );
+      addLine(diet, Image.asset(MediaRes.foodIcon2, height: 22, width: 22));
     }
     if (health.photoPermission == false) {
       addLine(
         'Photo permission not granted',
-        SvgPicture.asset(
-          MediaRes.cameraIcon,
-          height: 22,
-          width: 22,
-        ),
+        SvgPicture.asset(MediaRes.cameraIcon, height: 22, width: 22),
       );
     }
 
@@ -280,7 +283,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Column(
@@ -414,8 +419,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       }
       final resolvedSchoolCode = (_schoolCode ?? '').trim();
       final resolvedOrganizationCode = (_organizationCode ?? '').trim();
-      if (resolvedSchoolCode.isEmpty ||
-          resolvedOrganizationCode.isEmpty) {
+      if (resolvedSchoolCode.isEmpty || resolvedOrganizationCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Missing school context for photo upload.',
@@ -430,16 +434,18 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       });
       final uploadService = serviceLocator<ImageUploadService>();
       final file = File(imagePath);
-      final sessionCode = await uploadService.createStudentProfilePhotoUploadSession(
-        studentCode: studentCode,
-        schoolCode: resolvedSchoolCode,
-        organizationCode: resolvedOrganizationCode,
-      );
+      final sessionCode = await uploadService
+          .createStudentProfilePhotoUploadSession(
+            studentCode: studentCode,
+            schoolCode: resolvedSchoolCode,
+            organizationCode: resolvedOrganizationCode,
+          );
       if (mounted) setState(() => _profilePhotoUploadPercent = 15);
       final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
       final mime = FilePickerUtils.getMimeType(
-          fileName.contains('.') ? fileName.split('.').last : '');
+        fileName.contains('.') ? fileName.split('.').last : '',
+      );
       final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
@@ -489,9 +495,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         setState(() => _profilePhotoUploadPercent = 100);
       }
 
-      DocumentImageWidget.clearProfilePhotoCache(
-        studentCode: studentCode,
-      );
+      DocumentImageWidget.clearProfilePhotoCache(studentCode: studentCode);
 
       final dataSource = serviceLocator<StudentRemoteDataSource>();
       final refreshed = await dataSource.getStudentProfile(studentCode);
@@ -547,9 +551,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (!hasClassroomCubit) {
       return BlocProvider<ClassroomCubit>(
         create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
-        child: Builder(
-          builder: (context) => _buildScreen(context),
-        ),
+        child: Builder(builder: (context) => _buildScreen(context)),
       );
     }
 
@@ -558,8 +560,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildScreen(BuildContext context) {
     final role = context.watch<RoleCubit>();
-    final canChangePhoto =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canChangePhoto = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -584,13 +588,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
-                color: AppColors.primaryColor.withOpacity(0.5),
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
                 fontFamily: 'Manrope',
                 fontSize: 16,
               ),
               //labelColor: Colors.black,
               labelColor: const Color(0xFF241631),
-              unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
+              unselectedLabelColor: AppColors.primaryColor.withValues(
+                alpha: 0.5,
+              ),
               tabAlignment: TabAlignment.center,
               tabs: const [
                 Tab(text: 'Profile'),
@@ -618,16 +624,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   schedule: _profileSchedule,
                   sibling: _profileSibling,
                   studentCode: _activeStudentCode,
-                  initialTabIndex:
-                      widget.initialProfileSubTabIndex.clamp(0, 2),
+                  initialTabIndex: widget.initialProfileSubTabIndex.clamp(0, 2),
                   onProfileChanged: _onProfileChanged,
                 ),
                 StudentHealthTab(
                   key: ValueKey<String>(
                     'health_tab_${_activeStudentCode ?? 'none'}',
                   ),
-                  initialTabIndex:
-                      widget.initialHealthSubTabIndex.clamp(0, 3),
+                  initialTabIndex: widget.initialHealthSubTabIndex.clamp(0, 3),
                   scrollController: _healthScrollController,
                   name: _displayName,
                   classroom: _displayClassroom,
@@ -652,8 +656,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
                   highlightCode: widget.highlightCode,
-                )
-
+                ),
               ],
             ),
           ),
@@ -707,10 +710,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                     vertical: 7,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primaryColor.withOpacity(0.25),
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.25,
+                                    ),
                                     borderRadius: BorderRadius.circular(14),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.22),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.22,
+                                      ),
                                     ),
                                   ),
                                   child: Column(
@@ -726,29 +733,35 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                       ),
                                       const SizedBox(height: 4),
                                       ClipRRect(
-                                        borderRadius: BorderRadius.circular(999),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                         child: LinearProgressIndicator(
-                                          value: (_profilePhotoUploadPercent / 100)
-                                              .clamp(0.0, 1.0),
+                                          value:
+                                              (_profilePhotoUploadPercent / 100)
+                                                  .clamp(0.0, 1.0),
                                           minHeight: 4,
-                                          backgroundColor:
-                                              Colors.white.withOpacity(0.22),
+                                          backgroundColor: Colors.white
+                                              .withValues(alpha: 0.22),
                                           valueColor:
-                                              const AlwaysStoppedAnimation<Color>(
-                                            AppColors.themeColor,
-                                          ),
+                                              const AlwaysStoppedAnimation<
+                                                Color
+                                              >(AppColors.themeColor),
                                         ),
                                       ),
                                       const SizedBox(height: 4),
                                       Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           SvgPicture.asset(
                                             MediaRes.uploadIcon,
                                             height: 10,
                                             width: 10,
                                             colorFilter: ColorFilter.mode(
-                                              Colors.white.withOpacity(0.92),
+                                              Colors.white.withValues(
+                                                alpha: 0.92,
+                                              ),
                                               BlendMode.srcIn,
                                             ),
                                           ),
@@ -758,7 +771,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                                 ? 'Finalizing'
                                                 : 'Uploading',
                                             style: TextStyle(
-                                              color: Colors.white.withOpacity(0.92),
+                                              color: Colors.white.withValues(
+                                                alpha: 0.92,
+                                              ),
                                               fontSize: 10,
                                               fontWeight: FontWeight.w600,
                                             ),
@@ -782,7 +797,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
-                                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
                                 ],
                               ),
                               child: Container(
@@ -791,7 +810,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   gradient: AppColors.buildPrimaryGradient(),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
-                                child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                               ),
                             ),
                           ),
@@ -833,17 +856,32 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                           ),
                         ),
                       ),
+                      if (_fteDisplay != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          'FTE: ${_fteDisplay!}',
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       FutureBuilder<StudentHealthModel?>(
                         future: _healthFuture,
                         builder: (context, snapshot) {
                           final health = snapshot.data;
-                          final hasAllergy =
-                              (health?.allergy ?? '').trim().isNotEmpty;
-                          final hasMedication =
-                              (health?.medications ?? '').trim().isNotEmpty;
+                          final hasAllergy = (health?.allergy ?? '')
+                              .trim()
+                              .isNotEmpty;
+                          final hasMedication = (health?.medications ?? '')
+                              .trim()
+                              .isNotEmpty;
                           final hasDietRestrictions =
-                              (health?.dietRestrictions ?? '').trim().isNotEmpty;
+                              (health?.dietRestrictions ?? '')
+                                  .trim()
+                                  .isNotEmpty;
                           final isPhotoPermissionOff =
                               (health?.photoPermission ?? true) == false;
 
@@ -917,10 +955,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     );
   }
 
-  Widget _buildStudentActionButtons(
-    BuildContext context,
-    RoleCubit role,
-  ) {
+  Widget _buildStudentActionButtons(BuildContext context, RoleCubit role) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -1050,7 +1085,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               if (billingOk) {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Billing is available from the Transactions section.',
+                  message:
+                      'Billing is available from the Transactions section.',
                   isError: false,
                 );
               } else {

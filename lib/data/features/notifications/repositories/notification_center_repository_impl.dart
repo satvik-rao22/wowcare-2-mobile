@@ -1,4 +1,3 @@
-import '../../../../domain/features/notifications/entities/app_notification.dart';
 import '../../../../domain/features/notifications/repositories/notification_center_repository.dart';
 import '../datasources/notification_center_data_source.dart';
 
@@ -8,13 +7,15 @@ class NotificationCenterRepositoryImpl implements NotificationCenterRepository {
   final NotificationCenterDataSource _dataSource;
 
   @override
-  Future<List<AppNotification>> getNotifications() =>
-      _dataSource.fetchNotifications();
+  Future<NotificationPage> getNotifications({int page = 0, int size = 10}) async {
+    final result =
+        await _dataSource.fetchNotifications(page: page, size: size);
+    return (items: result.items, hasMore: result.hasMore);
+  }
 
   @override
-  Future<List<AppNotification>> markAsRead(String id) =>
-      _dataSource.markAsRead(id);
+  Future<void> markAsRead(String id) => _dataSource.markAsRead(id);
 
   @override
-  Future<List<AppNotification>> markAllAsRead() => _dataSource.markAllAsRead();
+  Future<void> markAllAsRead() => _dataSource.markAllAsRead();
 }

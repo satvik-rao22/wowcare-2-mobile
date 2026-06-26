@@ -7,19 +7,43 @@ class TransactionsState extends Equatable {
     this.overview,
     this.dateFrom,
     this.dateTo,
+    this.activeFilter,
+    this.isLoading = false,
+    this.isLoadingMore = false,
+    this.hasMore = false,
+    this.page = 0,
     this.errorMessage,
+    this.successMessage,
   });
 
-  TransactionsState.initial()
-      : transactions = TransactionsCubit.seedTransactions(),
+  const TransactionsState.initial()
+      : transactions = const [],
         searchQuery = '',
         overview = null,
         dateFrom = null,
         dateTo = null,
-        errorMessage = null;
+        activeFilter = null,
+        isLoading = true,
+        isLoadingMore = false,
+        hasMore = false,
+        page = 0,
+        errorMessage = null,
+        successMessage = null;
 
   final List<TransactionRecord> transactions;
   final String searchQuery;
+
+  /// True during the initial / refresh transactions fetch (drives the shimmer).
+  final bool isLoading;
+
+  /// True while the next page is being appended (infinite scroll).
+  final bool isLoadingMore;
+
+  /// Whether the backend has more transaction pages after [page].
+  final bool hasMore;
+
+  /// Zero-based index of the last loaded transactions page.
+  final int page;
 
   /// Real billing totals from the overview API; null until loaded. When absent
   /// (not loaded yet or the request failed) the stat bar shows zeros.
@@ -28,8 +52,16 @@ class TransactionsState extends Equatable {
   final DateTime? dateFrom;
   final DateTime? dateTo;
 
-  /// Last overview-load error, surfaced as a top snackbar by the view.
+  /// The summary-card filter currently scoping the Transactions list, or null
+  /// when the unfiltered list is shown. Drives the legend highlight.
+  final TransactionFilter? activeFilter;
+
+  /// Last load error, surfaced as a top snackbar by the view.
   final String? errorMessage;
+
+  /// One-shot success message (e.g. after cancel/delete), surfaced as a top
+  /// snackbar by the view.
+  final String? successMessage;
 
   List<TransactionRecord> get visibleTransactions {
     final query = searchQuery.trim().toLowerCase();
@@ -44,6 +76,13 @@ class TransactionsState extends Equatable {
 
   // Live overview totals only; zeros when not loaded / on failure (never demo).
   double get totalInvoiced => overview?.amountInvoiced ?? 0;
+
+  // Actual dollar amounts from the overview API (shown verbatim in the cards).
+  double get netPaidAmount => overview?.netPaid ?? 0;
+  double get paidAmount => overview?.paid ?? 0;
+  double get refundedAmount => overview?.refunded ?? 0;
+  double get inProcessAmount => overview?.inProcess ?? 0;
+  double get outstandingAmount => overview?.outstanding ?? 0;
 
   /// "Net Paid" share of the invoiced amount.
   double get paidPercent => overview?.netPaidPercent ?? 0;
@@ -63,7 +102,13 @@ class TransactionsState extends Equatable {
     InvoiceOverviewEntity? Function()? overview,
     DateTime? Function()? dateFrom,
     DateTime? Function()? dateTo,
+    TransactionFilter? Function()? activeFilter,
+    bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? page,
     String? errorMessage,
+    String? successMessage,
   }) {
     return TransactionsState(
       transactions: transactions ?? this.transactions,
@@ -71,11 +116,29 @@ class TransactionsState extends Equatable {
       overview: overview != null ? overview() : this.overview,
       dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
       dateTo: dateTo != null ? dateTo() : this.dateTo,
+      activeFilter: activeFilter != null ? activeFilter() : this.activeFilter,
+      isLoading: isLoading ?? this.isLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      page: page ?? this.page,
       errorMessage: errorMessage,
+      successMessage: successMessage,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [transactions, searchQuery, overview, dateFrom, dateTo, errorMessage];
+  List<Object?> get props => [
+        transactions,
+        searchQuery,
+        overview,
+        dateFrom,
+        dateTo,
+        activeFilter,
+        isLoading,
+        isLoadingMore,
+        hasMore,
+        page,
+        errorMessage,
+        successMessage,
+      ];
 }

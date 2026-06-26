@@ -102,7 +102,7 @@ class _MessageCompositionBulkMessagingState
       initialRecipients: widget.selectedRecipients,
       isStaff: widget.isStaff,
       conversationType: widget.conversationType,
-      createConversationUseCase: serviceLocator(),
+      createOrOpenConversationUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
       storageService: serviceLocator(),
     );
@@ -167,335 +167,316 @@ class _MessageCompositionBulkMessagingState
               behavior: HitTestBehavior.translucent,
               onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
               child: BlocListener<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
-              listener: (context, state) {
-                if (!context.mounted) return;
-                if (state.isSuccess) {
-                  final nav = Navigator.of(context);
-                  if (nav.canPop()) nav.pop(); // pop composition → selection
-                  if (nav.canPop()) nav.pop(); // pop selection → MessagingTab
-                } else if (state.errorMessage != null) {
-                  CoreUtils.showTopSnackBar(
-                    context: context,
-                    message: state.errorMessage!,
-                    isWarning: true,
-                  );
-                }
-              },
-              child: Stack(
-                children: [
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildScaffoldGradient(),
-                      ),
-                      child: Image.asset(
-                        MediaRes.wowcareMobileBg,
-                        fit: BoxFit.cover,
-                        alignment: Alignment.topCenter,
+                listener: (context, state) {
+                  if (!context.mounted) return;
+                  if (state.isBulkStarted) {
+                    // Navigate back immediately — bulk job runs in background.
+                    final nav = Navigator.of(context);
+                    if (nav.canPop()) nav.pop(); // pop composition → selection
+                    if (nav.canPop()) nav.pop(); // pop selection → MessagingTab
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      isSuccess: true,
+                      message:
+                          'Bulk message is being processed in the background.',
+                    );
+                  } else if (state.errorMessage != null) {
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: state.errorMessage!,
+                      isWarning: true,
+                    );
+                  }
+                },
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: AppColors.buildScaffoldGradient(),
+                        ),
+                        child: Image.asset(
+                          MediaRes.wowcareMobileBg,
+                          fit: BoxFit.cover,
+                          alignment: Alignment.topCenter,
+                        ),
                       ),
                     ),
-                  ),
-                  Column(
-                    children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                          child: Column(
-                            children: [
-                              SizedBox(height: responsive.verticalSpacing),
-                              Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: responsive.horizontalSpacing,
-                                ),
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: CustomTextWidget(
-                                    text: 'Create Message',
+                    Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            child: Column(
+                              children: [
+                                SizedBox(height: responsive.verticalSpacing),
+                                Padding(
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: responsive.horizontalSpacing,
                                   ),
-                                ),
-                              ),
-                              SizedBox(
-                                height: responsive.isTablet ? 32.0 : 20.0,
-                              ),
-                              Container(
-                                width: responsive.containerWidth,
-                                margin: EdgeInsets.symmetric(
-                                  horizontal: responsive.horizontalSpacing,
-                                ),
-                                padding: EdgeInsets.all(
-                                  responsive.isTablet ? 32.0 : 16.0,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(
-                                      responsive.isTablet ? 30.0 : 20.0,
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: CustomTextWidget(
+                                      text: 'Create Message',
                                     ),
                                   ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.05,
+                                ),
+                                SizedBox(
+                                  height: responsive.isTablet ? 32.0 : 20.0,
+                                ),
+                                Container(
+                                  width: responsive.containerWidth,
+                                  margin: EdgeInsets.symmetric(
+                                    horizontal: responsive.horizontalSpacing,
+                                  ),
+                                  padding: EdgeInsets.all(
+                                    responsive.isTablet ? 32.0 : 16.0,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(
+                                        responsive.isTablet ? 30.0 : 20.0,
                                       ),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 2),
                                     ),
-                                  ],
-                                ),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: [
-                                    GridView.builder(
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      shrinkWrap: true,
-                                      padding: const EdgeInsets.all(10),
-                                      gridDelegate:
-                                          SliverGridDelegateWithFixedCrossAxisCount(
-                                            crossAxisCount: responsive.isTablet
-                                                ? 3
-                                                : 2,
-                                            crossAxisSpacing: 12,
-                                            mainAxisSpacing: 12,
-                                            childAspectRatio:
-                                                responsive.isTablet ? 3.8 : 3.0,
-                                          ),
-                                      itemCount: compositionState
-                                          .selectedRecipientNames
-                                          .length,
-                                      itemBuilder: (context, index) {
-                                        final String name = compositionState
-                                            .selectedRecipientNames[index];
-
-                                        return SelectedStudentTile(
-                                          name: name,
-                                          onTap: () => _removeRecipient(name),
-                                        );
-                                      },
-                                    ),
-                                    SizedBox(
-                                      height: responsive.verticalSpacing,
-                                    ),
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: AppColors.primaryColor
-                                              .withValues(alpha: 0.4),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
                                         ),
-                                        borderRadius: BorderRadius.circular(12),
-                                        color: Colors.white,
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
                                       ),
-                                      child: Column(
-                                        children: [
-                                          TextField(
-                                            controller: _controller,
-                                            focusNode: _focusNode,
-                                            maxLines: null,
-                                            minLines: 5,
-                                            textCapitalization:
-                                                TextCapitalization.sentences,
-                                            contextMenuBuilder: (context, editableTextState) {
-                                              return AdaptiveTextSelectionToolbar.buttonItems(
-                                                anchors: editableTextState
-                                                    .contextMenuAnchors,
-                                                buttonItems: <ContextMenuButtonItem>[
-                                                  ContextMenuButtonItem(
-                                                    label: 'Bold',
-                                                    onPressed: () {
-                                                      _controller.updateStyle(
-                                                        const TextStyle(
-                                                          fontWeight:
-                                                              FontWeight.bold,
-                                                        ),
-                                                      );
-                                                      editableTextState
-                                                          .hideToolbar();
-                                                    },
-                                                  ),
-                                                  ContextMenuButtonItem(
-                                                    label: 'Italic',
-                                                    onPressed: () {
-                                                      _controller.updateStyle(
-                                                        const TextStyle(
-                                                          fontStyle:
-                                                              FontStyle.italic,
-                                                        ),
-                                                      );
-                                                      editableTextState
-                                                          .hideToolbar();
-                                                    },
-                                                  ),
-                                                  ContextMenuButtonItem(
-                                                    label: 'Underline',
-                                                    onPressed: () {
-                                                      _controller.updateStyle(
-                                                        const TextStyle(
-                                                          decoration:
-                                                              TextDecoration
-                                                                  .underline,
-                                                        ),
-                                                      );
-                                                      editableTextState
-                                                          .hideToolbar();
-                                                    },
-                                                  ),
-                                                  ContextMenuButtonItem(
-                                                    label: 'Strikethrough',
-                                                    onPressed: () {
-                                                      _controller.updateStyle(
-                                                        const TextStyle(
-                                                          decoration:
-                                                              TextDecoration
-                                                                  .lineThrough,
-                                                        ),
-                                                      );
-                                                      editableTextState
-                                                          .hideToolbar();
-                                                    },
-                                                  ),
-                                                  ContextMenuButtonItem(
-                                                    label: 'Link',
-                                                    onPressed: () {
-                                                      _controller.updateStyle(
-                                                        const TextStyle(
-                                                          color: Colors.blue,
-                                                          decoration:
-                                                              TextDecoration
-                                                                  .underline,
-                                                          decorationColor:
-                                                              Colors.blue,
-                                                        ),
-                                                      );
-                                                      editableTextState
-                                                          .hideToolbar();
-                                                    },
-                                                  ),
-
-                                                  ...editableTextState
-                                                      .contextMenuButtonItems,
-                                                ],
-                                              );
-                                            },
-                                            maxLength: maxChars,
-                                            decoration: const InputDecoration(
-                                              hintText:
-                                                  'Hello Parents, children had a good day today!',
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.all(
-                                                16,
-                                              ),
-                                              counterText: '',
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      GridView.builder(
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        shrinkWrap: true,
+                                        padding: const EdgeInsets.all(10),
+                                        gridDelegate:
+                                            SliverGridDelegateWithFixedCrossAxisCount(
+                                              crossAxisCount:
+                                                  responsive.isTablet ? 3 : 2,
+                                              crossAxisSpacing: 12,
+                                              mainAxisSpacing: 12,
+                                              childAspectRatio:
+                                                  responsive.isTablet
+                                                  ? 3.8
+                                                  : 3.0,
                                             ),
+                                        itemCount: compositionState
+                                            .selectedRecipientNames
+                                            .length,
+                                        itemBuilder: (context, index) {
+                                          final String name = compositionState
+                                              .selectedRecipientNames[index];
+
+                                          return SelectedStudentTile(
+                                            name: name,
+                                            onTap: () => _removeRecipient(name),
+                                          );
+                                        },
+                                      ),
+                                      SizedBox(
+                                        height: responsive.verticalSpacing,
+                                      ),
+                                      Container(
+                                        decoration: BoxDecoration(
+                                          border: Border.all(
+                                            color: AppColors.primaryColor
+                                                .withValues(alpha: 0.4),
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          color: Colors.white,
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            TextField(
+                                              controller: _controller,
+                                              focusNode: _focusNode,
+                                              maxLines: null,
+                                              minLines: 5,
+                                              textCapitalization:
+                                                  TextCapitalization.sentences,
+                                              contextMenuBuilder: (context, editableTextState) {
+                                                return AdaptiveTextSelectionToolbar.buttonItems(
+                                                  anchors: editableTextState
+                                                      .contextMenuAnchors,
+                                                  buttonItems: <ContextMenuButtonItem>[
+                                                    ContextMenuButtonItem(
+                                                      label: 'Bold',
+                                                      onPressed: () {
+                                                        _controller.updateStyle(
+                                                          const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        );
+                                                        editableTextState
+                                                            .hideToolbar();
+                                                      },
+                                                    ),
+                                                    ContextMenuButtonItem(
+                                                      label: 'Italic',
+                                                      onPressed: () {
+                                                        _controller.updateStyle(
+                                                          const TextStyle(
+                                                            fontStyle: FontStyle
+                                                                .italic,
+                                                          ),
+                                                        );
+                                                        editableTextState
+                                                            .hideToolbar();
+                                                      },
+                                                    ),
+                                                    ContextMenuButtonItem(
+                                                      label: 'Underline',
+                                                      onPressed: () {
+                                                        _controller.updateStyle(
+                                                          const TextStyle(
+                                                            decoration:
+                                                                TextDecoration
+                                                                    .underline,
+                                                          ),
+                                                        );
+                                                        editableTextState
+                                                            .hideToolbar();
+                                                      },
+                                                    ),
+                                                    ContextMenuButtonItem(
+                                                      label: 'Strikethrough',
+                                                      onPressed: () {
+                                                        _controller.updateStyle(
+                                                          const TextStyle(
+                                                            decoration:
+                                                                TextDecoration
+                                                                    .lineThrough,
+                                                          ),
+                                                        );
+                                                        editableTextState
+                                                            .hideToolbar();
+                                                      },
+                                                    ),
+                                                    ContextMenuButtonItem(
+                                                      label: 'Link',
+                                                      onPressed: () {
+                                                        _controller.updateStyle(
+                                                          const TextStyle(
+                                                            color: Colors.blue,
+                                                            decoration:
+                                                                TextDecoration
+                                                                    .underline,
+                                                            decorationColor:
+                                                                Colors.blue,
+                                                          ),
+                                                        );
+                                                        editableTextState
+                                                            .hideToolbar();
+                                                      },
+                                                    ),
+
+                                                    ...editableTextState
+                                                        .contextMenuButtonItems,
+                                                  ],
+                                                );
+                                              },
+                                              maxLength: maxChars,
+                                              decoration: const InputDecoration(
+                                                hintText:
+                                                    'Hello Parents, children had a good day today!',
+                                                border: InputBorder.none,
+                                                contentPadding: EdgeInsets.all(
+                                                  16,
+                                                ),
+                                                counterText: '',
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      const SizedBox(height: 8),
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          '${compositionState.charCount} / $maxChars',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color:
+                                                compositionState.charCount >
+                                                    maxChars
+                                                ? Colors.red
+                                                : Colors.grey[700],
+                                          ),
+                                        ),
+                                      ),
+                                      Row(
+                                        mainAxisSize: MainAxisSize.max,
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(
+                                              Icons.photo_library,
+                                            ),
+                                            onPressed: _pickImage,
+                                            tooltip: 'Add Photo',
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.attach_file),
+                                            onPressed: _pickFile,
+                                            tooltip: 'Attach File',
                                           ),
                                         ],
                                       ),
-                                    ),
-
-                                    const SizedBox(height: 8),
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: Text(
-                                        '${compositionState.charCount} / $maxChars',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color:
-                                              compositionState.charCount >
-                                                  maxChars
-                                              ? Colors.red
-                                              : Colors.grey[700],
+                                      const SizedBox(height: 10),
+                                      if (compositionState
+                                          .attachments
+                                          .isNotEmpty) ...[
+                                        const Text(
+                                          'Attachments',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
-                                      ),
-                                    ),
-                                    Row(
-                                      mainAxisSize: MainAxisSize.max,
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.photo_library),
-                                          onPressed: _pickImage,
-                                          tooltip: 'Add Photo',
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 12,
+                                          runSpacing: 12,
+                                          children: List.generate(
+                                            compositionState.attachments.length,
+                                            (index) {
+                                              final att = compositionState
+                                                  .attachments[index];
+                                              return _buildAttachmentPreview(
+                                                att,
+                                                index,
+                                              );
+                                            },
+                                          ),
                                         ),
-                                        IconButton(
-                                          icon: const Icon(Icons.attach_file),
-                                          onPressed: _pickFile,
-                                          tooltip: 'Attach File',
-                                        ),
+                                        const SizedBox(height: 16),
                                       ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    if (compositionState
-                                        .attachments
-                                        .isNotEmpty) ...[
-                                      const Text(
-                                        'Attachments',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Wrap(
-                                        spacing: 12,
-                                        runSpacing: 12,
-                                        children: List.generate(
-                                          compositionState.attachments.length,
-                                          (index) {
-                                            final att = compositionState
-                                                .attachments[index];
-                                            return _buildAttachmentPreview(
-                                              att,
-                                              index,
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
                                     ],
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      SizedBox(height: responsive.verticalSpacing),
-                    ],
-                  ),
-                  if (compositionState.isLoading)
-                    Positioned.fill(
-                      child: Container(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        child: Center(
-                          child: Card(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 20,
-                              ),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const CircularProgressIndicator(),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    compositionState.progressMessage,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ),
+                        SizedBox(height: responsive.verticalSpacing),
+                      ],
                     ),
-                ],
+                  ],
+                ),
               ),
-            ),
             ), // GestureDetector
             bottomNavigationBar: _buildBottomBar(
               context,

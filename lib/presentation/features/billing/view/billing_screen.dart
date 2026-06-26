@@ -1,11 +1,13 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/billing_events.dart';
 import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/view/Accounting/students.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart';
 import 'package:wowcare/presentation/features/billing/widgets/select_students_screen.dart';
@@ -50,21 +52,68 @@ class _BillingScreenState extends State<BillingScreen>
   Future<void> Function()? _ledgerRefreshFn;
   Future<void> Function()? _studentsRefreshFn;
   Future<void> Function()? _transactionsRefreshFn;
+  Future<void> Function()? _analyticsRefreshFn;
   VoidCallback? _ledgerLoadNextFn;
   VoidCallback? _discountLoadNextFn;
+  VoidCallback? _transactionsLoadNextFn;
+
+  /// One-shot hand-off of a summary-card filter across a tab switch. Consumed
+  /// (and cleared) by the destination tab's section on its next build.
+  BillingSummaryFilter? _pendingTransactionFilter;
+  bool _pendingStudentOutstanding = false;
+
+  static const int _studentsTabIndex = 0;
+  static const int _transactionsTabIndex = 1;
+
+  /// Switches to the Transactions tab with [filter] pre-applied (from a tap on
+  /// the Student(s) summary card).
+  void _openTransactionsWithFilter(BillingSummaryFilter filter) {
+    _pendingTransactionFilter = filter;
+    _tabController?.animateTo(_transactionsTabIndex);
+  }
+
+  /// Switches to the Student(s) tab with the outstanding-only filter enabled
+  /// (from an Outstanding tap on the Transactions summary card).
+  void _openStudentsOutstanding() {
+    _pendingStudentOutstanding = true;
+    _tabController?.animateTo(_studentsTabIndex);
+  }
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Refresh the visible tab after any billing mutation (invoice CRUD,
+    // payment, refund, credit) — fired globally by the invoice repository.
+    BillingEvents.tick.addListener(_onBillingChanged);
   }
 
   @override
   void dispose() {
+    BillingEvents.tick.removeListener(_onBillingChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     _ledgerCreationNotifier.dispose();
     super.dispose();
+  }
+
+  /// Re-fetches whichever tab is currently shown when a billing mutation fires.
+  void _onBillingChanged() {
+    if (!mounted) return;
+    switch (_tabController?.index) {
+      case 0:
+        _studentsRefreshFn?.call();
+        break;
+      case 1:
+        _transactionsRefreshFn?.call();
+        break;
+      case 2:
+        _ledgerRefreshFn?.call();
+        break;
+      case 4:
+        _analyticsRefreshFn?.call();
+        break;
+    }
   }
 
   void _onScroll() => _maybeLoadNextPage();
@@ -76,6 +125,7 @@ class _BillingScreenState extends State<BillingScreen>
     final position = _scrollController.position;
 
     VoidCallback? loadFn;
+    if (tc.index == 1) loadFn = _transactionsLoadNextFn;
     if (tc.index == 2) loadFn = _ledgerLoadNextFn;
     if (tc.index == 5) loadFn = _discountLoadNextFn;
     if (loadFn == null) return;
@@ -139,6 +189,9 @@ class _BillingScreenState extends State<BillingScreen>
                           break;
                         case 2:
                           await _ledgerRefreshFn?.call();
+                          break;
+                        case 4:
+                          await _analyticsRefreshFn?.call();
                           break;
                       }
                     },
@@ -350,16 +403,35 @@ class _BillingScreenState extends State<BillingScreen>
                               final int current = controller.index;
                               Widget content;
                               if (current == 0) {
+                                // Consume the one-shot Outstanding hand-off so
+                                // it only applies on the triggering switch.
+                                final bool showOutstanding =
+                                    _pendingStudentOutstanding;
+                                _pendingStudentOutstanding = false;
                                 content = StudentsAccountingSection(
                                   onRegisterRefresh: (fn) {
                                     _studentsRefreshFn = fn;
                                   },
+                                  initialShowOutstanding: showOutstanding,
+                                  onNavigateToTransactions:
+                                      _openTransactionsWithFilter,
                                 );
                               } else if (current == 1) {
+                                // Consume the one-shot filter hand-off.
+                                final BillingSummaryFilter? pendingFilter =
+                                    _pendingTransactionFilter;
+                                _pendingTransactionFilter = null;
                                 content = TransactionsSection(
                                   onRegisterRefresh: (fn) {
                                     _transactionsRefreshFn = fn;
                                   },
+                                  onRegisterLoadNextPage: (fn) {
+                                    _transactionsLoadNextFn = fn;
+                                  },
+                                  onLoadMoreNeeded: _maybeLoadNextPage,
+                                  initialFilter: pendingFilter,
+                                  onNavigateToOutstanding:
+                                      _openStudentsOutstanding,
                                 );
                               } else if (current == 2) {
                                 content = GeneralLedgerSection(
@@ -376,7 +448,11 @@ class _BillingScreenState extends State<BillingScreen>
                               } else if (current == 3) {
                                 content = const SubsidiesSection();
                               } else if (current == 4) {
-                                content = const AnalyticsSection();
+                                content = AnalyticsSection(
+                                  onRegisterRefresh: (fn) {
+                                    _analyticsRefreshFn = fn;
+                                  },
+                                );
                               } else if (current == 5) {
                                 content = BillingSettingsSection(
                                   onRegisterLoadNextPage: (fn) {

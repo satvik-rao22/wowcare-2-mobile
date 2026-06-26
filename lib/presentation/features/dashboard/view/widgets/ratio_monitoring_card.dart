@@ -117,20 +117,6 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     );
   }
 
-  /// Called on date navigation — clears stale data and shows shimmer while
-  /// fetching attendance for the newly selected [date].
-  Future<void> _loadForDate(DateTime date) async {
-    final cubit = _cubit;
-    if (cubit == null) return;
-    final schoolCode = await _resolveSchoolCode();
-    if (schoolCode == null || !mounted) return;
-    cubit.loadRatioMonitoring(
-      schoolCode: schoolCode,
-      forceRefresh: true,
-      date: date,
-    );
-  }
-
   void _silentRefresh() {
     if (!mounted) return;
     final cubit = _cubit;
@@ -163,72 +149,17 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   // Header date navigator
   // ---------------------------------------------------------------------------
 
-  /// Returns true when [_selectedDate] is today (so the next-day arrow is
-  /// disabled — we never allow selecting a future date).
-  bool get _isToday {
-    final now = DateTime.now();
-    return _selectedDate.year == now.year &&
-        _selectedDate.month == now.month &&
-        _selectedDate.day == now.day;
-  }
-
-  void _changeDate(int deltaDays) {
-    final candidate = _selectedDate.add(Duration(days: deltaDays));
-    final today = DateTime.now();
-    // Clamp: never go into the future.
-    final next = candidate.isAfter(today) ? today : candidate;
-    if (next.year == _selectedDate.year &&
-        next.month == _selectedDate.month &&
-        next.day == _selectedDate.day) {
-      return; // Nothing changed.
-    }
-    final newDate = DateTime(next.year, next.month, next.day);
-    setState(() {
-      _selectedDate = newDate;
-    });
-    // Use forceRefresh so the card clears old data and shows a loading
-    // shimmer while it fetches attendance for the newly selected date.
-    unawaited(_loadForDate(newDate));
-  }
-
+  /// Date selection is disabled — the ratio-monitoring summary API only
+  /// reflects the current day regardless of the `date` query param, so the
+  /// picker is replaced with a static "today" label instead of an
+  /// interactive control that silently does nothing.
   Widget _buildDateNavigator() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // ── Previous day ──────────────────────────────────────────────────
-        GestureDetector(
-          onTap: () => _changeDate(-1),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 2),
-            child: Icon(
-              Icons.chevron_left,
-              size: 20,
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ),
-        Text(
-          DateFormat('EEE, MMM d').format(_selectedDate),
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        // ── Next day (disabled on today) ──────────────────────────────────
-        GestureDetector(
-          onTap: _isToday ? null : () => _changeDate(1),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            child: Icon(
-              Icons.chevron_right,
-              size: 20,
-              color: _isToday
-                  ? AppColors.primaryColor.withValues(alpha: 0.3)
-                  : AppColors.primaryColor,
-            ),
-          ),
-        ),
-      ],
+    return Text(
+      DateFormat('EEE, MMM d').format(_selectedDate),
+      style: const TextStyle(
+        color: AppColors.primaryColor,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 

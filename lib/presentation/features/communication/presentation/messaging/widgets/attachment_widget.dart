@@ -62,78 +62,86 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   }
 
   Future<void> _showAttachmentOptions() async {
-    final result = await showDialog<String>(
+    final result = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        contentPadding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
-        title: Container(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                const Color.fromRGBO(89, 120, 247, 0.1),
-                const Color.fromRGBO(156, 132, 255, 0.1),
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.45,
+        minChildSize: 0.35,
+        maxChildSize: 0.6,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const CustomTextWidget(
-                text: 'Add Attachment',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+              // Handle indicator
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: AppColors.primaryColor),
-                onPressed: () => Navigator.pop(context),
+              // Title
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const CustomTextWidget(
+                      text: 'Add Attachment',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryColor.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              // Options
+              _buildAttachmentOption(
+                icon: Icons.photo_library_rounded,
+                title: 'Photos (multiple allowed)',
+                subtitle: 'JPEG, PNG, WEBP, HEIC, HEIF, AVIF, GIF, BMP, TIFF',
+                onTap: () => Navigator.pop(context, 'photos'),
+              ),
+              _buildAttachmentOption(
+                icon: Icons.camera_alt_rounded,
+                title: 'Take Photo',
+                subtitle: 'Capture a photo with your camera',
+                onTap: () => Navigator.pop(context, 'camera'),
+              ),
+              _buildAttachmentOption(
+                icon: Icons.upload_file_rounded,
+                title: 'Document (one file)',
+                subtitle: 'PDF, DOC, DOCX, XLS, XLSX • max 10 MB',
+                onTap: () => Navigator.pop(context, 'document'),
+              ),
+              const SizedBox(height: 12),
             ],
           ),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(
-                Icons.photo_library,
-                color: AppColors.primaryColor,
-              ),
-              title: const CustomTextWidget(text: 'Photos (multiple allowed)'),
-              subtitle: const CustomTextWidget(
-                text: 'JPEG, PNG, WEBP, HEIC, HEIF, AVIF, GIF, BMP, TIFF',
-                fontSize: 12,
-                fontColor: Colors.grey,
-              ),
-              onTap: () => Navigator.pop(context, 'photos'),
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.camera_alt,
-                color: AppColors.primaryColor,
-              ),
-              title: const CustomTextWidget(text: 'Take Photo'),
-              onTap: () => Navigator.pop(context, 'camera'),
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.upload_file,
-                color: AppColors.primaryColor,
-              ),
-              title: const CustomTextWidget(text: 'Document (one file)'),
-              subtitle: const CustomTextWidget(
-                text: 'PDF, DOC, DOCX, XLS, XLSX • max 10 MB',
-                fontSize: 12,
-                fontColor: Colors.grey,
-              ),
-              onTap: () => Navigator.pop(context, 'document'),
-            ),
-          ],
         ),
       ),
     );
@@ -228,6 +236,64 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
 
     if (valid.isEmpty) return;
     widget.onAttachmentsSelected(valid);
+  }
+
+  Widget _buildAttachmentOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: AppColors.primaryColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomTextWidget(
+                        text: title,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontColor: Colors.black87,
+                      ),
+                      const SizedBox(height: 4),
+                      CustomTextWidget(
+                        text: subtitle,
+                        fontSize: 12,
+                        fontColor: Colors.grey[600],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override

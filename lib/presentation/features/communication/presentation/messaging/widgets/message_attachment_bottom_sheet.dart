@@ -82,8 +82,9 @@ class _MessageAttachmentBottomSheetState
     final files = result.files
         .map((f) => f.path)
         .whereType<String>()
-        .map(File.new)
+        .map((p) => File(p))
         .toList();
+    if (files.isEmpty) return;
     await _processFiles(files, isPhoto: true);
   }
 
@@ -92,13 +93,19 @@ class _MessageAttachmentBottomSheetState
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
+      allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
-    final path = result.files.single.path;
-    if (path == null) return;
-    await _processFiles([File(path)], isPhoto: false);
+    final files = result.files
+        .map((f) => f.path)
+        .whereType<String>()
+        .map((p) => File(p))
+        .toList();
+    if (files.isEmpty) return;
+    await _processFiles(files, isPhoto: false);
   }
 
+  // ignore: unused_element
   Future<void> _pickVideo() async {
     Navigator.of(context).pop();
     final file = await _picker.pickVideo(source: ImageSource.gallery);
@@ -106,6 +113,7 @@ class _MessageAttachmentBottomSheetState
     await _processFiles([File(file.path)], isPhoto: false);
   }
 
+  // ignore: unused_element
   Future<void> _notImplemented(String feature) async {
     Navigator.of(context).pop();
     if (!mounted) return;

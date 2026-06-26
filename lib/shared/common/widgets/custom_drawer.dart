@@ -36,6 +36,7 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/activity_feed_invalidation.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
@@ -271,10 +272,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
+              color: Colors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -297,7 +298,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white.withOpacity(0.15)
+                          ? Colors.white.withValues(alpha: 0.15)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -382,6 +383,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
       _selectedSchoolName = schoolName;
       _isSchoolDropdownOpen = false;
     });
+
+    // Tell every kept-alive branch screen (Dashboard, Classroom, Activity,
+    // Messaging, Billing) to reload fresh for the new school. Only when the
+    // school actually changed — re-selecting the same school is a no-op.
+    if (isSchoolChanged) {
+      SchoolSwitchEvents.notifySwitched();
+    }
 
     // Close drawer and send user to Dashboard for the newly selected school.
     if (!mounted) return;
@@ -746,6 +754,17 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final showSettingsMenu =
         !roleProvider.usesGranularModuleAccess ||
         roleProvider.canOpenModule(AppAccessModules.settings);
+    final showReportsDrawer =
+        !roleProvider.usesGranularModuleAccess ||
+        roleProvider.canOpenModule(AppAccessModules.reports);
+    // Scheduling sub-items are gated on their own modules (a staff persona only
+    // ever sees their own schedule, so Classroom Scheduling also needs !isStaff).
+    final showClassroomScheduling =
+        !isStaff && roleProvider.canOpenModule(AppAccessModules.classroomSchedule);
+    final showStaffScheduling = roleProvider.canOpenModule(
+      AppAccessModules.staffScheduling,
+    );
+    final showSchedulingMenu = showClassroomScheduling || showStaffScheduling;
     final parentChildProvider = context.watch<ParentChildCubit>();
     if (isParent &&
         !parentChildProvider.isLoaded &&
@@ -857,7 +876,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      MessagingScreen.parentMessagingRoute,
+                                    );
                                   },
                                 ),
                               if (showAdminChatDrawer)
@@ -1088,7 +1109,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      MessagingScreen.parentMessagingRoute,
+                                    );
                                   },
                                 ),
                               if (showAdminChatDrawer)
@@ -1122,20 +1145,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     ),
                                   ),
                                   onTap: () => _navigate(
-                                      MessagingScreen.newsletterRoute),
+                                    MessagingScreen.newsletterRoute,
+                                  ),
                                 ),
                             ],
                           ),
                         // Scheduling
-                        if (showAdminAttendanceMenu)
+                        if (showSchedulingMenu)
                           _CustomExpansionTile(
                             title: 'Scheduling',
                             icon: MediaRes.calenderClockIcon,
                             isExpansionEnabled: true,
                             children: [
-                              // Staff persona only ever sees their own schedule —
-                              // hide the school-wide Classroom Scheduling entry.
-                              if (!isStaff)
+                              if (showClassroomScheduling)
                                 DrawerListTile(
                                   title: 'Classroom Scheduling',
                                   leading: SvgPicture.asset(
@@ -1144,14 +1166,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   onTap: () =>
                                       _navigate(SchedulingScreen.routeName),
                                 ),
-                              DrawerListTile(
-                                title: 'Staff Scheduling',
-                                leading: SvgPicture.asset(
-                                  MediaRes.staff_Schedule_drawer_icon,
+                              if (showStaffScheduling)
+                                DrawerListTile(
+                                  title: 'Staff Scheduling',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.staff_Schedule_drawer_icon,
+                                  ),
+                                  onTap: () =>
+                                      _navigate(StaffSchedulingScreen.routeName),
                                 ),
-                                onTap: () => _navigate(
-                                    StaffSchedulingScreen.routeName),
-                              ),
                             ],
                           ),
                         if (canViewBilling)
@@ -1160,14 +1183,15 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             icon: MediaRes.billing_drawer_icon,
                             onTap: () => _navigate(BillingScreen.routeName),
                           ),
-                        _CustomExpansionTile(
-                          title: 'Reports',
-                          icon: MediaRes.documents_drawer_Icon,
-                          preserveIconColors: true,
-                          isCurrentRoute:
-                              _currentRoute == ReportsScreen.routeName,
-                          onTap: () => _navigate(ReportsScreen.routeName),
-                        ),
+                        if (showReportsDrawer)
+                          _CustomExpansionTile(
+                            title: 'Reports',
+                            icon: MediaRes.documents_drawer_Icon,
+                            preserveIconColors: true,
+                            isCurrentRoute:
+                                _currentRoute == ReportsScreen.routeName,
+                            onTap: () => _navigate(ReportsScreen.routeName),
+                          ),
                         if (showSettingsMenu)
                           _CustomExpansionTile(
                             title: 'Settings',

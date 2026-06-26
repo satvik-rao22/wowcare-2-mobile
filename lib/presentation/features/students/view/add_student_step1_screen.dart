@@ -350,9 +350,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     );
 
     final classrooms = context.read<ClassroomCubit>().state.classrooms;
-    final selectedClassroom = classrooms.where((c) => c.name == _selectedClassroom);
-    final selectedClassroomCode =
-        selectedClassroom.isNotEmpty ? selectedClassroom.first.code : '';
+    final selectedClassroom = classrooms.where(
+      (c) => c.name == _selectedClassroom,
+    );
+    final selectedClassroomCode = selectedClassroom.isNotEmpty
+        ? selectedClassroom.first.code
+        : '';
     if (selectedClassroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -641,7 +644,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
       final rawStatus = (step1Data['status'] as String?) ?? 'Active';
       final status = rawStatus.toUpperCase();
-      final classroomCode = (step1Data['classroomCode'] as String?)?.trim() ?? '';
+      final classroomCode =
+          (step1Data['classroomCode'] as String?)?.trim() ?? '';
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
       final DateTime? schoolStartDate =
           step1Data['schoolStartDate'] as DateTime?;
@@ -675,12 +679,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       // immediately; the upload keeps running even after this screen is closed.
       final pickedPhoto = _profilePhoto;
       if (pickedPhoto != null && student.code.trim().isNotEmpty) {
-        unawaited(uploadStudentPhotoInBackground(
-          studentCode: student.code.trim(),
-          file: pickedPhoto,
-          schoolCode: schoolCode.trim(),
-          organizationCode: organizationCode.trim(),
-        ));
+        unawaited(
+          uploadStudentPhotoInBackground(
+            studentCode: student.code.trim(),
+            file: pickedPhoto,
+            schoolCode: schoolCode.trim(),
+            organizationCode: organizationCode.trim(),
+          ),
+        );
       }
 
       final studentName = student.fullName.isNotEmpty
@@ -800,16 +806,18 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             // Upload this parent's photo (picked in step 2) in the background.
             final parentPhoto = map['profilePhoto'];
             if (parentPhoto is File) {
-              unawaited(uploadGuardianPhotoInBackground(
-                file: parentPhoto,
-                guardianCode: (createdGuardian.guardianCode ?? '').trim(),
-                studentCode: student.code,
-                email: parentEmail,
-                mobile: parentPhoneDigits,
-                schoolCode: schoolCode,
-                organizationCode: organizationCode.trim(),
-                userCode: '',
-              ));
+              unawaited(
+                uploadGuardianPhotoInBackground(
+                  file: parentPhoto,
+                  guardianCode: (createdGuardian.guardianCode ?? '').trim(),
+                  studentCode: student.code,
+                  email: parentEmail,
+                  mobile: parentPhoneDigits,
+                  schoolCode: schoolCode,
+                  organizationCode: organizationCode.trim(),
+                  userCode: '',
+                ),
+              );
             }
           } catch (e) {
             final message = ApiErrorHandler.extractErrorMessage(e);
@@ -824,10 +832,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       }
 
-      // Link siblings after guardians (PUT /api/v1/student/student/{code}/siblings).
+      // Link siblings after guardians (POST /api/v1/student/{code}/add-sibling).
       if (siblingCodesToLink.isNotEmpty) {
         try {
-          await repo.updateStudentSiblings(
+          await repo.addStudentSibling(
             studentCode: student.code,
             siblingCodes: siblingCodesToLink,
           );
@@ -903,7 +911,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       }
 
-      final bool anyPhotoUploading = _profilePhoto != null ||
+      final bool anyPhotoUploading =
+          _profilePhoto != null ||
           parents.any((p) => p is Map && p['profilePhoto'] is File);
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1002,7 +1011,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -1107,7 +1116,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),

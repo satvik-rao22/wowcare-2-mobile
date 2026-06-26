@@ -2,10 +2,16 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart'
+    show ChatAttachment;
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/v2/util/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/edit_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
@@ -27,29 +33,42 @@ import 'conversation_thread_state.dart';
 class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   ConversationThreadCubit({
     required String conversationCode,
+    required String currentUserCode,
     required WatchMessagesUseCase watchMessagesUseCase,
     required GetMessagesEntityUseCase getMessagesUseCase,
     required SendMessageEntityUseCase sendMessageUseCase,
     required EditMessageEntityUseCase editMessageUseCase,
     required DeleteMessageEntityUseCase deleteMessageUseCase,
+    required DeleteAttachmentEntityUseCase deleteAttachmentUseCase,
     required AddReactionEntityUseCase addReactionUseCase,
     required RemoveReactionUseCase removeReactionUseCase,
     required MarkConversationReadUseCase markConversationReadUseCase,
-  })  : _watchMessagesUseCase = watchMessagesUseCase,
-        _getMessagesUseCase = getMessagesUseCase,
-        _sendMessageUseCase = sendMessageUseCase,
-        _editMessageUseCase = editMessageUseCase,
-        _deleteMessageUseCase = deleteMessageUseCase,
-        _addReactionUseCase = addReactionUseCase,
-        _removeReactionUseCase = removeReactionUseCase,
-        _markConversationReadUseCase = markConversationReadUseCase,
-        super(ConversationThreadState.initial(conversationCode: conversationCode));
+    required ChatAttachmentUploader attachmentUploader,
+    Duration markReadDebounceDuration = const Duration(seconds: 2),
+  }) : _currentUserCode = currentUserCode,
+       _watchMessagesUseCase = watchMessagesUseCase,
+       _getMessagesUseCase = getMessagesUseCase,
+       _sendMessageUseCase = sendMessageUseCase,
+       _editMessageUseCase = editMessageUseCase,
+       _deleteMessageUseCase = deleteMessageUseCase,
+       _deleteAttachmentUseCase = deleteAttachmentUseCase,
+       _addReactionUseCase = addReactionUseCase,
+       _removeReactionUseCase = removeReactionUseCase,
+       _markConversationReadUseCase = markConversationReadUseCase,
+       _attachmentUploader = attachmentUploader,
+       _markReadDebounceDuration = markReadDebounceDuration,
+       super(
+         ConversationThreadState.initial(conversationCode: conversationCode),
+       );
 
+  final String _currentUserCode;
   final WatchMessagesUseCase _watchMessagesUseCase;
   final GetMessagesEntityUseCase _getMessagesUseCase;
   final SendMessageEntityUseCase _sendMessageUseCase;
   final EditMessageEntityUseCase _editMessageUseCase;
   final DeleteMessageEntityUseCase _deleteMessageUseCase;
+  final DeleteAttachmentEntityUseCase _deleteAttachmentUseCase;
+  final ChatAttachmentUploader _attachmentUploader;
   final AddReactionEntityUseCase _addReactionUseCase;
   final RemoveReactionUseCase _removeReactionUseCase;
   final MarkConversationReadUseCase _markConversationReadUseCase;
@@ -60,11 +79,26 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   int _refreshRequestId = 0;
   static const int _pageSize = 50;
 
+  /// Debounces [_markRead] so a burst of Firestore snapshot emissions (e.g.
+  /// several participants editing/reacting in quick succession) collapses
+  /// into a single `markConversationRead` call instead of one per emission.
+  /// Overridable via the constructor for tests; production callers use the
+  /// 2-second default.
+  Timer? _markReadDebounce;
+  final Duration _markReadDebounceDuration;
+
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
   @override
   Future<void> close() {
     _messagesSubscription?.cancel();
+    // Flush rather than drop: if the user leaves the thread mid-debounce,
+    // the pending read should still be committed so the unread badge
+    // reflects what they actually saw.
+    if (_markReadDebounce?.isActive ?? false) {
+      _markReadDebounce!.cancel();
+      unawaited(_markRead());
+    }
     return super.close();
   }
 
@@ -80,27 +114,28 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   /// messages subcollection or returns an error.
   void startWatchingMessages() {
     _messagesSubscription?.cancel();
-    _messagesSubscription = _watchMessagesUseCase(
-      conversationCode: state.conversationCode,
-    ).listen(
-      (fresh) {
-        if (isClosed) return;
-        _firestoreActive = true;
-        final merged = _mergePendingMessages(_sortedOldestFirst(fresh));
-        emit(ConversationThreadState.loaded(
-          conversationCode: state.conversationCode,
-          messages: merged,
-          isFromCache: false,
-          hasOlderMessages: state.hasOlderMessages,
-          conversation: state.conversation,
-        ));
-        unawaited(_markRead());
-      },
-      onError: (_) {
-        // Firestore messages subcollection unavailable — load via API once.
-        if (!_firestoreActive) unawaited(loadMessages());
-      },
-    );
+    _messagesSubscription =
+        _watchMessagesUseCase(conversationCode: state.conversationCode).listen(
+          (fresh) {
+            if (isClosed) return;
+            _firestoreActive = true;
+            final merged = _mergePendingMessages(_sortedOldestFirst(fresh));
+            emit(
+              ConversationThreadState.loaded(
+                conversationCode: state.conversationCode,
+                messages: merged,
+                isFromCache: false,
+                hasOlderMessages: state.hasOlderMessages,
+                conversation: state.conversation,
+              ),
+            );
+            _scheduleMarkRead();
+          },
+          onError: (_) {
+            // Firestore messages subcollection unavailable — load via API once.
+            if (!_firestoreActive) unawaited(loadMessages());
+          },
+        );
   }
 
   // ─── Load / Refresh ─────────────────────────────────────────────────────────
@@ -134,7 +169,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             conversation: state.conversation,
           ),
         );
-        unawaited(_markRead());
+        _scheduleMarkRead();
       },
     );
   }
@@ -169,14 +204,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             conversation: state.conversation,
           ),
         );
-        unawaited(_markRead());
+        _scheduleMarkRead();
       },
     );
   }
 
   /// Paginate backwards: load messages older than the earliest in the list.
   Future<void> loadOlderMessages() async {
-    if (!state.hasOlderMessages || state.isLoading || state.isRefreshing) return;
+    if (!state.hasOlderMessages || state.isLoading || state.isRefreshing)
+      return;
     if (!state.hasMessages) return;
 
     final int requestId = _refreshRequestId;
@@ -213,9 +249,18 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
   /// Send a message with optimistic UI.
   ///
-  /// Immediately inserts a [MessageStatus.pending] placeholder so the bubble
-  /// appears at the bottom. Replaces it with the confirmed message on success,
-  /// or marks it [MessageStatus.failed] so the user can retry.
+  /// Immediately inserts a [MessageStatus.pending] placeholder — including
+  /// local attachment previews — so the bubble appears at the bottom without
+  /// waiting for upload or the backend round-trip. Replaces it with the
+  /// confirmed message on success, or marks it [MessageStatus.failed] so the
+  /// user can retry.
+  ///
+  /// [attachments] are uploaded here (session → presign → S3 → complete →
+  /// register, via the same [ChatAttachmentUploader] legacy messaging uses)
+  /// before the message is sent. All-or-nothing: if any attachment fails to
+  /// upload, the send is aborted entirely — no partial/text-only message is
+  /// sent, and the failure is surfaced via [ConversationThreadState.sendError]
+  /// so the caller can retry without losing the picked files.
   Future<void> sendMessage({
     required String text,
     required String senderCode,
@@ -223,11 +268,19 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required ParticipantRole senderRole,
     required String organizationCode,
     required String schoolCode,
-    List<String> attachmentCodes = const [],
+    List<ChatAttachment> attachments = const [],
     bool isPrivate = false,
     String? threadParentCode,
   }) async {
     final tempCode = 'temp-${DateTime.now().millisecondsSinceEpoch}';
+
+    AttachmentEntity toOptimisticEntity(ChatAttachment a) =>
+        mapChatAttachmentToAttachmentEntity(
+          a,
+          messageCode: tempCode,
+          conversationCode: state.conversationCode,
+          uploadedBy: senderCode,
+        );
 
     final optimistic = MessageEntity(
       id: tempCode,
@@ -245,8 +298,10 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       isPrivate: isPrivate,
       threadParentCode: threadParentCode,
       localTempCode: tempCode,
+      attachments: attachments.map(toOptimisticEntity).toList(),
     );
 
+    // Show immediately — never wait for upload or the network round-trip.
     emit(
       state.copyWith(
         messages: [...state.messages, optimistic],
@@ -255,10 +310,50 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       ),
     );
 
+    // Upload any attachments that aren't already uploaded, mirroring
+    // CommunicationCubit.sendMessage's exact pipeline via the same shared
+    // uploader. Parallelised the same way legacy does (Future.wait); if any
+    // attachment fails, abort the send — no partial message is created.
+    List<ChatAttachment> uploadedAttachments = attachments;
+    if (attachments.any((a) => !a.isUploaded)) {
+      try {
+        uploadedAttachments = await Future.wait(
+          attachments.map(
+            (a) => _attachmentUploader.upload(
+              conversationCode: state.conversationCode,
+              attachment: a,
+            ),
+          ),
+        );
+      } catch (e) {
+        if (isClosed) return;
+        final failed = _replaceMessage(
+          state.messages,
+          tempCode,
+          optimistic.copyWith(status: MessageStatus.failed),
+        );
+        emit(
+          state.copyWith(
+            messages: failed,
+            isSending: false,
+            sendError: 'Failed to upload attachment: $e',
+          ),
+        );
+        return;
+      }
+    }
+
+    final attachmentIds = uploadedAttachments
+        .map((a) => a.attachmentId)
+        .whereType<int>()
+        .toList();
+    final uploadedOptimisticAttachments =
+        uploadedAttachments.map(toOptimisticEntity).toList();
+
     final result = await _sendMessageUseCase(
       conversationCode: state.conversationCode,
       text: text,
-      attachmentCodes: attachmentCodes,
+      attachmentIds: attachmentIds,
       isPrivate: isPrivate,
       threadParentCode: threadParentCode,
     );
@@ -270,7 +365,10 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         final failed = _replaceMessage(
           state.messages,
           tempCode,
-          optimistic.copyWithStatus(MessageStatus.failed),
+          optimistic.copyWith(
+            status: MessageStatus.failed,
+            attachments: uploadedOptimisticAttachments,
+          ),
         );
         emit(
           state.copyWith(
@@ -281,8 +379,24 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         );
       },
       (confirmed) {
-        final updated = _replaceMessage(state.messages, tempCode, confirmed);
-        emit(state.copyWith(messages: updated, isSending: false, clearSendError: true));
+        // The create-message response doesn't echo back resolved attachment
+        // objects yet (the document is still processing asynchronously) —
+        // keep showing the already-uploaded attachment data instead of
+        // letting it disappear the instant the optimistic message is
+        // replaced. Mirrors CommunicationRemoteDataSourceImpl.sendMessage's
+        // fallback; applied here because this contract only sends
+        // attachmentIds, leaving the datasource nothing to fall back to.
+        final finalMessage = confirmed.attachments.isNotEmpty
+            ? confirmed
+            : confirmed.copyWith(attachments: uploadedOptimisticAttachments);
+        final updated = _replaceMessage(state.messages, tempCode, finalMessage);
+        emit(
+          state.copyWith(
+            messages: updated,
+            isSending: false,
+            clearSendError: true,
+          ),
+        );
       },
     );
   }
@@ -293,6 +407,21 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required String messageCode,
     required String newText,
   }) async {
+    final target = state.messages.firstWhere(
+      (m) => m.code == messageCode,
+      orElse: () => throw StateError('Message not found'),
+    );
+    if (target.senderCode != _currentUserCode) {
+      emit(
+        state.copyWith(
+          errorMessage: const AuthorizationFailure(
+            'You can only edit your own messages.',
+          ).message,
+        ),
+      );
+      return;
+    }
+
     // Optimistic update
     final optimistic = state.messages.map((m) {
       if (m.code != messageCode) return m;
@@ -327,6 +456,21 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   // ─── Delete ──────────────────────────────────────────────────────────────────
 
   Future<void> deleteMessage(String messageCode) async {
+    final target = state.messages.firstWhere(
+      (m) => m.code == messageCode,
+      orElse: () => throw StateError('Message not found'),
+    );
+    if (target.senderCode != _currentUserCode) {
+      emit(
+        state.copyWith(
+          errorMessage: const AuthorizationFailure(
+            'You can only delete your own messages.',
+          ).message,
+        ),
+      );
+      return;
+    }
+
     // Optimistic: mark deleted locally
     final optimistic = state.messages.map((m) {
       if (m.code != messageCode) return m;
@@ -338,17 +482,54 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        emit(
-          state.copyWith(
-            errorMessage: failure.message ?? 'Failed to delete message.',
-          ),
-        );
-        unawaited(refreshMessages());
-      },
-      (_) {},
+    result.fold((failure) {
+      emit(
+        state.copyWith(
+          errorMessage: failure.message ?? 'Failed to delete message.',
+        ),
+      );
+      unawaited(refreshMessages());
+    }, (_) {});
+  }
+
+  // ─── Attachments ─────────────────────────────────────────────────────────────
+
+  /// Removes a single attachment from a message without deleting the
+  /// message itself — [attachmentId] is the messaging-service id assigned
+  /// when the attachment was registered, not the document-service asset
+  /// code. Mirrors legacy `CommunicationCubit.deleteAttachment`'s
+  /// optimistic-update + rollback pattern.
+  Future<void> deleteAttachment({
+    required String messageCode,
+    required int attachmentId,
+  }) async {
+    final originalMessages = state.messages;
+
+    final optimistic = state.messages.map((m) {
+      if (m.code != messageCode) return m;
+      return m.copyWith(
+        attachments: m.attachments
+            .where((a) => a.attachmentId != attachmentId)
+            .toList(),
+      );
+    }).toList();
+    emit(state.copyWith(messages: optimistic));
+
+    final result = await _deleteAttachmentUseCase(
+      messageCode: messageCode,
+      attachmentId: attachmentId,
     );
+
+    if (isClosed) return;
+
+    result.fold((failure) {
+      emit(
+        state.copyWith(
+          messages: originalMessages,
+          errorMessage: failure.message ?? 'Failed to delete attachment.',
+        ),
+      );
+    }, (_) {});
   }
 
   // ─── Reactions ───────────────────────────────────────────────────────────────
@@ -373,15 +554,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        emit(state.copyWith(
+    result.fold((failure) {
+      emit(
+        state.copyWith(
           errorMessage: failure.message ?? 'Failed to add reaction.',
-        ));
-        unawaited(refreshMessages());
-      },
-      (_) {},
-    );
+        ),
+      );
+      unawaited(refreshMessages());
+    }, (_) {});
   }
 
   Future<void> removeReaction({
@@ -389,6 +569,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required String emoji,
     required String currentUserCode,
   }) async {
+    if (currentUserCode != _currentUserCode) {
+      emit(
+        state.copyWith(
+          errorMessage: const AuthorizationFailure(
+            'You can only remove your own reactions.',
+          ).message,
+        ),
+      );
+      return;
+    }
+
     final optimistic = _removeReactionLocally(
       state.messages,
       messageCode,
@@ -403,15 +594,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        emit(state.copyWith(
+    result.fold((failure) {
+      emit(
+        state.copyWith(
           errorMessage: failure.message ?? 'Failed to remove reaction.',
-        ));
-        unawaited(refreshMessages());
-      },
-      (_) {},
-    );
+        ),
+      );
+      unawaited(refreshMessages());
+    }, (_) {});
   }
 
   // ─── Mark read ───────────────────────────────────────────────────────────────
@@ -428,9 +618,23 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     // before Firestore confirms the read receipt.
     result.fold(
       (_) {},
-      (_) => MessagingEventService.instance
-          .notifyMarkedRead(state.conversationCode),
+      (_) => MessagingEventService.instance.notifyMarkedRead(
+        state.conversationCode,
+      ),
     );
+  }
+
+  /// Debounced trigger for [_markRead], used by data-driven call sites
+  /// (Firestore snapshot emissions, load/refresh) so repeated triggers in a
+  /// short window collapse into a single API call. Resets on every call, so
+  /// it only fires once activity has quieted down for
+  /// [_markReadDebounceDuration].
+  void _scheduleMarkRead() {
+    if (isClosed) return;
+    _markReadDebounce?.cancel();
+    _markReadDebounce = Timer(_markReadDebounceDuration, () {
+      if (!isClosed) unawaited(_markRead());
+    });
   }
 
   List<MessageEntity> _sortedOldestFirst(List<MessageEntity> messages) {
@@ -446,7 +650,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         .toList();
     if (pending.isEmpty) return fresh;
     final freshCodes = fresh.map((m) => m.code).toSet();
-    final unconfirmed = pending.where((m) => !freshCodes.contains(m.code)).toList();
+    final unconfirmed = pending
+        .where((m) => !freshCodes.contains(m.code))
+        .toList();
     return [...fresh, ...unconfirmed];
   }
 
@@ -488,97 +694,68 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 // ─── MessageEntity convenience extensions ───────────────────────────────────
 
 extension _MessageEntityX on MessageEntity {
-  MessageEntity copyWithStatus(MessageStatus newStatus) => MessageEntity(
-        id: id,
-        code: code,
-        conversationCode: conversationCode,
-        senderCode: senderCode,
-        senderName: senderName,
-        senderRole: senderRole,
-        senderAvatarUrl: senderAvatarUrl,
-        text: text,
-        messageType: messageType,
-        status: newStatus,
-        sentAt: sentAt,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        isPrivate: isPrivate,
-        isEdited: isEdited,
-        isDeleted: isDeleted,
-        deletedPlaceholder: deletedPlaceholder,
-        editedAt: editedAt,
-        deletedAt: deletedAt,
-        attachments: attachments,
-        reactions: reactions,
-        readReceipts: readReceipts,
-        threadParentCode: threadParentCode,
-        threadParentSenderCode: threadParentSenderCode,
-        threadParentSenderName: threadParentSenderName,
-        threadParentText: threadParentText,
-        localTempCode: localTempCode,
-      );
-
   MessageEntity copyWithText(String newText) => MessageEntity(
-        id: id,
-        code: code,
-        conversationCode: conversationCode,
-        senderCode: senderCode,
-        senderName: senderName,
-        senderRole: senderRole,
-        senderAvatarUrl: senderAvatarUrl,
-        text: newText,
-        messageType: messageType,
-        status: status,
-        sentAt: sentAt,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        isPrivate: isPrivate,
-        isEdited: true,
-        isDeleted: isDeleted,
-        deletedPlaceholder: deletedPlaceholder,
-        editedAt: DateTime.now(),
-        deletedAt: deletedAt,
-        attachments: attachments,
-        reactions: reactions,
-        readReceipts: readReceipts,
-        threadParentCode: threadParentCode,
-        threadParentSenderCode: threadParentSenderCode,
-        threadParentSenderName: threadParentSenderName,
-        threadParentText: threadParentText,
-        localTempCode: localTempCode,
-      );
+    id: id,
+    code: code,
+    conversationCode: conversationCode,
+    senderCode: senderCode,
+    senderName: senderName,
+    senderRole: senderRole,
+    senderAvatarUrl: senderAvatarUrl,
+    text: newText,
+    messageType: messageType,
+    status: status,
+    sentAt: sentAt,
+    organizationCode: organizationCode,
+    schoolCode: schoolCode,
+    isPrivate: isPrivate,
+    isEdited: true,
+    isDeleted: isDeleted,
+    deletedPlaceholder: deletedPlaceholder,
+    editedAt: DateTime.now(),
+    deletedAt: deletedAt,
+    attachments: attachments,
+    reactions: reactions,
+    readReceipts: readReceipts,
+    threadParentCode: threadParentCode,
+    threadParentSenderCode: threadParentSenderCode,
+    threadParentSenderName: threadParentSenderName,
+    threadParentText: threadParentText,
+    localTempCode: localTempCode,
+  );
 
   MessageEntity copyWithDeleted() => MessageEntity(
-        id: id,
-        code: code,
-        conversationCode: conversationCode,
-        senderCode: senderCode,
-        senderName: senderName,
-        senderRole: senderRole,
-        senderAvatarUrl: senderAvatarUrl,
-        text: text,
-        messageType: messageType,
-        status: status,
-        sentAt: sentAt,
-        organizationCode: organizationCode,
-        schoolCode: schoolCode,
-        isPrivate: isPrivate,
-        isEdited: isEdited,
-        isDeleted: true,
-        deletedPlaceholder: 'This message was deleted.',
-        editedAt: editedAt,
-        deletedAt: DateTime.now(),
-        attachments: attachments,
-        reactions: reactions,
-        readReceipts: readReceipts,
-        threadParentCode: threadParentCode,
-        threadParentSenderCode: threadParentSenderCode,
-        threadParentSenderName: threadParentSenderName,
-        threadParentText: threadParentText,
-        localTempCode: localTempCode,
-      );
+    id: id,
+    code: code,
+    conversationCode: conversationCode,
+    senderCode: senderCode,
+    senderName: senderName,
+    senderRole: senderRole,
+    senderAvatarUrl: senderAvatarUrl,
+    text: text,
+    messageType: messageType,
+    status: status,
+    sentAt: sentAt,
+    organizationCode: organizationCode,
+    schoolCode: schoolCode,
+    isPrivate: isPrivate,
+    isEdited: isEdited,
+    isDeleted: true,
+    deletedPlaceholder: 'This message has been deleted.',
+    editedAt: editedAt,
+    deletedAt: DateTime.now(),
+    attachments: attachments,
+    reactions: reactions,
+    readReceipts: readReceipts,
+    threadParentCode: threadParentCode,
+    threadParentSenderCode: threadParentSenderCode,
+    threadParentSenderName: threadParentSenderName,
+    threadParentText: threadParentText,
+    localTempCode: localTempCode,
+  );
 
-  MessageEntity copyWithReactions(Map<String, String> newReactions) => MessageEntity(
+  MessageEntity copyWithReactions(Map<String, String> newReactions) =>
+      MessageEntity(
         id: id,
         code: code,
         conversationCode: conversationCode,

@@ -167,8 +167,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
-import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
@@ -186,8 +184,10 @@ class GlobalScaffold extends StatefulWidget {
     this.isParent = false,
     this.studentList,
     this.customButtonLayout,
+
     /// When null, defaults to 8 px on all sides.
     this.bodyPadding,
+
     /// Forces a specific nav-bar slot to highlight regardless of the shell's
     /// current branch. Pass 1 for screens conceptually under the Attendance tab.
     this.activeTabIndexOverride,
@@ -215,16 +215,18 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
   @override
   void initState() {
     super.initState();
-    _unreadBadgeCubit = UnreadBadgeCubit(
-      watchUnreadCountForTypeUseCase:
-          serviceLocator<WatchUnreadCountForTypeUseCase>(),
-      getUnreadAggregatesUseCase: serviceLocator<GetUnreadAggregatesUseCase>(),
-    )..startWatching();
+    // Shared app-session singleton (registered in di.dart) — `startWatching`
+    // is idempotent (cancels and re-subscribes), so calling it again here on
+    // every mount keeps badges fresh after login/school-switch without ever
+    // opening more than one set of Firestore listeners app-wide.
+    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
   }
 
   @override
   void dispose() {
-    _unreadBadgeCubit.close();
+    // Do NOT close: this is a shared app-session singleton, not owned by
+    // this widget. Closing it here would break every other currently-
+    // mounted screen that also reads from it.
     super.dispose();
   }
 
@@ -258,47 +260,47 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
     return BlocProvider<UnreadBadgeCubit>.value(
       value: _unreadBadgeCubit,
       child: GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        // App bar stays pinned; only the bottom nav hides on scroll.
-        appBar: appBar,
-        drawer: const CustomDrawer(),
-        drawerEnableOpenDragGesture: false,
-        body: GradientBackground(
-          child: SafeArea(
-            // Let the Scaffold's appBar handle the top inset; we only
-            // inset for bottom so content never goes behind system bars,
-            // while always starting directly under the blue header.
-            top: false,
-            bottom: true,
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _handleScrollNotification,
-              child: Padding(
-                padding: widget.bodyPadding ?? const EdgeInsets.all(8),
-                child: widget.body,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: Scaffold(
+          // App bar stays pinned; only the bottom nav hides on scroll.
+          appBar: appBar,
+          drawer: const CustomDrawer(),
+          drawerEnableOpenDragGesture: false,
+          body: GradientBackground(
+            child: SafeArea(
+              // Let the Scaffold's appBar handle the top inset; we only
+              // inset for bottom so content never goes behind system bars,
+              // while always starting directly under the blue header.
+              top: false,
+              bottom: true,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: Padding(
+                  padding: widget.bodyPadding ?? const EdgeInsets.all(8),
+                  child: widget.body,
+                ),
               ),
             ),
           ),
+          extendBody: true,
+          floatingActionButton: widget.floatingActionButton,
+          bottomNavigationBar: widget.showCustomNavigationBar
+              // Let the bar size to its natural height (same as the attendance
+              // screens). AnimatedSize keeps the hide-on-scroll animation by
+              // collapsing to zero, without forcing a fixed height that
+              // overflows on devices with a large bottom system inset.
+              ? AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  child: _showBars
+                      ? CustomNavigationBar(
+                          activeTabIndexOverride: widget.activeTabIndexOverride,
+                        )
+                      : const SizedBox.shrink(),
+                )
+              : widget.customButtonLayout,
         ),
-        extendBody: true,
-        floatingActionButton: widget.floatingActionButton,
-        bottomNavigationBar: widget.showCustomNavigationBar
-            // Let the bar size to its natural height (same as the attendance
-            // screens). AnimatedSize keeps the hide-on-scroll animation by
-            // collapsing to zero, without forcing a fixed height that
-            // overflows on devices with a large bottom system inset.
-            ? AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeInOut,
-                child: _showBars
-                    ? CustomNavigationBar(
-                        activeTabIndexOverride: widget.activeTabIndexOverride,
-                      )
-                    : const SizedBox.shrink(),
-              )
-            : widget.customButtonLayout,
       ),
-    ),
     );
   }
 }

@@ -235,6 +235,7 @@ class ApiPaths {
         return ApiMicroservices.notification;
       case 'kiosk':
         return ApiMicroservices.attendance;
+      case 'billing':
       case 'discount':
       case 'subsidy':
       case 'fee-structure':
@@ -242,6 +243,9 @@ class ApiPaths {
       case 'invoices':
       case 'ledgers':
       case 'ledger-transactions':
+      case 'school-forte-configs':
+      case 'payment-gateway':
+      case 'payment':
         return ApiMicroservices.billing;
       default:
         return ApiMicroservices.user;
@@ -300,13 +304,17 @@ class ApiPaths {
       '$schoolNamesByOrg/$orgCode';
   static const String organizationNames = '/api/v1/organizations/names';
 
-  /// GET /api/v1/school/{schoolCode}/regular-schedule
+  /// Legacy regular-schedule list (prefer [schoolByCode] + `childcareSchedule`).
   static String schoolRegularSchedule(String schoolCode) =>
       '/api/v1/school/$schoolCode/regular-schedule';
 
-  /// School entity root (gateway: school host).
+  /// School settings (`data.childcareSchedule`, timezone, address, …).
+  /// Served by the organization microservice at
+  /// `/api/v1/organization/schools/{schoolCode}`; the bare
+  /// `/api/v1/schools/{code}` form is not exposed.
   static const String schools = '/api/v1/schools';
-  static String schoolByCode(String schoolCode) => '$schools/$schoolCode';
+  static String schoolByCode(String schoolCode) =>
+      '/api/v1/organization/schools/$schoolCode';
 
   /// GET /api/v1/schools/{schoolCode}/timezone
   static String schoolTimezone(String schoolCode) =>
@@ -452,6 +460,10 @@ class ApiPaths {
   /// Direct-MS form here (`/api/v1/student/{code}/siblings`); UAT re-inserts the
   /// gateway `student` segment — the doubled form 404s in LOCAL.
   static String studentSiblings(String code) => '$studentList/$code/siblings';
+
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling` — links siblings onto a
+  /// newly created student (used by the add-student dialog flow, not edit profile).
+  static String studentAddSibling(String code) => '$studentList/$code/add-sibling';
   static const String studentTags = '/api/v1/student-tags';
 
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
@@ -635,21 +647,21 @@ class ApiPaths {
   static const String kioskVerifyPin = '/api/v1/kiosk/verify-pin';
 
   // —— Reports (multiple microservices) ——
-  /// POST /api/v1/student-attendance/reports/generate — Generate student attendance reports.
+  /// POST /api/v1/attendance/student-attendance/reports/generate — Generate student attendance reports.
   static const String studentAttendanceReportsGenerate =
-      '/api/v1/student-attendance/reports/generate';
+      '/api/v1/attendance/student-attendance/reports/generate';
 
-  /// GET /api/v1/student-attendance/reports/recent — Get recent student attendance reports.
+  /// GET /api/v1/attendance/student-attendance/reports/recent — Get recent student attendance reports.
   static const String studentAttendanceReportsRecent =
-      '/api/v1/student-attendance/reports/recent';
+      '/api/v1/attendance/student-attendance/reports/recent';
 
-  /// POST /api/v1/staff-attendance/reports/generate — Generate staff attendance reports.
+  /// POST /api/v1/attendance/staff-attendance/reports/generate — Generate staff attendance reports.
   static const String staffAttendanceReportsGenerate =
-      '/api/v1/staff-attendance/reports/generate';
+      '/api/v1/attendance/staff-attendance/reports/generate';
 
-  /// GET /api/v1/staff-attendance/reports/recent — Get recent staff attendance reports.
+  /// GET /api/v1/attendance/staff-attendance/reports/recent — Get recent staff attendance reports.
   static const String staffAttendanceReportsRecent =
-      '/api/v1/staff-attendance/reports/recent';
+      '/api/v1/attendance/staff-attendance/reports/recent';
 
   /// POST /api/v1/staff/reports/generate — Generate staff directory reports (staff MS).
   static const String staffReportsGenerate = '/api/v1/staff/reports/generate';
@@ -819,6 +831,30 @@ class ApiPaths {
   static const String messagingCreateMessage = conversations;
   static const String messagingMessages = messages;
 
+  // POST /api/v1/messages/conversations/{code}/attachments/upload-session
+  // (resolves to .../messaging/messages/conversations/{code}/attachments/
+  // upload-session in UAT, confirmed against the working web-app request) —
+  // mirrors the student-documents/staff-documents upload-session bootstrap
+  // so message attachments can use the same generic presign → S3 PUT →
+  // complete flow.
+  static String messagingConversationUploadSessionPath(String code) =>
+      '$messages/conversations/$code/attachments/upload-session';
+
+  // DELETE /api/v1/messages/attachments/{attachmentId} — removes a single
+  // attachment (by the messaging-service attachment id, not the document
+  // asset code) from its message without deleting the whole message.
+  static String messagingAttachmentPath(int attachmentId) =>
+      '$messages/attachments/$attachmentId';
+
+  // POST /api/v1/messages/conversations/{code}/attachments — registers a
+  // completed document-service asset against the conversation and returns
+  // the messaging-service attachment id required by [messagingMessages]'s
+  // `attachmentIds` (the asset code alone is not a valid send-message
+  // reference — confirmed against the working web-app request for this
+  // endpoint).
+  static String messagingConversationAttachmentsPath(String code) =>
+      '$messages/conversations/$code/attachments';
+
   // ── Conversation sub-resources ────────────────────────────────────────────
   static String messagingConversation(String code) => '$conversations/$code';
   static String messagingConversationsByType(String type) =>
@@ -838,6 +874,12 @@ class ApiPaths {
   // POST /api/v1/messages/conversation/{code}/receipts/read-all
   static String messagingConversationMarkRead(String code) =>
       '$messages/conversation/$code/receipts/read-all';
+  // POST /api/v1/messages/conversation/{code}/receipts/delivered-all — marks
+  // every unread message in the conversation as delivered for the current
+  // user, even with the thread closed, so the sender's ticks advance
+  // promptly (mirrors the web app's markAllAsDelivered).
+  static String messagingConversationMarkDelivered(String code) =>
+      '$messages/conversation/$code/receipts/delivered-all';
 
   // ── Message sub-resources ─────────────────────────────────────────────────
   static String messagingMessage(String code) => '$messages/$code';
@@ -887,18 +929,43 @@ class ApiPaths {
   static const String notificationLogsReadAll =
       '/api/v1/notification/logs/read-all';
 
+  /// GET/PATCH user notification preferences (in-app / push / email per
+  /// notification definition). Notification MS.
+  static const String notificationPreferences =
+      '/api/v1/notification/preferences';
+
   // —— Billing MS ——
+  static const String billingStatements = '/api/v1/billing/statements';
+  static String billingStatementDownload(String code) =>
+      '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';
   static const String discounts = '/api/v1/discount';
   static const String subsidies = '/api/v1/subsidy';
   static const String feeStructures = '/api/v1/fee-structure';
   static const String otherFees = '/api/v1/other-fees';
   static const String invoices = '/api/v1/invoices';
   static const String invoicesOverview = '/api/v1/invoices/overview';
+  static const String invoicesAnalytics = '/api/v1/invoices/analytics';
+  static const String invoicesTransactions = '/api/v1/invoices/transactions';
   static const String invoicesFamilySummary = '/api/v1/invoices/family-summary';
+  static const String invoicesFamilyLedger = '/api/v1/invoices/family-ledger';
+  static const String invoicesFamilyLedgerByGuardian =
+      '/api/v1/invoices/family-ledger/by-guardian';
   static const String invoicePayments = '/api/v1/invoices/payments';
   static const String invoiceRefunds = '/api/v1/invoices/refunds';
+  static const String invoiceCredits = '/api/v1/invoices/credits';
+
+  /// Paginated invoice list for an organization. Note: same URL shape as
+  /// [invoiceByCode] but a GET that returns a page — keep them distinct.
+  static String invoicesByOrganization(String organizationCode) =>
+      '/api/v1/invoices/${Uri.encodeComponent(organizationCode.trim())}';
   static String invoiceByCode(String code) =>
       '/api/v1/invoices/${Uri.encodeComponent(code.trim())}';
+
+  /// Full invoice detail (incl. line items) for the edit form.
+  static String invoiceDetailByCode(String code) =>
+      '/api/v1/invoices/by-code/${Uri.encodeComponent(code.trim())}';
+  /// Edit a draft invoice — `PATCH /api/v1/invoices/{invoiceCode}/draft`.
+  static String invoiceDraft(String code) => '${invoiceByCode(code)}/draft';
   static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';
   static String invoiceIssue(String code) => '${invoiceByCode(code)}/issue';
   static String invoiceResend(String code) => '${invoiceByCode(code)}/resend';
@@ -922,4 +989,39 @@ class ApiPaths {
 
   // —— Ledger Transactions (Billing MS) ——
   static const String ledgerTransactions = '/api/v1/ledger-transactions';
+
+  // —— Auto Pay / Forte payment methods (Billing MS) ——
+  /// School-level Forte config (returns `apiLoginId`).
+  static const String schoolForteConfigs = '/api/v1/school-forte-configs';
+
+  /// School payment settings — which method types are accepted and who pays the
+  /// convenience fee. `GET /api/v1/payment/settings?schoolCode=...`.
+  static const String paymentSettings = '/api/v1/payment/settings';
+
+  /// Whether auto-pay is enabled for a guardian.
+  static const String autopayStatus =
+      '/api/v1/payment-gateway/autopay/status';
+
+  /// List/create saved payment methods (up to 4 per guardian).
+  static const String paymentGatewayMethods =
+      '/api/v1/payment-gateway/payment-methods';
+
+  /// Charge a guardian's saved payment method (Pay Now).
+  static const String paymentGatewayGuardianPay =
+      '/api/v1/payment-gateway/guardian/pay';
+
+  /// A single saved payment method (used for DELETE).
+  static String paymentGatewayMethodByCode(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}';
+
+  /// Mark a saved payment method as primary (the default payment method).
+  static String paymentGatewayMethodPrimary(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}/primary';
+
+  /// Mark a saved payment method as the auto-pay method.
+  static String paymentGatewayMethodAutopay(String paymentMethodCode) =>
+      '/api/v1/payment-gateway/payment-methods/'
+      '${Uri.encodeComponent(paymentMethodCode.trim())}/autopay';
 }

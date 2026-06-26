@@ -123,8 +123,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
 
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          await storage.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
 
       final studentRepo = serviceLocator<StudentRepository>();
 
@@ -219,19 +218,15 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                     margin: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
                     ),
-                    padding: EdgeInsets.all(
-                      responsive.isTablet ? 32.0 : 16.0,
-                    ),
+                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.all(
-                        Radius.circular(
-                          responsive.isTablet ? 40.0 : 24.0,
-                        ),
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -252,10 +247,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
                                 textCapitalization: TextCapitalization.words,
                               ),
                             ),
-                            SizedBox(
-                              width:
-                                  responsive.isTablet ? 24.0 : 16.0,
-                            ),
+                            SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
                             Expanded(
                               child: _buildInputField(
                                 label: 'Last Name',
@@ -315,7 +307,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -375,9 +367,7 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          constraints: BoxConstraints(
-            minHeight: responsive.inputFieldHeight,
-          ),
+          constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
@@ -411,7 +401,6 @@ class _AddPhysicianScreenState extends State<AddPhysicianScreen> {
       ],
     );
   }
-
 }
 
 class PhoneNumberFormatter extends TextInputFormatter {
@@ -432,7 +421,8 @@ class PhoneNumberFormatter extends TextInputFormatter {
       formattedText = '(${digits.substring(0, 3)}) ${digits.substring(3)}';
     } else {
       final d = digits.substring(0, 10);
-      formattedText = '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
+      formattedText =
+          '(${d.substring(0, 3)}) ${d.substring(3, 6)}-${d.substring(6)}';
     }
 
     return TextEditingValue(
@@ -441,4 +431,3 @@ class PhoneNumberFormatter extends TextInputFormatter {
     );
   }
 }
-

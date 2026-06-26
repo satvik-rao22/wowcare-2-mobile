@@ -26,8 +26,9 @@ class ApiConstantsUat {
   // ─── UAT gateway host ──────────────────────────────────────────────────────
   // Single gateway for all microservices in UAT.
   // Update this when the UAT hostname changes.
-  // static const String _host = 'https://uat-wowcare.childcarewow.app';
-  static const String _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms';
+  static const String _host = 'https://uat-wowcare.childcarewow.app';
+  // static const String _host = 'https://jl69j4pz-8090.inc1.devtunnels.ms';
+  // static const String _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms';
 
   // Communication / Messaging MS runs on port 8086.
   // Must be updated alongside _host when the tunnel ID changes.
@@ -35,6 +36,8 @@ class ApiConstantsUat {
   //     'https://4hn0k1dg-8087.inc1.devtunnels.ms';
 
   // ─── Per-service base URLs ─────────────────────────────────────────────────
+  // Single gateway: the microservice segment lives in the PATH
+  // (`<_host>/api/v1/<ms>/...`), not the host — so every base URL is just [_host].
   static const String baseUrl = _host;
   static const String staffBaseUrl = _host;
   static const String studentBaseUrl = _host;
@@ -47,6 +50,11 @@ class ApiConstantsUat {
   static const String communicationBaseUrl = _host;
   static const String billingBaseUrl = _host;
   static const String newsLatterBaseUrl = _host;
+
+  // ─── Forte (auto-pay tokenization) ─────────────────────────────────────────
+  /// Forte environment used by the auto-pay webview in UAT. `'sandbox'` loads
+  /// the Forte sandbox SDK; change to `'prod'` once UAT points at live Forte.
+  static const String forteEnv = 'sandbox';
 
   // ─── Microservice router ───────────────────────────────────────────────────
 

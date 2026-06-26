@@ -230,11 +230,40 @@ class RoleCubit extends Cubit<RoleState> {
         (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
     final activeUpper = active.toUpperCase();
 
+    // Pick the school entry whose `role` matches the persona the user is
+    // actually in. A multi-role account (e.g. SCHOOL_ADMIN + GUARDIAN in the
+    // same school) has one entry — with its own permissions — per role, so the
+    // wrong choice here applies the wrong module ACL.
     Map<String, dynamic>? matchedSchool;
     if (activeUpper.isNotEmpty) {
+      // 1. Exact backend-role match (keeps ORG_ADMIN vs SCHOOL_ADMIN distinct).
       for (final c in candidates) {
         final r = (c['role'] ?? '').toString().trim().toUpperCase();
         if (r == activeUpper) {
+          matchedSchool = c;
+          break;
+        }
+      }
+      // 2. Persona-family match — tolerates stored aliases such as 'PARENT'
+      //    for 'GUARDIAN' or 'ADMIN' for 'SCHOOL_ADMIN' so a format drift in
+      //    activeSchoolRole never silently falls through to the wrong role.
+      if (matchedSchool == null) {
+        final wantFamily = _personaFamily(active);
+        for (final c in candidates) {
+          if (_personaFamily((c['role'] ?? '').toString()) == wantFamily) {
+            matchedSchool = c;
+            break;
+          }
+        }
+      }
+    }
+    // 3. No active persona resolved yet: fall back to the persona derived from
+    //    the login `roles` (least-privilege guardian when ambiguous) instead of
+    //    blindly taking whichever role the backend listed first.
+    if (matchedSchool == null) {
+      final wantFamily = await _computeFallbackRole(storage);
+      for (final c in candidates) {
+        if (_personaFamily((c['role'] ?? '').toString()) == wantFamily) {
           matchedSchool = c;
           break;
         }
@@ -252,18 +281,7 @@ class RoleCubit extends Cubit<RoleState> {
           .persistActiveSchoolPersonaRole(chosenRole);
     }
 
-    String role;
-    final backendRole = chosenRole.toLowerCase();
-    if (backendRole.contains('kiosk')) {
-      role = 'kiosk';
-    } else if (backendRole.contains('guardian') || backendRole.contains('parent')) {
-      role = 'parent';
-    } else if (backendRole.contains('staff') ||
-        backendRole.contains('teacher')) {
-      role = 'staff';
-    } else {
-      role = 'admin';
-    }
+    final role = _personaFamily(chosenRole);
 
     bool granularModuleAccess = false;
     final permissions = matchedSchool['permissions'];
@@ -290,6 +308,18 @@ class RoleCubit extends Cubit<RoleState> {
       modulesWithWrite: modulesWithWrite,
       granularModuleAccess: granularModuleAccess,
     );
+  }
+
+  /// Collapses any backend role string to the coarse persona the UI gates on:
+  /// `kiosk` / `parent` / `staff` / `admin`. Used both to choose the matching
+  /// `/users/details` school entry and to set [RoleState.role], so the persona
+  /// and its module ACL always come from the same entry.
+  String _personaFamily(String backendRole) {
+    final r = backendRole.trim().toLowerCase();
+    if (r.contains('kiosk')) return 'kiosk';
+    if (r.contains('guardian') || r.contains('parent')) return 'parent';
+    if (r.contains('staff') || r.contains('teacher')) return 'staff';
+    return 'admin';
   }
 
   /// Aligns UI aliases (e.g. `staff-attendance`) with backend keys

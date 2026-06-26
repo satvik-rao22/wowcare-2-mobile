@@ -3,7 +3,7 @@ description: "WowCare 2.O"
 
 publish_to: 'none' 
 
-version: 1.0.0+1
+version: 1.0.8
 
 
 
@@ -15,7 +15,7 @@ dependencies:
   flutter:
     sdk: flutter
   any_link_preview: ^3.0.3
-  bloc: ^9.0.0
+  bloc: ^8.0.3
   dotted_border: ^3.1.0
   calendar_date_picker2: ^3.0.0
   card_swiper: ^3.0.1
@@ -35,7 +35,7 @@ dependencies:
   firebase_storage: ^13.0.1
   fl_chart: ^1.0.0
   flutter_advanced_drawer: ^1.3.6
-  flutter_bloc: ^9.0.0
+  flutter_bloc: ^8.0.1
   flutter_card_swiper: ^7.0.2
   flutter_html: ^3.0.0
   mobile_scanner: ^7.2.0
@@ -132,7 +132,7 @@ flutter:
     - assets/images/icons/
     - assets/icons/
     - assets/languages/
-    - assets/forte_checkout.html
+    - assets/forte_auto_pay.html
   fonts:
     - family: MervaleScript
       fonts:

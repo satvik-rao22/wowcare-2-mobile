@@ -1,7 +1,8 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
@@ -29,7 +30,7 @@ class StaffDashboard extends StatefulWidget {
 class _StaffDashboardState extends State<StaffDashboard> {
   late final StaffDashboardCoordinatorCubit _coordinator;
 
-  static const double _maxContentWidth = 640;
+  // static const double _maxContentWidth = 640;
 
   @override
   void initState() {
@@ -68,14 +69,22 @@ class _StaffDashboardState extends State<StaffDashboard> {
             padding: const EdgeInsets.only(top: 20),
             child: MultiBlocProvider(
               providers: [
-                BlocProvider<StaffDashboardCubit>.value(value: coordinator.dashboardCubit),
-                BlocProvider<GeofenceCubit>.value(value: coordinator.geofenceCubit),
+                BlocProvider<StaffDashboardCubit>.value(
+                  value: coordinator.dashboardCubit,
+                ),
+                BlocProvider<GeofenceCubit>.value(
+                  value: coordinator.geofenceCubit,
+                ),
                 BlocProvider<RatioMonitoringCubit>.value(
                   value: coordinator.ratioMonitoringCubit,
                 ),
                 BlocProvider<MyDayCubit>.value(value: coordinator.myDayCubit),
-                BlocProvider<MyShiftsCubit>.value(value: coordinator.myShiftsCubit),
-                BlocProvider<MyAttendanceCubit>.value(value: coordinator.myAttendanceCubit),
+                BlocProvider<MyShiftsCubit>.value(
+                  value: coordinator.myShiftsCubit,
+                ),
+                BlocProvider<MyAttendanceCubit>.value(
+                  value: coordinator.myAttendanceCubit,
+                ),
               ],
               child: _buildScaffold(context),
             ),
@@ -87,14 +96,45 @@ class _StaffDashboardState extends State<StaffDashboard> {
 
   Widget _buildScaffold(BuildContext context) {
     final coordinator = context.read<StaffDashboardCoordinatorCubit>();
-    return GlobalScaffold(
-      showCustomNavigationBar: true,
-      bodyPadding: EdgeInsets.zero,
-      body: Material(
-        type: MaterialType.transparency,
-        child: CustomRefreshIndicator(
-          onRefresh: () => coordinator.refresh(),
-          child: _DashboardCardList(cardFor: _cardFor),
+    return BlocListener<StaffDashboardCoordinatorCubit, DashboardState>(
+      listenWhen: (prev, curr) {
+        if (curr.isFailure && !prev.isFailure) return true;
+        if (curr.isPartialError && !prev.isPartialError) return true;
+        if (prev.isRefreshing && curr.isReady) return true;
+        return false;
+      },
+      listener: (context, state) {
+        if (state.isFailure) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                state.errorMessage ??
+                'Unable to load dashboard data. Please try again.',
+            isError: true,
+          );
+        } else if (state.isPartialError) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Some sections could not be loaded. Pull down to retry.',
+            isWarning: true,
+          );
+        } else if (state.isReady) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Dashboard refreshed successfully.',
+            isSuccess: true,
+          );
+        }
+      },
+      child: GlobalScaffold(
+        showCustomNavigationBar: true,
+        bodyPadding: EdgeInsets.zero,
+        body: Material(
+          type: MaterialType.transparency,
+          child: CustomRefreshIndicator(
+            onRefresh: () => coordinator.refresh(),
+            child: _DashboardCardList(cardFor: _cardFor),
+          ),
         ),
       ),
     );
@@ -120,19 +160,12 @@ class _DashboardCardList extends StatelessWidget {
             return Align(
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: const BoxConstraints(
-                  maxWidth: _maxContentWidth,
-                ),
+                constraints: const BoxConstraints(maxWidth: _maxContentWidth),
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   slivers: [
                     SliverPadding(
-                      padding: EdgeInsets.fromLTRB(
-                        gutter,
-                        24,
-                        gutter,
-                        28,
-                      ),
+                      padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 28),
                       sliver: SliverReorderableList(
                         itemCount: dashState.cards.length,
                         onReorder: context

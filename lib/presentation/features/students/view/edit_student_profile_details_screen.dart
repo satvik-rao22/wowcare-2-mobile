@@ -24,6 +24,9 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class EditStudentProfileDetailsScreen extends StatefulWidget {
   const EditStudentProfileDetailsScreen({
@@ -35,7 +38,6 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
     this.initialClassroom,
     this.initialBirthDate,
     this.initialNotes,
-    this.initialFTE,
     this.initialStreet,
     this.initialCity,
     this.initialState,
@@ -56,7 +58,6 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
   final String? initialNotes;
   final String? initialClassroom;
   final DateTime? initialBirthDate;
-  final String? initialFTE;
   final String? initialStreet;
   final String? initialCity;
   final String? initialState;
@@ -66,19 +67,21 @@ class EditStudentProfileDetailsScreen extends StatefulWidget {
   final List<String> initialSiblings;
   final List<String> initialLegalCustodians;
   final bool initialSubsidy;
+
   /// Raw API value e.g. MALE, FEMALE, or null.
   final String? initialGender;
 
   @override
-  _EditStudentProfileDetailsScreenState createState() => _EditStudentProfileDetailsScreenState();
+  _EditStudentProfileDetailsScreenState createState() =>
+      _EditStudentProfileDetailsScreenState();
 }
 
-class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDetailsScreen> {
+class _EditStudentProfileDetailsScreenState
+    extends State<EditStudentProfileDetailsScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _FTEController = TextEditingController();
   final TextEditingController _streetController = TextEditingController();
   final TextEditingController _street2Controller = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
@@ -95,6 +98,12 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   String? _selectedCountry;
   bool _isSubmitting = false;
 
+  // Today's sign-in status — drives disabling the Classroom dropdown while
+  // the student is currently signed in. Fails closed (disabled) on error or
+  // while loading, matching the convention in student_attendance_profile.dart.
+  bool _isTodayStatusLoading = true;
+  bool _isSignedInToday = false;
+
   // API-backed options and mappings
   List<String> _availableTagNames = [];
   Map<String, String> _tagNameToCode = {};
@@ -103,25 +112,30 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   Map<String, String> _studentNameToCode = {};
 
   List<String> _availableGuardianNames = [];
-  final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming', 'Waitlist', 'Graduated'];
-  final List<String> _stateSubsidyOptions = ['Yes', 'No'];
-  final List<String> _genderOptions = const [
-    'Male',
-    'Female',
-    'Other',
+  final List<String> _statusOptions = [
+    'Active',
+    'Inactive',
+    'Upcoming',
+    'Waitlist',
+    'Graduated',
   ];
+  final List<String> _stateSubsidyOptions = ['Yes', 'No'];
+  final List<String> _genderOptions = const ['Male', 'Female', 'Other'];
   String? _selectedGender;
-  final List<String> _stateOptions =
-      US_STATES.map((s) => s.name).toList(growable: false);
+  final List<String> _stateOptions = US_STATES
+      .map((s) => s.name)
+      .toList(growable: false);
   // Country is fixed to United States for this form.
 
   // Simple validators (align with Add Staff)
   // First character A-Z, then up to 49 letters/space/hyphen/apostrophe.
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
-  static final RegExp _fteRegex = RegExp(r"^(?:100|[1-9]?[0-9])$");
-  static final RegExp _zipDigitsRegex = RegExp(r'^\d{5}(\d{4})?$'); // 5 or 9 digits (ZIP / ZIP+4)
+  static final RegExp _zipDigitsRegex = RegExp(
+    r'^\d{5}(\d{4})?$',
+  ); // 5 or 9 digits (ZIP / ZIP+4)
 
-  static String _digitsOnly(String input) => input.replaceAll(RegExp(r'\D'), '');
+  static String _digitsOnly(String input) =>
+      input.replaceAll(RegExp(r'\D'), '');
 
   static String? _genderDisplayFromApi(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
@@ -162,7 +176,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     _firstNameController.text = widget.initialFirstName ?? '';
     _lastNameController.text = widget.initialLastName ?? '';
     _notesController.text = widget.initialNotes ?? '';
-    _FTEController.text = widget.initialFTE ?? '';
     _selectedStatus = widget.initialStatus;
     _selectedStateSubsidyOption = widget.initialSubsidy ? 'Yes' : 'No';
     _selectedClassroom = widget.initialClassroom;
@@ -200,19 +213,50 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     _loadTags();
     _loadStudentsForSiblings();
     _loadGuardiansForCustody();
+    _loadTodayStatus();
+  }
+
+  /// Mirrors student_attendance_profile.dart's `_loadTodayStatus()` — reuses
+  /// the same use case so "currently signed in" is determined identically
+  /// everywhere in the app.
+  Future<void> _loadTodayStatus() async {
+    final code = widget.studentCode.trim();
+    if (code.isEmpty) {
+      if (!mounted) return;
+      setState(() => _isTodayStatusLoading = false);
+      return;
+    }
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusUseCase>();
+      final status = await useCase(studentCode: code);
+      if (!mounted) return;
+      final gate = studentAttendanceGateFromTodayStatus(
+        isActiveProfile: true,
+        todayStatusRaw: status,
+      );
+      setState(() {
+        _isSignedInToday = gate.isSignedInToday;
+        _isTodayStatusLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      // Fail closed: keep the Classroom field disabled if the status can't
+      // be determined, same convention as student_attendance_profile.dart.
+      setState(() {
+        _isSignedInToday = true;
+        _isTodayStatusLoading = false;
+      });
+    }
   }
 
   Future<void> _loadTags() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          await storage.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final namesUseCase =
-          serviceLocator<GetTagNamesForSchoolUseCase>();
-      final mapUseCase =
-          serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+      final namesUseCase = serviceLocator<GetTagNamesForSchoolUseCase>();
+      final mapUseCase = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
 
       final names = await namesUseCase(schoolCode: schoolCode);
       final nameCodeMap = await mapUseCase(schoolCode: schoolCode);
@@ -232,8 +276,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   Future<void> _loadStudentsForSiblings() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          await storage.getString(StorageKeys.schoolCode) ?? '';
+      final schoolCode = await storage.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
       final repo = serviceLocator<StudentRepository>();
@@ -295,8 +338,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
               .toList();
         } else {
           // Ensure existing selected names still exist.
-          _selectedSiblings
-              .removeWhere((name) => !_availableStudentNames.contains(name));
+          _selectedSiblings.removeWhere(
+            (name) => !_availableStudentNames.contains(name),
+          );
         }
       });
     } catch (_) {
@@ -308,25 +352,32 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     try {
       if (widget.studentCode.trim().isEmpty) return;
       final dataSource = serviceLocator<StudentRemoteDataSource>();
-      final guardians =
-          await dataSource.getStudentGuardians(studentCode: widget.studentCode);
+      final guardians = await dataSource.getStudentGuardians(
+        studentCode: widget.studentCode,
+      );
 
       String _guardianDisplayName(Map<String, dynamic> g) {
-        final first = (g['firstName'] ?? g['first_name'] ?? '').toString().trim();
+        final first = (g['firstName'] ?? g['first_name'] ?? '')
+            .toString()
+            .trim();
         final last = (g['lastName'] ?? g['last_name'] ?? '').toString().trim();
         final full = '$first $last'.trim();
         if (full.isNotEmpty) return full;
-        final direct =
-            (g['fullName'] ?? g['name'] ?? '').toString().trim();
+        final direct = (g['fullName'] ?? g['name'] ?? '').toString().trim();
         if (direct.isNotEmpty) return direct;
         final user = g['user'];
         if (user is Map<String, dynamic>) {
-          final uf = (user['firstName'] ?? user['first_name'] ?? '').toString().trim();
-          final ul = (user['lastName'] ?? user['last_name'] ?? '').toString().trim();
+          final uf = (user['firstName'] ?? user['first_name'] ?? '')
+              .toString()
+              .trim();
+          final ul = (user['lastName'] ?? user['last_name'] ?? '')
+              .toString()
+              .trim();
           final ufull = '$uf $ul'.trim();
           if (ufull.isNotEmpty) return ufull;
-          final uname =
-              (user['fullName'] ?? user['name'] ?? '').toString().trim();
+          final uname = (user['fullName'] ?? user['name'] ?? '')
+              .toString()
+              .trim();
           if (uname.isNotEmpty) return uname;
         }
         return '';
@@ -337,10 +388,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         final base = _guardianDisplayName(g);
         final code = (g['guardianCode'] ?? g['code'] ?? '').toString().trim();
         if (base.isEmpty) continue;
-        rawRows.add(<String, String>{
-          'name': base,
-          'code': code,
-        });
+        rawRows.add(<String, String>{'name': base, 'code': code});
       }
 
       final names = <String>[];
@@ -353,8 +401,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
 
       setState(() {
         _availableGuardianNames = names;
-        _selectedChildCustody
-            .removeWhere((g) => !_availableGuardianNames.contains(g));
+        _selectedChildCustody.removeWhere(
+          (g) => !_availableGuardianNames.contains(g),
+        );
       });
     } catch (_) {
       // Non-critical; keep any existing selections.
@@ -366,7 +415,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     _firstNameController.dispose();
     _lastNameController.dispose();
     _notesController.dispose();
-    _FTEController.dispose();
     _street2Controller.dispose();
     _streetController.dispose();
     _cityController.dispose();
@@ -377,7 +425,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
   Future<void> _saveProfileDetails() async {
     final first = _firstNameController.text.trim();
     final last = _lastNameController.text.trim();
-    final fte = _FTEController.text.trim();
 
     if (first.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -438,7 +485,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     } else {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
-      if (_selectedBirthDate!.isAfter(today.subtract(const Duration(days: 1)))) {
+      if (_selectedBirthDate!.isAfter(
+        today.subtract(const Duration(days: 1)),
+      )) {
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Birthdate must be a past date',
@@ -456,15 +505,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       );
       return;
     }
-    if (fte.isNotEmpty && !_fteRegex.hasMatch(fte)) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'FTE must be a number between 0 and 100.',
-        isError: true,
-      );
-      return;
-    }
-
     final street = _streetController.text.trim();
     final city = _cityController.text.trim();
     final zipDigits = _digitsOnly(_zipCodeController.text);
@@ -559,7 +599,8 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         classroomCubit = null;
       }
 
-      final classrooms = classroomCubit?.state.classrooms ?? const <Classroom>[];
+      final classrooms =
+          classroomCubit?.state.classrooms ?? const <Classroom>[];
       final classroomCodeByName = <String, String>{
         for (final c in classrooms) c.name: c.code,
       };
@@ -596,12 +637,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
       // Map subsidy
       final subsidy = _selectedStateSubsidyOption == 'Yes';
 
-      // Map FTE to number
-      int? fteNumber;
-      if (fte.isNotEmpty) {
-        fteNumber = int.tryParse(fte);
-      }
-
       final repository = serviceLocator<StudentRepository>();
 
       // 1) Core profile PATCH /api/v1/student/{code}/profile
@@ -613,7 +648,6 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         'status': statusApi,
         if (dobFormatted != null) 'dob': dobFormatted,
         'notes': _notesController.text.trim(),
-        if (fteNumber != null) 'fte': fteNumber,
         'subsidy': subsidy,
         if (genderApi != null) 'gender': genderApi.toUpperCase(),
         'classroom': <String, dynamic>{
@@ -752,9 +786,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     if (!hasClassroomCubit) {
       return BlocProvider<ClassroomCubit>(
         create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
-        child: Builder(
-          builder: (context) => _buildScreen(context),
-        ),
+        child: Builder(builder: (context) => _buildScreen(context)),
       );
     }
 
@@ -772,8 +804,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     } catch (_) {
       classroomState = const ClassroomState.initial();
     }
-    final classroomOptions =
-        classroomState.classrooms.map((c) => c.name).toList(growable: false);
+    final classroomOptions = classroomState.classrooms
+        .map((c) => c.name)
+        .toList(growable: false);
 
     // Keep selected classroom as display name in UI, even if initial value is a code.
     String? selectedClassroomName = _selectedClassroom;
@@ -809,7 +842,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
               children: [
                 const SizedBox(height: 16),
                 Padding(
-                  padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: responsive.horizontalSpacing,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -827,14 +862,18 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                 Expanded(
                   child: Container(
                     width: responsive.containerWidth,
-                    margin: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                    margin: EdgeInsets.symmetric(
+                      horizontal: responsive.horizontalSpacing,
+                    ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.all(Radius.circular(responsive.isTablet ? 40.0 : 24.0)),
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                      ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -843,6 +882,36 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                     child: ListView(
                       padding: EdgeInsets.zero,
                       children: [
+                        // Same green/red "signed in today" indicator used in
+                        // the Student Attendance module — gives a visible
+                        // reason alongside the disabled Classroom field.
+                        Row(
+                          children: [
+                            DocumentImageWidget(
+                              fileUuid: '',
+                              studentCode: widget.studentCode,
+                              name:
+                                  '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}',
+                              size: 40,
+                              fontSize: 14,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                '${widget.initialFirstName ?? ''} ${widget.initialLastName ?? ''}'
+                                    .trim(),
+                                style: const TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xff573353),
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
                         Row(
                           children: [
                             Expanded(
@@ -863,7 +932,14 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           ],
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("Status", "Select", _statusOptions, _selectedStatus, (v) => setState(() => _selectedStatus = v), isRequired: true),
+                        _buildCustomDropdown(
+                          "Status",
+                          "Select",
+                          _statusOptions,
+                          _selectedStatus,
+                          (v) => setState(() => _selectedStatus = v),
+                          isRequired: true,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildCustomDropdown(
                           "Gender",
@@ -882,6 +958,11 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           selectedClassroomName,
                           (v) => setState(() => _selectedClassroom = v),
                           isRequired: true,
+                          isEnabled:
+                              !_isTodayStatusLoading && !_isSignedInToday,
+                          disabledTooltip: _isTodayStatusLoading
+                              ? null
+                              : "Classroom can't be changed while the student is signed in.",
                         ),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
@@ -897,11 +978,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                         SizedBox(height: responsive.verticalSpacing),
                         _buildDateField("Date of birth", _selectedBirthDate),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildInputField(
-                          "Notes",
-                          "",
-                          _notesController,
-                        ),
+                        _buildInputField("Notes", "", _notesController),
                         SizedBox(height: responsive.verticalSpacing),
                         CustomMultiSelectDropdown(
                           label: 'Siblings',
@@ -921,12 +998,21 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           items: _availableGuardianNames,
                           selectedItems: _selectedChildCustody,
                           onChanged: (custodyOptions) {
-                            setState(() => _selectedChildCustody = custodyOptions);
+                            setState(
+                              () => _selectedChildCustody = custodyOptions,
+                            );
                           },
                           isField: true,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("State Subsidy", "Select", _stateSubsidyOptions, _selectedStateSubsidyOption, (v) => setState(() => _selectedStateSubsidyOption = v)),
+                        _buildCustomDropdown(
+                          "State Subsidy",
+                          "Select",
+                          _stateSubsidyOptions,
+                          _selectedStateSubsidyOption,
+                          (v) =>
+                              setState(() => _selectedStateSubsidyOption = v),
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         _buildInputField(
                           "Street",
@@ -952,7 +1038,14 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                           textCapitalization: TextCapitalization.words,
                         ),
                         SizedBox(height: responsive.verticalSpacing),
-                        _buildCustomDropdown("State", "Select", _stateOptions, _selectedState, (v) => setState(() => _selectedState = v), isRequired: true),
+                        _buildCustomDropdown(
+                          "State",
+                          "Select",
+                          _stateOptions,
+                          _selectedState,
+                          (v) => setState(() => _selectedState = v),
+                          isRequired: true,
+                        ),
                         SizedBox(height: responsive.verticalSpacing),
                         Opacity(
                           opacity: 0.8,
@@ -1023,7 +1116,7 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -1070,7 +1163,11 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -1080,7 +1177,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -1116,15 +1215,18 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
     String? selectedItem,
     ValueChanged<String?> onSelect, {
     bool isRequired = false,
+    bool isEnabled = true,
+    String? disabledTooltip,
   }) {
     final responsive = ResponsiveHelper(context);
-    return CustomDropdown(
+    final dropdown = CustomDropdown(
       label: label,
       hintText: hintText,
       items: items,
       selectedItem: selectedItem,
       onSelect: onSelect,
       showAsterisk: isRequired,
+      isEnabled: isEnabled,
       labelStyle: TextStyle(
         fontSize: responsive.labelFontSize,
         fontFamily: "Manrope",
@@ -1151,6 +1253,11 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
         vertical: responsive.isTablet ? 16.0 : 12.0,
       ),
     );
+
+    if (!isEnabled && disabledTooltip != null) {
+      return Tooltip(message: disabledTooltip, child: dropdown);
+    }
+    return dropdown;
   }
 
   Widget _buildDateField(String label, DateTime? selectedDate) {
@@ -1175,7 +1282,9 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border.all(color: const Color(0x66573353)),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 12.0 : 8.0,
+              ),
             ),
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -1187,13 +1296,15 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                 children: [
                   Flexible(
                     child: Text(
-                      selectedDate != null 
+                      selectedDate != null
                           ? DateFormat('MMM dd, yyyy').format(selectedDate)
                           : 'Select Date',
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: responsive.inputFontSize,
-                        fontWeight: selectedDate != null ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: selectedDate != null
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: const Color(0xff573353),
                         height: 19 / 14,
                       ),
@@ -1204,7 +1315,10 @@ class _EditStudentProfileDetailsScreenState extends State<EditStudentProfileDeta
                   SvgPicture.asset(
                     MediaRes.calender_icon,
                     height: 20.0,
-                    colorFilter: const ColorFilter.mode(AppColors.primaryColor, BlendMode.srcIn),
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.primaryColor,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ],
               ),

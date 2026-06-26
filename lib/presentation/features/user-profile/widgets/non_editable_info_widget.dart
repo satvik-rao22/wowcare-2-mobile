@@ -60,7 +60,7 @@ class NonEditableInfoWidget extends StatelessWidget {
               ),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withOpacity(0.102),
+                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
                 //color: const Color(0xFFF8F7FA),
                 borderRadius: BorderRadius.circular(10),
               ),

@@ -9,7 +9,9 @@ import 'package:wowcare/domain/features/billing/entities/discount_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_catalog_entities.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_invoice_by_code_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/update_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_discounts_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_fee_structures_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_other_fees_usecase.dart';
@@ -63,6 +65,22 @@ class InvoiceItemTypes {
         return 'NEW_ITEM';
     }
   }
+
+  /// Maps an API `itemType` enum value back to a display type (for the edit form).
+  static String fromApiCode(String? code) {
+    switch ((code ?? '').toUpperCase()) {
+      case 'TUITION_FEE':
+        return tuitionFee;
+      case 'OTHER_FEE':
+        return otherFee;
+      case 'DISCOUNT':
+        return discount;
+      case 'SUBSIDY':
+        return subsidy;
+      default:
+        return newItem;
+    }
+  }
 }
 
 /// Outcome of [CreateInvoiceCubit.submitInvoices].
@@ -93,6 +111,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required GetSubsidiesUseCase getSubsidies,
     required CreateInvoiceUseCase createInvoice,
     required IssueInvoiceUseCase issueInvoice,
+    required UpdateInvoiceUseCase updateInvoice,
+    required GetInvoiceByCodeUseCase getInvoiceByCode,
     required StorageService storage,
   })  : _getFeeStructures = getFeeStructures,
         _getOtherFees = getOtherFees,
@@ -100,6 +120,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
         _getSubsidies = getSubsidies,
         _createInvoice = createInvoice,
         _issueInvoice = issueInvoice,
+        _updateInvoice = updateInvoice,
+        _getInvoiceByCode = getInvoiceByCode,
         _storage = storage,
         super(CreateInvoiceState.initial());
 
@@ -109,12 +131,23 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
   final GetSubsidiesUseCase _getSubsidies;
   final CreateInvoiceUseCase _createInvoice;
   final IssueInvoiceUseCase _issueInvoice;
+  final UpdateInvoiceUseCase _updateInvoice;
+  final GetInvoiceByCodeUseCase _getInvoiceByCode;
   final StorageService _storage;
+
+  /// When editing an existing invoice, its code — set from `initialize` data.
+  /// Drives [submitInvoices] to PATCH instead of POST.
+  String? _editingInvoiceCode;
+
+  bool get isEditing =>
+      _editingInvoiceCode != null && _editingInvoiceCode!.isNotEmpty;
 
   /// Hydrates items + dates from a previously-built invoice payload, then kicks
   /// off the (silent) catalog prefetch.
   void initialize(Map<String, dynamic>? data) {
     if (data != null) {
+      final rawCode = data['invoiceCode']?.toString().trim();
+      _editingInvoiceCode = (rawCode != null && rawCode.isNotEmpty) ? rawCode : null;
       var items = state.items;
       if (data['invoiceItems'] is List) {
         final raw = data['invoiceItems'] as List<dynamic>;
@@ -147,6 +180,50 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     }
 
     loadCatalog();
+  }
+
+  /// Fetches the full invoice (`GET /invoices/by-code/{code}`) and hydrates the
+  /// form with its real line items + dates, so editing PATCHes the true state
+  /// rather than a summarized row. Falls back to leaving the form as-is on error.
+  Future<void> loadInvoiceForEdit(String code) async {
+    _editingInvoiceCode = code.trim();
+    loadCatalog();
+    if (_editingInvoiceCode!.isEmpty) return;
+    try {
+      final invoice = await _getInvoiceByCode(_editingInvoiceCode!);
+      if (isClosed) return;
+      for (final item in state.items) {
+        item.dispose();
+      }
+      final items = invoice.items.isEmpty
+          ? [InvoiceItemFormData.initial(isPrimary: true)]
+          : invoice.items.mapIndexed((index, it) {
+              final amount =
+                  it.totalPrice != 0 ? it.totalPrice : it.unitPrice;
+              final fd = InvoiceItemFormData(
+                type: InvoiceItemTypes.fromApiCode(it.itemType),
+                description: it.description,
+                amount: amount == 0 ? '' : amount.toStringAsFixed(2),
+                isPrimary: index == 0,
+              );
+              fd.sourceCode = it.sourceCode;
+              fd.valueType = it.valueType;
+              if (it.valueInput != null) {
+                fd.valueController.text = it.valueInput!.toStringAsFixed(2);
+              }
+              return fd;
+            }).toList();
+      emit(state.copyWith(
+        items: items,
+        invoiceDate: () => invoice.issueDate ?? state.invoiceDate,
+        dueDate: () => invoice.dueDate ?? state.dueDate,
+        serviceDate: () => invoice.periodStart ?? state.serviceDate,
+        serviceDateEnd: () => invoice.periodEnd ?? state.serviceDateEnd,
+        revision: state.revision + 1,
+      ));
+    } catch (_) {
+      // Keep the (default) form; the user can still edit manually.
+    }
   }
 
   /// Prefetches the four catalogs in parallel. Failures are swallowed per-call
@@ -220,15 +297,30 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
                 label: f.description.trim(), amount: f.cost, code: f.code),
       ];
 
+  /// Normalizes a catalog `discountType` to the API value type the invoice
+  /// payload expects (`PERCENT` / `FLAT`).
+  static String _normalizeValueType(String? raw) {
+    final v = (raw ?? '').trim().toUpperCase();
+    if (v == 'PERCENT' || v == 'PERCENTAGE' || v == '%') return 'PERCENT';
+    return 'FLAT';
+  }
+
   List<InvoiceCatalogOption> _discountOptions(List<DiscountEntity> discounts) =>
       [
         for (final d in discounts)
           if (d.name.trim().isNotEmpty)
-            InvoiceCatalogOption(
-              label: d.name.trim(),
-              amount: d.deductionAmount ?? d.price ?? 0,
-              code: d.code,
-            ),
+            () {
+              final valueType = _normalizeValueType(d.discountType);
+              return InvoiceCatalogOption(
+                label: d.name.trim(),
+                amount: d.deductionAmount ?? d.price ?? 0,
+                code: d.code,
+                valueType: valueType,
+                valueInput: valueType == 'PERCENT'
+                    ? d.percentage
+                    : (d.deductionAmount ?? d.price ?? 0),
+              );
+            }(),
       ];
 
   List<InvoiceCatalogOption> _subsidyOptions(List<SubsidyEntity> subsidies) => [
@@ -238,6 +330,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
               label: s.name.trim(),
               amount: s.deductionAmount ?? s.price ?? 0,
               code: s.code,
+              valueType: _normalizeValueType(s.discountType),
+              valueInput: s.deductionAmount ?? s.price ?? 0,
             ),
       ];
 
@@ -247,6 +341,10 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       emit(state.copyWith(invoiceDate: () => value));
   void setDueDate(DateTime? value) =>
       emit(state.copyWith(dueDate: () => value));
+  void setServiceDate(DateTime? value) =>
+      emit(state.copyWith(serviceDate: () => value));
+  void setServiceDateEnd(DateTime? value) =>
+      emit(state.copyWith(serviceDateEnd: () => value));
 
   void addItem() {
     if (state.isFormLocked) return;
@@ -268,6 +366,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     String? type,
     String? description,
     String? amount,
+    String? value,
+    String? valueType,
   }) {
     if (index < 0 || index >= state.items.length) return;
     final item = state.items[index];
@@ -275,12 +375,14 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     if (type != null && type != item.type) {
       item.type = type;
       // Switching type clears the previous selection so a stale catalog label
-      // / amount / source code can't leak across types.
+      // / amount / source code / discount value can't leak across types.
       item.description = '';
       item.descriptionController.text = '';
       item.amount = '';
       item.amountController.text = '';
       item.sourceCode = null;
+      item.valueType = null;
+      item.valueController.clear();
     }
 
     if (description != null) {
@@ -288,16 +390,34 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       if (item.descriptionController.text != description) {
         item.descriptionController.text = description;
       }
-      // Catalog-backed types auto-fill the amount + source code from the entry.
+      // Catalog-backed types auto-fill source code (+ amount or discount value)
+      // from the chosen entry.
       if (InvoiceItemTypes.catalogTypes.contains(item.type)) {
         final option = _optionForLabel(item.type, description);
         if (option != null) {
-          final filled = option.amount.toStringAsFixed(2);
-          item.amount = filled;
-          item.amountController.text = filled;
           item.sourceCode = option.code;
+          if (InvoiceItemTypes.isDeduction(item.type)) {
+            // Discount/subsidy: seed the value + type; amount is computed.
+            item.valueType = option.valueType ?? 'FLAT';
+            final seed = option.valueInput ?? option.amount;
+            item.valueController.text = _formatValue(seed);
+          } else {
+            final filled = option.amount.toStringAsFixed(2);
+            item.amount = filled;
+            item.amountController.text = filled;
+          }
         }
       }
+    }
+
+    if (value != null) {
+      if (item.valueController.text != value) {
+        item.valueController.text = value;
+      }
+    }
+
+    if (valueType != null) {
+      item.valueType = valueType;
     }
 
     if (amount != null) {
@@ -307,8 +427,45 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
       }
     }
 
+    // Discount/subsidy amounts derive from their value + the fee base, so
+    // recompute them after any change (a fee edit changes a PERCENT result).
+    _recomputeDeductions();
+
     emit(state.copyWith(revision: state.revision + 1));
   }
+
+  /// Sum of the non-deduction item amounts — the base a PERCENT discount or
+  /// subsidy is applied against.
+  double _feeBase() {
+    double base = 0;
+    for (final item in state.items) {
+      if (InvoiceItemTypes.isDeduction(item.type)) continue;
+      base += double.tryParse(item.amountController.text.trim().isEmpty
+              ? item.amount
+              : item.amountController.text.trim()) ??
+          0;
+    }
+    return base;
+  }
+
+  /// Recomputes each discount/subsidy row's amount from its value + type:
+  /// `PERCENT` → value% of the fee base, `FLAT` → the value itself.
+  void _recomputeDeductions() {
+    final base = _feeBase();
+    for (final item in state.items) {
+      if (!InvoiceItemTypes.isDeduction(item.type)) continue;
+      final value = double.tryParse(item.valueController.text.trim()) ?? 0;
+      final computed =
+          (item.valueType ?? 'FLAT') == 'PERCENT' ? base * value / 100 : value;
+      final filled = computed.toStringAsFixed(2);
+      item.amount = filled;
+      item.amountController.text = filled;
+    }
+  }
+
+  /// Formats a seeded discount value without trailing zeros (e.g. `12`, `2.5`).
+  String _formatValue(double v) =>
+      v == v.roundToDouble() ? v.toStringAsFixed(0) : v.toString();
 
   InvoiceCatalogOption? _optionForLabel(String type, String label) {
     final options = state.catalog[type];
@@ -326,11 +483,12 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required String mode,
     String? notes,
   }) async {
-    final issueDate = state.invoiceDate;
+    // Invoice date is no longer collected in the UI — default to today.
+    final issueDate = state.invoiceDate ?? DateTime.now();
     final dueDate = state.dueDate;
-    if (issueDate == null || dueDate == null) {
+    if (dueDate == null) {
       return const InvoiceSubmitResult(
-          success: false, error: 'Please select the invoice and due dates.');
+          success: false, error: 'Please select the invoice due date.');
     }
     if (students.isEmpty) {
       return const InvoiceSubmitResult(
@@ -344,12 +502,36 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     }
 
     try {
+      final shouldIssue = mode == 'send';
+
       final org =
           (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
       final school =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
-      final shouldIssue = mode == 'send';
+      // Edit mode: only PATCH the existing invoice via the /draft endpoint —
+      // never issue it. The invoice may already be SENT (issuing a non-DRAFT
+      // 400s), and editing should just persist changes regardless of whether
+      // the user tapped Save as Draft or Save & Send. The /draft endpoint takes
+      // the same body as create, so reuse the create-style [items] (which carry
+      // itemType/amount) and send schoolCode (required by the backend).
+      if (isEditing) {
+        await _updateInvoice(
+          code: _editingInvoiceCode!,
+          params: UpdateInvoiceParams(
+            organizationCode: org,
+            schoolCode: school,
+            issueDate: issueDate,
+            dueDate: dueDate,
+            periodStart: state.serviceDate,
+            periodEnd: state.serviceDateEnd,
+            notes: notes,
+            items: items,
+          ),
+        );
+        return const InvoiceSubmitResult(success: true, created: 1);
+      }
+
       var created = 0;
       for (final student in students) {
         final result = await _createInvoice(CreateInvoiceParams(
@@ -358,6 +540,8 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
           studentCode: student.code,
           issueDate: issueDate,
           dueDate: dueDate,
+          periodStart: state.serviceDate,
+          periodEnd: state.serviceDateEnd,
           notes: notes,
           items: items,
         ));
@@ -386,12 +570,17 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
           ? item.description.trim()
           : item.descriptionController.text.trim();
       if (description.isEmpty) continue;
+      final isDeduction = InvoiceItemTypes.isDeduction(item.type);
       result.add(CreateInvoiceItemParams(
         itemType: InvoiceItemTypes.apiCode(item.type),
         description: description,
         amount: amount,
         quantity: 1,
         sourceCode: item.sourceCode,
+        valueType: isDeduction ? (item.valueType ?? 'FLAT') : null,
+        valueInput: isDeduction
+            ? (double.tryParse(item.valueController.text.trim()) ?? 0)
+            : null,
       ));
     }
     return result;
@@ -412,14 +601,21 @@ class InvoiceCatalogOption extends Equatable {
     required this.label,
     required this.amount,
     this.code,
+    this.valueType,
+    this.valueInput,
   });
 
   final String label;
   final double amount;
   final String? code;
 
+  /// For discount/subsidy entries: the default value type (`PERCENT`/`FLAT`)
+  /// and the value (e.g. `12` for 12%). Null for plain fee entries.
+  final String? valueType;
+  final double? valueInput;
+
   @override
-  List<Object?> get props => [label, amount, code];
+  List<Object?> get props => [label, amount, code, valueType, valueInput];
 }
 
 class InvoiceItemFormData {
@@ -448,6 +644,11 @@ class InvoiceItemFormData {
   /// other fee / discount / subsidy code) sent to the API as `sourceCode`.
   String? sourceCode;
 
+  /// For discount/subsidy rows: `PERCENT` or `FLAT`. The `valueController`
+  /// holds the value (e.g. `12`); the [amount] is computed from it.
+  String? valueType;
+  final TextEditingController valueController = TextEditingController();
+
   final bool isPrimary;
 
   final TextEditingController descriptionController;
@@ -456,6 +657,7 @@ class InvoiceItemFormData {
   void dispose() {
     descriptionController.dispose();
     amountController.dispose();
+    valueController.dispose();
   }
 }
 

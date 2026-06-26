@@ -28,3 +28,7 @@ class ValidationFailure extends Failure {
 class FileDownloadFailure extends Failure {
   const FileDownloadFailure([super.message]);
 }
+
+class AuthorizationFailure extends Failure {
+  const AuthorizationFailure([super.message]);
+}

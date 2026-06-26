@@ -132,7 +132,7 @@ class SummaryCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
+              color: Colors.black.withValues(alpha: 0.07),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -236,7 +236,10 @@ class MovementsCardShimmer extends StatelessWidget {
       highlightColor: Colors.grey.shade100,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: List.generate(3, (i) => _MovementRowShimmer(key: ValueKey(i))),
+        children: List.generate(
+          3,
+          (i) => _MovementRowShimmer(key: ValueKey(i)),
+        ),
       ),
     );
   }
@@ -344,10 +347,7 @@ class _MovementRowShimmer extends StatelessWidget {
 /// Shimmer placeholder matching AvailabilityCard table layout:
 /// header row (Classroom | Morning | Afternoon) + skeleton data rows.
 class AvailabilityCardShimmer extends StatelessWidget {
-  const AvailabilityCardShimmer({
-    super.key,
-    this.rowCount = 5,
-  });
+  const AvailabilityCardShimmer({super.key, this.rowCount = 5});
 
   final int rowCount;
 
@@ -406,7 +406,10 @@ class AvailabilityCardShimmer extends StatelessWidget {
               ),
             ),
             // Data rows skeleton
-            ...List.generate(rowCount, (i) => _AvailabilityRowShimmer(key: ValueKey(i))),
+            ...List.generate(
+              rowCount,
+              (i) => _AvailabilityRowShimmer(key: ValueKey(i)),
+            ),
           ],
         ),
       ),
@@ -505,7 +508,7 @@ class StaffCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -561,6 +564,79 @@ class StaffCardShimmer extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer placeholder matching the billing transaction card header
+/// (avatar + name/badge column + amount/date column). Mirrors [StaffCardShimmer]
+/// so billing lists show the card structure while loading.
+class BillingTransactionShimmer extends StatelessWidget {
+  final EdgeInsets? margin;
+
+  const BillingTransactionShimmer({super.key, this.margin});
+
+  @override
+  Widget build(BuildContext context) {
+    Widget bar(double width, double height) => Container(
+          width: width,
+          height: height,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        );
+
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Avatar placeholder (matches the 50px card avatar).
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 10),
+            // Name + status badge.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  bar(double.infinity, 14),
+                  const SizedBox(height: 8),
+                  bar(96, 18),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            // Amount + date.
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                bar(70, 14),
+                const SizedBox(height: 8),
+                bar(96, 12),
+              ],
             ),
           ],
         ),
@@ -1914,9 +1990,15 @@ class StudentProfileInfoShimmer extends StatelessWidget {
           const SizedBox(height: 18),
           for (int i = 0; i < rowCount; i++) ...[
             // Label line over a longer value line.
-            _SkelBox(width: _kLabelWidths[i % _kLabelWidths.length], height: 12),
+            _SkelBox(
+              width: _kLabelWidths[i % _kLabelWidths.length],
+              height: 12,
+            ),
             const SizedBox(height: 8),
-            _SkelBox(width: _kValueWidths[i % _kValueWidths.length], height: 14),
+            _SkelBox(
+              width: _kValueWidths[i % _kValueWidths.length],
+              height: 14,
+            ),
             if (i != rowCount - 1) const SizedBox(height: 18),
           ],
         ],
@@ -2339,9 +2421,15 @@ class StaffProfileInfoShimmer extends StatelessWidget {
           const _SkelBox(width: 150, height: 15),
           const SizedBox(height: 18),
           for (int i = 0; i < rowCount; i++) ...[
-            _SkelBox(width: _kLabelWidths[i % _kLabelWidths.length], height: 12),
+            _SkelBox(
+              width: _kLabelWidths[i % _kLabelWidths.length],
+              height: 12,
+            ),
             const SizedBox(height: 8),
-            _SkelBox(width: _kValueWidths[i % _kValueWidths.length], height: 14),
+            _SkelBox(
+              width: _kValueWidths[i % _kValueWidths.length],
+              height: 14,
+            ),
             if (i != rowCount - 1) const SizedBox(height: 16),
           ],
         ],
@@ -2411,7 +2499,10 @@ class StaffImportantDatesShimmer extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SkelBox(width: _labelWidths[i % _labelWidths.length], height: 13),
+                  _SkelBox(
+                    width: _labelWidths[i % _labelWidths.length],
+                    height: 13,
+                  ),
                   const SizedBox(height: 8),
                   const _SkelBox(width: 100, height: 14),
                 ],
@@ -2419,6 +2510,156 @@ class StaffImportantDatesShimmer extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+// ============================================================================
+// Parent Billing / Statements shimmers
+// ============================================================================
+
+/// Shimmer placeholder matching the collapsed [ParentTransactionCard] layout:
+/// avatar circle, student name + transaction-type badge (left), amount + date (right).
+class ParentTransactionCardShimmer extends StatelessWidget {
+  const ParentTransactionCardShimmer({super.key, this.margin});
+
+  final EdgeInsets? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.only(bottom: 8),
+        constraints: const BoxConstraints(minHeight: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE9ECEF)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 14,
+                    width: 120,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    height: 22,
+                    width: 70,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  height: 14,
+                  width: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  height: 10,
+                  width: 90,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shimmer placeholder matching the collapsed [ParentStatementCard] layout:
+/// avatar circle, student name (left), statement-type badge (right).
+class ParentStatementCardShimmer extends StatelessWidget {
+  const ParentStatementCardShimmer({super.key, this.margin});
+
+  final EdgeInsets? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      child: Container(
+        margin: margin ?? const EdgeInsets.only(bottom: 8),
+        constraints: const BoxConstraints(minHeight: 60),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE9ECEF)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 9),
+            Expanded(
+              child: Container(
+                height: 14,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              height: 22,
+              width: 80,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(6),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -2444,7 +2685,10 @@ class StaffDatesShimmer extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (int i = 0; i < rowCount; i++) ...[
-                _SkelBox(width: _labelWidths[i % _labelWidths.length], height: 13),
+                _SkelBox(
+                  width: _labelWidths[i % _labelWidths.length],
+                  height: 13,
+                ),
                 const SizedBox(height: 8),
                 const _SkelBox(width: 100, height: 14),
                 if (i != rowCount - 1) const SizedBox(height: 16),
