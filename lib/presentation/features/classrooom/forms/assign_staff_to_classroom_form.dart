@@ -16,6 +16,8 @@ import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms
 import 'package:wowcare/domain/features/staff_classroom/entities/staff_classroom_item.dart';
 import 'package:wowcare/domain/features/staff_classroom/usecases/assign_staff_to_classroom_usecase.dart';
 import 'package:wowcare/domain/features/staff_classroom/repositories/staff_classroom_repository.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart'; // UI-only
 // import 'package:wowcare/core/extentions/context_extentions.dart'; // UI-only
@@ -86,6 +88,20 @@ class _AssignStaffToClassroomFormState
   Set<Staff> selectedStaffs = {};
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
+
+  // Today's sign-in status per staff code — drives disabling the selection
+  // checkbox for staff who are currently signed in (they can't be
+  // reassigned to another classroom while signed in). Mirrors the same
+  // restriction used by AssignStudentToClassroomForm.
+  Map<String, String> _todayStatusByCode = {};
+
+  bool _isStaffSignedIn(String code) {
+    final gate = staffAttendanceGateFromTodayStatus(
+      isActiveProfile: true,
+      todayStatusRaw: _todayStatusByCode[code],
+    );
+    return gate.isSignedInToday;
+  }
 
   @override
   void initState() {
@@ -206,6 +222,7 @@ class _AssignStaffToClassroomFormState
           ..addAll(uniqueDesignations.toList()..sort());
         _filterStaffs();
       });
+      unawaited(_loadTodaySignInStatuses(fetchedStaffs));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -217,6 +234,27 @@ class _AssignStaffToClassroomFormState
           _isLoadingStaffs = false;
         });
       }
+    }
+  }
+
+  /// Fetches today's sign-in status for every loaded staff member in one
+  /// batch call, reusing the same use case the staff dashboard/attendance
+  /// screens use — staff currently signed in can't be reassigned to
+  /// another classroom.
+  Future<void> _loadTodaySignInStatuses(List<Staff> staffs) async {
+    final codes = staffs
+        .map((s) => s.code.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (codes.isEmpty) return;
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
+      final map = await useCase(staffCodes: codes);
+      if (!mounted) return;
+      setState(() => _todayStatusByCode = map);
+    } catch (_) {
+      // Non-critical: leave statuses empty so nothing is incorrectly
+      // disabled if the status check itself fails.
     }
   }
 
@@ -263,7 +301,11 @@ class _AssignStaffToClassroomFormState
     setState(() {
       isSelectAllChecked = value;
 
-      final List<Staff> visibleStaffs = _getVisibleStaffs();
+      // Get the current visible staff based on filters, excluding anyone
+      // currently signed in — they can't be selected at all.
+      final List<Staff> visibleStaffs = _getVisibleStaffs()
+          .where((s) => !_isStaffSignedIn(s.code))
+          .toList();
 
       if (value) {
         selectedStaffs.addAll(visibleStaffs);
@@ -274,7 +316,7 @@ class _AssignStaffToClassroomFormState
   }
 
   void _toggleStaffSelection(Staff staff, bool? value) {
-    if (value == null) return;
+    if (value == null || _isStaffSignedIn(staff.code)) return;
 
     setState(() {
       if (value) {
@@ -283,7 +325,10 @@ class _AssignStaffToClassroomFormState
         selectedStaffs.remove(staff);
       }
 
-      final visibleStaffs = _getVisibleStaffs();
+      // Update select all checkbox based on visible, selectable staff.
+      final visibleStaffs = _getVisibleStaffs().where(
+        (s) => !_isStaffSignedIn(s.code),
+      );
       isSelectAllChecked = visibleStaffs.every(
         (staff) => selectedStaffs.contains(staff),
       );
@@ -449,6 +494,7 @@ class _AssignStaffToClassroomFormState
                       return StaffListItem(
                         staff: staff,
                         isSelected: isSelected,
+                        isSignedIn: _isStaffSignedIn(staff.code),
                         onSelectionChanged: (value) {
                           _toggleStaffSelection(staff, value);
                         },
@@ -699,6 +745,7 @@ class _StaffConfirmationFormState extends State<StaffConfirmationForm> {
 class StaffListItem extends StatelessWidget {
   final Staff staff;
   final bool isSelected;
+  final bool isSignedIn;
   final ValueChanged<bool?> onSelectionChanged;
 
   const StaffListItem({
@@ -706,63 +753,85 @@ class StaffListItem extends StatelessWidget {
     required this.staff,
     required this.isSelected,
     required this.onSelectionChanged,
+    this.isSignedIn = false,
   }) : super(key: key);
+
+  String get _disabledReason =>
+      "${staff.name.trim().isEmpty ? 'This staff member' : staff.name.trim()} is already signed in. Please sign out before assigning to another classroom.";
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final content = InkWell(
       onTap: () {
+        if (isSignedIn) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: _disabledReason,
+            isWarning: true,
+          );
+          return;
+        }
         onSelectionChanged(!isSelected);
       },
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.themeColor),
-          borderRadius: BorderRadius.circular(8),
-          color: isSelected
-              ? const Color.fromARGB(255, 249, 245, 250)
-              : Colors.white,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelected,
-                  onChanged: onSelectionChanged,
-                ),
-              ),
-              DocumentImageWidget(
-                fileUuid: '',
-                imageUrl: staff.profileImageUrl,
-                mediaAssetCode: staff.profilePhotoAssetCode,
-                name: staff.name,
-                staffCode: staff.code,
-                size: 32,
-                fontSize: 12,
-                disableAttendanceStatusLookup: true,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: EllipsisTooltipText(
-                  text: staff.name.trim().isEmpty ? 'Staff' : staff.name.trim(),
-                  maxLines: 2,
-                  preferLongPress: true,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+      child: Opacity(
+        opacity: isSignedIn ? 0.45 : 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.themeColor),
+            borderRadius: BorderRadius.circular(8),
+            color: isSelected
+                ? const Color.fromARGB(255, 249, 245, 250)
+                : Colors.white,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: CustomCheckbox(
+                    borderColor: AppColors.themeColor,
+                    value: isSelected,
+                    onChanged: isSignedIn ? null : onSelectionChanged,
                   ),
                 ),
-              ),
-            ],
+                DocumentImageWidget(
+                  fileUuid: '',
+                  imageUrl: staff.profileImageUrl,
+                  mediaAssetCode: staff.profilePhotoAssetCode,
+                  name: staff.name,
+                  staffCode: staff.code,
+                  size: 32,
+                  fontSize: 12,
+                  disableAttendanceStatusLookup: true,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: EllipsisTooltipText(
+                    text: staff.name.trim().isEmpty
+                        ? 'Staff'
+                        : staff.name.trim(),
+                    maxLines: 2,
+                    preferLongPress: true,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      color: AppColors.primaryColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+
+    if (isSignedIn) {
+      return Tooltip(message: _disabledReason, child: content);
+    }
+    return content;
   }
 }
 
