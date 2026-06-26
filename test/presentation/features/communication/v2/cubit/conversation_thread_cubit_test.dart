@@ -23,7 +23,7 @@ import 'package:wowcare/domain/features/communication/usecases/watch_messages_us
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 

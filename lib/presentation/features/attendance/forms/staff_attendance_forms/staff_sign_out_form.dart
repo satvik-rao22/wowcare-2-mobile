@@ -419,7 +419,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       'staffCodes': staffCodes,
       'classroomCode': classroomCode,
       'classroomCodeByStaffCode': classroomCodeByStaffCode,
-      'method': widget.isKiosk ? 'KIOSK' : signOutMethod,
+      'method': widget.isKiosk ? 'PIN' : signOutMethod,
       'latitude': position?.latitude ?? 0,
       'longitude': position?.longitude ?? 0,
       'withinGeofence': withinGeofence,
@@ -501,6 +501,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     return StaffFormLayout(
       title: 'Sign-Out',
       isKiosk: widget.isKiosk,
+      showKioskBackButton: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

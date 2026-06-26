@@ -33,7 +33,19 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_school_
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
-enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
+// enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
+enum StaffProfileAbsentMarkMethod {
+  app,
+  gps,
+  qr,
+  kiosk,
+  web,
+  pin,
+  transfer,
+  nfc,
+  biometric,
+  system,
+}
 
 // Simple field widget for displaying label and text
 class _AttendanceField extends StatelessWidget {
@@ -138,10 +150,14 @@ class _AttendanceField extends StatelessWidget {
       case StaffProfileAbsentMarkMethod.kiosk:
         return Tooltip(
           message: 'Kiosk',
-          child: Icon(
-            Icons.point_of_sale_outlined,
-            size: size,
-            color: AppColors.themeColor,
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case StaffProfileAbsentMarkMethod.app:
@@ -162,6 +178,77 @@ class _AttendanceField extends StatelessWidget {
           message: 'WEB',
           child: SvgPicture.asset(
             MediaRes.webMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+
+      case StaffProfileAbsentMarkMethod.pin:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(
+            MediaRes.pinMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case StaffProfileAbsentMarkMethod.transfer:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'Transfer',
+          child: SvgPicture.asset(
+            MediaRes.transferMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case StaffProfileAbsentMarkMethod.nfc:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'NFC',
+          child: SvgPicture.asset(
+            MediaRes.nfcMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case StaffProfileAbsentMarkMethod.biometric:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'Biometric',
+          child: SvgPicture.asset(
+            MediaRes.biometricMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case StaffProfileAbsentMarkMethod.system:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'System',
+          child: SvgPicture.asset(
+            MediaRes.systemMethodIcon,
             width: size,
             height: size,
             colorFilter: const ColorFilter.mode(

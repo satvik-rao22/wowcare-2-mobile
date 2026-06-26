@@ -5,7 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-enum SignMethod { gps, qr, kiosk, direct, web }
+enum SignMethod { gps, qr, pin, kiosk, direct, web }
 
 class StaffAttendanceCardData {
   final String? attendanceRecordCode;
@@ -383,6 +383,10 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             MediaRes.gpsMethodIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.qr:
@@ -392,15 +396,36 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             MediaRes.qrAttendanceIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.kiosk:
         return Tooltip(
           message: 'Kiosk',
-          child: Icon(
-            Icons.point_of_sale_outlined,
-            size: size,
-            color: AppColors.themeColor,
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case SignMethod.pin:
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.direct:
