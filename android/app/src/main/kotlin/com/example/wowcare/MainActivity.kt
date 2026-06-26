@@ -142,6 +142,7 @@ class MainActivity : FlutterFragmentActivity() {
                 "com.fintasys.emoji_picker_flutter.EmojiPickerFlutterPlugin",
                 "com.antonkarpenko.ffmpegkit.FFmpegKitFlutterPlugin",
                 "com.mr.flutter.plugin.filepicker.FilePickerPlugin",
+                "com.incrediblezayed.file_saver.FileSaverPlugin",
                 "io.flutter.plugins.firebase.core.FlutterFirebaseCorePlugin",
                 "io.flutter.plugins.firebase.messaging.FlutterFirebaseMessagingPlugin",
                 "io.flutter.plugins.firebase.storage.FlutterFirebaseStoragePlugin",

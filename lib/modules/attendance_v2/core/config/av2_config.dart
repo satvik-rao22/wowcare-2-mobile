@@ -14,9 +14,13 @@ class Av2Config {
   /// it (see STAFF_OVERTIME_API_REQUIREMENTS.md §5.1).
   static const int defaultDailyRegularMinutes = 480;
 
-  /// Page size for the profile fetch. A staff-month is a small number of
+  /// Page size for the per-day detail fetch. A single day is a small number of
   /// sessions, so we pull them all in one page to group by day client-side.
   static const int profilePageSize = 500;
+
+  /// Page size for the overview (per-day) list — the server paginates this
+  /// endpoint (default 10), and the screen loads more on scroll.
+  static const int overviewPageSize = 10;
 
   /// Used to convert an admin's wall-clock edit (school-local) to UTC when the
   /// overview doesn't return a real IANA timezone (e.g. sends "Z"). The edit

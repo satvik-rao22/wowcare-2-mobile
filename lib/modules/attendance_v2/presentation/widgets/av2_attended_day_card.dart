@@ -171,6 +171,8 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
     final breakByStart = {
       for (final b in d.breaks) b.start.millisecondsSinceEpoch: b,
     };
+    // Break = the gaps between this day's sessions (server rollup can be wrong).
+    final totalBreak = d.breaks.fold<int>(0, (t, b) => t + b.minutes);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 2, 12, 10),
       child: Column(
@@ -191,13 +193,13 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
                     : [Av2BreakRow(minutes: b.minutes, start: b.start, end: b.end)];
               })(),
           ],
-          if (widget.day.hasBreaks) _totalBreak(),
+          if (totalBreak > 0) _totalBreak(totalBreak),
         ],
       ),
     );
   }
 
-  Widget _totalBreak() {
+  Widget _totalBreak(int minutes) {
     return Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.only(top: 8),
@@ -213,7 +215,7 @@ class _Av2AttendedDayCardState extends State<Av2AttendedDayCard> {
                 style: Av2Text.caption.copyWith(color: Av2Colors.breakTime)),
           ),
           Text(
-            Av2DurationFormatter.hm(widget.day.breakMinutes),
+            Av2DurationFormatter.hm(minutes),
             style: Av2Text.bodyMedium.copyWith(fontSize: 13, color: Av2Colors.breakTime),
           ),
         ],

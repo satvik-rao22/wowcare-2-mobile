@@ -1,8 +1,8 @@
 import '../../domain/entities/attendance_day.dart';
 
-/// The single segmented filter that replaces the old Summarised/Separate +
-/// Show-Absent toggles.
-enum Av2DayFilter { all, overtime, absent, needsAttention }
+/// The single segmented filter. Maps directly to the overview endpoint's
+/// `overtimeOnly` / `absentOnly` server filters.
+enum Av2DayFilter { all, overtime, absent }
 
 extension Av2DayFilterX on Av2DayFilter {
   String get label {
@@ -13,8 +13,6 @@ extension Av2DayFilterX on Av2DayFilter {
         return 'Overtime';
       case Av2DayFilter.absent:
         return 'Absent';
-      case Av2DayFilter.needsAttention:
-        return 'Needs attention';
     }
   }
 
@@ -26,8 +24,6 @@ extension Av2DayFilterX on Av2DayFilter {
         return !day.isAbsent && day.hasOvertime;
       case Av2DayFilter.absent:
         return day.isAbsent;
-      case Av2DayFilter.needsAttention:
-        return day.needsAttention;
     }
   }
 

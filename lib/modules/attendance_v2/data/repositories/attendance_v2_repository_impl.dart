@@ -5,6 +5,7 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 
 import '../../core/config/av2_config.dart';
 import '../../core/utils/av2_time_zone.dart';
+import '../../domain/entities/av2_classroom.dart';
 import '../../domain/entities/day_detail.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../../domain/repositories/attendance_v2_repository.dart';
@@ -40,11 +41,19 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
     String staffName = '',
     required DateTime from,
     required DateTime to,
+    int page = 0,
+    int size = Av2Config.overviewPageSize,
+    bool overtimeOnly = false,
+    bool absentOnly = false,
   }) async {
     final body = await _overviewSource.getOverview(
       staffCode: staffCode,
       fromDate: _fmt(from),
       toDate: _fmt(to),
+      page: page,
+      size: size,
+      overtimeOnly: overtimeOnly,
+      absentOnly: absentOnly,
     );
     final profile = OverviewMapper.fromResponse(
       body,
@@ -73,7 +82,10 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
           absenceFromDate: a['from'] as DateTime?,
           absenceToDate: a['to'] as DateTime?,
           absenceNote: a['note'] as String?,
-          absenceMarkedByName: a['markedBy'] as String?,
+          absenceMarkedByName:
+              ((a['markedBy'] as String?)?.trim().isNotEmpty ?? false)
+                  ? a['markedBy'] as String?
+                  : d.absenceMarkedByName,
         );
       }).toList();
       return profile.copyWith(days: enrichedDays);
@@ -241,6 +253,53 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
     required String staffCode,
   }) {
     return _overviewSource.deleteAbsence(code: code, staffCode: staffCode);
+  }
+
+  @override
+  Future<List<Av2Classroom>> getClassrooms() async {
+    final schoolCode =
+        (await serviceLocator<StorageService>().getString(StorageKeys.schoolCode) ?? '')
+            .trim();
+    if (schoolCode.isEmpty) return const [];
+    final raw = await _overviewSource.getClassroomsRaw(schoolCode: schoolCode);
+    return raw
+        .map((m) => Av2Classroom(
+              code: (m['code'] as String?) ?? '',
+              name: (m['name'] as String?) ?? '',
+            ))
+        .toList();
+  }
+
+  @override
+  Future<void> addAttendance({
+    required String staffCode,
+    required DateTime date,
+    required String timeZone,
+    String? signInClassroomCode,
+    DateTime? signInLocal,
+    String? signOutClassroomCode,
+    DateTime? signOutLocal,
+  }) async {
+    final zone = Av2TimeZone.resolveZone(timeZone);
+    final dateStr = _fmt(date);
+    if (signInLocal != null && signInClassroomCode != null) {
+      await _overviewSource.signIn(
+        staffCode: staffCode,
+        classroomCode: signInClassroomCode,
+        attendanceDate: dateStr,
+        occurredAtUtc: Av2TimeZone.toUtcIso(signInLocal, zone),
+        timeZone: zone,
+      );
+    }
+    if (signOutLocal != null && signOutClassroomCode != null) {
+      await _overviewSource.signOut(
+        staffCode: staffCode,
+        classroomCode: signOutClassroomCode,
+        attendanceDate: dateStr,
+        occurredAtUtc: Av2TimeZone.toUtcIso(signOutLocal, zone),
+        timeZone: zone,
+      );
+    }
   }
 
   List<String> _dateRange(DateTime from, DateTime to) {

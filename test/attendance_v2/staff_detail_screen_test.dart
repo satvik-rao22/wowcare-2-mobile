@@ -127,7 +127,8 @@ void main() {
     await tester.pumpWidget(_harness());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.more_vert).first);
+    // .at(1) is a session row's ⋮ (the absent card's ⋮ is first).
+    await tester.tap(find.byIcon(Icons.more_vert).at(1));
     await tester.pumpAndSettle();
 
     expect(find.text('Edit'), findsOneWidget);
@@ -177,7 +178,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('absent day shows an action that opens edit/delete', (tester) async {
+  testWidgets('absent day action offers Edit/Delete', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -186,12 +187,34 @@ void main() {
     await tester.pumpWidget(_harness());
     await tester.pumpAndSettle();
 
-    // Absent card (Jun 12) is first; tap its ⋮ → action sheet with Edit/Delete.
+    // Absent card (Jun 12) is first; tap its ⋮ → Edit/Delete action sheet.
     await tester.tap(find.byIcon(Icons.more_vert).first);
     await tester.pumpAndSettle();
 
     expect(find.text('Edit'), findsOneWidget);
     expect(find.text('Delete'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Edit on an absent day opens the date + note sheet',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(_harness());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.more_vert).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Edit absent'), findsOneWidget);
+    expect(find.text('Absent Date'), findsOneWidget);
+    expect(find.text('Absent Note'), findsOneWidget);
+    expect(find.text('Submit'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 

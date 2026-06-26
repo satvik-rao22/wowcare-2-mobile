@@ -19,7 +19,11 @@ class OverviewMapper {
     final staff = _map(data['staff']);
     final period = _map(data['period']);
     final summary = _map(data['summary']);
-    final daysJson = (data['days'] as List?) ?? const [];
+    // `days` may be a plain list or a paginated page object ({content: [...]}).
+    final daysRaw = data['days'];
+    final daysJson = daysRaw is List
+        ? daysRaw
+        : (daysRaw is Map ? (daysRaw['content'] as List? ?? const []) : const []);
 
     final days = daysJson
         .whereType<Map>()
@@ -77,8 +81,10 @@ class OverviewMapper {
       absenceToDate: DateTime.tryParse(
           (absence['toDate'] ?? absence['absenceToDate'] ?? '').toString()),
       absenceNote: (absence['note'] ?? m['absenceNote'])?.toString(),
-      absenceMarkedByName:
-          (absence['markedByName'] ?? m['markedByName'])?.toString(),
+      absenceMarkedByName: (absence['markedByName'] ??
+              m['markedByName'] ??
+              m['markedBy'])
+          ?.toString(),
     );
   }
 

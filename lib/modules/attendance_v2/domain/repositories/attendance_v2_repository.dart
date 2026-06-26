@@ -1,8 +1,25 @@
+import '../entities/av2_classroom.dart';
 import '../entities/day_detail.dart';
 import '../entities/staff_overtime_profile.dart';
 
 /// Read interface for the Attendance V2 detail screen.
 abstract class AttendanceV2Repository {
+  /// Active classrooms/locations for the current school (for the add-attendance
+  /// room pickers).
+  Future<List<Av2Classroom>> getClassrooms();
+
+  /// Adds an attendance session: a sign-in and/or a sign-out (each in its own
+  /// classroom). Times are wall-clock in the school [timeZone].
+  Future<void> addAttendance({
+    required String staffCode,
+    required DateTime date,
+    required String timeZone,
+    String? signInClassroomCode,
+    DateTime? signInLocal,
+    String? signOutClassroomCode,
+    DateTime? signOutLocal,
+  });
+
   /// Triggers the server-side overtime recompute for the range (must run
   /// before [getOverview] returns fresh data).
   Future<void> calculate({
@@ -11,13 +28,18 @@ abstract class AttendanceV2Repository {
     required DateTime to,
   });
 
-  /// Loads the per-day overview (summary + day rollups, no sessions) for a
-  /// staff member over a date range.
+  /// Loads one page of the per-day overview (summary + day rollups, no
+  /// sessions). The endpoint is paginated; pass [page]/[size] and the
+  /// [overtimeOnly]/[absentOnly] server filters.
   Future<StaffOvertimeProfile> getOverview({
     required String staffCode,
     String staffName,
     required DateTime from,
     required DateTime to,
+    int page,
+    int size,
+    bool overtimeOnly,
+    bool absentOnly,
   });
 
   /// Loads the sessions + breaks for a single day (called when a row expands).

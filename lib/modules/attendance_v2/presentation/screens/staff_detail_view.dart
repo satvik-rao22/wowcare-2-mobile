@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/responsive/av2_breakpoints.dart';
+import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/utils/av2_date_formatter.dart';
 import '../../domain/entities/attendance_day.dart';
@@ -29,7 +30,7 @@ typedef Av2EditSession = Future<void> Function({
 /// Deletes a session by record code.
 typedef Av2DeleteSession = Future<void> Function(String recordCode);
 
-/// Edits an absence record.
+/// Edits an absence record (date + note; reason/type carried through).
 typedef Av2EditAbsence = Future<void> Function({
   required String code,
   required DateTime fromDate,
@@ -45,6 +46,12 @@ typedef Av2DeleteAbsence = Future<void> Function(String code);
 /// Pure presentation of a loaded [StaffOvertimeProfile]. Day sessions load
 /// lazily through [loadDetail] when a row expands. Responsive: card timeline on
 /// mobile/tablet, data table on desktop.
+///
+/// Filtering + pagination are *controlled* when [onFilterSelected] is provided
+/// (server-side): the parent supplies already-filtered [profile] days and a
+/// page at a time, and [onLoadMore] fetches the next page on scroll. When
+/// [onFilterSelected] is null the view filters [profile] days client-side (used
+/// by the static preview / tests).
 class StaffDetailView extends StatefulWidget {
   const StaffDetailView({
     super.key,
@@ -58,6 +65,11 @@ class StaffDetailView extends StatefulWidget {
     this.onDeleteSession,
     this.onEditAbsence,
     this.onDeleteAbsence,
+    this.filter = Av2DayFilter.all,
+    this.onFilterSelected,
+    this.onLoadMore,
+    this.hasMore = false,
+    this.loadingMore = false,
   });
 
   final StaffOvertimeProfile profile;
@@ -76,16 +88,55 @@ class StaffDetailView extends StatefulWidget {
   final Av2EditAbsence? onEditAbsence;
   final Av2DeleteAbsence? onDeleteAbsence;
 
+  /// Selected filter (for chip highlight in controlled mode).
+  final Av2DayFilter filter;
+
+  /// When non-null, filtering is server-side: the parent refetches on change.
+  final ValueChanged<Av2DayFilter>? onFilterSelected;
+
+  /// Fetches the next page (scroll pagination). No-op when null.
+  final VoidCallback? onLoadMore;
+  final bool hasMore;
+  final bool loadingMore;
+
   @override
   State<StaffDetailView> createState() => _StaffDetailViewState();
 }
 
 class _StaffDetailViewState extends State<StaffDetailView> {
-  Av2DayFilter _filter = Av2DayFilter.all;
+  late Av2DayFilter _filter = widget.filter;
 
+  bool get _controlled => widget.onFilterSelected != null;
   StaffOvertimeProfile get _profile => widget.profile;
 
-  void _setFilter(Av2DayFilter f) => setState(() => _filter = f);
+  /// Days to show: server already filtered them in controlled mode; otherwise
+  /// apply the chip filter locally.
+  List<AttendanceDay> get _days =>
+      _controlled ? _profile.days : _filter.apply(_profile.days);
+
+  @override
+  void didUpdateWidget(covariant StaffDetailView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Keep the chip in sync when the parent resets the filter (e.g. on reload).
+    if (_controlled && widget.filter != oldWidget.filter) {
+      _filter = widget.filter;
+    }
+  }
+
+  void _onFilter(Av2DayFilter f) {
+    setState(() => _filter = f);
+    widget.onFilterSelected?.call(f);
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    if (widget.onLoadMore == null || !widget.hasMore || widget.loadingMore) {
+      return false;
+    }
+    if (n.metrics.pixels >= n.metrics.maxScrollExtent - 320) {
+      widget.onLoadMore!();
+    }
+    return false;
+  }
 
   Future<void> _pickPeriod() async {
     final picked = await showAv2PeriodSheet(context, current: widget.period);
@@ -141,7 +192,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
       );
       return;
     }
-    final action = await showAv2ActionSheet(context, title: 'Edit absence');
+    final action = await showAv2ActionSheet(context, title: 'Edit absent');
     if (action == null || !mounted) return;
     if (action == Av2RecordAction.edit) {
       await _editAbsence(day);
@@ -225,22 +276,36 @@ class _StaffDetailViewState extends State<StaffDetailView> {
 
   @override
   Widget build(BuildContext context) {
-    return Av2Breakpoints.ofContext(context) == Av2FormFactor.desktop
+    final body = Av2Breakpoints.ofContext(context) == Av2FormFactor.desktop
         ? _desktopBody(context)
         : _mobileBody(context);
+    return NotificationListener<ScrollNotification>(
+      onNotification: _onScroll,
+      child: body,
+    );
   }
 
   Widget _hero() => Av2HeroCard(
         profile: _profile,
         periodLabel: widget.period.label,
         onPickRange: _pickPeriod,
-        onTapNeedsAttention: () => _setFilter(Av2DayFilter.needsAttention),
+        onTapNeedsAttention: () => _onFilter(Av2DayFilter.all),
+      );
+
+  Widget _bottomLoader() => const Padding(
+        padding: EdgeInsets.symmetric(vertical: Av2Spacing.md),
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2, color: Av2Colors.theme),
+          ),
+        ),
       );
 
   Widget _mobileBody(BuildContext context) {
     final f = Av2Breakpoints.ofContext(context);
     final pad = Av2Breakpoints.screenPadding(f);
-    final filtered = _filter.apply(_profile.days);
 
     return Align(
       alignment: Alignment.topCenter,
@@ -256,16 +321,17 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               const SizedBox(height: Av2Spacing.md),
               _hero(),
               const SizedBox(height: Av2Spacing.md),
-              Av2FilterChips(selected: _filter, onSelected: _setFilter),
+              Av2FilterChips(selected: _filter, onSelected: _onFilter),
               const SizedBox(height: Av2Spacing.sm),
               Av2DayTimeline(
-                days: filtered,
+                days: _days,
                 loadDetail: widget.loadDetail,
                 reloadId: widget.reloadId,
                 emptyMessage: _emptyMessage(),
                 onSessionAction: widget.canEdit ? _onSessionAction : null,
                 onAbsentAction: widget.canEdit ? _onAbsentAction : null,
               ),
+              if (widget.loadingMore) _bottomLoader(),
             ],
           ),
         ),
@@ -274,7 +340,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
   }
 
   Widget _desktopBody(BuildContext context) {
-    final filtered = _filter.apply(_profile.days);
+    final days = _days;
     const pad = Av2Spacing.screenPadDesktop;
 
     return SingleChildScrollView(
@@ -290,21 +356,22 @@ class _StaffDetailViewState extends State<StaffDetailView> {
               const SizedBox(height: Av2Spacing.md),
               _hero(),
               const SizedBox(height: Av2Spacing.md),
-              Av2FilterChips(selected: _filter, onSelected: _setFilter),
+              Av2FilterChips(selected: _filter, onSelected: _onFilter),
               const SizedBox(height: Av2Spacing.sm),
-              if (filtered.isEmpty)
+              if (days.isEmpty)
                 Av2DayTimeline(
-                  days: filtered,
+                  days: days,
                   loadDetail: widget.loadDetail,
                   emptyMessage: _emptyMessage(),
                 )
               else
                 Av2DayTable(
-                  days: filtered,
+                  days: days,
                   loadDetail: widget.loadDetail,
                   reloadId: widget.reloadId,
                   onSessionAction: widget.canEdit ? _onSessionAction : null,
                 ),
+              if (widget.loadingMore) _bottomLoader(),
             ],
           ),
         ),
@@ -318,8 +385,6 @@ class _StaffDetailViewState extends State<StaffDetailView> {
         return 'No overtime in this range';
       case Av2DayFilter.absent:
         return 'No absences in this range';
-      case Av2DayFilter.needsAttention:
-        return 'Nothing needs attention';
       case Av2DayFilter.all:
         return 'No attendance records for this range';
     }

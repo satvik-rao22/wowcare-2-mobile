@@ -13,12 +13,14 @@ class Av2DetailScaffold extends StatelessWidget {
     this.onExport,
     this.onRefresh,
     this.isRefreshing = false,
+    this.isExporting = false,
   });
 
   final Widget body;
   final VoidCallback? onExport;
   final VoidCallback? onRefresh;
   final bool isRefreshing;
+  final bool isExporting;
 
   @override
   Widget build(BuildContext context) {
@@ -50,11 +52,18 @@ class Av2DetailScaffold extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: Av2Spacing.sm),
               child: TextButton.icon(
-                onPressed: onExport,
-                icon: const Icon(Icons.file_download_outlined,
-                    size: 18, color: Av2Colors.theme),
+                onPressed: isExporting ? null : onExport,
+                icon: isExporting
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Av2Colors.theme),
+                      )
+                    : const Icon(Icons.file_download_outlined,
+                        size: 18, color: Av2Colors.theme),
                 label: Text(
-                  'Export CSV',
+                  isExporting ? 'Preparing…' : 'Export CSV',
                   style: Av2Text.label.copyWith(
                     color: Av2Colors.theme,
                     fontWeight: FontWeight.w600,

@@ -5,6 +5,9 @@ import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
 import '../../domain/entities/attendance_day.dart';
 
+/// Result of editing an absence. The admin edits only the absent **date** and
+/// **note**; reason/type are carried through from the existing record so the
+/// PATCH payload stays complete.
 class Av2AbsenceEditResult {
   const Av2AbsenceEditResult({
     required this.fromDate,
@@ -16,7 +19,7 @@ class Av2AbsenceEditResult {
   final DateTime fromDate;
   final DateTime toDate;
   final String reason;
-  final String type; // FULL_DAY | HALF_DAY
+  final String type;
   final String note;
 }
 
@@ -45,55 +48,38 @@ class _Av2EditAbsenceSheet extends StatefulWidget {
 }
 
 class _Av2EditAbsenceSheetState extends State<_Av2EditAbsenceSheet> {
-  late DateTime _from = widget.day.absenceFromDate ?? widget.day.date;
-  late DateTime _to = widget.day.absenceToDate ?? widget.day.date;
-  late final TextEditingController _reason =
-      TextEditingController(text: widget.day.absenceReason ?? '');
+  late DateTime _date = widget.day.absenceFromDate ?? widget.day.date;
   late final TextEditingController _note =
       TextEditingController(text: widget.day.absenceNote ?? '');
-  late String _type =
-      (widget.day.absenceType?.toUpperCase() == 'HALF_DAY') ? 'HALF_DAY' : 'FULL_DAY';
-  String? _error;
 
   @override
   void dispose() {
-    _reason.dispose();
     _note.dispose();
     super.dispose();
   }
 
-  Future<void> _pick({required bool isFrom}) async {
-    final initial = isFrom ? _from : _to;
+  Future<void> _pickDate() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(initial.year - 1),
-      lastDate: DateTime(initial.year + 1, 12, 31),
+      initialDate: _date,
+      firstDate: DateTime(_date.year - 1),
+      lastDate: DateTime(_date.year + 1, 12, 31),
     );
-    if (picked != null) {
-      setState(() {
-        if (isFrom) {
-          _from = picked;
-          if (_to.isBefore(_from)) _to = _from;
-        } else {
-          _to = picked;
-        }
-      });
-    }
+    if (picked != null) setState(() => _date = picked);
   }
 
   void _submit() {
-    if (_to.isBefore(_from)) {
-      setState(() => _error = 'End date must be on or after start date.');
-      return;
-    }
     Navigator.pop(
       context,
       Av2AbsenceEditResult(
-        fromDate: _from,
-        toDate: _to,
-        reason: _reason.text.trim(),
-        type: _type,
+        // Admin edits a single day: from == to.
+        fromDate: _date,
+        toDate: _date,
+        // Carried through unchanged.
+        reason: widget.day.absenceReason ?? '',
+        type: (widget.day.absenceType?.trim().isNotEmpty ?? false)
+            ? widget.day.absenceType!
+            : 'FULL_DAY',
         note: _note.text.trim(),
       ),
     );
@@ -102,7 +88,7 @@ class _Av2EditAbsenceSheetState extends State<_Av2EditAbsenceSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final df = DateFormat('dd-MM-yyyy');
+    final df = DateFormat('dd/MM/yyyy');
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
       child: SafeArea(
@@ -125,34 +111,28 @@ class _Av2EditAbsenceSheetState extends State<_Av2EditAbsenceSheet> {
                 ),
               ),
               const SizedBox(height: Av2Spacing.md),
-              Text('Edit absence', style: Av2Text.title),
-              const SizedBox(height: Av2Spacing.md),
-              Text('Dates', style: Av2Text.bodyMedium),
-              const SizedBox(height: Av2Spacing.xs),
               Row(
                 children: [
-                  Expanded(child: _dateField(df.format(_from), () => _pick(isFrom: true))),
-                  const SizedBox(width: Av2Spacing.xs),
-                  Expanded(child: _dateField(df.format(_to), () => _pick(isFrom: false))),
+                  Expanded(child: Text('Edit absent', style: Av2Text.title)),
+                  InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(Av2Spacing.radiusPill),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close,
+                          size: 20, color: Av2Colors.textSecondary),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: Av2Spacing.md),
-              Text('Type', style: Av2Text.bodyMedium),
+              Text('Absent Date', style: Av2Text.bodyMedium),
               const SizedBox(height: Av2Spacing.xs),
-              _typeToggle(),
+              _dateField(df.format(_date), _pickDate),
               const SizedBox(height: Av2Spacing.md),
-              Text('Reason', style: Av2Text.bodyMedium),
+              Text('Absent Note', style: Av2Text.bodyMedium),
               const SizedBox(height: Av2Spacing.xs),
-              _textField(_reason, 'e.g. sick'),
-              const SizedBox(height: Av2Spacing.md),
-              Text('Note', style: Av2Text.bodyMedium),
-              const SizedBox(height: Av2Spacing.xs),
-              _textField(_note, 'Optional note', maxLines: 2),
-              if (_error != null) ...[
-                const SizedBox(height: Av2Spacing.sm),
-                Text(_error!,
-                    style: Av2Text.caption.copyWith(color: Av2Colors.danger)),
-              ],
+              _noteField(),
               const SizedBox(height: Av2Spacing.lg),
               Row(
                 children: [
@@ -209,7 +189,7 @@ class _Av2EditAbsenceSheetState extends State<_Av2EditAbsenceSheet> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           color: Av2Colors.surfaceMuted,
           borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
@@ -217,62 +197,26 @@ class _Av2EditAbsenceSheetState extends State<_Av2EditAbsenceSheet> {
         ),
         child: Row(
           children: [
+            Expanded(child: Text(text, style: Av2Text.body, maxLines: 1)),
             const Icon(Icons.calendar_today_outlined,
                 size: 16, color: Av2Colors.textSecondary),
-            const SizedBox(width: 8),
-            Expanded(child: Text(text, style: Av2Text.body, maxLines: 1)),
           ],
         ),
       ),
     );
   }
 
-  Widget _typeToggle() {
-    Widget seg(String label, String value) {
-      final sel = _type == value;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => setState(() => _type = value),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: BoxDecoration(
-              color: sel ? Av2Colors.surface : Colors.transparent,
-              borderRadius: BorderRadius.circular(Av2Spacing.radiusSm - 2),
-              border: Border.all(color: sel ? Av2Colors.border : Colors.transparent),
-            ),
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: Av2Text.chip.copyWith(
-                color: sel ? Av2Colors.textPrimary : Av2Colors.textSecondary,
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(3),
-      decoration: BoxDecoration(
-        color: Av2Colors.surfaceMuted,
-        borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-      ),
-      child: Row(children: [seg('Full day', 'FULL_DAY'), seg('Half day', 'HALF_DAY')]),
-    );
-  }
-
-  Widget _textField(TextEditingController c, String hint, {int maxLines = 1}) {
+  Widget _noteField() {
     return TextField(
-      controller: c,
-      maxLines: maxLines,
+      controller: _note,
+      maxLines: 3,
       style: Av2Text.body,
       decoration: InputDecoration(
-        hintText: hint,
+        hintText: 'Add a note',
         hintStyle: Av2Text.body.copyWith(color: Av2Colors.textTertiary),
         filled: true,
         fillColor: Av2Colors.surfaceMuted,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
           borderSide: const BorderSide(color: Av2Colors.border),

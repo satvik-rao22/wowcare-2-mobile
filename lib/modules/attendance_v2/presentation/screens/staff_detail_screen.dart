@@ -1,17 +1,25 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:permission_handler/permission_handler.dart' show openAppSettings;
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 import '../../core/theme/av2_colors.dart';
 import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
+import '../../core/utils/av2_csv_builder.dart';
+import '../../core/utils/av2_save_permission.dart';
+import '../controllers/av2_day_filter.dart';
 import '../controllers/av2_period.dart';
 import '../cubit/staff_detail_cubit.dart';
 import '../cubit/staff_detail_state.dart';
 import '../widgets/av2_detail_scaffold.dart';
+import '../widgets/av2_permission_sheet.dart';
 import 'staff_detail_view.dart';
 
 /// Entry point for the staff attendance & overtime detail. Given a [staffCode],
@@ -35,6 +43,7 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
   late final StaffDetailCubit _cubit;
   late Av2Period _period;
   bool _refreshing = false;
+  bool _exporting = false;
 
   @override
   void initState() {
@@ -68,6 +77,125 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
     if (mounted) setState(() => _refreshing = false);
   }
 
+  /// Export CSV: ensures save permission, gathers the full filtered range +
+  /// each day's sessions in the background (button shows a spinner), builds a
+  /// clean CSV, then opens the OS "Save to Files" dialog so the user picks
+  /// where to save — no CSV-capable app required.
+  Future<void> _onExport() async {
+    if (_exporting) return;
+    setState(() => _exporting = true);
+    AppLogger.i(
+      '[AV2-EXPORT] start · staff=${widget.staffCode} '
+      'range=${_period.start}..${_period.end} filter=${_cubit.state.filter}',
+    );
+
+    // 1) Permission gate (mostly a no-op on modern Android/iOS; matters on
+    // legacy Android). Only a hard "permanently denied" blocks us.
+    final perm = await Av2SavePermissionHelper.ensure();
+    if (!mounted) return;
+    if (perm != Av2SavePermission.granted) {
+      AppLogger.w('[AV2-EXPORT] aborted: storage permission $perm');
+      setState(() => _exporting = false);
+      await _showStoragePermissionSheet(
+        permanentlyDenied: perm == Av2SavePermission.permanentlyDenied,
+      );
+      return;
+    }
+
+    // 2) Gather the data (network + per-day sessions).
+    Av2ExportData data;
+    try {
+      data = await _cubit.buildExport();
+      AppLogger.i(
+        '[AV2-EXPORT] gathered ${data.profile.days.length} days, '
+        '${data.detailByDate.length} day-details',
+      );
+    } catch (e, s) {
+      AppLogger.e('[AV2-EXPORT] failed gathering report data', e, s);
+      if (mounted) {
+        setState(() => _exporting = false);
+        _toast('Couldn’t load the report. Check your connection and try again.');
+      }
+      return;
+    }
+
+    // 3) Build + save.
+    try {
+      final bytes = Av2CsvBuilder.buildBytes(
+        profile: data.profile,
+        detailByDate: data.detailByDate,
+        reportLabel: data.filter.label,
+        generatedAt: DateTime.now(),
+      );
+      final baseName = _exportBaseName(data);
+      AppLogger.d('[AV2-EXPORT] writing $baseName.csv (${bytes.length} bytes)');
+
+      final saved = await FileSaver.instance.saveAs(
+        name: baseName,
+        bytes: Uint8List.fromList(bytes),
+        ext: 'csv',
+        mimeType: MimeType.csv,
+      );
+      if (!mounted) return;
+      // saveAs returns a path on save, null/empty if the user cancelled.
+      if (saved != null && saved.isNotEmpty) {
+        AppLogger.i('[AV2-EXPORT] saved to: $saved');
+        _toast('Saved “$baseName.csv”');
+      } else {
+        AppLogger.d('[AV2-EXPORT] save cancelled by user');
+      }
+    } catch (e, s) {
+      AppLogger.e('[AV2-EXPORT] failed saving CSV', e, s);
+      if (mounted) _toast('Couldn’t save the CSV. Please try again.');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
+    }
+  }
+
+  /// Explains the missing storage permission with steps to grant it; opens app
+  /// settings if the user proceeds.
+  Future<void> _showStoragePermissionSheet({
+    required bool permanentlyDenied,
+  }) async {
+    final message = permanentlyDenied
+        ? 'Storage access is turned off for this app, so the CSV can’t be saved '
+            'to your device. You can re-enable it from Settings.'
+        : 'To save the attendance CSV to your device, this app needs permission '
+            'to store files.';
+    final proceed = await showAv2PermissionSheet(
+      context,
+      title: 'Storage permission needed',
+      message: message,
+      steps: const [
+        'Tap “Open settings” below.',
+        'Open “Permissions”.',
+        'Allow “Storage” (or “Files and media”).',
+        'Come back and tap “Export CSV” again.',
+      ],
+      confirmLabel: 'Open settings',
+    );
+    if (proceed == true) await openAppSettings();
+  }
+
+  /// File name without extension, e.g. `Aparna_Biwalkar_2026-06-01_2026-06-30_AllDays`.
+  String _exportBaseName(Av2ExportData data) {
+    final name = data.profile.staffName.trim().isEmpty
+        ? 'Staff'
+        : data.profile.staffName.trim().replaceAll(RegExp(r'\s+'), '_');
+    final tab = switch (data.filter) {
+      Av2DayFilter.overtime => 'Overtime',
+      Av2DayFilter.absent => 'Absent',
+      Av2DayFilter.all => 'AllDays',
+    };
+    String d(DateTime x) =>
+        '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+    return '${name}_${d(data.profile.rangeStart)}_${d(data.profile.rangeEnd)}_$tab';
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
   @override
   void dispose() {
     unawaited(_cubit.close());
@@ -77,7 +205,8 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Av2DetailScaffold(
-      onExport: () {},
+      onExport: _onExport,
+      isExporting: _exporting,
       onRefresh: _onRefreshTap,
       isRefreshing: _refreshing,
       body: BlocBuilder<StaffDetailCubit, StaffDetailState>(
@@ -100,6 +229,11 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
                 reloadId: state.reloadId,
                 onPeriodChanged: _onPeriodChanged,
                 canEdit: canEdit,
+                filter: state.filter,
+                onFilterSelected: _cubit.setFilter,
+                onLoadMore: _cubit.loadMore,
+                hasMore: state.hasMore,
+                loadingMore: state.loadingMore,
                 onEditSession: ({
                   required recordCode,
                   required signInLocal,
