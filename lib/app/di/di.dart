@@ -332,7 +332,7 @@ import '../../presentation/features/communication/presentation/messaging/cubit/n
 import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
-import '../../presentation/features/communication/presentation/messaging/util/chat_attachment_uploader.dart';
+import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';

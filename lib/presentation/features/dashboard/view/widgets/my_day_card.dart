@@ -21,6 +21,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -61,6 +62,27 @@ class _MyDayCardState extends State<MyDayCard> {
 
   // ---- sign-in status ----
   bool _isSignedIn = false;
+
+  // Raw today-status string from the API (e.g. SIGNED_IN, ABSENT,
+  // SIGNED_OUT). Kept alongside `_isSignedIn` because the boolean alone
+  // can't distinguish "not signed in" from "already marked absent today",
+  // which the attendance gate below needs to disable actions correctly.
+  String? _todayStatusRaw;
+
+  /// Same gate used by the admin attendance pop-up
+  /// ([StaffAttendanceVerticalPopupOnly] via `staff_attendance_profile.dart`)
+  /// so self-service Sign-In/Sign-Out/Transfer/Mark-Absent rules stay
+  /// consistent across both surfaces.
+  StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
+    isActiveProfile: true,
+    todayStatusRaw: _todayStatusRaw,
+  );
+
+  bool get _canTransfer => _todayGate.canTransfer;
+  bool get _canMarkAbsent => _todayGate.canMarkAbsent;
+
+  bool get _markAbsentDisabled =>
+      !_staffIdentityLoaded || _staffCode.isEmpty || !_canMarkAbsent;
 
   // Cached staff identity — loaded once in initState so button taps never hit
   // a timing window where storage hasn't resolved yet.
@@ -325,7 +347,10 @@ class _MyDayCardState extends State<MyDayCard> {
       final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
       final status = await useCase(staffCode: code);
       if (!mounted) return;
-      setState(() => _isSignedIn = status?.toUpperCase() == 'SIGNED_IN');
+      setState(() {
+        _todayStatusRaw = status;
+        _isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
+      });
     } catch (_) {
       // sign-in status check is best-effort
     }
@@ -355,6 +380,22 @@ class _MyDayCardState extends State<MyDayCard> {
           ),
         ),
       ),
+    );
+    if (mounted) {
+      unawaited(_loadStaffIdentity());
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+    }
+  }
+
+  void _handleMarkAbsentDisabledTap() {
+    final message = _todayGate.isAbsentToday
+        ? 'Already marked absent for today.'
+        : (staffAttendanceDisabledReasons(_todayGate)['Absent'] ??
+              'Mark Absent is currently unavailable.');
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isWarning: true,
     );
   }
 
@@ -1025,10 +1066,18 @@ class _MyDayCardState extends State<MyDayCard> {
                                     // Transfer (signed-in) or Mark Absent (not signed-in)
                                     if (showSecondaryButtons && _isSignedIn)
                                       Expanded(
-                                        child: OutlinedButton.icon(
+                                        child: Tooltip(
+                                          message: _canTransfer
+                                              ? ''
+                                              : staffAttendanceDisabledReasons(
+                                                  _todayGate,
+                                                )['Transfer'] ??
+                                                  '',
+                                          child: OutlinedButton.icon(
                                           onPressed:
                                               (!_staffIdentityLoaded ||
-                                                  _staffCode.isEmpty)
+                                                  _staffCode.isEmpty ||
+                                                  !_canTransfer)
                                                   ? null
                                                   : _openTransferForSelf,
                                           icon: !_staffIdentityLoaded
@@ -1066,50 +1115,69 @@ class _MyDayCardState extends State<MyDayCard> {
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
+                                          ),
                                         ),
                                       )
                                     else if (showSecondaryButtons &&
                                         !_isSignedIn)
                                       Expanded(
-                                        child: OutlinedButton.icon(
-                                          onPressed:
-                                              (!_staffIdentityLoaded ||
-                                                  _staffCode.isEmpty)
+                                        child: GestureDetector(
+                                          onTap: _markAbsentDisabled
+                                              ? _handleMarkAbsentDisabledTap
+                                              : null,
+                                          child: Tooltip(
+                                            message: _canMarkAbsent
+                                                ? ''
+                                                : staffAttendanceDisabledReasons(
+                                                    _todayGate,
+                                                  )['Absent'] ??
+                                                    '',
+                                            child: OutlinedButton.icon(
+                                              onPressed: _markAbsentDisabled
                                                   ? null
                                                   : _openMarkAbsentForSelf,
-                                          icon: !_staffIdentityLoaded
-                                              ? const SizedBox(
-                                                  width: 14,
-                                                  height: 14,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 1.5,
-                                                        color: AppColors
-                                                            .themeColor,
-                                                      ),
-                                                )
-                                              : const SizedBox.shrink(),
-                                          label: const Text(
-                                            'Mark Absent',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor:
-                                                AppColors.themeColor,
-                                            side: const BorderSide(
-                                              color: AppColors.themeColor,
-                                            ),
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                  vertical: 14,
+                                              icon: !_staffIdentityLoaded
+                                                  ? const SizedBox(
+                                                      width: 14,
+                                                      height: 14,
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 1.5,
+                                                            color: AppColors
+                                                                .themeColor,
+                                                          ),
+                                                    )
+                                                  : const SizedBox.shrink(),
+                                              label: const Text(
+                                                'Mark Absent',
+                                                overflow:
+                                                    TextOverflow.ellipsis,
+                                              ),
+                                              style: OutlinedButton.styleFrom(
+                                                foregroundColor:
+                                                    _markAbsentDisabled
+                                                    ? Colors.grey[600]
+                                                    : AppColors.themeColor,
+                                                side: BorderSide(
+                                                  color: _markAbsentDisabled
+                                                      ? Colors.grey[400]!
+                                                      : AppColors.themeColor,
                                                 ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                            ),
-                                            textStyle: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 14,
+                                                    ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                        14,
+                                                      ),
+                                                ),
+                                                textStyle: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                         ),

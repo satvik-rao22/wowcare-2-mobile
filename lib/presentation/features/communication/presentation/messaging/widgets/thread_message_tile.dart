@@ -5,7 +5,7 @@ import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_bubble_widget.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_bubble_widget.dart';
 
 /// Renders a single [MessageBubble] driven by its own [BlocSelector] over
 /// [CommunicationCubit], rather than the [Message] handed down from the

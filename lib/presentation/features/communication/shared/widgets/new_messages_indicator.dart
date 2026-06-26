@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../../../../app/theme/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
 /// "↓ New Messages" chip shown above the input bar when a new message
 /// arrives while the user is reading older history, instead of forcing a

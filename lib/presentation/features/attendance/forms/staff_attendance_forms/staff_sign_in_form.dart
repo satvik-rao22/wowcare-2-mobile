@@ -109,9 +109,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     final staffCode = widget.isKiosk && widget.staffCode != null
         ? widget.staffCode!.trim()
         : (await serviceLocator<StorageService>().getString(
-              StorageKeys.staffCode,
-            ))?.trim() ??
-            '';
+                StorageKeys.staffCode,
+              ))?.trim() ??
+              '';
     if (!mounted) return;
     setState(() {
       _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
@@ -132,10 +132,12 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       final displayName = isKioskFlow
           ? (widget.staffName?.trim() ?? 'Staff')
           : (await serviceLocator<StorageService>().getString(
-                StorageKeys.displayName,
-              ))?.trim() ??
-              '';
-      AppLogger.d('[StaffSignIn] Kiosk=$isKioskFlow, DisplayName=$displayName, StaffName=${widget.staffName}');
+                  StorageKeys.displayName,
+                ))?.trim() ??
+                '';
+      AppLogger.d(
+        '[StaffSignIn] Kiosk=$isKioskFlow, DisplayName=$displayName, StaffName=${widget.staffName}',
+      );
       if (!mounted) return;
       setState(() {
         _selectedStaff = [
@@ -369,7 +371,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
   Future<String> _resolveStaffCode() async {
     // In kiosk mode, use the staff code from PIN verification
-    if (widget.isKiosk && widget.staffCode != null && widget.staffCode!.isNotEmpty) {
+    if (widget.isKiosk &&
+        widget.staffCode != null &&
+        widget.staffCode!.isNotEmpty) {
       return widget.staffCode!.trim();
     }
     // Otherwise, resolve from logged-in user
@@ -604,7 +608,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
       payload = <String, dynamic>{
         'staffCode': staffCode,
-        'method': widget.isKiosk ? 'KIOSK' : signInMethod,
+        'method': widget.isKiosk ? 'PIN' : signInMethod,
         'latitude': position?.latitude ?? 0,
         'longitude': position?.longitude ?? 0,
         'withinGeofence': withinGeofence,
@@ -661,7 +665,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       if (!mounted) return;
 
       // Normalize success messages for better UX
-      if (success && (message.toLowerCase().contains('sign in') || message.toLowerCase().contains('sign-in') || message.toLowerCase().contains('signed in'))) {
+      if (success &&
+          (message.toLowerCase().contains('sign in') ||
+              message.toLowerCase().contains('sign-in') ||
+              message.toLowerCase().contains('signed in'))) {
         message = 'Sign in successfully';
       }
 
@@ -687,7 +694,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
             context.read<GeofenceCubit>().updateStaffSignInStatus(true);
           }
           redirectToAttendanceDaily(
-              context, StaffAttendanceTabbedView.routeName);
+            context,
+            StaffAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -723,6 +732,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     return StaffFormLayout(
       title: 'Sign-In',
       isKiosk: widget.isKiosk,
+      showKioskBackButton: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

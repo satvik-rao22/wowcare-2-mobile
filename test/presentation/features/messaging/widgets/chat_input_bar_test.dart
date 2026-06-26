@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 
 Widget _wrap(Widget child) => MaterialApp(home: Scaffold(body: child));
 

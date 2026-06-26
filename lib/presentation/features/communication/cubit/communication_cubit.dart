@@ -22,7 +22,7 @@ import '../../../../domain/features/communication/usecases/clear_cache_usecase.d
 import '../../../../domain/features/communication/usecases/mark_conversation_delivered_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
-import '../presentation/messaging/util/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {

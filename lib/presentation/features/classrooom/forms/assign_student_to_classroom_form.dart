@@ -15,6 +15,8 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
@@ -79,6 +81,19 @@ class _AssignStudentToClassroomFormState
   final TextEditingController _searchController = TextEditingController();
   Timer? _searchDebounce;
 
+  // Today's sign-in status per student code — drives disabling the
+  // selection checkbox for students who are currently signed in (they can't
+  // be reassigned to another classroom while signed in).
+  Map<String, String> _todayStatusByCode = {};
+
+  bool _isStudentSignedIn(String code) {
+    final gate = studentAttendanceGateFromTodayStatus(
+      isActiveProfile: true,
+      todayStatusRaw: _todayStatusByCode[code],
+    );
+    return gate.isSignedInToday;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -135,7 +150,8 @@ class _AssignStudentToClassroomFormState
               profileImageUrl: (s.profileImage ?? '').trim().isEmpty
                   ? null
                   : s.profileImage!.trim(),
-              profilePhotoAssetCode: (s.profilePhotoAssetCode ?? '').trim().isEmpty
+              profilePhotoAssetCode:
+                  (s.profilePhotoAssetCode ?? '').trim().isEmpty
                   ? null
                   : s.profilePhotoAssetCode!.trim(),
               roomName: s.classroom,
@@ -168,6 +184,7 @@ class _AssignStudentToClassroomFormState
           ..addAll(uniqueTags.toList()..sort());
         _filterStudents();
       });
+      unawaited(_loadTodaySignInStatuses(fetchedStudents));
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -179,6 +196,26 @@ class _AssignStudentToClassroomFormState
           _isLoadingStudents = false;
         });
       }
+    }
+  }
+
+  /// Fetches today's sign-in status for every loaded student in one batch
+  /// call, reusing the same use case the Student list/profile screens use —
+  /// students currently signed in can't be reassigned to another classroom.
+  Future<void> _loadTodaySignInStatuses(List<StudentEntity> students) async {
+    final codes = students
+        .map((s) => s.code.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (codes.isEmpty) return;
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: codes);
+      if (!mounted) return;
+      setState(() => _todayStatusByCode = map);
+    } catch (_) {
+      // Non-critical: leave statuses empty so nothing is incorrectly
+      // disabled if the status check itself fails.
     }
   }
 
@@ -227,8 +264,11 @@ class _AssignStudentToClassroomFormState
     setState(() {
       isSelectAllChecked = value;
 
-      // Get the current visible students based on filters
-      final List<StudentEntity> visibleStudents = _getVisibleStudents();
+      // Get the current visible students based on filters, excluding
+      // anyone currently signed in — they can't be selected at all.
+      final List<StudentEntity> visibleStudents = _getVisibleStudents()
+          .where((s) => !_isStudentSignedIn(s.code))
+          .toList();
 
       if (value) {
         // Add all visible students to selection
@@ -241,7 +281,7 @@ class _AssignStudentToClassroomFormState
   }
 
   void _toggleStudentSelection(StudentEntity student, bool? value) {
-    if (value == null) return;
+    if (value == null || _isStudentSignedIn(student.code)) return;
 
     setState(() {
       if (value) {
@@ -250,8 +290,10 @@ class _AssignStudentToClassroomFormState
         selectedStudents.remove(student);
       }
 
-      // Update select all checkbox based on visible students
-      final visibleStudents = _getVisibleStudents();
+      // Update select all checkbox based on visible, selectable students.
+      final visibleStudents = _getVisibleStudents().where(
+        (s) => !_isStudentSignedIn(s.code),
+      );
       isSelectAllChecked = visibleStudents.every(
         (student) => selectedStudents.contains(student),
       );
@@ -311,19 +353,13 @@ class _AssignStudentToClassroomFormState
             constraints: const BoxConstraints(minHeight: 44),
             hintText: 'Search Students',
             hintStyle: WidgetStatePropertyAll(
-              TextStyle(
-                fontFamily: 'Manrope',
-                color: Colors.grey[700],
-              ),
+              TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
             ),
             backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
             surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
             elevation: const WidgetStatePropertyAll<double>(0),
             side: const WidgetStatePropertyAll(
-              BorderSide(
-                width: 1,
-                color: Color.fromARGB(255, 188, 173, 186),
-              ),
+              BorderSide(width: 1, color: Color.fromARGB(255, 188, 173, 186)),
             ),
             leading: const Icon(Icons.search, color: Colors.grey),
           ),
@@ -419,6 +455,7 @@ class _AssignStudentToClassroomFormState
                       return StudentListItem(
                         student: student,
                         isSelected: isSelected,
+                        isSignedIn: _isStudentSignedIn(student.code),
                         onSelectionChanged: (value) {
                           _toggleStudentSelection(student, value);
                         },
@@ -573,7 +610,6 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                           studentCode: student.code,
                           size: 32,
                           fontSize: 12,
-                          disableAttendanceStatusLookup: true,
                         ),
                         const SizedBox(width: 6),
                         Expanded(
@@ -649,8 +685,9 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                       if (!mounted) return;
                       CoreUtils.showTopSnackBar(
                         context: context,
-                        message:
-                            message.isEmpty ? 'Assigned successfully' : message,
+                        message: message.isEmpty
+                            ? 'Assigned successfully'
+                            : message,
                         isSuccess: true,
                       );
 
@@ -677,6 +714,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
 class StudentListItem extends StatelessWidget {
   final StudentEntity student;
   final bool isSelected;
+  final bool isSignedIn;
   final ValueChanged<bool?> onSelectionChanged;
 
   const StudentListItem({
@@ -684,65 +722,84 @@ class StudentListItem extends StatelessWidget {
     required this.student,
     required this.isSelected,
     required this.onSelectionChanged,
+    this.isSignedIn = false,
   }) : super(key: key);
+
+  String get _disabledReason =>
+      "This Student ${student.fullName.trim().isEmpty ? 'This student' : student.fullName.trim()} is already signed in. Please sign out before assigning to another classroom.";
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    final content = InkWell(
       onTap: () {
+        if (isSignedIn) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: _disabledReason,
+            isWarning: true,
+          );
+          return;
+        }
         onSelectionChanged(!isSelected);
       },
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border.all(color: AppColors.themeColor),
-          borderRadius: BorderRadius.circular(8),
-          color: isSelected
-              ? const Color.fromARGB(255, 249, 245, 250)
-              : Colors.white,
-        ),
-        child: Padding(
-          padding: const EdgeInsets.only(right: 4),
-          child: Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelected,
-                  onChanged: onSelectionChanged,
-                ),
-              ),
-              DocumentImageWidget(
-                fileUuid: '',
-                imageUrl: student.profileImageUrl,
-                mediaAssetCode: student.profilePhotoAssetCode,
-                name: student.fullName,
-                studentCode: student.code,
-                size: 32,
-                fontSize: 12,
-                disableAttendanceStatusLookup: true,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: EllipsisTooltipText(
-                  text: student.fullName.trim().isEmpty
-                      ? 'Student'
-                      : student.fullName.trim(),
-                  maxLines: 2,
-                  preferLongPress: true,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    color: AppColors.primaryColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
+      child: Opacity(
+        opacity: isSignedIn ? 0.45 : 1.0,
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: AppColors.themeColor),
+            borderRadius: BorderRadius.circular(8),
+            color: isSelected
+                ? const Color.fromARGB(255, 249, 245, 250)
+                : Colors.white,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.only(right: 4),
+            child: Row(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: CustomCheckbox(
+                    borderColor: AppColors.themeColor,
+                    value: isSelected,
+                    onChanged: isSignedIn ? null : onSelectionChanged,
                   ),
                 ),
-              ),
-            ],
+                DocumentImageWidget(
+                  fileUuid: '',
+                  imageUrl: student.profileImageUrl,
+                  mediaAssetCode: student.profilePhotoAssetCode,
+                  name: student.fullName,
+                  studentCode: student.code,
+                  size: 32,
+                  fontSize: 12,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: EllipsisTooltipText(
+                    text: student.fullName.trim().isEmpty
+                        ? 'Student'
+                        : student.fullName.trim(),
+                    maxLines: 2,
+                    preferLongPress: true,
+                    style: const TextStyle(
+                      fontFamily: 'Manrope',
+                      color: AppColors.primaryColor,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
+
+    if (isSignedIn) {
+      return Tooltip(message: _disabledReason, child: content);
+    }
+    return content;
   }
 }
 

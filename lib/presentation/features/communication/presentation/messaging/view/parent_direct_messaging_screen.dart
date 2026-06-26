@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
@@ -10,7 +10,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_conversations
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_thread_shimmer.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
