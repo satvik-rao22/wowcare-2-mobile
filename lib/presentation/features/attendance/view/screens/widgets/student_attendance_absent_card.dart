@@ -109,6 +109,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
                         : student.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
+                    disableAttendanceStatusLookup: true,
                   ),
                   SizedBox(width: spacing),
                   Expanded(

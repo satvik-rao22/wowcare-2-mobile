@@ -10,6 +10,8 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 const _kStatementTypes = ['Monthly', 'Yearly', 'Custom Range'];
@@ -24,13 +26,6 @@ const _kApiStatementType = <String, String>{
   'Yearly': 'YEARLY',
   'Custom Range': 'CUSTOM',
 };
-
-final _kAvatarColors = <Color>[
-  AppColors.warningColor,
-  AppColors.themeColor,
-  AppColors.primaryColor,
-  Colors.teal,
-];
 
 class GenerateStatementScreen extends StatefulWidget {
   const GenerateStatementScreen({
@@ -453,15 +448,6 @@ class _SelectedStudentsCard extends StatelessWidget {
   final TextStyle labelStyle;
   final void Function(String code) onToggle;
 
-  String _initials(String name) {
-    final parts = name.trim().split(RegExp(r'\s+'));
-    final first = parts.isNotEmpty ? parts.first : '';
-    final last = parts.length > 1 ? parts.last : '';
-    return ((first.isNotEmpty ? first[0] : '') +
-            (last.isNotEmpty ? last[0] : ''))
-        .toUpperCase();
-  }
-
   @override
   Widget build(BuildContext context) {
     final selectedCount = children
@@ -476,82 +462,64 @@ class _SelectedStudentsCard extends StatelessWidget {
           style: labelStyle.copyWith(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.cardColor,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.cardBorderColor),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: children.asMap().entries.map((entry) {
-                final idx = entry.key;
-                final child = entry.value;
-                final code = (child['code'] ?? '').toString();
-                final name =
-                    (child['fullName'] ?? child['name'] ?? '').toString();
-                final isSelected = selectedCodes.contains(code);
-                final color = _kAvatarColors[idx % _kAvatarColors.length];
+        // Activity-selection style: bordered checkbox chips, sized to their
+        // content and wrapped (not full-width rows).
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: children.map((child) {
+            final code = (child['code'] ?? '').toString();
+            final name =
+                (child['fullName'] ?? child['name'] ?? '').toString();
+            final isSelected = selectedCodes.contains(code);
 
-                return Padding(
-                  padding: const EdgeInsets.only(right: 16),
-                  child: GestureDetector(
-                    onTap: () => onToggle(code),
-                    behavior: HitTestBehavior.translucent,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircleAvatar(
-                          radius: 16,
-                          backgroundColor: color,
-                          child: Text(
-                            _initials(name),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 110),
-                          child: Text(
-                            name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTextStyles.value.copyWith(
-                              color: AppColors.primaryColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: Checkbox(
-                            value: isSelected,
-                            onChanged: (_) => onToggle(code),
-                            activeColor: AppColors.themeColor,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            materialTapTargetSize:
-                                MaterialTapTargetSize.shrinkWrap,
-                          ),
-                        ),
-                      ],
+            return InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => onToggle(code),
+              child: Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.themeColor),
+                  borderRadius: BorderRadius.circular(8),
+                  color: isSelected
+                      ? const Color.fromARGB(255, 249, 245, 250)
+                      : Colors.white,
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CustomCheckbox(
+                      borderColor: AppColors.themeColor,
+                      value: isSelected,
+                      onChanged: (_) => onToggle(code),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+                    DocumentImageWidget(
+                      fileUuid: '',
+                      name: name,
+                      studentCode: code.trim().isEmpty ? null : code.trim(),
+                      size: 32,
+                      fontSize: 14,
+                    ),
+                    const SizedBox(width: 8),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 130),
+                      child: Text(
+                        name.trim().isEmpty ? 'Student' : name.trim(),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTextStyles.value.copyWith(
+                          color: AppColors.primaryColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
         ),
       ],
     );

@@ -103,17 +103,13 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
   }
 
   void selectStartDate(DateTime date) {
-    final today = _schoolToday();
-    final picked = DateTime(date.year, date.month, date.day);
-    final start = picked.isAfter(today) ? today : picked;
+    final start = DateTime(date.year, date.month, date.day);
     final end = state.endDate.isBefore(start) ? start : state.endDate;
     emit(state.copyWith(startDate: start, endDate: end));
   }
 
   void selectEndDate(DateTime date) {
-    final today = _schoolToday();
-    final picked = DateTime(date.year, date.month, date.day);
-    var end = picked.isAfter(today) ? today : picked;
+    var end = DateTime(date.year, date.month, date.day);
     if (end.isBefore(state.startDate)) end = state.startDate;
     emit(state.copyWith(endDate: end));
   }
@@ -192,13 +188,6 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
       return StaffMarkAbsentSubmitOutcome.error(e);
     }
-  }
-
-  DateTime _schoolToday() {
-    final iana = state.schoolIana;
-    return (iana != null && iana.isNotEmpty)
-        ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-        : _localToday();
   }
 
   static DateTime _localToday() {

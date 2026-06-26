@@ -597,7 +597,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
     late final Map<String, dynamic> payload;
     final bool isQrSignIn = widget.qrToken.isNotEmpty;
-    final String signInMethod = isQrSignIn ? 'QR' : 'GPS';
+    final String signInMethod = isQrSignIn ? 'QR' : (isStaffAdmin ? 'APP' : 'GPS');
 
     // QR scan is always self sign-in — the person holding the phone is signing
     // in themselves against the school kiosk QR. Admin bulk sign-in only happens

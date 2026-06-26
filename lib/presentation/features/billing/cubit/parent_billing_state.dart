@@ -58,13 +58,11 @@ class ParentBillingState extends Equatable {
             (d.isAtSameMomentAs(end) || d.isBefore(end));
       });
     }
-    return result.toList()
-      ..sort((a, b) {
-        if (a.date == null && b.date == null) return 0;
-        if (a.date == null) return 1;
-        if (b.date == null) return -1;
-        return b.date!.compareTo(a.date!);
-      });
+    // Preserve the API order (already newest-first by createdAt). We must NOT
+    // re-sort by `date`, because payments carry a date-only `…T00:00:00Z` value
+    // that would wrongly sort them below same-day invoices even though they were
+    // created later.
+    return result.toList();
   }
 
   /// Transactions visible in the current page window.

@@ -13,6 +13,8 @@ import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/custom_shimmer_loader.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
+import '../../../../shared/common/app/cubit/role_cubit.dart';
+import '../../student/module_access.dart';
 import '../cubit/scheduling_cubit.dart';
 import '../model/scheduling_models.dart';
 import '../utils/scheduling_cache_gate.dart';
@@ -528,7 +530,11 @@ class _DatePickerHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 8),
-        GradientAddButton(onTap: onAddTap),
+        // Creating shifts is a CLASSROOM_SCHEDULE write.
+        if (context
+            .read<RoleCubit>()
+            .canWriteModule(AppAccessModules.classroomSchedule))
+          GradientAddButton(onTap: onAddTap),
       ],
     );
   }

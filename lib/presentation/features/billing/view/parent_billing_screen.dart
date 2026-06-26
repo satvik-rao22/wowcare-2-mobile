@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -27,7 +28,7 @@ class ParentBillingScreen extends StatefulWidget {
 }
 
 class _ParentBillingScreenState extends State<ParentBillingScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
   late final TabController _tabController;
   final ScrollController _billingScrollController = ScrollController();
 
@@ -39,6 +40,12 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
     _tabController = TabController(length: 2, vsync: this);
     _billingScrollController.addListener(_onBillingScroll);
     _cubit.load();
+  }
+
+  @override
+  void onSchoolSwitched() {
+    // Kept-alive billing branch — reload the ledger for the new school.
+    if (mounted) _cubit.refresh();
   }
 
   @override
@@ -261,7 +268,10 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                     children: state.visibleTransactions.map((txn) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: ParentTransactionCard(transaction: txn),
+                        child: ParentTransactionCard(
+                          transaction: txn,
+                          familyName: state.ledger?.familyName ?? '',
+                        ),
                       );
                     }).toList(),
                   ),
@@ -292,6 +302,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       }).toList(),
       subscriberCode: state.ledger?.ownerCode ?? '',
       ownerType: state.ledger?.ownerType ?? 'GUARDIAN',
+      currentBalance: state.openBalance,
       customStartDate: state.startDate,
       customEndDate: state.endDate,
     );

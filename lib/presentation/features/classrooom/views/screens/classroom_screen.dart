@@ -19,6 +19,9 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 class ClassroomScreen extends StatefulWidget {
@@ -46,13 +49,17 @@ class ClassroomScreen extends StatefulWidget {
 }
 
 class _ClassroomScreenState extends State<ClassroomScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SchoolSwitchReloadMixin {
   late TabController _tabController;
   final ScrollController _studentsScrollController = ScrollController();
   final ScrollController _staffScrollController = ScrollController();
   final ScrollController _notesScrollController = ScrollController();
   Classroom? selectedRoom;
   bool _hideAssignFabForStaffPersona = false;
+  // Bumped on a school switch to re-key (recreate) the ClassroomCubit provider
+  // so the new school's classrooms load from scratch — this branch screen is
+  // kept alive in the shell and never re-inits on its own.
+  int _schoolReloadEpoch = 0;
   // Whether [widget.initialClassroomCode] has already been honored, so a manual
   // dropdown change afterwards isn't overridden on the next rebuild.
   bool _appliedInitialClassroom = false;
@@ -73,6 +80,21 @@ class _ClassroomScreenState extends State<ClassroomScreen>
       setState(() {});
     });
 
+    _resolveStaffPersonaRestrictions();
+    _resolveDefaultClassroomPrefs();
+  }
+
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    // Clear the previous school's selection/defaults and recreate the cubit.
+    setState(() {
+      selectedRoom = null;
+      _appliedInitialClassroom = false;
+      _defaultClassroomApplied = false;
+      _defaultClassroomPrefsResolved = false;
+      _schoolReloadEpoch++;
+    });
     _resolveStaffPersonaRestrictions();
     _resolveDefaultClassroomPrefs();
   }
@@ -263,7 +285,9 @@ class _ClassroomScreenState extends State<ClassroomScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ClassroomCubit>(
+    return KeyedSubtree(
+      key: ValueKey<int>(_schoolReloadEpoch),
+      child: BlocProvider<ClassroomCubit>(
       create: (_) => serviceLocator<ClassroomCubit>()
         ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
@@ -436,6 +460,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
           );
         },
       ),
+      ),
     );
   }
 
@@ -443,6 +468,11 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     // Show respective FAB only on Students (0) and Staff (1) tabs
     if (selectedRoom == null) return null;
     if (_hideAssignFabForStaffPersona) return null;
+    // Assigning students/staff to a room is a CLASSROOM write — hide for
+    // view-only personas.
+    if (!context.read<RoleCubit>().canWriteModule(AppAccessModules.classroom)) {
+      return null;
+    }
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600;
     final isLargeTablet = screenWidth >= 900;

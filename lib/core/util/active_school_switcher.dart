@@ -7,6 +7,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/activity_feed_invalidation.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
@@ -137,6 +138,9 @@ Future<bool> switchActiveSchoolIfNeeded({
   } catch (e) {
     AppLogger.d('[FCM] parent/child reload failed (non-fatal): $e');
   }
+
+  // Tell every kept-alive branch screen to reload fresh for the new school.
+  SchoolSwitchEvents.notifySwitched();
 
   AppLogger.d('[FCM] Active-school switch complete → ready to redirect.');
   return true;

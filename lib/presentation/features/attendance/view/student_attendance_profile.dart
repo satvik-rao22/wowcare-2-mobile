@@ -223,6 +223,7 @@ class _AbsentDayModel {
   final String absentBy;
   final String note;
   final ProfileAbsentMarkMethod? markAbsentMethod;
+  final String classroomName;
 
   _AbsentDayModel({
     required this.startDate,
@@ -231,6 +232,7 @@ class _AbsentDayModel {
     required this.absentBy,
     required this.note,
     this.markAbsentMethod,
+    this.classroomName = '',
   });
 }
 
@@ -853,6 +855,12 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               note: m['absenceNote'] as String? ?? '',
               markAbsentMethod: _mapAbsentMethodStringToEnum(
                 m['markAbsentMethod'] as String?,
+              ),
+              classroomName: _resolveClassroomNameByCode(
+                m['classroomCode'] as String?,
+                codeToNameMap,
+                (m['classroomName'] as String?)?.trim() ?? '',
+                // render-time fallback uses student?.roomName
               ),
             ),
           );
@@ -1773,7 +1781,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(label: 'Classroom', text: student?.roomName ?? ''),
+          _AttendanceField(
+            label: 'Classroom',
+            text: () {
+              if (absentDay.classroomName.isNotEmpty) {
+                return absentDay.classroomName;
+              }
+              final fallback = student?.roomName ?? widget.roomName;
+              return (fallback.trim().isNotEmpty &&
+                      fallback != '-' &&
+                      fallback != '—')
+                  ? fallback
+                  : '';
+            }(),
+          ),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Date',

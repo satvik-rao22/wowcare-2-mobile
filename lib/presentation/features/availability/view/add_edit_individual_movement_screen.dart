@@ -217,6 +217,13 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
       codes: widget.classrooms,
       nameForCode: _nameForClassroomCode,
     );
+    final currentCode = _currentClassroom?.trim() ?? '';
+    final nextClassroomOptions = _buildDisplayOnlyOptions(
+      codes: currentCode.isEmpty
+          ? widget.classrooms
+          : widget.classrooms.where((c) => c.trim() != currentCode).toList(),
+      nameForCode: _nameForClassroomCode,
+    );
     return StaffFormLayout(
       title: widget.isEditing
           ? 'Individual Student Movement'
@@ -354,11 +361,11 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                         CustomDropdown(
                           label: 'Next to Classroom',
                           hintText: 'Select',
-                          items: classroomOptions.items,
+                          items: nextClassroomOptions.items,
                           selectedItem: (_nextClassroom == null ||
                                   _nextClassroom!.trim().isEmpty)
                               ? null
-                              : classroomOptions.codeToDisplay[_nextClassroom!.trim()],
+                              : nextClassroomOptions.codeToDisplay[_nextClassroom!.trim()],
                           showAsterisk: true,
                           labelStyle: _labelStyle(responsive),
                           labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -371,7 +378,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                           ),
                           isEnabled: !widget.lockClassroomSelection,
                           onSelect: (value) => setState(
-                                () => _nextClassroom = classroomOptions
+                                () => _nextClassroom = nextClassroomOptions
                                     .displayToCode[(value ?? '').trim()],
                               ),
                         ),

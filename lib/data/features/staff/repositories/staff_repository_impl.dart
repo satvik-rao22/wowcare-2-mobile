@@ -257,7 +257,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     final future = _inflightStaffPageByKey.putIfAbsent(listKey, () {
       final f = fetchRemote();
-      f.whenComplete(() => _inflightStaffPageByKey.remove(listKey));
+      f.whenComplete(() => _inflightStaffPageByKey.remove(listKey)).ignore();
       return f;
     });
     return await future;
@@ -559,7 +559,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     final future = _inflightStaffProfileByKey.putIfAbsent(cacheKey, () {
       final f = fetchRemoteAndSave();
-      f.whenComplete(() => _inflightStaffProfileByKey.remove(cacheKey));
+      // .ignore() marks errors on this whenComplete future as handled. The
+      // caller awaits `f` directly (and catches its errors); without ignore(),
+      // the orphaned whenComplete future re-surfaces the same error as an
+      // unhandled zone exception.
+      f.whenComplete(() => _inflightStaffProfileByKey.remove(cacheKey)).ignore();
       return f;
     });
     return await future;

@@ -223,7 +223,7 @@ class _StaffSelectionMarkAbsentFormState
       context,
       MaterialPageRoute(
         builder: (context) => StaffMarkAbsentForm(
-          staff: selectedStaff.first,
+          staffList: selectedStaff.toList(),
         ),
       ),
     );

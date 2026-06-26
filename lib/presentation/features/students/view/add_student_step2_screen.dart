@@ -8,7 +8,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -737,7 +736,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Select Parents',
+                                      'Select Parent',
                                       style: TextStyle(
                                         fontSize: responsive.labelFontSize,
                                         fontFamily: "Manrope",
@@ -746,13 +745,23 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    CustomMultiSelectDropdown(
-                                      hintText: 'Select parents',
+                                    // Single-select existing parent (searchable).
+                                    // One parent only — store as a 0/1 list so the
+                                    // downstream create/validation logic is unchanged.
+                                    CustomDropdown(
+                                      hintText: 'Select parent',
                                       items: _existingParents,
-                                      selectedItems: _selectedExistingParents,
-                                      onChanged: (selected) {
+                                      enableSearch: true,
+                                      selectedItem:
+                                          _selectedExistingParents.isEmpty
+                                              ? null
+                                              : _selectedExistingParents.first,
+                                      onSelect: (selected) {
                                         setState(() {
-                                          _selectedExistingParents = selected;
+                                          _selectedExistingParents =
+                                              selected == null
+                                                  ? <String>[]
+                                                  : <String>[selected];
                                         });
                                       },
                                     ),
