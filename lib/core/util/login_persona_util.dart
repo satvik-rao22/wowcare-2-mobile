@@ -107,6 +107,40 @@ bool shouldSkipStaffCodeResolutionForContext({
   }
 }
 
+/// True when [rolesJson] (the login roles payload) contains an
+/// `ORGANIZATION_ADMIN` role for [organizationCode].
+bool rolesJsonIndicatesOrgAdmin(String rolesJson, String organizationCode) {
+  final org = organizationCode.trim();
+  if (rolesJson.trim().isEmpty || org.isEmpty) return false;
+  try {
+    final decoded = jsonDecode(rolesJson);
+    if (decoded is! List) return false;
+    return decoded.any((r) {
+      if (r is! Map) return false;
+      final rOrg = (r['organizationCode'] ?? '').toString().trim();
+      final rRole = (r['role'] ?? '').toString().toUpperCase().trim();
+      return rOrg == org && rRole == 'ORGANIZATION_ADMIN';
+    });
+  } catch (_) {
+    return false;
+  }
+}
+
+/// The `schoolCode` to send to `GET /staff/code` for this context.
+///
+/// ORGANIZATION_ADMINs are mapped org-level: the backend expects `'-'` and
+/// returns 404 for a real school code. Every other persona uses the real
+/// selected school.
+String staffCodeLookupSchoolCode({
+  required String rolesJson,
+  required String organizationCode,
+  required String schoolCode,
+}) {
+  return rolesJsonIndicatesOrgAdmin(rolesJson, organizationCode)
+      ? '-'
+      : schoolCode.trim();
+}
+
 /// True when any role in the login response is a kiosk persona.
 ///
 /// Kiosk users should skip all post-login APIs (context, staff lookup, profile, PIN)
@@ -139,6 +173,29 @@ bool loginResponseIsKioskUser(List<dynamic> roles) {
     }
   } catch (e) {
     // Log error for debugging
+  }
+  return false;
+}
+
+/// SUPERADMIN is a web-portal-only role. The mobile app must block these
+/// accounts at login (no session is established). Accepts RoleModel or raw Maps.
+bool loginResponseIsSuperAdmin(List<dynamic> roles) {
+  try {
+    for (final role in roles) {
+      String roleStr = '';
+      if (role is RoleModel) {
+        roleStr = role.role;
+      } else if (role is Map) {
+        roleStr = (role['role'] ?? '').toString();
+      } else {
+        continue;
+      }
+      if (roleStr.toUpperCase().trim() == 'SUPERADMIN') {
+        return true;
+      }
+    }
+  } catch (_) {
+    // Treat parse errors as "not superadmin" — fail open to normal handling.
   }
   return false;
 }

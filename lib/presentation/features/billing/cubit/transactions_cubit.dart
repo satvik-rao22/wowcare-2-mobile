@@ -16,6 +16,43 @@ part 'transactions_state.dart';
 
 enum TransactionStatus { paid, inProcess, unpaid, refund, failed }
 
+/// The summary-card filters that scope the Transactions list to a subset of
+/// rows via the `type` / `status` query params on `GET /invoices/transactions`.
+///
+/// - [netPaid]  → received payments and refunds together (refunds show negative)
+/// - [paid]     → received payments only (refunds excluded)
+/// - [inProcess]→ payments still settling (forte-scheduler)
+/// - [refund]   → refunded transactions only
+enum TransactionFilter { netPaid, paid, inProcess, refund }
+
+extension TransactionFilterParams on TransactionFilter {
+  /// `type` query param (a comma-joined list is sent verbatim).
+  String get typeParam {
+    switch (this) {
+      case TransactionFilter.netPaid:
+        return 'PAYMENT,REFUND';
+      case TransactionFilter.paid:
+      case TransactionFilter.inProcess:
+        return 'PAYMENT';
+      case TransactionFilter.refund:
+        return 'REFUND';
+    }
+  }
+
+  /// `status` query param, or null when the filter doesn't constrain status.
+  String? get statusParam {
+    switch (this) {
+      case TransactionFilter.netPaid:
+      case TransactionFilter.paid:
+        return 'SUCCESS';
+      case TransactionFilter.inProcess:
+        return 'IN_PROCESS';
+      case TransactionFilter.refund:
+        return null;
+    }
+  }
+}
+
 class TransactionRecord {
   const TransactionRecord({required this.item, required this.status});
 
@@ -126,6 +163,16 @@ class TransactionsCubit extends Cubit<TransactionsState> {
     emit(state.copyWith(searchQuery: ''));
   }
 
+  /// Applies (or clears, when [filter] is null) a summary-card filter and
+  /// reloads the Transactions list from page 0 scoped to it. The overview
+  /// totals are intentionally left untouched — they always reflect the full
+  /// date range so the stat bar keeps showing every bucket.
+  Future<void> applyFilter(TransactionFilter? filter) async {
+    if (state.activeFilter == filter) return;
+    emit(state.copyWith(activeFilter: () => filter));
+    await loadTransactions();
+  }
+
   /// Loads page 0 of the Transactions list (initial load / refresh / date
   /// change). Drives the shimmer via [TransactionsState.isLoading].
   Future<void> loadTransactions({DateTime? dateFrom, DateTime? dateTo}) async {
@@ -140,11 +187,14 @@ class TransactionsCubit extends Cubit<TransactionsState> {
         emit(state.copyWith(isLoading: false, transactions: const []));
         return;
       }
+      final filter = state.activeFilter;
       final result = await _getTransactions(
         organizationCode: org,
         school: school,
         dateFrom: dateFrom ?? state.dateFrom,
         dateTo: dateTo ?? state.dateTo,
+        type: filter?.typeParam,
+        status: filter?.statusParam,
         page: 0,
         size: _pageSize,
       );
@@ -176,11 +226,14 @@ class TransactionsCubit extends Cubit<TransactionsState> {
           (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
       final school =
           (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final filter = state.activeFilter;
       final result = await _getTransactions(
         organizationCode: org,
         school: school,
         dateFrom: state.dateFrom,
         dateTo: state.dateTo,
+        type: filter?.typeParam,
+        status: filter?.statusParam,
         page: nextPage,
         size: _pageSize,
       );
@@ -225,6 +278,8 @@ class TransactionsCubit extends Cubit<TransactionsState> {
           transactionType: t.type.isNotEmpty ? t.type : 'Invoice',
           date: t.date ?? DateTime.now(),
           amount: t.amount,
+          paidAmount: t.paidAmount,
+          refundedAmount: t.refundedAmount,
           status: t.status,
           description: t.description,
           studentName: name,

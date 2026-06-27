@@ -406,7 +406,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
 
     final bool isQrSignOut = widget.qrToken.isNotEmpty;
-    final String signOutMethod = isQrSignOut ? 'QR' : 'GPS';
+    final String signOutMethod = isQrSignOut ? 'QR' : (isStaffAdmin ? 'APP' : 'GPS');
 
     // QR scan is always self sign-out — the person holding the phone is signing
     // themselves out. Kiosk is always self sign-out (staff member via PIN).
@@ -419,7 +419,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       'staffCodes': staffCodes,
       'classroomCode': classroomCode,
       'classroomCodeByStaffCode': classroomCodeByStaffCode,
-      'method': widget.isKiosk ? 'KIOSK' : signOutMethod,
+      'method': widget.isKiosk ? 'PIN' : signOutMethod,
       'latitude': position?.latitude ?? 0,
       'longitude': position?.longitude ?? 0,
       'withinGeofence': withinGeofence,
@@ -501,6 +501,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     return StaffFormLayout(
       title: 'Sign-Out',
       isKiosk: widget.isKiosk,
+      showKioskBackButton: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

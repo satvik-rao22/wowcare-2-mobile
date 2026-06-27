@@ -5,7 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-enum SignMethod { gps, qr, kiosk, direct, web }
+enum SignMethod { gps, qr, pin, kiosk, direct, web }
 
 class StaffAttendanceCardData {
   final String? attendanceRecordCode;
@@ -92,6 +92,18 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
   // the same Manrope/plum visual identity.
   static const Color _plum = Color(0xff573353);
 
+  Color? _attendanceStatusColor(StaffAttendanceCardData s) {
+    if (s.hasSignIn) return Colors.green;
+    if (s.expectedToday) return Colors.red;
+    return null;
+  }
+
+  String? _attendanceStatusTooltip(StaffAttendanceCardData s) {
+    if (s.hasSignIn) return 'Signed in';
+    if (s.expectedToday) return 'Absent';
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
@@ -155,6 +167,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                     staffCode: staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
+                    disableAttendanceStatusLookup: true,
+                    statusColor: _attendanceStatusColor(staff),
+                    statusTooltip: _attendanceStatusTooltip(staff),
                   ),
                   SizedBox(width: spacing),
                   Expanded(
@@ -383,6 +398,10 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             MediaRes.gpsMethodIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.qr:
@@ -392,15 +411,36 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             MediaRes.qrAttendanceIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
+          message: 'Kiosk',
           child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
+            MediaRes.kioskAttendenceIcons,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case SignMethod.pin:
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.direct:

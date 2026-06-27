@@ -793,6 +793,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     return StaffFormLayout(
       title: 'Sign-In',
       isKiosk: widget.isKiosk,
+      showKioskBackButton: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

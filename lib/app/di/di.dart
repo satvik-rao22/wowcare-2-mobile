@@ -132,7 +132,6 @@ import '../../data/features/kiosk/repositories/kiosk_repository_impl.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
 import '../../data/features/kiosk/datasources/kiosk_attendance_remote_datasource.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
-import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit.dart';
 // REFACTORED KIOSK MODULE - CLEAN ARCHITECTURE
 import '../../domain/features/kiosk/repositories/kiosk_attendance_repository.dart';
 import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
@@ -333,7 +332,7 @@ import '../../presentation/features/communication/presentation/messaging/cubit/n
 import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
-import '../../presentation/features/communication/presentation/messaging/util/chat_attachment_uploader.dart';
+import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
@@ -362,6 +361,7 @@ import '../../data/features/billing/repositories/ledger_transaction_repository_i
 import '../../domain/features/billing/repositories/billing_statements_repository.dart';
 import '../../domain/features/billing/usecases/get_billing_statements_usecase.dart';
 import '../../presentation/features/billing/cubit/admin_statements_cubit.dart';
+import '../../presentation/features/billing/cubit/parent_statements_cubit.dart';
 import '../../domain/features/billing/repositories/ledger_repository.dart';
 import '../../domain/features/billing/repositories/ledger_transaction_repository.dart';
 import '../../domain/features/billing/usecases/get_ledgers_usecase.dart';
@@ -413,6 +413,7 @@ import '../../data/features/billing/datasources/auto_pay_remote_datasource.dart'
 import '../../data/features/billing/repositories/auto_pay_repository_impl.dart';
 import '../../domain/features/billing/repositories/auto_pay_repository.dart';
 import '../../domain/features/billing/usecases/get_school_forte_config_usecase.dart';
+import '../../domain/features/billing/usecases/get_payment_settings_usecase.dart';
 import '../../domain/features/billing/usecases/get_autopay_status_usecase.dart';
 import '../../domain/features/billing/usecases/set_autopay_status_usecase.dart';
 import '../../domain/features/billing/usecases/get_payment_methods_usecase.dart';
@@ -421,8 +422,11 @@ import '../../domain/features/billing/usecases/set_primary_payment_method_usecas
 import '../../domain/features/billing/usecases/set_autopay_method_usecase.dart';
 import '../../domain/features/billing/usecases/delete_payment_method_usecase.dart';
 import '../../domain/features/billing/usecases/update_payment_method_usecase.dart';
+import '../../domain/features/billing/usecases/guardian_pay_usecase.dart';
 import '../../presentation/features/billing/cubit/auto_pay_methods_cubit.dart';
+import '../../presentation/features/billing/cubit/payment_settings_cubit.dart';
 import '../../presentation/features/billing/cubit/pay_now_cubit.dart';
+import '../../presentation/features/billing/cubit/pay_now_authorize_cubit.dart';
 import '../../domain/features/billing/usecases/create_discount_usecase.dart';
 import '../../domain/features/billing/usecases/update_discount_usecase.dart';
 import '../../domain/features/billing/usecases/delete_discount_usecase.dart';
@@ -739,8 +743,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<ParentBillingCubit>(
     () => ParentBillingCubit(
-      getGuardianFamilyLedger:
-          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
@@ -796,6 +799,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentTagsUseCase: serviceLocator(),
       downloadReportUseCase: serviceLocator(),
       fileDownloadRepository: serviceLocator(),
+      reportsRepository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<EditUserProfileCubit>(
@@ -1644,7 +1648,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       editMessageUseCase: serviceLocator<EditMessageUseCase>(),
       deleteMessageUseCase: serviceLocator<DeleteMessageUseCase>(),
       deleteAttachmentUseCase: serviceLocator<DeleteAttachmentUseCase>(),
-      removeReactionLegacyUseCase: serviceLocator<RemoveReactionLegacyUseCase>(),
+      removeReactionLegacyUseCase:
+          serviceLocator<RemoveReactionLegacyUseCase>(),
       clearMessagesCacheUseCase: serviceLocator<ClearMessagesCacheUseCase>(),
       clearConversationsCacheUseCase:
           serviceLocator<ClearConversationsCacheUseCase>(),
@@ -1940,13 +1945,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Legacy cubit (kept for backwards compatibility if needed)
-  serviceLocator.registerFactory<KioskAttendanceCubit>(
-    () => KioskAttendanceCubit(
-      attendanceRepository: serviceLocator(),
-      storageService: serviceLocator(),
-      apiClient: serviceLocator(),
-    ),
-  );
+  // serviceLocator.registerFactory<KioskAttendanceCubit>(
+  //   () => KioskAttendanceCubit(
+  //     attendanceRepository: serviceLocator(),
+  //     storageService: serviceLocator(),
+  //     apiClient: serviceLocator(),
+  //   ),
+  // );
 
   // ── Billing ───────────────────────────────────────────────────────────────
   serviceLocator.registerLazySingleton<LedgerRemoteDataSource>(
@@ -2057,11 +2062,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
 
   // ── Invoice catalog (fee structures / other fees / subsidies) ───────────────
   serviceLocator.registerLazySingleton<InvoiceCatalogRemoteDataSource>(
-    () => InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () =>
+        InvoiceCatalogRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceCatalogRepository>(
     () => InvoiceCatalogRepositoryImpl(
-        serviceLocator<InvoiceCatalogRemoteDataSource>()),
+      serviceLocator<InvoiceCatalogRemoteDataSource>(),
+    ),
   );
   serviceLocator.registerFactory<GetFeeStructuresUseCase>(
     () => GetFeeStructuresUseCase(serviceLocator<InvoiceCatalogRepository>()),
@@ -2076,7 +2083,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => InvoiceRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<InvoiceRepository>(
-    () => InvoiceRepositoryImpl(serviceLocator<InvoiceRemoteDataSource>()),
+    () => InvoiceRepositoryImpl(
+          serviceLocator<InvoiceRemoteDataSource>(),
+          serviceLocator<CacheManager>(),
+        ),
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
@@ -2123,7 +2133,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerLazySingleton<BillingStatementsRemoteDataSource>(
-    () => BillingStatementsRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
+    () => BillingStatementsRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+    ),
   );
   serviceLocator.registerLazySingleton<BillingStatementsRepository>(
     () => BillingStatementsRepositoryImpl(
@@ -2137,6 +2149,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<AdminStatementsCubit>(
     () => AdminStatementsCubit(
+      getStatements: serviceLocator<GetBillingStatementsUseCase>(),
+      statementsRepository: serviceLocator<BillingStatementsRepository>(),
+      fileDownloadService: serviceLocator<FileDownloadService>(),
+    ),
+  );
+  serviceLocator.registerFactory<ParentStatementsCubit>(
+    () => ParentStatementsCubit(
       getStatements: serviceLocator<GetBillingStatementsUseCase>(),
       statementsRepository: serviceLocator<BillingStatementsRepository>(),
       fileDownloadService: serviceLocator<FileDownloadService>(),
@@ -2191,6 +2210,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetSchoolForteConfigUseCase>(
     () => GetSchoolForteConfigUseCase(serviceLocator<AutoPayRepository>()),
   );
+  serviceLocator.registerFactory<GetPaymentSettingsUseCase>(
+    () => GetPaymentSettingsUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PaymentSettingsCubit>(
+    () => PaymentSettingsCubit(
+      getPaymentSettings: serviceLocator<GetPaymentSettingsUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
   serviceLocator.registerFactory<GetAutoPayStatusUseCase>(
     () => GetAutoPayStatusUseCase(serviceLocator<AutoPayRepository>()),
   );
@@ -2217,13 +2245,24 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PayNowCubit>(
     () => PayNowCubit(
-      getFamilySummary: serviceLocator<GetFamilySummaryUseCase>(),
+      getGuardianFamilyLedger:
+          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      storage: serviceLocator<StorageService>(),
+    ),
+  );
+  serviceLocator.registerFactory<GuardianPayUseCase>(
+    () => GuardianPayUseCase(serviceLocator<AutoPayRepository>()),
+  );
+  serviceLocator.registerFactory<PayNowAuthorizeCubit>(
+    () => PayNowAuthorizeCubit(
+      guardianPay: serviceLocator<GuardianPayUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<AutoPayMethodsCubit>(
     () => AutoPayMethodsCubit(
       getForteConfig: serviceLocator<GetSchoolForteConfigUseCase>(),
+      getPaymentSettings: serviceLocator<GetPaymentSettingsUseCase>(),
       getStatus: serviceLocator<GetAutoPayStatusUseCase>(),
       setStatus: serviceLocator<SetAutoPayStatusUseCase>(),
       getMethods: serviceLocator<GetPaymentMethodsUseCase>(),

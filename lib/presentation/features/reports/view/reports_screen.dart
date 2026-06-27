@@ -13,7 +13,8 @@ import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/annual_state_immunization_report_screen.dart';
-import 'package:wowcare/presentation/features/reports/view/billing_plan_report_screen.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/presentation/features/reports/view/billing_report_form_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/billing_transaction_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/staff_absent_report_screen.dart';
@@ -189,15 +190,41 @@ class _ReportsScreenState extends State<ReportsScreen>
   }
 
   void _openBillingReportForm(BuildContext context, String name) {
-    final reports = context.read<ReportsCubit>().state;
     final cubit = context.read<ReportsCubit>();
     Widget? screen;
     switch (name) {
       case 'Transaction Report':
         screen = const BillingTransactionReportScreen();
         break;
-      case 'Billing Plan':
-        screen = BillingPlanReportScreen(classrooms: reports.classroomNames);
+      case 'Invoice Report':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingInvoice,
+          title: 'Invoice Report',
+        );
+        break;
+      case 'Payment Summary':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingPaymentSummary,
+          title: 'Payment Summary',
+        );
+        break;
+      case 'Outstanding Report':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingOutstanding,
+          title: 'Outstanding Report',
+        );
+        break;
+      case 'Refund Report':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingRefund,
+          title: 'Refund Report',
+        );
+        break;
+      case 'Students & Billing Mapping':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingStudentMapping,
+          title: 'Students & Billing Mapping',
+        );
         break;
     }
 
@@ -294,11 +321,27 @@ class _ReportsScreenState extends State<ReportsScreen>
   static const List<ReportItem> _billingReports = <ReportItem>[
     ReportItem(
       name: 'Transaction Report',
-      description: 'All transactions in the selected date range.',
+      description: 'Payments, invoices, refunds and credits for a date range.',
     ),
     ReportItem(
-      name: 'Billing Plan',
-      description: 'Billing plan grouped by selected frequency.',
+      name: 'Invoice Report',
+      description: 'Issued invoices with total, paid and balance due.',
+    ),
+    ReportItem(
+      name: 'Payment Summary',
+      description: 'Total payments and transaction count over the period.',
+    ),
+    ReportItem(
+      name: 'Outstanding Report',
+      description: 'Open invoice balances by student / family.',
+    ),
+    ReportItem(
+      name: 'Refund Report',
+      description: 'Refunds issued over the period.',
+    ),
+    ReportItem(
+      name: 'Students & Billing Mapping',
+      description: 'Each student mapped to their invoices (total, paid, balance).',
     ),
   ];
 

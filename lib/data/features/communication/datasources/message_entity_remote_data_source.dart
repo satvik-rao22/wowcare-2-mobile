@@ -15,6 +15,7 @@ abstract class MessageEntityRemoteDataSource {
     required String text,
     List<int> attachmentIds,
     bool isPrivate,
+    String? privateParentUserCode,
     String? threadParentCode,
   });
 
@@ -81,6 +82,7 @@ class MessageEntityRemoteDataSourceImpl
     required String text,
     List<int> attachmentIds = const [],
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) async {
     final endpoint = _url(ApiPaths.messagingMessages);
@@ -95,6 +97,8 @@ class MessageEntityRemoteDataSourceImpl
       // contract for this same endpoint.
       if (attachmentIds.isNotEmpty) 'attachmentIds': attachmentIds,
       if (isPrivate) 'isPrivate': true,
+      if (privateParentUserCode != null)
+        'privateParentUserCode': privateParentUserCode,
       // Backend uses 'replyToMessageId' (confirmed from MessageModel.fromJson)
       if (threadParentCode != null) 'replyToMessageId': threadParentCode,
     };

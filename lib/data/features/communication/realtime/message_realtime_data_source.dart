@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
 
 // ─── Lightweight DTO for Firestore message data ──────────────────────────────
 
@@ -33,6 +34,7 @@ class MessageFirestoreItem {
     this.threadParentSenderCode,
     this.threadParentSenderName,
     this.threadParentText,
+    this.privateParentUserCode,
     this.deliveredTo = const {},
     this.readBy = const {},
   });
@@ -59,6 +61,7 @@ class MessageFirestoreItem {
   final String? threadParentSenderCode;
   final String? threadParentSenderName;
   final String? threadParentText;
+  final String? privateParentUserCode;
 
   /// `{userCode: deliveredAt}` / `{userCode: readAt}` maps written by the
   /// backend directly on the message doc — mirrors the web app's
@@ -93,6 +96,7 @@ class MessageFirestoreItem {
       threadParentSenderCode: d['threadParentSenderCode'] as String?,
       threadParentSenderName: d['threadParentSenderName'] as String?,
       threadParentText: d['threadParentText'] as String?,
+      privateParentUserCode: d['privateParentUserCode'] as String?,
       deliveredTo: _parseReceiptMap(d['deliveredTo']),
       readBy: _parseReceiptMap(d['readBy']),
     );
@@ -125,6 +129,7 @@ class MessageFirestoreItem {
       threadParentSenderCode: threadParentSenderCode,
       threadParentSenderName: threadParentSenderName,
       threadParentText: threadParentText,
+      privateParentUserCode: privateParentUserCode,
     );
   }
 
@@ -198,6 +203,9 @@ abstract class MessageRealtimeDataSource {
     required String organizationCode,
     required String schoolCode,
     required String conversationCode,
+    required String currentUserCode,
+    required bool isStaff,
+    required bool isAdmin,
     int limit = 100,
   });
 }
@@ -214,6 +222,9 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
     required String organizationCode,
     required String schoolCode,
     required String conversationCode,
+    required String currentUserCode,
+    required bool isStaff,
+    required bool isAdmin,
     int limit = 100,
   }) {
     return firestore
@@ -245,6 +256,12 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
               .where((change) => change.type != DocumentChangeType.removed)
               .map((change) => MessageFirestoreItem.fromFirestore(change.doc))
               .map((item) => item.toEntity())
+              .where((entity) => VisibilityHelper.canViewMessage(
+                    entity,
+                    currentUserCode,
+                    isStaff,
+                    isAdmin,
+                  ))
               .toList(),
         );
   }

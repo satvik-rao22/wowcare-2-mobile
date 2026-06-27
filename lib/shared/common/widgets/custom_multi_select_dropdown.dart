@@ -682,9 +682,12 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
 
   @override
   Widget build(BuildContext context) {
+    final isClassroom = widget.hintText.toLowerCase().contains('classroom');
     String displayText = _localSelectedItems.isEmpty
         ? widget.hintText
-        : '${_localSelectedItems.length} $displaySuffix';
+        : isClassroom
+            ? _localSelectedItems.join(', ')
+            : '${_localSelectedItems.length} $displaySuffix';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,7 +721,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                   Expanded(
                     child: Text(
                       displayText,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      softWrap: false,
                       style: TextStyle(
                         color: _localSelectedItems.isEmpty
                             ? Colors.grey[600]

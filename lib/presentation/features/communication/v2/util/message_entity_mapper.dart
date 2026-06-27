@@ -24,6 +24,7 @@ Message mapMessageEntityToMessage(
     senderUserCode: entity.senderCode,
     quotedMessageId: entity.threadParentCode,
     isPrivate: entity.isPrivate,
+    // privateParentUserCode: entity.privateParentUserCode,
     attachments: entity.attachments
         .map(
           (a) => ChatAttachment(

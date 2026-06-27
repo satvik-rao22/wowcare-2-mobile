@@ -10,8 +10,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/chat_scroll_behavior.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -24,17 +24,17 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_attachment_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_status_dialog.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_input_bar.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/chat_thread_shimmer.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/private_mode_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/private_mode_toggle_state.dart';
 import 'package:wowcare/presentation/features/communication/v2/util/message_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/v2/widgets/entity_message_tile.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/loading_older_indicator.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/new_messages_indicator.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
@@ -117,6 +117,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   String _senderCode = '';
   String _senderName = '';
   ParticipantRole _senderRole = ParticipantRole.staff;
+  String? _conversationPrivateModeActivatedBy;
   String _organizationCode = '';
   String _schoolCode = '';
 
@@ -193,8 +194,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       _privateModeToggleCubit = PrivateModeToggleCubit(
         togglePrivateModeUseCase: TogglePrivateModeUseCase(serviceLocator()),
         conversationCode: widget.conversation.code,
-        initialEnabled: widget.initialPrivateModeEnabled,
+        initialEnabled: widget.conversation.privateModeActive ||
+            widget.initialPrivateModeEnabled,
       );
+      _conversationPrivateModeActivatedBy =
+          widget.conversation.privateModeActivatedBy;
     }
   }
 
@@ -491,6 +495,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // optimistic message lands in state (before the network call resolves).
     _ownSendPending = true;
     final attachmentsBeingSent = _pendingAttachments;
+    final bool isPrivate = widget.showPrivateModeToggle &&
+        _privateModeToggleCubit?.state.isEnabled == true;
+
     await _cubit.sendMessage(
       text: text,
       senderCode: _senderCode,
@@ -499,6 +506,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       organizationCode: _organizationCode,
       schoolCode: _schoolCode,
       attachments: attachmentsBeingSent,
+      isPrivate: isPrivate,
       threadParentCode: _quotedMessage?.code,
     );
     if (!mounted) return;
@@ -642,11 +650,31 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               // Private Mode toggle — parent persona only
               if (widget.showPrivateModeToggle &&
                   _privateModeToggleCubit != null)
-                BlocBuilder<PrivateModeToggleCubit, PrivateModeToggleState>(
+                BlocConsumer<PrivateModeToggleCubit, PrivateModeToggleState>(
                   bloc: _privateModeToggleCubit,
+                  listener: (context, pmState) {
+                    if (pmState.errorMessage != null) {
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: pmState.errorMessage!,
+                        isError: true,
+                      );
+                    }
+                    setState(() {
+                      if (pmState.isEnabled) {
+                        _conversationPrivateModeActivatedBy = _senderCode;
+                      } else {
+                        _conversationPrivateModeActivatedBy = null;
+                      }
+                    });
+                  },
                   builder: (_, pmState) => Tooltip(
                     message: pmState.isEnabled
-                        ? 'Private Mode ON'
+                        ? (_conversationPrivateModeActivatedBy ==
+                                  _senderCode ||
+                              _conversationPrivateModeActivatedBy == null
+                            ? 'Private Mode ON'
+                            : 'Private Mode was enabled by another guardian and can only be disabled by that guardian.')
                         : 'Private Mode OFF',
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -666,7 +694,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           value: pmState.isEnabled,
                           onChanged: pmState.isLoading
                               ? null
-                              : (_) => _privateModeToggleCubit!.toggle(),
+                              : (_conversationPrivateModeActivatedBy !=
+                                        null &&
+                                    _conversationPrivateModeActivatedBy !=
+                                        _senderCode &&
+                                    pmState.isEnabled)
+                                  ? null
+                                  : (_) => _privateModeToggleCubit!.toggle(),
                           activeThumbColor: const Color(0xFF6C63FF),
                           activeTrackColor: const Color(
                             0xFF6C63FF,

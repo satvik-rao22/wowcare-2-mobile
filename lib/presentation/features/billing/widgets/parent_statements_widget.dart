@@ -55,12 +55,15 @@ class ParentStatementsWidget extends StatelessWidget {
               final name = child['name'] ?? child['fullName'] ?? 'Unknown';
               final room = child['room'] ?? child['roomName'] ?? '';
 
+              // Match the Student(s) tiles on the parent Billing screen
+              // (SiblingCardsWidget): 30px avatar, name 14/w600, role 12.
               return Row(
                 children: [
                   DocumentImageWidget(
                     fileUuid: '',
                     name: name,
-                    size: 50,
+                    size: 30,
+                    fontSize: 12,
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -73,7 +76,7 @@ class ParentStatementsWidget extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.value.copyWith(
-                            color: AppColors.primaryColor,
+                            color: const Color(0xff573353),
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
@@ -85,7 +88,7 @@ class ParentStatementsWidget extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.value.copyWith(
                               fontSize: 12,
-                              color: AppColors.primaryColor.withValues(alpha: 0.8),
+                              color: const Color(0xff573353),
                             ),
                           ),
                       ],

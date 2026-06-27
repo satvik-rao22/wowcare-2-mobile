@@ -3,7 +3,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 
 /// PRD 2.3 — Info / Status popup.
 ///

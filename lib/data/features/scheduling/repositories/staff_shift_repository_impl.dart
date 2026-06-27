@@ -77,7 +77,7 @@ class StaffShiftRepositoryImpl
       dateTo: dateTo,
     );
     _inflight[key] = future;
-    future.whenComplete(() => _inflight.remove(key));
+    future.whenComplete(() => _inflight.remove(key)).ignore();
     return future;
   }
 

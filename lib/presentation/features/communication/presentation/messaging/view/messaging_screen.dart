@@ -26,6 +26,11 @@ class MessagingScreen extends StatefulWidget {
   /// Deep-link to the Newsletter top-level tab (Messaging vs Newsletter).
   static const String newsletterRoute = '$routeName?tab=newsletter';
 
+  /// Deep-link straight to the Parent Messaging sub-tab (within the
+  /// Messaging top-level tab), used by the drawer's "Parent Messaging" item
+  /// so it doesn't land on Staff Messaging first.
+  static const String parentMessagingRoute = '$routeName?msgTab=parent';
+
   @override
   State<MessagingScreen> createState() => _MessagingScreenState();
 }
@@ -91,6 +96,14 @@ class _MessagingScreenState extends State<MessagingScreen>
         widget.userPersona == UserPersona.parent ||
         context.watch<RoleCubit>().isParent;
 
+    // Drives MessagingTab's Staff/Parent sub-tab from the `msgTab` deep-link
+    // query param, so the drawer's "Parent Messaging" item lands directly on
+    // the Parent Messaging sub-tab instead of always opening Staff Messaging.
+    final msgTabQuery = GoRouterState.of(context).uri.queryParameters['msgTab']
+        ?.trim()
+        .toLowerCase();
+    final messagingSubTabIndex = msgTabQuery == 'parent' ? 1 : 0;
+
     return BlocProvider<CommunicationCubit>(
       create: (context) => serviceLocator<CommunicationCubit>(),
       child: GlobalScaffold(
@@ -135,9 +148,12 @@ class _MessagingScreenState extends State<MessagingScreen>
               Expanded(
                 child: TabBarView(
                   controller: _tabController,
-                  children: const [
-                    MessagingTab(),
-                    NewsLatterTab(),
+                  children: [
+                    MessagingTab(
+                      key: ValueKey('messaging_tab_$messagingSubTabIndex'),
+                      initialTabIndex: messagingSubTabIndex,
+                    ),
+                    const NewsLatterTab(),
                   ],
                 ),
               ),

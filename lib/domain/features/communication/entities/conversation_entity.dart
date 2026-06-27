@@ -32,6 +32,9 @@ class ConversationEntity extends Equatable {
     this.lastMessageAt,
     this.lastMessageBy,
     this.lastMessageSenderName,
+    this.privateModeActive = false,
+    this.privateModeActivatedBy,
+    this.privateModeActivatedAt,
     this.privateModeStates = const {},
   });
 
@@ -66,6 +69,11 @@ class ConversationEntity extends Equatable {
   /// Display name of the last message sender (denormalised for list views).
   final String? lastMessageSenderName;
 
+  /// Canonical Room Chat private mode fields.
+  final bool privateModeActive;
+  final String? privateModeActivatedBy;
+  final DateTime? privateModeActivatedAt;
+
   /// Per-parent private mode states.
   /// Key = parentUserCode, Value = [PrivateModeState].
   /// Empty map means no parent has enabled private mode.
@@ -73,7 +81,7 @@ class ConversationEntity extends Equatable {
 
   /// Whether any participant currently has private mode enabled.
   bool get hasActivePrivateMode =>
-      privateModeStates.values.any((s) => s.enabled);
+      privateModeActive || privateModeStates.values.any((s) => s.enabled);
 
   /// Whether private mode is enabled for a specific parent.
   bool isPrivateModeEnabledFor(String parentUserCode) =>
@@ -101,6 +109,9 @@ class ConversationEntity extends Equatable {
         lastMessageAt,
         lastMessageBy,
         lastMessageSenderName,
+        privateModeActive,
+        privateModeActivatedBy,
+        privateModeActivatedAt,
         studentCode,
         classroomCode,
         privateModeStates,

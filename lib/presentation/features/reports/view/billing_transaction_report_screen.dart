@@ -1,10 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -70,9 +69,14 @@ class _BillingTransactionReportScreenState
       );
       return;
     }
-    if (mounted) {
-      Navigator.of(context).pop(true);
-    }
+    context.read<ReportsCubit>().generateReport(
+          ReportRequestParams(
+            reportType: ReportType.billingTransaction,
+            startDate: _startDate,
+            endDate: _endDate,
+            format: _format,
+          ),
+        );
   }
 
   @override
@@ -100,18 +104,19 @@ class _BillingTransactionReportScreenState
               previous.generationSuccess != current.generationSuccess,
           listener: (context, state) {
             if (state.generationSuccess != null &&
-                state.generationSuccess!.isNotEmpty &&
-                state.generatedReport != null) {
+                state.generationSuccess!.isNotEmpty) {
+              // generatedReport == null means the byte fallback already opened the file.
+              final openedDirectly = state.generatedReport == null;
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: openedDirectly
+                    ? 'Report downloaded'
+                    : 'Report generated successfully',
                 isSuccess: true,
               );
-
-              if (mounted) {
+              if (!openedDirectly && mounted) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
-
                   context.go('/dashboard/reports?tab=0');
                   context.read<ReportsCubit>().clearGeneratedReport();
                 });

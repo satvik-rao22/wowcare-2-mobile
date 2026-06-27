@@ -12,7 +12,11 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/staff/cubit/important_dates_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/data/features/staff/models/staff_important_dates_models.dart';
 
 class EditImportantDatesScreen extends StatefulWidget {
@@ -60,9 +64,27 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   ];
   late List<String> _physicalCheckupStatusOptions;
 
+  /// "Today" in the school's timezone (not the device's), so date
+  /// constraints/validation match the school's calendar day. Uses the
+  /// last-known zone synchronously; [_warmSchoolTimezone] refreshes it.
   DateTime _todayDateOnly() {
-    final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day);
+    return SchoolZoneDateTime.schoolCalendarTodayOnly(
+      SchoolTimezoneResolver.lastKnownTimeZone,
+    );
+  }
+
+  /// Resolves the current school's timezone (cache/API) and rebuilds so any
+  /// constraints derived from [_todayDateOnly] use the correct zone.
+  Future<void> _warmSchoolTimezone() async {
+    try {
+      await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      if (mounted) setState(() {});
+    } catch (_) {
+      // Keep the last-known zone.
+    }
   }
 
   DateTime _dateOnly(DateTime date) {
@@ -73,6 +95,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
   void initState() {
     super.initState();
     _importantDatesCubit = serviceLocator<ImportantDatesCubit>();
+    _warmSchoolTimezone();
     // Prefill when editing
     _selectedHireDate = widget.initialHireDate;
     _selectedCdaExaminationDate = widget.initialCdaExaminationDate;

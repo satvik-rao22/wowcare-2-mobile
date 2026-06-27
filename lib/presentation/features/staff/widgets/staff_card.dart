@@ -6,6 +6,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -606,6 +608,11 @@ class _StaffCardState extends State<StaffCard> {
                               ],
                             ),
                             const SizedBox(height: 8),
+                            // Edit / Deactivate / Delete are all STAFF writes —
+                            // hide the whole action row for view-only personas.
+                            if (context
+                                .read<RoleCubit>()
+                                .canWriteModule(AppAccessModules.staff))
                             Row(
                               children: [
                                 Expanded(

@@ -35,7 +35,6 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
   String _currentPin = '';
   String _cachedSchoolName =
       'School'; // Cache to preserve school name during QR reload
-  bool _isRefreshingQr = false; // Prevent duplicate refresh calls
 
   @override
   void initState() {
@@ -44,7 +43,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     // Add observer for app lifecycle
     WidgetsBinding.instance.addObserver(this);
 
-    // Initial QR load on screen open
+    // Initial QR load on screen open only. Returning here after a sign-in/
+    // sign-out flow must NOT trigger another load — the QR stays put until
+    // the app is foregrounded again or the user pulls to refresh.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppLogger.d('[KIOSK] Dashboard refresh requested (initState)');
       _loadQrCode();
@@ -57,22 +58,6 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     if (state == AppLifecycleState.resumed) {
       AppLogger.d('[KIOSK] Dashboard resumed');
       _loadQrCode();
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reload QR whenever screen is re-entered (e.g., after PIN flow)
-    AppLogger.d('[KIOSK] Dashboard resumed (didChangeDependencies)');
-    // Use a small delay to avoid multiple rapid calls
-    if (!_isRefreshingQr) {
-      _isRefreshingQr = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        AppLogger.d('[KIOSK] Refreshing school info');
-        _loadQrCode();
-        _isRefreshingQr = false;
-      });
     }
   }
 
@@ -134,6 +119,20 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
                   bottom: false,
                   child: Row(
                     children: [
+                      // Back arrow
+                      // IconButton(
+                      //   icon: const Icon(
+                      //     Icons.arrow_back,
+                      //     color: AppColors.primaryColor,
+                      //   ),
+                      //   onPressed: () async {
+                      //     AppLogger.d('[Kiosk] Back button pressed');
+                      //     // go back to the previous screen
+                      //     if (mounted) {
+                      //       GoRouter.of(context).pop();
+                      //     }
+                      //   },
+                      // ),
                       const Padding(
                         padding: EdgeInsets.only(left: 16.0),
                         child: CircleAvatar(
@@ -209,28 +208,16 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
   /// Phone layout: QR on top, PIN pad below (full screen each)
   Widget _buildPhoneLayout(KioskDashboardState state) {
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.45,
-            child: KioskQrSectionWidget(
-              state: state,
-              schoolName: _getSchoolName(state),
-            ),
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: MediaQuery.of(context).size.height * 0.55,
-            child: KioskPinPadWidget(
-              onPinSubmit: _onPinSubmit,
-              maxPinLength: maxPinLength,
-            ),
-          ),
-        ],
-      ),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        KioskQrSectionWidget(state: state, schoolName: _getSchoolName(state)),
+        const SizedBox(height: 8),
+        KioskPinPadWidget(
+          onPinSubmit: _onPinSubmit,
+          maxPinLength: maxPinLength,
+        ),
+      ],
     );
   }
 
@@ -410,13 +397,17 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
       }
     }
 
-    AppLogger.d('[KIOSK] Student Status Count: signedIn=$signedInCount, signedOut=$signedOutCount');
+    AppLogger.d(
+      '[KIOSK] Student Status Count: signedIn=$signedInCount, signedOut=$signedOutCount',
+    );
     AppLogger.d('[KIOSK] Signed In Students: $signedInStudents');
     AppLogger.d('[KIOSK] Signed Out Students: $signedOutStudents');
 
     // DECISION 1: ALL STUDENTS ARE SIGNED IN
     if (signedInCount > 0 && signedOutCount == 0) {
-      AppLogger.d('[KIOSK] ✓ ALL STUDENTS SIGNED IN - NAVIGATE TO SIGN-OUT PAGE');
+      AppLogger.d(
+        '[KIOSK] ✓ ALL STUDENTS SIGNED IN - NAVIGATE TO SIGN-OUT PAGE',
+      );
       context.go(
         '/kiosk/student-sign-out',
         extra: {
@@ -433,7 +424,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
     // DECISION 2: ALL STUDENTS ARE SIGNED OUT
     if (signedOutCount > 0 && signedInCount == 0) {
-      AppLogger.d('[KIOSK] ✓ ALL STUDENTS SIGNED OUT - NAVIGATE TO SIGN-IN PAGE');
+      AppLogger.d(
+        '[KIOSK] ✓ ALL STUDENTS SIGNED OUT - NAVIGATE TO SIGN-IN PAGE',
+      );
       context.go(
         '/kiosk/student-sign-in-and-sign-out',
         extra: {

@@ -29,10 +29,23 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 
-enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
+// enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
+enum StaffProfileAbsentMarkMethod {
+  app,
+  gps,
+  qr,
+  kiosk,
+  web,
+  pin,
+  transfer,
+  nfc,
+  biometric,
+  system,
+}
 
 // Simple field widget for displaying label and text
 class _AttendanceField extends StatelessWidget {
@@ -136,11 +149,15 @@ class _AttendanceField extends StatelessWidget {
         );
       case StaffProfileAbsentMarkMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
+          message: 'Kiosk',
           child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
+            MediaRes.kioskAttendenceIcons,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case StaffProfileAbsentMarkMethod.app:
@@ -161,6 +178,77 @@ class _AttendanceField extends StatelessWidget {
           message: 'WEB',
           child: SvgPicture.asset(
             MediaRes.webMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+
+      case StaffProfileAbsentMarkMethod.pin:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(
+            MediaRes.pinMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case StaffProfileAbsentMarkMethod.transfer:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'Transfer',
+          child: SvgPicture.asset(
+            MediaRes.transferMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case StaffProfileAbsentMarkMethod.nfc:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'NFC',
+          child: SvgPicture.asset(
+            MediaRes.nfcMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case StaffProfileAbsentMarkMethod.biometric:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'Biometric',
+          child: SvgPicture.asset(
+            MediaRes.biometricMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case StaffProfileAbsentMarkMethod.system:
+        // TODO: Handle this case.
+        return Tooltip(
+          message: 'System',
+          child: SvgPicture.asset(
+            MediaRes.systemMethodIcon,
             width: size,
             height: size,
             colorFilter: const ColorFilter.mode(
@@ -213,6 +301,7 @@ class _AbsentDayModel {
   final String absentBy;
   final String note;
   final StaffProfileAbsentMarkMethod? markAbsentMethod;
+  final String classroomName;
 
   _AbsentDayModel({
     required this.startDate,
@@ -221,6 +310,7 @@ class _AbsentDayModel {
     required this.absentBy,
     required this.note,
     this.markAbsentMethod,
+    this.classroomName = '',
   });
 }
 
@@ -394,9 +484,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         return DateFormat('hh:mm a').format(dt);
       }
 
-      final iso = DateTime.tryParse(s);
-      if (iso != null) {
-        return DateFormat('hh:mm a').format(iso.toLocal());
+      // Render ISO instants in the school's zone (not the device zone) so
+      // sign-in/out times match the backend regardless of where the user is.
+      final schoolDt = attendanceDisplayDateTimeFromIso(s);
+      if (schoolDt != null) {
+        return DateFormat('hh:mm a').format(schoolDt);
       }
 
       final amPmMatch = RegExp(
@@ -484,9 +576,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   Future<void> _ensureHeaderIdentityLoaded() async {
     final hasName =
         widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-';
-    final hasClassroom = (staff?.roomName ?? widget.roomName).trim().isNotEmpty;
-    // Skip the fetch only when both the name and the primary classroom name
-    // (shown in the header) are already available.
+    final _classroomVal = (staff?.roomName ?? widget.roomName).trim();
+    final hasClassroom =
+        _classroomVal.isNotEmpty && _classroomVal != '-' && _classroomVal != '—';
+    // Skip the fetch only when both the name and a real primary classroom name
+    // (not a placeholder) are already available.
     if (hasName && hasClassroom) return;
     final code = widget.staffCode.trim();
     if (code.isEmpty) return;
@@ -704,6 +798,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             markAbsentMethod: _mapAbsentMethodStringToEnum(
               m['markAbsentMethod'] as String?,
             ),
+            classroomName: () {
+              final name = (m['classroomName'] as String?)?.trim() ?? '';
+              if (name.isNotEmpty) return name;
+              final code = (m['classroomCode'] as String?)?.trim() ?? '';
+              return code; // render-time fallback uses staff?.roomName
+            }(),
           );
         }).toList();
 
@@ -1474,7 +1574,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         children: [
           Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
           const SizedBox(height: 16),
-          _AttendanceField(label: 'Classroom', text: staff?.roomName ?? ''),
+          _AttendanceField(
+            label: 'Classroom',
+            text: () {
+              if (absentDay.classroomName.isNotEmpty) {
+                return absentDay.classroomName;
+              }
+              final fallback = staff?.roomName ?? widget.roomName;
+              return (fallback.trim().isNotEmpty &&
+                      fallback != '-' &&
+                      fallback != '—')
+                  ? fallback
+                  : '';
+            }(),
+          ),
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Date',

@@ -15,6 +15,7 @@ class AutoPayMethodsState extends Equatable {
     this.apiLoginId = '',
     this.maxMethods = 4,
     this.methods = const <PaymentMethodEntity>[],
+    this.allowedMethods = const <String>[],
     this.selectedMethodCode,
     this.deletingMethodCode,
     this.errorMessage,
@@ -43,6 +44,11 @@ class AutoPayMethodsState extends Equatable {
   final int maxMethods;
 
   final List<PaymentMethodEntity> methods;
+
+  /// `cardType` values the school accepts (e.g. `['visa','mast','disc','echeck']`),
+  /// passed to the Forte webview so it hides any option not in this list. Empty
+  /// means "no restriction" (settings not loaded) — the webview shows all.
+  final List<String> allowedMethods;
 
   /// The method the user has selected as the auto-pay method.
   final String? selectedMethodCode;
@@ -103,6 +109,7 @@ class AutoPayMethodsState extends Equatable {
     String? apiLoginId,
     int? maxMethods,
     List<PaymentMethodEntity>? methods,
+    List<String>? allowedMethods,
     String? Function()? selectedMethodCode,
     String? Function()? deletingMethodCode,
     String? Function()? errorMessage,
@@ -117,6 +124,7 @@ class AutoPayMethodsState extends Equatable {
       apiLoginId: apiLoginId ?? this.apiLoginId,
       maxMethods: maxMethods ?? this.maxMethods,
       methods: methods ?? this.methods,
+      allowedMethods: allowedMethods ?? this.allowedMethods,
       selectedMethodCode: selectedMethodCode != null
           ? selectedMethodCode()
           : this.selectedMethodCode,
@@ -137,6 +145,7 @@ class AutoPayMethodsState extends Equatable {
         apiLoginId,
         maxMethods,
         methods,
+        allowedMethods,
         selectedMethodCode,
         deletingMethodCode,
         errorMessage,

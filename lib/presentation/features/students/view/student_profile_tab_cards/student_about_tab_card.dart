@@ -166,6 +166,21 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     return value;
   }
 
+  /// FTE for display: the API value (0–1 fraction) multiplied by 100 (front end
+  /// only) and shown as a percentage, with a trailing `.0` dropped.
+  /// Null/blank/non-numeric → '-'.
+  String _fteDisplay() {
+    final raw = (widget.studentProfile?.fte ?? '').trim();
+    if (raw.isEmpty) return '-';
+    final value = double.tryParse(raw);
+    if (value == null) return '-';
+    final scaled = value * 100;
+    final number = scaled == scaled.roundToDouble()
+        ? scaled.toStringAsFixed(0)
+        : scaled.toString();
+    return '$number%';
+  }
+
   String? _prettyGender(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
     switch (raw.trim().toUpperCase()) {
@@ -277,10 +292,17 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     final role = context.watch<RoleCubit>();
     final canStudentWrite =
         ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
+    final canTagsWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.studentTags) &&
+            !role.isParent;
     // Staff persona (teachers/floaters) may edit only tags here — not the full
     // profile or schedule. Admins keep full profile edit.
     final isStaffPersona = role.isStaff;
     final canEditProfile = canStudentWrite && !isStaffPersona;
+    // The edit pencil opens the full profile editor for admins (STUDENT write)
+    // or the tags-only sheet for staff (STUDENT_TAGS write).
+    final canEdit = widget.studentProfile != null &&
+        (canEditProfile || (isStaffPersona && canTagsWrite));
 
     return CustomRefreshIndicator(
       onRefresh: () async {
@@ -300,7 +322,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
         // (rounded top would bump/overlap the tab borders).
         borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
         scrollController: widget.scrollController,
-        onEdit: widget.studentProfile != null && canStudentWrite
+        onEdit: canEdit
             ? (isStaffPersona
                 ? _openTagsEditSheet
                 : () {
@@ -405,7 +427,6 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                 initialClassroom: profile.classroom ?? '',
                 initialBirthDate: birthDate,
                 initialNotes: profile.notes ?? '',
-                initialFTE: profile.fte ?? '',
                 initialStreet: street,
                 initialCity: city,
                 initialState: state,
@@ -515,6 +536,11 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
           value: widget.studentProfile != null
               ? (widget.studentProfile!.subsidy ? 'Yes' : 'No')
               : '-',
+        ),
+
+        ProfileField(
+          label: 'Full Time Equivalent (FTE)',
+          value: _fteDisplay(),
         ),
 
         Builder(

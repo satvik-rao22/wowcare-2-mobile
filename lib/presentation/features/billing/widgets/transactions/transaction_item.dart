@@ -10,6 +10,8 @@ class TransactionItem {
     required this.description,
     required this.studentName,
     required this.classroom,
+    this.paidAmount = 0,
+    this.refundedAmount = 0,
     this.studentNames,
     this.familyCode,
     this.invoiceCode,
@@ -32,6 +34,21 @@ class TransactionItem {
   final String transactionType;
   final DateTime date;
   final double amount;
+
+  /// Amount already paid against this invoice. A non-zero value hides the Cancel
+  /// action, since a paid (or part-paid) invoice can no longer be cancelled.
+  final double paidAmount;
+
+  /// Amount already refunded against this invoice. When it equals [amount] the
+  /// invoice is fully refunded, so the Issue Refund action is hidden.
+  final double refundedAmount;
+
+  /// Remaining amount that can still be refunded (never negative).
+  double get maxRefundable {
+    final double remaining = amount - refundedAmount;
+    return remaining > 0 ? remaining : 0;
+  }
+
   final String status;
   final String description;
   final String studentName;

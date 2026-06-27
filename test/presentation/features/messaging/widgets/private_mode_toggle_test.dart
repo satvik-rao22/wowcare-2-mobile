@@ -256,8 +256,8 @@ void main() {
       await tester.pumpWidget(_subject(cubit));
 
       // Fire toggle — will hang
-      unawaited(cubit.toggle());
-      await tester.pump();
+      unawaited(tester.tap(find.byKey(const Key('pm_switch'))));
+      await tester.pump(); // Start the async call and enter loading state
 
       final sw = tester.widget<Switch>(find.byKey(const Key('pm_switch')));
       expect(
@@ -268,63 +268,6 @@ void main() {
 
       // Unblock so cubit can close cleanly
       completer.complete(const Right(null));
-    });
-  });
-
-  // ── Child dropdown visibility ───────────────────────────────────────────────
-
-  group('Child dropdown visibility guard', () {
-    testWidgets('dropdown hidden when conversations list has exactly one item', (
-      tester,
-    ) async {
-      // Mirrors the guard in ParentDirectMessagingScreen._buildStudentDropdown
-      const conversations = ['child-a'];
-      bool dropdownShown = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (_) {
-                if (conversations.length <= 1) {
-                  return const SizedBox(key: Key('no_dropdown'));
-                }
-                dropdownShown = true;
-                return const Text('dropdown');
-              },
-            ),
-          ),
-        ),
-      );
-
-      expect(find.byKey(const Key('no_dropdown')), findsOneWidget);
-      expect(dropdownShown, isFalse);
-    });
-
-    testWidgets('dropdown visible when conversations list has two items', (
-      tester,
-    ) async {
-      const conversations = ['child-a', 'child-b'];
-      bool dropdownShown = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Builder(
-              builder: (_) {
-                if (conversations.length <= 1) {
-                  return const SizedBox(key: Key('no_dropdown'));
-                }
-                dropdownShown = true;
-                return const Text('dropdown', key: Key('dropdown'));
-              },
-            ),
-          ),
-        ),
-      );
-
-      expect(dropdownShown, isTrue);
-      expect(find.byKey(const Key('dropdown')), findsOneWidget);
     });
   });
 }

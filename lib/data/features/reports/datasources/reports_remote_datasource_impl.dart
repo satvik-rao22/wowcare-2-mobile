@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../../domain/features/reports/usecases/report_request_params.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/logger_service.dart';
@@ -24,7 +25,20 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     // Determine endpoint based on report type
     late String endpoint;
 
-    if (reportType.startsWith('STUDENT_')) {
+    // Billing reports (accounts MS). Checked first because STUDENT_BILLING_MAPPING would
+    // otherwise match the STUDENT_ attendance branch below.
+    const billingReportTypes = <String>{
+      'TRANSACTION',
+      'INVOICE',
+      'PAYMENT_SUMMARY',
+      'OUTSTANDING',
+      'REFUND',
+      'STUDENT_BILLING_MAPPING',
+    };
+
+    if (billingReportTypes.contains(reportType)) {
+      endpoint = ApiPaths.billingReportGenerate;
+    } else if (reportType.startsWith('STUDENT_')) {
       // Student attendance reports
       endpoint = ApiPaths.studentAttendanceReportsGenerate;
     } else if (reportType.startsWith('STAFF_')) {
@@ -354,6 +368,37 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     }
 
     AppLogger.d('Report file downloaded successfully: ${response.data!.length} bytes');
+    return response.data!;
+  }
+
+  @override
+  Future<List<int>> downloadBillingReportBytes(ReportRequestParams params) async {
+    final schoolCode =
+        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
+    final orgCode = await _storageService
+        .getString(storage_keys.StorageKeys.organizationCode);
+    final endpoint =
+        ApiPaths.billingReportStream(params.reportType.backendValue);
+
+    final query = <String, dynamic>{
+      if (schoolCode != null && schoolCode.isNotEmpty) 'schoolId': schoolCode,
+      if (orgCode != null && orgCode.isNotEmpty) 'orgId': orgCode,
+      'dateFrom': params.startDate.toUtc().toIso8601String(),
+      if (params.endDate != null)
+        'dateTo': params.endDate!.toUtc().toIso8601String(),
+      'format': params.format,
+    };
+
+    AppLogger.d('[REPORTS] Billing report stream: $endpoint params=$query');
+    final response = await _dio.get<List<int>>(
+      ApiPaths.url(endpoint),
+      queryParameters: query,
+      options: Options(responseType: ResponseType.bytes),
+    );
+
+    if (response.data == null) {
+      throw Exception('Failed to download billing report: No data received');
+    }
     return response.data!;
   }
 }

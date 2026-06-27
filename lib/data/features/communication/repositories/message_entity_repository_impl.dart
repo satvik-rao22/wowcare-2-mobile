@@ -29,11 +29,11 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required MessageRealtimeDataSource realtimeDataSource,
     required StorageService storageService,
     required ReactionRepository reactionRepository,
-  })  : _remote = remoteDataSource,
-        _local = localDataSource,
-        _realtime = realtimeDataSource,
-        _storage = storageService,
-        _reactionRepository = reactionRepository;
+  }) : _remote = remoteDataSource,
+       _local = localDataSource,
+       _realtime = realtimeDataSource,
+       _storage = storageService,
+       _reactionRepository = reactionRepository;
 
   // ─── Tenancy helpers ────────────────────────────────────────────────────────
 
@@ -118,6 +118,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required String text,
     List<int> attachmentIds = const [],
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) async {
     final org = await _orgCode;
@@ -140,6 +141,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       organizationCode: org,
       schoolCode: school,
       isPrivate: isPrivate,
+      // privateParentUserCode: privateParentUserCode,
       localTempCode: tempCode,
     );
 
@@ -152,6 +154,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         text: text,
         attachmentIds: attachmentIds,
         isPrivate: isPrivate,
+        privateParentUserCode: privateParentUserCode,
         threadParentCode: threadParentCode,
       );
       final confirmed = dto.toEntity();
@@ -183,6 +186,8 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
           'text': text,
           'attachmentIds': attachmentIds,
           'isPrivate': isPrivate,
+          if (privateParentUserCode != null)
+            'privateParentUserCode': privateParentUserCode,
           if (threadParentCode != null) 'threadParentCode': threadParentCode,
           'localTempCode': tempCode,
         },
@@ -206,6 +211,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       conversationCode: entity.conversationCode,
       text: entity.text,
       isPrivate: entity.isPrivate,
+      // privateParentUserCode: entity.privateParentUserCode,
       threadParentCode: entity.threadParentCode,
     );
   }
@@ -222,10 +228,10 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
 
     if (cached != null) {
       final updatedLocal = cached.toEntity().copyWith(
-            text: newText,
-            isEdited: true,
-            editedAt: DateTime.now(),
-          );
+        text: newText,
+        isEdited: true,
+        editedAt: DateTime.now(),
+      );
       await _local.saveMessage(updatedLocal);
     }
 
@@ -380,8 +386,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       final results = all
           .where(
             (m) =>
-                !m.isDeleted &&
-                m.textPlain.toLowerCase().contains(lowerQuery),
+                !m.isDeleted && m.textPlain.toLowerCase().contains(lowerQuery),
           )
           .take(limit)
           .map((m) => m.toEntity())
@@ -396,7 +401,8 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   // ─── Sync queue ──────────────────────────────────────────────────────────────
 
   @override
-  Future<Either<Failure, List<SyncQueueEntity>>> getPendingSyncOperations() async {
+  Future<Either<Failure, List<SyncQueueEntity>>>
+  getPendingSyncOperations() async {
     try {
       final org = await _orgCode;
       final school = await _schoolCode;
@@ -411,9 +417,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   }
 
   @override
-  Future<Either<Failure, int>> cleanupSyncQueue({
-    int olderThanDays = 7,
-  }) async {
+  Future<Either<Failure, int>> cleanupSyncQueue({int olderThanDays = 7}) async {
     try {
       final org = await _orgCode;
       final school = await _schoolCode;
@@ -477,10 +481,20 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   }) async* {
     final org = await _orgCode;
     final school = await _schoolCode;
+    final user = await _currentUserCode;
+
+    final roleJson = (await _storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+    final activeRole = (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').toUpperCase();
+    
+    final isStaff = activeRole == 'STAFF' || activeRole == 'TEACHER' || (activeRole.isEmpty && (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
+    final isAdmin = activeRole.contains('ADMIN') || activeRole.contains('DIRECTOR') || (activeRole.isEmpty && (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
 
     yield* _realtime.watchMessages(
       organizationCode: org,
       schoolCode: school,
+      currentUserCode: user,
+      isStaff: isStaff,
+      isAdmin: isAdmin,
       conversationCode: conversationCode,
       limit: limit,
     );

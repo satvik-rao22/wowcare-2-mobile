@@ -46,6 +46,7 @@ class FamilyLedgerTransactionModel {
     required this.amount,
     required this.balance,
     required this.paidAmount,
+    required this.refundedAmount,
     required this.ledgerDelta,
     this.date,
   });
@@ -64,6 +65,10 @@ class FamilyLedgerTransactionModel {
   final double amount;
   final double balance;
   final double paidAmount;
+
+  /// Amount already refunded against this invoice. Max refundable = amount -
+  /// refundedAmount; when it reaches the full amount no further refund is offered.
+  final double refundedAmount;
   final double ledgerDelta;
   final DateTime? date;
 
@@ -86,6 +91,7 @@ class FamilyLedgerTransactionModel {
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
       balance: (json['balance'] as num?)?.toDouble() ?? 0,
       paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0,
+      refundedAmount: (json['refundedAmount'] as num?)?.toDouble() ?? 0,
       ledgerDelta: (json['ledgerDelta'] as num?)?.toDouble() ?? 0,
       date: rawDate is String ? DateTime.tryParse(rawDate) : null,
     );
@@ -106,6 +112,7 @@ class FamilyLedgerTransactionModel {
         amount: amount,
         balance: balance,
         paidAmount: paidAmount,
+        refundedAmount: refundedAmount,
         ledgerDelta: ledgerDelta,
         date: date,
       );

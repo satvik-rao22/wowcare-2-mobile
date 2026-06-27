@@ -20,7 +20,9 @@ class MarkStaffAbsentUseCase {
   static String _ymd(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  /// Backend expects one POST per calendar day; expands [absenceFromDate]–[absenceToDate] inclusive.
+  /// Marks staff absent for every calendar day in [absenceFromDate]–[absenceToDate].
+  /// The backend creates exactly one record per POST call, so this iterates the
+  /// range and posts once per day. Shifts are stripped for all absent days.
   Future<String> call({
     required String staffCode,
     required List<String> staffCodes,
@@ -59,15 +61,14 @@ class MarkStaffAbsentUseCase {
           );
           markedDays.add(day);
         } catch (e) {
-          // Strip shifts for any partial successes before bailing out, so we
-          // don't leave a half-marked staff with conflicting shifts behind.
+          // Strip shifts for any partial successes before bailing so we don't
+          // leave a half-marked staff with conflicting shifts.
           await _stripShiftsOnAbsentDays(staffCodes, markedDays);
           final msg = ApiErrorHandler.extractErrorMessage(e);
           throw Exception('Could not mark absent for $dayStr: $msg');
         }
       }
-      // Delete any existing shifts on the newly-marked absent days so the
-      // schedule reflects the absence (mirrors the add-shift absent-day skip).
+      // Delete existing shifts on all newly-marked absent days.
       await _stripShiftsOnAbsentDays(staffCodes, markedDays);
       return lastMessage;
     } catch (e) {

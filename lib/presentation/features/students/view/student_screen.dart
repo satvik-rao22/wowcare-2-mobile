@@ -517,7 +517,6 @@ class _StudentScreenState extends State<StudentScreen> {
               initialClassroom: profile.classroom ?? '',
               initialBirthDate: birthDate,
               initialNotes: profile.notes ?? '',
-              initialFTE: profile.fte ?? '',
               initialStreet: street,
               initialCity: city,
               initialState: state,

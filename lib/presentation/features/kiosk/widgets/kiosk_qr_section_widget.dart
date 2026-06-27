@@ -4,7 +4,6 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../../../app/theme/colors.dart';
 
 /// Isolated QR code section with RepaintBoundary optimization.
@@ -52,7 +51,9 @@ class KioskQrSectionWidget extends StatelessWidget {
 
     // NEVER return SizedBox.shrink - always show QR area with loading state
     // This handles KioskDashboardInitial and KioskDashboardPinSuccess states
-    AppLogger.d('[Kiosk] Unhandled state (${state.runtimeType}) - showing loading state');
+    AppLogger.d(
+      '[Kiosk] Unhandled state (${state.runtimeType}) - showing loading state',
+    );
     return _buildLoadingState();
   }
 
@@ -140,7 +141,9 @@ class KioskQrSectionWidget extends StatelessWidget {
 
   Widget _buildQrWithSchoolName(String schoolNameText, String qrPayload) {
     // Ensure school name is NEVER blank - use fallback if empty
-    final displayName = schoolNameText.trim().isNotEmpty ? schoolNameText : 'School';
+    final displayName = schoolNameText.trim().isNotEmpty
+        ? schoolNameText
+        : 'School';
     AppLogger.d('[Kiosk] QR loaded - displaying school name: $displayName');
 
     return SingleChildScrollView(

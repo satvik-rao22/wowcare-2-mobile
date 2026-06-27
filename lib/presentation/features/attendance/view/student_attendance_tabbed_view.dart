@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
@@ -55,6 +56,24 @@ class _StudentAttendanceTabbedViewState
   // Hide the floating add button while the drawer is open so it isn't painted
   // on top of (and brighter than) the drawer's dim scrim.
   bool _isDrawerOpen = false;
+
+  // Show/hide the bottom nav bar on scroll, mirroring GlobalScaffold (this view
+  // uses its own Scaffold for the tabbed app bar, so it replicates that here).
+  bool _showBars = true;
+
+  /// Hide the bottom nav while scrolling down (reverse), reveal it scrolling up.
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _showBars) {
+        setState(() => _showBars = false);
+      } else if (direction == ScrollDirection.forward && !_showBars) {
+        setState(() => _showBars = true);
+      }
+    }
+    return false;
+  }
 
   // Notifier incremented after any attendance mutation so Custom and Absent
   // tabs refresh without needing GlobalKeys on the TabBarView children.
@@ -184,17 +203,21 @@ class _StudentAttendanceTabbedViewState
               onDrawerChanged: (isOpen) {
                 if (mounted) setState(() => _isDrawerOpen = isOpen);
               },
-              body: SafeArea(
-                bottom: false,
+              body: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: SafeArea(
+                // Inset for the home indicator so the last card clears it once
+                // the bottom bar hides on scroll (matches GlobalScaffold).
+                bottom: true,
                 child: GradientBackground(
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(
                       contentPadding.left,
                       contentPadding.top,
                       contentPadding.right,
-                      // Add extra bottom padding so tab content can scroll
-                      // fully above the bottom navigation bar.
-                      mediaQuery.padding.bottom + 80,
+                      // No nav-height reservation: the bar hides on scroll, so
+                      // nothing is permanently occluded (no dead space).
+                      contentPadding.bottom,
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,6 +248,7 @@ class _StudentAttendanceTabbedViewState
                                     widget.staffAllowedClassroomIds,
                                 highlightCode: widget.highlightCode,
                                 onAttendanceMutated: _refreshSecondaryTabs,
+                                refreshNotifier: _refreshNotifier,
                               ),
                               StudentAttendanceCustomView(
                                 contentOnly: true,
@@ -250,11 +274,17 @@ class _StudentAttendanceTabbedViewState
                   ),
                 ),
               ),
+              ),
               extendBody: true,
               // Attendance is the bottom-nav slot at index 1 (a popup slot with
               // no branch), so highlight it explicitly while on this view.
-              bottomNavigationBar: const CustomNavigationBar(
-                activeTabIndexOverride: 1,
+              // Animate the bar away while scrolling down, like GlobalScaffold.
+              bottomNavigationBar: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? const CustomNavigationBar(activeTabIndexOverride: 1)
+                    : const SizedBox.shrink(),
               ),
             ),
           ),

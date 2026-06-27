@@ -8,7 +8,7 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
-import '../util/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -20,12 +20,12 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
-import '../util/chat_scroll_behavior.dart';
-import '../widgets/chat_input_bar.dart';
-import '../widgets/chat_thread_shimmer.dart';
-import '../widgets/loading_older_indicator.dart';
-import '../widgets/message_attachment_bottom_sheet.dart';
-import '../widgets/new_messages_indicator.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import '../widgets/thread_message_tile.dart';
 
 class StaffMessagingThread extends StatefulWidget {

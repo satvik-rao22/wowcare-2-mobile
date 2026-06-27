@@ -270,3 +270,115 @@ class GuardianScopeParams extends Equatable {
   @override
   List<Object?> get props => [organizationCode, schoolCode, guardianCode];
 }
+
+/// A guardian's per-child split of a Pay Now charge. When the parent enters an
+/// amount against individual children, each child becomes one allocation so the
+/// backend applies the money to that student's invoices instead of the
+/// family-wide oldest-invoice-first default.
+class PaymentAllocationEntity extends Equatable {
+  const PaymentAllocationEntity({
+    required this.studentCode,
+    required this.amount,
+  });
+
+  final String studentCode;
+  final double amount;
+
+  @override
+  List<Object?> get props => [studentCode, amount];
+}
+
+/// Request to charge a guardian's saved payment method
+/// (`POST /payment-gateway/guardian/pay`).
+class GuardianPayParams extends Equatable {
+  const GuardianPayParams({
+    required this.organizationCode,
+    required this.schoolCode,
+    required this.guardianCode,
+    required this.ownerType,
+    required this.ownerCode,
+    required this.paymentMethodCode,
+    required this.amount,
+    required this.idempotencyKey,
+    required this.payMethodHolderName,
+    this.preference = 'SELECTED',
+    this.allocations = const <PaymentAllocationEntity>[],
+  });
+
+  final String organizationCode;
+  final String schoolCode;
+  final String guardianCode;
+  final String ownerType;
+  final String ownerCode;
+  final String paymentMethodCode;
+  final double amount;
+
+  /// A unique key per payment attempt (`MOBILE-<uuid>`). The SAME key is reused
+  /// across retries of one attempt so the backend can dedupe double-submits.
+  final String idempotencyKey;
+  final String payMethodHolderName;
+  final String preference;
+
+  /// Per-child split of [amount]. Empty means pay the whole [amount]
+  /// family-wide (oldest invoice first); non-empty splits it per student.
+  final List<PaymentAllocationEntity> allocations;
+
+  @override
+  List<Object?> get props => [
+        organizationCode,
+        schoolCode,
+        guardianCode,
+        ownerType,
+        ownerCode,
+        paymentMethodCode,
+        amount,
+        idempotencyKey,
+        payMethodHolderName,
+        preference,
+        allocations,
+      ];
+}
+
+/// Result of a guardian pay charge (`data` of the pay response).
+class GuardianPayResultEntity extends Equatable {
+  const GuardianPayResultEntity({
+    required this.paymentGatewayTransactionCode,
+    required this.gatewayTransactionId,
+    required this.status,
+    required this.methodType,
+    required this.baseAmount,
+    required this.convenienceFee,
+    required this.totalCharged,
+    required this.feePayer,
+    required this.ownerCode,
+    required this.amountApplied,
+    required this.creditBalance,
+  });
+
+  final String paymentGatewayTransactionCode;
+  final String gatewayTransactionId;
+  final String status;
+  final String methodType;
+  final double baseAmount;
+  final double convenienceFee;
+  final double totalCharged;
+  final String feePayer;
+  final String ownerCode;
+  final double amountApplied;
+  final double creditBalance;
+
+  @override
+  List<Object?> get props => [
+        paymentGatewayTransactionCode,
+        gatewayTransactionId,
+        status,
+        methodType,
+        baseAmount,
+        convenienceFee,
+        totalCharged,
+        feePayer,
+        ownerCode,
+        amountApplied,
+        creditBalance,
+      ];
+}

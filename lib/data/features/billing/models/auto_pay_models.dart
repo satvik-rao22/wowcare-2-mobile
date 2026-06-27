@@ -1,4 +1,61 @@
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/payment_settings_entity.dart';
+
+/// `data` from `GET /api/v1/payment/settings`.
+class PaymentSettingsModel {
+  const PaymentSettingsModel({
+    required this.acceptCreditCard,
+    required this.creditCardFeePaidBy,
+    required this.acceptDebitCard,
+    required this.debitCardFeePaidBy,
+    required this.acceptAch,
+    required this.achFeePaidBy,
+    this.schoolCode,
+  });
+
+  final bool acceptCreditCard;
+  final String creditCardFeePaidBy;
+  final bool acceptDebitCard;
+  final String debitCardFeePaidBy;
+  final bool acceptAch;
+  final String achFeePaidBy;
+  final String? schoolCode;
+
+  factory PaymentSettingsModel.fromJson(Map<String, dynamic> json) {
+    bool b(String key) => json[key] == true;
+    String s(String key) => (json[key] ?? '').toString();
+    return PaymentSettingsModel(
+      acceptCreditCard: b('acceptCreditCard'),
+      creditCardFeePaidBy: s('creditCardFeePaidBy'),
+      acceptDebitCard: b('acceptDebitCard'),
+      debitCardFeePaidBy: s('debitCardFeePaidBy'),
+      acceptAch: b('acceptAch'),
+      achFeePaidBy: s('achFeePaidBy'),
+      schoolCode: json['schoolCode']?.toString(),
+    );
+  }
+
+  static FeePayer _payer(String raw) {
+    switch (raw.trim().toUpperCase()) {
+      case 'PARENT':
+        return FeePayer.parent;
+      case 'SCHOOL':
+        return FeePayer.school;
+      default:
+        return FeePayer.unknown;
+    }
+  }
+
+  PaymentSettingsEntity toEntity() => PaymentSettingsEntity(
+        acceptCreditCard: acceptCreditCard,
+        creditCardFeePaidBy: _payer(creditCardFeePaidBy),
+        acceptDebitCard: acceptDebitCard,
+        debitCardFeePaidBy: _payer(debitCardFeePaidBy),
+        acceptAch: acceptAch,
+        achFeePaidBy: _payer(achFeePaidBy),
+        schoolCode: schoolCode ?? '',
+      );
+}
 
 /// One item from `GET /school-forte-configs` (`data.content[]`).
 class SchoolForteConfigModel {
@@ -275,4 +332,94 @@ class UpdatePaymentMethodRequestModel {
         if (card != null) 'card': card,
         if (echeck != null) 'echeck': echeck,
       };
+}
+
+/// Request body for `POST /payment-gateway/guardian/pay`.
+class GuardianPayRequestModel {
+  const GuardianPayRequestModel(this.params);
+
+  final GuardianPayParams params;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'organizationCode': params.organizationCode,
+        'schoolCode': params.schoolCode,
+        'guardianCode': params.guardianCode,
+        'ownerType': params.ownerType,
+        'ownerCode': params.ownerCode,
+        'paymentMethodCode': params.paymentMethodCode,
+        'preference': params.preference,
+        'amount': params.amount,
+        'idempotencyKey': params.idempotencyKey,
+        'payMethodHolderName': params.payMethodHolderName,
+        // Only send per-child allocations when the parent split the amount;
+        // omitted means the backend applies it family-wide (oldest first).
+        if (params.allocations.isNotEmpty)
+          'allocations': params.allocations
+              .map((a) => <String, dynamic>{
+                    'studentCode': a.studentCode,
+                    'amount': a.amount,
+                  })
+              .toList(),
+      };
+}
+
+/// `data` of the guardian pay response.
+class GuardianPayResultModel {
+  const GuardianPayResultModel({
+    required this.paymentGatewayTransactionCode,
+    required this.gatewayTransactionId,
+    required this.status,
+    required this.methodType,
+    required this.baseAmount,
+    required this.convenienceFee,
+    required this.totalCharged,
+    required this.feePayer,
+    required this.ownerCode,
+    required this.amountApplied,
+    required this.creditBalance,
+  });
+
+  final String paymentGatewayTransactionCode;
+  final String gatewayTransactionId;
+  final String status;
+  final String methodType;
+  final double baseAmount;
+  final double convenienceFee;
+  final double totalCharged;
+  final String feePayer;
+  final String ownerCode;
+  final double amountApplied;
+  final double creditBalance;
+
+  static double _d(dynamic v) => (v as num?)?.toDouble() ?? 0;
+  static String _s(dynamic v) => (v as String?)?.trim() ?? '';
+
+  factory GuardianPayResultModel.fromJson(Map<String, dynamic> json) =>
+      GuardianPayResultModel(
+        paymentGatewayTransactionCode: _s(json['paymentGatewayTransactionCode']),
+        gatewayTransactionId: _s(json['gatewayTransactionId']),
+        status: _s(json['status']),
+        methodType: _s(json['methodType']),
+        baseAmount: _d(json['baseAmount']),
+        convenienceFee: _d(json['convenienceFee']),
+        totalCharged: _d(json['totalCharged']),
+        feePayer: _s(json['feePayer']),
+        ownerCode: _s(json['ownerCode']),
+        amountApplied: _d(json['amountApplied']),
+        creditBalance: _d(json['creditBalance']),
+      );
+
+  GuardianPayResultEntity toEntity() => GuardianPayResultEntity(
+        paymentGatewayTransactionCode: paymentGatewayTransactionCode,
+        gatewayTransactionId: gatewayTransactionId,
+        status: status,
+        methodType: methodType,
+        baseAmount: baseAmount,
+        convenienceFee: convenienceFee,
+        totalCharged: totalCharged,
+        feePayer: feePayer,
+        ownerCode: ownerCode,
+        amountApplied: amountApplied,
+        creditBalance: creditBalance,
+      );
 }

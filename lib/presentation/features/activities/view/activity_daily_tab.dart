@@ -5668,15 +5668,29 @@ String activityFeedCardBodyLine(ActivityItem activity) {
   if (activity.name == 'Nap Start' || activity.name == 'Nap End') {
     final desc = activity.description?.trim();
     final isStart = activity.name == 'Nap Start';
+
+    String _fmtNapTime(String? raw, String fallback) {
+      final s = raw?.trim() ?? '';
+      if (s.isEmpty) return fallback;
+      try {
+        final parsed = DateFormat('HH:mm').parse(s);
+        return DateFormat.jm().format(parsed);
+      } catch (_) {
+        try {
+          final parsed = DateFormat('h:mm a').parse(s);
+          return DateFormat.jm().format(parsed);
+        } catch (_) {
+          return s;
+        }
+      }
+    }
+
     final at = isStart
-        ? (activity.napStartTime?.trim().isNotEmpty == true
-              ? activity.napStartTime!.trim()
-              : activity.time.trim())
-        : (activity.napEndTime?.trim().isNotEmpty == true
-              ? activity.napEndTime!.trim()
-              : (activity.napStartTime?.trim().isNotEmpty == true
-                    ? activity.napStartTime!.trim()
-                    : activity.time.trim()));
+        ? _fmtNapTime(activity.napStartTime, activity.time.trim())
+        : _fmtNapTime(
+            activity.napEndTime,
+            _fmtNapTime(activity.napStartTime, activity.time.trim()),
+          );
     final firstLine = at.isNotEmpty
         ? 'Nap ${isStart ? 'started' : 'ended'} at $at'
         : 'Nap';

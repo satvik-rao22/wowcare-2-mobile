@@ -116,6 +116,22 @@ class CacheManager {
     }
   }
 
+  /// Removes every standardized cache entry belonging to [feature] — any key
+  /// shaped `{feature}_{resource}_cache_{identifier}`. Use after a mutation to
+  /// drop all of a feature's cached reads so the next fetch is fresh.
+  ///
+  /// Example: `clearFeatureCaches('billing')` clears overview / family-summary /
+  /// ledger caches in one call.
+  Future<void> clearFeatureCaches(String feature) async {
+    final prefix = '${feature}_';
+    final keys = await _storageService.getKeys();
+    for (final key in keys) {
+      if (!key.contains(_cacheKeyMarker)) continue;
+      if (!key.startsWith(prefix)) continue;
+      await _storageService.remove(key);
+    }
+  }
+
   /// Invalidates cache using the standard key pattern.
   /// 
   /// This is a convenience method that builds the key and invalidates it.

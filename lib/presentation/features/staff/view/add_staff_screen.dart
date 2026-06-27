@@ -18,7 +18,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/presentation/features/staff/util/staff_photo_background.dart';
 
 class AddStaffScreen extends StatefulWidget {
@@ -200,99 +199,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     // Only close _classroomCubit if we created it (not if it came from context)
     // We'll handle this in build method
     super.dispose();
-  }
-
-  Future<void> _pickProfileImage() async {
-    try {
-      // Shared file picker → every allowed image format is selectable.
-      final picked = await FilePickerUtils.pickFile(
-        allowedExtensions: FilePickerUtils.allowedImageExtensions,
-        context: context,
-      );
-      final path = picked?.path;
-      if (path == null || path.isEmpty) return;
-      final file = File(path);
-      final fileSizeInMB = await file.length() / (1024 * 1024);
-      if (fileSizeInMB > 10) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Image size must be less than 10MB',
-          isError: true,
-        );
-        return;
-      }
-      setState(() => _profilePhoto = file);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Failed to pick image: $e',
-        isError: true,
-      );
-    }
-  }
-
-  Widget _buildStaffPhotoField(ResponsiveHelper responsive) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Profile Photo',
-          style: TextStyle(
-            fontSize: responsive.labelFontSize,
-            fontFamily: 'Manrope',
-            fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
-          ),
-        ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
-        GestureDetector(
-          onTap: _pickProfileImage,
-          child: Container(
-            height: 120,
-            width: 120,
-            decoration: BoxDecoration(
-              color: Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x66573353)),
-            ),
-            child: _profilePhoto != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.file(_profilePhoto!, fit: BoxFit.cover),
-                  )
-                : Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.camera_alt,
-                        color: Colors.grey.shade600,
-                        size: 32,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Upload Photo',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'JPG, PNG, max 10MB (Optional)',
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-            fontFamily: 'Manrope',
-          ),
-        ),
-      ],
-    );
   }
 
   void _addStaff() {
@@ -1195,9 +1101,6 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                             height: responsive.verticalSpacing,
                                           ),
                                         ],
-                                        // Profile photo at the END of the form.
-                                        _buildStaffPhotoField(responsive),
-                                        const SizedBox(height: 12),
                                       ],
                                     ),
                                   ),
