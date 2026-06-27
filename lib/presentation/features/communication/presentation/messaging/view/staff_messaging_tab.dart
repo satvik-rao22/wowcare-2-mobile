@@ -25,7 +25,7 @@ import '../../../../../../domain/features/student/usecases/get_tag_name_code_map
 import '../../../../classrooom/views/filters/designation_display_utils.dart';
 import '../../../../student/cubit/student_cubit.dart';
 import '../../../cubit/communication_state.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/messaging_shimmer.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
 import '../widgets/messaging_list_tile.dart';
 
 class StaffMessagingTab extends StatefulWidget {

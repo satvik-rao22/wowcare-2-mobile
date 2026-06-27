@@ -35,7 +35,6 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
   String _currentPin = '';
   String _cachedSchoolName =
       'School'; // Cache to preserve school name during QR reload
-  bool _isRefreshingQr = false; // Prevent duplicate refresh calls
 
   @override
   void initState() {
@@ -44,7 +43,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     // Add observer for app lifecycle
     WidgetsBinding.instance.addObserver(this);
 
-    // Initial QR load on screen open
+    // Initial QR load on screen open only. Returning here after a sign-in/
+    // sign-out flow must NOT trigger another load — the QR stays put until
+    // the app is foregrounded again or the user pulls to refresh.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppLogger.d('[KIOSK] Dashboard refresh requested (initState)');
       _loadQrCode();
@@ -57,22 +58,6 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     if (state == AppLifecycleState.resumed) {
       AppLogger.d('[KIOSK] Dashboard resumed');
       _loadQrCode();
-    }
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Reload QR whenever screen is re-entered (e.g., after PIN flow)
-    AppLogger.d('[KIOSK] Dashboard resumed (didChangeDependencies)');
-    // Use a small delay to avoid multiple rapid calls
-    if (!_isRefreshingQr) {
-      _isRefreshingQr = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        AppLogger.d('[KIOSK] Refreshing school info');
-        _loadQrCode();
-        _isRefreshingQr = false;
-      });
     }
   }
 
@@ -135,19 +120,19 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
                   child: Row(
                     children: [
                       // Back arrow
-                      IconButton(
-                        icon: const Icon(
-                          Icons.arrow_back,
-                          color: AppColors.primaryColor,
-                        ),
-                        onPressed: () async {
-                          AppLogger.d('[Kiosk] Back button pressed');
-                          // go back to the previous screen
-                          if (mounted) {
-                            GoRouter.of(context).pop();
-                          }
-                        },
-                      ),
+                      // IconButton(
+                      //   icon: const Icon(
+                      //     Icons.arrow_back,
+                      //     color: AppColors.primaryColor,
+                      //   ),
+                      //   onPressed: () async {
+                      //     AppLogger.d('[Kiosk] Back button pressed');
+                      //     // go back to the previous screen
+                      //     if (mounted) {
+                      //       GoRouter.of(context).pop();
+                      //     }
+                      //   },
+                      // ),
                       const Padding(
                         padding: EdgeInsets.only(left: 16.0),
                         child: CircleAvatar(

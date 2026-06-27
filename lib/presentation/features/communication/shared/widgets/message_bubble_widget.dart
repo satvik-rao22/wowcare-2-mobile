@@ -7,17 +7,17 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/attachment_open_helper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/attachment_url_resolver.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
-import '../../../../../../app/theme/colors.dart';
-import '../../../../../../shared/common/widgets/profile_show_widget.dart';
-import 'full_attachment_viewer.dart';
-import '../../../../../../domain/features/communication/entities/message.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;

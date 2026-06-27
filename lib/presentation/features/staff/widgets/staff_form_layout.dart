@@ -11,12 +11,17 @@ class StaffFormLayout extends StatelessWidget {
     required this.child,
     required this.bottomBar,
     this.isKiosk = false,
+    this.showKioskBackButton = false,
   });
 
   final String title;
   final Widget child;
   final Widget bottomBar;
   final bool isKiosk;
+
+  /// Shows a back arrow in the kiosk header. Only relevant when [isKiosk] is
+  /// true; the non-kiosk header already has a back button via [CustomAppBar].
+  final bool showKioskBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -35,9 +40,19 @@ class StaffFormLayout extends StatelessWidget {
                       bottom: false,
                       child: Row(
                         children: [
-                          const Padding(
-                            padding: EdgeInsets.only(left: 16.0),
-                            child: CircleAvatar(
+                          if (showKioskBackButton)
+                            IconButton(
+                              icon: const Icon(
+                                Icons.arrow_back,
+                                color: Color(0xff573353),
+                              ),
+                              onPressed: () => Navigator.maybePop(context),
+                            ),
+                          Padding(
+                            padding: EdgeInsets.only(
+                              left: showKioskBackButton ? 0 : 16.0,
+                            ),
+                            child: const CircleAvatar(
                               radius: 20,
                               backgroundImage: AssetImage(
                                 'assets/images/WowCarePNG.png',

@@ -247,6 +247,9 @@ class ApiPaths {
       case 'payment-gateway':
       case 'payment':
         return ApiMicroservices.billing;
+      case 'reports':
+        // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
+        return nextSeg == 'billing' ? ApiMicroservices.billing : ApiMicroservices.user;
       default:
         return ApiMicroservices.user;
     }
@@ -935,6 +938,9 @@ class ApiPaths {
       '/api/v1/notification/preferences';
 
   // —— Billing MS ——
+  /// POST /api/v1/reports/billing/generate — generate a billing report (xlsx/pdf); returns the
+  /// stored asset metadata so it downloads via the document service like the other reports.
+  static const String billingReportGenerate = '/api/v1/reports/billing/generate';
   static const String billingStatements = '/api/v1/billing/statements';
   static String billingStatementDownload(String code) =>
       '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';

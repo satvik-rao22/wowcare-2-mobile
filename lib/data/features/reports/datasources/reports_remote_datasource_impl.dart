@@ -24,7 +24,20 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     // Determine endpoint based on report type
     late String endpoint;
 
-    if (reportType.startsWith('STUDENT_')) {
+    // Billing reports (accounts MS). Checked first because STUDENT_BILLING_MAPPING would
+    // otherwise match the STUDENT_ attendance branch below.
+    const billingReportTypes = <String>{
+      'TRANSACTION',
+      'INVOICE',
+      'PAYMENT_SUMMARY',
+      'OUTSTANDING',
+      'REFUND',
+      'STUDENT_BILLING_MAPPING',
+    };
+
+    if (billingReportTypes.contains(reportType)) {
+      endpoint = ApiPaths.billingReportGenerate;
+    } else if (reportType.startsWith('STUDENT_')) {
       // Student attendance reports
       endpoint = ApiPaths.studentAttendanceReportsGenerate;
     } else if (reportType.startsWith('STAFF_')) {

@@ -195,6 +195,10 @@ class ApiPathsUat {
       case 'payment-gateway':
       case 'payment':
         return ApiMicroservices.billing;
+      case 'reports':
+        // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
+        if (nextSeg == 'billing') return ApiMicroservices.billing;
+        return ApiMicroservices.user;
       case 'admin':
         // v2 activity moderation endpoints:
         // /api/v2/admin/activities/{cardGroupCode}/approve|reject
