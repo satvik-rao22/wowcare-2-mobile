@@ -14,20 +14,20 @@ import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
-import 'package:wowcare/presentation/features/communication/v2/screens/conversation_thread_screen.dart';
-import 'package:wowcare/presentation/features/communication/v2/widgets/conversation_tile.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
-import '../../../../../shared/common/widgets/custom_toggle.dart';
-import '../../../../../shared/common/widgets/gradient_add_button.dart';
-import '../../../classroom/cubit/classroom_cubit.dart';
-import '../../../staff/cubit/staff_cubit.dart';
-import '../../bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart';
+import '../../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
+import '../../../../../../../shared/common/widgets/custom_toggle.dart';
+import '../../../../../../../shared/common/widgets/gradient_add_button.dart';
+import '../../../../../classroom/cubit/classroom_cubit.dart';
+import '../../../../../staff/cubit/staff_cubit.dart';
+import '../../../../bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart';
 
 /// Standalone full-page Admin Chat screen with GlobalScaffold.
 ///

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -108,7 +107,9 @@ class _StudentSelectionSignInFormState
   @override
   void initState() {
     super.initState();
-    AppLogger.d('[Kiosk] StudentSelectionSignInForm initState: pin=${widget.pin}, isKiosk=${widget.isKiosk}, guardianCode=${widget.guardianCode}');
+    AppLogger.d(
+      '[Kiosk] StudentSelectionSignInForm initState: pin=${widget.pin}, isKiosk=${widget.isKiosk}, guardianCode=${widget.guardianCode}',
+    );
     _restrictToGuardianChildren = context.read<RoleCubit>().isParent;
     _getStudentSignInFormListUseCase =
         serviceLocator<GetStudentSignInFormListUseCase>();
@@ -137,9 +138,7 @@ class _StudentSelectionSignInFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms(
-      applyAttendanceStaffScope: true,
-    );
+    _classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -288,7 +287,8 @@ class _StudentSelectionSignInFormState
             .toSet();
         items = items
             .where(
-              (i) => i.studentCode.trim().isNotEmpty &&
+              (i) =>
+                  i.studentCode.trim().isNotEmpty &&
                   allowedUpper.contains(i.studentCode.trim().toUpperCase()),
             )
             .toList();
@@ -446,7 +446,9 @@ class _StudentSelectionSignInFormState
                   hintText: _restrictToGuardianChildren
                       ? 'Search your children'
                       : 'Search Students',
-                  hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
+                  hintStyle: AppTextStyles.body.copyWith(
+                    color: Colors.grey[700],
+                  ),
                   border: InputBorder.none,
                   icon: const Icon(Icons.search, color: Colors.grey),
                 ),

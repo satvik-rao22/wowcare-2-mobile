@@ -320,7 +320,7 @@ import '../../domain/features/communication/usecases/watch_total_unread_count_us
 import '../../domain/features/communication/usecases/watch_messages_usecase.dart';
 import '../../domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import '../../domain/features/communication/usecases/register_firebase_token_usecase.dart';
-import '../../presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
+import '../../presentation/features/communication/cubit/unread_badge_cubit.dart';
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
 import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../data/features/newsletter/datasources/newsletter_remote_datasource.dart';
@@ -2079,9 +2079,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<InvoiceRepository>(
     () => InvoiceRepositoryImpl(
-          serviceLocator<InvoiceRemoteDataSource>(),
-          serviceLocator<CacheManager>(),
-        ),
+      serviceLocator<InvoiceRemoteDataSource>(),
+      serviceLocator<CacheManager>(),
+    ),
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
@@ -2240,8 +2240,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PayNowCubit>(
     () => PayNowCubit(
-      getGuardianFamilyLedger:
-          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

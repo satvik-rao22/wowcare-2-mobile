@@ -30,8 +30,8 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/chat_
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import '../widgets/thread_message_tile.dart';
-import '../../../v2/cubit/private_mode_toggle_cubit.dart';
-import '../../../v2/cubit/private_mode_toggle_state.dart';
+import '../../../cubit/private_mode_toggle_cubit.dart';
+import '../../../cubit/private_mode_toggle_state.dart';
 import '../../../../../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 
 class ParentMessagingThread extends StatefulWidget {

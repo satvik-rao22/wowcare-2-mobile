@@ -21,17 +21,17 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/usecases/search_messages_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_state.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_status_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/private_mode_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/private_mode_toggle_state.dart';
-import 'package:wowcare/presentation/features/communication/v2/util/message_entity_mapper.dart';
-import 'package:wowcare/presentation/features/communication/v2/widgets/entity_message_tile.dart';
+import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/entity_message_tile.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
@@ -194,7 +194,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       _privateModeToggleCubit = PrivateModeToggleCubit(
         togglePrivateModeUseCase: TogglePrivateModeUseCase(serviceLocator()),
         conversationCode: widget.conversation.code,
-        initialEnabled: widget.conversation.privateModeActive ||
+        initialEnabled:
+            widget.conversation.privateModeActive ||
             widget.initialPrivateModeEnabled,
       );
       _conversationPrivateModeActivatedBy =
@@ -495,7 +496,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // optimistic message lands in state (before the network call resolves).
     _ownSendPending = true;
     final attachmentsBeingSent = _pendingAttachments;
-    final bool isPrivate = widget.showPrivateModeToggle &&
+    final bool isPrivate =
+        widget.showPrivateModeToggle &&
         _privateModeToggleCubit?.state.isEnabled == true;
 
     await _cubit.sendMessage(
@@ -670,11 +672,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   },
                   builder: (_, pmState) => Tooltip(
                     message: pmState.isEnabled
-                        ? (_conversationPrivateModeActivatedBy ==
-                                  _senderCode ||
-                              _conversationPrivateModeActivatedBy == null
-                            ? 'Private Mode ON'
-                            : 'Private Mode was enabled by another guardian and can only be disabled by that guardian.')
+                        ? (_conversationPrivateModeActivatedBy == _senderCode ||
+                                  _conversationPrivateModeActivatedBy == null
+                              ? 'Private Mode ON'
+                              : 'Private Mode was enabled by another guardian and can only be disabled by that guardian.')
                         : 'Private Mode OFF',
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -694,13 +695,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           value: pmState.isEnabled,
                           onChanged: pmState.isLoading
                               ? null
-                              : (_conversationPrivateModeActivatedBy !=
-                                        null &&
+                              : (_conversationPrivateModeActivatedBy != null &&
                                     _conversationPrivateModeActivatedBy !=
                                         _senderCode &&
                                     pmState.isEnabled)
-                                  ? null
-                                  : (_) => _privateModeToggleCubit!.toggle(),
+                              ? null
+                              : (_) => _privateModeToggleCubit!.toggle(),
                           activeThumbColor: const Color(0xFF6C63FF),
                           activeTrackColor: const Color(
                             0xFF6C63FF,
@@ -994,39 +994,41 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 onCopy: msg.isDeleted
                     ? null
                     : () {
-                  Clipboard.setData(
-                    ClipboardData(
-                      text: MessageContentProcessor.stripHtmlTags(msg.text),
-                    ),
-                  );
-                  CoreUtils.showTopSnackBar(
-                    context: context,
-                    message: 'Message copied successfully',
-                    isSuccess: true,
-                  );
-                },
+                        Clipboard.setData(
+                          ClipboardData(
+                            text: MessageContentProcessor.stripHtmlTags(
+                              msg.text,
+                            ),
+                          ),
+                        );
+                        CoreUtils.showTopSnackBar(
+                          context: context,
+                          message: 'Message copied successfully',
+                          isSuccess: true,
+                        );
+                      },
                 onEdit: msg.isDeleted
                     ? null
                     : () {
-                  setState(() {
-                    _editingMessage = msg;
-                    _inputController.text =
-                        MessageContentProcessor.stripHtmlTags(msg.text);
-                  });
-                  _inputFocusNode.requestFocus();
-                },
+                        setState(() {
+                          _editingMessage = msg;
+                          _inputController.text =
+                              MessageContentProcessor.stripHtmlTags(msg.text);
+                        });
+                        _inputFocusNode.requestFocus();
+                      },
                 onDelete: msg.isDeleted
                     ? null
                     : () async {
-                  await _cubit.deleteMessage(msg.code);
-                  if (context.mounted) {
-                    CoreUtils.showTopSnackBar(
-                      context: context,
-                      message: 'Message deleted successfully',
-                      isSuccess: true,
-                    );
-                  }
-                },
+                        await _cubit.deleteMessage(msg.code);
+                        if (context.mounted) {
+                          CoreUtils.showTopSnackBar(
+                            context: context,
+                            message: 'Message deleted successfully',
+                            isSuccess: true,
+                          );
+                        }
+                      },
                 onInfo: msg.isDeleted
                     ? null
                     : () => MessageStatusDialog.show(context, message: msg),

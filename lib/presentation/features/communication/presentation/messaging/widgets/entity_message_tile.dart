@@ -2,12 +2,13 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
-import 'package:wowcare/domain/features/communication/entities/message.dart' show ChatAttachment;
+import 'package:wowcare/domain/features/communication/entities/message.dart'
+    show ChatAttachment;
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_bubble_widget.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_thread_state.dart';
-import 'package:wowcare/presentation/features/communication/v2/util/message_entity_mapper.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
 
 /// Renders a single [MessageBubble] driven by its own [BlocSelector] over
 /// [ConversationThreadCubit], rather than the [MessageEntity] handed down

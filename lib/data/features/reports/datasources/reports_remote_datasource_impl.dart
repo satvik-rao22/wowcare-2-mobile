@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/storage_keys.dart' as storage_keys;
@@ -50,7 +51,8 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       }
     } else if (reportType == 'STUDENTS_AND_FAMILY' ||
         reportType == 'EMERGENCY_CONTACTS' ||
-        reportType == 'STUDENT_INCIDENT') {
+        reportType == 'STUDENT_INCIDENT' ||
+        reportType == 'ANNUAL_STATE_IMMUNIZATION') {
       // Student management reports
       endpoint = ApiPaths.studentManagementReportsGenerate;
     } else if (reportType == 'IMMUNIZATION') {
@@ -330,14 +332,11 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     }
 
     final asset = assets[0] as Map<String, dynamic>;
-    // Prefer deliveryUrl (direct CDN) over originalDownloadUrl (template/API endpoint)
-    var downloadUrl = asset['deliveryUrl'] ?? asset['originalDownloadUrl'];
+    var downloadUrl = _extractAssetDownloadUrl(asset);
 
-    if (downloadUrl == null) {
+    if (downloadUrl == null || downloadUrl.isEmpty) {
       throw Exception('No download URL found in resolved asset');
     }
-
-    downloadUrl = downloadUrl as String;
 
     // Replace template variable if present (fallback for originalDownloadUrl)
     if (downloadUrl.contains('\${DOCUMENT_PUBLIC_BASE_URL}')) {
@@ -349,8 +348,83 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       AppLogger.d('Replaced DOCUMENT_PUBLIC_BASE_URL template with: $baseUrl');
     }
 
+    downloadUrl = _sanitizeDownloadUrlHost(downloadUrl);
+
     AppLogger.d('Asset resolved successfully, download URL obtained: $downloadUrl');
     return downloadUrl;
+  }
+
+  /// Pulls the downloadable URL out of a resolved media-asset.
+  ///
+  /// Some assets carry the URL directly (`deliveryUrl`/`originalDownloadUrl`),
+  /// but report assets only get a URL once a processed artifact exists —
+  /// that lives under `variants[]` (e.g. `artifactUrl` on the
+  /// `defaultVariant: true` entry), not on the asset itself.
+  String? _extractAssetDownloadUrl(Map<String, dynamic> asset) {
+    String pickFromMap(Map<dynamic, dynamic> map) {
+      final candidates = <dynamic>[
+        map['deliveryUrl'],
+        map['artifactUrl'],
+        map['url'],
+        map['originalDownloadUrl'],
+      ];
+      for (final raw in candidates) {
+        final value = (raw ?? '').toString().trim();
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    final direct = pickFromMap(asset);
+    if (direct.isNotEmpty) return direct;
+
+    final variants = asset['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final isDefault =
+            (row['defaultVariant'] ?? false).toString().toLowerCase() ==
+                'true';
+        if (!isDefault) continue;
+        final fromDefault = pickFromMap(row);
+        if (fromDefault.isNotEmpty) return fromDefault;
+      }
+      for (final row in variants.whereType<Map>()) {
+        final any = pickFromMap(row);
+        if (any.isNotEmpty) return any;
+      }
+    }
+    return null;
+  }
+
+  /// The document microservice sometimes echoes back its own internal
+  /// `localhost` (or unreachable loopback) host in `deliveryUrl`/
+  /// `originalDownloadUrl` instead of the public-facing one — the device
+  /// can never reach that host, so rewrite scheme/host/port to the
+  /// configured document-MS base URL while keeping the backend's path
+  /// (e.g. `/document-ms/api/v1/media-assets/{code}/artifacts/original`)
+  /// untouched.
+  String _sanitizeDownloadUrlHost(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null || !uri.hasAuthority) return url;
+
+    final isLoopback = uri.host.isEmpty ||
+        uri.host == 'localhost' ||
+        uri.host == '127.0.0.1';
+    if (!isLoopback) return url;
+
+    final documentBase = Uri.tryParse(ApiConstants.documentMsBaseUrl);
+    if (documentBase == null || !documentBase.hasAuthority) return url;
+
+    final rewritten = uri.replace(
+      scheme: documentBase.scheme,
+      host: documentBase.host,
+      port: documentBase.hasPort ? documentBase.port : null,
+    );
+    AppLogger.w(
+      '[REPORTS] Backend returned a loopback download URL ($url); '
+      'rewriting host to ${documentBase.host}',
+    );
+    return rewritten.toString();
   }
 
   @override

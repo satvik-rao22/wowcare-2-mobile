@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 
 /// Renders a single conversation row driven by its own [BlocSelector] over
 /// [ConversationListCubit], keyed by [conversationCode] — mirrors

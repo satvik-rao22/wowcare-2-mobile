@@ -11,6 +11,7 @@ import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class GeneratedReportsScreen extends StatefulWidget {
@@ -413,33 +414,12 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         builder: (context, state) {
           AppLogger.d('[REPORTS-UI] Build: state=${state.generatedReportsState}, count=${state.recentReports.length}');
 
-          // Show spinner while loading initial data
+          // Show shimmer placeholders while loading initial data
           if (state.generatedReportsState == GeneratedReportsLoadingState.initial ||
               state.generatedReportsState == GeneratedReportsLoadingState.loading) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text(
-                      'Loading reports from:\n'
-                      '• Student Attendance\n'
-                      '• Staff Attendance\n'
-                      '• Staff Reports\n'
-                      '• Student Management',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: 12,
-                        color: Color(0xff573353),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            return const Padding(
+              padding: EdgeInsets.all(16),
+              child: GeneratedReportsListShimmer(),
             );
           }
 

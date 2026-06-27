@@ -6,9 +6,6 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
@@ -33,6 +30,7 @@ import 'package:wowcare/presentation/features/reports/widgets/report_card.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -646,68 +644,14 @@ class _ReportsScreenState extends State<ReportsScreen>
     );
   }
 
-  Future<bool> _requestStoragePermission() async {
-    if (Platform.isAndroid) {
-      final androidInfo = await DeviceInfoPlugin().androidInfo;
-      final sdkInt = androidInfo.version.sdkInt;
-
-      if (sdkInt >= 33) {
-        // Android 13+: Request specific file permissions
-        final status = await Permission.photos.request();
-        return status.isGranted;
-      } else {
-        // Android 12 and below: Request storage permission
-        final status = await Permission.storage.request();
-        return status.isGranted;
-      }
-    }
-    // iOS: No explicit permission needed for app documents
-    return true;
-  }
-
   Future<void> _downloadAndViewReport(
     BuildContext context,
     String assetCode,
     String fileName,
   ) async {
-    // Request storage permission first
-    final hasPermission = await _requestStoragePermission();
-
-    if (!hasPermission) {
-      if (!mounted) return;
-
-      final shouldOpenSettings =
-          await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Text('Storage Permission Required'),
-              content: const Text(
-                'To download and save PDF and Excel files, this app needs storage permission.\n\n'
-                'Please grant storage permission in the next screen.',
-              ),
-              actions: [
-                TextButton(
-                  child: const Text('Cancel'),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: const Text('Open Settings'),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-
-      if (shouldOpenSettings) {
-        await openAppSettings();
-      }
-      return;
-    }
-
-    if (!mounted) return;
-
+    // Viewing renders the file bytes in memory (PDFView/Excel preview);
+    // no storage permission is needed since nothing is written to shared
+    // storage here.
     CoreUtils.showTopSnackBar(
       context: context,
       message: 'Downloading report...',
@@ -806,14 +750,12 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
               error: state.generatedReportsError,
             ),
             builder: (context, data) {
-              // Initial or loading state - show spinner (NO shimmer)
+              // Initial or loading state - show shimmer placeholders
               if (data.state == GeneratedReportsLoadingState.initial ||
                   data.state == GeneratedReportsLoadingState.loading) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: CircularProgressIndicator(),
-                  ),
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: GeneratedReportsListShimmer(),
                 );
               }
 
@@ -959,9 +901,17 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
                 assetCode: report.assetCode,
               );
             }).toList(),
-            onView: (item) => context
-                .findAncestorStateOfType<_ReportsScreenState>()
-                ?._showComingSoon(context, 'View'),
+            onView: (item) {
+              if (item.assetCode != null) {
+                context
+                    .findAncestorStateOfType<_ReportsScreenState>()
+                    ?._downloadAndViewReport(
+                      context,
+                      item.assetCode!,
+                      item.fileName,
+                    );
+              }
+            },
             onDownload: (assetCode) async {
               if (assetCode != null) {
                 await context

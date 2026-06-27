@@ -11,8 +11,8 @@ import 'package:wowcare/domain/features/communication/usecases/watch_conversatio
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';

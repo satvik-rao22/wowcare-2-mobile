@@ -10,18 +10,18 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
-import 'package:wowcare/presentation/features/communication/v2/widgets/conversation_filter_sheet.dart';
-import 'package:wowcare/presentation/features/communication/v2/widgets/conversation_tile.dart';
-import 'package:wowcare/presentation/features/communication/v2/widgets/filter_indicator.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_filter_sheet.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-import '../../../../../core/storage/storage_service.dart';
-import '../../../../../core/util/storage_keys.dart';
+import '../../../../../../../core/storage/storage_service.dart';
+import '../../../../../../../core/util/storage_keys.dart';
 
 /// Reusable conversation list for STAFF_DIRECT, ROOM_CHAT, and ADMIN_CHAT.
 ///

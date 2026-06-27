@@ -9,7 +9,7 @@ import 'package:wowcare/domain/features/communication/entities/message.dart'
     show ChatAttachment;
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
-import 'package:wowcare/presentation/features/communication/v2/util/message_entity_mapper.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
@@ -371,8 +371,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         .map((a) => a.attachmentId)
         .whereType<int>()
         .toList();
-    final uploadedOptimisticAttachments =
-        uploadedAttachments.map(toOptimisticEntity).toList();
+    final uploadedOptimisticAttachments = uploadedAttachments
+        .map(toOptimisticEntity)
+        .toList();
 
     final result = await _sendMessageUseCase(
       conversationCode: state.conversationCode,

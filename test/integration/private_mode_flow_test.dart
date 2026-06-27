@@ -14,8 +14,8 @@ import 'package:wowcare/domain/features/communication/entities/messaging_staff_r
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/private_mode_toggle_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
 
 // ── Controllable fake repository ──────────────────────────────────────────────
 
