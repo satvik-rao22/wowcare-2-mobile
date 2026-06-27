@@ -6,6 +6,7 @@ import '../../../../domain/features/reports/entities/report_entity.dart';
 import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
 import '../../../../domain/features/reports/repositories/reports_repository.dart';
 import '../../../../domain/features/reports/usecases/report_params.dart';
+import '../../../../domain/features/reports/usecases/report_request_params.dart';
 import '../datasources/reports_remote_datasource.dart';
 import '../models/recent_report_model.dart';
 import '../models/report_response_model.dart';
@@ -160,5 +161,11 @@ class ReportsRepositoryImpl implements ReportsRepository {
   Future<List<int>> downloadReportFile(String downloadUrl) async {
     AppLogger.d('Downloading report file');
     return _remoteDataSource.downloadReportFile(downloadUrl);
+  }
+
+  @override
+  Future<List<int>> downloadBillingReportBytes(ReportRequestParams params) async {
+    AppLogger.d('Streaming billing report bytes (asset fallback)');
+    return _remoteDataSource.downloadBillingReportBytes(params);
   }
 }

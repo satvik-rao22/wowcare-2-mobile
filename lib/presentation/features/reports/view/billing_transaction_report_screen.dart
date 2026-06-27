@@ -104,18 +104,19 @@ class _BillingTransactionReportScreenState
               previous.generationSuccess != current.generationSuccess,
           listener: (context, state) {
             if (state.generationSuccess != null &&
-                state.generationSuccess!.isNotEmpty &&
-                state.generatedReport != null) {
+                state.generationSuccess!.isNotEmpty) {
+              // generatedReport == null means the byte fallback already opened the file.
+              final openedDirectly = state.generatedReport == null;
               CoreUtils.showTopSnackBar(
                 context: context,
-                message: 'Report generated successfully',
+                message: openedDirectly
+                    ? 'Report downloaded'
+                    : 'Report generated successfully',
                 isSuccess: true,
               );
-
-              if (mounted) {
+              if (!openedDirectly && mounted) {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
-
                   context.go('/dashboard/reports?tab=0');
                   context.read<ReportsCubit>().clearGeneratedReport();
                 });

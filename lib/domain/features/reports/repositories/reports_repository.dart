@@ -1,6 +1,7 @@
 import '../entities/report_entity.dart';
 import '../entities/report_metadata_entity.dart';
 import '../usecases/report_params.dart';
+import '../usecases/report_request_params.dart';
 
 abstract class ReportsRepository {
   /// Generate a report based on request params.
@@ -20,4 +21,7 @@ abstract class ReportsRepository {
 
   /// Download a report file from URL.
   Future<List<int>> downloadReportFile(String downloadUrl);
+
+  /// Stream a billing report's bytes directly (fallback when no document asset was stored).
+  Future<List<int>> downloadBillingReportBytes(ReportRequestParams params);
 }

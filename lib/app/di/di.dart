@@ -799,6 +799,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getStudentTagsUseCase: serviceLocator(),
       downloadReportUseCase: serviceLocator(),
       fileDownloadRepository: serviceLocator(),
+      reportsRepository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<EditUserProfileCubit>(

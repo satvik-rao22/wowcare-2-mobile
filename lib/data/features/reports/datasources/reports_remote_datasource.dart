@@ -1,3 +1,4 @@
+import '../../../../../domain/features/reports/usecases/report_request_params.dart';
 import '../models/report_response_model.dart';
 import '../models/recent_report_model.dart';
 
@@ -48,4 +49,8 @@ abstract class ReportsRemoteDataSource {
   /// Download a report file from URL.
   /// GET request to the download URL
   Future<List<int>> downloadReportFile(String downloadUrl);
+
+  /// Stream a billing report's bytes directly from the accounts MS (fallback when the
+  /// document service didn't return an asset). GET /api/v1/reports/billing/{reportType}.
+  Future<List<int>> downloadBillingReportBytes(ReportRequestParams params);
 }

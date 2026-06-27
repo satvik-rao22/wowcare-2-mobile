@@ -12,6 +12,8 @@ import '../../../../domain/features/reports/usecases/get_recent_reports_usecase.
 import '../../../../domain/features/reports/usecases/get_student_tags_usecase.dart';
 import '../../../../domain/features/reports/usecases/download_report_usecase.dart';
 import '../../../../domain/features/reports/usecases/report_params.dart';
+import '../../../../domain/features/reports/usecases/report_request_params.dart';
+import '../../../../domain/features/reports/repositories/reports_repository.dart';
 import '../../../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import '../../../../data/features/reports/repositories/file_download_repository.dart';
 
@@ -35,6 +37,7 @@ class ReportsCubit extends Cubit<ReportsState> {
     required GetStudentTagsUseCase getStudentTagsUseCase,
     required DownloadReportUseCase downloadReportUseCase,
     required FileDownloadRepository fileDownloadRepository,
+    required ReportsRepository reportsRepository,
   })  : _storageService = storageService,
         _getTagNamesForSchoolUseCase = getTagNamesForSchoolUseCase,
         _generateReportUseCase = generateReportUseCase,
@@ -42,6 +45,7 @@ class ReportsCubit extends Cubit<ReportsState> {
         _getStudentTagsUseCase = getStudentTagsUseCase,
         _downloadReportUseCase = downloadReportUseCase,
         _fileDownloadRepository = fileDownloadRepository,
+        _reportsRepository = reportsRepository,
         super(const ReportsState.initial());
 
   final StorageService _storageService;
@@ -51,6 +55,7 @@ class ReportsCubit extends Cubit<ReportsState> {
   final GetStudentTagsUseCase _getStudentTagsUseCase;
   final DownloadReportUseCase _downloadReportUseCase;
   final FileDownloadRepository _fileDownloadRepository;
+  final ReportsRepository _reportsRepository;
 
   /// Prevent concurrent loadRecentReports calls
   bool _isLoadingRecentReports = false;
@@ -132,6 +137,18 @@ class ReportsCubit extends Cubit<ReportsState> {
       },
       (report) {
         AppLogger.i('[REPORT_GENERATION_SUCCESS] ID: ${report.reportId}, Asset: ${report.assetCode}, File: ${report.fileName}');
+
+        // Billing reports: when the document service didn't store an asset (no assetCode),
+        // fall back to streaming the bytes directly and opening the file on the device.
+        final needsByteFallback = params is ReportRequestParams &&
+            params.reportType.isBilling &&
+            (report.assetCode == null || report.assetCode!.isEmpty);
+        if (needsByteFallback) {
+          unawaited(_streamBillingReport(params, report.fileName ?? 'report',
+              report.reportId));
+          return;
+        }
+
         emit(state.copyWith(
           isGenerating: false,
           generatedReport: report,
@@ -143,6 +160,40 @@ class ReportsCubit extends Cubit<ReportsState> {
         unawaited(loadRecentReports(isRefresh: true));
       },
     );
+  }
+
+  /// Fallback for billing reports with no stored document asset: stream the bytes from the
+  /// accounts MS, save them, and open the file. Emits success without a [generatedReport]
+  /// (nothing to download later), so callers just show a confirmation.
+  Future<void> _streamBillingReport(
+      ReportRequestParams params, String fileName, String assetCode) async {
+    try {
+      final bytes = await _reportsRepository.downloadBillingReportBytes(params);
+      if (isClosed) return;
+      final saved = await _fileDownloadRepository.downloadAndSaveFile(
+        fileData: Uint8List.fromList(bytes),
+        fileName: fileName,
+        assetCode: assetCode,
+      );
+      if (isClosed) return;
+      await saved.fold(
+        (failure) async => emit(state.copyWith(
+            isGenerating: false, generationError: failure.message)),
+        (filePath) async {
+          await _fileDownloadRepository.openFile(
+              filePath: filePath, fileName: fileName, assetCode: assetCode);
+          if (isClosed) return;
+          emit(state.copyWith(
+              isGenerating: false, generationSuccess: 'downloaded'));
+        },
+      );
+    } catch (e) {
+      AppLogger.e('[BILLING-REPORT-STREAM] Failed: $e');
+      if (isClosed) return;
+      emit(state.copyWith(
+          isGenerating: false,
+          generationError: 'Failed to download report. Please try again.'));
+    }
   }
 
   /// Load recent reports from all sources (merged and deduplicated).

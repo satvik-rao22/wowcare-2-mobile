@@ -941,6 +941,11 @@ class ApiPaths {
   /// POST /api/v1/reports/billing/generate — generate a billing report (xlsx/pdf); returns the
   /// stored asset metadata so it downloads via the document service like the other reports.
   static const String billingReportGenerate = '/api/v1/reports/billing/generate';
+
+  /// GET /api/v1/reports/billing/{reportType} — stream the report bytes directly (xlsx/pdf).
+  /// Fallback used when the document service didn't store an asset.
+  static String billingReportStream(String reportType) =>
+      '/api/v1/reports/billing/${Uri.encodeComponent(reportType)}';
   static const String billingStatements = '/api/v1/billing/statements';
   static String billingStatementDownload(String code) =>
       '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';
