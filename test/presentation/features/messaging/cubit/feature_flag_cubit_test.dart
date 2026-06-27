@@ -1,6 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_test/flutter_test.dart';
-import '../../../../../lib/presentation/features/messaging/cubit/feature_flag_cubit.dart';
+import '../../../../../lib/presentation/features/communication/cubit/feature_flag_cubit.dart';
 
 // Stub implementations for testing (avoiding mockito complexity for Phase 0)
 class StubGetFeatureFlagUseCase {
@@ -20,16 +20,14 @@ class StubGetFeatureFlagUseCase {
     String? organizationCode,
     String? schoolCode,
     String? userId,
-  }) async =>
-      false;
+  }) async => false;
 }
 
 class StubSetFeatureFlagUseCase {
   Future<dynamic> call({
     required String flagName,
     required bool enabled,
-  }) async =>
-      const Right(null);
+  }) async => const Right(null);
 
   Future<dynamic> clearAll() async => const Right(null);
 }
@@ -67,10 +65,7 @@ void main() {
 
     test('isFlagEnabled returns correct value', () {
       const state = FeatureFlagState(
-        flags: {
-          'bulkMessaging': true,
-          'realtimeMessaging': false,
-        },
+        flags: {'bulkMessaging': true, 'realtimeMessaging': false},
       );
 
       expect(state.isFlagEnabled('bulkMessaging'), isTrue);
@@ -95,23 +90,15 @@ void main() {
     });
 
     test('equality works for identical states', () {
-      const state1 = FeatureFlagState(
-        flags: {'bulkMessaging': true},
-      );
-      const state2 = FeatureFlagState(
-        flags: {'bulkMessaging': true},
-      );
+      const state1 = FeatureFlagState(flags: {'bulkMessaging': true});
+      const state2 = FeatureFlagState(flags: {'bulkMessaging': true});
 
       expect(state1, equals(state2));
     });
 
     test('inequality works for different states', () {
-      const state1 = FeatureFlagState(
-        flags: {'bulkMessaging': true},
-      );
-      const state2 = FeatureFlagState(
-        flags: {'bulkMessaging': false},
-      );
+      const state1 = FeatureFlagState(flags: {'bulkMessaging': true});
+      const state2 = FeatureFlagState(flags: {'bulkMessaging': false});
 
       expect(state1, isNot(equals(state2)));
     });

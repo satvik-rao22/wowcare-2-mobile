@@ -23,6 +23,7 @@ import '../../../../domain/features/communication/usecases/mark_conversation_del
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {
@@ -109,12 +110,31 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// repeatedly — only new updates flow through; history always comes from
   /// [loadMessages] (API → Isar → UI).
   void startWatchingThread(String threadId) {
+    // TEMP DEBUG LOGGING — remove after realtime investigation.
+    debugPrint(
+      '[REALTIME-DEBUG][CommunicationCubit] startWatchingThread called | '
+      'threadId=$threadId listener created',
+    );
+
     if (_watchedThreadId == threadId && _messagesSubscription != null) return;
     _messagesSubscription?.cancel();
     _watchedThreadId = threadId;
     _messagesSubscription = watchMessagesUseCase(threadId).listen(
       (messages) {
-        if (isClosed || messages.isEmpty) return;
+        debugPrint(
+          '[REALTIME-DEBUG][CommunicationCubit] snapshot received | '
+          'threadId=$threadId count=${messages.length} '
+          'latestMessageId=${messages.isNotEmpty ? messages.last.id : null} '
+          'sender=${messages.isNotEmpty ? messages.last.senderUserCode : null} '
+          'sentAt=${messages.isNotEmpty ? messages.last.time : null}',
+        );
+        if (isClosed || messages.isEmpty) {
+          debugPrint(
+            '[REALTIME-DEBUG][CommunicationCubit] EARLY RETURN — skipped emit | '
+            'threadId=$threadId isClosed=$isClosed messagesEmpty=${messages.isEmpty}',
+          );
+          return;
+        }
         final priorState = state is CommunicationLoaded
             ? state as CommunicationLoaded
             : null;
@@ -147,12 +167,18 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         });
         final mergedMessages = _sortByTime([...reconciled, ...stillPending]);
         newThreads[threadId] = mergedMessages;
+        final int debugPrevCount = currentMessages.length;
         emit(
           priorState?.copyWith(threads: newThreads, activeThreadId: threadId) ??
               CommunicationLoaded(
                 threads: newThreads,
                 activeThreadId: threadId,
               ),
+        );
+        debugPrint(
+          '[REALTIME-DEBUG][CommunicationCubit] state emitted | '
+          'threadId=$threadId prevCount=$debugPrevCount '
+          'newCount=${mergedMessages.length}',
         );
       },
       // Firestore is a notification layer on top of API/Isar — if the
@@ -168,6 +194,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// (or all types when null). Mirrors [startWatchingThread] — only deltas
   /// flow through; [loadConversations] remains the source of history.
   void startWatchingConversations({String? type}) {
+    // TEMP DEBUG LOGGING — remove after realtime investigation.
+    debugPrint(
+      '[REALTIME-DEBUG][CommunicationCubit] startWatchingConversations called | '
+      'type=$type listener created',
+    );
+
     if (_watchedConversationsType == type &&
         _conversationsSubscription != null) {
       return;
@@ -176,7 +208,18 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     _watchedConversationsType = type;
     _conversationsSubscription = watchConversationsUseCase(type: type).listen(
       (conversations) {
-        if (isClosed || conversations.isEmpty) return;
+        debugPrint(
+          '[REALTIME-DEBUG][CommunicationCubit] snapshot received (list) | '
+          'type=$type count=${conversations.length} '
+          'ids=${conversations.map((c) => c.code).toList()}',
+        );
+        if (isClosed || conversations.isEmpty) {
+          debugPrint(
+            '[REALTIME-DEBUG][CommunicationCubit] EARLY RETURN — skipped emit (list) | '
+            'type=$type isClosed=$isClosed conversationsEmpty=${conversations.isEmpty}',
+          );
+          return;
+        }
         final prior = state is CommunicationConversationsLoaded
             ? state as CommunicationConversationsLoaded
             : null;
@@ -193,6 +236,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // Preserve pagination bookkeeping — this is a realtime delta, not a
         // fresh paged fetch, so it must not reset `hasMore`/`currentPage`
         // and silently cut off "load more" for the rest of the session.
+        final int debugPrevCount = currentMap[type]?.length ?? 0;
         emit(
           CommunicationConversationsLoaded(
             updatedMap,
@@ -200,6 +244,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             hasMoreByType: prior?.hasMoreByType ?? const {},
             isLoadingMoreByType: prior?.isLoadingMoreByType ?? const {},
           ),
+        );
+        debugPrint(
+          '[REALTIME-DEBUG][CommunicationCubit] state emitted (list) | '
+          'type=$type prevCount=$debugPrevCount newCount=${sorted.length}',
         );
         unawaited(_markDeliveredForIncomingMessages(conversations));
       },

@@ -54,6 +54,9 @@ class _ControllableRepo implements ConversationEntityRepository {
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   }) async => const Right([]);
 
   @override

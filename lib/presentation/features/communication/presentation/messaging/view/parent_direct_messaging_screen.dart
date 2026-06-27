@@ -68,14 +68,19 @@ class _ParentDirectMessagingScreenState
 
   /// Syncs the selected conversation to [child] by matching [studentCode].
   ///
-  /// When [explicit] is true (user tapped the app-bar dropdown) the view
-  /// always switches — clearing to null if the child has no conversation yet.
-  /// When [explicit] is false (initial load) a [fallback] is used so the first
-  /// available conversation is shown rather than the empty state.
+  /// Never shows a conversation that isn't confirmed to belong to [child] —
+  /// if there's no match (including while [child] is still null/unresolved),
+  /// the screen shows its empty/loading state rather than guessing at some
+  /// other conversation in the list (e.g. a different child's, or one from
+  /// another persona context entirely).
+  ///
+  /// [explicit] forces the screen to update even when the resulting
+  /// conversation's code hasn't changed from what's already selected — used
+  /// when the user (or a persona switch) actually changed which child is
+  /// selected, so a null result still clears any stale thread immediately.
   void _syncToChild(
     ParentChildRef? child,
     List<ConversationEntity> conversations, {
-    ConversationEntity? fallback,
     bool explicit = false,
   }) {
     ConversationEntity? match;
@@ -88,12 +93,8 @@ class _ParentDirectMessagingScreenState
       }
     }
 
-    final next = match ?? (explicit ? null : fallback);
-
-    // Always update when the child was explicitly switched so the screen
-    // clears to the empty state if the child has no conversation yet.
-    if (explicit || next?.code != _selectedConversation?.code) {
-      setState(() => _selectedConversation = next);
+    if (explicit || match?.code != _selectedConversation?.code) {
+      setState(() => _selectedConversation = match);
     }
   }
 
@@ -169,8 +170,14 @@ class _ParentDirectMessagingScreenState
     return BlocProvider<ConversationListCubit>.value(
       value: _listCubit,
       child: BlocListener<ParentChildCubit, ParentChildState>(
+        // Also fire the very first time isLoaded flips to true (not just on
+        // a selectedChild code change) — covers the case where the resolved
+        // child ends up being the same code an earlier race already guessed
+        // wrong via the "first conversation" fallback below, which a
+        // code-only comparison would otherwise treat as a no-op.
         listenWhen: (prev, curr) =>
-            prev.selectedChild?.code != curr.selectedChild?.code,
+            prev.selectedChild?.code != curr.selectedChild?.code ||
+            (!prev.isLoaded && curr.isLoaded),
         listener: (context, childState) {
           _syncToChild(
             childState.selectedChild,
@@ -182,18 +189,23 @@ class _ParentDirectMessagingScreenState
           listener: (context, state) {
             if (_selectedConversation == null &&
                 state.conversations.isNotEmpty) {
-              final child = context
-                  .read<ParentChildCubit>()
-                  .state
-                  .selectedChild;
-              _syncToChild(
-                child,
-                state.conversations,
-                fallback: state.conversations.first,
-              );
+              final childState = context.read<ParentChildCubit>().state;
+              // Skip while ParentChildCubit is still resolving (e.g. right
+              // after a persona switch, which calls invalidate() then
+              // reloads asynchronously) — _syncToChild itself never guesses
+              // at an unmatched conversation, but there's no point matching
+              // against a null/stale selectedChild before it's ready; the
+              // BlocListener above (or a later emission here) runs once it
+              // actually resolves.
+              if (!childState.isLoaded) return;
+              _syncToChild(childState.selectedChild, state.conversations);
             }
           },
           builder: (context, state) {
+            debugPrint(
+              '[REALTIME-DEBUG][ParentConversationList] widget rebuilt | '
+              'conversationCount=${state.conversations.length}',
+            );
             return RefreshIndicator(
               onRefresh: _listCubit.refresh,
               child: Column(

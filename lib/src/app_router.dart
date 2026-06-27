@@ -32,7 +32,7 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';

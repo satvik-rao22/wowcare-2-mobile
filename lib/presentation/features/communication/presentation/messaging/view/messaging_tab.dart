@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_tab.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_or_student_selection_bulk_messaging.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';

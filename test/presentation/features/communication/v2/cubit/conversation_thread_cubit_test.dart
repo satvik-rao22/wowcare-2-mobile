@@ -64,6 +64,7 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
     required String text,
     List<int> attachmentIds = const [],
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) async {
     sendMessageCallCount++;
@@ -202,6 +203,9 @@ class _FakeConversationEntityRepository implements ConversationEntityRepository 
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   }) async =>
       const Right([]);
 

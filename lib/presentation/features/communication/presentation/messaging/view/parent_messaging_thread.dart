@@ -597,6 +597,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         }
       },
       builder: (context, state) {
+        debugPrint(
+          '[REALTIME-DEBUG][ParentConversationThread] widget rebuilt | '
+          'messageCount=${_activeMessages.length}',
+        );
         final _messages = _activeMessages;
         // Computed once per build, used by both layout branches' Parent1/
         // Parent2 tab panes below — avoids recomputing per list item.

@@ -141,7 +141,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       organizationCode: org,
       schoolCode: school,
       isPrivate: isPrivate,
-      // privateParentUserCode: privateParentUserCode,
+      privateParentUserCode: privateParentUserCode,
       localTempCode: tempCode,
     );
 
@@ -211,7 +211,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       conversationCode: entity.conversationCode,
       text: entity.text,
       isPrivate: entity.isPrivate,
-      // privateParentUserCode: entity.privateParentUserCode,
+      privateParentUserCode: entity.privateParentUserCode,
       threadParentCode: entity.threadParentCode,
     );
   }
