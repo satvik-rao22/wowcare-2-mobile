@@ -109,7 +109,19 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// Firestore delta listener for [threadId]'s messages. Safe to call
   /// repeatedly — only new updates flow through; history always comes from
   /// [loadMessages] (API → Isar → UI).
-  void startWatchingThread(String threadId) {
+  /// [organizationCode]/[schoolCode] should be the conversation's own
+  /// values (not necessarily the session's currently-active school) — a
+  /// multi-school parent/admin, or a recent active-school switch, can leave
+  /// the session's stored org/school pointing somewhere other than where
+  /// this specific conversation actually lives, which builds the wrong
+  /// Firestore path and surfaces as a permission-denied error rather than
+  /// just empty results. Omit them to fall back to session resolution
+  /// (unchanged prior behavior).
+  void startWatchingThread(
+    String threadId, {
+    String? organizationCode,
+    String? schoolCode,
+  }) {
     // TEMP DEBUG LOGGING — remove after realtime investigation.
     debugPrint(
       '[REALTIME-DEBUG][CommunicationCubit] startWatchingThread called | '
@@ -119,7 +131,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     if (_watchedThreadId == threadId && _messagesSubscription != null) return;
     _messagesSubscription?.cancel();
     _watchedThreadId = threadId;
-    _messagesSubscription = watchMessagesUseCase(threadId).listen(
+    _messagesSubscription = watchMessagesUseCase(
+      threadId,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    ).listen(
       (messages) {
         debugPrint(
           '[REALTIME-DEBUG][CommunicationCubit] snapshot received | '
@@ -537,15 +553,24 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     result.fold(
       (failure) {
-        // Only show error page if we don't already have cached messages
-        final Map<String, List<Message>> finalThreads =
-            state is CommunicationLoaded
-            ? (state as CommunicationLoaded).threads
-            : {};
-        if (!finalThreads.containsKey(threadId) ||
-            finalThreads[threadId]!.isEmpty) {
-          emit(CommunicationError(failure.message ?? 'Unknown error'));
+        // CommunicationLoaded.threads holds every thread's messages, not
+        // just this one — emitting CommunicationError here used to replace
+        // that entire map, which silently broke sendMessage() (guarded on
+        // `state is CommunicationLoaded`) for every other already-loaded
+        // thread too, not just the one that failed to fetch. If we already
+        // have a loaded session, keep it: just make sure this thread has at
+        // least an empty entry so its own UI can render an empty/retry
+        // state locally instead of nuking everyone else's state.
+        if (state is CommunicationLoaded) {
+          final loaded = state as CommunicationLoaded;
+          if (!loaded.threads.containsKey(threadId)) {
+            final threads = Map<String, List<Message>>.from(loaded.threads);
+            threads[threadId] = const [];
+            emit(loaded.copyWith(threads: threads, activeThreadId: threadId));
+          }
+          return;
         }
+        emit(CommunicationError(failure.message ?? 'Unknown error'));
       },
       (messages) {
         final Map<String, List<Message>> latestThreads =
@@ -660,8 +685,21 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     bool isPrivate = false,
     String? privateParentUserCode,
   }) async {
-    if (state is! CommunicationLoaded) return;
-    final currentState = state as CommunicationLoaded;
+    // Previously this guarded with `if (state is! CommunicationLoaded) return`
+    // and silently dropped the send — no API call, no error, nothing — any
+    // time the cubit's *global* state wasn't CommunicationLoaded. Since the
+    // cubit holds one shared state across every thread, a failed background
+    // fetch for ANY thread (most commonly a brand-new conversation with no
+    // messages yet, e.g. a parent sending the very first message) could leave
+    // the whole cubit stuck in CommunicationError, breaking Send everywhere
+    // until something else happened to re-emit CommunicationLoaded. Falling
+    // back to an empty CommunicationLoaded here means Send always at least
+    // attempts the API call, which is also what a parent-initiated
+    // first-message flow requires (the conversation doesn't exist locally
+    // yet, but the send must still go through and create it).
+    final currentState = state is CommunicationLoaded
+        ? state as CommunicationLoaded
+        : CommunicationLoaded(threads: const {}, activeThreadId: threadId);
 
     // id/code must be unique per message, not per thread/sender — reusing
     // threadId/senderUserCode meant two messages sent in quick succession

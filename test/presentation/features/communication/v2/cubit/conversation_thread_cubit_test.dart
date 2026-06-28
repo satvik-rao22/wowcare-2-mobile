@@ -34,6 +34,8 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
 
   @override
   Stream<List<MessageEntity>> watchMessages({
+    String? organizationCode,
+    String? schoolCode,
     required String conversationCode,
     int limit = 100,
   }) => _messagesController.stream;

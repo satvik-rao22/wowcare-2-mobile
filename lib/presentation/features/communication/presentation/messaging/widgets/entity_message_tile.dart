@@ -42,6 +42,8 @@ class EntityMessageTile extends StatelessWidget {
     this.onRemoveReaction,
     this.onReactionTap,
     this.isParentMessaging = false,
+    this.senderIsOrgSide,
+    this.viewerIsGuardian,
   });
 
   final String messageCode;
@@ -61,6 +63,11 @@ class EntityMessageTile extends StatelessWidget {
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
   final bool isParentMessaging;
+
+  /// See [MessageBubble.senderIsOrgSide] — both this and [viewerIsGuardian]
+  /// must be supplied together (or left null together) by the caller.
+  final bool? senderIsOrgSide;
+  final bool? viewerIsGuardian;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +116,8 @@ class EntityMessageTile extends StatelessWidget {
           onReactionTap: onReactionTap,
           isParentMessaging: isParentMessaging,
           isGrouped: isGrouped,
+          senderIsOrgSide: senderIsOrgSide,
+          viewerIsGuardian: viewerIsGuardian,
         );
       },
     );

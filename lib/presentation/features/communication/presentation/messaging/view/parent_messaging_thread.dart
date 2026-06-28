@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
@@ -33,6 +35,8 @@ import '../widgets/thread_message_tile.dart';
 import '../../../cubit/private_mode_toggle_cubit.dart';
 import '../../../cubit/private_mode_toggle_state.dart';
 import '../../../../../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
+import '../../../../../../domain/features/communication/usecases/get_conversation_entity_usecase.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
 
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({
@@ -107,6 +111,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
   bool _isLoadingOlder = false;
   static const double _loadOlderScrollThreshold = 200.0;
+
+  /// Overrides `widget.parentInfo['participants']` once a fresh fetch
+  /// completes — the participant list passed in via `parentInfo` is
+  /// whatever was last loaded into the inbox (potentially stale: classroom
+  /// reassignments, new guardians/admins, or removals that happened after
+  /// that list was fetched). Null until the refresh below finishes, at
+  /// which point [_participants] prefers this over the widget input.
+  List<ConversationParticipant>? _refreshedParticipants;
 
   /// Created once [_currentUserCode] resolves, scoped to this thread's
   /// lifetime — manages this guardian's own Private Mode toggle (PATCH to
@@ -209,7 +221,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       if (!mounted) return;
       // Realtime listener starts only after the API/Isar history has
       // loaded — Firestore only ever applies deltas on top of it.
-      context.read<CommunicationCubit>().startWatchingThread(convCode);
+      context.read<CommunicationCubit>().startWatchingThread(
+        convCode,
+        organizationCode: widget.parentInfo['organizationCode'] as String?,
+        schoolCode: widget.parentInfo['schoolCode'] as String?,
+      );
+      unawaited(_refreshParticipants(convCode));
       final initialMessages = _activeMessages;
       _lastMessageId = initialMessages.isNotEmpty
           ? initialMessages.last.id
@@ -388,6 +405,19 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   void _sendMessage() {
+    // Defense in depth — the backend is the actual authority on whether a
+    // Past Participant (classroom unassigned, guardian/admin/director
+    // removed) can still send, but block it here too so removal is visible
+    // immediately rather than waiting on a round-trip failure.
+    if (!_amIActiveParticipant) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'You are no longer an active participant in this conversation.',
+        isError: true,
+      );
+      return;
+    }
     final text = _controller.text.trim();
     if (_editingMessage != null) {
       if (text.isNotEmpty && text != _editingMessage!.text) {
@@ -789,6 +819,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       reactionsController:
                                                           _reactionsController,
                                                       isParentMessaging: true,
+                                                      senderIsOrgSide:
+                                                          _isOrgSideSender(
+                                                            message,
+                                                          ),
+                                                      viewerIsGuardian:
+                                                          widget.isGuardian,
                                                       onReplyFromMenu:
                                                           message.isDeleted
                                                           ? null
@@ -1071,6 +1107,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       reactionsController:
                                                           _reactionsController,
                                                       isParentMessaging: true,
+                                                      senderIsOrgSide:
+                                                          _isOrgSideSender(
+                                                            message,
+                                                          ),
+                                                      viewerIsGuardian:
+                                                          widget.isGuardian,
                                                       onReplyFromMenu:
                                                           message.isDeleted
                                                           ? null
@@ -1353,6 +1395,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                       reactionsController:
                                                           _reactionsController,
                                                       isParentMessaging: true,
+                                                      senderIsOrgSide:
+                                                          _isOrgSideSender(
+                                                            message,
+                                                          ),
+                                                      viewerIsGuardian:
+                                                          widget.isGuardian,
                                                       onReplyFromMenu:
                                                           message.isDeleted
                                                           ? null
@@ -1740,6 +1788,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _reactionsController,
                                                           isParentMessaging:
                                                               true,
+                                                          senderIsOrgSide:
+                                                              _isOrgSideSender(
+                                                                message,
+                                                              ),
+                                                          viewerIsGuardian:
+                                                              widget.isGuardian,
                                                           onReplyFromMenu: () {
                                                             setState(() {
                                                               _quotedMessageId =
@@ -2027,6 +2081,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _reactionsController,
                                                           isParentMessaging:
                                                               true,
+                                                          senderIsOrgSide:
+                                                              _isOrgSideSender(
+                                                                message,
+                                                              ),
+                                                          viewerIsGuardian:
+                                                              widget.isGuardian,
                                                           onReplyFromMenu: () {
                                                             setState(() {
                                                               _quotedMessageId =
@@ -2316,6 +2376,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _reactionsController,
                                                           isParentMessaging:
                                                               true,
+                                                          senderIsOrgSide:
+                                                              _isOrgSideSender(
+                                                                message,
+                                                              ),
+                                                          viewerIsGuardian:
+                                                              widget.isGuardian,
                                                           onReplyFromMenu: () {
                                                             setState(() {
                                                               _quotedMessageId =
@@ -2706,11 +2772,52 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   List<ConversationParticipant> get _participants {
+    if (_refreshedParticipants != null) return _refreshedParticipants!;
     final raw = widget.parentInfo['participants'];
     if (raw is List) {
       return raw.whereType<ConversationParticipant>().toList();
     }
     return [];
+  }
+
+  /// Whether the current user is still an ACTIVE participant in this
+  /// conversation, per the freshest data we have. `null` (no match found)
+  /// is treated as active rather than blocking — a user who somehow isn't
+  /// in the participant list at all (e.g. participants haven't loaded yet)
+  /// shouldn't be silently locked out by this client-side check; the
+  /// backend is the authority that actually enforces this.
+  bool get _amIActiveParticipant {
+    if (_currentUserCode == null) return true;
+    final mine = _participants.where((p) => p.userCode == _currentUserCode);
+    if (mine.isEmpty) return true;
+    return mine.first.isActive;
+  }
+
+  /// Fetches the current conversation fresh from the backend and replaces
+  /// [_refreshedParticipants] with whatever it actually returns — the
+  /// `participants` the screen was opened with came from the inbox list,
+  /// which can be stale relative to classroom/guardian/admin changes that
+  /// happened since that list was last loaded. Best-effort: a failure here
+  /// just means the screen keeps using the (possibly stale) data it already
+  /// had, same as before this existed.
+  Future<void> _refreshParticipants(String conversationCode) async {
+    final result = await serviceLocator<GetConversationEntityUseCase>().call(
+      conversationCode,
+    );
+    if (!mounted) return;
+    result.fold(
+      (_) {
+        // Stay on whatever participants we already have — the thread is
+        // still usable, just potentially stale until the next refresh.
+      },
+      (conversation) {
+        setState(() {
+          _refreshedParticipants = legacyParticipantsFromEntities(
+            conversation.participants,
+          );
+        });
+      },
+    );
   }
 
   List<ParticipantDisplayData> get _participantDisplayData =>
@@ -2723,6 +2830,27 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           role: normalised,
         );
       }).toList();
+
+  /// True if [m]'s sender is staff/admin/teacher/director, false if
+  /// guardian/parent — the role-class signal the canonical bubble
+  /// alignment rule needs (docs/messaging/06-ui-standards.md). Defaults to
+  /// guardian (false) when the sender can't be matched against the current
+  /// participant list (e.g. a system message, or stale data mid-refresh) —
+  /// errs toward the side this screen already renders by default rather
+  /// than risk surprising a guardian viewer with their own message
+  /// suddenly flipping sides.
+  bool _isOrgSideSender(Message m) {
+    final code = m.senderUserCode;
+    final role = _participantDisplayData
+            .where((d) => d.userCode == code)
+            .firstOrNull
+            ?.role ??
+        'GUARDIAN';
+    return role == 'STAFF' ||
+        role == 'ADMIN' ||
+        role == 'DIRECTOR' ||
+        role == 'TEACHER';
+  }
 
   void _showParticipantsDialog() {
     final studentName = widget.parentInfo['name'] as String? ?? '';

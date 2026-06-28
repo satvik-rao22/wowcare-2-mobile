@@ -9,10 +9,14 @@ class WatchMessagesUseCase {
   Stream<List<MessageEntity>> call({
     required String conversationCode,
     int limit = 100,
+    String? organizationCode,
+    String? schoolCode,
   }) {
     return _repository.watchMessages(
       conversationCode: conversationCode,
       limit: limit,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
     );
   }
 }

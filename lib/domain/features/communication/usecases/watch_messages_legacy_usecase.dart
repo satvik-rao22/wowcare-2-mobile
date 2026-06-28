@@ -8,7 +8,15 @@ class WatchMessagesLegacyUseCase {
 
   WatchMessagesLegacyUseCase(this._repository);
 
-  Stream<List<Message>> call(String threadId) {
-    return _repository.watchMessages(threadId);
+  Stream<List<Message>> call(
+    String threadId, {
+    String? organizationCode,
+    String? schoolCode,
+  }) {
+    return _repository.watchMessages(
+      threadId,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    );
   }
 }

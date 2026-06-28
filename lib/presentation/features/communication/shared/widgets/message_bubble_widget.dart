@@ -45,6 +45,19 @@ class MessageBubble extends StatefulWidget {
   /// message is a continuation from the same sender as the one above it.
   final bool isGrouped;
 
+  /// Whether THIS MESSAGE's sender is staff/admin/teacher/director (true) or
+  /// guardian/parent (false). Null means "unknown/not applicable" — used by
+  /// Staff Direct (1:1), which intentionally keeps the legacy "my message
+  /// vs. their message" layout instead of the role-based one (see
+  /// docs/messaging/06-ui-standards.md §6.2). Must be supplied together with
+  /// [viewerIsGuardian] for the role-based layout to take effect.
+  final bool? senderIsOrgSide;
+
+  /// Whether the person currently viewing this thread is a guardian/parent.
+  /// Null has the same "not applicable" meaning as [senderIsOrgSide] — both
+  /// must be non-null together, or both are ignored.
+  final bool? viewerIsGuardian;
+
   const MessageBubble({
     required this.message,
     required this.reactionsController,
@@ -65,6 +78,8 @@ class MessageBubble extends StatefulWidget {
     this.isInactive = false,
     this.isDeleted = false,
     this.isGrouped = false,
+    this.senderIsOrgSide,
+    this.viewerIsGuardian,
     super.key,
   });
 
@@ -163,6 +178,25 @@ class _MessageBubbleState extends State<MessageBubble>
       widget.message.isSentByMe ||
       (widget.currentUserCode != null &&
           widget.currentUserCode == widget.message.senderUserCode);
+
+  /// Drives every visual "which side/color does this bubble use" decision.
+  ///
+  /// When [MessageBubble.senderIsOrgSide] and [MessageBubble.viewerIsGuardian]
+  /// are both supplied (Room Chat / Admin Chat), this implements the
+  /// role-based rule: every staff/admin/teacher/director message shares one
+  /// side+gradient regardless of which one of them sent it, and every
+  /// guardian message shares the other side+gradient regardless of which
+  /// guardian sent it.
+  ///
+  /// When either is null (Staff Direct, 1:1 — the one PRD-documented
+  /// exception, see docs/messaging/06-ui-standards.md §6.2), falls back to
+  /// the legacy "my message vs. their message" behavior driven by [_isMe].
+  bool get _alignRight {
+    final orgSide = widget.senderIsOrgSide;
+    final guardianViewer = widget.viewerIsGuardian;
+    if (orgSide == null || guardianViewer == null) return _isMe;
+    return guardianViewer ? !orgSide : orgSide;
+  }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info regardless of who
@@ -334,6 +368,11 @@ class _MessageBubbleState extends State<MessageBubble>
   @override
   Widget build(BuildContext context) {
     final isMe = _isMe;
+    // Drives alignment/color (side this bubble renders on); `isMe` itself
+    // stays reserved for identity-only decisions (the "You" label, the
+    // Edit/Delete menu, and delivery/read ticks) that must never flip just
+    // because two different people happen to share a side.
+    final alignRight = _alignRight;
     final screenWidth = MediaQuery.of(context).size.width;
     // Resolve sender display name once before the widget tree.
     final senderLabel = isMe
@@ -386,12 +425,12 @@ class _MessageBubbleState extends State<MessageBubble>
 
               // Bubble content
               Align(
-                alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
                 child: Transform.translate(
                   offset: Offset(_dragOffset, 0),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: isMe
+                    crossAxisAlignment: alignRight
                         ? CrossAxisAlignment.end
                         : CrossAxisAlignment.start,
                     children: [
@@ -399,7 +438,7 @@ class _MessageBubbleState extends State<MessageBubble>
                       if (widget.isParentMessaging && !widget.isGrouped) ...[
                         Row(
                           mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: isMe
+                          mainAxisAlignment: alignRight
                               ? MainAxisAlignment.end
                               : MainAxisAlignment.start,
                           children: [
@@ -439,8 +478,13 @@ class _MessageBubbleState extends State<MessageBubble>
                               ? widget.message.code
                               : widget.message.id,
                           controller: widget.reactionsController,
+                          // Edit/Delete menu visibility (inside
+                          // _buildReactionsConfig) is gated on true identity
+                          // (isMe), never alignRight — sharing a side with
+                          // another staff member must not let you edit or
+                          // delete their message.
                           config: _buildReactionsConfig(isMe),
-                          alignment: isMe
+                          alignment: alignRight
                               ? Alignment.centerRight
                               : Alignment.centerLeft,
                           onReactionAdded: (emoji) {
@@ -453,7 +497,7 @@ class _MessageBubbleState extends State<MessageBubble>
                             }
                           },
                           onMenuItemTapped: _handleMenuItemTap,
-                          child: _buildBubble(isMe),
+                          child: _buildBubble(alignRight, isMe),
                         ),
                       ),
 
@@ -479,7 +523,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                   controller: widget.reactionsController,
                                   size: 24,
                                   stackedValue: 3,
-                                  direction: isMe
+                                  direction: alignRight
                                       ? TextDirection.rtl
                                       : TextDirection.ltr,
                                   reactionBackgroundColor: Colors.white,
@@ -502,9 +546,18 @@ class _MessageBubbleState extends State<MessageBubble>
 
   // ── Bubble body ───────────────────────────────────────────────────────────
 
-  Widget _buildBubble(bool isMe) {
+  Widget _buildBubble(bool alignRight, bool isMe) {
     final message = widget.message;
     final isDeleted = widget.isDeleted;
+    final orgSide = widget.senderIsOrgSide;
+    // Room/Admin Chat (orgSide non-null): BOTH sides are now colored
+    // gradients — Staff Gradient for org-side senders, Pink Gradient for
+    // guardian senders — so text/icon contrast must be light on either
+    // side, not just on whichever side happens to be "isMe". Staff Direct
+    // (orgSide null) keeps the legacy look: gradient (light text) only for
+    // the viewer's own messages, flat light background (dark text) for the
+    // other party's.
+    final useLightText = orgSide != null ? true : isMe;
     final hasOnlyEmoji =
         message.text.trim().length <= 3 &&
         message.text.trim().runes.every(
@@ -517,11 +570,17 @@ class _MessageBubbleState extends State<MessageBubble>
     return Material(
       color: Colors.transparent,
       child: Container(
-        margin: EdgeInsets.only(left: isMe ? 60 : 0, right: isMe ? 0 : 60),
+        margin: EdgeInsets.only(left: alignRight ? 60 : 0, right: alignRight ? 0 : 60),
         decoration: BoxDecoration(
-          color: isMe ? null : const Color.fromRGBO(220, 230, 255, 1),
-          gradient: isMe ? AppColors.buildPrimaryGradient() : null,
-          borderRadius: _buildBubbleBorderRadius(isMe),
+          color: orgSide == null && !isMe
+              ? const Color.fromRGBO(220, 230, 255, 1)
+              : null,
+          gradient: orgSide != null
+              ? (orgSide
+                    ? AppColors.buildStaffGradient()
+                    : AppColors.buildPinkGradient())
+              : (isMe ? AppColors.buildPrimaryGradient() : null),
+          borderRadius: _buildBubbleBorderRadius(alignRight),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.08),
@@ -538,7 +597,7 @@ class _MessageBubbleState extends State<MessageBubble>
               ? Text(
                   'This message has been deleted.',
                   style: TextStyle(
-                    color: isMe
+                    color: useLightText
                         ? Colors.white.withValues(alpha: 0.75)
                         : const Color.fromRGBO(87, 51, 83, 0.6),
                     fontSize: 14,
@@ -555,7 +614,7 @@ class _MessageBubbleState extends State<MessageBubble>
                           widget.quotedMessage != null)
                         Flexible(
                           fit: FlexFit.loose,
-                          child: _buildQuotePreview(isMe),
+                          child: _buildQuotePreview(useLightText),
                         ),
 
                       // Attachments
@@ -571,7 +630,7 @@ class _MessageBubbleState extends State<MessageBubble>
                           fit: FlexFit.loose,
                           child: _StableHtml(
                             data: MessageContentProcessor.enrich(message.text),
-                            linkColor: isMe
+                            linkColor: useLightText
                                 ? Colors.white
                                 : AppColors.primaryColor,
                             onLinkTap: MessageContentProcessor.launchLink,
@@ -581,7 +640,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                 padding: html.HtmlPaddings.zero,
                                 fontSize: html.FontSize(15.5),
                                 fontFamily: 'Manrope',
-                                color: isMe
+                                color: useLightText
                                     ? Colors.white
                                     : AppColors.primaryColor,
                               ),
@@ -606,7 +665,7 @@ class _MessageBubbleState extends State<MessageBubble>
                               padding: const EdgeInsets.only(top: 8),
                               child: LinkPreviewCard(
                                 url: previewUrl,
-                                isMe: isMe,
+                                isMe: useLightText,
                               ),
                             );
                           },
@@ -619,7 +678,7 @@ class _MessageBubbleState extends State<MessageBubble>
                         Text(
                           'Edited',
                           style: TextStyle(
-                            color: isMe
+                            color: useLightText
                                 ? Colors.white.withValues(alpha: 0.7)
                                 : Colors.grey,
                             fontSize: 12,
@@ -637,7 +696,7 @@ class _MessageBubbleState extends State<MessageBubble>
                             Icon(
                               Icons.visibility_off_outlined,
                               size: 12,
-                              color: isMe
+                              color: useLightText
                                   ? Colors.white.withValues(alpha: 0.85)
                                   : const Color(0xFFD63031),
                             ),
@@ -647,7 +706,7 @@ class _MessageBubbleState extends State<MessageBubble>
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: isMe
+                                color: useLightText
                                     ? Colors.white.withValues(alpha: 0.85)
                                     : const Color(0xFFD63031),
                               ),
@@ -660,20 +719,24 @@ class _MessageBubbleState extends State<MessageBubble>
                       const SizedBox(height: 4),
                       Row(
                         mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: isMe
+                        mainAxisAlignment: alignRight
                             ? MainAxisAlignment.end
                             : MainAxisAlignment.start,
                         children: [
                           Text(
                             _formatTime(widget.message.time),
                             style: TextStyle(
-                              color: isMe
+                              color: useLightText
                                   ? Colors.white.withValues(alpha: 0.7)
                                   : Colors.grey[600],
                               fontSize: 12.0,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
+                          // Read/delivery ticks are identity-only — only the
+                          // literal sender (isMe) sees their own message's
+                          // delivery status, regardless of which side it
+                          // renders on.
                           if (isMe) ...[
                             const SizedBox(width: 4),
                             Icon(

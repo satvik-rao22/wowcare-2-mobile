@@ -121,8 +121,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     );
 
     _messagesSubscription?.cancel();
+    // Use this conversation's own org/school rather than the session's
+    // currently-active one — a stale/mismatched active school (multi-school
+    // parent/admin, or a recent switch) otherwise builds a Firestore path
+    // that doesn't correspond to where this conversation's messages
+    // actually live, surfacing as permission-denied rather than just empty.
     _messagesSubscription =
-        _watchMessagesUseCase(conversationCode: state.conversationCode).listen(
+        _watchMessagesUseCase(
+          conversationCode: state.conversationCode,
+          organizationCode: state.conversation?.organizationCode,
+          schoolCode: state.conversation?.schoolCode,
+        ).listen(
           (fresh) {
             if (isClosed) return;
             _firestoreActive = true;

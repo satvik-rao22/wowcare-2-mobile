@@ -185,6 +185,11 @@ class ParticipantEntityDto {
     this.leftAt,
     this.lastReadAt,
     this.avatarUrl,
+    this.staffCode,
+    this.guardianCode,
+    this.adminCode,
+    this.organizationCode,
+    this.schoolCode,
   });
 
   final int id;
@@ -200,6 +205,14 @@ class ParticipantEntityDto {
   final bool notificationsEnabled;
   final DateTime createdAt;
   final DateTime updatedAt;
+  // Not currently sent by the backend participant payload — parsed
+  // defensively so they populate the moment the backend adds them, with no
+  // further Flutter changes required. Until then these are always null.
+  final String? staffCode;
+  final String? guardianCode;
+  final String? adminCode;
+  final String? organizationCode;
+  final String? schoolCode;
 
   factory ParticipantEntityDto.fromJson(Map<String, dynamic> json) {
     return ParticipantEntityDto(
@@ -220,6 +233,11 @@ class ParticipantEntityDto {
       notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
       createdAt: DateTime.parse(json['createdAt'] as String? ?? DateTime.now().toIso8601String()),
       updatedAt: DateTime.parse(json['updatedAt'] as String? ?? DateTime.now().toIso8601String()),
+      staffCode: json['staffCode'] as String?,
+      guardianCode: json['guardianCode'] as String?,
+      adminCode: json['adminCode'] as String?,
+      organizationCode: json['organizationCode'] as String?,
+      schoolCode: json['schoolCode'] as String?,
     );
   }
 
@@ -237,6 +255,11 @@ class ParticipantEntityDto {
         'notificationsEnabled': notificationsEnabled,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        if (staffCode != null) 'staffCode': staffCode,
+        if (guardianCode != null) 'guardianCode': guardianCode,
+        if (adminCode != null) 'adminCode': adminCode,
+        if (organizationCode != null) 'organizationCode': organizationCode,
+        if (schoolCode != null) 'schoolCode': schoolCode,
       };
 
   ParticipantEntity toEntity() {
@@ -254,6 +277,11 @@ class ParticipantEntityDto {
       notificationsEnabled: notificationsEnabled,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      staffCode: staffCode,
+      guardianCode: guardianCode,
+      adminCode: adminCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
     );
   }
 }

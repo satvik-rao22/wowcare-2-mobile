@@ -1,10 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
@@ -39,9 +47,13 @@ class _ParentDirectMessagingScreenState
   late final ConversationListCubit _listCubit;
   ConversationEntity? _selectedConversation;
 
-  // Used only when no conversation exists yet — keeps the input bar visible.
+  // Used only when no conversation exists yet — keeps the input bar visible
+  // and lets the parent draft the first message (text + attachments) before
+  // any conversation has been created server-side.
   final TextEditingController _emptyInputController = TextEditingController();
   final FocusNode _emptyInputFocus = FocusNode();
+  List<ChatAttachment> _pendingNewConversationAttachments = [];
+  bool _isStartingConversation = false;
 
   @override
   void initState() {
@@ -152,6 +164,11 @@ class _ParentDirectMessagingScreenState
       'name': conv.title,
       'avatar': conv.avatarUrl,
       'code': conv.code,
+      // The conversation's own org/school — used to build the realtime
+      // (Firestore) watch path correctly even when the session's currently
+      // active org/school differs (multi-school parent, recent switch).
+      'organizationCode': conv.organizationCode,
+      'schoolCode': conv.schoolCode,
       'parents': parentNames,
       'guardianMap': {
         for (final guardian in guardians) guardian.userCode: guardian.userName,
@@ -307,6 +324,133 @@ class _ParentDirectMessagingScreenState
     );
   }
 
+  /// Attachment picker for the pre-conversation composer — mirrors
+  /// [ParentMessagingThread._showAttachmentSheet] since there's no thread
+  /// state yet to attach this to.
+  void _showAttachmentSheetForNewConversation() {
+    MessageAttachmentBottomSheet.show(
+      context,
+      onAttachmentsSelected: (attachments) {
+        if (attachments.isEmpty) return;
+        // Only one attachment may be pending at a time, matching the
+        // existing in-thread composer's behavior.
+        setState(() => _pendingNewConversationAttachments = [attachments.first]);
+      },
+      onEmojiSelected: (emoji) {
+        final pos = _emptyInputController.selection.isValid
+            ? _emptyInputController.selection.baseOffset
+            : _emptyInputController.text.length;
+        final text = _emptyInputController.text;
+        _emptyInputController.value = _emptyInputController.value.copyWith(
+          text: text.substring(0, pos) + emoji + text.substring(pos),
+          selection: TextSelection.collapsed(offset: pos + emoji.length),
+        );
+      },
+      // No participants to show yet — the conversation doesn't exist.
+      onViewParticipants: null,
+    );
+  }
+
+  /// Creates the Room Chat conversation for the selected child (idempotent —
+  /// reuses an existing one if a race already created it) and sends the
+  /// drafted text/attachment as its first message. This is the parent-side
+  /// "conversation auto-creates on first send" flow — there is no separate
+  /// "create conversation" step the parent has to do first.
+  Future<void> _sendFirstMessage() async {
+    if (_isStartingConversation) return;
+    final text = _emptyInputController.text.trim();
+    final attachments = _pendingNewConversationAttachments;
+    if (text.isEmpty && attachments.isEmpty) return;
+
+    final child = context.read<ParentChildCubit>().state.selectedChild;
+    if (child == null) return;
+
+    setState(() => _isStartingConversation = true);
+
+    // Same call shape as the Admin/Staff "start conversation" flow
+    // (staff_messaging_tab.dart's room-chat branch): type + studentCode
+    // only, participantCodes left empty. Participant computation (all
+    // admins/directors + currently allowed classroom staff + all guardians)
+    // happens server-side from studentCode alone, identically regardless of
+    // which persona's client sent the request — so a parent-created Room
+    // Chat ends up with the same full participant set as a staff-created
+    // one.
+    final createResult = await serviceLocator<CreateOrOpenConversationUseCase>()
+        .call(
+          type: ConversationType.roomChat,
+          studentCode: child.code,
+          participantCodes: const [],
+          // Backend requires a non-empty title ("Title is required");
+          // staff_messaging_tab.dart's equivalent call passes the
+          // other party's display name — here that's the student's.
+          title: child.name,
+        );
+
+    if (!mounted) return;
+
+    await createResult.fold(
+      (failure) async {
+        setState(() => _isStartingConversation = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failure.message ?? 'Could not start the conversation. Try again.',
+            ),
+          ),
+        );
+      },
+      (conversation) async {
+        final parentInfo = _buildParentInfo(conversation);
+        final authState = context.read<AuthCubit>().state;
+        final senderName = authState is AuthLoaded
+            ? authState.loginResponse.displayName
+            : null;
+        final storedUserCode =
+            (await serviceLocator<StorageService>().getString(
+                  StorageKeys.userCode,
+                ) ??
+                '')
+                .trim();
+        final senderUserCode = authState is AuthLoaded
+            ? authState.loginResponse.userCode
+            : (storedUserCode.isNotEmpty ? storedUserCode : null);
+
+        final receivers = <String>[
+          ...(parentInfo['staffList'] as List<dynamic>? ?? []).cast<String>(),
+          ...(parentInfo['parents'] as List<dynamic>? ?? []).cast<String>(),
+        ];
+
+        // A short-lived cubit just to drive this one send — the real,
+        // long-lived per-thread cubit takes over once the screen swaps to
+        // ParentMessagingThread below.
+        final sendCubit = serviceLocator<CommunicationCubit>();
+        sendCubit.sendMessage(
+          conversation.code,
+          text,
+          attachments: attachments,
+          senderName: senderName,
+          senderUserCode: senderUserCode,
+          receivers: receivers,
+        );
+
+        if (!mounted) return;
+        setState(() {
+          _isStartingConversation = false;
+          _emptyInputController.clear();
+          _pendingNewConversationAttachments = [];
+          // Switch over to the real thread immediately rather than waiting
+          // for the list stream to refresh — _listCubit.refresh() below
+          // keeps the conversation list (sidebar/badges elsewhere) in sync,
+          // but the screen itself shouldn't sit on the "not yet created"
+          // placeholder while that round-trip happens.
+          _selectedConversation = conversation;
+        });
+        await sendCubit.close();
+        unawaited(_listCubit.refresh());
+      },
+    );
+  }
+
   /// Shows the same card layout as the active thread but with a centered
   /// "not yet created" placeholder in the message area.
   Widget _buildNoConversationThread(BuildContext context) {
@@ -423,12 +567,15 @@ class _ParentDirectMessagingScreenState
             child: ChatInputBar(
               controller: _emptyInputController,
               focusNode: _emptyInputFocus,
-              onSend: () {},
-              onAttachmentTap: () {},
-              pendingAttachments: const [],
+              isSending: _isStartingConversation,
+              onSend: _sendFirstMessage,
+              onAttachmentTap: _showAttachmentSheetForNewConversation,
+              pendingAttachments: _pendingNewConversationAttachments,
               quotedMessage: null,
               onCancelQuote: () {},
-              onRemoveAttachment: (_) {},
+              onRemoveAttachment: (i) => setState(() {
+                _pendingNewConversationAttachments.removeAt(i);
+              }),
               editingMessage: null,
               onCancelEdit: () {},
             ),

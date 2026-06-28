@@ -61,7 +61,20 @@ abstract class CommunicationRepository {
   /// Isar cache (upsert by message code) and the merged, full cached list is
   /// re-emitted. Used purely as a "what changed" notification layer on top
   /// of the API → Isar → UI flow.
-  Stream<List<Message>> watchMessages(String threadId);
+  ///
+  /// [organizationCode]/[schoolCode] override the session's currently-active
+  /// org/school for building the Firestore path — pass the conversation's
+  /// own values when known. A stale/mismatched session org or school (e.g.
+  /// a multi-school parent, or a recently-switched active school) builds a
+  /// Firestore path that doesn't correspond to where this conversation's
+  /// messages actually live, surfacing as a permission-denied error rather
+  /// than simply empty results. Falls back to session resolution when
+  /// omitted (unchanged prior behavior).
+  Stream<List<Message>> watchMessages(
+    String threadId, {
+    String? organizationCode,
+    String? schoolCode,
+  });
 
   /// Realtime delta stream for the conversation list, sourced from
   /// Firestore's per-user inbox. Same merge-into-Isar semantics as

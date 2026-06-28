@@ -861,6 +861,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         lower.contains('403');
   }
 
+  /// True if [senderCode]'s participant is staff/admin/teacher/director,
+  /// false if guardian/parent — see [MessageBubble.senderIsOrgSide] /
+  /// docs/messaging/06-ui-standards.md. Defaults to guardian (false) when
+  /// the sender can't be matched against this conversation's participant
+  /// list, same fallback rationale as ParentMessagingThread's equivalent.
+  bool _isOrgSideSender(String senderCode) {
+    final role = widget.conversation.participants
+            .where((p) => p.userCode == senderCode)
+            .firstOrNull
+            ?.role ??
+        ParticipantRole.parent;
+    return role != ParticipantRole.parent;
+  }
+
   Widget _buildMessageList(ConversationThreadState state) {
     if (state.isLoading && !state.hasMessages) {
       return const ChatThreadShimmer();
@@ -1065,6 +1079,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 },
                 onReactionTap: () => _showEmojiPicker(context, msg),
                 isParentMessaging: _senderRole == ParticipantRole.parent,
+                senderIsOrgSide: _isOrgSideSender(msg.senderCode),
+                viewerIsGuardian: _senderRole == ParticipantRole.parent,
               ),
             ],
           );
