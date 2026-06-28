@@ -53,6 +53,7 @@ class StaffAbsentCard extends StatefulWidget {
   final StaffAbsentCardData staff;
   final int index;
   final bool isExpanded;
+  final bool disableAttendanceStatusLookup;
   final VoidCallback? onTap;
   final VoidCallback? onView;
 
@@ -61,6 +62,7 @@ class StaffAbsentCard extends StatefulWidget {
     required this.staff,
     required this.index,
     this.isExpanded = false,
+    this.disableAttendanceStatusLookup = false,
     this.onTap,
     this.onView,
   });
@@ -109,7 +111,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                         : staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
-                    disableAttendanceStatusLookup: true,
+                    disableAttendanceStatusLookup: widget.disableAttendanceStatusLookup,
                   ),
                   SizedBox(width: spacing),
                   Expanded(

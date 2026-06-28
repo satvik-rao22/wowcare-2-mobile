@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -9,8 +10,8 @@ import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 
 class DocumentImageWidget extends StatefulWidget {
   static const Duration _profilePhotoCacheTtl = Duration(minutes: 10);
@@ -119,6 +120,77 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       <String, DateTime>{};
   static final Map<String, Future<String?>> _profilePhotoInFlight =
       <String, Future<String?>>{};
+
+  // ── Batch sign-in status fetching ──────────────────────────────────────────
+  // All widget instances share these static queues. A 50 ms debounce timer
+  // coalesces rapid concurrent requests into a single POST that sends all
+  // pending codes at once, matching the batch API contract:
+  //   POST /api/v1/attendance/student-attendance/sign-in/status
+  //   body: { "studentCodes": ["STD_…", …] }  →  { "data": { "STD_…": "SIGNED_IN", … } }
+  static final Map<String, Completer<String?>> _pendingStudentCodes =
+      <String, Completer<String?>>{};
+  static final Map<String, Completer<String?>> _pendingStaffCodes =
+      <String, Completer<String?>>{};
+  static Timer? _studentBatchTimer;
+  static Timer? _staffBatchTimer;
+  static const Duration _kBatchDebounce = Duration(milliseconds: 50);
+
+  static Future<String?> _batchStudentStatus(String studentCode) {
+    final existing = _pendingStudentCodes[studentCode];
+    if (existing != null) return existing.future;
+    final c = Completer<String?>();
+    _pendingStudentCodes[studentCode] = c;
+    _studentBatchTimer?.cancel();
+    _studentBatchTimer = Timer(_kBatchDebounce, _flushStudentBatch);
+    return c.future;
+  }
+
+  static Future<String?> _batchStaffStatus(String staffCode) {
+    final existing = _pendingStaffCodes[staffCode];
+    if (existing != null) return existing.future;
+    final c = Completer<String?>();
+    _pendingStaffCodes[staffCode] = c;
+    _staffBatchTimer?.cancel();
+    _staffBatchTimer = Timer(_kBatchDebounce, _flushStaffBatch);
+    return c.future;
+  }
+
+  static Future<void> _flushStudentBatch() async {
+    if (_pendingStudentCodes.isEmpty) return;
+    final batch = Map<String, Completer<String?>>.from(_pendingStudentCodes);
+    _pendingStudentCodes.clear();
+    _studentBatchTimer = null;
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: batch.keys.toList());
+      batch.forEach((code, completer) {
+        if (!completer.isCompleted) completer.complete(map[code]);
+      });
+    } catch (_) {
+      batch.forEach((_, completer) {
+        if (!completer.isCompleted) completer.complete(null);
+      });
+    }
+  }
+
+  static Future<void> _flushStaffBatch() async {
+    if (_pendingStaffCodes.isEmpty) return;
+    final batch = Map<String, Completer<String?>>.from(_pendingStaffCodes);
+    _pendingStaffCodes.clear();
+    _staffBatchTimer = null;
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
+      final map = await useCase(staffCodes: batch.keys.toList());
+      batch.forEach((code, completer) {
+        if (!completer.isCompleted) completer.complete(map[code]);
+      });
+    } catch (_) {
+      batch.forEach((_, completer) {
+        if (!completer.isCompleted) completer.complete(null);
+      });
+    }
+  }
+  // ───────────────────────────────────────────────────────────────────────────
 
   Color? _avatarColor;
   Color? _statusDotColor;
@@ -638,11 +710,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     try {
       String? status;
       if (staffCode != null && staffCode.isNotEmpty) {
-        final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
-        status = await useCase(staffCode: staffCode);
+        status = await _batchStaffStatus(staffCode);
       } else if (studentCode != null && studentCode.isNotEmpty) {
-        final useCase = serviceLocator<GetStudentTodaySignInStatusUseCase>();
-        status = await useCase(studentCode: studentCode);
+        status = await _batchStudentStatus(studentCode);
       }
 
       if (!mounted) return;

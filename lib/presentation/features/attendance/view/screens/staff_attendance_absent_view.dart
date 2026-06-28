@@ -613,6 +613,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
       staff: cardData,
       index: index,
       isExpanded: isExpanded,
+      disableAttendanceStatusLookup: true,
       onTap: () {
         setState(() {
           if (_expandedStaffIndex == index) {

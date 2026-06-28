@@ -46,7 +46,13 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 .toIso8601String(),
     };
 
-    // Generate dummy invoice items
+    // Receipts already render a single payment row (description + mode + amount),
+    // so no additional items are needed — leave _invoiceItems null to avoid duplicates.
+    if (widget.viewType == 'receipt') {
+      _invoiceItems = null;
+      return;
+    }
+
     _invoiceItems = [
       {
         'type': 'item',
@@ -155,7 +161,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    widget.transaction.paymentMode ?? 'N/A',
+                    widget.transaction.paymentMode ?? '-',
                     style: const TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: 16,
@@ -263,7 +269,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                 Expanded(
                   flex: 2,
                   child: Text(
-                    widget.transaction.paymentMode ?? 'N/A',
+                    widget.transaction.paymentMode ?? '-',
                     style: const TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: 16,

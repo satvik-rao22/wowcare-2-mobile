@@ -51,7 +51,7 @@ class InvoiceTransactionModel {
       studentName: (json['studentName'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
-      method: (json['method'])?.toString(),
+      method: ((json['method'] ?? json['paymentMode'] ?? json['paymentMethod']) as Object?)?.toString(),
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       paidAmount: (json['paidAmount'] as num?)?.toDouble() ?? 0.0,
       refundedAmount: (json['refundedAmount'] as num?)?.toDouble() ?? 0.0,

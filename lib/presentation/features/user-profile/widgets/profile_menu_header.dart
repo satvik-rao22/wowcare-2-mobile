@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../../../app/di/di.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../view_model/profile_menu_header_cubit.dart';
@@ -39,67 +38,63 @@ class ProfileMenuHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => serviceLocator<ProfileMenuHeaderCubit>()..loadSummary(),
-      child: BlocBuilder<ProfileMenuHeaderCubit, ProfileMenuHeaderState>(
-        builder: (context, state) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: () => _pickProfileImage(context),
-                child: DocumentImageWidget(
-                  fileUuid:
-                      state.displayName.isNotEmpty ? state.displayName : 'User',
-                  imageUrl: state.guardianPhotoUrl.isNotEmpty
-                      ? state.guardianPhotoUrl
-                      : null,
-                  mediaAssetCode: state.guardianAssetCode.isNotEmpty
-                      ? state.guardianAssetCode
-                      : null,
-                  staffCode: state.staffCode.isNotEmpty ? state.staffCode : null,
-                  name: state.displayName.isNotEmpty ? state.displayName : 'User',
-                  size: 48,
-                  fontSize: 18,
-                  statusColor: const Color(0xFF00B115),
-                ),
+    return BlocBuilder<ProfileMenuHeaderCubit, ProfileMenuHeaderState>(
+      builder: (context, state) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () => _pickProfileImage(context),
+              child: DocumentImageWidget(
+                fileUuid:
+                    state.displayName.isNotEmpty ? state.displayName : 'User',
+                imageUrl: state.guardianPhotoUrl.isNotEmpty
+                    ? state.guardianPhotoUrl
+                    : null,
+                mediaAssetCode: state.guardianAssetCode.isNotEmpty
+                    ? state.guardianAssetCode
+                    : null,
+                staffCode: state.staffCode.isNotEmpty ? state.staffCode : null,
+                name: state.displayName.isNotEmpty ? state.displayName : 'User',
+                size: 48,
+                fontSize: 18,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      state.displayName.isNotEmpty ? state.displayName : 'User',
-                      style: const TextStyle(
-                        color: Color(0xFF573353),
-                        fontFamily: 'Manrope',
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    state.displayName.isNotEmpty ? state.displayName : 'User',
+                    style: const TextStyle(
+                      color: Color(0xFF573353),
+                      fontFamily: 'Manrope',
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      state.persona.isNotEmpty ? state.persona : 'Profile',
-                      style: const TextStyle(
-                        color: Color(0xFF573353),
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    state.persona.isNotEmpty ? state.persona : 'Profile',
+                    style: const TextStyle(
+                      color: Color(0xFF573353),
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
                     ),
-                  ],
-                ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
-            ],
-          );
-        },
-      ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

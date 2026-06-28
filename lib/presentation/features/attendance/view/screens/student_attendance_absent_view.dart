@@ -974,6 +974,7 @@ class _StudentAttendanceAbsentViewState
                   size: avatarSize,
                   name: student.name,
                   fontSize: responsive.isTablet ? 18 : 16,
+                  disableAttendanceStatusLookup: true,
                 ),
                 SizedBox(width: spacing),
                 // Header matches staff_card.dart: name (left) + classroom (right).
