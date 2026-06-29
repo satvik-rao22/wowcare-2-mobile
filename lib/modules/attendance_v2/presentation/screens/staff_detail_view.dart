@@ -5,6 +5,7 @@ import '../../core/theme/av2_spacing.dart';
 import '../../core/utils/av2_date_formatter.dart';
 import '../../domain/entities/attendance_day.dart';
 import '../../domain/entities/attendance_session.dart';
+import '../../domain/entities/av2_staff_summary.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../controllers/av2_day_filter.dart';
 import '../controllers/av2_period.dart';
@@ -19,6 +20,7 @@ import '../widgets/av2_filter_chips.dart';
 import '../widgets/av2_hero_card.dart';
 import '../widgets/av2_identity_row.dart';
 import '../widgets/av2_period_sheet.dart';
+import '../widgets/av2_staff_switcher_sheet.dart';
 
 /// Edits a session: returns true on success so the screen can toast.
 typedef Av2EditSession = Future<void> Function({
@@ -70,6 +72,8 @@ class StaffDetailView extends StatefulWidget {
     this.onLoadMore,
     this.hasMore = false,
     this.loadingMore = false,
+    this.staff = const [],
+    this.onStaffSelected,
   });
 
   final StaffOvertimeProfile profile;
@@ -98,6 +102,11 @@ class StaffDetailView extends StatefulWidget {
   final VoidCallback? onLoadMore;
   final bool hasMore;
   final bool loadingMore;
+
+  /// School staff + handler for the admin "switch staff" picker. When [staff]
+  /// is non-empty and [onStaffSelected] is set, the identity row is tappable.
+  final List<Av2StaffSummary> staff;
+  final ValueChanged<Av2StaffSummary>? onStaffSelected;
 
   @override
   State<StaffDetailView> createState() => _StaffDetailViewState();
@@ -136,6 +145,24 @@ class _StaffDetailViewState extends State<StaffDetailView> {
       widget.onLoadMore!();
     }
     return false;
+  }
+
+  bool get _canSwitchStaff =>
+      widget.onStaffSelected != null && widget.staff.isNotEmpty;
+
+  Widget _identity() => Av2IdentityRow(
+        profile: _profile,
+        onTap: _canSwitchStaff ? _onSwitchStaff : null,
+      );
+
+  Future<void> _onSwitchStaff() async {
+    final picked = await showAv2StaffSwitcherSheet(
+      context,
+      staff: widget.staff,
+      currentCode: _profile.staffCode,
+    );
+    if (picked == null || !mounted || picked.code == _profile.staffCode) return;
+    widget.onStaffSelected?.call(picked);
   }
 
   Future<void> _pickPeriod() async {
@@ -317,7 +344,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Av2IdentityRow(profile: _profile),
+              _identity(),
               const SizedBox(height: Av2Spacing.md),
               _hero(),
               const SizedBox(height: Av2Spacing.md),
@@ -352,7 +379,7 @@ class _StaffDetailViewState extends State<StaffDetailView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Av2IdentityRow(profile: _profile),
+              _identity(),
               const SizedBox(height: Av2Spacing.md),
               _hero(),
               const SizedBox(height: Av2Spacing.md),

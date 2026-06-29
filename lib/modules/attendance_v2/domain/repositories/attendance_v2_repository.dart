@@ -1,9 +1,13 @@
 import '../entities/av2_classroom.dart';
+import '../entities/av2_staff_summary.dart';
 import '../entities/day_detail.dart';
 import '../entities/staff_overtime_profile.dart';
 
 /// Read interface for the Attendance V2 detail screen.
 abstract class AttendanceV2Repository {
+  /// Active staff for the current school (admin "switch staff" picker).
+  Future<List<Av2StaffSummary>> getStaff();
+
   /// Active classrooms/locations for the current school (for the add-attendance
   /// room pickers).
   Future<List<Av2Classroom>> getClassrooms();

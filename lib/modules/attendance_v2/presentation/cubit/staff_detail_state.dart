@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../domain/entities/av2_staff_summary.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../controllers/av2_day_filter.dart';
 
@@ -14,6 +15,7 @@ class StaffDetailState extends Equatable {
     this.page = 0,
     this.hasMore = false,
     this.loadingMore = false,
+    this.staff = const [],
   });
 
   const StaffDetailState.initial()
@@ -24,11 +26,15 @@ class StaffDetailState extends Equatable {
         filter = Av2DayFilter.all,
         page = 0,
         hasMore = false,
-        loadingMore = false;
+        loadingMore = false,
+        staff = const [];
 
   final Av2Status status;
   final StaffOvertimeProfile? profile;
   final String? errorMessage;
+
+  /// School staff for the admin "switch staff" picker (loaded once).
+  final List<Av2StaffSummary> staff;
 
   /// Active day filter — drives the server's `overtimeOnly` / `absentOnly`.
   final Av2DayFilter filter;
@@ -57,6 +63,7 @@ class StaffDetailState extends Equatable {
     int? page,
     bool? hasMore,
     bool? loadingMore,
+    List<Av2StaffSummary>? staff,
   }) {
     return StaffDetailState(
       status: status ?? this.status,
@@ -67,6 +74,7 @@ class StaffDetailState extends Equatable {
       page: page ?? this.page,
       hasMore: hasMore ?? this.hasMore,
       loadingMore: loadingMore ?? this.loadingMore,
+      staff: staff ?? this.staff,
     );
   }
 
@@ -80,5 +88,6 @@ class StaffDetailState extends Equatable {
         page,
         hasMore,
         loadingMore,
+        staff,
       ];
 }

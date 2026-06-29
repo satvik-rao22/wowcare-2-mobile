@@ -88,19 +88,21 @@ void main() {
     expect(csv, contains('Overtime,0hr 40min'));
     expect(csv, contains('Break,0hr 30min'));
     expect(csv, contains('Total Worked,8hr 40min'));
-    // Data header.
+    // Data header (now with In By / Out By columns).
     expect(csv,
-        contains('Date,Day,Status,In,Out,Room,Regular,Overtime,Break,Total,Note'));
+        contains('Date,Day,Status,In,In By,Out,Out By,Room,Regular,Overtime,Break,Total,Note'));
     // Day summary row (break = the 30-min gap between sessions).
     expect(csv,
-        contains('2026-06-24,Wed,Signed Out,,,,8hr 0min,0hr 40min,0hr 30min,8hr 40min,'));
-    // Sessions + the break between them, nested beneath the day.
-    expect(csv, contains(',,↳ Session,9:00 AM,12:00 PM,Office,,,,3hr 0min,'));
-    expect(csv, contains(',,↳ Break,12:00 PM,12:30 PM,,,,0hr 30min,,'));
-    expect(csv, contains(',,↳ Session,12:30 PM,5:40 PM,Office,,,,5hr 10min,'));
+        contains('2026-06-24,Wed,Signed Out,,,,,,8hr 0min,0hr 40min,0hr 30min,8hr 40min,'));
+    // Sessions carry who signed in/out; break between them is nested.
+    expect(csv,
+        contains(',,↳ Session,9:00 AM,Self,12:00 PM,Self,Office,,,,3hr 0min,'));
+    expect(csv, contains(',,↳ Break,12:00 PM,,12:30 PM,,,,,0hr 30min,,'));
+    expect(csv,
+        contains(',,↳ Session,12:30 PM,Self,5:40 PM,Self,Office,,,,5hr 10min,'));
     // Absent row carries reason · note · marked-by in one note cell.
     expect(csv,
-        contains('2026-06-26,Fri,Absent,,,,,,,,SICK · not present today · Marked by Suhas Biwalkar'));
+        contains('2026-06-26,Fri,Absent,,,,,,,,,,SICK · not present today · Marked by Suhas Biwalkar'));
     // CRLF line endings.
     expect(csv, contains('\r\n'));
   });

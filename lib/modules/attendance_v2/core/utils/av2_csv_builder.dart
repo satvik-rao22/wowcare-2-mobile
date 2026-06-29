@@ -93,7 +93,9 @@ class Av2CsvBuilder {
       'Day',
       'Status',
       'In',
+      'In By',
       'Out',
+      'Out By',
       'Room',
       'Regular',
       'Overtime',
@@ -119,19 +121,20 @@ class Av2CsvBuilder {
 
     if (d.isAbsent) {
       return [
-        [date, day, 'Absent', '', '', '', '', '', '', '', _absenceNote(d)],
+        [date, day, 'Absent', '', '', '', '', '', '', '', '', '', _absenceNote(d)],
       ];
     }
     if (d.status == DayStatus.notMarked) {
       return [
-        [date, day, 'Not Marked', '', '', '', '', '', '', '', ''],
+        [date, day, 'Not Marked', '', '', '', '', '', '', '', '', '', ''],
       ];
     }
 
     final status = d.status == DayStatus.signedIn ? 'Signed In' : 'Signed Out';
     final block = <List<String>>[
       [
-        date, day, status, '', '', '',
+        date, day, status,
+        '', '', '', '', '',
         _hm(d.regularMinutes),
         _hm(d.overtimeMinutes),
         _hm(breakMinutes),
@@ -146,7 +149,9 @@ class Av2CsvBuilder {
       block.add([
         '', '', '↳ Session',
         _time.format(s.signInAt),
+        s.signedInBy,
         s.isOpen ? 'Open' : _time.format(s.signOutAt!),
+        s.signedOutBy ?? '',
         s.classroomName,
         '', '', '',
         _hm(s.workedMinutes),
@@ -159,8 +164,9 @@ class Av2CsvBuilder {
           block.add([
             '', '', '↳ Break',
             _time.format(s.signOutAt!),
+            '',
             _time.format(sessions[i + 1].signInAt),
-            '', '', '',
+            '', '', '', '',
             _hm(gap),
             '', '',
           ]);

@@ -13,6 +13,7 @@ import '../domain/usecases/edit_absence_usecase.dart';
 import '../domain/usecases/edit_session_usecase.dart';
 import '../domain/usecases/get_classrooms_usecase.dart';
 import '../domain/usecases/get_day_detail_usecase.dart';
+import '../domain/usecases/get_staff_list_usecase.dart';
 import '../domain/usecases/get_staff_overview_usecase.dart';
 import '../presentation/cubit/staff_detail_cubit.dart';
 
@@ -57,6 +58,9 @@ void registerAttendanceV2(GetIt sl) {
   sl.registerFactory<AddAttendanceUseCase>(
     () => AddAttendanceUseCase(sl<AttendanceV2Repository>()),
   );
+  sl.registerFactory<GetStaffListUseCase>(
+    () => GetStaffListUseCase(sl<AttendanceV2Repository>()),
+  );
   sl.registerFactory<StaffDetailCubit>(
     () => StaffDetailCubit(
       calculateOvertimeUseCase: sl(),
@@ -66,6 +70,7 @@ void registerAttendanceV2(GetIt sl) {
       deleteSessionUseCase: sl(),
       editAbsenceUseCase: sl(),
       deleteAbsenceUseCase: sl(),
+      getStaffListUseCase: sl(),
     ),
   );
 }

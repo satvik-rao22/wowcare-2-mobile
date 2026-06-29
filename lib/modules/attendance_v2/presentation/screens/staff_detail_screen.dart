@@ -14,6 +14,7 @@ import '../../core/theme/av2_spacing.dart';
 import '../../core/theme/av2_text_styles.dart';
 import '../../core/utils/av2_csv_builder.dart';
 import '../../core/utils/av2_save_permission.dart';
+import '../../domain/entities/av2_staff_summary.dart';
 import '../controllers/av2_day_filter.dart';
 import '../controllers/av2_period.dart';
 import '../cubit/staff_detail_cubit.dart';
@@ -42,6 +43,8 @@ class StaffDetailScreen extends StatefulWidget {
 class _StaffDetailScreenState extends State<StaffDetailScreen> {
   late final StaffDetailCubit _cubit;
   late Av2Period _period;
+  late String _staffCode = widget.staffCode;
+  late String _staffName = widget.staffName;
   bool _refreshing = false;
   bool _exporting = false;
 
@@ -52,13 +55,17 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
     _period = Av2Period.month(DateTime(now.year, now.month, 1));
     _cubit = serviceLocator<StaffDetailCubit>();
     _fetch();
+    // Admin can switch between staff from within the screen — preload the list.
+    if (context.read<RoleCubit>().state.role == 'admin') {
+      unawaited(_cubit.loadStaffList());
+    }
   }
 
   void _fetch() {
     unawaited(
       _cubit.load(
-        staffCode: widget.staffCode,
-        staffName: widget.staffName,
+        staffCode: _staffCode,
+        staffName: _staffName,
         from: _period.start,
         to: _period.end,
       ),
@@ -67,6 +74,16 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
 
   void _onPeriodChanged(Av2Period period) {
     setState(() => _period = period);
+    _fetch();
+  }
+
+  /// Admin picked another staff member from the identity dropdown.
+  void _onStaffSelected(Av2StaffSummary staff) {
+    if (staff.code == _staffCode) return;
+    setState(() {
+      _staffCode = staff.code;
+      _staffName = staff.name;
+    });
     _fetch();
   }
 
@@ -229,6 +246,8 @@ class _StaffDetailScreenState extends State<StaffDetailScreen> {
                 reloadId: state.reloadId,
                 onPeriodChanged: _onPeriodChanged,
                 canEdit: canEdit,
+                staff: canEdit ? state.staff : const [],
+                onStaffSelected: canEdit ? _onStaffSelected : null,
                 filter: state.filter,
                 onFilterSelected: _cubit.setFilter,
                 onLoadMore: _cubit.loadMore,

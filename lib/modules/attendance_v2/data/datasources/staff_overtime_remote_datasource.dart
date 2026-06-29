@@ -141,6 +141,54 @@ class StaffOvertimeRemoteDataSource {
         .toList();
   }
 
+  /// Fetches active staff for the school (own call so the module stays
+  /// independent) for the admin "switch staff" picker. Returns raw
+  /// `{code, name, designation, classroom}` maps.
+  Future<List<Map<String, dynamic>>> getStaffRaw({
+    required String schoolCode,
+    String organizationCode = '',
+  }) async {
+    final endpoint =
+        ApiPaths.urlWithBase(ApiPaths.staffList, ApiConstants.staffBaseUrl);
+    final res = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'page': 0,
+        'size': 200,
+        'sort': 'firstName,asc',
+        'status': <String>['ACTIVE'],
+        if (organizationCode.isNotEmpty) 'organizationCode': organizationCode,
+      },
+      // Repeats keys: `status=ACTIVE&status=UPCOMING`.
+      options: Options(listFormat: ListFormat.multi),
+    );
+    final body = res.data;
+    final data = body is Map ? body['data'] : null;
+    final list = data is List
+        ? data
+        : (data is Map ? (data['content'] as List?) : null);
+    return (list ?? const [])
+        .whereType<Map>()
+        .map((e) {
+          final m = e.cast<String, dynamic>();
+          final primary = m['primaryClassroom'];
+          final classroom = primary is Map
+              ? (primary['name'] ?? primary['classroomName'])?.toString()
+              : null;
+          return <String, dynamic>{
+            'code': (m['code'] ?? m['staffCode'])?.toString() ?? '',
+            'name': (m['name'] ?? '').toString(),
+            'designation': (m['designation'] ?? '').toString(),
+            'classroom': (classroom ?? '').toString(),
+          };
+        })
+        .where((m) =>
+            (m['code'] as String).isNotEmpty &&
+            (m['name'] as String).trim().isNotEmpty)
+        .toList();
+  }
+
   /// Records a sign-in (admin-added session). [occurredAtUtc] is ISO-8601 UTC.
   Future<void> signIn({
     required String staffCode,

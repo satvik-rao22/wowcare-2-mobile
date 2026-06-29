@@ -12,6 +12,7 @@ import '../../domain/usecases/delete_session_usecase.dart';
 import '../../domain/usecases/edit_absence_usecase.dart';
 import '../../domain/usecases/edit_session_usecase.dart';
 import '../../domain/usecases/get_day_detail_usecase.dart';
+import '../../domain/usecases/get_staff_list_usecase.dart';
 import '../../domain/usecases/get_staff_overview_usecase.dart';
 import '../controllers/av2_day_filter.dart';
 import 'staff_detail_state.dart';
@@ -32,6 +33,7 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
     required this.deleteSessionUseCase,
     required this.editAbsenceUseCase,
     required this.deleteAbsenceUseCase,
+    required this.getStaffListUseCase,
   }) : super(const StaffDetailState.initial());
 
   final CalculateOvertimeUseCase calculateOvertimeUseCase;
@@ -41,6 +43,7 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
   final DeleteSessionUseCase deleteSessionUseCase;
   final EditAbsenceUseCase editAbsenceUseCase;
   final DeleteAbsenceUseCase deleteAbsenceUseCase;
+  final GetStaffListUseCase getStaffListUseCase;
 
   static const int _pageSize = Av2Config.overviewPageSize;
 
@@ -78,6 +81,18 @@ class StaffDetailCubit extends Cubit<StaffDetailState> {
     if (_from == null || _to == null) return;
     await _calculate();
     await _loadFirstPage(state.filter, fullLoader: false);
+  }
+
+  /// Loads the school's staff once (admin only), for the "switch staff" picker.
+  Future<void> loadStaffList() async {
+    if (state.staff.isNotEmpty) return;
+    try {
+      final list = await getStaffListUseCase();
+      if (isClosed || list.isEmpty) return;
+      emit(state.copyWith(staff: list));
+    } catch (e) {
+      debugPrint('Av2 loadStaffList failed: $e');
+    }
   }
 
   /// User tapped a filter chip — reload page 0 with the new server filter.

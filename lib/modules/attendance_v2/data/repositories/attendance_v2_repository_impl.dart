@@ -6,6 +6,7 @@ import 'package:wowcare/domain/features/attendance/repositories/attendance_repos
 import '../../core/config/av2_config.dart';
 import '../../core/utils/av2_time_zone.dart';
 import '../../domain/entities/av2_classroom.dart';
+import '../../domain/entities/av2_staff_summary.dart';
 import '../../domain/entities/day_detail.dart';
 import '../../domain/entities/staff_overtime_profile.dart';
 import '../../domain/repositories/attendance_v2_repository.dart';
@@ -253,6 +254,28 @@ class AttendanceV2RepositoryImpl implements AttendanceV2Repository {
     required String staffCode,
   }) {
     return _overviewSource.deleteAbsence(code: code, staffCode: staffCode);
+  }
+
+  @override
+  Future<List<Av2StaffSummary>> getStaff() async {
+    final sl = serviceLocator<StorageService>();
+    final school =
+        (await sl.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (school.isEmpty) return const [];
+    final org =
+        (await sl.getString(StorageKeys.organizationCode) ?? '').trim();
+    final raw = await _overviewSource.getStaffRaw(
+      schoolCode: school,
+      organizationCode: org,
+    );
+    return raw
+        .map((m) => Av2StaffSummary(
+              code: (m['code'] as String?) ?? '',
+              name: (m['name'] as String?) ?? '',
+              designation: (m['designation'] as String?) ?? '',
+              classroomName: (m['classroom'] as String?) ?? '',
+            ))
+        .toList();
   }
 
   @override

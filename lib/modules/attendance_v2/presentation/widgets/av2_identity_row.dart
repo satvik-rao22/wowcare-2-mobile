@@ -8,14 +8,23 @@ import 'av2_pill.dart';
 /// Avatar + name + designation·classroom + today-status pill. Used in the
 /// detail header (mobile) and beside the date controls (desktop).
 class Av2IdentityRow extends StatelessWidget {
-  const Av2IdentityRow({super.key, required this.profile, this.avatarSize = 48});
+  const Av2IdentityRow({
+    super.key,
+    required this.profile,
+    this.avatarSize = 48,
+    this.onTap,
+  });
 
   final StaffOvertimeProfile profile;
   final double avatarSize;
 
+  /// When non-null (admin), the row becomes a tappable "switch staff" control
+  /// and shows a dropdown chevron next to the name.
+  final VoidCallback? onTap;
+
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final row = Row(
       children: [
         _avatar(),
         const SizedBox(width: Av2Spacing.sm),
@@ -24,11 +33,22 @@ class Av2IdentityRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                profile.staffName,
-                style: Av2Text.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      profile.staffName,
+                      style: Av2Text.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (onTap != null) ...[
+                    const SizedBox(width: 4),
+                    const Icon(Icons.keyboard_arrow_down,
+                        size: 22, color: Av2Colors.textSecondary),
+                  ],
+                ],
               ),
               Text(
                 '${profile.designation} · ${profile.classroomName}',
@@ -42,6 +62,21 @@ class Av2IdentityRow extends StatelessWidget {
         const SizedBox(width: Av2Spacing.xs),
         _statusPill(),
       ],
+    );
+
+    if (onTap == null) return row;
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
+        child: Padding(
+          padding:
+              const EdgeInsets.symmetric(horizontal: 4, vertical: Av2Spacing.xs),
+          child: row,
+        ),
+      ),
     );
   }
 
