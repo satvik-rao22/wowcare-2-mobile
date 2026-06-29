@@ -33,7 +33,7 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   /// Status filter options (display names), mirroring the student list screen.
-  static const List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
+  static const List<String> _statusOptions = ['Active', 'Upcoming'];
 
   @override
   void initState() {
