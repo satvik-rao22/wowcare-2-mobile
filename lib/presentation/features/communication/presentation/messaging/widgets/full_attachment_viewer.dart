@@ -5,8 +5,8 @@ import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
-import '../util/attachment_open_helper.dart';
-import '../util/attachment_url_resolver.dart';
+import '../../../shared/utils/attachment_open_helper.dart';
+import '../../../shared/utils/attachment_url_resolver.dart';
 import 'show_full_screen_media_view.dart';
 
 class FullAttachmentViewer extends StatelessWidget {

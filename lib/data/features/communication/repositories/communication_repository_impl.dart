@@ -578,9 +578,17 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
-  Stream<List<Message>> watchMessages(String threadId) async* {
-    final org = await _organizationCode;
-    final school = await _schoolCode;
+  Stream<List<Message>> watchMessages(
+    String threadId, {
+    String? organizationCode,
+    String? schoolCode,
+  }) async* {
+    final org = (organizationCode?.trim().isNotEmpty ?? false)
+        ? organizationCode!.trim()
+        : await _organizationCode;
+    final school = (schoolCode?.trim().isNotEmpty ?? false)
+        ? schoolCode!.trim()
+        : await _schoolCode;
     final userCode = await _userCode;
     if (org.isEmpty || school.isEmpty || userCode.isEmpty) return;
 

@@ -158,8 +158,18 @@ abstract class MessageEntityRepository {
   /// Falls back to an empty stream if Firestore has no messages subcollection
   /// for this conversation — callers must handle empty gracefully and load
   /// from the API path instead.
+  ///
+  /// [organizationCode]/[schoolCode] override the session's currently-active
+  /// org/school for building the Firestore path — pass the conversation's
+  /// own values when known (e.g. `state.conversation?.organizationCode`).
+  /// A stale/mismatched session org or school builds a Firestore path that
+  /// doesn't correspond to where this conversation's messages actually
+  /// live, surfacing as a permission-denied error rather than just empty
+  /// results. Falls back to session resolution when omitted.
   Stream<List<MessageEntity>> watchMessages({
     required String conversationCode,
     int limit = 100,
+    String? organizationCode,
+    String? schoolCode,
   });
 }

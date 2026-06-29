@@ -1,18 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_cubit.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
@@ -39,9 +47,13 @@ class _ParentDirectMessagingScreenState
   late final ConversationListCubit _listCubit;
   ConversationEntity? _selectedConversation;
 
-  // Used only when no conversation exists yet — keeps the input bar visible.
+  // Used only when no conversation exists yet — keeps the input bar visible
+  // and lets the parent draft the first message (text + attachments) before
+  // any conversation has been created server-side.
   final TextEditingController _emptyInputController = TextEditingController();
   final FocusNode _emptyInputFocus = FocusNode();
+  List<ChatAttachment> _pendingNewConversationAttachments = [];
+  bool _isStartingConversation = false;
 
   @override
   void initState() {
@@ -68,14 +80,19 @@ class _ParentDirectMessagingScreenState
 
   /// Syncs the selected conversation to [child] by matching [studentCode].
   ///
-  /// When [explicit] is true (user tapped the app-bar dropdown) the view
-  /// always switches — clearing to null if the child has no conversation yet.
-  /// When [explicit] is false (initial load) a [fallback] is used so the first
-  /// available conversation is shown rather than the empty state.
+  /// Never shows a conversation that isn't confirmed to belong to [child] —
+  /// if there's no match (including while [child] is still null/unresolved),
+  /// the screen shows its empty/loading state rather than guessing at some
+  /// other conversation in the list (e.g. a different child's, or one from
+  /// another persona context entirely).
+  ///
+  /// [explicit] forces the screen to update even when the resulting
+  /// conversation's code hasn't changed from what's already selected — used
+  /// when the user (or a persona switch) actually changed which child is
+  /// selected, so a null result still clears any stale thread immediately.
   void _syncToChild(
     ParentChildRef? child,
     List<ConversationEntity> conversations, {
-    ConversationEntity? fallback,
     bool explicit = false,
   }) {
     ConversationEntity? match;
@@ -88,12 +105,8 @@ class _ParentDirectMessagingScreenState
       }
     }
 
-    final next = match ?? (explicit ? null : fallback);
-
-    // Always update when the child was explicitly switched so the screen
-    // clears to the empty state if the child has no conversation yet.
-    if (explicit || next?.code != _selectedConversation?.code) {
-      setState(() => _selectedConversation = next);
+    if (explicit || match?.code != _selectedConversation?.code) {
+      setState(() => _selectedConversation = match);
     }
   }
 
@@ -151,6 +164,11 @@ class _ParentDirectMessagingScreenState
       'name': conv.title,
       'avatar': conv.avatarUrl,
       'code': conv.code,
+      // The conversation's own org/school — used to build the realtime
+      // (Firestore) watch path correctly even when the session's currently
+      // active org/school differs (multi-school parent, recent switch).
+      'organizationCode': conv.organizationCode,
+      'schoolCode': conv.schoolCode,
       'parents': parentNames,
       'guardianMap': {
         for (final guardian in guardians) guardian.userCode: guardian.userName,
@@ -169,8 +187,14 @@ class _ParentDirectMessagingScreenState
     return BlocProvider<ConversationListCubit>.value(
       value: _listCubit,
       child: BlocListener<ParentChildCubit, ParentChildState>(
+        // Also fire the very first time isLoaded flips to true (not just on
+        // a selectedChild code change) — covers the case where the resolved
+        // child ends up being the same code an earlier race already guessed
+        // wrong via the "first conversation" fallback below, which a
+        // code-only comparison would otherwise treat as a no-op.
         listenWhen: (prev, curr) =>
-            prev.selectedChild?.code != curr.selectedChild?.code,
+            prev.selectedChild?.code != curr.selectedChild?.code ||
+            (!prev.isLoaded && curr.isLoaded),
         listener: (context, childState) {
           _syncToChild(
             childState.selectedChild,
@@ -182,18 +206,23 @@ class _ParentDirectMessagingScreenState
           listener: (context, state) {
             if (_selectedConversation == null &&
                 state.conversations.isNotEmpty) {
-              final child = context
-                  .read<ParentChildCubit>()
-                  .state
-                  .selectedChild;
-              _syncToChild(
-                child,
-                state.conversations,
-                fallback: state.conversations.first,
-              );
+              final childState = context.read<ParentChildCubit>().state;
+              // Skip while ParentChildCubit is still resolving (e.g. right
+              // after a persona switch, which calls invalidate() then
+              // reloads asynchronously) — _syncToChild itself never guesses
+              // at an unmatched conversation, but there's no point matching
+              // against a null/stale selectedChild before it's ready; the
+              // BlocListener above (or a later emission here) runs once it
+              // actually resolves.
+              if (!childState.isLoaded) return;
+              _syncToChild(childState.selectedChild, state.conversations);
             }
           },
           builder: (context, state) {
+            debugPrint(
+              '[REALTIME-DEBUG][ParentConversationList] widget rebuilt | '
+              'conversationCount=${state.conversations.length}',
+            );
             return RefreshIndicator(
               onRefresh: _listCubit.refresh,
               child: Column(
@@ -292,6 +321,133 @@ class _ParentDirectMessagingScreenState
         showOwnScaffold: false,
         isGuardian: true,
       ),
+    );
+  }
+
+  /// Attachment picker for the pre-conversation composer — mirrors
+  /// [ParentMessagingThread._showAttachmentSheet] since there's no thread
+  /// state yet to attach this to.
+  void _showAttachmentSheetForNewConversation() {
+    MessageAttachmentBottomSheet.show(
+      context,
+      onAttachmentsSelected: (attachments) {
+        if (attachments.isEmpty) return;
+        // Only one attachment may be pending at a time, matching the
+        // existing in-thread composer's behavior.
+        setState(() => _pendingNewConversationAttachments = [attachments.first]);
+      },
+      onEmojiSelected: (emoji) {
+        final pos = _emptyInputController.selection.isValid
+            ? _emptyInputController.selection.baseOffset
+            : _emptyInputController.text.length;
+        final text = _emptyInputController.text;
+        _emptyInputController.value = _emptyInputController.value.copyWith(
+          text: text.substring(0, pos) + emoji + text.substring(pos),
+          selection: TextSelection.collapsed(offset: pos + emoji.length),
+        );
+      },
+      // No participants to show yet — the conversation doesn't exist.
+      onViewParticipants: null,
+    );
+  }
+
+  /// Creates the Room Chat conversation for the selected child (idempotent —
+  /// reuses an existing one if a race already created it) and sends the
+  /// drafted text/attachment as its first message. This is the parent-side
+  /// "conversation auto-creates on first send" flow — there is no separate
+  /// "create conversation" step the parent has to do first.
+  Future<void> _sendFirstMessage() async {
+    if (_isStartingConversation) return;
+    final text = _emptyInputController.text.trim();
+    final attachments = _pendingNewConversationAttachments;
+    if (text.isEmpty && attachments.isEmpty) return;
+
+    final child = context.read<ParentChildCubit>().state.selectedChild;
+    if (child == null) return;
+
+    setState(() => _isStartingConversation = true);
+
+    // Same call shape as the Admin/Staff "start conversation" flow
+    // (staff_messaging_tab.dart's room-chat branch): type + studentCode
+    // only, participantCodes left empty. Participant computation (all
+    // admins/directors + currently allowed classroom staff + all guardians)
+    // happens server-side from studentCode alone, identically regardless of
+    // which persona's client sent the request — so a parent-created Room
+    // Chat ends up with the same full participant set as a staff-created
+    // one.
+    final createResult = await serviceLocator<CreateOrOpenConversationUseCase>()
+        .call(
+          type: ConversationType.roomChat,
+          studentCode: child.code,
+          participantCodes: const [],
+          // Backend requires a non-empty title ("Title is required");
+          // staff_messaging_tab.dart's equivalent call passes the
+          // other party's display name — here that's the student's.
+          title: child.name,
+        );
+
+    if (!mounted) return;
+
+    await createResult.fold(
+      (failure) async {
+        setState(() => _isStartingConversation = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              failure.message ?? 'Could not start the conversation. Try again.',
+            ),
+          ),
+        );
+      },
+      (conversation) async {
+        final parentInfo = _buildParentInfo(conversation);
+        final authState = context.read<AuthCubit>().state;
+        final senderName = authState is AuthLoaded
+            ? authState.loginResponse.displayName
+            : null;
+        final storedUserCode =
+            (await serviceLocator<StorageService>().getString(
+                  StorageKeys.userCode,
+                ) ??
+                '')
+                .trim();
+        final senderUserCode = authState is AuthLoaded
+            ? authState.loginResponse.userCode
+            : (storedUserCode.isNotEmpty ? storedUserCode : null);
+
+        final receivers = <String>[
+          ...(parentInfo['staffList'] as List<dynamic>? ?? []).cast<String>(),
+          ...(parentInfo['parents'] as List<dynamic>? ?? []).cast<String>(),
+        ];
+
+        // A short-lived cubit just to drive this one send — the real,
+        // long-lived per-thread cubit takes over once the screen swaps to
+        // ParentMessagingThread below.
+        final sendCubit = serviceLocator<CommunicationCubit>();
+        sendCubit.sendMessage(
+          conversation.code,
+          text,
+          attachments: attachments,
+          senderName: senderName,
+          senderUserCode: senderUserCode,
+          receivers: receivers,
+        );
+
+        if (!mounted) return;
+        setState(() {
+          _isStartingConversation = false;
+          _emptyInputController.clear();
+          _pendingNewConversationAttachments = [];
+          // Switch over to the real thread immediately rather than waiting
+          // for the list stream to refresh — _listCubit.refresh() below
+          // keeps the conversation list (sidebar/badges elsewhere) in sync,
+          // but the screen itself shouldn't sit on the "not yet created"
+          // placeholder while that round-trip happens.
+          _selectedConversation = conversation;
+        });
+        await sendCubit.close();
+        unawaited(_listCubit.refresh());
+      },
     );
   }
 
@@ -411,12 +567,15 @@ class _ParentDirectMessagingScreenState
             child: ChatInputBar(
               controller: _emptyInputController,
               focusNode: _emptyInputFocus,
-              onSend: () {},
-              onAttachmentTap: () {},
-              pendingAttachments: const [],
+              isSending: _isStartingConversation,
+              onSend: _sendFirstMessage,
+              onAttachmentTap: _showAttachmentSheetForNewConversation,
+              pendingAttachments: _pendingNewConversationAttachments,
               quotedMessage: null,
               onCancelQuote: () {},
-              onRemoveAttachment: (_) {},
+              onRemoveAttachment: (i) => setState(() {
+                _pendingNewConversationAttachments.removeAt(i);
+              }),
               editingMessage: null,
               onCancelEdit: () {},
             ),

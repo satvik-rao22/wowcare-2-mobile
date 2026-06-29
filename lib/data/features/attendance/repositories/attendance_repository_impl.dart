@@ -1413,19 +1413,41 @@ class AttendanceRepositoryImpl
   }
 
   /// Parses a raw attendance-mutation response into an [AttendanceActionResult].
+  ///
+  /// Also opportunistically extracts `currentClassroomCode`/
+  /// `primaryClassroomCode` when the backend includes them (e.g. on a
+  /// transfer response) so callers like the transfer form can read the
+  /// staff's post-mutation classroom straight from this same response
+  /// instead of inferring it from the request payload. Both stay null for
+  /// action types that don't return them (sign-in/out, mark-absent).
   AttendanceActionResult _attendanceActionResult(
     Map<String, dynamic>? data, {
     required String defaultMessage,
   }) {
     var success = false;
     var message = defaultMessage;
+    String? currentClassroomCode;
+    String? primaryClassroomCode;
     if (data != null) {
       success = data['success'] as bool? ?? false;
       if (data['message'] != null) {
         message = data['message'].toString();
       }
+      currentClassroomCode = (data['currentClassroomCode'] as String?)
+          ?.trim();
+      primaryClassroomCode = (data['primaryClassroomCode'] as String?)
+          ?.trim();
     }
-    return AttendanceActionResult(success: success, message: message);
+    return AttendanceActionResult(
+      success: success,
+      message: message,
+      currentClassroomCode: currentClassroomCode?.isNotEmpty == true
+          ? currentClassroomCode
+          : null,
+      primaryClassroomCode: primaryClassroomCode?.isNotEmpty == true
+          ? primaryClassroomCode
+          : null,
+    );
   }
 
   @override

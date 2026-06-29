@@ -23,6 +23,7 @@ import '../../../../domain/features/communication/usecases/mark_conversation_del
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {
@@ -108,13 +109,48 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// Firestore delta listener for [threadId]'s messages. Safe to call
   /// repeatedly — only new updates flow through; history always comes from
   /// [loadMessages] (API → Isar → UI).
-  void startWatchingThread(String threadId) {
+  /// [organizationCode]/[schoolCode] should be the conversation's own
+  /// values (not necessarily the session's currently-active school) — a
+  /// multi-school parent/admin, or a recent active-school switch, can leave
+  /// the session's stored org/school pointing somewhere other than where
+  /// this specific conversation actually lives, which builds the wrong
+  /// Firestore path and surfaces as a permission-denied error rather than
+  /// just empty results. Omit them to fall back to session resolution
+  /// (unchanged prior behavior).
+  void startWatchingThread(
+    String threadId, {
+    String? organizationCode,
+    String? schoolCode,
+  }) {
+    // TEMP DEBUG LOGGING — remove after realtime investigation.
+    debugPrint(
+      '[REALTIME-DEBUG][CommunicationCubit] startWatchingThread called | '
+      'threadId=$threadId listener created',
+    );
+
     if (_watchedThreadId == threadId && _messagesSubscription != null) return;
     _messagesSubscription?.cancel();
     _watchedThreadId = threadId;
-    _messagesSubscription = watchMessagesUseCase(threadId).listen(
+    _messagesSubscription = watchMessagesUseCase(
+      threadId,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+    ).listen(
       (messages) {
-        if (isClosed || messages.isEmpty) return;
+        debugPrint(
+          '[REALTIME-DEBUG][CommunicationCubit] snapshot received | '
+          'threadId=$threadId count=${messages.length} '
+          'latestMessageId=${messages.isNotEmpty ? messages.last.id : null} '
+          'sender=${messages.isNotEmpty ? messages.last.senderUserCode : null} '
+          'sentAt=${messages.isNotEmpty ? messages.last.time : null}',
+        );
+        if (isClosed || messages.isEmpty) {
+          debugPrint(
+            '[REALTIME-DEBUG][CommunicationCubit] EARLY RETURN — skipped emit | '
+            'threadId=$threadId isClosed=$isClosed messagesEmpty=${messages.isEmpty}',
+          );
+          return;
+        }
         final priorState = state is CommunicationLoaded
             ? state as CommunicationLoaded
             : null;
@@ -147,12 +183,18 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         });
         final mergedMessages = _sortByTime([...reconciled, ...stillPending]);
         newThreads[threadId] = mergedMessages;
+        final int debugPrevCount = currentMessages.length;
         emit(
           priorState?.copyWith(threads: newThreads, activeThreadId: threadId) ??
               CommunicationLoaded(
                 threads: newThreads,
                 activeThreadId: threadId,
               ),
+        );
+        debugPrint(
+          '[REALTIME-DEBUG][CommunicationCubit] state emitted | '
+          'threadId=$threadId prevCount=$debugPrevCount '
+          'newCount=${mergedMessages.length}',
         );
       },
       // Firestore is a notification layer on top of API/Isar — if the
@@ -168,6 +210,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// (or all types when null). Mirrors [startWatchingThread] — only deltas
   /// flow through; [loadConversations] remains the source of history.
   void startWatchingConversations({String? type}) {
+    // TEMP DEBUG LOGGING — remove after realtime investigation.
+    debugPrint(
+      '[REALTIME-DEBUG][CommunicationCubit] startWatchingConversations called | '
+      'type=$type listener created',
+    );
+
     if (_watchedConversationsType == type &&
         _conversationsSubscription != null) {
       return;
@@ -176,7 +224,18 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     _watchedConversationsType = type;
     _conversationsSubscription = watchConversationsUseCase(type: type).listen(
       (conversations) {
-        if (isClosed || conversations.isEmpty) return;
+        debugPrint(
+          '[REALTIME-DEBUG][CommunicationCubit] snapshot received (list) | '
+          'type=$type count=${conversations.length} '
+          'ids=${conversations.map((c) => c.code).toList()}',
+        );
+        if (isClosed || conversations.isEmpty) {
+          debugPrint(
+            '[REALTIME-DEBUG][CommunicationCubit] EARLY RETURN — skipped emit (list) | '
+            'type=$type isClosed=$isClosed conversationsEmpty=${conversations.isEmpty}',
+          );
+          return;
+        }
         final prior = state is CommunicationConversationsLoaded
             ? state as CommunicationConversationsLoaded
             : null;
@@ -193,6 +252,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // Preserve pagination bookkeeping — this is a realtime delta, not a
         // fresh paged fetch, so it must not reset `hasMore`/`currentPage`
         // and silently cut off "load more" for the rest of the session.
+        final int debugPrevCount = currentMap[type]?.length ?? 0;
         emit(
           CommunicationConversationsLoaded(
             updatedMap,
@@ -200,6 +260,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             hasMoreByType: prior?.hasMoreByType ?? const {},
             isLoadingMoreByType: prior?.isLoadingMoreByType ?? const {},
           ),
+        );
+        debugPrint(
+          '[REALTIME-DEBUG][CommunicationCubit] state emitted (list) | '
+          'type=$type prevCount=$debugPrevCount newCount=${sorted.length}',
         );
         unawaited(_markDeliveredForIncomingMessages(conversations));
       },
@@ -489,15 +553,24 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     result.fold(
       (failure) {
-        // Only show error page if we don't already have cached messages
-        final Map<String, List<Message>> finalThreads =
-            state is CommunicationLoaded
-            ? (state as CommunicationLoaded).threads
-            : {};
-        if (!finalThreads.containsKey(threadId) ||
-            finalThreads[threadId]!.isEmpty) {
-          emit(CommunicationError(failure.message ?? 'Unknown error'));
+        // CommunicationLoaded.threads holds every thread's messages, not
+        // just this one — emitting CommunicationError here used to replace
+        // that entire map, which silently broke sendMessage() (guarded on
+        // `state is CommunicationLoaded`) for every other already-loaded
+        // thread too, not just the one that failed to fetch. If we already
+        // have a loaded session, keep it: just make sure this thread has at
+        // least an empty entry so its own UI can render an empty/retry
+        // state locally instead of nuking everyone else's state.
+        if (state is CommunicationLoaded) {
+          final loaded = state as CommunicationLoaded;
+          if (!loaded.threads.containsKey(threadId)) {
+            final threads = Map<String, List<Message>>.from(loaded.threads);
+            threads[threadId] = const [];
+            emit(loaded.copyWith(threads: threads, activeThreadId: threadId));
+          }
+          return;
         }
+        emit(CommunicationError(failure.message ?? 'Unknown error'));
       },
       (messages) {
         final Map<String, List<Message>> latestThreads =
@@ -612,8 +685,21 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     bool isPrivate = false,
     String? privateParentUserCode,
   }) async {
-    if (state is! CommunicationLoaded) return;
-    final currentState = state as CommunicationLoaded;
+    // Previously this guarded with `if (state is! CommunicationLoaded) return`
+    // and silently dropped the send — no API call, no error, nothing — any
+    // time the cubit's *global* state wasn't CommunicationLoaded. Since the
+    // cubit holds one shared state across every thread, a failed background
+    // fetch for ANY thread (most commonly a brand-new conversation with no
+    // messages yet, e.g. a parent sending the very first message) could leave
+    // the whole cubit stuck in CommunicationError, breaking Send everywhere
+    // until something else happened to re-emit CommunicationLoaded. Falling
+    // back to an empty CommunicationLoaded here means Send always at least
+    // attempts the API call, which is also what a parent-initiated
+    // first-message flow requires (the conversation doesn't exist locally
+    // yet, but the send must still go through and create it).
+    final currentState = state is CommunicationLoaded
+        ? state as CommunicationLoaded
+        : CommunicationLoaded(threads: const {}, activeThreadId: threadId);
 
     // id/code must be unique per message, not per thread/sender — reusing
     // threadId/senderUserCode meant two messages sent in quick succession

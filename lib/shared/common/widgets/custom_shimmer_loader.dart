@@ -2714,3 +2714,39 @@ class StaffDatesShimmer extends StatelessWidget {
     );
   }
 }
+
+// ============================================================================
+// Reports shimmers
+// ============================================================================
+
+/// Shimmer placeholder matching the collapsed [GeneratedReportCard] row:
+/// white bordered card (height 64) with a filename line.
+class GeneratedReportsListShimmer extends StatelessWidget {
+  const GeneratedReportsListShimmer({super.key, this.rowCount = 5});
+
+  final int rowCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (int i = 0; i < rowCount; i++) ...[
+          _ShimmerCard(
+            borderRadius: BorderRadius.circular(12),
+            borderColor: const Color(0x33162831),
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: const SizedBox(
+              height: 64,
+              child: Row(
+                children: [
+                  _SkelBox(width: 180, height: 14),
+                ],
+              ),
+            ),
+          ),
+          if (i != rowCount - 1) const SizedBox(height: 10),
+        ],
+      ],
+    );
+  }
+}

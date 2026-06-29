@@ -119,6 +119,16 @@ class ConversationEntity extends Equatable {
 }
 
 /// A participant in a conversation.
+///
+/// [userCode] is the single canonical identifier the messaging service
+/// actually keys on (the `USR-...` code) — it's always present. The
+/// role-specific codes ([staffCode], [guardianCode], [adminCode]) and
+/// [organizationCode]/[schoolCode] are optional: the backend payload doesn't
+/// currently send them, so they parse as null today. They're modeled here
+/// so that the day the backend adds them to the participant JSON, this
+/// entity (and every screen reading from it) picks them up with no further
+/// Flutter changes — display/identity logic should never rely on
+/// [userName] alone, since display names aren't unique.
 class ParticipantEntity extends Equatable {
   const ParticipantEntity({
     required this.id,
@@ -134,6 +144,11 @@ class ParticipantEntity extends Equatable {
     this.leftAt,
     this.lastReadAt,
     this.avatarUrl,
+    this.staffCode,
+    this.guardianCode,
+    this.adminCode,
+    this.organizationCode,
+    this.schoolCode,
   });
 
   final int id;
@@ -149,7 +164,17 @@ class ParticipantEntity extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? avatarUrl;
+  final String? staffCode;
+  final String? guardianCode;
+  final String? adminCode;
+  final String? organizationCode;
+  final String? schoolCode;
 
+  /// `leftAt == null` is the canonical "still an active participant" check
+  /// — set the instant the backend marks them as removed (classroom
+  /// unassigned, guardian removed, admin/director role revoked, etc.). A
+  /// non-null [leftAt] means this is a **Past Participant**: visible in
+  /// history with original attribution, but excluded from send/receive.
   bool get isActive => leftAt == null;
 
   @override
@@ -167,6 +192,11 @@ class ParticipantEntity extends Equatable {
         createdAt,
         updatedAt,
         avatarUrl,
+        staffCode,
+        guardianCode,
+        adminCode,
+        organizationCode,
+        schoolCode,
       ];
 }
 

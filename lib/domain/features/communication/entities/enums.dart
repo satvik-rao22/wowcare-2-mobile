@@ -83,7 +83,15 @@ enum ParticipantRole {
     if (v == 'PARENT' || v == 'GUARDIAN') return ParticipantRole.parent;
     if (v == 'TEACHER') return ParticipantRole.teacher;
     if (v == 'DIRECTOR' || v == 'ASSISTANT_DIRECTOR') return ParticipantRole.director;
-    if (v == 'ADMIN' || v == 'SCHOOL_ADMIN' || v == 'ORGANIZATION_ADMIN') {
+    // OWNER is the highest org-level role (above Admin) per the Staff
+    // module's real designation list (staff_filter_screen.dart's
+    // _designationCodes) — was previously falling through to the generic
+    // `staff` default below, which incorrectly failed `canJoinAdminChat`
+    // and any other "is this an admin" check for an Owner-designated user.
+    if (v == 'ADMIN' ||
+        v == 'SCHOOL_ADMIN' ||
+        v == 'ORGANIZATION_ADMIN' ||
+        v == 'OWNER') {
       return ParticipantRole.admin;
     }
     if (v == 'STAFF') return ParticipantRole.staff;

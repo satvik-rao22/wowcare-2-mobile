@@ -71,8 +71,7 @@ class ApiPathsUat {
       'future-availability',
     },
     ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
-    // Document endpoints in this app are handled separately via `/document-ms/...`.
-    ApiMicroservices.document: {},
+    ApiMicroservices.document: {'media-assets', 'upload-sessions'},
 
     //. Communication
     ApiMicroservices.communication: {},

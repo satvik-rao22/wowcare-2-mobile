@@ -59,6 +59,9 @@ class MessageEntityCollection {
   String? threadParentSenderName;
   String? threadParentText;
 
+  // Private mode — guardian this message is scoped to, when private.
+  String? privateParentUserCode;
+
   // Timestamps
   @Index()
   late DateTime sentAt;
@@ -113,6 +116,7 @@ class MessageEntityCollection {
       ..threadParentSenderCode = entity.threadParentSenderCode
       ..threadParentSenderName = entity.threadParentSenderName
       ..threadParentText = entity.threadParentText
+      ..privateParentUserCode = entity.privateParentUserCode
       ..sentAt = entity.sentAt
       ..editedAt = entity.editedAt
       ..deletedAt = entity.deletedAt
@@ -154,6 +158,7 @@ class MessageEntityCollection {
       threadParentSenderCode: threadParentSenderCode,
       threadParentSenderName: threadParentSenderName,
       threadParentText: threadParentText,
+      privateParentUserCode: privateParentUserCode,
       sentAt: sentAt,
       editedAt: editedAt,
       deletedAt: deletedAt,

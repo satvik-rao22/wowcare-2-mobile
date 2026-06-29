@@ -141,7 +141,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       organizationCode: org,
       schoolCode: school,
       isPrivate: isPrivate,
-      // privateParentUserCode: privateParentUserCode,
+      privateParentUserCode: privateParentUserCode,
       localTempCode: tempCode,
     );
 
@@ -211,7 +211,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       conversationCode: entity.conversationCode,
       text: entity.text,
       isPrivate: entity.isPrivate,
-      // privateParentUserCode: entity.privateParentUserCode,
+      privateParentUserCode: entity.privateParentUserCode,
       threadParentCode: entity.threadParentCode,
     );
   }
@@ -478,9 +478,15 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   Stream<List<MessageEntity>> watchMessages({
     required String conversationCode,
     int limit = 100,
+    String? organizationCode,
+    String? schoolCode,
   }) async* {
-    final org = await _orgCode;
-    final school = await _schoolCode;
+    final org = (organizationCode?.trim().isNotEmpty ?? false)
+        ? organizationCode!.trim()
+        : await _orgCode;
+    final school = (schoolCode?.trim().isNotEmpty ?? false)
+        ? schoolCode!.trim()
+        : await _schoolCode;
     final user = await _currentUserCode;
 
     final roleJson = (await _storage.getString(StorageKeys.roles) ?? '').toUpperCase();

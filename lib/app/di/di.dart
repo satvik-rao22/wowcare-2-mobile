@@ -320,7 +320,7 @@ import '../../domain/features/communication/usecases/watch_total_unread_count_us
 import '../../domain/features/communication/usecases/watch_messages_usecase.dart';
 import '../../domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import '../../domain/features/communication/usecases/register_firebase_token_usecase.dart';
-import '../../presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
+import '../../presentation/features/communication/cubit/unread_badge_cubit.dart';
 import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
 import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
 import '../../data/features/newsletter/datasources/newsletter_remote_datasource.dart';
@@ -328,12 +328,11 @@ import '../../data/features/newsletter/repositories/newsletter_repository_impl.d
 import '../../domain/features/newsletter/repositories/newsletter_repository.dart';
 import '../../domain/features/newsletter/usecases/get_sent_newsletters_usecase.dart';
 import '../../domain/features/newsletter/usecases/get_newsletter_by_code_usecase.dart';
-import '../../presentation/features/communication/presentation/messaging/cubit/newsletter_list_cubit.dart';
-import '../../presentation/features/communication/presentation/messaging/cubit/preview_newsletter_cubit.dart';
+import '../../presentation/features/newsletter/cubit/newsletter_list_cubit.dart';
+import '../../presentation/features/newsletter/cubit/preview_newsletter_cubit.dart';
 import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
-import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../shared/services/image_upload/profile_photo_uploader.dart';
@@ -1661,9 +1660,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator<StorageService>(),
     ),
   );
-  serviceLocator.registerFactory<CreateConversationCubit>(
-    () => CreateConversationCubit(createConversationUseCase: serviceLocator()),
-  );
 
   serviceLocator.registerLazySingleton<StudentNewslettersRemoteDataSource>(
     () => StudentNewslettersRemoteDataSourceImpl(apiClient: serviceLocator()),
@@ -2083,9 +2079,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<InvoiceRepository>(
     () => InvoiceRepositoryImpl(
-          serviceLocator<InvoiceRemoteDataSource>(),
-          serviceLocator<CacheManager>(),
-        ),
+      serviceLocator<InvoiceRemoteDataSource>(),
+      serviceLocator<CacheManager>(),
+    ),
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
@@ -2244,8 +2240,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PayNowCubit>(
     () => PayNowCubit(
-      getGuardianFamilyLedger:
-          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

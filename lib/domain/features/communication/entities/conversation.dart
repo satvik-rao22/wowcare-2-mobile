@@ -111,6 +111,11 @@ class ConversationParticipant extends Equatable {
     this.privateModeEnabled = false,
   });
 
+  /// Mirrors [ParticipantEntity.isActive] — `leftAt == null` means still an
+  /// active participant; non-null means a Past Participant (read-only
+  /// history, cannot send/receive new messages).
+  bool get isActive => leftAt == null;
+
   @override
   List<Object?> get props => [
         id,

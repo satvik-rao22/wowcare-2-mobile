@@ -43,13 +43,12 @@ class _FakeRepo implements ConversationEntityRepository {
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String? organizationCode,
-    String? schoolCode,
-    String? studentCode,
-    String? classroomCode,
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    String? designation,
+    String? staffStatus,
+    String? classroom,
   }) async => const Right([]);
 
   @override

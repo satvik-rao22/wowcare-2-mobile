@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -273,7 +272,8 @@ class _StudentSelectionSignOutFormState
             .toSet();
         items = items
             .where(
-              (i) => i.studentCode.trim().isNotEmpty &&
+              (i) =>
+                  i.studentCode.trim().isNotEmpty &&
                   allowedUpper.contains(i.studentCode.trim().toUpperCase()),
             )
             .toList();
@@ -407,7 +407,9 @@ class _StudentSelectionSignOutFormState
                   hintText: _restrictToGuardianChildren
                       ? 'Search your children'
                       : 'Search Students',
-                  hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
+                  hintStyle: AppTextStyles.body.copyWith(
+                    color: Colors.grey[700],
+                  ),
                   border: InputBorder.none,
                   icon: const Icon(Icons.search, color: Colors.grey),
                 ),
