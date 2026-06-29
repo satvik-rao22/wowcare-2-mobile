@@ -36,8 +36,6 @@ import 'package:wowcare/presentation/features/events/view/events_screen.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
 import 'package:wowcare/presentation/features/assessments/view/assessments_home_screen.dart';
-import 'package:wowcare/presentation/features/assessments/view/classroom_assessment_profile_screen.dart';
-import 'package:wowcare/presentation/features/assessments/view/student_assessment_profile_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
@@ -579,39 +577,6 @@ final GoRouter appRouter = GoRouter(
                       child: const AssessmentsHomeScreen(),
                     ),
                   ),
-                ),
-                GoRoute(
-                  path: 'assessments/student',
-                  redirect: _blockParentsFromAssessments,
-                  pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    return _fastPage(
-                      state,
-                      BlocProvider<AssessmentsCubit>.value(
-                        value: serviceLocator<AssessmentsCubit>(),
-                        child: StudentAssessmentProfileScreen(
-                          studentCode: args?['studentCode'] as String? ?? '',
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                GoRoute(
-                  path: 'assessments/classroom',
-                  redirect: _blockParentsFromAssessments,
-                  pageBuilder: (context, state) {
-                    final args = state.extra as Map<String, dynamic>?;
-                    return _fastPage(
-                      state,
-                      BlocProvider<AssessmentsCubit>.value(
-                        value: serviceLocator<AssessmentsCubit>(),
-                        child: ClassroomAssessmentProfileScreen(
-                          classroomCode:
-                              args?['classroomCode'] as String? ?? '',
-                        ),
-                      ),
-                    );
-                  },
                 ),
                 GoRoute(
                   path: 'future-availability',

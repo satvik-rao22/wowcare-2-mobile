@@ -7,6 +7,27 @@ import 'package:wowcare/app/theme/colors.dart';
 abstract final class AssessmentUi {
   const AssessmentUi._();
 
+  // ------------------------------------------------------- neutral palette
+  //
+  // The redesign's surface/ink palette (from the standalone mock): a soft
+  // lilac page, white cards, deep-plum ink and a muted lavender for secondary
+  // text. The brand indigo (#5978F7) is `AppColors.themeColor`.
+
+  /// Module page background — soft lilac behind the cards.
+  static const Color pageBackground = Color(0xFFF5F4FB);
+
+  /// Primary text colour (deep plum).
+  static const Color ink = Color(0xFF2E2740);
+
+  /// Secondary / muted text colour (lavender-grey).
+  static const Color inkMuted = Color(0xFF9089A0);
+
+  /// Hairline / divider colour used between rows in trees and lists.
+  static const Color hairline = Color(0xFFEDEBF4);
+
+  /// Brand indigo, aliased for readability in this module.
+  static const Color brand = Color(0xFF5978F7);
+
   // ----------------------------------------------------------- breakpoints
 
   /// Phones.

@@ -44,8 +44,8 @@ class AssessmentRadarChart extends StatefulWidget {
 
 class _AssessmentRadarChartState extends State<AssessmentRadarChart>
     with SingleTickerProviderStateMixin {
-  static const Color _current = Color(0xFF6366F1);
-  static const Color _previous = Color(0xFFEAB308);
+  static const Color _current = Color(0xFF5978F7);
+  static const Color _previous = Color(0xFFC4B5FD);
 
   late final AnimationController _controller;
   late final Animation<double> _t;
@@ -142,8 +142,8 @@ class _AssessmentRadarChartState extends State<AssessmentRadarChart>
       return;
     }
     // Snap to the nearest axis by angle, within a generous outer ring so the
-    // label and the vertex are both comfortably tappable.
-    if (dist > geo.radius * 1.3) {
+    // label, the vertex and the connecting lines are all comfortably tappable.
+    if (dist > geo.radius * 1.5) {
       if (_selected != null) setState(() => _selected = null);
       return;
     }

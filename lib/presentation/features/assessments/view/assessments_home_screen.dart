@@ -1,20 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
-import 'package:wowcare/presentation/features/assessments/utils/assessment_access.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
-import 'package:wowcare/presentation/features/assessments/view/classroom_assessment_list_view.dart';
-import 'package:wowcare/presentation/features/assessments/view/parameter_management_view.dart';
-import 'package:wowcare/presentation/features/assessments/view/school_assessment_view.dart';
-import 'package:wowcare/presentation/features/assessments/view/student_assessment_list_view.dart';
+import 'package:wowcare/presentation/features/assessments/view/classroom_profile_body.dart';
+import 'package:wowcare/presentation/features/assessments/view/classrooms_list_body.dart';
+import 'package:wowcare/presentation/features/assessments/view/framework_body.dart';
+import 'package:wowcare/presentation/features/assessments/view/school_dashboard_body.dart';
+import 'package:wowcare/presentation/features/assessments/view/student_stepper_body.dart';
+import 'package:wowcare/presentation/features/assessments/view/students_list_body.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/assessment_shell_chrome.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
-/// Entry point for the Assessments module. Hosts the role-gated tabs:
-/// Parameters · Students · Classrooms · School. Fully responsive — the tab bar
-/// scrolls on phones and content is width-capped/centred on large web displays.
+/// Entry point and self-contained shell for the redesigned Assessments module.
+///
+/// Unlike a typical screen this hosts its own four-tab bottom navigation and
+/// performs all drill-down navigation *in place* (student stepper, classroom
+/// roll-up, framework levels) rather than pushing routes — mirroring the
+/// standalone redesign. The app-wide navigation bar is hidden while inside.
 class AssessmentsHomeScreen extends StatefulWidget {
   const AssessmentsHomeScreen({super.key});
 
@@ -24,193 +28,251 @@ class AssessmentsHomeScreen extends StatefulWidget {
   State<AssessmentsHomeScreen> createState() => _AssessmentsHomeScreenState();
 }
 
-class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen>
-    with SingleTickerProviderStateMixin {
-  TabController? _controller;
-  int _tabCount = 0;
+class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen> {
+  AssessmentSection _section = AssessmentSection.students;
 
-  List<_AssessmentTab> _tabsFor(RoleCubit roles) {
-    return <_AssessmentTab>[
-      const _AssessmentTab(
-        label: 'Parameters',
-        icon: Icons.account_tree_outlined,
-        view: ParameterManagementView(),
-      ),
-      if (AssessmentAccess.canEnterAssessments(roles))
-        const _AssessmentTab(
-          label: 'Students',
-          icon: Icons.face_outlined,
-          view: StudentAssessmentListView(),
-        ),
-      if (AssessmentAccess.canViewRollups(roles)) ...const [
-        _AssessmentTab(
-          label: 'Classrooms',
-          icon: Icons.meeting_room_outlined,
-          view: ClassroomAssessmentListView(),
-        ),
-        _AssessmentTab(
-          label: 'School',
-          icon: Icons.school_outlined,
-          view: SchoolAssessmentView(),
-        ),
-      ],
-    ];
+  // Drill-down targets (null = at the list level for that section).
+  String? _studentCode;
+  String? _classroomCode;
+  String? _fwDomainId;
+  String? _fwSubdomainId;
+
+  void _selectSection(AssessmentSection section) {
+    setState(() {
+      _section = section;
+      _studentCode = null;
+      _classroomCode = null;
+      _fwDomainId = null;
+      _fwSubdomainId = null;
+    });
   }
 
-  void _ensureController(int count) {
-    if (_controller == null || _tabCount != count) {
-      _controller?.dispose();
-      _controller = TabController(length: count, vsync: this);
-      _tabCount = count;
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller?.dispose();
-    super.dispose();
+  void _back() {
+    setState(() {
+      if (_studentCode != null) {
+        _studentCode = null;
+      } else if (_classroomCode != null) {
+        _classroomCode = null;
+      } else if (_fwSubdomainId != null) {
+        _fwSubdomainId = null;
+      } else if (_fwDomainId != null) {
+        _fwDomainId = null;
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final roles = context.watch<RoleCubit>();
-    final tabs = _tabsFor(roles);
-    _ensureController(tabs.length);
+    final roleLabel = roles.role == 'admin' ? 'Admin' : 'Teacher';
+    final canManage = roles.role == 'admin';
+    final isDrilledIn = _studentCode != null ||
+        _classroomCode != null ||
+        _fwDomainId != null;
 
-    return GlobalScaffold(
-      hasBackButton: false,
-      showCustomNavigationBar: true,
-      bodyPadding: EdgeInsets.zero,
-      body: BlocBuilder<AssessmentsCubit, AssessmentsState>(
-        builder: (context, state) {
-          if (state.isLoading) {
-            return const Center(child: PrimaryCircularLoader());
-          }
-          final width = MediaQuery.sizeOf(context).width;
-          // On wide canvases the few tabs comfortably fill the bar (centred,
-          // even widths); on phones they scroll from the start edge.
-          final fillTabs = width >= AssessmentUi.tabletMax;
-          final headerGutter = AssessmentUi.gutter(width);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: EdgeInsets.fromLTRB(headerGutter, 12, headerGutter, 0),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        gradient: AssessmentUi.brandGradient,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.themeColor.withValues(alpha: 0.30),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Icon(Icons.assessment_rounded,
-                          color: Colors.white, size: 20),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Assessments',
-                      style: AssessmentUi.sectionTitleStyle(width)
-                          .copyWith(color: AppColors.primaryColor),
-                    ),
-                    const Spacer(),
-                    if (state.errorMessage != null)
-                      Tooltip(
-                        message: state.errorMessage!,
-                        child: const Icon(Icons.error_outline,
-                            color: AppColors.errorColor, size: 18),
-                      ),
-                  ],
-                ),
+    return PopScope(
+      // Intercept back while drilled in so it climbs one level instead of
+      // leaving the module entirely; allow the pop at the list level.
+      canPop: !isDrilledIn,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _back();
+      },
+      child: GlobalScaffold(
+        hasBackButton: false,
+        showCustomNavigationBar: false,
+        bodyPadding: EdgeInsets.zero,
+        body: BlocBuilder<AssessmentsCubit, AssessmentsState>(
+          builder: (context, state) {
+            if (state.isLoading) {
+              return const Center(child: PrimaryCircularLoader());
+            }
+            return ColoredBox(
+              color: AssessmentUi.pageBackground,
+              child: SafeArea(
+                bottom: false,
+                child: _buildShell(context, state, roleLabel, canManage),
               ),
-              const SizedBox(height: 12),
-              TabBar(
-                controller: _controller,
-                isScrollable: !fillTabs,
-                tabAlignment:
-                    fillTabs ? TabAlignment.fill : TabAlignment.start,
-                indicatorSize: TabBarIndicatorSize.tab,
-                dividerColor: Colors.transparent,
-                indicatorPadding:
-                    const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                indicator: BoxDecoration(
-                  color: AppColors.themeColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                labelColor: AppColors.themeColor,
-                unselectedLabelColor: Colors.grey.shade600,
-                labelStyle: const TextStyle(
-                    fontSize: 12.5, fontWeight: FontWeight.w700),
-                unselectedLabelStyle: const TextStyle(
-                    fontSize: 12.5, fontWeight: FontWeight.w600),
-                labelPadding:
-                    EdgeInsets.symmetric(horizontal: fillTabs ? 8 : 14),
-                tabs: tabs
-                    .map((t) => Tab(
-                          icon: Icon(t.icon, size: 18),
-                          text: t.label,
-                          iconMargin: const EdgeInsets.only(bottom: 2),
-                        ))
-                    .toList(),
-              ),
-              Divider(height: 1, color: Colors.grey.shade200),
-              Expanded(
-                child: TabBarView(
-                  controller: _controller,
-                  children: tabs
-                      .map((t) => _ResponsiveBody(child: t.view))
-                      .toList(),
-                ),
-              ),
-            ],
-          );
-        },
+            );
+          },
+        ),
       ),
     );
   }
-}
 
-/// Caps content width and centres it on large displays so dashboards stay
-/// readable; full-bleed on phones/tablets.
-class _ResponsiveBody extends StatelessWidget {
-  const _ResponsiveBody({required this.child});
+  Widget _buildShell(
+    BuildContext context,
+    AssessmentsState state,
+    String roleLabel,
+    bool canManage,
+  ) {
+    final inStudent = _studentCode != null;
+    final inClassroom = _classroomCode != null;
+    final fwDeep = _section == AssessmentSection.framework && _fwDomainId != null;
+    final showBottomNav = !inStudent && !inClassroom && !fwDeep;
+    final showFab = _section == AssessmentSection.framework &&
+        _fwDomainId == null &&
+        canManage;
 
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxW = AssessmentUi.contentMaxWidth(constraints.maxWidth);
-        return Align(
-          alignment: Alignment.topCenter,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxW),
-            child: child,
-          ),
-        );
-      },
+    final column = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (showBottomNav)
+          AssessmentTopHeader(title: _section.label, roleLabel: roleLabel)
+        else
+          _buildBackBar(state, canManage),
+        Expanded(child: _buildBody(state)),
+        if (showBottomNav)
+          AssessmentBottomNav(current: _section, onSelect: _selectSection),
+      ],
     );
+
+    if (!showFab) return column;
+    return Stack(
+      children: [
+        Positioned.fill(child: column),
+        Positioned(
+          right: 18,
+          bottom: 92,
+          child: _AddDomainFab(
+            onTap: () => FrameworkActions.addDomain(context),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackBar(AssessmentsState state, bool canManage) {
+    if (_studentCode != null) {
+      final student = state.studentByCode(_studentCode!);
+      return AssessmentBackBar(
+        title: student?.name ?? 'Assessment',
+        subtitle: 'Assessment',
+        onBack: _back,
+      );
+    }
+    if (_classroomCode != null) {
+      final classroom = state.classroomByCode(_classroomCode!);
+      return AssessmentBackBar(
+        title: classroom?.name ?? 'Classroom',
+        subtitle: 'Classroom roll-up',
+        onBack: _back,
+      );
+    }
+    // Framework drill-down.
+    final domain =
+        _fwDomainId == null ? null : state.domainById(_fwDomainId!);
+    final matchingSubs = _fwSubdomainId == null || domain == null
+        ? const []
+        : domain.subdomains.where((s) => s.id == _fwSubdomainId).toList();
+    final subdomain = matchingSubs.isEmpty ? null : matchingSubs.first;
+    if (subdomain != null) {
+      return AssessmentBackBar(
+        title: subdomain.name,
+        subtitle: domain?.name,
+        onBack: _back,
+        actionLabel: canManage ? 'Milestone' : null,
+        onAction: canManage
+            ? () => FrameworkActions.addMilestone(
+                  context,
+                  domainId: domain!.id,
+                  subdomainId: subdomain.id,
+                )
+            : null,
+      );
+    }
+    return AssessmentBackBar(
+      title: domain?.name ?? 'Framework',
+      subtitle: 'Subdomains',
+      onBack: _back,
+      actionLabel: canManage ? 'Subdomain' : null,
+      onAction: canManage && domain != null
+          ? () => FrameworkActions.addSubdomain(context, domainId: domain.id)
+          : null,
+    );
+  }
+
+  Widget _buildBody(AssessmentsState state) {
+    if (_studentCode != null) {
+      return StudentStepperBody(
+        key: ValueKey('stepper-$_studentCode-${state.period.start}'),
+        studentCode: _studentCode!,
+        onExit: _back,
+      );
+    }
+    switch (_section) {
+      case AssessmentSection.students:
+        return StudentsListBody(
+          onOpenStudent: (code) => setState(() => _studentCode = code),
+        );
+      case AssessmentSection.classrooms:
+        if (_classroomCode != null) {
+          return ClassroomProfileBody(classroomCode: _classroomCode!);
+        }
+        return ClassroomsListBody(
+          onOpenClassroom: (code) => setState(() => _classroomCode = code),
+        );
+      case AssessmentSection.school:
+        return const SchoolDashboardBody();
+      case AssessmentSection.framework:
+        return FrameworkBody(
+          domainId: _fwDomainId,
+          subdomainId: _fwSubdomainId,
+          onOpenDomain: (id) => setState(() => _fwDomainId = id),
+          onOpenSubdomain: (id) => setState(() => _fwSubdomainId = id),
+        );
+    }
   }
 }
 
-class _AssessmentTab {
-  const _AssessmentTab({
-    required this.label,
-    required this.icon,
-    required this.view,
-  });
+/// Gradient extended FAB for adding a domain (Framework tab, admins only).
+class _AddDomainFab extends StatelessWidget {
+  const _AddDomainFab({required this.onTap});
 
-  final String label;
-  final IconData icon;
-  final Widget view;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Ink(
+          decoration: BoxDecoration(
+            gradient: AssessmentUi.brandGradient,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: AssessmentUi.brand.withValues(alpha: 0.4),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: const SizedBox(
+            height: 52,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.add_rounded, color: Colors.white, size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'Add Domain',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
