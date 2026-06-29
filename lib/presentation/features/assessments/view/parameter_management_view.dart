@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_parameters.dart';
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_access.dart';
+import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_confirm_dialog.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/parameter_form_sheets.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -28,11 +29,8 @@ class ParameterManagementView extends StatelessWidget {
             Row(
               children: [
                 const Expanded(
-                  child: Text(
-                    'Assessment Domains',
-                    style:
-                        TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-                  ),
+                  child: Text('Assessment Domains',
+                      style: AssessmentUi.sectionTitle),
                 ),
                 if (canManage)
                   _GradientButton(
@@ -93,17 +91,33 @@ class _DomainCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = AssessmentUi.domainColor(domain.id);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: accent.withValues(alpha: 0.25)),
+      ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          leading: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.account_tree_rounded, size: 19, color: accent),
+          ),
           title: Text(domain.name,
-              style: const TextStyle(fontWeight: FontWeight.w700)),
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700, fontSize: 14.5)),
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 6),
             child: Wrap(
@@ -140,6 +154,7 @@ class _DomainCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
+                  style: TextButton.styleFrom(foregroundColor: accent),
                   onPressed: () => _addSubdomain(context),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Subdomain'),
@@ -151,6 +166,7 @@ class _DomainCard extends StatelessWidget {
                   canManage: canManage,
                   state: state,
                   cubit: cubit,
+                  accent: accent,
                 )),
             if (domain.activeSubdomains.isEmpty)
               Padding(
@@ -203,6 +219,7 @@ class _SubdomainTile extends StatelessWidget {
     required this.canManage,
     required this.state,
     required this.cubit,
+    required this.accent,
   });
 
   final AssessmentDomain domain;
@@ -210,20 +227,24 @@ class _SubdomainTile extends StatelessWidget {
   final bool canManage;
   final AssessmentsState state;
   final AssessmentsCubit cubit;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(top: 6),
+      margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8F7FC),
-        borderRadius: BorderRadius.circular(10),
+        color: accent.withValues(alpha: 0.055),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.16)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           tilePadding: const EdgeInsets.symmetric(horizontal: 12),
           childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+          leading: Icon(Icons.subdirectory_arrow_right_rounded,
+              size: 18, color: accent),
           title: Text(subdomain.name,
               style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle: Padding(
@@ -249,6 +270,7 @@ class _SubdomainTile extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton.icon(
+                  style: TextButton.styleFrom(foregroundColor: accent),
                   onPressed: () => _addMilestone(context),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Milestone'),
@@ -434,6 +456,11 @@ void _toast(BuildContext context, bool ok, String successMessage) {
   );
 }
 
+enum _RowAction { assign, edit, deactivate }
+
+/// A single roomy overflow ("kebab") menu replacing the old cluster of tiny
+/// 18px icon buttons — one comfortable tap target that declutters the row and
+/// reveals Edit / Assign / Deactivate in a sheet-style popup.
 class _RowActions extends StatelessWidget {
   const _RowActions({
     required this.onEdit,
@@ -447,28 +474,47 @@ class _RowActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return PopupMenuButton<_RowAction>(
+      tooltip: 'More actions',
+      icon: const Icon(Icons.more_vert, size: 22),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      position: PopupMenuPosition.under,
+      onSelected: (action) {
+        switch (action) {
+          case _RowAction.assign:
+            onAssign?.call();
+          case _RowAction.edit:
+            onEdit();
+          case _RowAction.deactivate:
+            onDeactivate();
+        }
+      },
+      itemBuilder: (context) => [
         if (onAssign != null)
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            tooltip: 'Assign classrooms',
-            icon: const Icon(Icons.meeting_room_outlined, size: 18),
-            onPressed: onAssign,
+          const PopupMenuItem(
+            value: _RowAction.assign,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Icon(Icons.meeting_room_outlined),
+              title: Text('Assign classrooms'),
+            ),
           ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Edit',
-          icon: const Icon(Icons.edit_outlined, size: 18),
-          onPressed: onEdit,
+        const PopupMenuItem(
+          value: _RowAction.edit,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.edit_outlined),
+            title: Text('Edit'),
+          ),
         ),
-        IconButton(
-          visualDensity: VisualDensity.compact,
-          tooltip: 'Deactivate',
-          icon: const Icon(Icons.delete_outline, size: 18),
-          color: AppColors.errorColor,
-          onPressed: onDeactivate,
+        const PopupMenuItem(
+          value: _RowAction.deactivate,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.delete_outline, color: AppColors.errorColor),
+            title: Text('Deactivate',
+                style: TextStyle(color: AppColors.errorColor)),
+          ),
         ),
       ],
     );

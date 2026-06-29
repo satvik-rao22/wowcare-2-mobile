@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_scale.dart';
+import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 
 /// The 1–5 scale selector (PRD §12, §21.1). Five buttons; the selected one is
 /// highlighted. Accessible: each button carries an aria-style semantics label
@@ -67,10 +67,10 @@ class AssessmentScaleSelector extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             AssessmentScale.labelFor(value),
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.themeColor,
+              fontWeight: FontWeight.w700,
+              color: AssessmentUi.scaleColor(value!),
             ),
           ),
         ],
@@ -96,32 +96,54 @@ class _ScaleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = compact ? 36.0 : 44.0;
+    final size = compact ? 42.0 : 48.0;
+    // Each point carries its own meaning-colour (1 red … 5 green); selecting it
+    // fills with that colour, so the scale reads like a traffic-light gradient.
+    final color = AssessmentUi.scaleColor(score);
     return Opacity(
       opacity: disabled ? 0.5 : 1,
-      child: Material(
-        color: selected ? AppColors.themeColor.withValues(alpha: 0.12) : Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        child: InkWell(
-          onTap: onTap,
+      child: AnimatedScale(
+        scale: selected ? 1.08 : 1,
+        duration: const Duration(milliseconds: 160),
+        curve: Curves.easeOutBack,
+        child: Material(
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(10),
-          child: Container(
-            width: size,
-            height: size,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: selected ? AppColors.themeColor : Colors.grey.shade300,
-                width: selected ? 2 : 1,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(10),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              width: size,
+              height: size,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected
+                    ? color
+                    : color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: selected ? color : color.withValues(alpha: 0.40),
+                  width: selected ? 2 : 1.2,
+                ),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.40),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]
+                    : null,
               ),
-            ),
-            child: Text(
-              '$score',
-              style: TextStyle(
-                fontSize: compact ? 14 : 16,
-                fontWeight: FontWeight.w700,
-                color: selected ? AppColors.themeColor : Colors.grey.shade700,
+              child: Text(
+                '$score',
+                style: TextStyle(
+                  fontSize: compact ? 14 : 16,
+                  fontWeight: FontWeight.w800,
+                  color: selected ? Colors.white : color,
+                ),
               ),
             ),
           ),

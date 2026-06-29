@@ -3,6 +3,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_parameters.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_aggregation.dart';
+import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/score_badge.dart';
 
 /// Read-only Domain → Subdomain → Milestone averages table shared by the
@@ -33,17 +34,30 @@ class HierarchicalAveragesTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
+      padding: const EdgeInsets.all(18),
+      decoration: AssessmentUi.softSurface(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.themeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.bar_chart_rounded,
+                    size: 19, color: AppColors.themeColor),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(title, style: AssessmentUi.cardTitle),
+              ),
+            ],
+          ),
           const SizedBox(height: 8),
           if (domains.isEmpty)
             Padding(

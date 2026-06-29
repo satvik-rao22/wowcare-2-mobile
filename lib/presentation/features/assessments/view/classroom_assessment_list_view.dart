@@ -7,18 +7,17 @@ import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubi
 import 'package:wowcare/presentation/features/assessments/utils/assessment_aggregation.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 import 'package:wowcare/presentation/features/assessments/view/classroom_assessment_profile_screen.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/assessment_card.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/entrance.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/initials_avatar.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/month_picker.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/score_badge.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/score_ring.dart';
 
 /// Classroom Assessments list (PRD §13.1): a card grid of classrooms showing
 /// average domain scores for the selected period, with a month picker.
 class ClassroomAssessmentListView extends StatelessWidget {
   const ClassroomAssessmentListView({super.key});
-
-  static const _gradient = LinearGradient(
-    colors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -32,8 +31,7 @@ class ClassroomAssessmentListView extends StatelessWidget {
               children: [
                 const Expanded(
                   child: Text('Classroom Assessments',
-                      style: TextStyle(
-                          fontSize: 16, fontWeight: FontWeight.w700)),
+                      style: AssessmentUi.sectionTitle),
                 ),
                 MonthPicker(
                   month: state.period.start,
@@ -60,15 +58,17 @@ class ClassroomAssessmentListView extends StatelessWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: columns,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      mainAxisExtent: 210,
+                      mainAxisSpacing: 14,
+                      crossAxisSpacing: 14,
+                      mainAxisExtent: 220,
                     ),
                     itemCount: state.classrooms.length,
-                    itemBuilder: (context, i) => _ClassroomCard(
-                      classroom: state.classrooms[i],
-                      state: state,
-                      gradient: _gradient,
+                    itemBuilder: (context, i) => Entrance(
+                      index: i,
+                      child: _ClassroomCard(
+                        classroom: state.classrooms[i],
+                        state: state,
+                      ),
                     ),
                   );
                 },
@@ -84,12 +84,10 @@ class _ClassroomCard extends StatelessWidget {
   const _ClassroomCard({
     required this.classroom,
     required this.state,
-    required this.gradient,
   });
 
   final AssessmentClassroom classroom;
   final AssessmentsState state;
-  final Gradient gradient;
 
   @override
   Widget build(BuildContext context) {
@@ -100,80 +98,114 @@ class _ClassroomCard extends StatelessWidget {
     final Iterable<Assessment> records = state
         .assessmentsForPeriod(state.period)
         .where((a) => studentCodes.contains(a.studentId));
+    final overall = AssessmentAggregation.mean(records);
+    final accent = AssessmentUi.scoreAccent(overall);
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
+    return AssessmentCard(
+      accent: accent,
       onTap: () => context.push(
         ClassroomAssessmentProfileScreen.routeName,
         extra: <String, dynamic>{'classroomCode': classroom.code},
       ),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                InitialsAvatar(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Hero(
+                tag: 'classroom-avatar-${classroom.code}',
+                child: InitialsAvatar(
                   seed: classroom.code,
                   initials: '',
-                  icon: Icons.groups_outlined,
-                  gradient: gradient,
-                  radius: 20,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(classroom.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.w700)),
-                      if (classroom.ageGroup.isNotEmpty)
-                        Text(classroom.ageGroup,
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade600)),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEFF6FF),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text('$studentCount',
-                      style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF1D4ED8),
-                          fontWeight: FontWeight.w700)),
-                ),
-              ],
-            ),
-            const Divider(height: 18),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: domains.map((d) {
-                    final avg =
-                        AssessmentAggregation.domainAverage(records, d.id);
-                    return ScoreBadge(label: d.name, score: avg, dense: true);
-                  }).toList(),
+                  icon: Icons.groups_rounded,
+                  gradient: AssessmentUi.classroomGradient,
+                  radius: 22,
                 ),
               ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(classroom.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 15)),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        _StudentCountChip(count: studentCount),
+                        if (classroom.ageGroup.isNotEmpty) ...[
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              classroom.ageGroup,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey.shade600),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              ScoreRing(score: overall, size: 50),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: domains.map((d) {
+                  final avg =
+                      AssessmentAggregation.domainAverage(records, d.id);
+                  return ScoreBadge(label: d.name, score: avg, dense: true);
+                }).toList(),
+              ),
             ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small "N students · age group" pill on classroom cards.
+class _StudentCountChip extends StatelessWidget {
+  const _StudentCountChip({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+      decoration: BoxDecoration(
+        color: AssessmentUi.classroomGradientColors.last.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.person_rounded,
+              size: 13, color: AssessmentUi.classroomGradientColors.last),
+          const SizedBox(width: 3),
+          Text(
+            '$count student${count == 1 ? '' : 's'}',
+            style: TextStyle(
+              fontSize: 11.5,
+              color: AssessmentUi.classroomGradientColors.last,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -31,41 +31,50 @@ class MonthPicker extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1B2559).withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.chevron_left, size: 20),
+            iconSize: 22,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            icon: const Icon(Icons.chevron_left),
             tooltip: 'Previous month',
             onPressed: () =>
                 onChanged(DateTime(month.year, month.month - 1, 1)),
           ),
           InkWell(
             onTap: () => _openGrid(context),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(10),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.calendar_today, size: 14),
+                  const Icon(Icons.calendar_today, size: 15),
                   const SizedBox(width: 6),
                   Text(
                     AssessmentUi.monthLabel(month),
-                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 13.5),
                   ),
                 ],
               ),
             ),
           ),
           IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.chevron_right, size: 20),
+            iconSize: 22,
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+            icon: const Icon(Icons.chevron_right),
             tooltip: 'Next month',
             onPressed: _canGoNext
                 ? () => onChanged(DateTime(month.year, month.month + 1, 1))

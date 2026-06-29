@@ -23,11 +23,16 @@ class ScoreBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = AssessmentUi.badgeStyle(score);
     final valueText = AssessmentAggregation.formatAverage(score);
+    final textStyle = TextStyle(
+      color: style.foreground,
+      fontWeight: FontWeight.w600,
+      fontSize: dense ? 11 : 12.5,
+    );
     return Semantics(
-      label: label == null
-          ? 'Score $valueText'
-          : '$label score $valueText',
-      child: Container(
+      label: label == null ? 'Score $valueText' : '$label score $valueText',
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
         padding: EdgeInsets.symmetric(
           horizontal: dense ? 8 : 10,
           vertical: dense ? 3 : 5,
@@ -37,14 +42,24 @@ class ScoreBadge extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           border: Border.all(color: style.border),
         ),
-        child: Text(
-          label == null ? valueText : '$label  $valueText',
-          style: TextStyle(
-            color: style.foreground,
-            fontWeight: FontWeight.w600,
-            fontSize: dense ? 11 : 12.5,
-          ),
-        ),
+        // Count the number up on first build; labels/"—" stay static.
+        child: (score == null)
+            ? Text(
+                label == null ? valueText : '$label  $valueText',
+                style: textStyle,
+              )
+            : TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0, end: score!),
+                duration: const Duration(milliseconds: 550),
+                curve: Curves.easeOutCubic,
+                builder: (context, value, _) {
+                  final v = value.toStringAsFixed(1);
+                  return Text(
+                    label == null ? v : '$label  $v',
+                    style: textStyle,
+                  );
+                },
+              ),
       ),
     );
   }

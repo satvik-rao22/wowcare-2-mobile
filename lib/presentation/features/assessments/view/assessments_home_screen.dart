@@ -93,15 +93,31 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen>
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                 child: Row(
                   children: [
-                    const Icon(Icons.assessment_outlined,
-                        color: AppColors.primaryColor),
-                    const SizedBox(width: 8),
+                    Container(
+                      width: 36,
+                      height: 36,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        gradient: AssessmentUi.brandGradient,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.themeColor.withValues(alpha: 0.30),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(Icons.assessment_rounded,
+                          color: Colors.white, size: 20),
+                    ),
+                    const SizedBox(width: 10),
                     const Text(
                       'Assessments',
                       style: TextStyle(
                         color: AppColors.primaryColor,
                         fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const Spacer(),
@@ -114,14 +130,26 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen>
                   ],
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 12),
               TabBar(
                 controller: _controller,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
+                indicatorSize: TabBarIndicatorSize.tab,
+                dividerColor: Colors.transparent,
+                indicatorPadding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                indicator: BoxDecoration(
+                  color: AppColors.themeColor.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 labelColor: AppColors.themeColor,
                 unselectedLabelColor: Colors.grey.shade600,
-                indicatorColor: AppColors.themeColor,
+                labelStyle: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w700),
+                unselectedLabelStyle: const TextStyle(
+                    fontSize: 12.5, fontWeight: FontWeight.w600),
+                labelPadding: const EdgeInsets.symmetric(horizontal: 14),
                 tabs: tabs
                     .map((t) => Tab(
                           icon: Icon(t.icon, size: 18),
@@ -130,7 +158,7 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen>
                         ))
                     .toList(),
               ),
-              const Divider(height: 1),
+              Divider(height: 1, color: Colors.grey.shade200),
               Expanded(
                 child: TabBarView(
                   controller: _controller,

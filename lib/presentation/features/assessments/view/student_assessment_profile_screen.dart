@@ -6,11 +6,12 @@ import 'package:wowcare/domain/features/assessments/entities/assessment_referenc
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_aggregation.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/assessment_gradient_header.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_guide_card.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_radar_chart.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_scale_selector.dart';
-import 'package:wowcare/presentation/features/assessments/widgets/initials_avatar.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/month_picker.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/score_badge.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 /// Student Assessment Profile (PRD §12.2): per-milestone 1–5 scoring with notes,
@@ -65,33 +66,16 @@ class _StudentAssessmentProfileScreenState
           _ensureSeeded(state);
           final domains = state.domainsForClassroom(student.classroomCode);
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final wide = AssessmentUi.isDesktop(constraints.maxWidth);
-              final left = _buildScoringColumn(context, state, student, domains);
-              final right = _buildInsightsColumn(state, student, domains);
-
-              if (wide) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 2, child: left),
-                      const SizedBox(width: 16),
-                      Expanded(flex: 1, child: right),
-                    ],
-                  ),
-                );
-              }
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [left, const SizedBox(height: 16), right],
-                ),
-              );
-            },
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildScoringColumn(context, state, student, domains),
+                const SizedBox(height: 16),
+                _buildInsightsColumn(state, student, domains),
+              ],
+            ),
           );
         },
       ),
@@ -111,17 +95,18 @@ class _StudentAssessmentProfileScreenState
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _header(context, state, student, cubit),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         if (domains.isEmpty)
           _emptyMilestones()
         else
-          ...domains.map((d) => _DomainScoringCard(
-                domain: d,
+          ...domains.asMap().entries.map((e) => _DomainScoringCard(
+                domain: e.value,
                 classroomCode: student.classroomCode,
                 state: state,
                 scores: _scores,
                 notes: _notes,
                 domainScore: _domainScore,
+                initiallyExpanded: e.key == 0,
                 onChanged: () => setState(() {}),
               )),
         const SizedBox(height: 16),
@@ -136,19 +121,13 @@ class _StudentAssessmentProfileScreenState
             const SizedBox(width: 12),
             Expanded(
               flex: 2,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.themeColor),
-                onPressed:
-                    state.isSaving || domains.isEmpty ? null : () => _saveAll(context, cubit),
-                icon: state.isSaving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.save_outlined),
-                label: const Text('Save All Assessments'),
+              child: _GradientPrimaryButton(
+                label: 'Save All Assessments',
+                icon: Icons.save_rounded,
+                loading: state.isSaving,
+                onTap: state.isSaving || domains.isEmpty
+                    ? null
+                    : () => _saveAll(context, cubit),
               ),
             ),
           ],
@@ -163,65 +142,46 @@ class _StudentAssessmentProfileScreenState
     AssessmentStudent student,
     AssessmentsCubit cubit,
   ) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              InitialsAvatar(
-                seed: student.code,
-                initials: student.initials,
-                imageUrl: student.avatarUrl,
-                radius: 24,
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(student.name,
-                      style: const TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.w700)),
-                  Text(
-                    state.classroomByCode(student.classroomCode)?.name ?? '',
-                    style:
-                        TextStyle(fontSize: 12.5, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          MonthPicker(
-            month: state.period.start,
-            blockFuture: true,
-            onChanged: cubit.setPeriodMonth,
-          ),
-        ],
+    // Live overall from the in-progress draft so the score updates as the
+    // educator taps the scales.
+    final draftOverall = _scores.isEmpty
+        ? null
+        : _scores.values.reduce((a, b) => a + b) / _scores.length;
+    return AssessmentGradientHeader(
+      gradient: AssessmentUi.studentGradient,
+      seed: student.code,
+      initials: student.initials,
+      avatarUrl: student.avatarUrl,
+      heroTag: 'student-avatar-${student.code}',
+      title: student.name,
+      subtitle: state.classroomByCode(student.classroomCode)?.name ?? '',
+      overall: draftOverall,
+      monthPicker: MonthPicker(
+        month: state.period.start,
+        blockFuture: true,
+        onChanged: cubit.setPeriodMonth,
       ),
     );
   }
 
   Widget _emptyMilestones() {
     return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
+      padding: const EdgeInsets.all(28),
+      decoration: AssessmentUi.softSurface(),
       child: Column(
         children: [
-          Icon(Icons.inbox_outlined, size: 40, color: Colors.grey.shade400),
-          const SizedBox(height: 10),
+          Container(
+            width: 56,
+            height: 56,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.themeColor.withValues(alpha: 0.10),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.inbox_rounded,
+                size: 28, color: AppColors.themeColor),
+          ),
+          const SizedBox(height: 12),
           Text(
             'No milestones are assigned for this classroom. Please check Parameter Management.',
             textAlign: TextAlign.center,
@@ -293,6 +253,7 @@ class _DomainScoringCard extends StatelessWidget {
     required this.notes,
     required this.domainScore,
     required this.onChanged,
+    this.initiallyExpanded = false,
   });
 
   final AssessmentDomain domain;
@@ -302,25 +263,67 @@ class _DomainScoringCard extends StatelessWidget {
   final Map<String, String> notes;
   final Map<String, int> domainScore;
   final VoidCallback onChanged;
+  final bool initiallyExpanded;
+
+  /// Live average of the drafted milestone scores in this domain.
+  double? _draftAverage() {
+    final ms = state.milestonesForClassroom(domain, classroomCode);
+    final vals = ms
+        .map((m) => scores[m.id])
+        .whereType<int>()
+        .toList(growable: false);
+    if (vals.isEmpty) return null;
+    return vals.reduce((a, b) => a + b) / vals.length;
+  }
 
   @override
   Widget build(BuildContext context) {
     final bySubdomain = state.milestonesBySubdomain(domain, classroomCode);
+    final draftAvg = _draftAverage();
+    final accent = AssessmentUi.scoreAccent(draftAvg);
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: 0,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: accent.withValues(alpha: 0.22)),
+      ),
+      shadowColor: accent.withValues(alpha: 0.20),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          title: Text(domain.name,
-              style: const TextStyle(fontWeight: FontWeight.w700)),
+          initiallyExpanded: initiallyExpanded,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
+          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+          leading: Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(Icons.account_tree_rounded, size: 19, color: accent),
+          ),
+          title: Row(
+            children: [
+              Expanded(
+                child: Text(domain.name,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14.5)),
+              ),
+              const SizedBox(width: 8),
+              ScoreBadge(score: draftAvg, dense: true),
+            ],
+          ),
           subtitle: domain.description.isEmpty
               ? null
               : Padding(
                   padding: const EdgeInsets.only(top: 2),
                   child: Text(domain.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                           fontSize: 12, color: Colors.grey.shade600)),
                 ),
@@ -329,15 +332,26 @@ class _DomainScoringCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF8F7FC),
-                borderRadius: BorderRadius.circular(10),
+                color: AppColors.themeColor.withValues(alpha: 0.055),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                    color: AppColors.themeColor.withValues(alpha: 0.14)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Domain overall score',
-                      style: TextStyle(fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 8),
+                  Row(
+                    children: const [
+                      Icon(Icons.tune_rounded,
+                          size: 16, color: AppColors.themeColor),
+                      SizedBox(width: 6),
+                      Text('Domain overall score',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.themeColor)),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   AssessmentScaleSelector(
                     value: domainScore[domain.id],
                     onChanged: (v) {
@@ -349,10 +363,12 @@ class _DomainScoringCard extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: TextButton.icon(
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppColors.themeColor),
                       onPressed: domainScore[domain.id] == null
                           ? null
                           : () => _copyToAll(),
-                      icon: const Icon(Icons.copy_all, size: 18),
+                      icon: const Icon(Icons.copy_all_rounded, size: 18),
                       label: const Text('Copy to All Milestones'),
                     ),
                   ),
@@ -413,6 +429,69 @@ class _DomainScoringCard extends StatelessWidget {
   }
 }
 
+/// Gradient primary action (used for "Save All Assessments"), with a loading
+/// spinner and a disabled (dimmed) state.
+class _GradientPrimaryButton extends StatelessWidget {
+  const _GradientPrimaryButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+    this.loading = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final VoidCallback? onTap;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null && !loading;
+    return Opacity(
+      opacity: enabled ? 1 : 0.55,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(12),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: AssessmentUi.brandGradient,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: SizedBox(
+              height: 48,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (loading)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    else
+                      Icon(icon, size: 19, color: Colors.white),
+                    const SizedBox(width: 8),
+                    Text(label,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 14.5)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _MilestoneScoreTile extends StatefulWidget {
   const _MilestoneScoreTile({
     required this.milestone,
@@ -454,22 +533,52 @@ class _MilestoneScoreTileState extends State<_MilestoneScoreTile> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final scored = widget.score != null;
+    final accent = scored
+        ? AssessmentUi.scaleColor(widget.score!)
+        : Colors.grey.shade300;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        color: scored ? accent.withValues(alpha: 0.05) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: scored ? accent.withValues(alpha: 0.45) : Colors.grey.shade200,
+          width: scored ? 1.4 : 1,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.milestone.name,
-              style: const TextStyle(fontWeight: FontWeight.w600)),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 220),
+                transitionBuilder: (child, anim) =>
+                    ScaleTransition(scale: anim, child: child),
+                child: Icon(
+                  scored
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                  key: ValueKey(scored),
+                  size: 18,
+                  color: scored ? accent : Colors.grey.shade400,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(widget.milestone.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+              ),
+            ],
+          ),
           if (widget.milestone.description.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.only(top: 4, left: 26),
               child: Text(widget.milestone.description,
                   style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
             ),

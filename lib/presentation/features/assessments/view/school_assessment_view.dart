@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_aggregation.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/assessment_gradient_header.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_guide_card.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_radar_chart.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/hierarchical_averages_table.dart';
-import 'package:wowcare/presentation/features/assessments/widgets/initials_avatar.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/month_picker.dart';
 
 /// School Assessment dashboard (PRD §14): school-wide domain/subdomain/milestone
@@ -25,6 +24,7 @@ class SchoolAssessmentView extends StatelessWidget {
         final current = state.assessmentsForPeriod(state.period);
         final previous = state.assessmentsForPeriod(state.period.previous);
         final activeStudents = state.students.where((s) => s.isActive).length;
+        final overall = AssessmentAggregation.mean(current);
 
         final radar = AssessmentAggregation.radarData(
           activeDomains: domains,
@@ -55,8 +55,18 @@ class SchoolAssessmentView extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
           children: [
-            _Header(month: state.period.start, onMonth: cubit.setPeriodMonth),
-            const SizedBox(height: 12),
+            AssessmentGradientHeader(
+              gradient: AssessmentUi.schoolGradient,
+              icon: Icons.school_rounded,
+              title: 'School Assessment',
+              subtitle: 'Across all classrooms',
+              overall: overall,
+              monthPicker: MonthPicker(
+                month: state.period.start,
+                onChanged: cubit.setPeriodMonth,
+              ),
+            ),
+            const SizedBox(height: 14),
             _StatsCard(
               classrooms: state.classrooms.length,
               students: activeStudents,
@@ -64,72 +74,12 @@ class SchoolAssessmentView extends StatelessWidget {
               assessments: current.length,
             ),
             const SizedBox(height: 16),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final wide = AssessmentUi.isDesktop(constraints.maxWidth);
-                if (wide) {
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(flex: 2, child: table),
-                      const SizedBox(width: 16),
-                      Expanded(flex: 1, child: insights),
-                    ],
-                  );
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [table, const SizedBox(height: 16), insights],
-                );
-              },
-            ),
+            table,
+            const SizedBox(height: 16),
+            insights,
           ],
         );
       },
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.month, required this.onMonth});
-
-  final DateTime month;
-  final ValueChanged<DateTime> onMonth;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              InitialsAvatar(
-                seed: 'school',
-                initials: '',
-                icon: Icons.school_outlined,
-                gradient: LinearGradient(
-                    colors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)]),
-                radius: 24,
-              ),
-              SizedBox(width: 12),
-              Text('School Assessment',
-                  style:
-                      TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
-            ],
-          ),
-          MonthPicker(month: month, onChanged: onMonth),
-        ],
-      ),
     );
   }
 }
@@ -149,37 +99,50 @@ class _StatsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = <(_StatKind, String, int)>[
-      (_StatKind.classrooms, 'Classrooms', classrooms),
-      (_StatKind.students, 'Students', students),
-      (_StatKind.domains, 'Domains', domains),
-      (_StatKind.assessments, 'Assessments', assessments),
+    final items = <_StatData>[
+      _StatData(Icons.meeting_room_rounded, 'Classrooms', classrooms,
+          const Color(0xFF6366F1)),
+      _StatData(Icons.face_rounded, 'Students', students,
+          const Color(0xFF3B82F6)),
+      _StatData(Icons.account_tree_rounded, 'Domains', domains,
+          const Color(0xFF8B5CF6)),
+      _StatData(Icons.fact_check_rounded, 'Assessments', assessments,
+          const Color(0xFF16A34A)),
     ];
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF6FF),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFBFDBFE)),
-      ),
+      padding: const EdgeInsets.all(18),
+      decoration: AssessmentUi.softSurface(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Assessment Statistics',
-              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
-          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.insights_rounded,
+                    size: 19, color: Color(0xFF6366F1)),
+              ),
+              const SizedBox(width: 10),
+              const Text('Assessment Statistics', style: AssessmentUi.cardTitle),
+            ],
+          ),
+          const SizedBox(height: 16),
           LayoutBuilder(builder: (context, constraints) {
             final columns = constraints.maxWidth >= 520 ? 4 : 2;
             return GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisCount: columns,
-              childAspectRatio: 2.4,
+              childAspectRatio: 2.5,
               mainAxisSpacing: 10,
               crossAxisSpacing: 10,
-              children: items
-                  .map((e) => _StatTile(label: e.$2, value: e.$3))
-                  .toList(),
+              children: items.map((e) => _StatTile(data: e)).toList(),
             );
           }),
         ],
@@ -188,33 +151,67 @@ class _StatsCard extends StatelessWidget {
   }
 }
 
-enum _StatKind { classrooms, students, domains, assessments }
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({required this.label, required this.value});
-
+class _StatData {
+  const _StatData(this.icon, this.label, this.value, this.color);
+  final IconData icon;
   final String label;
   final int value;
+  final Color color;
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({required this.data});
+
+  final _StatData data;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
+        color: data.color.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: data.color.withValues(alpha: 0.18)),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          Text('$value',
-              style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.themeColor)),
-          Text(label,
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: data.color.withValues(alpha: 0.16),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(data.icon, size: 19, color: data.color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: data.value.toDouble()),
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, v, _) => Text(
+                    '${v.round()}',
+                    style: TextStyle(
+                        fontSize: 20,
+                        height: 1.1,
+                        fontWeight: FontWeight.w800,
+                        color: data.color),
+                  ),
+                ),
+                Text(data.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+              ],
+            ),
+          ),
         ],
       ),
     );
