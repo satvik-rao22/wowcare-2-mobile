@@ -7,8 +7,8 @@ import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
-import 'package:wowcare/presentation/features/communication/v2/screens/admin_chat_host_screen.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
@@ -30,7 +30,7 @@ import '../../../presentation/features/scheduling/view/staff_scheduling_screen.d
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -760,7 +760,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
     // Scheduling sub-items are gated on their own modules (a staff persona only
     // ever sees their own schedule, so Classroom Scheduling also needs !isStaff).
     final showClassroomScheduling =
-        !isStaff && roleProvider.canOpenModule(AppAccessModules.classroomSchedule);
+        !isStaff &&
+        roleProvider.canOpenModule(AppAccessModules.classroomSchedule);
     final showStaffScheduling = roleProvider.canOpenModule(
       AppAccessModules.staffScheduling,
     );
@@ -1172,8 +1173,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   leading: SvgPicture.asset(
                                     MediaRes.staff_Schedule_drawer_icon,
                                   ),
-                                  onTap: () =>
-                                      _navigate(StaffSchedulingScreen.routeName),
+                                  onTap: () => _navigate(
+                                    StaffSchedulingScreen.routeName,
+                                  ),
                                 ),
                             ],
                           ),

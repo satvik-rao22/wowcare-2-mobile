@@ -495,6 +495,7 @@ class _AssignStaffToClassroomFormState
                         staff: staff,
                         isSelected: isSelected,
                         isSignedIn: _isStaffSignedIn(staff.code),
+                        todayStatusRaw: _todayStatusByCode[staff.code],
                         onSelectionChanged: (value) {
                           _toggleStaffSelection(staff, value);
                         },
@@ -746,6 +747,7 @@ class StaffListItem extends StatelessWidget {
   final Staff staff;
   final bool isSelected;
   final bool isSignedIn;
+  final String? todayStatusRaw;
   final ValueChanged<bool?> onSelectionChanged;
 
   const StaffListItem({
@@ -754,10 +756,28 @@ class StaffListItem extends StatelessWidget {
     required this.isSelected,
     required this.onSelectionChanged,
     this.isSignedIn = false,
+    this.todayStatusRaw,
   }) : super(key: key);
 
   String get _disabledReason =>
       "${staff.name.trim().isEmpty ? 'This staff member' : staff.name.trim()} is already signed in. Please sign out before assigning to another classroom.";
+
+  // Same green (signed in) / red (absent) attendance dot shown on the
+  // classroom roster (classroom_staff_tab_card.dart) — passed in manually
+  // here since the status is already batch-fetched for this whole grid.
+  Color? get _attendanceDotColor {
+    final normalized = (todayStatusRaw ?? '').trim().toUpperCase();
+    if (normalized == 'SIGNED_IN') return Colors.green;
+    if (normalized == 'ABSENT') return Colors.red;
+    return null;
+  }
+
+  String? get _attendanceTooltip {
+    final normalized = (todayStatusRaw ?? '').trim().toUpperCase();
+    if (normalized == 'SIGNED_IN') return 'Staff is signed in';
+    if (normalized == 'ABSENT') return 'Staff is absent';
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -803,6 +823,8 @@ class StaffListItem extends StatelessWidget {
                   staffCode: staff.code,
                   size: 32,
                   fontSize: 12,
+                  statusColor: _attendanceDotColor,
+                  statusTooltip: _attendanceTooltip,
                   disableAttendanceStatusLookup: true,
                 ),
                 const SizedBox(width: 8),

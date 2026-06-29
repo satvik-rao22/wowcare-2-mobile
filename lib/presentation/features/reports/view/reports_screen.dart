@@ -6,14 +6,12 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'dart:async';
 import 'dart:typed_data';
-import 'dart:io';
-import 'package:permission_handler/permission_handler.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/view/annual_state_immunization_report_screen.dart';
-import 'package:wowcare/presentation/features/reports/view/billing_plan_report_screen.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/presentation/features/reports/view/billing_report_form_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/billing_transaction_report_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/staff_absent_report_screen.dart';
@@ -32,6 +30,7 @@ import 'package:wowcare/presentation/features/reports/widgets/report_card.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 class ReportsScreen extends StatefulWidget {
@@ -189,15 +188,41 @@ class _ReportsScreenState extends State<ReportsScreen>
   }
 
   void _openBillingReportForm(BuildContext context, String name) {
-    final reports = context.read<ReportsCubit>().state;
     final cubit = context.read<ReportsCubit>();
     Widget? screen;
     switch (name) {
       case 'Transaction Report':
         screen = const BillingTransactionReportScreen();
         break;
-      case 'Billing Plan':
-        screen = BillingPlanReportScreen(classrooms: reports.classroomNames);
+      case 'Invoice Report':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingInvoice,
+          title: 'Invoice Report',
+        );
+        break;
+      case 'Payment Summary':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingPaymentSummary,
+          title: 'Payment Summary',
+        );
+        break;
+      case 'Outstanding Report':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingOutstanding,
+          title: 'Outstanding Report',
+        );
+        break;
+      case 'Refund Report':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingRefund,
+          title: 'Refund Report',
+        );
+        break;
+      case 'Students & Billing Mapping':
+        screen = const BillingReportFormScreen(
+          reportType: ReportType.billingStudentMapping,
+          title: 'Students & Billing Mapping',
+        );
         break;
     }
 
@@ -294,11 +319,27 @@ class _ReportsScreenState extends State<ReportsScreen>
   static const List<ReportItem> _billingReports = <ReportItem>[
     ReportItem(
       name: 'Transaction Report',
-      description: 'All transactions in the selected date range.',
+      description: 'Payments, invoices, refunds and credits for a date range.',
     ),
     ReportItem(
-      name: 'Billing Plan',
-      description: 'Billing plan grouped by selected frequency.',
+      name: 'Invoice Report',
+      description: 'Issued invoices with total, paid and balance due.',
+    ),
+    ReportItem(
+      name: 'Payment Summary',
+      description: 'Total payments and transaction count over the period.',
+    ),
+    ReportItem(
+      name: 'Outstanding Report',
+      description: 'Open invoice balances by student / family.',
+    ),
+    ReportItem(
+      name: 'Refund Report',
+      description: 'Refunds issued over the period.',
+    ),
+    ReportItem(
+      name: 'Students & Billing Mapping',
+      description: 'Each student mapped to their invoices (total, paid, balance).',
     ),
   ];
 
@@ -603,68 +644,14 @@ class _ReportsScreenState extends State<ReportsScreen>
     );
   }
 
-  Future<bool> _requestStoragePermission() async {
-    if (Platform.isAndroid) {
-      final androidInfo = await DeviceInfoPlugin().androidInfo;
-      final sdkInt = androidInfo.version.sdkInt;
-
-      if (sdkInt >= 33) {
-        // Android 13+: Request specific file permissions
-        final status = await Permission.photos.request();
-        return status.isGranted;
-      } else {
-        // Android 12 and below: Request storage permission
-        final status = await Permission.storage.request();
-        return status.isGranted;
-      }
-    }
-    // iOS: No explicit permission needed for app documents
-    return true;
-  }
-
   Future<void> _downloadAndViewReport(
     BuildContext context,
     String assetCode,
     String fileName,
   ) async {
-    // Request storage permission first
-    final hasPermission = await _requestStoragePermission();
-
-    if (!hasPermission) {
-      if (!mounted) return;
-
-      final shouldOpenSettings =
-          await showDialog<bool>(
-            context: context,
-            barrierDismissible: false,
-            builder: (context) => AlertDialog(
-              title: const Text('Storage Permission Required'),
-              content: const Text(
-                'To download and save PDF and Excel files, this app needs storage permission.\n\n'
-                'Please grant storage permission in the next screen.',
-              ),
-              actions: [
-                TextButton(
-                  child: const Text('Cancel'),
-                  onPressed: () => Navigator.of(context).pop(false),
-                ),
-                TextButton(
-                  child: const Text('Open Settings'),
-                  onPressed: () => Navigator.of(context).pop(true),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-
-      if (shouldOpenSettings) {
-        await openAppSettings();
-      }
-      return;
-    }
-
-    if (!mounted) return;
-
+    // Viewing renders the file bytes in memory (PDFView/Excel preview);
+    // no storage permission is needed since nothing is written to shared
+    // storage here.
     CoreUtils.showTopSnackBar(
       context: context,
       message: 'Downloading report...',
@@ -763,14 +750,12 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
               error: state.generatedReportsError,
             ),
             builder: (context, data) {
-              // Initial or loading state - show spinner (NO shimmer)
+              // Initial or loading state - show shimmer placeholders
               if (data.state == GeneratedReportsLoadingState.initial ||
                   data.state == GeneratedReportsLoadingState.loading) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: CircularProgressIndicator(),
-                  ),
+                return const Padding(
+                  padding: EdgeInsets.all(16),
+                  child: GeneratedReportsListShimmer(),
                 );
               }
 
@@ -916,9 +901,17 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
                 assetCode: report.assetCode,
               );
             }).toList(),
-            onView: (item) => context
-                .findAncestorStateOfType<_ReportsScreenState>()
-                ?._showComingSoon(context, 'View'),
+            onView: (item) {
+              if (item.assetCode != null) {
+                context
+                    .findAncestorStateOfType<_ReportsScreenState>()
+                    ?._downloadAndViewReport(
+                      context,
+                      item.assetCode!,
+                      item.fileName,
+                    );
+              }
+            },
             onDownload: (assetCode) async {
               if (assetCode != null) {
                 await context

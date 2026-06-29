@@ -18,13 +18,13 @@ import '../../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../../core/util/safe_state_mixin.dart';
 import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/storage_keys.dart';
-import '../../../../../../domain/features/communication/entities/conversation_entity.dart';
 import '../../../../../../domain/features/communication/entities/enums.dart';
 import '../../../../../../domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import '../../../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../classrooom/views/filters/designation_display_utils.dart';
 import '../../../../student/cubit/student_cubit.dart';
 import '../../../cubit/communication_state.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
 import '../widgets/messaging_list_tile.dart';
 
@@ -218,30 +218,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       name: conversation.title.isNotEmpty ? conversation.title : name,
       avatar: conversation.avatarUrl,
       code: conversation.code,
-      participants: conversation.participants
-          .map(_toLegacyParticipant)
-          .toList(),
-    );
-  }
-
-  /// Adapts the v2 `ParticipantEntity` (returned by
-  /// `CreateOrOpenConversationUseCase`) to the legacy `ConversationParticipant`
-  /// shape `ParentMessagingThread` expects, so participant names/roles still
-  /// render correctly for a brand-new room-chat conversation.
-  ConversationParticipant _toLegacyParticipant(ParticipantEntity p) {
-    return ConversationParticipant(
-      id: p.id,
-      conversationId: p.conversationId,
-      userCode: p.userCode,
-      userName: p.userName,
-      role: p.role.toApiString(),
-      joinedAt: p.joinedAt,
-      leftAt: p.leftAt,
-      lastReadAt: p.lastReadAt,
-      muted: p.muted,
-      notificationsEnabled: p.notificationsEnabled,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
+      participants: legacyParticipantsFromEntities(conversation.participants),
+      organizationCode: conversation.organizationCode,
+      schoolCode: conversation.schoolCode,
     );
   }
 
@@ -786,6 +765,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                     avatar: conversation.avatarUrl,
                                     code: conversation.code,
                                     participants: conversation.participants,
+                                    organizationCode:
+                                        conversation.organizationCode,
+                                    schoolCode: conversation.schoolCode,
                                   ),
                                 );
                               }, childCount: conversationsToDisplay.length),
@@ -876,6 +858,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     required String avatar,
     required String code,
     List<ConversationParticipant> participants = const [],
+    String organizationCode = '',
+    String schoolCode = '',
   }) {
     final route = MaterialPageRoute(
       builder: (_) => BlocProvider<CommunicationCubit>(
@@ -889,14 +873,38 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   'name': name,
                   'avatar': avatar,
                   'code': code,
-                  'parents': participants.map((p) => p.userName).toList(),
+                  // The conversation's own org/school — used to build the
+                  // realtime (Firestore) watch path correctly even when the
+                  // viewer's currently-active org/school differs.
+                  'organizationCode': organizationCode,
+                  'schoolCode': schoolCode,
+                  // Was `participants.map((p) => p.userName)` — included
+                  // every role (staff/admin too), not just guardians. Fixed
+                  // to match the role-filtered pattern used elsewhere (e.g.
+                  // ParentDirectMessagingScreen._buildParentInfo).
+                  'parents': participants
+                      .where((p) => p.role == 'GUARDIAN' || p.role == 'PARENT')
+                      .map((p) => p.userName)
+                      .toList(),
                   'guardianMap': {
                     for (final p in participants)
                       if (p.role == 'GUARDIAN' || p.role == 'PARENT')
                         p.userCode: p.userName,
                   },
                   'participants': participants,
-                  'staffList': [],
+                  // Was hardcoded `[]` — meant every message sent from this
+                  // Admin/Staff screen routed to zero staff recipients,
+                  // regardless of who was actually in the conversation.
+                  'staffList': participants
+                      .where(
+                        (p) =>
+                            p.role == 'STAFF' ||
+                            p.role == 'ADMIN' ||
+                            p.role == 'DIRECTOR' ||
+                            p.role == 'TEACHER',
+                      )
+                      .map((p) => p.userCode)
+                      .toList(),
                   'privateModeParents': participants
                       .where(
                         (p) =>

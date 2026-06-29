@@ -230,6 +230,8 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
         // Issue Refund is hidden once nothing is left to refund
         // (amount == refundedAmount → maxRefundable is 0).
         final bool canRefund = (transaction?.maxRefundable ?? 0) > 0;
+        final bool isPaymentSuccess =
+            (transaction?.status ?? '').toUpperCase() == 'SUCCESS';
         return <_PopupActionConfig>[
           _PopupActionConfig(
             iconPath: MediaRes.docsIcon,
@@ -242,11 +244,12 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               label: 'Issue Refund',
               onTap: onIssueRefundTap,
             ),
-          _PopupActionConfig(
-            iconPath: MediaRes.moreIcon,
-            label: 'More',
-            onTap: onMoreTap,
-          ),
+          if (!isPaymentSuccess)
+            _PopupActionConfig(
+              iconPath: MediaRes.moreIcon,
+              label: 'More',
+              onTap: onMoreTap,
+            ),
         ];
       case BillingPopupType.refund:
         return <_PopupActionConfig>[

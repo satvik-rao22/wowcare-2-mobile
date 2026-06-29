@@ -804,6 +804,7 @@ class _StudentAttendanceCustomViewState
                       size: avatarSize,
                       name: studentName,
                       fontSize: responsive.isTablet ? 18 : 16,
+                      disableAttendanceStatusLookup: true,
                     ),
                   ],
                 ),

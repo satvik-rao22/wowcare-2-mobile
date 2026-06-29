@@ -71,8 +71,7 @@ class ApiPathsUat {
       'future-availability',
     },
     ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
-    // Document endpoints in this app are handled separately via `/document-ms/...`.
-    ApiMicroservices.document: {},
+    ApiMicroservices.document: {'media-assets', 'upload-sessions'},
 
     //. Communication
     ApiMicroservices.communication: {},
@@ -195,6 +194,10 @@ class ApiPathsUat {
       case 'payment-gateway':
       case 'payment':
         return ApiMicroservices.billing;
+      case 'reports':
+        // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
+        if (nextSeg == 'billing') return ApiMicroservices.billing;
+        return ApiMicroservices.user;
       case 'admin':
         // v2 activity moderation endpoints:
         // /api/v2/admin/activities/{cardGroupCode}/approve|reject

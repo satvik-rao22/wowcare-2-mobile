@@ -624,6 +624,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                   name: staffName,
                   size: avatarSize,
                   fontSize: responsive.isTablet ? 18 : 16,
+                  disableAttendanceStatusLookup: true,
                 ),
                 SizedBox(width: responsive.horizontalSpacing / 2),
                 // Header matches staff_card.dart: name (left) + classroom (right).

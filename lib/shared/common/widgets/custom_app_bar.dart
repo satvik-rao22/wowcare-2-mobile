@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
@@ -260,11 +261,20 @@ class _AppBarKebabMenu extends StatefulWidget {
 
 class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
   bool _hasSwitchableProfiles = false;
+  late final ProfileMenuHeaderCubit _profileHeaderCubit;
 
   @override
   void initState() {
     super.initState();
+    _profileHeaderCubit = ProfileMenuHeaderCubit(serviceLocator<StorageService>());
+    _profileHeaderCubit.loadSummary();
     _loadSwitchProfileAvailability();
+  }
+
+  @override
+  void dispose() {
+    _profileHeaderCubit.close();
+    super.dispose();
   }
 
   Future<void> _loadSwitchProfileAvailability() async {
@@ -330,7 +340,10 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                   top: 8,
                   bottom: 8,
                 ),
-                child: ProfileMenuHeader(isParentPersona: isParentPersona),
+                child: BlocProvider.value(
+                  value: _profileHeaderCubit,
+                  child: ProfileMenuHeader(isParentPersona: isParentPersona),
+                ),
               ),
             ),
           ),
@@ -573,6 +586,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
             await _switchToNextProfileFromAppBar(context);
             if (mounted) {
               await _loadSwitchProfileAvailability();
+              _profileHeaderCubit.loadSummary();
             }
             break;
           case 5:

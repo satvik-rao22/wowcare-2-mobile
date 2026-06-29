@@ -8,11 +8,27 @@ class AttendanceActionResult extends Equatable {
   const AttendanceActionResult({
     required this.success,
     required this.message,
+    this.currentClassroomCode,
+    this.primaryClassroomCode,
   });
 
   final bool success;
   final String message;
 
+  /// Present on transfer responses — the staff/student's classroom
+  /// immediately after this mutation, straight from the backend (so callers
+  /// never need to infer it from the request payload).
+  final String? currentClassroomCode;
+
+  /// Present on some transfer/profile-mutation responses as an alternate
+  /// name for the same "current classroom" concept.
+  final String? primaryClassroomCode;
+
   @override
-  List<Object?> get props => [success, message];
+  List<Object?> get props => [
+    success,
+    message,
+    currentClassroomCode,
+    primaryClassroomCode,
+  ];
 }

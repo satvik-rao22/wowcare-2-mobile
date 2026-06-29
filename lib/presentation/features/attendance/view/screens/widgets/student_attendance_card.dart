@@ -99,17 +99,6 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
   // the same Manrope/plum visual identity.
   static const Color _plum = Color(0xff573353);
 
-  Color? _attendanceStatusColor(StudentAttendanceCardData s) {
-    if (s.hasSignIn) return Colors.green;
-    if (s.expectedToday) return Colors.red;
-    return null;
-  }
-
-  String? _attendanceStatusTooltip(StudentAttendanceCardData s) {
-    if (s.hasSignIn) return 'Signed in';
-    if (s.expectedToday) return 'Absent';
-    return null;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -175,9 +164,6 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                     studentCode: student.studentCode,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
-                    disableAttendanceStatusLookup: true,
-                    statusColor: _attendanceStatusColor(student),
-                    statusTooltip: _attendanceStatusTooltip(student),
                   ),
                   SizedBox(width: spacing),
                   Expanded(

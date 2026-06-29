@@ -49,6 +49,22 @@ class AppColors {
     Color.fromRGBO(156, 132, 255, 1),
   ];
 
+  /// Messaging: every staff/admin/teacher/director message renders with
+  /// this gradient, on whichever side the canonical role-based alignment
+  /// rule puts it (see docs/messaging/06-ui-standards.md). This is a
+  /// semantic alias for the existing [primaryGradientColors] — reusing it
+  /// rather than introducing a second, visually-identical token.
+  static const List<Color> staffGradientColors = primaryGradientColors;
+
+  /// Messaging: every guardian/parent message renders with this gradient,
+  /// on whichever side the canonical role-based alignment rule puts it.
+  /// Placeholder tone pending design confirmation — same two-stop,
+  /// similar-saturation style as [primaryGradientColors].
+  static const List<Color> pinkGradientColors = [
+    Color.fromRGBO(255, 154, 196, 1),
+    Color.fromRGBO(255, 107, 157, 1),
+  ];
+
   static var chipBackground;
 
   static LinearGradient buildScaffoldGradient() => const LinearGradient(
@@ -65,6 +81,18 @@ class AppColors {
 
   static LinearGradient buildSecondaryGradient({
     List<Color> colors = secondaryGradientColors,
+    Alignment begin = Alignment.centerLeft,
+    Alignment end = Alignment.centerRight,
+  }) => LinearGradient(colors: colors, begin: begin, end: end);
+
+  /// Semantic alias for [buildPrimaryGradient] — see [staffGradientColors].
+  static LinearGradient buildStaffGradient({
+    Alignment begin = Alignment.centerLeft,
+    Alignment end = Alignment.centerRight,
+  }) => buildPrimaryGradient(begin: begin, end: end);
+
+  static LinearGradient buildPinkGradient({
+    List<Color> colors = pinkGradientColors,
     Alignment begin = Alignment.centerLeft,
     Alignment end = Alignment.centerRight,
   }) => LinearGradient(colors: colors, begin: begin, end: end);

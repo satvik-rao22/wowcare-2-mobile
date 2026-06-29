@@ -39,6 +39,8 @@ class ThreadMessageTile extends StatelessWidget {
     this.onReactionTap,
     this.isParentMessaging = false,
     this.isInactive = false,
+    this.senderIsOrgSide,
+    this.viewerIsGuardian,
   });
 
   final String threadId;
@@ -60,6 +62,11 @@ class ThreadMessageTile extends StatelessWidget {
   final VoidCallback? onReactionTap;
   final bool isParentMessaging;
   final bool isInactive;
+
+  /// See [MessageBubble.senderIsOrgSide] — both this and [viewerIsGuardian]
+  /// must be supplied together (or left null together) by the caller.
+  final bool? senderIsOrgSide;
+  final bool? viewerIsGuardian;
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +107,8 @@ class ThreadMessageTile extends StatelessWidget {
           isParentMessaging: isParentMessaging,
           isInactive: isInactive,
           isGrouped: isGrouped,
+          senderIsOrgSide: senderIsOrgSide,
+          viewerIsGuardian: viewerIsGuardian,
         );
       },
     );

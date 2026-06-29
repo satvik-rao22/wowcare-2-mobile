@@ -119,10 +119,8 @@ class _FakeRemoteDataSource implements MessageEntityRemoteDataSource {
     required String conversationCode,
     required String text,
     List<int> attachmentIds = const [],
-    required String schoolCode,
-    required String currentUserCode,
-    required bool isStaff,
     bool isPrivate = false,
+    String? privateParentUserCode,
     String? threadParentCode,
   }) async => throw UnimplementedError();
 

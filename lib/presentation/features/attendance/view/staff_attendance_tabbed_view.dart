@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/presentation/features/communication/v2/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -291,55 +291,55 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               body: NotificationListener<ScrollNotification>(
                 onNotification: _handleScrollNotification,
                 child: SafeArea(
-                // Allow the tab contents to respect the device's bottom inset
-                // so that the scrollable lists aren't clipped underneath
-                // the bottom navigation bar and can scroll naturally.
-                bottom: true,
-                child: GradientBackground(
-                  child: Padding(
-                    padding: ResponsiveSizing.contentPadding(context),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4, bottom: 8),
-                          child: Text(
-                            'Staff Attendance',
-                            style: TextStyle(
-                              fontFamily: Fonts.manrope,
-                              fontSize: responsive.isTablet ? 22 : 18,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryColor,
+                  // Allow the tab contents to respect the device's bottom inset
+                  // so that the scrollable lists aren't clipped underneath
+                  // the bottom navigation bar and can scroll naturally.
+                  bottom: true,
+                  child: GradientBackground(
+                    child: Padding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            child: Text(
+                              'Staff Attendance',
+                              style: TextStyle(
+                                fontFamily: Fonts.manrope,
+                                fontSize: responsive.isTablet ? 22 : 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryColor,
+                              ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              StaffAttendanceDailyViewScreen(
-                                key: _dailyViewKey,
-                                incomingFilter: widget.dailyIncomingFilter,
-                                contentOnly: true,
-                                classroomFilter: widget.classroomFilter,
-                                onAttendanceMutated: _refreshSecondaryTabs,
-                              ),
-                              StaffAttendanceCustomView(
-                                key: _customViewKey,
-                                contentOnly: true,
-                              ),
-                              StaffAttendanceAbsentView(
-                                key: _absentViewKey,
-                                contentOnly: true,
-                              ),
-                            ],
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                StaffAttendanceDailyViewScreen(
+                                  key: _dailyViewKey,
+                                  incomingFilter: widget.dailyIncomingFilter,
+                                  contentOnly: true,
+                                  classroomFilter: widget.classroomFilter,
+                                  onAttendanceMutated: _refreshSecondaryTabs,
+                                ),
+                                StaffAttendanceCustomView(
+                                  key: _customViewKey,
+                                  contentOnly: true,
+                                ),
+                                StaffAttendanceAbsentView(
+                                  key: _absentViewKey,
+                                  contentOnly: true,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
               ),
               extendBody: true,
               // Attendance is the bottom-nav slot at index 1 (a popup slot with

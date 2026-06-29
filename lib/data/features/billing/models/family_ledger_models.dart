@@ -85,7 +85,11 @@ class FamilyLedgerTransactionModel {
       studentName: s('studentName'),
       transactionType: s('transactionType'),
       status: s('status'),
-      method: s('method'),
+      method: s('method').isNotEmpty
+          ? s('method')
+          : s('paymentMode').isNotEmpty
+              ? s('paymentMode')
+              : s('paymentMethod'),
       description: s('description'),
       items: rawItems.map((e) => e.toString()).toList(growable: false),
       amount: (json['amount'] as num?)?.toDouble() ?? 0,

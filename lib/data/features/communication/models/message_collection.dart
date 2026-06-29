@@ -1,7 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:wowcare/core/util/isar_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-
 part 'message_collection.g.dart';
 
 @collection

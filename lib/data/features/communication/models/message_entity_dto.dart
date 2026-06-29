@@ -30,6 +30,7 @@ class MessageEntityDto {
     this.threadParentSenderCode,
     this.threadParentSenderName,
     this.threadParentText,
+    this.privateParentUserCode,
   });
 
   final String id;
@@ -56,6 +57,10 @@ class MessageEntityDto {
   final String? threadParentSenderCode;
   final String? threadParentSenderName;
   final String? threadParentText;
+  // Backend field name confirmed live via MessageModel.fromJson (REST) and
+  // MessageFirestoreItem.fromFirestore (realtime) — both already parse this
+  // exact key successfully from production responses/documents.
+  final String? privateParentUserCode;
   final String organizationCode;
   final String schoolCode;
 
@@ -119,6 +124,7 @@ class MessageEntityDto {
       threadParentSenderCode: json['threadParentSenderCode'] as String?,
       threadParentSenderName: json['threadParentSenderName'] as String?,
       threadParentText: json['threadParentText'] as String?,
+      privateParentUserCode: json['privateParentUserCode'] as String?,
       organizationCode: json['organizationCode'] as String? ?? '',
       schoolCode: json['schoolCode'] as String? ?? '',
     );
@@ -150,6 +156,8 @@ class MessageEntityDto {
         if (threadParentSenderCode != null) 'threadParentSenderCode': threadParentSenderCode,
         if (threadParentSenderName != null) 'threadParentSenderName': threadParentSenderName,
         if (threadParentText != null) 'threadParentText': threadParentText,
+        if (privateParentUserCode != null)
+          'privateParentUserCode': privateParentUserCode,
       };
 
   MessageEntity toEntity() {
@@ -178,6 +186,7 @@ class MessageEntityDto {
       threadParentSenderCode: threadParentSenderCode,
       threadParentSenderName: threadParentSenderName,
       threadParentText: threadParentText,
+      privateParentUserCode: privateParentUserCode,
       organizationCode: organizationCode,
       schoolCode: schoolCode,
     );
