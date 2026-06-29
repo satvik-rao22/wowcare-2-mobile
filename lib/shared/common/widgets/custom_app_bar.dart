@@ -849,6 +849,13 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
 
     context.read<ParentChildCubit>().invalidate();
 
+    // Mirrors UserProfileScreen._applyPersonaSwitch so both Switch Profile entry
+    // points behave identically. Do NOT change the visible persona until the
+    // required APIs are done; only flip the UI at the end via
+    // applySwitchedPersona.
+    //
+    // Preload guardian data BEFORE RoleCubit flips to parent so the global
+    // dropdown doesn't show a loading state.
     final targetIsGuardian = roleStringIsGuardianPersona(nextRole);
     if (targetIsGuardian) {
       await cubit.loadGuardianProfileForParent();
@@ -871,6 +878,7 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
     }
     if (!context.mounted) return;
 
+    // Now that prefetch is complete, apply the persona to the UI.
     cubit.applySwitchedPersona(nextRole);
     if (!context.mounted) return;
 
@@ -879,6 +887,10 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
       message: 'Switched to ${StringUtils.staffTypeToDisplayRole(nextRole)}',
       isSuccess: true,
     );
+
+    await cubit.refreshSwitchProfileAvailability();
+    if (!context.mounted) return;
+    await cubit.load(isParent: context.read<RoleCubit>().isParent);
   } catch (e) {
     if (!context.mounted) return;
     CoreUtils.showTopSnackBar(
