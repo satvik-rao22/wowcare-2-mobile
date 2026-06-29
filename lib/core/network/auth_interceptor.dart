@@ -5,11 +5,19 @@ import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 
 /// The five `x-role` buckets the backend validates against. Finer backend roles
 /// (TEACHER, DIRECTOR, ASSOCIATE_TEACHER …) are normalised into one of these so
 /// `x-role` is always one of the accepted values.
-enum _RoleBucket { guardian, staff, schoolAdmin, organizationAdmin, kiosk, unknown }
+enum _RoleBucket {
+  guardian,
+  staff,
+  schoolAdmin,
+  organizationAdmin,
+  kiosk,
+  unknown,
+}
 
 /// Adds the Authorization Bearer token and the **wowcare header contract** to
 /// every authenticated request:
@@ -21,7 +29,8 @@ enum _RoleBucket { guardian, staff, schoolAdmin, organizationAdmin, kiosk, unkno
 /// - GUARDIAN            → `x-guardian-code` + `x-school-code`
 /// - STAFF / SCHOOL_ADMIN → `x-staff-code` + `x-school-code`
 /// - ORGANIZATION_ADMIN  → `x-staff-code` (org-level, no school)
-/// - KIOSK               → none (defaults only)
+/// - KIOSK               → `x-school-code` only (no staff/guardian code for
+///   the kiosk device's own identity; sign-in/out calls are school-scoped)
 ///
 /// A missing/invalid required header makes the backend reject the request 401.
 class AuthInterceptor extends Interceptor {
@@ -55,7 +64,8 @@ class AuthInterceptor extends Interceptor {
     final existingAuth =
         options.headers['Authorization'] ?? options.headers['authorization'];
 
-    final token = (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
+    final token = (await _storage.getString(StorageKeys.accessToken) ?? '')
+        .trim();
 
     // Always add baseline JSON headers. Only attach Authorization when missing.
     final baseHeaders = ApiHeaders.authorizedJson(token);
@@ -64,7 +74,8 @@ class AuthInterceptor extends Interceptor {
         options.headers['Content-Type'] ??
         options.headers['content-type'] ??
         baseHeaders['Content-Type'];
-    options.headers['accept'] = options.headers['accept'] ?? baseHeaders['accept'];
+    options.headers['accept'] =
+        options.headers['accept'] ?? baseHeaders['accept'];
     if ((existingAuth == null || existingAuth.toString().trim().isEmpty) &&
         baseHeaders['Authorization'] != null) {
       options.headers['Authorization'] = baseHeaders['Authorization'];
@@ -73,29 +84,34 @@ class AuthInterceptor extends Interceptor {
     // ── Resolve scope ────────────────────────────────────────────────────────
     final organizationCode =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    final schoolCodeFromQuery =
-        (options.queryParameters['schoolCode'] ?? '').toString().trim();
-    final resolvedSchoolCode =
-        schoolCode.isNotEmpty ? schoolCode : schoolCodeFromQuery;
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
+    final schoolCodeFromQuery = (options.queryParameters['schoolCode'] ?? '')
+        .toString()
+        .trim();
+    final resolvedSchoolCode = schoolCode.isNotEmpty
+        ? schoolCode
+        : schoolCodeFromQuery;
 
-    final staffCode =
-        (await _storage.getString(StorageKeys.staffCode) ?? '').trim();
+    final staffCode = (await _storage.getString(StorageKeys.staffCode) ?? '')
+        .trim();
     final guardianCode =
         (await _storage.getString(StorageKeys.guardianCode) ?? '').trim();
 
-    var rawRole =
-        (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+    var rawRole = (await _storage.getString(StorageKeys.activeSchoolRole) ?? '')
+        .trim();
     if (rawRole.isEmpty) rawRole = await _firstRoleFromRolesList();
     final bucket = _bucketFor(rawRole);
 
     // ── Always-required headers ──────────────────────────────────────────────
     if (organizationCode.isNotEmpty) {
-      _setMulti(options, organizationCode,
-          lower: 'x-organization-code',
-          pascal: 'X-Organization-Code',
-          camel: 'organizationCode');
+      _setMulti(
+        options,
+        organizationCode,
+        lower: 'x-organization-code',
+        pascal: 'X-Organization-Code',
+        camel: 'organizationCode',
+      );
     }
     final roleHeader = _roleHeaderValue(bucket);
     if (roleHeader.isNotEmpty) {
@@ -117,10 +133,13 @@ class AuthInterceptor extends Interceptor {
     final guardianHeader = guardianCode.isNotEmpty ? guardianCode : '-';
     switch (bucket) {
       case _RoleBucket.guardian:
-        _setMulti(options, guardianHeader,
-            lower: 'x-guardian-code',
-            pascal: 'X-Guardian-Code',
-            camel: 'guardianCode');
+        _setMulti(
+          options,
+          guardianHeader,
+          lower: 'x-guardian-code',
+          pascal: 'X-Guardian-Code',
+          camel: 'guardianCode',
+        );
         _setSchool(options, resolvedSchoolCode);
         break;
       case _RoleBucket.staff:
@@ -133,7 +152,10 @@ class AuthInterceptor extends Interceptor {
         _setStaff(options, staffHeader);
         break;
       case _RoleBucket.kiosk:
-        // Defaults only — no staff / guardian / school codes.
+        // Kiosk sign-in/out calls (staff and student) are always scoped to the
+        // kiosk device's school, so x-school-code is required even though
+        // staff/guardian codes are not sent for the kiosk device's own identity.
+        _setSchool(options, resolvedSchoolCode);
         break;
       case _RoleBucket.unknown:
         // Role not resolved yet — fall back to the prior behaviour so requests
@@ -152,14 +174,24 @@ class AuthInterceptor extends Interceptor {
     // placeholder (`-`) makes the gateway reject it with "Staff code does not
     // belong to the authenticated user" before it can return the real code.
     if (options.path.contains('staff/code')) return;
-    _setMulti(options, code,
-        lower: 'x-staff-code', pascal: 'X-Staff-Code', camel: 'staffCode');
+    _setMulti(
+      options,
+      code,
+      lower: 'x-staff-code',
+      pascal: 'X-Staff-Code',
+      camel: 'staffCode',
+    );
   }
 
   void _setSchool(RequestOptions options, String code) {
     if (code.isEmpty) return;
-    _setMulti(options, code,
-        lower: 'x-school-code', pascal: 'X-School-Code', camel: 'schoolCode');
+    _setMulti(
+      options,
+      code,
+      lower: 'x-school-code',
+      pascal: 'X-School-Code',
+      camel: 'schoolCode',
+    );
   }
 
   /// Sets the lowercase contract header plus the legacy Pascal/camel variants

@@ -1370,7 +1370,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<ClassroomShiftsCubit>(
     () => ClassroomShiftsCubit(
-      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
       getClassroomForecastUseCase: serviceLocator(),
       getSchoolStaffShiftsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),
@@ -2083,9 +2083,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<InvoiceRepository>(
     () => InvoiceRepositoryImpl(
-          serviceLocator<InvoiceRemoteDataSource>(),
-          serviceLocator<CacheManager>(),
-        ),
+      serviceLocator<InvoiceRemoteDataSource>(),
+      serviceLocator<CacheManager>(),
+    ),
   );
   serviceLocator.registerFactory<CreateInvoiceUseCase>(
     () => CreateInvoiceUseCase(serviceLocator<InvoiceRepository>()),
@@ -2244,8 +2244,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<PayNowCubit>(
     () => PayNowCubit(
-      getGuardianFamilyLedger:
-          serviceLocator<GetGuardianFamilyLedgerUseCase>(),
+      getGuardianFamilyLedger: serviceLocator<GetGuardianFamilyLedgerUseCase>(),
       storage: serviceLocator<StorageService>(),
     ),
   );

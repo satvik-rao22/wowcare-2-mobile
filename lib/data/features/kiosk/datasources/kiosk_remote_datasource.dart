@@ -76,6 +76,7 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
           headers: {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
+            'X-School-Code': schoolCode,
           },
         ),
       );

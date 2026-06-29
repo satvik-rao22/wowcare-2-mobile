@@ -552,10 +552,8 @@ class _AttentionCard extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: model.labelTag != null
-                      ? RichText(
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          text: TextSpan(
+                      ? Text.rich(
+                          TextSpan(
                             children: [
                               TextSpan(
                                 text: model.label,
@@ -577,6 +575,8 @@ class _AttentionCard extends StatelessWidget {
                               ),
                             ],
                           ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         )
                       : Text(
                           model.label,

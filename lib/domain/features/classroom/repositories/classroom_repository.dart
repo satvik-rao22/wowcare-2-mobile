@@ -77,8 +77,6 @@ abstract class ClassroomRepository {
   /// classroom. Returns the raw backend response map.
   Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
     required String classroomCode,
-    String? organizationCode,
-    String? schoolCode,
   });
 
   /// GET the logo asset codes list for a school's classrooms.

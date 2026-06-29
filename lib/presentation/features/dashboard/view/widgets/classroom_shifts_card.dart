@@ -48,12 +48,23 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
 
   double get _bodyFontSize => MediaQuery.of(context).size.width > 600 ? 16 : 14;
 
+  /// Guards against re-issuing the full load sequence on every
+  /// `didChangeDependencies` firing (ancestor rebuilds, navigation, etc.).
+  /// The dashboard coordinator already calls `ClassroomShiftsCubit.load()`
+  /// on first open and on pull-to-refresh; this is only a fallback for the
+  /// case where the cubit hasn't been loaded yet by the time this card mounts.
+  bool _hasRequestedLoad = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_hasRequestedLoad) return;
+    final cubit = context.read<ClassroomShiftsCubit>();
+    if (cubit.state.status != ClassroomShiftsStatus.initial) return;
+    _hasRequestedLoad = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        unawaited(context.read<ClassroomShiftsCubit>().load(_selectedDate));
+        unawaited(cubit.load(_selectedDate));
       }
     });
   }

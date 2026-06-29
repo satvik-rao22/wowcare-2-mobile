@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
@@ -77,9 +78,12 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
             storage: _storage,
             apiClient: _apiClient,
           );
+      final schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
       final result = await _signInStaffUseCase(
         staffCode: staffCode,
+        schoolCode: schoolCode,
         timeZone: schoolTimeZone,
         latitude: latitude,
         longitude: longitude,
@@ -127,9 +131,12 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
             storage: _storage,
             apiClient: _apiClient,
           );
+      final schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
 
       final result = await _signOutStaffUseCase(
         staffCode: staffCode,
+        schoolCode: schoolCode,
         timeZone: schoolTimeZone,
         latitude: latitude,
         longitude: longitude,

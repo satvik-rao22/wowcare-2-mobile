@@ -5,7 +5,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/scheduling/entities/classroom_forecast_block.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_ratio_monitoring_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_school_staff_shifts_usecase.dart';
@@ -48,20 +48,19 @@ class ClassroomShiftEntry extends Equatable {
 ///    as the scheduling screen, so data is consistent)
 class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
   ClassroomShiftsCubit({
-    required GetRatioMonitoringClassroomsUseCase
-    getRatioMonitoringClassroomsUseCase,
+    required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required GetClassroomForecastUseCase getClassroomForecastUseCase,
     required GetSchoolStaffShiftsUseCase getSchoolStaffShiftsUseCase,
     required StaffRepository staffRepository,
     required StorageService storageService,
-  }) : _getClassrooms = getRatioMonitoringClassroomsUseCase,
+  }) : _getClassrooms = getActiveClassroomsUseCase,
        _getForecast = getClassroomForecastUseCase,
        _getStaffShifts = getSchoolStaffShiftsUseCase,
        _staffRepository = staffRepository,
        _storage = storageService,
        super(const ClassroomShiftsState.initial());
 
-  final GetRatioMonitoringClassroomsUseCase _getClassrooms;
+  final GetActiveClassroomsUseCase _getClassrooms;
   final GetClassroomForecastUseCase _getForecast;
   final GetSchoolStaffShiftsUseCase _getStaffShifts;
   final StaffRepository _staffRepository;
@@ -103,14 +102,24 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
         return;
       }
 
-      // ── Phase 1: classroom list + school hours (parallel) ─────────────────
-      final results = await Future.wait([
+      // ── Phase 1: classroom list + school hours + staff shifts (parallel) ──
+      // Staff shifts only depend on schoolCode/organizationCode/date — not on
+      // the classroom list or school hours — so it's fired here instead of
+      // waiting behind Phase 1 to avoid an unnecessary serialized round-trip.
+      final results = await Future.wait<dynamic>([
         _getClassrooms(schoolCode: schoolCode),
         _staffRepository.getSchoolRegularSchedules(schoolCode: schoolCode),
+        _getStaffShifts(
+          schoolCode: schoolCode,
+          organizationCode: organizationCode,
+          dateFrom: date,
+          dateTo: date,
+        ).catchError((_) => <StaffShift>[]), // non-fatal — UI degrades gracefully
       ]);
 
       final classrooms = results[0] as List<dynamic>;
       final scheduleDays = results[1] as List<dynamic>;
+      final rawShifts = results[2] as List<dynamic>; // List<StaffShift>
 
       if (classrooms.isEmpty) {
         if (!isClosed) {
@@ -134,29 +143,20 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
           const TimeOfDay(hour: 22, minute: 0);
       final blockMinutes = schoolHours?.durationMinutes ?? 30;
 
-      // ── Phase 3: forecast + staff shifts (parallel) ───────────────────────
+      // ── Phase 3: forecast (depends on classroom codes + resolved hours) ───
       final codes = classrooms.map((c) => c.code as String).toList();
 
-      final parallel = await Future.wait([
-        _getForecast(
-          schoolCode: schoolCode,
-          organizationCode: organizationCode,
-          date: date,
-          startTime: forecastStart,
-          endTime: forecastEnd,
-          durationMinutes: blockMinutes,
-          classroomCodes: codes,
-        ),
-        _getStaffShifts(
-          schoolCode: schoolCode,
-          organizationCode: organizationCode,
-          dateFrom: date,
-          dateTo: date,
-        ).catchError((_) => <StaffShift>[]), // non-fatal — UI degrades gracefully
-      ]);
-
-      final forecastBlocks = parallel[0] as List<ClassroomForecastBlock>;
-      final rawShifts = parallel[1] as List<dynamic>; // List<StaffShift>
+      final forecastBlocks = await _getForecast(
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        date: date,
+        startTime: forecastStart,
+        endTime: forecastEnd,
+        durationMinutes: blockMinutes,
+        classroomCodes: codes,
+      ).catchError(
+        (_) => <ClassroomForecastBlock>[],
+      ); // non-fatal — ratio status falls back to unknown instead of blanking the card
 
       // Group forecast blocks by classroom.
       final blocksByClassroom = <String, List<ClassroomForecastBlock>>{};

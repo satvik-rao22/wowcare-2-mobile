@@ -348,13 +348,9 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   @override
   Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
     required String classroomCode,
-    String? organizationCode,
-    String? schoolCode,
   }) {
     return _remoteDataSource.getStudentClassroomEnrolledCount(
       classroomCode: classroomCode,
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
     );
   }
 
