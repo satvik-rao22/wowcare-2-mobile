@@ -241,8 +241,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     final code = classroomCode.trim();
     if (code.isEmpty) return;
 
+    final orgCode = (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
     final body = await serviceLocator<ClassroomRepository>()
-        .getStudentClassroomEnrolledCount(classroomCode: code);
+        .getStudentClassroomEnrolledCount(
+      classroomCode: code,
+      organizationCode: orgCode,
+      schoolCode: schoolCode,
+    );
     if (body is! Map<String, dynamic>) return;
     final data = body['data'];
     if (data is! Map) return;

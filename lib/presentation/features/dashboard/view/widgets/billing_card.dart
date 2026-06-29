@@ -208,17 +208,14 @@ class _BillingCardState extends State<BillingCard> {
                           hintText: 'Year',
                           items: List.generate(
                             30,
-                            (index) =>
-                                (_selectedYear + index - 15).toString(),
+                            (index) => (_selectedYear + index - 15).toString(),
                           ),
                           selectedItem: '$_selectedYear',
                           isField: false,
                           prependHintAsSelectableItem: false,
                           onSelect: (value) {
                             if (value != null) {
-                              setState(
-                                () => _selectedYear = int.parse(value),
-                              );
+                              setState(() => _selectedYear = int.parse(value));
                             }
                           },
                         ),
@@ -295,8 +292,7 @@ class _BillingCardState extends State<BillingCard> {
             ),
             Expanded(
               child: _buildBillingStatus(
-                amount:
-                    '\$${transaction.amountInProcess.toStringAsFixed(2)}',
+                amount: '\$${transaction.amountInProcess.toStringAsFixed(2)}',
                 percentage: _getPercentage(
                   transaction.amountInProcess,
                   totalAllAmounts,
@@ -327,14 +323,14 @@ class _BillingCardState extends State<BillingCard> {
   // ---------------------------------------------------------------------------
 
   Widget _buildYearlySection(_YearlyRevenue revenue) {
-    final monthlyValues =
-        revenue.monthlyRevenue.values.map((v) => v.toDouble()).toList();
+    final monthlyValues = revenue.monthlyRevenue.values
+        .map((v) => v.toDouble())
+        .toList();
 
     if (monthlyValues.isEmpty) return const SizedBox.shrink();
 
-    final maxY =
-        (monthlyValues.reduce((a, b) => a > b ? a : b) * 1.25)
-            .ceilToDouble();
+    final maxY = (monthlyValues.reduce((a, b) => a > b ? a : b) * 1.25)
+        .ceilToDouble();
     const minY = 0.0;
 
     return Column(

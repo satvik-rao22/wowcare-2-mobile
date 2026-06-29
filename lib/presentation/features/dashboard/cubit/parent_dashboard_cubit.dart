@@ -9,11 +9,11 @@ part 'parent_dashboard_state.dart';
 /// Replaces [ParentDashboardViewModel] (ChangeNotifier).
 class ParentDashboardCubit extends Cubit<ParentDashboardState> {
   ParentDashboardCubit()
-      : super(
-          ParentDashboardState(
-            cards: List<ParentDashboardCard>.of(ParentDashboardCard.values),
-          ),
-        );
+    : super(
+        ParentDashboardState(
+          cards: List<ParentDashboardCard>.of(ParentDashboardCard.values),
+        ),
+      );
 
   void reorderCard(int oldIndex, int newIndex) {
     var target = newIndex;

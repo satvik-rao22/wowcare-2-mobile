@@ -8,6 +8,7 @@ import 'package:wowcare/domain/features/availability/entities/individual_movemen
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -75,7 +76,8 @@ IndividualMovementBoard _filterBoardForClassroom(
   if (code.isEmpty) return board;
 
   bool involves(IndividualMovement m) {
-    return m.fromClassroomCode.trim() == code || m.toClassroomCode.trim() == code;
+    return m.fromClassroomCode.trim() == code ||
+        m.toClassroomCode.trim() == code;
   }
 
   return IndividualMovementBoard(
@@ -123,7 +125,9 @@ List<_GroupedMovement> _filterPriorityMovements(
 
   // Priority: Overdue > Upcoming > Confirmed
   // Step 1: Check for overdue within last 1 month
-  final recentOverdue = board.overdue.where((m) => _isWithinLastMonth(m.movementDate)).toList();
+  final recentOverdue = board.overdue
+      .where((m) => _isWithinLastMonth(m.movementDate))
+      .toList();
   if (recentOverdue.isNotEmpty) {
     addBucket(recentOverdue, 'Overdue');
     final rows = map.values.toList(growable: false);
@@ -190,11 +194,7 @@ String _monthAbbr(int month) {
 // ---------------------------------------------------------------------------
 
 class MovementsCard extends StatefulWidget {
-  const MovementsCard({
-    super.key,
-    this.classroomCode,
-    this.onRedirect,
-  });
+  const MovementsCard({super.key, this.classroomCode, this.onRedirect});
 
   /// When set, only movements involving this classroom (from or to) are shown.
   final String? classroomCode;
@@ -506,33 +506,45 @@ class _MovementsCardState extends State<MovementsCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DashboardCardHeader(
-            title: 'Movements',
-            showRedirect: true,
-            onRedirect: widget.onRedirect ??
-                () => context.go(IndividualMovementScreen.routeName),
-            minimized: _minimized,
-            onToggle: () => setState(() => _minimized = !_minimized),
+    return BlocBuilder<IndividualMovementsCubit, IndividualMovementsState>(
+      buildWhen: (prev, curr) =>
+          prev.board != curr.board || prev.errorMessage != curr.errorMessage,
+      builder: (context, state) {
+        final isError = state.board == null && state.errorMessage != null;
+        return DashboardCardErrorOverlay(
+          show: isError,
+          onRetry: () => context.read<IndividualMovementsCubit>().refresh(),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.cardBorderColor),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DashboardCardHeader(
+                  title: 'Movements',
+                  showRedirect: true,
+                  onRedirect:
+                      widget.onRedirect ??
+                      () => context.go(IndividualMovementScreen.routeName),
+                  minimized: _minimized,
+                  onToggle: () => setState(() => _minimized = !_minimized),
+                ),
+                const SizedBox(height: 24),
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: _minimized ? const SizedBox.shrink() : _buildBody(),
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 24),
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _minimized ? const SizedBox.shrink() : _buildBody(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

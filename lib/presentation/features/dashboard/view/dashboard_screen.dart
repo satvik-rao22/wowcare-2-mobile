@@ -46,19 +46,17 @@ class _DashboardScreenState extends State<DashboardScreen>
     // This catches notification deep-links, programmatic context.go('/dashboard'),
     // or any other route that bypasses the earlier kiosk checks.
     if (role.isKiosk) {
-      SchedulerBinding.instance.addPostFrameCallback(
-        (_) {
-          if (context.mounted) context.go('/kiosk');
-        },
-      );
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) context.go('/kiosk');
+      });
       return const SizedBox.shrink();
     }
 
     final Widget dashboard = role.isParent
         ? const ParentDashboard()
         : role.isStaff
-            ? const StaffDashboard()
-            : const AdminDashboard();
+        ? const StaffDashboard()
+        : const AdminDashboard();
 
     return KeyedSubtree(
       key: ValueKey<int>(_schoolReloadEpoch),

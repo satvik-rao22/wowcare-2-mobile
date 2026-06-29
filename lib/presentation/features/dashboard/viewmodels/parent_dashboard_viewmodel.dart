@@ -22,6 +22,6 @@ class ParentDashboardViewModel {
 
   static const double maxContentWidth = 640;
 
-  static List<ParentDashboardCard> get defaultCards => ParentDashboardCard.values;
+  static List<ParentDashboardCard> get defaultCards =>
+      ParentDashboardCard.values;
 }
-

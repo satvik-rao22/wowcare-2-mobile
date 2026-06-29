@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/scheduling/entities/classroom_forecast_block.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_classroom_forecast_usecase.dart';
@@ -94,39 +95,60 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
 
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
         if (!isClosed) {
-          emit(state.copyWith(
-            status: ClassroomShiftsStatus.error,
-            errorMessage: 'School context missing. Please sign in again.',
-          ));
+          emit(
+            state.copyWith(
+              status: ClassroomShiftsStatus.error,
+              errorMessage: 'School context missing. Please sign in again.',
+            ),
+          );
         }
         return;
       }
 
       // ── Phase 1: classroom list + school hours + staff shifts (parallel) ──
-      // Staff shifts only depend on schoolCode/organizationCode/date — not on
-      // the classroom list or school hours — so it's fired here instead of
-      // waiting behind Phase 1 to avoid an unnecessary serialized round-trip.
+      // Staff shifts don't gate the forecast call (Phase 3 only needs the
+      // classroom list + school hours), so it's fired here as a standalone
+      // future and only awaited later, right before it's needed — letting it
+      // run concurrently with the forecast call instead of serializing after it.
+      final staffShiftsFuture = _getStaffShifts(
+        schoolCode: schoolCode,
+        organizationCode: organizationCode,
+        dateFrom: date,
+        dateTo: date,
+      ).catchError((_) => <StaffShift>[]); // non-fatal — UI degrades gracefully
+
       final results = await Future.wait<dynamic>([
         _getClassrooms(schoolCode: schoolCode),
         _staffRepository.getSchoolRegularSchedules(schoolCode: schoolCode),
-        _getStaffShifts(
-          schoolCode: schoolCode,
-          organizationCode: organizationCode,
-          dateFrom: date,
-          dateTo: date,
-        ).catchError((_) => <StaffShift>[]), // non-fatal — UI degrades gracefully
       ]);
 
-      final classrooms = results[0] as List<dynamic>;
+      var classrooms = results[0] as List<dynamic>;
       final scheduleDays = results[1] as List<dynamic>;
-      final rawShifts = results[2] as List<dynamic>; // List<StaffShift>
+
+      // Admins see every classroom; non-admin staff are scoped to their
+      // allowed classrooms only — same rule the scheduler's classroom day
+      // view and attendance screens already apply.
+      final shouldScope = await isAttendanceScopedStaffPersona(
+        storage: _storage,
+      );
+      if (shouldScope) {
+        final allowedCodes = await resolveAttendanceAllowedClassroomCodes(
+          storage: _storage,
+        );
+        final allowedSet = allowedCodes.map((e) => e.trim()).toSet();
+        classrooms = classrooms
+            .where((c) => allowedSet.contains((c.code as String).trim()))
+            .toList(growable: false);
+      }
 
       if (classrooms.isEmpty) {
         if (!isClosed) {
-          emit(state.copyWith(
-            status: ClassroomShiftsStatus.loaded,
-            entries: const [],
-          ));
+          emit(
+            state.copyWith(
+              status: ClassroomShiftsStatus.loaded,
+              entries: const [],
+            ),
+          );
         }
         return;
       }
@@ -135,28 +157,36 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
       final resolver = SchoolHoursResolver.fromDays(scheduleDays.cast());
       final schoolHours = resolver.hoursFor(date);
 
-      final forecastStart = schoolHours?.scheduleMonitorStartTimeOfDay ??
+      final forecastStart =
+          schoolHours?.scheduleMonitorStartTimeOfDay ??
           schoolHours?.startTimeOfDay ??
           const TimeOfDay(hour: 6, minute: 0);
-      final forecastEnd = schoolHours?.scheduleMonitorEndTimeOfDay ??
+      final forecastEnd =
+          schoolHours?.scheduleMonitorEndTimeOfDay ??
           schoolHours?.endTimeOfDay ??
           const TimeOfDay(hour: 22, minute: 0);
       final blockMinutes = schoolHours?.durationMinutes ?? 30;
 
       // ── Phase 3: forecast (depends on classroom codes + resolved hours) ───
+      // Runs concurrently with staffShiftsFuture, which was kicked off back in
+      // Phase 1 and has likely already settled by the time we get here.
       final codes = classrooms.map((c) => c.code as String).toList();
 
-      final forecastBlocks = await _getForecast(
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        date: date,
-        startTime: forecastStart,
-        endTime: forecastEnd,
-        durationMinutes: blockMinutes,
-        classroomCodes: codes,
-      ).catchError(
-        (_) => <ClassroomForecastBlock>[],
-      ); // non-fatal — ratio status falls back to unknown instead of blanking the card
+      final forecastFuture =
+          _getForecast(
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+            date: date,
+            startTime: forecastStart,
+            endTime: forecastEnd,
+            durationMinutes: blockMinutes,
+            classroomCodes: codes,
+          ).catchError(
+            (_) => <ClassroomForecastBlock>[],
+          ); // non-fatal — ratio status falls back to unknown instead of blanking the card
+
+      final rawShifts = await staffShiftsFuture;
+      final forecastBlocks = await forecastFuture;
 
       // Group forecast blocks by classroom.
       final blocksByClassroom = <String, List<ClassroomForecastBlock>>{};
@@ -171,19 +201,22 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
       for (final dynamic raw in rawShifts) {
         final code = (raw.classroomCode as String).trim();
         if (code.isEmpty) continue;
-        staffByClassroom.putIfAbsent(code, () => []).add(
-          StaffScheduleEntry(
-            staffName: raw.staffName as String? ?? '',
-            staffCode: raw.staffCode as String? ?? '',
-            startTime: _fmtTime(raw.startTime as TimeOfDay),
-            endTime: _fmtTime(raw.endTime as TimeOfDay),
-            isPublished: raw.isPublished as bool? ?? false,
-            shiftCode: raw.shiftCode as String?,
-            scheduledHours: (raw.scheduledHours as int? ?? 0).toDouble(),
-            availableHours: (raw.availableHours as int? ?? 0).toDouble(),
-            unscheduledHours: (raw.unscheduledHours as int? ?? 0).toDouble(),
-          ),
-        );
+        staffByClassroom
+            .putIfAbsent(code, () => [])
+            .add(
+              StaffScheduleEntry(
+                staffName: raw.staffName as String? ?? '',
+                staffCode: raw.staffCode as String? ?? '',
+                startTime: _fmtTime(raw.startTime as TimeOfDay),
+                endTime: _fmtTime(raw.endTime as TimeOfDay),
+                isPublished: raw.isPublished as bool? ?? false,
+                shiftCode: raw.shiftCode as String?,
+                scheduledHours: (raw.scheduledHours as int? ?? 0).toDouble(),
+                availableHours: (raw.availableHours as int? ?? 0).toDouble(),
+                unscheduledHours: (raw.unscheduledHours as int? ?? 0)
+                    .toDouble(),
+              ),
+            );
       }
 
       // ── Phase 4: assemble entries ─────────────────────────────────────────
@@ -202,17 +235,21 @@ class ClassroomShiftsCubit extends Cubit<ClassroomShiftsState> {
       }).toList();
 
       if (!isClosed) {
-        emit(state.copyWith(
-          status: ClassroomShiftsStatus.loaded,
-          entries: entries,
-        ));
+        emit(
+          state.copyWith(
+            status: ClassroomShiftsStatus.loaded,
+            entries: entries,
+          ),
+        );
       }
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(
-          status: ClassroomShiftsStatus.error,
-          errorMessage: ApiErrorHandler.extractErrorMessage(e),
-        ));
+        emit(
+          state.copyWith(
+            status: ClassroomShiftsStatus.error,
+            errorMessage: ApiErrorHandler.extractErrorMessage(e),
+          ),
+        );
       }
     } finally {
       _isFetching = false;

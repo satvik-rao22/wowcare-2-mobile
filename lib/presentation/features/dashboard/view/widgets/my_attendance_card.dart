@@ -9,6 +9,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -63,66 +64,70 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
           return _buildShimmer();
         }
 
-        return Card(
-          elevation: 0,
-          color: Colors.white,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: AppColors.primaryColor.withValues(alpha: 0.1),
+        return DashboardCardErrorOverlay(
+          show: state.isError,
+          onRetry: () => context.read<MyAttendanceCubit>().load(),
+          child: Card(
+            elevation: 0,
+            color: Colors.white,
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DashboardCardHeader(
-                  title: 'My Attendance',
-                  minimized: _minimized,
-                  onToggle: () => setState(() => _minimized = !_minimized),
-                  showRedirect: true,
-                  onRedirect: () => context.push(
-                    StaffAttendanceProfile.routeName,
-                    extra: {
-                      'staffCode': state.staffCode,
-                      'staffName': state.staffName,
-                      'staffId': 0,
-                      'staffPhotoUuid': null,
-                      'designationName': '',
-                      'roomName': '-',
-                    },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DashboardCardHeader(
+                    title: 'My Attendance',
+                    minimized: _minimized,
+                    onToggle: () => setState(() => _minimized = !_minimized),
+                    showRedirect: true,
+                    onRedirect: () => context.push(
+                      StaffAttendanceProfile.routeName,
+                      extra: {
+                        'staffCode': state.staffCode,
+                        'staffName': state.staffName,
+                        'staffId': 0,
+                        'staffPhotoUuid': null,
+                        'designationName': '',
+                        'roomName': '-',
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // Date-range filter (always visible).
-                CustomDateTimeField(
-                  hasLabel: false,
-                  isRangePicker: true,
-                  initialDate: _startDate,
-                  label: 'Date Range',
-                  onRangeSelected: _onDateRangeSelected,
-                ),
-                const SizedBox(height: 20),
+                  // Date-range filter (always visible).
+                  CustomDateTimeField(
+                    hasLabel: false,
+                    isRangePicker: true,
+                    initialDate: _startDate,
+                    label: 'Date Range',
+                    onRangeSelected: _onDateRangeSelected,
+                  ),
+                  const SizedBox(height: 20),
 
-                // Collapsible attendance report — same structure as before.
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  child: _minimized
-                      ? const SizedBox.shrink()
-                      : _AttendanceReportColumn(
-                          staffCode: state.staffCode,
-                          staffName: state.staffName,
-                          attendedDays: state.attendedDays,
-                          attendedHours: state.attendedHours,
-                          attendedMinutes: state.attendedMinutes,
-                          absentDays: state.absentDays,
-                        ),
-                ),
-              ],
+                  // Collapsible attendance report — same structure as before.
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: _minimized
+                        ? const SizedBox.shrink()
+                        : _AttendanceReportColumn(
+                            staffCode: state.staffCode,
+                            staffName: state.staffName,
+                            attendedDays: state.attendedDays,
+                            attendedHours: state.attendedHours,
+                            attendedMinutes: state.attendedMinutes,
+                            absentDays: state.absentDays,
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

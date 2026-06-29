@@ -27,6 +27,7 @@ abstract class StaffRemoteDataSource {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   });
 
   /// Fetches the entire staff list in one call — no pagination loop — with
@@ -324,6 +325,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     // UAT contract matches web: `schoolCode`, `page`, `size`, `status` (string),
     // `organizationCode` — no duplicate `pageable.*` keys.
@@ -364,6 +366,15 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     if (allowedCodes != null && allowedCodes.isNotEmpty) {
       queryParameters['classCodes'] = allowedCodes;
     }
+    // API expects hyphenated codes, e.g. attendanceStatus=SIGN-IN&attendanceStatus=ABSENT.
+    final normalizedAttendanceStatuses = attendanceStatuses
+        ?.map((s) => s.trim().toUpperCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (normalizedAttendanceStatuses != null &&
+        normalizedAttendanceStatuses.isNotEmpty) {
+      queryParameters['attendanceStatus'] = normalizedAttendanceStatuses;
+    }
 
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.staffList,
@@ -373,6 +384,8 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
+      // Repeats keys: `attendanceStatus=SIGN-IN&attendanceStatus=ABSENT`.
+      options: Options(listFormat: ListFormat.multi),
     );
 
     if (response.data is! Map<String, dynamic>) {

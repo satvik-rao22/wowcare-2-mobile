@@ -31,7 +31,6 @@ extension _DashboardAttentionStateX on DashboardAttentionState {
       status == DashboardAttentionStatus.partialFailure;
 }
 
-
 class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
   final AdminDashboardCubit dashboardCubit;
   final SchoolStatusCubit schoolStatusCubit;
@@ -58,10 +57,14 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
   }) : super(const DashboardState(status: DashboardStatus.initial)) {
     // Subscribe to child cubits to aggregate their states reactively
     _subscriptions.add(schoolStatusCubit.stream.listen((_) => _updateState()));
-    _subscriptions.add(ratioMonitoringCubit.stream.listen((_) => _updateState()));
+    _subscriptions.add(
+      ratioMonitoringCubit.stream.listen((_) => _updateState()),
+    );
     _subscriptions.add(movementsCubit.stream.listen((_) => _updateState()));
     _subscriptions.add(availabilityCubit.stream.listen((_) => _updateState()));
-    _subscriptions.add(classroomShiftsCubit.stream.listen((_) => _updateState()));
+    _subscriptions.add(
+      classroomShiftsCubit.stream.listen((_) => _updateState()),
+    );
     _subscriptions.add(attentionCubit.stream.listen((_) => _updateState()));
     _subscriptions.add(myDayCubit.stream.listen((_) => _updateState()));
 
@@ -89,10 +92,16 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
       movementsCubit.loadInitial(),
       availabilityCubit.load(date: DateTime.now(), isTwoShifts: true),
       if (schoolCode != null && schoolCode.isNotEmpty) ...[
-        schoolStatusCubit.loadSchoolStatus(schoolCode: schoolCode, isSilent: true),
-        ratioMonitoringCubit.loadRatioMonitoring(schoolCode: schoolCode, isSilent: true),
+        schoolStatusCubit.loadSchoolStatus(
+          schoolCode: schoolCode,
+          isSilent: true,
+        ),
+        ratioMonitoringCubit.loadRatioMonitoring(
+          schoolCode: schoolCode,
+          isSilent: true,
+        ),
         geofenceCubit.initForSchool(schoolCode: schoolCode),
-      ]
+      ],
     ]);
   }
 
@@ -132,24 +141,60 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     final attentionLoaded = attentionCubit.state.isLoaded;
     final myDayLoaded = myDayCubit.state.isLoaded;
 
-    final isAnyLoading = statusLoading || ratioLoading || movementsLoading || availabilityLoading || shiftsLoading || attentionLoading || myDayLoading;
-    final isAnyError = statusError || ratioError || movementsError || availabilityError || shiftsError || attentionError || myDayError;
-    final isAllLoaded = statusLoaded && ratioLoaded && movementsLoaded && availabilityLoaded && shiftsLoaded && attentionLoaded && myDayLoaded;
-    final isAllError = statusError && ratioError && movementsError && availabilityError && shiftsError && attentionError && myDayError;
+    final isAnyLoading =
+        statusLoading ||
+        ratioLoading ||
+        movementsLoading ||
+        availabilityLoading ||
+        shiftsLoading ||
+        attentionLoading ||
+        myDayLoading;
+    final isAnyError =
+        statusError ||
+        ratioError ||
+        movementsError ||
+        availabilityError ||
+        shiftsError ||
+        attentionError ||
+        myDayError;
+    final isAllLoaded =
+        statusLoaded &&
+        ratioLoaded &&
+        movementsLoaded &&
+        availabilityLoaded &&
+        shiftsLoaded &&
+        attentionLoaded &&
+        myDayLoaded;
+    final isAllError =
+        statusError &&
+        ratioError &&
+        movementsError &&
+        availabilityError &&
+        shiftsError &&
+        attentionError &&
+        myDayError;
 
     if (isAnyLoading) {
-      if (state.status == DashboardStatus.ready || state.status == DashboardStatus.partialError) {
+      if (state.status == DashboardStatus.ready ||
+          state.status == DashboardStatus.partialError) {
         emit(state.copyWith(status: DashboardStatus.refreshing));
       } else {
         emit(state.copyWith(status: DashboardStatus.loading));
       }
     } else if (isAllError) {
-      emit(state.copyWith(status: DashboardStatus.failure, errorMessage: 'Unable to load dashboard data. Please try again.'));
+      emit(
+        state.copyWith(
+          status: DashboardStatus.failure,
+          errorMessage: 'Unable to load dashboard data. Please try again.',
+        ),
+      );
     } else if (isAnyError) {
       emit(state.copyWith(status: DashboardStatus.partialError));
     } else if (isAllLoaded) {
       // Clear any stale error from a previous failed load cycle.
-      emit(state.copyWith(status: DashboardStatus.ready, clearErrorMessage: true));
+      emit(
+        state.copyWith(status: DashboardStatus.ready, clearErrorMessage: true),
+      );
     } else {
       emit(state.copyWith(status: DashboardStatus.initial));
     }
@@ -164,8 +209,14 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     final schoolCode = await _resolveSchoolCode();
     if (schoolCode != null && schoolCode.isNotEmpty) {
       await Future.wait([
-        schoolStatusCubit.loadSchoolStatus(schoolCode: schoolCode, forceRefresh: true),
-        ratioMonitoringCubit.loadRatioMonitoring(schoolCode: schoolCode, forceRefresh: true),
+        schoolStatusCubit.loadSchoolStatus(
+          schoolCode: schoolCode,
+          forceRefresh: true,
+        ),
+        ratioMonitoringCubit.loadRatioMonitoring(
+          schoolCode: schoolCode,
+          forceRefresh: true,
+        ),
         classroomShiftsCubit.load(DateTime.now()),
         movementsCubit.refresh(),
         availabilityCubit.refresh(

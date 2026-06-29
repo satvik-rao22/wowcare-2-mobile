@@ -29,8 +29,7 @@ enum _RoleBucket {
 /// - GUARDIAN            → `x-guardian-code` + `x-school-code`
 /// - STAFF / SCHOOL_ADMIN → `x-staff-code` + `x-school-code`
 /// - ORGANIZATION_ADMIN  → `x-staff-code` (org-level, no school)
-/// - KIOSK               → `x-school-code` only (no staff/guardian code for
-///   the kiosk device's own identity; sign-in/out calls are school-scoped)
+/// - KIOSK               → none (defaults only)
 ///
 /// A missing/invalid required header makes the backend reject the request 401.
 class AuthInterceptor extends Interceptor {
@@ -152,9 +151,7 @@ class AuthInterceptor extends Interceptor {
         _setStaff(options, staffHeader);
         break;
       case _RoleBucket.kiosk:
-        // Kiosk sign-in/out calls (staff and student) are always scoped to the
-        // kiosk device's school, so x-school-code is required even though
-        // staff/guardian codes are not sent for the kiosk device's own identity.
+        // Defaults only — no staff / guardian / school codes.
         _setSchool(options, resolvedSchoolCode);
         break;
       case _RoleBucket.unknown:

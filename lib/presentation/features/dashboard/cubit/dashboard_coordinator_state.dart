@@ -13,10 +13,7 @@ class DashboardState extends Equatable {
   final DashboardStatus status;
   final String? errorMessage;
 
-  const DashboardState({
-    required this.status,
-    this.errorMessage,
-  });
+  const DashboardState({required this.status, this.errorMessage});
 
   bool get isInitial => status == DashboardStatus.initial;
   bool get isLoading => status == DashboardStatus.loading;
@@ -35,7 +32,9 @@ class DashboardState extends Equatable {
       // Allow explicit null to clear a stale error after a successful refresh.
       // Pass clearErrorMessage: true instead of null to distinguish "not set"
       // from "intentionally cleared".
-      errorMessage: clearErrorMessage ? null : (errorMessage ?? this.errorMessage),
+      errorMessage: clearErrorMessage
+          ? null
+          : (errorMessage ?? this.errorMessage),
     );
   }
 

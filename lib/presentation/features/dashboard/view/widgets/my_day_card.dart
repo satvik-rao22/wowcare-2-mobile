@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_d
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
@@ -45,7 +46,7 @@ class MyDayCard extends StatefulWidget {
   State<MyDayCard> createState() => _MyDayCardState();
 }
 
-class _MyDayCardState extends State<MyDayCard> {
+class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   // ---- collapse state ----
   bool _minimized = false;
 
@@ -233,8 +234,20 @@ class _MyDayCardState extends State<MyDayCard> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     unawaited(_loadClockPin());
     unawaited(_loadStaffIdentity());
+  }
+
+  // Re-checks sign-in status the moment the app comes back to the
+  // foreground — covers the case where this staff member was signed in/out
+  // from the web (or another device) while the app was backgrounded, so the
+  // Sign-In/Sign-Out button doesn't stay stuck showing the stale state.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    unawaited(_loadStaffIdentity());
+    unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
   }
 
   @override
@@ -279,9 +292,13 @@ class _MyDayCardState extends State<MyDayCard> {
       final storage = serviceLocator<StorageService>();
       final schoolCode =
           (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-      debugPrint('[MyDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted');
+      debugPrint(
+        '[MyDayCard] _initializeGeofencing — schoolCode="$schoolCode" mounted=$mounted',
+      );
       if (schoolCode.isEmpty) {
-        debugPrint('[MyDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.');
+        debugPrint(
+          '[MyDayCard] ⚠️ schoolCode is empty — geofencing cannot start. Check that StorageKeys.schoolCode is saved after login.',
+        );
         return;
       }
       if (!mounted) return;
@@ -295,6 +312,7 @@ class _MyDayCardState extends State<MyDayCard> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     super.dispose();
   }
@@ -899,243 +917,190 @@ class _MyDayCardState extends State<MyDayCard> {
           _startTicker();
         },
         builder: (context, state) {
-          return Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.cardColor,
-            ),
-            child: Column(
-              children: [
-                // ── Header ──────────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: DashboardCardHeader(
-                    title: 'My Day',
-                    minimized: _minimized,
-                    onToggle: () => setState(() => _minimized = !_minimized),
+          return DashboardCardErrorOverlay(
+            show: state.status == MyDayStatus.error,
+            onRetry: () => context.read<MyDayCubit>().load(),
+            child: Container(
+              decoration: BoxDecoration(
+                border: Border.all(color: AppColors.cardBorderColor),
+                borderRadius: BorderRadius.circular(12),
+                color: AppColors.cardColor,
+              ),
+              child: Column(
+                children: [
+                  // ── Header ──────────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: DashboardCardHeader(
+                      title: 'My Day',
+                      minimized: _minimized,
+                      onToggle: () => setState(() => _minimized = !_minimized),
+                    ),
                   ),
-                ),
 
-                // ── Status text ──────────────────────────────────────────────
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: state.isLoading
-                      ? _ShimmerLine(width: 180, height: 18)
-                      : Text(
-                          _statusText,
-                          style: const TextStyle(
-                            color: AppColors.primaryColor,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                  // ── Status text ──────────────────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: state.isLoading
+                        ? _ShimmerLine(width: 180, height: 18)
+                        : Text(
+                            _statusText,
+                            style: const TextStyle(
+                              color: AppColors.primaryColor,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                ),
+                  ),
 
-                // ── Expanded body ────────────────────────────────────────────
-                if (!_minimized) ...[
-                  // Countdown timer / shimmer
-                  if (state.isLoading)
-                    _buildShimmerBody()
-                  else ...[
-                    _buildAlignedTimerDisplay(_duration),
-                    if (_hasShifts) const SizedBox(height: 12),
+                  // ── Expanded body ────────────────────────────────────────────
+                  if (!_minimized) ...[
+                    // Countdown timer / shimmer
+                    if (state.isLoading)
+                      _buildShimmerBody()
+                    else ...[
+                      _buildAlignedTimerDisplay(_duration),
+                      if (_hasShifts) const SizedBox(height: 12),
 
-                    // ── Reminder toggle ──────────────────────────────────────
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () {},
-                        borderRadius: BorderRadius.circular(100),
-                        splashColor: AppColors.primaryColor.withValues(
-                          alpha: 0.1,
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
+                      // ── Reminder toggle ──────────────────────────────────────
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () {},
+                          borderRadius: BorderRadius.circular(100),
+                          splashColor: AppColors.primaryColor.withValues(
+                            alpha: 0.1,
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SvgPicture.asset(
-                                MediaRes.notificationsGradientIcon,
-                              ),
-                              const SizedBox(width: 8),
-                              ShaderMask(
-                                shaderCallback: (bounds) =>
-                                    AppColors.buildPrimaryGradient()
-                                        .createShader(
-                                          Rect.fromLTWH(
-                                            0,
-                                            0,
-                                            bounds.width,
-                                            bounds.height,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SvgPicture.asset(
+                                  MediaRes.notificationsGradientIcon,
+                                ),
+                                const SizedBox(width: 8),
+                                ShaderMask(
+                                  shaderCallback: (bounds) =>
+                                      AppColors.buildPrimaryGradient()
+                                          .createShader(
+                                            Rect.fromLTWH(
+                                              0,
+                                              0,
+                                              bounds.width,
+                                              bounds.height,
+                                            ),
                                           ),
-                                        ),
-                                child: Text(
-                                  'Send reminder',
-                                  style: const TextStyle(
-                                    color: AppColors.cardColor,
-                                    fontWeight: FontWeight.w500,
+                                  child: Text(
+                                    'Send reminder',
+                                    style: const TextStyle(
+                                      color: AppColors.cardColor,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Work time chip ───────────────────────────────────────
-                    _CustomChip(
-                      label: 'Work Time : $_workTime',
-                      labelStyle: const TextStyle(
-                        color: AppColors.secondaryColor,
-                      ),
-                      color: const Color.fromRGBO(177, 175, 233, 0.3),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Break time chip ──────────────────────────────────────
-                    _CustomChip(
-                      label: 'Break Time : $_breakTime',
-                      labelStyle: const TextStyle(
-                        color: AppColors.secondaryColor,
-                      ),
-                      color: const Color.fromRGBO(177, 175, 233, 0.3),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // ── Sign-in pin + QR scanner ─────────────────────────────
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ShaderMask(
-                          shaderCallback: (bounds) =>
-                              AppColors.buildPrimaryGradient().createShader(
-                                Rect.fromLTWH(
-                                  0,
-                                  0,
-                                  bounds.width,
-                                  bounds.height,
-                                ),
-                              ),
-                          child: Text(
-                            'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : '--'}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 17 * (-3 / 100),
+                              ],
                             ),
                           ),
                         ),
-                        const SizedBox(width: 16),
-                        const QrScanButton(),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
+                      ),
+                      const SizedBox(height: 8),
 
-                    // ── GPS-gated attendance button ──────────────────────────
-                    BlocBuilder<GeofenceCubit, GeofenceState>(
-                      builder: (context, geofenceState) {
-                        final roleProvider = context.watch<RoleCubit>();
-                        final bool isStaff = roleProvider.isStaff;
-                        final bool isAdmin = roleProvider.isAdmin;
-                        final bool isWithinGeofence =
-                            geofenceState.isWithinGeofence;
-                        // Both staff and admin: button enabled only when within geofence.
-                        final bool signButtonEnabled =
-                            (isStaff || isAdmin) && isWithinGeofence;
-                        // Show attendance buttons for both staff and admin
-                        final bool showSignButton = isStaff || isAdmin;
-                        // Show Transfer/Mark-Absent for staff and admin equally.
-                        final bool showSecondaryButtons = isStaff || isAdmin;
+                      // ── Work time chip ───────────────────────────────────────
+                      _CustomChip(
+                        label: 'Work Time : $_workTime',
+                        labelStyle: const TextStyle(
+                          color: AppColors.secondaryColor,
+                        ),
+                        color: const Color.fromRGBO(177, 175, 233, 0.3),
+                      ),
+                      const SizedBox(height: 8),
 
-                        return Column(
-                          children: [
-                            if (showSignButton)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24.0,
+                      // ── Break time chip ──────────────────────────────────────
+                      _CustomChip(
+                        label: 'Break Time : $_breakTime',
+                        labelStyle: const TextStyle(
+                          color: AppColors.secondaryColor,
+                        ),
+                        color: const Color.fromRGBO(177, 175, 233, 0.3),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // ── Sign-in pin + QR scanner ─────────────────────────────
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ShaderMask(
+                            shaderCallback: (bounds) =>
+                                AppColors.buildPrimaryGradient().createShader(
+                                  Rect.fromLTWH(
+                                    0,
+                                    0,
+                                    bounds.width,
+                                    bounds.height,
+                                  ),
                                 ),
-                                child: Row(
-                                  children: [
-                                    // Transfer (signed-in) or Mark Absent (not signed-in)
-                                    if (showSecondaryButtons && _isSignedIn)
-                                      Expanded(
-                                        child: Tooltip(
-                                          message: _canTransfer
-                                              ? ''
-                                              : staffAttendanceDisabledReasons(
-                                                  _todayGate,
-                                                )['Transfer'] ??
-                                                  '',
-                                          child: OutlinedButton.icon(
-                                          onPressed:
-                                              (!_staffIdentityLoaded ||
-                                                  _staffCode.isEmpty ||
-                                                  !_canTransfer)
-                                                  ? null
-                                                  : _openTransferForSelf,
-                                          icon: !_staffIdentityLoaded
-                                              ? const SizedBox(
-                                                  width: 14,
-                                                  height: 14,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 1.5,
-                                                        color: AppColors
-                                                            .themeColor,
-                                                      ),
-                                                )
-                                              : const SizedBox.shrink(),
-                                          label: const Text(
-                                            'Transfer',
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          style: OutlinedButton.styleFrom(
-                                            foregroundColor:
-                                                AppColors.themeColor,
-                                            side: const BorderSide(
-                                              color: AppColors.themeColor,
-                                            ),
-                                            padding:
-                                                const EdgeInsets.symmetric(
-                                                  vertical: 14,
-                                                ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(14),
-                                            ),
-                                            textStyle: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                          ),
-                                        ),
-                                      )
-                                    else if (showSecondaryButtons &&
-                                        !_isSignedIn)
-                                      Expanded(
-                                        child: GestureDetector(
-                                          onTap: _markAbsentDisabled
-                                              ? _handleMarkAbsentDisabledTap
-                                              : null,
+                            child: Text(
+                              'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : '--'}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 17 * (-3 / 100),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          const QrScanButton(),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── GPS-gated attendance button ──────────────────────────
+                      BlocBuilder<GeofenceCubit, GeofenceState>(
+                        builder: (context, geofenceState) {
+                          final roleProvider = context.watch<RoleCubit>();
+                          final bool isStaff = roleProvider.isStaff;
+                          final bool isAdmin = roleProvider.isAdmin;
+                          final bool isWithinGeofence =
+                              geofenceState.isWithinGeofence;
+                          // Both staff and admin: button enabled only when within geofence.
+                          final bool signButtonEnabled =
+                              (isStaff || isAdmin) && isWithinGeofence;
+                          // Show attendance buttons for both staff and admin
+                          final bool showSignButton = isStaff || isAdmin;
+                          // Show Transfer/Mark-Absent for staff and admin equally.
+                          final bool showSecondaryButtons = isStaff || isAdmin;
+
+                          return Column(
+                            children: [
+                              if (showSignButton)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 24.0,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      // Transfer (signed-in) or Mark Absent (not signed-in)
+                                      if (showSecondaryButtons && _isSignedIn)
+                                        Expanded(
                                           child: Tooltip(
-                                            message: _canMarkAbsent
+                                            message: _canTransfer
                                                 ? ''
                                                 : staffAttendanceDisabledReasons(
-                                                    _todayGate,
-                                                  )['Absent'] ??
-                                                    '',
+                                                        _todayGate,
+                                                      )['Transfer'] ??
+                                                      '',
                                             child: OutlinedButton.icon(
-                                              onPressed: _markAbsentDisabled
+                                              onPressed:
+                                                  (!_staffIdentityLoaded ||
+                                                      _staffCode.isEmpty ||
+                                                      !_canTransfer)
                                                   ? null
-                                                  : _openMarkAbsentForSelf,
+                                                  : _openTransferForSelf,
                                               icon: !_staffIdentityLoaded
                                                   ? const SizedBox(
                                                       width: 14,
@@ -1149,19 +1114,14 @@ class _MyDayCardState extends State<MyDayCard> {
                                                     )
                                                   : const SizedBox.shrink(),
                                               label: const Text(
-                                                'Mark Absent',
-                                                overflow:
-                                                    TextOverflow.ellipsis,
+                                                'Transfer',
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                               style: OutlinedButton.styleFrom(
                                                 foregroundColor:
-                                                    _markAbsentDisabled
-                                                    ? Colors.grey[600]
-                                                    : AppColors.themeColor,
-                                                side: BorderSide(
-                                                  color: _markAbsentDisabled
-                                                      ? Colors.grey[400]!
-                                                      : AppColors.themeColor,
+                                                    AppColors.themeColor,
+                                                side: const BorderSide(
+                                                  color: AppColors.themeColor,
                                                 ),
                                                 padding:
                                                     const EdgeInsets.symmetric(
@@ -1169,9 +1129,7 @@ class _MyDayCardState extends State<MyDayCard> {
                                                     ),
                                                 shape: RoundedRectangleBorder(
                                                   borderRadius:
-                                                      BorderRadius.circular(
-                                                        14,
-                                                      ),
+                                                      BorderRadius.circular(14),
                                                 ),
                                                 textStyle: const TextStyle(
                                                   fontSize: 16,
@@ -1180,87 +1138,159 @@ class _MyDayCardState extends State<MyDayCard> {
                                               ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                    if (showSecondaryButtons)
-                                      const SizedBox(width: 12),
-                                    Expanded(
-                                      child: CustomButtonLayout(
-                                        isForm: false,
-                                        showCancelButton: false,
-                                        confirmButtonLabel: _isSignedIn
-                                            ? 'Sign-Out'
-                                            : 'Sign-In',
-                                        confirmButtonChild: Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Icon(
-                                              Icons.location_on_outlined,
-                                              size: 18,
-                                              color: signButtonEnabled
-                                                  ? AppColors
-                                                        .billingBackgroundColor
-                                                  : Colors.grey[600],
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Flexible(
-                                              child: Text(
-                                                _isSignedIn
-                                                    ? 'Sign-Out'
-                                                    : 'Sign-In',
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: signButtonEnabled
-                                                      ? AppColors
-                                                            .billingBackgroundColor
-                                                      : Colors.grey[600],
+                                        )
+                                      else if (showSecondaryButtons &&
+                                          !_isSignedIn)
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: _markAbsentDisabled
+                                                ? _handleMarkAbsentDisabledTap
+                                                : null,
+                                            child: Tooltip(
+                                              message: _canMarkAbsent
+                                                  ? ''
+                                                  : staffAttendanceDisabledReasons(
+                                                          _todayGate,
+                                                        )['Absent'] ??
+                                                        '',
+                                              child: OutlinedButton.icon(
+                                                onPressed: _markAbsentDisabled
+                                                    ? null
+                                                    : _openMarkAbsentForSelf,
+                                                icon: !_staffIdentityLoaded
+                                                    ? const SizedBox(
+                                                        width: 14,
+                                                        height: 14,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              strokeWidth: 1.5,
+                                                              color: AppColors
+                                                                  .themeColor,
+                                                            ),
+                                                      )
+                                                    : const SizedBox.shrink(),
+                                                label: const Text(
+                                                  'Mark Absent',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                style: OutlinedButton.styleFrom(
+                                                  foregroundColor:
+                                                      _markAbsentDisabled
+                                                      ? Colors.grey[600]
+                                                      : AppColors.themeColor,
+                                                  side: BorderSide(
+                                                    color: _markAbsentDisabled
+                                                        ? Colors.grey[400]!
+                                                        : AppColors.themeColor,
+                                                  ),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 14,
+                                                      ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          14,
+                                                        ),
+                                                  ),
+                                                  textStyle: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                               ),
                                             ),
-                                          ],
+                                          ),
                                         ),
-                                        onPressedConfirm: signButtonEnabled
-                                            ? () {
-                                                if (_isSignedIn) {
-                                                  unawaited(_openSignOutForm());
-                                                } else {
-                                                  unawaited(_openSignInForm());
+                                      if (showSecondaryButtons)
+                                        const SizedBox(width: 12),
+                                      Expanded(
+                                        child: CustomButtonLayout(
+                                          isForm: false,
+                                          showCancelButton: false,
+                                          confirmButtonLabel: _isSignedIn
+                                              ? 'Sign-Out'
+                                              : 'Sign-In',
+                                          confirmButtonChild: Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(
+                                                Icons.location_on_outlined,
+                                                size: 18,
+                                                color: signButtonEnabled
+                                                    ? AppColors
+                                                          .billingBackgroundColor
+                                                    : Colors.grey[600],
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(
+                                                  _isSignedIn
+                                                      ? 'Sign-Out'
+                                                      : 'Sign-In',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: signButtonEnabled
+                                                        ? AppColors
+                                                              .billingBackgroundColor
+                                                        : Colors.grey[600],
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          onPressedConfirm: signButtonEnabled
+                                              ? () {
+                                                  if (_isSignedIn) {
+                                                    unawaited(
+                                                      _openSignOutForm(),
+                                                    );
+                                                  } else {
+                                                    unawaited(
+                                                      _openSignInForm(),
+                                                    );
+                                                  }
                                                 }
-                                              }
-                                            : null,
-                                        disabledConfirmTooltip:
-                                            'You are not within geofencing Range',
-                                        onDisabledConfirmTap: () {
-                                          CoreUtils.showTopSnackBar(
-                                            isWarning: true,
-                                            message:
-                                                'You are not within geofencing Range',
-                                            context: context,
-                                          );
-                                        },
+                                              : null,
+                                          disabledConfirmTooltip:
+                                              'You are not within geofencing Range',
+                                          onDisabledConfirmTap: () {
+                                            CoreUtils.showTopSnackBar(
+                                              isWarning: true,
+                                              message:
+                                                  'You are not within geofencing Range',
+                                              context: context,
+                                            );
+                                          },
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            if (isStaff || isAdmin)
-                              _buildGeofenceStatusLabel(context, geofenceState),
-                          ],
-                        );
-                      },
-                    ),
+                              if (isStaff || isAdmin)
+                                _buildGeofenceStatusLabel(
+                                  context,
+                                  geofenceState,
+                                ),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
                   ],
+
+                  const SizedBox(height: 10),
+
+                  // ── Latest chat preview ──────────────────────────────────────
+                  const _CommunicationRowWidget(),
                 ],
-
-                const SizedBox(height: 10),
-
-                // ── Latest chat preview ──────────────────────────────────────
-                const _CommunicationRowWidget(),
-              ],
+              ),
             ),
           );
         },

@@ -104,7 +104,6 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
     'ASSOCIATE_TEACHER',
     'ASSISTANT_TEACHER',
     'FLOATER',
-    'KIOSK_USER',
   ];
 
   Map<String, String> get _labelToDesignationCode => {
@@ -248,7 +247,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       // Designation options (backend codes; UI shows human-readable labels).
       _designationList = List<String>.from(_designationCodes);
 
-      _attendanceStatusList = ['Expected', 'Present', 'Absent'];
+      _attendanceStatusList = ['Sign In', 'Sign Out', 'Not Marked', 'Absent'];
     });
   }
 
@@ -290,9 +289,22 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         ? 'asc'
         : 'desc';
 
+    // API expects hyphenated codes, e.g. attendanceStatus=SIGN-IN&attendanceStatus=ABSENT.
+    const labelToAttendanceCode = <String, String>{
+      'Sign In': 'SIGN-IN',
+      'Sign Out': 'SIGN-OUT',
+      'Not Marked': 'NOT-MARKED',
+      'Absent': 'ABSENT',
+    };
+    final attendanceStatuses = _selectedAttendanceStatusList
+        .map((label) => labelToAttendanceCode[label])
+        .whereType<String>()
+        .toList();
+
     Navigator.pop(context, {
       'status': status,
       'designation': designation,
+
       /// All selected designations (backend codes), for screens that support multi-select.
       'designations': widget.sections.contains(StaffFilterSection.designation)
           ? List<String>.from(_selectedDesignationList)
@@ -307,6 +319,10 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
           ? allowedCodes
           : const <String>[],
       'sortBy': sortBy,
+      'attendanceStatuses':
+          widget.sections.contains(StaffFilterSection.attendanceStatus)
+          ? attendanceStatuses
+          : const <String>[],
     });
   }
 

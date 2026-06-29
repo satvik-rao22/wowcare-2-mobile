@@ -1103,6 +1103,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                                             ]
                                                           : const <String>[],
                                                       attendanceStatuses:
+                                                          staffState
+                                                              .attendanceStatuses ??
                                                           const <String>[],
                                                       sortBy: staffState.sortBy,
                                                     ),
@@ -1124,6 +1126,9 @@ class _StaffScreenState extends State<StaffScreen> {
                                                   as List<String>?;
                                           final sortBy =
                                               result['sortBy'] as String?;
+                                          final attendanceStatuses =
+                                              result['attendanceStatuses']
+                                                  as List<String>?;
                                           staffCubit.updateFilters(
                                             status: status,
                                             designation: designation,
@@ -1131,6 +1136,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                                 primaryClassroomCodes,
                                             classCodes: classCodes,
                                             sortBy: sortBy,
+                                            attendanceStatuses:
+                                                attendanceStatuses,
                                           );
                                           setState(() {
                                             _showInactive =
@@ -1152,8 +1159,8 @@ class _StaffScreenState extends State<StaffScreen> {
                                               height: 20,
                                             ),
                                           ),
-                                          Builder(
-                                            builder: (context) {
+                                          BlocBuilder<StaffCubit, StaffState>(
+                                            builder: (context, staffState) {
                                               // Show a badge when any non-default filters are applied.
                                               final status =
                                                   (staffState.statusFilter ??
@@ -1184,13 +1191,22 @@ class _StaffScreenState extends State<StaffScreen> {
                                                   statusUpper != 'INACTIVE';
                                               final bool hasDesignation =
                                                   designation.isNotEmpty;
+                                              final bool
+                                              hasAttendanceFilter =
+                                                  staffState
+                                                      .attendanceStatuses
+                                                      ?.isNotEmpty ??
+                                                  false;
 
                                               final int badgeCount =
                                                   (hasNonDefaultStatus
                                                       ? 1
                                                       : 0) +
                                                   (hasDesignation ? 1 : 0) +
-                                                  (hasClassroomFilter ? 1 : 0);
+                                                  (hasClassroomFilter ? 1 : 0) +
+                                                  (hasAttendanceFilter
+                                                      ? 1
+                                                      : 0);
 
                                               if (badgeCount == 0)
                                                 return const SizedBox.shrink();

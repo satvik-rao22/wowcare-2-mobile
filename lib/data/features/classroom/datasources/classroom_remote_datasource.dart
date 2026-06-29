@@ -56,9 +56,11 @@ abstract class ClassroomRemoteDataSource {
   });
 
   /// GET student-classroom enrolled count (active/upcoming/enrolled) for a
-  /// classroom. Org/school scoping headers are attached by AuthInterceptor.
+  /// classroom. Optional [organizationCode]/[schoolCode] are sent as headers.
   Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
     required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
   });
 
   /// GET the logo asset codes list for a school's classrooms.
@@ -316,11 +318,39 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
   @override
   Future<Map<String, dynamic>?> getStudentClassroomEnrolledCount({
     required String classroomCode,
+    String? organizationCode,
+    String? schoolCode,
   }) async {
     final endpoint = ApiPaths.url(
       '/api/v1/student-classroom/enrolled-count/$classroomCode',
     );
-    final response = await _client.get<dynamic>(endpoint);
+    final org = (organizationCode ?? '').trim();
+    final school = (schoolCode ?? '').trim();
+
+    final Response<dynamic> response;
+    if (org.isEmpty && school.isEmpty) {
+      response = await _client.get<dynamic>(endpoint);
+    } else {
+      response = await _client.get<dynamic>(
+        endpoint,
+        options: Options(
+          headers: <String, dynamic>{
+            'accept': 'application/json',
+            if (org.isNotEmpty) ...{
+              'X-Organization-Code': org,
+              'x-organization-code': org,
+              'organizationCode': org,
+            },
+            if (school.isNotEmpty) ...{
+              'X-School-Code': school,
+              'x-school-code': school,
+              'schoolCode': school,
+            },
+          },
+        ),
+      );
+    }
+
     final data = response.data;
     return data is Map<String, dynamic> ? data : null;
   }

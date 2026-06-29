@@ -8,6 +8,7 @@ import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_toggle.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_block_status_style.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/day_classroom_section.dart';
@@ -34,7 +35,7 @@ class ClassroomShiftsCard extends StatefulWidget {
 }
 
 class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
-  static const int _initialDisplayCount = 7;
+  static const int _initialDisplayCount = 6;
 
   DateTime _selectedDate = DateTime.now();
   bool _showAllClassrooms = false;
@@ -130,245 +131,246 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
             : entries.take(_initialDisplayCount).toList();
         final hasMoreToShow = entries.length > _initialDisplayCount;
 
-        return Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.cardBorderColor),
-            borderRadius: BorderRadius.circular(12),
-            color: Colors.white,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Card header ─────────────────────────────────────────────────
-              Row(
-                children: [
-                  const Text(
-                    'Classroom Shifts',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: () {
-                      if (widget.onRedirect != null) {
-                        widget.onRedirect!();
-                      } else {
-                        context.go(SchedulingScreen.routeName);
-                      }
-                    },
-                    behavior: HitTestBehavior.opaque,
-                    child: SvgPicture.asset(
-                      MediaRes.redirectArrowGradientIcon,
-                      width: 16,
-                      height: 16,
-                    ),
-                  ),
-
-                  const Spacer(),
-                  if (state.isLoading && entries.isNotEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(right: 8),
-                      child: SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.primaryColor,
-                        ),
+        return DashboardCardErrorOverlay(
+          show: state.isError,
+          onRetry: () =>
+              context.read<ClassroomShiftsCubit>().load(_selectedDate),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.cardBorderColor),
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.white,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Card header ─────────────────────────────────────────────────
+                Row(
+                  children: [
+                    const Text(
+                      'Classroom Shifts',
+                      style: TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  DashboardCardToggle(
-                    minimized: _minimized,
-                    onTap: () => setState(() => _minimized = !_minimized),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        if (widget.onRedirect != null) {
+                          widget.onRedirect!();
+                        } else {
+                          context.go(SchedulingScreen.routeName);
+                        }
+                      },
+                      behavior: HitTestBehavior.opaque,
+                      child: SvgPicture.asset(
+                        MediaRes.redirectArrowGradientIcon,
+                        width: 16,
+                        height: 16,
+                      ),
+                    ),
 
-              // ── Body ────────────────────────────────────────────────────────
-              AnimatedSize(
-                duration: const Duration(milliseconds: 250),
-                curve: Curves.easeInOut,
-                child: _minimized
-                    ? const SizedBox.shrink()
-                    : Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Legend
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              _LegendItem(
-                                status: ClassroomRatioStatus.underRatio,
-                                label: 'Not In Ratio',
-                                fontSize: _bodyFontSize,
-                              ),
-                              const SizedBox(width: 16),
-                              _LegendItem(
-                                status: ClassroomRatioStatus.inRatio,
-                                label: 'In Ratio',
-                                fontSize: _bodyFontSize,
-                              ),
-                            ],
+                    const Spacer(),
+                    if (state.isLoading && entries.isNotEmpty)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 8),
+                        child: SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primaryColor,
                           ),
-                          const SizedBox(height: 12),
+                        ),
+                      ),
+                    DashboardCardToggle(
+                      minimized: _minimized,
+                      onTap: () => setState(() => _minimized = !_minimized),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
 
-                          // ── Scheduling-screen identical inner container ─────
-                          DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border.all(
-                                color: const Color(0x33162831),
-                              ),
-                              borderRadius: BorderRadius.circular(8),
+                // ── Body ────────────────────────────────────────────────────────
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: _minimized
+                      ? const SizedBox.shrink()
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Legend
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                _LegendItem(
+                                  status: ClassroomRatioStatus.underRatio,
+                                  label: 'Not In Ratio',
+                                  fontSize: _bodyFontSize,
+                                ),
+                                const SizedBox(width: 16),
+                                _LegendItem(
+                                  status: ClassroomRatioStatus.inRatio,
+                                  label: 'In Ratio',
+                                  fontSize: _bodyFontSize,
+                                ),
+                              ],
                             ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  // Header row: "Expand/Collapse All" | date
-                                  SchedulingTableRow(
-                                    onTap: entries.isNotEmpty
-                                        ? _toggleExpandAll
-                                        : null,
-                                    dividerColor: kSchedulingHeaderBorderColor,
-                                    backgroundColor:
-                                        kSchedulingHeaderBackground,
-                                    left: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 14,
-                                      ),
-                                      child: Text(
-                                        _expandAll
-                                            ? 'Collapse All'
-                                            : 'Expand All',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: _bodyFontSize,
-                                          fontWeight: FontWeight.w600,
-                                          color: AppColors.primaryColor,
-                                        ),
-                                      ),
-                                    ),
-                                    right: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      child: _buildDateNavigator(),
-                                    ),
-                                  ),
+                            const SizedBox(height: 12),
 
-                                  // Classroom rows
-                                  if (displayEntries.isEmpty &&
-                                      !state.isLoading)
+                            // ── Scheduling-screen identical inner container ─────
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                border: Border.all(
+                                  color: const Color(0x33162831),
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Header row: "Expand/Collapse All" | date
                                     SchedulingTableRow(
-                                      isLast: true,
+                                      onTap: entries.isNotEmpty
+                                          ? _toggleExpandAll
+                                          : null,
+                                      dividerColor:
+                                          kSchedulingHeaderBorderColor,
+                                      backgroundColor:
+                                          kSchedulingHeaderBackground,
                                       left: Padding(
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 12,
-                                          vertical: 16,
+                                          vertical: 14,
                                         ),
                                         child: Text(
-                                          'No classrooms found',
+                                          _expandAll
+                                              ? 'Collapse All'
+                                              : 'Expand All',
                                           style: TextStyle(
+                                            fontFamily: 'Manrope',
                                             fontSize: _bodyFontSize,
-                                            color: Colors.grey[500],
+                                            fontWeight: FontWeight.w600,
+                                            color: AppColors.primaryColor,
                                           ),
                                         ),
                                       ),
-                                      right: const SizedBox.shrink(),
-                                    )
-                                  else
-                                    for (
-                                      int i = 0;
-                                      i < displayEntries.length;
-                                      i++
-                                    )
-                                      _ClassroomSection(
-                                        entry: displayEntries[i],
-                                        isExpanded: _isExpanded(
-                                          displayEntries[i].classroomCode,
+                                      right: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
                                         ),
-                                        onTap: () => _toggleRow(
-                                          displayEntries[i].classroomCode,
-                                        ),
-                                        isLast:
-                                            i == displayEntries.length - 1 &&
-                                            !hasMoreToShow,
-                                      ),
-                                ],
-                              ),
-                            ),
-                          ),
-
-                          if (state.isError)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              child: Text(
-                                state.errorMessage ?? 'Failed to load data.',
-                                style: const TextStyle(
-                                  color: AppColors.errorColor,
-                                ),
-                              ),
-                            ),
-
-                          // Show More / Show Less
-                          if (!state.isLoading && hasMoreToShow)
-                            InkWell(
-                              onTap: () => setState(
-                                () => _showAllClassrooms = !_showAllClassrooms,
-                              ),
-                              borderRadius: const BorderRadius.only(
-                                bottomLeft: Radius.circular(12),
-                                bottomRight: Radius.circular(12),
-                              ),
-                              child: Container(
-                                width: double.infinity,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppColors.primaryColor.withValues(
-                                    alpha: 0.03,
-                                  ),
-                                  borderRadius: const BorderRadius.only(
-                                    bottomLeft: Radius.circular(12),
-                                    bottomRight: Radius.circular(12),
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      _showAllClassrooms
-                                          ? 'Show Less'
-                                          : 'Show More',
-                                      style: const TextStyle(
-                                        color: AppColors.primaryColor,
-                                        fontWeight: FontWeight.w600,
+                                        child: _buildDateNavigator(),
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    Icon(
-                                      _showAllClassrooms
-                                          ? Icons.keyboard_arrow_up
-                                          : Icons.keyboard_arrow_down,
-                                      color: AppColors.primaryColor,
-                                    ),
+
+                                    // Classroom rows
+                                    if (displayEntries.isEmpty &&
+                                        !state.isLoading)
+                                      SchedulingTableRow(
+                                        isLast: true,
+                                        left: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 16,
+                                          ),
+                                          child: Text(
+                                            'No classrooms found',
+                                            style: TextStyle(
+                                              fontSize: _bodyFontSize,
+                                              color: Colors.grey[500],
+                                            ),
+                                          ),
+                                        ),
+                                        right: const SizedBox.shrink(),
+                                      )
+                                    else
+                                      for (
+                                        int i = 0;
+                                        i < displayEntries.length;
+                                        i++
+                                      )
+                                        _ClassroomSection(
+                                          entry: displayEntries[i],
+                                          isExpanded: _isExpanded(
+                                            displayEntries[i].classroomCode,
+                                          ),
+                                          onTap: () => _toggleRow(
+                                            displayEntries[i].classroomCode,
+                                          ),
+                                          isLast:
+                                              i == displayEntries.length - 1 &&
+                                              !hasMoreToShow,
+                                        ),
                                   ],
                                 ),
                               ),
                             ),
-                        ],
-                      ),
-              ),
-            ],
+
+                            // On error, the card silently keeps showing
+                            // whatever rows are in state (empty table if none)
+                            // instead of surfacing an error line.
+
+                            // Show More / Show Less
+                            if (!state.isLoading && hasMoreToShow)
+                              InkWell(
+                                onTap: () => setState(
+                                  () =>
+                                      _showAllClassrooms = !_showAllClassrooms,
+                                ),
+                                borderRadius: const BorderRadius.only(
+                                  bottomLeft: Radius.circular(12),
+                                  bottomRight: Radius.circular(12),
+                                ),
+                                child: Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.03,
+                                    ),
+                                    borderRadius: const BorderRadius.only(
+                                      bottomLeft: Radius.circular(12),
+                                      bottomRight: Radius.circular(12),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        _showAllClassrooms
+                                            ? 'Show Less'
+                                            : 'Show More',
+                                        style: const TextStyle(
+                                          color: AppColors.primaryColor,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        _showAllClassrooms
+                                            ? Icons.keyboard_arrow_up
+                                            : Icons.keyboard_arrow_down,
+                                        color: AppColors.primaryColor,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                ),
+              ],
+            ),
           ),
         );
       },

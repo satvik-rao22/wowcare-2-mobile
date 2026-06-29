@@ -160,7 +160,8 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
         results[5]
             as ({int overdueExamCount, int studentsWithoutActiveExamCount})?;
 
-    final anyFailed = incidentResult == null ||
+    final anyFailed =
+        incidentResult == null ||
         movementResult == null ||
         staffDocResult == null ||
         staffCheckupResult == null ||

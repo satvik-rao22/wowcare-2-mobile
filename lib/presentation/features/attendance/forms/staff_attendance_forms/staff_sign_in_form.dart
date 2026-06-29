@@ -497,8 +497,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     late final String attendanceDate;
 
     // QR sign-in is always self (current moment); admin GPS sign-in can use the picker.
+    // Self sign-in (forceSelf) must also use "now" — the backend's /self endpoint
+    // always rejects backdated timestamps, so the stale picker value can't be sent.
     final bool isQrForTime = widget.qrToken.isNotEmpty;
-    if (!isStaffAdmin || isQrForTime) {
+    if (!isStaffAdmin || isQrForTime || widget.forceSelf) {
       if (!isStaffAdmin &&
           (targetStaffCodes.length != 1 ||
               targetStaffCodes.first != staffCode)) {

@@ -30,6 +30,8 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule.dart';
 
+import 'dashboard_error_chip.dart';
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -101,7 +103,7 @@ class MyChildsDayCard extends StatefulWidget {
 }
 
 class _MyChildsDayCardState extends State<MyChildsDayCard>
-    with AutomaticKeepAliveClientMixin {
+    with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
   bool _isMinimized = false;
   String _selectedChildCode = '';
   bool _didLoadCommunication = false;
@@ -134,6 +136,30 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  // Re-checks sign-in status the moment the app comes back to the
+  // foreground — covers the case where a child was signed in/out from the
+  // web (or another device) while this app was backgrounded, so the button
+  // doesn't stay stuck showing the stale state.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || !mounted) return;
+    final childCodes = Provider.of<ParentChildCubit>(context, listen: false)
+        .children
+        .map((c) => c.code)
+        .toList();
+    if (childCodes.isNotEmpty) {
+      unawaited(_loadChildrenSignInStatus(childCodes));
+    }
+    if (_selectedChildCode.isNotEmpty) {
+      unawaited(
+        context.read<MyChildsDayCubit>().loadForChild(
+          studentCode: _selectedChildCode,
+        ),
+      );
+    }
   }
 
   @override
@@ -185,6 +211,24 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       await context.read<GeofenceCubit>().initForSchool(schoolCode: schoolCode);
     } catch (_) {
       // Geofencing is best-effort; ignore init failures.
+    }
+  }
+
+  /// Re-checks sign-in status for [children] and reloads the selected
+  /// child's schedule — called right after a sign-in/out form succeeds (via
+  /// `refreshCallback`) and again once the form's route closes, so the
+  /// Sign-In/Sign-Out button flips immediately instead of staying stale.
+  void _refreshSignInStatusAfterAction(List<ParentChildRef> children) {
+    final codes = children.map((c) => c.code.trim()).where((c) => c.isNotEmpty).toList();
+    if (codes.isNotEmpty) {
+      unawaited(_loadChildrenSignInStatus(codes));
+    }
+    if (_selectedChildCode.isNotEmpty) {
+      unawaited(
+        context.read<MyChildsDayCubit>().loadForChild(
+          studentCode: _selectedChildCode,
+        ),
+      );
     }
   }
 
@@ -346,6 +390,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _stopCountdownTimer();
     _statusText.dispose();
     _duration.dispose();
@@ -613,10 +658,13 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                     builder: (context) => student_sign_out.StudentSignOutForm(
                       students: students,
                       popOnSuccess: true,
-                      refreshCallback: () {},
+                      refreshCallback: () =>
+                          _refreshSignInStatusAfterAction(children),
                     ),
                   ),
-                ),
+                ).then((_) {
+                  if (mounted) _refreshSignInStatusAfterAction(children);
+                }),
               );
             }
           : null;
@@ -648,11 +696,14 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                   MaterialPageRoute(
                     builder: (context) => student_sign_in.StudentSignInForm(
                       students: students,
-                      refreshCallback: () {},
+                      refreshCallback: () =>
+                          _refreshSignInStatusAfterAction(children),
                       popOnSuccess: true,
                     ),
                   ),
-                ),
+                ).then((_) {
+                  if (mounted) _refreshSignInStatusAfterAction(children);
+                }),
               );
             }
           : null;
@@ -792,319 +843,336 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Card(
-      elevation: 0,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+    final isError =
+        context.watch<MyChildsDayCubit>().state.status ==
+        MyChildsDayStatus.error;
+    return DashboardCardErrorOverlay(
+      show: isError,
+      onRetry: () => context.read<MyChildsDayCubit>().loadForChild(
+        studentCode: _selectedChildCode,
       ),
-      child: Column(
-        children: [
-          // ---- Header + collapsible body ----
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-              color: Colors.white,
-            ),
-            child: BlocBuilder<ParentChildCubit, ParentChildState>(
-              builder: (context, state) {
-                final selectedChild = state.selectedChild;
-                if (!_didLoadCommunication) {
-                  _didLoadCommunication = true;
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    // fire-and-forget: errors are handled inside the cubit
-                    unawaited(
-                      context.read<CommunicationCubit>().loadConversations(),
-                    );
-                  });
-                }
+      child: Card(
+        elevation: 0,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Column(
+          children: [
+            // ---- Header + collapsible body ----
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              decoration: const BoxDecoration(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                color: Colors.white,
+              ),
+              child: BlocBuilder<ParentChildCubit, ParentChildState>(
+                builder: (context, state) {
+                  final selectedChild = state.selectedChild;
+                  if (!_didLoadCommunication) {
+                    _didLoadCommunication = true;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      // fire-and-forget: errors are handled inside the cubit
+                      unawaited(
+                        context.read<CommunicationCubit>().loadConversations(),
+                      );
+                    });
+                  }
 
-                return MultiBlocListener(
-                  listeners: [
-                    BlocListener<ParentChildCubit, ParentChildState>(
-                      listenWhen: (prev, curr) =>
-                          prev.refreshNonce != curr.refreshNonce ||
-                          prev.selectedChild?.code !=
-                              curr.selectedChild?.code ||
-                          prev.children.length != curr.children.length,
-                      listener: (context, parentState) {
-                        final allChildCodes = parentState.children
-                            .map((c) => c.code)
-                            .toList();
-                        if (allChildCodes.isNotEmpty) {
-                          unawaited(_loadChildrenSignInStatus(allChildCodes));
-                        }
-                      },
-                    ),
-                    // ── MyChildsDay state changes ──────────────────────
-                    BlocListener<MyChildsDayCubit, MyChildsDayState>(
-                      listenWhen: (prev, curr) =>
+                  return MultiBlocListener(
+                    listeners: [
+                      BlocListener<ParentChildCubit, ParentChildState>(
+                        listenWhen: (prev, curr) =>
+                            prev.refreshNonce != curr.refreshNonce ||
+                            prev.selectedChild?.code !=
+                                curr.selectedChild?.code ||
+                            prev.children.length != curr.children.length,
+                        listener: (context, parentState) {
+                          final allChildCodes = parentState.children
+                              .map((c) => c.code)
+                              .toList();
+                          if (allChildCodes.isNotEmpty) {
+                            unawaited(_loadChildrenSignInStatus(allChildCodes));
+                          }
+                        },
+                      ),
+                      // ── MyChildsDay state changes ──────────────────────
+                      BlocListener<MyChildsDayCubit, MyChildsDayState>(
+                        listenWhen: (prev, curr) =>
+                            prev.status != curr.status ||
+                            prev.studentCode != curr.studentCode ||
+                            prev.allRegularSchedules !=
+                                curr.allRegularSchedules ||
+                            prev.schoolTimeZone != curr.schoolTimeZone ||
+                            prev.schoolCode != curr.schoolCode,
+                        listener: (context, s) {
+                          if (s.status == MyChildsDayStatus.loaded &&
+                              s.schoolTimeZone.trim().isNotEmpty) {
+                            _startCountdownTimer(
+                              schoolTimeZone: s.schoolTimeZone,
+                              allSchedules: s.allRegularSchedules,
+                            );
+                          } else {
+                            _stopCountdownTimer();
+                            _statusText.value = 'Loading schedule...';
+                            _duration.value = Duration.zero;
+                          }
+                        },
+                      ),
+                      // ── Show popup the moment the user enters the zone ──
+                      BlocListener<GeofenceCubit, GeofenceState>(
+                        listenWhen: (prev, curr) =>
+                            prev.status != GeofenceCubitStatus.withinRange &&
+                            curr.status == GeofenceCubitStatus.withinRange,
+                        listener: (context, _) {
+                          // GeofenceCubit already fires the notification via
+                          // _triggerNotificationIfNeeded — no need to do it here.
+                          if (!context.mounted) return;
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (!mounted) return;
+                            unawaited(
+                              GeofenceSignInSheet.show(
+                                context,
+                                role: 'parent',
+                                isSignedIn: _isSelectedChildSignedIn,
+                                studentName: selectedChild?.name,
+                              ),
+                            );
+                          });
+                        },
+                      ),
+                    ],
+                    child: BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
+                      buildWhen: (prev, curr) =>
                           prev.status != curr.status ||
                           prev.studentCode != curr.studentCode ||
+                          prev.fullName != curr.fullName ||
+                          prev.classroomName != curr.classroomName ||
+                          prev.todayDayOfWeek != curr.todayDayOfWeek ||
                           prev.allRegularSchedules !=
                               curr.allRegularSchedules ||
-                          prev.schoolTimeZone != curr.schoolTimeZone ||
-                          prev.schoolCode != curr.schoolCode,
-                      listener: (context, s) {
-                        if (s.status == MyChildsDayStatus.loaded &&
-                            s.schoolTimeZone.trim().isNotEmpty) {
-                          _startCountdownTimer(
-                            schoolTimeZone: s.schoolTimeZone,
-                            allSchedules: s.allRegularSchedules,
-                          );
-                        } else {
-                          _stopCountdownTimer();
-                          _statusText.value = 'Loading schedule...';
-                          _duration.value = Duration.zero;
-                        }
-                      },
-                    ),
-                    // ── Show popup the moment the user enters the zone ──
-                    BlocListener<GeofenceCubit, GeofenceState>(
-                      listenWhen: (prev, curr) =>
-                          prev.status != GeofenceCubitStatus.withinRange &&
-                          curr.status == GeofenceCubitStatus.withinRange,
-                      listener: (context, _) {
-                        // GeofenceCubit already fires the notification via
-                        // _triggerNotificationIfNeeded — no need to do it here.
-                        if (!context.mounted) return;
-                        WidgetsBinding.instance.addPostFrameCallback((_) {
-                          if (!mounted) return;
-                          unawaited(
-                            GeofenceSignInSheet.show(
-                              context,
-                              role: 'parent',
-                              isSignedIn: _isSelectedChildSignedIn,
-                              studentName: selectedChild?.name,
-                            ),
-                          );
-                        });
-                      },
-                    ),
-                  ],
-                  child: BlocBuilder<MyChildsDayCubit, MyChildsDayState>(
-                    buildWhen: (prev, curr) =>
-                        prev.status != curr.status ||
-                        prev.studentCode != curr.studentCode ||
-                        prev.fullName != curr.fullName ||
-                        prev.classroomName != curr.classroomName ||
-                        prev.todayDayOfWeek != curr.todayDayOfWeek ||
-                        prev.allRegularSchedules != curr.allRegularSchedules ||
-                        prev.schoolTimeZone != curr.schoolTimeZone,
-                    builder: (context, myChildsDayState) {
-                      final isLoading =
-                          myChildsDayState.status == MyChildsDayStatus.loading;
-                      final isError =
-                          myChildsDayState.status == MyChildsDayStatus.error;
+                          prev.schoolTimeZone != curr.schoolTimeZone,
+                      builder: (context, myChildsDayState) {
+                        final isLoading =
+                            myChildsDayState.status ==
+                            MyChildsDayStatus.loading;
+                        final isError =
+                            myChildsDayState.status == MyChildsDayStatus.error;
 
-                      return Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          DashboardCardHeader(
-                            title: "My Child's Day",
-                            minimized: _isMinimized,
-                            onToggle: () =>
-                                setState(() => _isMinimized = !_isMinimized),
-                          ),
-                          if (!_isMinimized) ...[
-                            const SizedBox(height: 12),
-                            if ((state.isLoading && state.children.isEmpty) ||
-                                isLoading)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 16),
-                                child: MyChildsDayCardShimmer(),
-                              )
-                            else if (selectedChild == null)
-                              Center(
-                                child: Text(
-                                  'No children linked',
-                                  style: TextStyle(
-                                    color: AppColors.primaryColor.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              )
-                            else if (isError)
-                              Center(
-                                child: Text(
-                                  'Failed to load student details',
-                                  style: TextStyle(
-                                    color: AppColors.primaryColor.withValues(
-                                      alpha: 0.7,
-                                    ),
-                                    fontSize: 14,
-                                  ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              )
-                            else ...[
-                              ValueListenableBuilder<String>(
-                                valueListenable: _statusText,
-                                builder: (context, statusText, _) {
-                                  return Center(
-                                    child: Text(
-                                      statusText,
-                                      style: const TextStyle(
-                                        color: AppColors.primaryColor,
-                                        fontSize: 17,
+                        return Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DashboardCardHeader(
+                              title: "My Child's Day",
+                              minimized: _isMinimized,
+                              onToggle: () =>
+                                  setState(() => _isMinimized = !_isMinimized),
+                            ),
+                            if (!_isMinimized) ...[
+                              const SizedBox(height: 12),
+                              if ((state.isLoading && state.children.isEmpty) ||
+                                  isLoading)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  child: MyChildsDayCardShimmer(),
+                                )
+                              else if (selectedChild == null)
+                                Center(
+                                  child: Text(
+                                    'No children linked',
+                                    style: TextStyle(
+                                      color: AppColors.primaryColor.withValues(
+                                        alpha: 0.7,
                                       ),
-                                      textAlign: TextAlign.center,
+                                      fontSize: 14,
                                     ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 4),
-                              ValueListenableBuilder<Duration>(
-                                valueListenable: _duration,
-                                builder: (context, duration, _) {
-                                  return _buildAlignedTimerDisplay(duration);
-                                },
-                              ),
-                              const SizedBox(height: 16),
-                              _buildReminderRow(),
-                              const SizedBox(height: 20),
-                              // _buildStudentDetailContainer(
-                              //   studentName: isLoaded
-                              //       ? myChildsDayState.fullName
-                              //       : selectedChild.name,
-                              //   classroomName: isLoaded
-                              //       ? myChildsDayState.classroomName
-                              //       : (selectedChild.primaryClassroomName ??
-                              //                 selectedChild.classroom)
-                              //             .trim(),
-                              //   dayOfWeek: isLoaded
-                              //       ? myChildsDayState.todayDayOfWeek
-                              //       : '',
-                              //   todayScheduleRange: isLoaded
-                              //       ? myChildsDayState.todayScheduleRange
-                              //       : '',
-                              //   schoolTimeZone: isLoaded
-                              //       ? myChildsDayState.schoolTimeZone
-                              //       : '',
-                              //   schoolNow: isLoaded
-                              //       ? myChildsDayState.schoolNow
-                              //       : null,
-                              //   studentStatus: selectedChild.status,
-                              // ),
-                              // const SizedBox(height: 16),
-                              _buildSignInPinRow(selectedChild: selectedChild),
-                              const SizedBox(height: 16),
-                              BlocBuilder<GeofenceCubit, GeofenceState>(
-                                builder: (context, geofenceState) {
-                                  return Column(
-                                    children: [
-                                      _buildSignInOutButton(
-                                        geofenceState: geofenceState,
-                                        parentChildState: state,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                )
+                              else if (isError)
+                                Center(
+                                  child: Text(
+                                    'Failed to load student details',
+                                    style: TextStyle(
+                                      color: AppColors.primaryColor.withValues(
+                                        alpha: 0.7,
                                       ),
-                                      if (geofenceState.status ==
-                                          GeofenceCubitStatus.permissionDenied)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 12.0,
-                                            left: 24.0,
-                                            right: 24.0,
-                                          ),
-                                          child: GestureDetector(
-                                            onTap: () => context
-                                                .read<GeofenceCubit>()
-                                                .retryPermission(),
+                                      fontSize: 14,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                )
+                              else ...[
+                                ValueListenableBuilder<String>(
+                                  valueListenable: _statusText,
+                                  builder: (context, statusText, _) {
+                                    return Center(
+                                      child: Text(
+                                        statusText,
+                                        style: const TextStyle(
+                                          color: AppColors.primaryColor,
+                                          fontSize: 17,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 4),
+                                ValueListenableBuilder<Duration>(
+                                  valueListenable: _duration,
+                                  builder: (context, duration, _) {
+                                    return _buildAlignedTimerDisplay(duration);
+                                  },
+                                ),
+                                const SizedBox(height: 16),
+                                _buildReminderRow(),
+                                const SizedBox(height: 20),
+                                // _buildStudentDetailContainer(
+                                //   studentName: isLoaded
+                                //       ? myChildsDayState.fullName
+                                //       : selectedChild.name,
+                                //   classroomName: isLoaded
+                                //       ? myChildsDayState.classroomName
+                                //       : (selectedChild.primaryClassroomName ??
+                                //                 selectedChild.classroom)
+                                //             .trim(),
+                                //   dayOfWeek: isLoaded
+                                //       ? myChildsDayState.todayDayOfWeek
+                                //       : '',
+                                //   todayScheduleRange: isLoaded
+                                //       ? myChildsDayState.todayScheduleRange
+                                //       : '',
+                                //   schoolTimeZone: isLoaded
+                                //       ? myChildsDayState.schoolTimeZone
+                                //       : '',
+                                //   schoolNow: isLoaded
+                                //       ? myChildsDayState.schoolNow
+                                //       : null,
+                                //   studentStatus: selectedChild.status,
+                                // ),
+                                // const SizedBox(height: 16),
+                                _buildSignInPinRow(
+                                  selectedChild: selectedChild,
+                                ),
+                                const SizedBox(height: 16),
+                                BlocBuilder<GeofenceCubit, GeofenceState>(
+                                  builder: (context, geofenceState) {
+                                    return Column(
+                                      children: [
+                                        _buildSignInOutButton(
+                                          geofenceState: geofenceState,
+                                          parentChildState: state,
+                                        ),
+                                        if (geofenceState.status ==
+                                            GeofenceCubitStatus
+                                                .permissionDenied)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 12.0,
+                                              left: 24.0,
+                                              right: 24.0,
+                                            ),
+                                            child: GestureDetector(
+                                              onTap: () => context
+                                                  .read<GeofenceCubit>()
+                                                  .retryPermission(),
+                                              child: Text(
+                                                'Location permission required. Tap to enable.',
+                                                style: TextStyle(
+                                                  color: AppColors.primaryColor
+                                                      .withValues(alpha: 0.65),
+                                                  fontSize: 12,
+                                                  decoration:
+                                                      TextDecoration.underline,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                          )
+                                        else if (geofenceState.status ==
+                                            GeofenceCubitStatus
+                                                .locationDisabled)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 12.0,
+                                              left: 24.0,
+                                              right: 24.0,
+                                            ),
                                             child: Text(
-                                              'Location permission required. Tap to enable.',
+                                              'Location services are disabled.',
                                               style: TextStyle(
                                                 color: AppColors.primaryColor
                                                     .withValues(alpha: 0.65),
                                                 fontSize: 12,
-                                                decoration:
-                                                    TextDecoration.underline,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          )
+                                        else if (geofenceState.status ==
+                                            GeofenceCubitStatus.outsideRange)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 12.0,
+                                              left: 24.0,
+                                              right: 24.0,
+                                            ),
+                                            child: Text(
+                                              'You are not within the school sign-in zone.',
+                                              style: TextStyle(
+                                                color: AppColors.primaryColor
+                                                    .withValues(alpha: 0.65),
+                                                fontSize: 12,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                          )
+                                        else if (geofenceState.status ==
+                                                GeofenceCubitStatus
+                                                    .checkingPermission ||
+                                            geofenceState.status ==
+                                                GeofenceCubitStatus
+                                                    .fetchingSchoolLocation)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 12.0,
+                                              left: 24.0,
+                                              right: 24.0,
+                                            ),
+                                            child: Text(
+                                              'Checking location...',
+                                              style: TextStyle(
+                                                color: AppColors.primaryColor
+                                                    .withValues(alpha: 0.65),
+                                                fontSize: 12,
                                               ),
                                               textAlign: TextAlign.center,
                                             ),
                                           ),
-                                        )
-                                      else if (geofenceState.status ==
-                                          GeofenceCubitStatus.locationDisabled)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 12.0,
-                                            left: 24.0,
-                                            right: 24.0,
-                                          ),
-                                          child: Text(
-                                            'Location services are disabled.',
-                                            style: TextStyle(
-                                              color: AppColors.primaryColor
-                                                  .withValues(alpha: 0.65),
-                                              fontSize: 12,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        )
-                                      else if (geofenceState.status ==
-                                          GeofenceCubitStatus.outsideRange)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 12.0,
-                                            left: 24.0,
-                                            right: 24.0,
-                                          ),
-                                          child: Text(
-                                            'You are not within the school sign-in zone.',
-                                            style: TextStyle(
-                                              color: AppColors.primaryColor
-                                                  .withValues(alpha: 0.65),
-                                              fontSize: 12,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        )
-                                      else if (geofenceState.status ==
-                                              GeofenceCubitStatus
-                                                  .checkingPermission ||
-                                          geofenceState.status ==
-                                              GeofenceCubitStatus
-                                                  .fetchingSchoolLocation)
-                                        Padding(
-                                          padding: const EdgeInsets.only(
-                                            top: 12.0,
-                                            left: 24.0,
-                                            right: 24.0,
-                                          ),
-                                          child: Text(
-                                            'Checking location...',
-                                            style: TextStyle(
-                                              color: AppColors.primaryColor
-                                                  .withValues(alpha: 0.65),
-                                              fontSize: 12,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                    ],
-                                  );
-                                },
-                              ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                              ],
                             ],
                           ],
-                        ],
-                      );
-                    },
-                  ),
-                );
-              },
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
 
-          // if (!_isMinimized) _buildCommunicationSection(),
-          if (!_isMinimized) const _CommunicationRowWidget(),
-        ],
+            // if (!_isMinimized) _buildCommunicationSection(),
+            if (!_isMinimized) const _CommunicationRowWidget(),
+          ],
+        ),
       ),
     );
   }

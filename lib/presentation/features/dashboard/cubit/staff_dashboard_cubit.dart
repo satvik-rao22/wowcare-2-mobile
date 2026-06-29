@@ -9,11 +9,11 @@ part 'staff_dashboard_state.dart';
 /// Replaces [StaffDashboardViewModel] (ChangeNotifier).
 class StaffDashboardCubit extends Cubit<StaffDashboardState> {
   StaffDashboardCubit()
-      : super(
-          StaffDashboardState(
-            cards: List<StaffDashboardCard>.of(StaffDashboardCard.values),
-          ),
-        );
+    : super(
+        StaffDashboardState(
+          cards: List<StaffDashboardCard>.of(StaffDashboardCard.values),
+        ),
+      );
 
   void reorderCard(int oldIndex, int newIndex) {
     var target = newIndex;
