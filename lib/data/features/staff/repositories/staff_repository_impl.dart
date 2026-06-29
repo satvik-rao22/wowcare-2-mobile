@@ -43,6 +43,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) {
     // Make cached staff list depend on filters.
     String norm(String? v) => (v ?? '').trim().toUpperCase();
@@ -61,6 +62,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         .where((c) => c.isNotEmpty)
         .toList()
       ..sort();
+    final attendanceKey = (attendanceStatuses ?? [])
+        .map((c) => c.trim().toUpperCase())
+        .where((c) => c.isNotEmpty)
+        .toList()
+      ..sort();
 
     final identifier = [
       schoolCode,
@@ -69,6 +75,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       if (searchKey.isNotEmpty) 'search=$searchKey',
       if (primaryKey.isNotEmpty) 'primaryClassrooms=${primaryKey.join(',')}',
       if (classKey.isNotEmpty) 'classCodes=${classKey.join(',')}',
+      if (attendanceKey.isNotEmpty) 'attendanceStatus=${attendanceKey.join(',')}',
       'sort=$sortKey',
     ].join('|');
 
@@ -201,6 +208,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     final listKey = _staffListCacheKey(
       schoolCode,
@@ -210,6 +218,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       primaryClassroomCodes: primaryClassroomCodes,
       classCodes: classCodes,
       sortBy: sortBy,
+      attendanceStatuses: attendanceStatuses,
     );
     _registerStaffListCacheKey(schoolCode, listKey);
 
@@ -226,6 +235,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         primaryClassroomCodes: primaryClassroomCodes,
         classCodes: classCodes,
         sortBy: sortBy,
+        attendanceStatuses: attendanceStatuses,
       );
 
       if (page == 0) {
@@ -248,6 +258,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
           primaryClassroomCodes: primaryClassroomCodes,
           classCodes: classCodes,
           sortBy: sortBy,
+          attendanceStatuses: attendanceStatuses,
         );
         if (cached != null) {
           return cached;
@@ -288,6 +299,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     final key = _staffListCacheKey(
       schoolCode,
@@ -297,6 +309,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       primaryClassroomCodes: primaryClassroomCodes,
       classCodes: classCodes,
       sortBy: sortBy,
+      attendanceStatuses: attendanceStatuses,
     );
     _registerStaffListCacheKey(schoolCode, key);
     final payload = await _cacheManager.loadCache(key);
@@ -315,6 +328,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     await _cacheManager.invalidateCache(
       _staffListCacheKey(
@@ -325,6 +339,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         primaryClassroomCodes: primaryClassroomCodes,
         classCodes: classCodes,
         sortBy: sortBy,
+        attendanceStatuses: attendanceStatuses,
       ),
     );
   }

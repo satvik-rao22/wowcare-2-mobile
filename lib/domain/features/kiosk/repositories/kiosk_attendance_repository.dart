@@ -10,6 +10,7 @@ abstract class KioskAttendanceRepository {
   /// Does NOT call dashboard APIs (staff lookup, form listing, status checks).
   Future<KioskStaffAttendanceEntity> signInStaff({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -22,6 +23,7 @@ abstract class KioskAttendanceRepository {
   /// Does NOT call dashboard attendance APIs.
   Future<KioskStaffAttendanceEntity> signOutStaff({
     required String staffCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -34,6 +36,7 @@ abstract class KioskAttendanceRepository {
   Future<List<KioskStudentAttendanceEntity>> signInStudents({
     required List<String> studentCodes,
     required String guardianCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,
@@ -46,6 +49,7 @@ abstract class KioskAttendanceRepository {
   Future<List<KioskStudentAttendanceEntity>> signOutStudents({
     required List<String> studentCodes,
     required String guardianCode,
+    required String schoolCode,
     required String timeZone,
     required double latitude,
     required double longitude,

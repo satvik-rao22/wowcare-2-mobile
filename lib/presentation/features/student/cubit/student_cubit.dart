@@ -20,10 +20,10 @@ class StudentCubit extends Cubit<StudentState> {
     required GetStudentPageUseCase getStudentPageUseCase,
     required StudentRepository repository,
     required StorageService storageService,
-  })  : _getStudentPageUseCase = getStudentPageUseCase,
-        _repository = repository,
-        _storageService = storageService,
-        super(const StudentState.initial());
+  }) : _getStudentPageUseCase = getStudentPageUseCase,
+       _repository = repository,
+       _storageService = storageService,
+       super(const StudentState.initial());
 
   final GetStudentPageUseCase _getStudentPageUseCase;
   final StudentRepository _repository;
@@ -53,7 +53,9 @@ class StudentCubit extends Cubit<StudentState> {
 
   Future<void> _ensureClassroomScopeResolved() async {
     if (_isScopedStaffPersona != null && _allowedClassroomCodes != null) return;
-    final scoped = await isAttendanceScopedStaffPersona(storage: _storageService);
+    final scoped = await isAttendanceScopedStaffPersona(
+      storage: _storageService,
+    );
     final allowed = await resolveAttendanceAllowedClassroomCodes(
       storage: _storageService,
     );
@@ -68,7 +70,8 @@ class StudentCubit extends Cubit<StudentState> {
   List<String>? _effectiveClassroomCodesForRequest() {
     final scoped = _isScopedStaffPersona == true;
     final allowed = _allowedClassroomCodes ?? const <String>[];
-    final selected = state.classroomCodesFilter
+    final selected =
+        state.classroomCodesFilter
             ?.map((e) => e.trim())
             .where((e) => e.isNotEmpty)
             .toSet()
@@ -84,7 +87,9 @@ class StudentCubit extends Cubit<StudentState> {
       return List<String>.from(allowedSet);
     }
 
-    return selected.where((c) => allowedSet.contains(c)).toList(growable: false);
+    return selected
+        .where((c) => allowedSet.contains(c))
+        .toList(growable: false);
   }
 
   Future<void> loadInitial() async {
@@ -92,7 +97,8 @@ class StudentCubit extends Cubit<StudentState> {
     await _ensureClassroomScopeResolved();
     final effectiveClassroomCodes = _effectiveClassroomCodesForRequest();
 
-    if (_isScopedStaffPersona == true && (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
+    if (_isScopedStaffPersona == true &&
+        (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -116,6 +122,7 @@ class StudentCubit extends Cubit<StudentState> {
             classroomCodes: effectiveClassroomCodes,
             tagCodes: state.tagCodesFilter,
             guardianCodes: state.guardianCodesFilter,
+            attendanceStatuses: state.attendanceStatusesFilter,
             search: state.searchQuery,
             code: state.codeFilter,
             firstName: state.firstNameFilter,
@@ -148,7 +155,8 @@ class StudentCubit extends Cubit<StudentState> {
     await _ensureClassroomScopeResolved();
     final effectiveClassroomCodes = _effectiveClassroomCodesForRequest();
 
-    if (_isScopedStaffPersona == true && (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
+    if (_isScopedStaffPersona == true &&
+        (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -188,6 +196,7 @@ class StudentCubit extends Cubit<StudentState> {
         classroomCodes: effectiveClassroomCodes,
         tagCodes: state.tagCodesFilter,
         guardianCodes: state.guardianCodesFilter,
+        attendanceStatuses: state.attendanceStatusesFilter,
         search: state.searchQuery,
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
@@ -212,6 +221,7 @@ class StudentCubit extends Cubit<StudentState> {
           classroomCodes: effectiveClassroomCodes,
           tagCodes: state.tagCodesFilter,
           guardianCodes: state.guardianCodesFilter,
+          attendanceStatuses: state.attendanceStatusesFilter,
           search: state.searchQuery,
           firstName: state.firstNameFilter,
           lastName: state.lastNameFilter,
@@ -261,17 +271,19 @@ class StudentCubit extends Cubit<StudentState> {
     await _ensureClassroomScopeResolved();
     final effectiveClassroomCodes = _effectiveClassroomCodesForRequest();
     if (_repository is StudentRepositoryWithCache) {
-      await (_repository as StudentRepositoryWithCache).invalidateCachedStudentPage(
-        schoolCode,
-        status: state.statusFilter,
-        classroomCodes: effectiveClassroomCodes,
-        tagCodes: state.tagCodesFilter,
-        guardianCodes: state.guardianCodesFilter,
-        search: state.searchQuery,
-        code: state.codeFilter,
-        firstName: state.firstNameFilter,
-        lastName: state.lastNameFilter,
-      );
+      await (_repository as StudentRepositoryWithCache)
+          .invalidateCachedStudentPage(
+            schoolCode,
+            status: state.statusFilter,
+            classroomCodes: effectiveClassroomCodes,
+            tagCodes: state.tagCodesFilter,
+            guardianCodes: state.guardianCodesFilter,
+            attendanceStatuses: state.attendanceStatusesFilter,
+            search: state.searchQuery,
+            code: state.codeFilter,
+            firstName: state.firstNameFilter,
+            lastName: state.lastNameFilter,
+          );
     }
     // Force reload even if another refresh was triggered very recently.
     await refresh(ignoreRefreshingGuard: true);
@@ -284,7 +296,8 @@ class StudentCubit extends Cubit<StudentState> {
     await _ensureClassroomScopeResolved();
     final effectiveClassroomCodes = _effectiveClassroomCodesForRequest();
 
-    if (_isScopedStaffPersona == true && (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
+    if (_isScopedStaffPersona == true &&
+        (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -310,6 +323,7 @@ class StudentCubit extends Cubit<StudentState> {
         classroomCodes: effectiveClassroomCodes,
         tagCodes: state.tagCodesFilter,
         guardianCodes: state.guardianCodesFilter,
+        attendanceStatuses: state.attendanceStatusesFilter,
         search: state.searchQuery,
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
@@ -328,21 +342,12 @@ class StudentCubit extends Cubit<StudentState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(
-        state.copyWith(
-          isLoadingMore: false,
-          errorMessage: e.toString(),
-        ),
-      );
+      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toString()));
     }
   }
 
   void updateSearch(String query) {
-    emit(
-      state.copyWith(
-        searchQuery: query,
-      ),
-    );
+    emit(state.copyWith(searchQuery: query));
   }
 
   void updateFilters({
@@ -353,6 +358,7 @@ class StudentCubit extends Cubit<StudentState> {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
   }) {
     emit(
       state.copyWith(
@@ -363,6 +369,7 @@ class StudentCubit extends Cubit<StudentState> {
         classroomCodesFilter: classroomCodes,
         tagCodesFilter: tagCodes,
         guardianCodesFilter: guardianCodes,
+        attendanceStatusesFilter: attendanceStatuses,
       ),
     );
   }
@@ -412,9 +419,9 @@ class StudentCubit extends Cubit<StudentState> {
   }
 
   void removeStudent(String code) {
-    final updated =
-        state.items.where((element) => element.code != code).toList();
+    final updated = state.items
+        .where((element) => element.code != code)
+        .toList();
     emit(state.copyWith(items: updated));
   }
 }
-

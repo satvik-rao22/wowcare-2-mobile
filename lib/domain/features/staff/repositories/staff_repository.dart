@@ -23,6 +23,7 @@ abstract class StaffRepository {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   });
 
   /// Fetches the full staff list (single-page; [size] caps how many records
@@ -264,6 +265,7 @@ abstract class StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   });
   Future<void> invalidateCachedStaffPage(
     String schoolCode, {
@@ -273,6 +275,7 @@ abstract class StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
   Future<StaffProfile?> loadCachedStaffProfile(

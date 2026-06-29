@@ -9,6 +9,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -43,23 +44,24 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
         _toDate = end;
       }
     });
-    _loadAttendanceData(context, forceRefresh: true);
+    unawaited(_loadAttendanceData(context, forceRefresh: true));
   }
 
-  void _loadAttendanceData(BuildContext context, {bool forceRefresh = false}) {
+  Future<void> _loadAttendanceData(
+    BuildContext context, {
+    bool forceRefresh = false,
+  }) async {
     final parentChildProvider = Provider.of<ParentChildCubit>(
       context,
       listen: false,
     );
     final selectedChild = parentChildProvider.selectedChild;
     if (selectedChild != null) {
-      unawaited(
-        context.read<StudentAttendanceProfileCubit>().loadAttendanceProfile(
-          studentCode: selectedChild.code,
-          fromDate: _fromDate,
-          toDate: _toDate,
-          forceRefresh: forceRefresh,
-        ),
+      await context.read<StudentAttendanceProfileCubit>().loadAttendanceProfile(
+        studentCode: selectedChild.code,
+        fromDate: _fromDate,
+        toDate: _toDate,
+        forceRefresh: forceRefresh,
       );
     }
   }
@@ -290,29 +292,8 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
       return const StudentAttendanceCardShimmer();
     }
 
-    if (state.isError) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              state.errorMessage ?? 'Error loading attendance data',
-              style: const TextStyle(fontSize: 14, color: Colors.red),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () => _loadAttendanceData(context),
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
+    // On error, fall through to the normal stats layout below — it renders
+    // default/empty values (e.g. "0 Hrs 0 Mins") instead of an error banner.
 
     // final attendedHoursDisplay = state.totalAttendedTime.isNotEmpty
     //     ? state.totalAttendedTime
@@ -431,7 +412,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
       _selectedChildCode = nextCode;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _loadAttendanceData(context);
+        unawaited(_loadAttendanceData(context));
       });
     }
   }
@@ -439,61 +420,69 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Card(
-      margin: EdgeInsets.zero,
-      elevation: 0,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-          width: 0.5,
+    final isError = context
+        .watch<StudentAttendanceProfileCubit>()
+        .state
+        .isError;
+    return DashboardCardErrorOverlay(
+      show: isError,
+      onRetry: () => _loadAttendanceData(context, forceRefresh: true),
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: 0,
+        color: Colors.white,
+        shape: RoundedRectangleBorder(
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+            width: 0.5,
+          ),
+          borderRadius: BorderRadius.circular(16),
         ),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: InkWell(
-        onTap: () {},
-        borderRadius: BorderRadius.circular(16),
-        splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
-        highlightColor: AppColors.primaryColor.withValues(alpha: 0.05),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DashboardCardHeader(
-                title: 'Attendance',
-                minimized: _minimized,
-                onToggle: () => setState(() => _minimized = !_minimized),
-                showRedirect: true,
-                onRedirect: () => _openStudentAttendanceProfile(context),
-                trailing: Expanded(child: _buildSelectedChildName()),
-              ),
-              if (!_minimized) ...[
-                const SizedBox(height: 16),
-                CustomDateTimeField(
-                  hasLabel: false,
-                  isRangePicker: true,
-                  initialDate: _fromDate,
-                  label: 'Date Range',
-                  onRangeSelected: _onDateRangeSelected,
+        child: InkWell(
+          onTap: () {},
+          borderRadius: BorderRadius.circular(16),
+          splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
+          highlightColor: AppColors.primaryColor.withValues(alpha: 0.05),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                DashboardCardHeader(
+                  title: 'Attendance',
+                  minimized: _minimized,
+                  onToggle: () => setState(() => _minimized = !_minimized),
+                  showRedirect: true,
+                  onRedirect: () => _openStudentAttendanceProfile(context),
+                  trailing: Expanded(child: _buildSelectedChildName()),
                 ),
-                const SizedBox(height: 20),
-                BlocBuilder<
-                  StudentAttendanceProfileCubit,
-                  StudentAttendanceProfileState
-                >(
-                  buildWhen: (prev, curr) =>
-                      prev.status != curr.status ||
-                      prev.attendedDays != curr.attendedDays ||
-                      prev.absentDays != curr.absentDays ||
-                      prev.attendedHours != curr.attendedHours ||
-                      prev.attendedMinutes != curr.attendedMinutes,
-                  builder: (context, state) {
-                    return _buildStats(state);
-                  },
-                ),
+                if (!_minimized) ...[
+                  const SizedBox(height: 16),
+                  CustomDateTimeField(
+                    hasLabel: false,
+                    isRangePicker: true,
+                    initialDate: _fromDate,
+                    label: 'Date Range',
+                    onRangeSelected: _onDateRangeSelected,
+                  ),
+                  const SizedBox(height: 20),
+                  BlocBuilder<
+                    StudentAttendanceProfileCubit,
+                    StudentAttendanceProfileState
+                  >(
+                    buildWhen: (prev, curr) =>
+                        prev.status != curr.status ||
+                        prev.attendedDays != curr.attendedDays ||
+                        prev.absentDays != curr.absentDays ||
+                        prev.attendedHours != curr.attendedHours ||
+                        prev.attendedMinutes != curr.attendedMinutes,
+                    builder: (context, state) {
+                      return _buildStats(state);
+                    },
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

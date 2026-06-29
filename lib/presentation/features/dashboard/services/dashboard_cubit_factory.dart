@@ -30,30 +30,46 @@ class DashboardCubitFactory {
   T _resolveSafe<T extends Object>() {
     try {
       if (!_getIt.isRegistered<T>()) {
-        AppLogger.e('DashboardCubitFactory Error: Type $T is not registered in GetIt.');
-        
+        AppLogger.e(
+          'DashboardCubitFactory Error: Type $T is not registered in GetIt.',
+        );
+
         // Safety Fallback Mechanisms
         if (T == ParentChildCubit) {
-          AppLogger.w('DashboardCubitFactory: Falling back to manual creation of ParentChildCubit.');
+          AppLogger.w(
+            'DashboardCubitFactory: Falling back to manual creation of ParentChildCubit.',
+          );
           return ParentChildCubit() as T;
         }
         if (T == ParentDashboardCubit) {
-          AppLogger.w('DashboardCubitFactory: Falling back to manual creation of ParentDashboardCubit.');
+          AppLogger.w(
+            'DashboardCubitFactory: Falling back to manual creation of ParentDashboardCubit.',
+          );
           return ParentDashboardCubit() as T;
         }
         if (T == StaffDashboardCubit) {
-          AppLogger.w('DashboardCubitFactory: Falling back to manual creation of StaffDashboardCubit.');
+          AppLogger.w(
+            'DashboardCubitFactory: Falling back to manual creation of StaffDashboardCubit.',
+          );
           return StaffDashboardCubit() as T;
         }
         if (T == AdminDashboardCubit) {
-          AppLogger.w('DashboardCubitFactory: Falling back to manual creation of AdminDashboardCubit.');
+          AppLogger.w(
+            'DashboardCubitFactory: Falling back to manual creation of AdminDashboardCubit.',
+          );
           return AdminDashboardCubit() as T;
         }
-        throw StateError('GetIt: Object/factory with type $T is not registered inside GetIt.');
+        throw StateError(
+          'GetIt: Object/factory with type $T is not registered inside GetIt.',
+        );
       }
       return _getIt<T>();
     } catch (e, stack) {
-      AppLogger.e('DashboardCubitFactory critical resolution error for $T: $e', e, stack);
+      AppLogger.e(
+        'DashboardCubitFactory critical resolution error for $T: $e',
+        e,
+        stack,
+      );
       rethrow;
     }
   }
@@ -62,7 +78,8 @@ class DashboardCubitFactory {
     return ParentDashboardCoordinatorCubit(
       dashboardCubit: _resolveSafe<ParentDashboardCubit>(),
       myChildsDayCubit: _resolveSafe<MyChildsDayCubit>(),
-      studentAttendanceProfileCubit: _resolveSafe<StudentAttendanceProfileCubit>(),
+      studentAttendanceProfileCubit:
+          _resolveSafe<StudentAttendanceProfileCubit>(),
       communicationCubit: _resolveSafe<CommunicationCubit>(),
       studentNewslettersCubit: _resolveSafe<StudentNewslettersCubit>(),
       geofenceCubit: _resolveSafe<GeofenceCubit>(),

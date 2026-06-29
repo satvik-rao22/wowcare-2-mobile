@@ -71,9 +71,9 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
       if (isClosed) return;
 
       final results = await Future.wait([
-        _getStudentProfileUseCase(code: code)
-            .then<Object?>((v) => v)
-            .onError((_, __) => null),
+        _getStudentProfileUseCase(
+          code: code,
+        ).then<Object?>((v) => v).onError((_, __) => null),
         _studentRepository
             .getStudentRegularSchedules(studentCode: code)
             .then<Object?>((v) => v)
@@ -151,7 +151,8 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
           status: MyChildsDayStatus.loaded,
           studentCode: code,
           fullName: (typedProfile?.fullName as String? ?? '').trim(),
-          classroomName: ((typedProfile?.classroomName as String?) ?? '').trim(),
+          classroomName: ((typedProfile?.classroomName as String?) ?? '')
+              .trim(),
           schoolCode: (typedProfile?.schoolCode as String? ?? '').trim(),
           schoolTimeZone: tz,
           todayDayOfWeek: todayKey,

@@ -38,13 +38,14 @@ class QrValidationCubit extends Cubit<QrValidationState> {
   QrValidationCubit({
     required ValidateQrCodeUseCase validateQrCodeUseCase,
     required GetStaffTodaySignInStatusUseCase getStaffTodaySignInStatusUseCase,
-    required GetStudentTodaySignInStatusMapUseCase getStudentTodaySignInStatusMapUseCase,
+    required GetStudentTodaySignInStatusMapUseCase
+    getStudentTodaySignInStatusMapUseCase,
     required StorageService storageService,
-  })  : _validateQrCodeUseCase = validateQrCodeUseCase,
-        _getStaffTodaySignInStatus = getStaffTodaySignInStatusUseCase,
-        _getStudentSignInStatusMap = getStudentTodaySignInStatusMapUseCase,
-        _storage = storageService,
-        super(const QrValidationInitial());
+  }) : _validateQrCodeUseCase = validateQrCodeUseCase,
+       _getStaffTodaySignInStatus = getStaffTodaySignInStatusUseCase,
+       _getStudentSignInStatusMap = getStudentTodaySignInStatusMapUseCase,
+       _storage = storageService,
+       super(const QrValidationInitial());
 
   final ValidateQrCodeUseCase _validateQrCodeUseCase;
   final GetStaffTodaySignInStatusUseCase _getStaffTodaySignInStatus;
@@ -74,9 +75,11 @@ class QrValidationCubit extends Cubit<QrValidationState> {
       final schoolCode = await _readStorage(StorageKeys.schoolCode);
       if (schoolCode.isEmpty) {
         if (!isClosed) {
-          emit(const QrValidationFailure(
-            'School context missing. Please sign in again.',
-          ));
+          emit(
+            const QrValidationFailure(
+              'School context missing. Please sign in again.',
+            ),
+          );
         }
         return;
       }
@@ -96,8 +99,7 @@ class QrValidationCubit extends Cubit<QrValidationState> {
             );
 
             for (final code in guardianChildCodes) {
-              final isSignedIn =
-                  statusMap[code]?.toUpperCase() == 'SIGNED_IN';
+              final isSignedIn = statusMap[code]?.toUpperCase() == 'SIGNED_IN';
               if (isSignedIn) {
                 signedInCodes.add(code);
               } else {
@@ -113,7 +115,11 @@ class QrValidationCubit extends Cubit<QrValidationState> {
               'Total Students: ${guardianChildCodes.length}\n'
               'Signed In: ${signedInCodes.length}\n'
               'Signed Out: ${signedOutCodes.length}\n'
-              'Navigate -> ${isMixed ? 'SignInOutSelection' : signedOutCodes.isEmpty ? 'SignOut' : 'SignIn'}',
+              'Navigate -> ${isMixed
+                  ? 'SignInOutSelection'
+                  : signedOutCodes.isEmpty
+                  ? 'SignOut'
+                  : 'SignIn'}',
             );
 
             if (isMixed) {
@@ -129,12 +135,16 @@ class QrValidationCubit extends Cubit<QrValidationState> {
               route = QrNavigationRoute.guardianSignIn;
             }
           } catch (_) {
-            AppLogger.d('[QR ATTENDANCE] Status check failed, defaulting to SignIn');
+            AppLogger.d(
+              '[QR ATTENDANCE] Status check failed, defaulting to SignIn',
+            );
             useCase = QrAttendanceUseCase.guardianSignIn;
             route = QrNavigationRoute.guardianSignIn;
           }
         } else {
-          AppLogger.d('[QR ATTENDANCE] No child codes provided, defaulting to SignIn');
+          AppLogger.d(
+            '[QR ATTENDANCE] No child codes provided, defaulting to SignIn',
+          );
           useCase = QrAttendanceUseCase.guardianSignIn;
           route = QrNavigationRoute.guardianSignIn;
         }
@@ -156,13 +166,16 @@ class QrValidationCubit extends Cubit<QrValidationState> {
         useCase: useCase,
       );
 
-      if (!isClosed) emit(QrValidationSuccess(
-        result,
-        route: route,
-        qrToken: qrToken,
-        signedInCodes: signedInCodes,
-        signedOutCodes: signedOutCodes,
-      ));
+      if (!isClosed)
+        emit(
+          QrValidationSuccess(
+            result,
+            route: route,
+            qrToken: qrToken,
+            signedInCodes: signedInCodes,
+            signedOutCodes: signedOutCodes,
+          ),
+        );
     } catch (e) {
       if (!isClosed) {
         emit(QrValidationFailure(ApiErrorHandler.extractErrorMessage(e)));
@@ -183,7 +196,9 @@ class QrValidationCubit extends Cubit<QrValidationState> {
 
   /// Returns true when the active school role is a guardian/parent role.
   Future<bool> _isGuardianRole() async {
-    final role = (await _readStorage(StorageKeys.activeSchoolRole)).toUpperCase();
+    final role = (await _readStorage(
+      StorageKeys.activeSchoolRole,
+    )).toUpperCase();
     return role.contains('GUARDIAN') || role.contains('PARENT');
   }
 
@@ -227,7 +242,8 @@ abstract final class QrTokenExtractor {
 
   /// Extracts the token from an already-decoded JSON map.
   static String? extractFromMap(Map<String, dynamic> map) {
-    final token = (map['qrToken'] as String?)?.trim() ??
+    final token =
+        (map['qrToken'] as String?)?.trim() ??
         (map['qrPayload'] as String?)?.trim();
     return (token != null && token.isNotEmpty) ? token : null;
   }

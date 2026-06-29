@@ -28,10 +28,10 @@ class MyDayCubit extends Cubit<MyDayState> {
     required StaffRepository staffRepository,
     required StorageService storageService,
     required ApiClient apiClient,
-  })  : _staffRepository = staffRepository,
-        _storageService = storageService,
-        _apiClient = apiClient,
-        super(const MyDayState());
+  }) : _staffRepository = staffRepository,
+       _storageService = storageService,
+       _apiClient = apiClient,
+       super(const MyDayState());
 
   final StaffRepository _staffRepository;
   final StorageService _storageService;
@@ -73,13 +73,15 @@ class MyDayCubit extends Cubit<MyDayState> {
   Future<void> _fetch() async {
     final schoolCode = await _storageService.getString(StorageKeys.schoolCode);
     if (schoolCode == null || schoolCode.trim().isEmpty) {
-      emit(state.copyWith(
-        status: MyDayStatus.loaded,
-        schoolClosed: true,
-        clearTodaySchedule: true,
-        clearWorkSchedule: true,
-        clearBreakSchedule: true,
-      ));
+      emit(
+        state.copyWith(
+          status: MyDayStatus.loaded,
+          schoolClosed: true,
+          clearTodaySchedule: true,
+          clearWorkSchedule: true,
+          clearBreakSchedule: true,
+        ),
+      );
       return;
     }
 
@@ -90,8 +92,8 @@ class MyDayCubit extends Cubit<MyDayState> {
     // value so the staff profile can still be fetched for the schedule display.
     String staffCode = await resolveStaffCodeForLoggedInUser();
     if (staffCode.isEmpty) {
-      staffCode =
-          (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
+      staffCode = (await _storageService.getString(StorageKeys.staffCode) ?? '')
+          .trim();
     }
 
     try {
@@ -114,18 +116,21 @@ class MyDayCubit extends Cubit<MyDayState> {
             .onError((_, __) => null),
         staffCode.isNotEmpty
             ? _staffRepository
-                .getStaffSchedules(staffCode: staffCode)
-                .then<Object?>((v) => v)
-                .onError((_, __) => null)
+                  .getStaffSchedules(staffCode: staffCode)
+                  .then<Object?>((v) => v)
+                  .onError((_, __) => null)
             : Future.value(null),
       ], eagerError: false);
 
       final days =
-          results[0] as List<SchoolRegularScheduleDay>? ?? <SchoolRegularScheduleDay>[];
-      final staffSchedules = results[1] as ({
-        List<StaffProfileWorkSchedule> workSchedules,
-        List<StaffProfileBreakSchedule> breakSchedules,
-      })?;
+          results[0] as List<SchoolRegularScheduleDay>? ??
+          <SchoolRegularScheduleDay>[];
+      final staffSchedules =
+          results[1]
+              as ({
+                List<StaffProfileWorkSchedule> workSchedules,
+                List<StaffProfileBreakSchedule> breakSchedules,
+              })?;
 
       // School schedule for today.
       SchoolRegularScheduleDay? todayEntry;
@@ -142,7 +147,8 @@ class MyDayCubit extends Cubit<MyDayState> {
       if (staffSchedules != null) {
         for (final ws in staffSchedules.workSchedules) {
           if (!_matchesDay(ws.dayOfWeek, todayKey)) continue;
-          final isSet = ws.workStartTime.hour != 0 ||
+          final isSet =
+              ws.workStartTime.hour != 0 ||
               ws.workStartTime.minute != 0 ||
               ws.workEndTime.hour != 0 ||
               ws.workEndTime.minute != 0;
@@ -165,26 +171,27 @@ class MyDayCubit extends Cubit<MyDayState> {
         'staffWork=${todayWorkSchedule?.dayOfWeek}',
       );
 
-      emit(state.copyWith(
-        status: MyDayStatus.loaded,
-        todaySchedule: closed ? null : todayEntry,
-        todayWorkSchedule: todayWorkSchedule,
-        todayBreakSchedule: todayBreakSchedule,
-        allSchoolSchedules: days,
-        allWorkSchedules: staffSchedules?.workSchedules ?? [],
-        allBreakSchedules: staffSchedules?.breakSchedules ?? [],
-        schoolClosed: closed,
-        schoolTimeZone: schoolIana,
-        clearTodaySchedule: closed,
-        clearWorkSchedule: todayWorkSchedule == null,
-        clearBreakSchedule: todayBreakSchedule == null,
-      ));
+      emit(
+        state.copyWith(
+          status: MyDayStatus.loaded,
+          todaySchedule: closed ? null : todayEntry,
+          todayWorkSchedule: todayWorkSchedule,
+          todayBreakSchedule: todayBreakSchedule,
+          allSchoolSchedules: days,
+          allWorkSchedules: staffSchedules?.workSchedules ?? [],
+          allBreakSchedules: staffSchedules?.breakSchedules ?? [],
+          schoolClosed: closed,
+          schoolTimeZone: schoolIana,
+          clearTodaySchedule: closed,
+          clearWorkSchedule: todayWorkSchedule == null,
+          clearBreakSchedule: todayBreakSchedule == null,
+        ),
+      );
     } catch (e) {
       AppLogger.e('[MyDayCubit] fetch failed: $e');
-      emit(state.copyWith(
-        status: MyDayStatus.error,
-        errorMessage: e.toString(),
-      ));
+      emit(
+        state.copyWith(status: MyDayStatus.error, errorMessage: e.toString()),
+      );
     }
   }
 

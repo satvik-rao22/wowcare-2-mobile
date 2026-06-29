@@ -148,6 +148,15 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
 
       AppLogger.d('[Kiosk] PIN verified: persona=${result.persona.name}');
 
+      // Record the verified person's REAL role/code so AuthInterceptor can
+      // use it for the sign-in/out calls that follow, instead of the kiosk
+      // device account's own (possibly `KIOSK`) role.
+      KioskAccessControl.setVerifiedIdentity(
+        role: result.role,
+        staffCode: result.staffCode,
+        guardianCode: result.guardianCode,
+      );
+
       // CRITICAL: Mark user as kiosk user - this enables the route guard
       try {
         await serviceLocator<KioskAccessControl>().setKioskModeActive(

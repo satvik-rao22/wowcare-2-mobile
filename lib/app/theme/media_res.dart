@@ -305,14 +305,14 @@ class MediaRes {
   // Attendance sign-in/out method icons
   static const String gpsMethodIcon = '$_baseIcons/Gps_fixed.svg';
   static const String pinMethodIcon = '$_baseIcons/pin.svg';
-  static const String qrAttendanceIcon = '$_baseIcons/qr_attendance.svg';
+  // static const String qrAttendanceIcon = '$_baseIcons/qr_attendance.svg';
   static const String kioskAttendenceIcons = '$_baseIcons/kiosk-attendance.svg';
   static const String webMethodIcon = '$_baseIcons/desktop-icon.svg';
   static const String appMethodIcon = '$_baseIcons/mobile-icon.svg';
   // Attendance sign-in/out method icons
   // static const String gpsMethodIcon = '$_baseIcons/map.svg';
   // static const String pinMethodIcon = '$_baseIcons/pin.svg';
-  // static const String qrAttendanceIcon = '$_baseIcons/qrcode.svg';
+  static const String qrAttendanceIcon = '$_baseIcons/qrcode.svg';
   // static const String kioskAttendenceIcons = '$_baseIcons/desktop.svg';
   // static const String webMethodIcon = '$_baseIcons/desktop.svg';
   // static const String appMethodIcon = '$_baseIcons/mobile.svg';

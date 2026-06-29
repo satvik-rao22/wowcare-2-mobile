@@ -137,4 +137,3 @@ class StudentNewslettersCubit extends Cubit<StudentNewslettersState> {
     }
   }
 }
-

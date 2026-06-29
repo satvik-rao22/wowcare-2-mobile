@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/availability/entities/future_availabilit
 import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 // ---------------------------------------------------------------------------
@@ -214,40 +215,53 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.cardColor,
-      ),
-      child: Column(
-        children: [
-          // Header row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
-            child: DashboardCardHeader(
-              title: 'Availability',
-              showRedirect: true,
-              onRedirect: () => context.go(FutureAvailabilityScreen.routeName),
-              minimized: _minimized,
-              onToggle: () {
-                setState(() {
-                  _minimized = !_minimized;
-                });
-              },
-              trailing: _buildAvailabilityDateNavigator(),
+    return BlocBuilder<FutureAvailabilityCubit, FutureAvailabilityState>(
+      buildWhen: (prev, curr) => prev.errorMessage != curr.errorMessage,
+      builder: (context, state) {
+        return DashboardCardErrorOverlay(
+          show: state.errorMessage != null,
+          onRetry: () => context.read<FutureAvailabilityCubit>().load(
+            date: _selectedAvailabilityDate,
+            isTwoShifts: true,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.cardBorderColor),
+              borderRadius: BorderRadius.circular(12),
+              color: AppColors.cardColor,
+            ),
+            child: Column(
+              children: [
+                // Header row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
+                  child: DashboardCardHeader(
+                    title: 'Availability',
+                    showRedirect: true,
+                    onRedirect: () =>
+                        context.go(FutureAvailabilityScreen.routeName),
+                    minimized: _minimized,
+                    onToggle: () {
+                      setState(() {
+                        _minimized = !_minimized;
+                      });
+                    },
+                    trailing: _buildAvailabilityDateNavigator(),
+                  ),
+                ),
+
+                /// Collapsible body
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: _minimized ? const SizedBox.shrink() : _buildBody(),
+                ),
+              ],
             ),
           ),
-
-          /// Collapsible body
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _minimized ? const SizedBox.shrink() : _buildBody(),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 

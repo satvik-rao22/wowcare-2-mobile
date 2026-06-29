@@ -144,6 +144,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -173,6 +174,9 @@ class StudentRepositoryImpl
     final guardianKey = normList(
       guardianCodes,
     ).map((e) => e.toUpperCase()).join(',');
+    final attendanceKey = normList(
+      attendanceStatuses,
+    ).map((e) => e.toUpperCase()).join(',');
 
     final identifier = [
       schoolCode,
@@ -180,6 +184,7 @@ class StudentRepositoryImpl
       if (classroomKey.isNotEmpty) 'classrooms=$classroomKey',
       if (tagKey.isNotEmpty) 'tags=$tagKey',
       if (guardianKey.isNotEmpty) 'guardians=$guardianKey',
+      if (attendanceKey.isNotEmpty) 'attendanceStatus=$attendanceKey',
       if (searchKey.isNotEmpty) 'search=$searchKey',
       if (codeKey.isNotEmpty) 'code=$codeKey',
       if (firstNameKey.isNotEmpty) 'firstName=$firstNameKey',
@@ -378,6 +383,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page = 0,
     int size = 10,
@@ -394,6 +400,7 @@ class StudentRepositoryImpl
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
+      attendanceStatuses: attendanceStatuses,
       search: search,
       page: page,
       size: size,
@@ -407,6 +414,7 @@ class StudentRepositoryImpl
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         guardianCodes: guardianCodes,
+        attendanceStatuses: attendanceStatuses,
         search: search,
         code: code,
         firstName: firstName,
@@ -1379,6 +1387,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -1390,6 +1399,7 @@ class StudentRepositoryImpl
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
+      attendanceStatuses: attendanceStatuses,
       search: search,
       code: code,
       firstName: firstName,
@@ -1410,6 +1420,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -1422,6 +1433,7 @@ class StudentRepositoryImpl
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         guardianCodes: guardianCodes,
+        attendanceStatuses: attendanceStatuses,
         search: search,
         code: code,
         firstName: firstName,

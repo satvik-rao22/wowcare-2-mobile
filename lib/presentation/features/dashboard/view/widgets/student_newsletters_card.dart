@@ -10,6 +10,9 @@ import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletter
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -66,94 +69,95 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DashboardCardHeader(
-              title: 'Newsletter',
-              showRedirect: true,
-              onRedirect: () => context.go(ParentNewsletterScreen.routeName),
-              minimized: _minimized,
-              onToggle: () => setState(() => _minimized = !_minimized),
-            ),
-            if (!_minimized) ...[
-              const SizedBox(height: 8),
-              BlocBuilder<StudentNewslettersCubit, StudentNewslettersState>(
-                buildWhen: (prev, curr) =>
-                    prev.status != curr.status ||
-                    prev.items != curr.items ||
-                    prev.errorMessage != curr.errorMessage,
-                builder: (context, state) {
-                  if (state.isLoading) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: StudentAttendanceCardShimmer(),
-                    );
-                  }
-
-                  if (state.isError && state.items.isEmpty) {
-                    return _ErrorState(
-                      message: state.errorMessage.isEmpty
-                          ? 'Failed to load newsletters'
-                          : state.errorMessage,
-                      onRetry: _refresh,
-                    );
-                  }
-
-                  final items = state.items;
-                  if (items.isEmpty) {
-                    return _EmptyState(onRefresh: _refresh);
-                  }
-
-                  // Preserve original mock design density: show the first 3 rows.
-                  final visible = items.length > 3
-                      ? items.sublist(0, 3)
-                      : items;
-
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: visible.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      color: AppColors.primaryColor.withValues(alpha: 0.08),
-                    ),
-                    itemBuilder: (context, index) {
-                      final accentColor =
-                          _newsletterAccentColors[index %
-                              _newsletterAccentColors.length];
-                      final selectedChild = Provider.of<ParentChildCubit>(
-                        context,
-                      ).selectedChild;
-                      final classroomName =
-                          (selectedChild?.primaryClassroomName ??
-                                  selectedChild?.classroom ??
-                                  '')
-                              .toString()
-                              .trim();
-                      return _NewsletterRow(
-                        item: visible[index],
-                        accentColor: accentColor,
-                        classroomName: classroomName.isEmpty
-                            ? '-'
-                            : classroomName,
-                      );
-                    },
-                  );
-                },
+    final isError = context.watch<StudentNewslettersCubit>().state.isError;
+    return DashboardCardErrorOverlay(
+      show: isError,
+      onRetry: _refresh,
+      child: Card(
+        elevation: 0,
+        color: Colors.white,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DashboardCardHeader(
+                title: 'Newsletter',
+                showRedirect: true,
+                onRedirect: () => context.go(ParentNewsletterScreen.routeName),
+                minimized: _minimized,
+                onToggle: () => setState(() => _minimized = !_minimized),
               ),
+              if (!_minimized) ...[
+                const SizedBox(height: 8),
+                BlocBuilder<StudentNewslettersCubit, StudentNewslettersState>(
+                  buildWhen: (prev, curr) =>
+                      prev.status != curr.status ||
+                      prev.items != curr.items ||
+                      prev.errorMessage != curr.errorMessage,
+                  builder: (context, state) {
+                    if (state.isLoading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: StudentAttendanceCardShimmer(),
+                      );
+                    }
+
+                    // On error with no data, show the same empty-state UI as a
+                    // genuinely empty list instead of an error banner.
+
+                    final items = state.items;
+                    if (items.isEmpty) {
+                      return _EmptyState(onRefresh: _refresh);
+                    }
+
+                    // Preserve original mock design density: show the first 3 rows.
+                    final visible = items.length > 3
+                        ? items.sublist(0, 3)
+                        : items;
+
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: visible.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: AppColors.primaryColor.withValues(alpha: 0.08),
+                      ),
+                      itemBuilder: (context, index) {
+                        final accentColor =
+                            _newsletterAccentColors[index %
+                                _newsletterAccentColors.length];
+                        final selectedChild = Provider.of<ParentChildCubit>(
+                          context,
+                        ).selectedChild;
+                        final classroomName =
+                            (selectedChild?.primaryClassroomName ??
+                                    selectedChild?.classroom ??
+                                    '')
+                                .toString()
+                                .trim();
+                        return _NewsletterRow(
+                          item: visible[index],
+                          accentColor: accentColor,
+                          classroomName: classroomName.isEmpty
+                              ? '-'
+                              : classroomName,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -383,32 +387,6 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           TextButton(onPressed: onRefresh, child: const Text('Refresh')),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, color: Colors.red),
-          ),
-          const SizedBox(height: 8),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

@@ -29,4 +29,3 @@ class StaffDashboardViewModel {
 
   static List<StaffDashboardCard> get defaultCards => StaffDashboardCard.values;
 }
-

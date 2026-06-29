@@ -8,6 +8,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
@@ -165,135 +166,141 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
         final selectedDate = state.selectedDate ?? DateTime.now();
         final dayColumnLabel = DateFormat('EEE, MMM d').format(selectedDate);
 
-        return Card(
-          elevation: 0,
-          color: Colors.white,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: AppColors.primaryColor.withValues(alpha: 0.1),
+        return DashboardCardErrorOverlay(
+          show: state.isError,
+          onRetry: () =>
+              context.read<MyShiftsCubit>().load(date: state.selectedDate),
+          child: Card(
+            elevation: 0,
+            color: Colors.white,
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // ── Card Header ────────────────────────────────────────────────
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DashboardCardHeader(
-                      title: 'My Shifts',
-                      showRedirect: true,
-                      onRedirect: () =>
-                          context.go(StaffSchedulingScreen.routeName),
-                      minimized: _minimized,
-                      onToggle: () => setState(() => _minimized = !_minimized),
-                    ),
-                    const SizedBox(height: 12),
-                    // ── Date Navigation ────────────────────────────────────────
-                    _DateNavigationBar(
-                      selectedDate: selectedDate,
-                      onPreviousDay: () => _onDateChanged(
-                        selectedDate.subtract(const Duration(days: 1)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Card Header ────────────────────────────────────────────────
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      DashboardCardHeader(
+                        title: 'My Shifts',
+                        showRedirect: true,
+                        onRedirect: () =>
+                            context.go(StaffSchedulingScreen.routeName),
+                        minimized: _minimized,
+                        onToggle: () =>
+                            setState(() => _minimized = !_minimized),
                       ),
-                      onNextDay: () => _onDateChanged(
-                        selectedDate.add(const Duration(days: 1)),
-                      ),
-                      onDatePicked: _onDateChanged,
-                    ),
-                  ],
-                ),
-
-                // ── Collapsible Body ───────────────────────────────────────────
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  child: _minimized
-                      ? const SizedBox.shrink()
-                      : Column(
-                          children: [
-                            const SizedBox(height: 16),
-
-                            // ── Staff Profile Header (from scheduling screen) ──
-                            _StaffProfileHeader(
-                              staffCode: state.staffCode,
-                              staffName: state.staffName,
-                              designation: state.designation,
-                              classroom: state.classroomLabel,
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            // ── Hour Summary Tiles (exact match) ──────────────
-                            ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(255, 250, 234, 1),
-                              label: 'Available Hours',
-                              hours: formatSchedulingHours(
-                                state.availableHours.toDouble(),
-                              ),
-                              icon: MediaRes.availableHoursIcon,
-                            ),
-                            const SizedBox(height: 16),
-                            ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(234, 255, 250, 1),
-                              label: 'Scheduled Hours',
-                              hours: formatSchedulingHours(
-                                state.scheduledHours.toDouble(),
-                              ),
-                              icon: MediaRes.scheduledHoursIcon,
-                            ),
-                            const SizedBox(height: 16),
-                            ShiftHoursTile(
-                              bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
-                              label: 'Unscheduled Hours',
-                              hours: formatSchedulingHours(
-                                state.unscheduledHours.toDouble(),
-                              ),
-                              icon: MediaRes.unScheduledHoursIcon,
-                            ),
-
-                            const SizedBox(height: 20),
-
-                            // ── Shift Calendar (from scheduling screen) ────────
-                            if (state.schoolStartTime.isEmpty ||
-                                state.schoolEndTime.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 24),
-                                child: Center(
-                                  child: Text(
-                                    'No school hours configured for this day.',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      color: AppColors.primaryColor,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              )
-                            else
-                              StaffDayScheduleCalendar(
-                                key: ValueKey(
-                                  'my_shifts_${selectedDate.toString()}_'
-                                  '${state.schoolStartTime}_'
-                                  '${state.schoolEndTime}',
-                                ),
-                                dayColumnLabel: dayColumnLabel,
-                                schoolStartTime: state.schoolStartTime,
-                                schoolEndTime: state.schoolEndTime,
-                                classroomResolver: classroomResolver,
-                                dailyRoomSchedule: dailyShifts,
-                                highlightShiftCode: null,
-                                onShiftTap: _onShiftTap,
-                              ),
-                          ],
+                      const SizedBox(height: 12),
+                      // ── Date Navigation ────────────────────────────────────────
+                      _DateNavigationBar(
+                        selectedDate: selectedDate,
+                        onPreviousDay: () => _onDateChanged(
+                          selectedDate.subtract(const Duration(days: 1)),
                         ),
-                ),
-              ],
+                        onNextDay: () => _onDateChanged(
+                          selectedDate.add(const Duration(days: 1)),
+                        ),
+                        onDatePicked: _onDateChanged,
+                      ),
+                    ],
+                  ),
+
+                  // ── Collapsible Body ───────────────────────────────────────────
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: _minimized
+                        ? const SizedBox.shrink()
+                        : Column(
+                            children: [
+                              const SizedBox(height: 16),
+
+                              // ── Staff Profile Header (from scheduling screen) ──
+                              _StaffProfileHeader(
+                                staffCode: state.staffCode,
+                                staffName: state.staffName,
+                                designation: state.designation,
+                                classroom: state.classroomLabel,
+                              ),
+
+                              const SizedBox(height: 16),
+
+                              // ── Hour Summary Tiles (exact match) ──────────────
+                              ShiftHoursTile(
+                                bgColor: const Color.fromRGBO(255, 250, 234, 1),
+                                label: 'Available Hours',
+                                hours: formatSchedulingHours(
+                                  state.availableHours.toDouble(),
+                                ),
+                                icon: MediaRes.availableHoursIcon,
+                              ),
+                              const SizedBox(height: 16),
+                              ShiftHoursTile(
+                                bgColor: const Color.fromRGBO(234, 255, 250, 1),
+                                label: 'Scheduled Hours',
+                                hours: formatSchedulingHours(
+                                  state.scheduledHours.toDouble(),
+                                ),
+                                icon: MediaRes.scheduledHoursIcon,
+                              ),
+                              const SizedBox(height: 16),
+                              ShiftHoursTile(
+                                bgColor: const Color.fromRGBO(22, 40, 49, 0.01),
+                                label: 'Unscheduled Hours',
+                                hours: formatSchedulingHours(
+                                  state.unscheduledHours.toDouble(),
+                                ),
+                                icon: MediaRes.unScheduledHoursIcon,
+                              ),
+
+                              const SizedBox(height: 20),
+
+                              // ── Shift Calendar (from scheduling screen) ────────
+                              if (state.schoolStartTime.isEmpty ||
+                                  state.schoolEndTime.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Center(
+                                    child: Text(
+                                      'No school hours configured for this day.',
+                                      style: TextStyle(
+                                        fontFamily: 'Manrope',
+                                        color: AppColors.primaryColor,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                )
+                              else
+                                StaffDayScheduleCalendar(
+                                  key: ValueKey(
+                                    'my_shifts_${selectedDate.toString()}_'
+                                    '${state.schoolStartTime}_'
+                                    '${state.schoolEndTime}',
+                                  ),
+                                  dayColumnLabel: dayColumnLabel,
+                                  schoolStartTime: state.schoolStartTime,
+                                  schoolEndTime: state.schoolEndTime,
+                                  classroomResolver: classroomResolver,
+                                  dailyRoomSchedule: dailyShifts,
+                                  highlightShiftCode: null,
+                                  onShiftTap: _onShiftTap,
+                                ),
+                            ],
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         );

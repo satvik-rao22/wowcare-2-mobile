@@ -12,6 +12,7 @@ import 'package:wowcare/domain/features/classroom/usecases/get_ratio_monitoring_
 import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_classroom.dart';
 import 'package:wowcare/domain/features/scheduling/entities/staff_shift.dart';
 import 'package:wowcare/domain/features/scheduling/usecases/get_staff_shifts_usecase.dart';
+import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
 
@@ -53,12 +54,21 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     emit(state.copyWith(status: _Status.loading, clearError: true));
 
     try {
-      final staffCode = (await _storage.getString(StorageKeys.staffCode) ?? '')
-          .trim();
-      final schoolCode =
-          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      final organizationCode =
-          (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      // Fan out all storage reads first so they run concurrently instead of
+      // as separate sequential round-trips.
+      final staffCodeFuture = _storage.getString(StorageKeys.staffCode);
+      final schoolCodeFuture = _storage.getString(StorageKeys.schoolCode);
+      final organizationCodeFuture = _storage.getString(
+        StorageKeys.organizationCode,
+      );
+      final displayNameFuture = _storage.getString(StorageKeys.displayName);
+      final staffDesignationFuture = _storage.getString(
+        StorageKeys.staffDesignation,
+      );
+
+      final staffCode = ((await staffCodeFuture) ?? '').trim();
+      final schoolCode = ((await schoolCodeFuture) ?? '').trim();
+      final organizationCode = ((await organizationCodeFuture) ?? '').trim();
 
       if (staffCode.isEmpty || schoolCode.isEmpty || organizationCode.isEmpty) {
         emit(
@@ -70,8 +80,19 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
         return;
       }
 
-      // ── Fetch shifts + classroom name map in parallel ────────────────────
-      final results = await Future.wait([
+      final displayName = ((await displayNameFuture) ?? '').trim();
+      String rawDesignation = ((await staffDesignationFuture) ?? '').trim();
+      final needsProfileLookup = rawDesignation.isEmpty && staffCode.isNotEmpty;
+      // Fired here (not after the main fetch below) so it runs concurrently
+      // with shifts/classrooms/school-hours instead of serializing after them.
+      final profileFuture = needsProfileLookup
+          ? _staffRepository.getStaffProfile(staffCode: staffCode)
+          : null;
+
+      // ── Fetch shifts + classroom name map + school hours in parallel ─────
+      // getSchoolRegularSchedules used to be fetched sequentially after
+      // everything else — now it's part of the same fan-out.
+      final results = await Future.wait<dynamic>([
         _getShifts(
           staffCode: staffCode,
           schoolCode: schoolCode,
@@ -83,6 +104,11 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
           // Non-fatal — classroom names degrade to codes if this fails.
           (_) => <RatioMonitoringClassroom>[],
         ),
+        _staffRepository
+            .getSchoolRegularSchedules(schoolCode: schoolCode)
+            .catchError(
+              (_) => <SchoolRegularScheduleDay>[],
+            ), // non-fatal — school hours degrade to empty
       ]);
 
       final shifts = results[0] as List<StaffShift>;
@@ -105,19 +131,17 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
       // DEBUG: Log the extracted totals
       AppLogger.d('[MyShiftsCubit] Today has ${todays.length} shifts');
       for (var (i, shift) in todays.indexed) {
-        AppLogger.d('[MyShiftsCubit] Shift $i: avail=${shift.availableHours}, sched=${shift.scheduledHours}, unsched=${shift.unscheduledHours}');
+        AppLogger.d(
+          '[MyShiftsCubit] Shift $i: avail=${shift.availableHours}, sched=${shift.scheduledHours}, unsched=${shift.unscheduledHours}',
+        );
       }
-      AppLogger.d('[MyShiftsCubit] Extracted Totals: avail=${totals.availableHours}, sched=${totals.scheduledHours}, unsched=${totals.unscheduledHours}');
+      AppLogger.d(
+        '[MyShiftsCubit] Extracted Totals: avail=${totals.availableHours}, sched=${totals.scheduledHours}, unsched=${totals.unscheduledHours}',
+      );
 
-      final displayName =
-          (await _storage.getString(StorageKeys.displayName) ?? '').trim();
-      String rawDesignation =
-          (await _storage.getString(StorageKeys.staffDesignation) ?? '').trim();
-      if (rawDesignation.isEmpty && staffCode.isNotEmpty) {
+      if (needsProfileLookup) {
         try {
-          final profile = await _staffRepository.getStaffProfile(
-            staffCode: staffCode,
-          );
+          final profile = await profileFuture!;
           rawDesignation = profile.designation.trim();
           if (rawDesignation.isNotEmpty) {
             await _storage.saveString(
@@ -134,15 +158,12 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
         classroomNames: classroomNames,
       );
 
-      // ── Fetch school hours for the selected day ────────────────────────────
+      // ── Resolve school hours for the selected day ──────────────────────────
       String schoolStartTime = '';
       String schoolEndTime = '';
       try {
-        final schoolDays =
-            await _staffRepository.getSchoolRegularSchedules(
-          schoolCode: schoolCode,
-        );
-        final resolver = SchoolHoursResolver.fromDays(schoolDays);
+        final schoolDays = results[2] as List<dynamic>;
+        final resolver = SchoolHoursResolver.fromDays(schoolDays.cast());
         final hoursForDay = resolver.hoursFor(normalizedDate);
         if (hoursForDay != null) {
           schoolStartTime = hoursForDay.startTime;
@@ -173,7 +194,9 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
       );
 
       // DEBUG: Log the state before emitting
-      AppLogger.d('[MyShiftsCubit] State to emit: avail=${newState.availableHours}, sched=${newState.scheduledHours}, unsched=${newState.unscheduledHours}');
+      AppLogger.d(
+        '[MyShiftsCubit] State to emit: avail=${newState.availableHours}, sched=${newState.scheduledHours}, unsched=${newState.unscheduledHours}',
+      );
 
       emit(newState);
     } catch (e) {
@@ -257,5 +280,4 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
     final dt = DateTime(2000, 1, 1, time.hour, time.minute);
     return DateFormat('hh:mm:ss a').format(dt);
   }
-
 }

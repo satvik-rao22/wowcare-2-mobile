@@ -1369,7 +1369,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // Cubits (factory - new instance each time for UI)
   serviceLocator.registerFactory<ClassroomShiftsCubit>(
     () => ClassroomShiftsCubit(
-      getRatioMonitoringClassroomsUseCase: serviceLocator(),
+      getActiveClassroomsUseCase: serviceLocator(),
       getClassroomForecastUseCase: serviceLocator(),
       getSchoolStaffShiftsUseCase: serviceLocator(),
       staffRepository: serviceLocator(),

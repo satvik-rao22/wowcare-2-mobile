@@ -67,8 +67,9 @@ class MyDayState extends Equatable {
   }) {
     return MyDayState(
       status: status ?? this.status,
-      todaySchedule:
-          clearTodaySchedule ? null : (todaySchedule ?? this.todaySchedule),
+      todaySchedule: clearTodaySchedule
+          ? null
+          : (todaySchedule ?? this.todaySchedule),
       todayWorkSchedule: clearWorkSchedule
           ? null
           : (todayWorkSchedule ?? this.todayWorkSchedule),
@@ -86,15 +87,15 @@ class MyDayState extends Equatable {
 
   @override
   List<Object?> get props => [
-        status,
-        todaySchedule,
-        todayWorkSchedule,
-        todayBreakSchedule,
-        allSchoolSchedules,
-        allWorkSchedules,
-        allBreakSchedules,
-        schoolClosed,
-        schoolTimeZone,
-        errorMessage,
-      ];
+    status,
+    todaySchedule,
+    todayWorkSchedule,
+    todayBreakSchedule,
+    allSchoolSchedules,
+    allWorkSchedules,
+    allBreakSchedules,
+    schoolClosed,
+    schoolTimeZone,
+    errorMessage,
+  ];
 }

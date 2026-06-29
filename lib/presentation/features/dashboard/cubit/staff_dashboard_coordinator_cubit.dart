@@ -32,7 +32,9 @@ class StaffDashboardCoordinatorCubit extends Cubit<DashboardState> {
   }) : super(const DashboardState(status: DashboardStatus.initial)) {
     // Subscribe to child cubits to aggregate their states reactively
     _subscriptions.add(myDayCubit.stream.listen((_) => _updateState()));
-    _subscriptions.add(ratioMonitoringCubit.stream.listen((_) => _updateState()));
+    _subscriptions.add(
+      ratioMonitoringCubit.stream.listen((_) => _updateState()),
+    );
     _subscriptions.add(myAttendanceCubit.stream.listen((_) => _updateState()));
     _subscriptions.add(myShiftsCubit.stream.listen((_) => _updateState()));
 
@@ -94,24 +96,36 @@ class StaffDashboardCoordinatorCubit extends Cubit<DashboardState> {
     final attendanceLoaded = myAttendanceCubit.state.isLoaded;
     final shiftsLoaded = myShiftsCubit.state.isLoaded;
 
-    final isAnyLoading = myDayLoading || ratioLoading || attendanceLoading || shiftsLoading;
-    final isAnyError = myDayError || ratioError || attendanceError || shiftsError;
-    final isAllLoaded = myDayLoaded && ratioLoaded && attendanceLoaded && shiftsLoaded;
-    final isAllError = myDayError && ratioError && attendanceError && shiftsError;
+    final isAnyLoading =
+        myDayLoading || ratioLoading || attendanceLoading || shiftsLoading;
+    final isAnyError =
+        myDayError || ratioError || attendanceError || shiftsError;
+    final isAllLoaded =
+        myDayLoaded && ratioLoaded && attendanceLoaded && shiftsLoaded;
+    final isAllError =
+        myDayError && ratioError && attendanceError && shiftsError;
 
     if (isAnyLoading) {
-      if (state.status == DashboardStatus.ready || state.status == DashboardStatus.partialError) {
+      if (state.status == DashboardStatus.ready ||
+          state.status == DashboardStatus.partialError) {
         emit(state.copyWith(status: DashboardStatus.refreshing));
       } else {
         emit(state.copyWith(status: DashboardStatus.loading));
       }
     } else if (isAllError) {
-      emit(state.copyWith(status: DashboardStatus.failure, errorMessage: 'Unable to load dashboard data. Please try again.'));
+      emit(
+        state.copyWith(
+          status: DashboardStatus.failure,
+          errorMessage: 'Unable to load dashboard data. Please try again.',
+        ),
+      );
     } else if (isAnyError) {
       emit(state.copyWith(status: DashboardStatus.partialError));
     } else if (isAllLoaded) {
       // Clear any stale error from a previous failed load cycle.
-      emit(state.copyWith(status: DashboardStatus.ready, clearErrorMessage: true));
+      emit(
+        state.copyWith(status: DashboardStatus.ready, clearErrorMessage: true),
+      );
     } else {
       emit(state.copyWith(status: DashboardStatus.initial));
     }

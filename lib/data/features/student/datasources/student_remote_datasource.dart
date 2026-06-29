@@ -17,6 +17,7 @@ abstract class StudentRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page = 0,
     int size = 10,
@@ -411,6 +412,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page = 0,
     int size = 10,
@@ -442,6 +444,15 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     }
     if (guardianCodes != null && guardianCodes.isNotEmpty) {
       queryParameters['guardianCodes'] = guardianCodes;
+    }
+    // API expects underscored codes, e.g. attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT.
+    final normalizedAttendanceStatuses = attendanceStatuses
+        ?.map((s) => s.trim().toUpperCase())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (normalizedAttendanceStatuses != null &&
+        normalizedAttendanceStatuses.isNotEmpty) {
+      queryParameters['attendanceStatus'] = normalizedAttendanceStatuses;
     }
     if (search != null && search.isNotEmpty) {
       queryParameters['search'] = search;

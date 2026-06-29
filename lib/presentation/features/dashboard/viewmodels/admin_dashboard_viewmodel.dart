@@ -36,4 +36,3 @@ class AdminDashboardViewModel {
 
   static List<AdminDashboardCard> get defaultCards => AdminDashboardCard.values;
 }
-
