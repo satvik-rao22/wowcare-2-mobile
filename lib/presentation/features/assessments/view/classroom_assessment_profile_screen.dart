@@ -76,30 +76,44 @@ class ClassroomAssessmentProfileScreen extends StatelessWidget {
             ],
           );
 
+          final width = MediaQuery.sizeOf(context).width;
+          final header = AssessmentGradientHeader(
+            gradient: AssessmentUi.classroomGradient,
+            icon: Icons.groups_rounded,
+            heroTag: 'classroom-avatar-$classroomCode',
+            title: classroom.name,
+            subtitle: [
+              if (classroom.ageGroup.isNotEmpty) classroom.ageGroup,
+              '${studentCodes.length} students',
+            ].join(' · '),
+            overall: overall,
+            monthPicker: MonthPicker(
+              month: state.period.start,
+              onChanged: cubit.setPeriodMonth,
+            ),
+          );
+
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: AssessmentUi.bodyPadding(width),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                AssessmentGradientHeader(
-                  gradient: AssessmentUi.classroomGradient,
-                  icon: Icons.groups_rounded,
-                  heroTag: 'classroom-avatar-$classroomCode',
-                  title: classroom.name,
-                  subtitle: [
-                    if (classroom.ageGroup.isNotEmpty) classroom.ageGroup,
-                    '${studentCodes.length} students',
-                  ].join(' · '),
-                  overall: overall,
-                  monthPicker: MonthPicker(
-                    month: state.period.start,
-                    onChanged: cubit.setPeriodMonth,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                table,
-                const SizedBox(height: 16),
-                insights,
+                header,
+                SizedBox(height: AssessmentUi.sectionGap(width)),
+                if (AssessmentUi.useTwoColumn(width))
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 3, child: table),
+                      const SizedBox(width: 24),
+                      Expanded(flex: 2, child: insights),
+                    ],
+                  )
+                else ...[
+                  table,
+                  SizedBox(height: AssessmentUi.sectionGap(width)),
+                  insights,
+                ],
               ],
             ),
           );

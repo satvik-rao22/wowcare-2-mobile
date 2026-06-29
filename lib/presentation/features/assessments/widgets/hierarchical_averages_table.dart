@@ -33,43 +33,47 @@ class HierarchicalAveragesTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: AssessmentUi.softSurface(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.themeColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
+    return LayoutBuilder(builder: (context, c) {
+      final width = c.maxWidth;
+      return Container(
+        padding: EdgeInsets.all(AssessmentUi.cardPadding(width)),
+        decoration: AssessmentUi.softSurface(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: AppColors.themeColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.bar_chart_rounded,
+                      size: 19, color: AppColors.themeColor),
                 ),
-                child: const Icon(Icons.bar_chart_rounded,
-                    size: 19, color: AppColors.themeColor),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(title, style: AssessmentUi.cardTitle),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          if (domains.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              child: Text('No assessments recorded for this period.',
-                  style: TextStyle(color: Colors.grey.shade600)),
-            )
-          else
-            ...domains.map((d) => _buildDomain(context, d)),
-        ],
-      ),
-    );
+                const SizedBox(width: 10),
+                Expanded(
+                  child:
+                      Text(title, style: AssessmentUi.cardTitleStyle(width)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (domains.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text('No assessments recorded for this period.',
+                    style: TextStyle(color: Colors.grey.shade600)),
+              )
+            else
+              ...domains.map((d) => _buildDomain(context, d)),
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildDomain(BuildContext context, AssessmentDomain domain) {

@@ -47,14 +47,6 @@ abstract final class AssessmentUi {
     );
   }
 
-  /// Section heading used above lists/cards (friendlier mobile size).
-  static const TextStyle sectionTitle =
-      TextStyle(fontSize: 18, fontWeight: FontWeight.w800, height: 1.1);
-
-  /// Card / panel heading.
-  static const TextStyle cardTitle =
-      TextStyle(fontSize: 16, fontWeight: FontWeight.w700);
-
   /// Card-grid column count that adapts gracefully across devices.
   static int gridColumns(double width) {
     if (width >= 1280) return 4;
@@ -65,6 +57,79 @@ abstract final class AssessmentUi {
 
   /// Constrains very wide web layouts so content stays readable.
   static double contentMaxWidth(double width) => width >= 1400 ? 1320 : width;
+
+  // ----------------------------------------------------- responsive tokens
+  //
+  // The module is mobile-first but reflows on tablet/web: edge insets and card
+  // padding breathe, headings grow, list-card heights and avatars scale up, and
+  // profiles split into two columns (main content beside the insights rail)
+  // instead of one tall scroll. These helpers are driven by the *available*
+  // width (from a LayoutBuilder / MediaQuery) so a panel inside a two-column
+  // layout sizes to its own box, not the whole window.
+
+  /// Minimum canvas width at which profile screens place the insights rail
+  /// (radar + scale guide) beside the main content instead of stacked below.
+  static const double twoColumnMin = 900;
+
+  static bool useTwoColumn(double width) => width >= twoColumnMin;
+
+  /// Screen edge inset that grows with the canvas (phones 16 → web 32).
+  static double gutter(double width) =>
+      width >= tabletMax ? 32 : (width >= mobileMax ? 24 : 16);
+
+  /// Scrollable-body padding using the responsive [gutter] (extra bottom room
+  /// so the last card clears the navigation bar).
+  static EdgeInsets bodyPadding(double width) {
+    final g = gutter(width);
+    return EdgeInsets.fromLTRB(g, g, g, g + 16);
+  }
+
+  /// Inner padding for large surface cards (table, radar, guide, stats).
+  static double cardPadding(double width) => width >= tabletMax ? 24 : 18;
+
+  /// Gap between stacked sections; opens up on larger canvases.
+  static double sectionGap(double width) => width >= tabletMax ? 24 : 16;
+
+  /// Section heading above lists/dashboards — grows with the canvas.
+  static TextStyle sectionTitleStyle(double width) => TextStyle(
+        fontSize: width >= tabletMax ? 24 : (width >= mobileMax ? 21 : 18),
+        fontWeight: FontWeight.w800,
+        height: 1.1,
+      );
+
+  /// Card / panel heading — a touch larger on tablet+.
+  static TextStyle cardTitleStyle(double width) => TextStyle(
+        fontSize: width >= mobileMax ? 18 : 16,
+        fontWeight: FontWeight.w700,
+      );
+
+  /// Fixed grid-card height. Cards get *narrower* as columns are added, so they
+  /// need a little more height on wide canvases to fit the wrapped score badges.
+  static double cardExtent(double width) =>
+      width >= tabletMax ? 244 : (width >= mobileMax ? 224 : 206);
+
+  /// Avatar radius for list cards / headers; scales up so avatars don't look
+  /// diminished on large displays.
+  static double avatarRadius(double width, {double base = 22}) =>
+      width >= tabletMax ? base + 8 : (width >= mobileMax ? base + 4 : base);
+
+  /// Wrap/grid spacing inside cards (tight on phones, roomier on web).
+  static double wrapSpacing(double width) => width >= tabletMax ? 10 : 6;
+
+  /// 1–5 scale-button edge length, larger on web where there's room and a
+  /// mouse target benefits from being bigger.
+  static double scaleButtonSize(double width, {bool compact = false}) {
+    final base = compact ? 42.0 : 48.0;
+    if (width >= tabletMax) return base + 10;
+    if (width >= mobileMax) return base + 4;
+    return base;
+  }
+
+  /// Radar chart height derived from its own available width: roughly square
+  /// (allowing for the label gutter) but clamped so it never gets tiny on a
+  /// phone or absurdly tall in a wide panel.
+  static double radarHeight(double width) =>
+      (width * 0.82).clamp(300.0, 460.0);
 
   // ------------------------------------------------------- score badge colour
 

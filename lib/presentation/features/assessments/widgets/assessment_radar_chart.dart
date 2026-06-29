@@ -169,97 +169,110 @@ class _AssessmentRadarChartState extends State<AssessmentRadarChart>
   @override
   Widget build(BuildContext context) {
     final data = widget.data;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
-      decoration: AssessmentUi.softSurface(accent: _current),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, panel) {
+        // Drive padding, title size and chart height off the panel's own width
+        // so the chart sizes correctly inside a narrow two-column rail too.
+        final panelWidth = panel.maxWidth;
+        final pad = AssessmentUi.cardPadding(panelWidth);
+        final chartHeight = AssessmentUi.radarHeight(panelWidth);
+        return Container(
+          padding: EdgeInsets.fromLTRB(pad, pad, pad, pad - 2),
+          decoration: AssessmentUi.softSurface(accent: _current),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: _current.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(Icons.radar_rounded, size: 19,
-                    color: _current),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(widget.title, style: AssessmentUi.cardTitle),
-              ),
-            ],
-          ),
-          if (data.length >= 3) ...[
-            const SizedBox(height: 4),
-            Padding(
-              padding: const EdgeInsets.only(left: 44),
-              child: Text(
-                'Tap a point to see its score',
-                style: TextStyle(fontSize: 12.5, color: Colors.grey.shade500),
-              ),
-            ),
-          ],
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 300,
-            child: Semantics(
-              label: _semanticsSummary,
-              child: data.length < 3
-                  ? _BarFallback(
-                      data: data,
-                      current: _current,
-                      previous: _previous,
-                    )
-                  : LayoutBuilder(
-                      builder: (context, constraints) {
-                        final size = Size(constraints.maxWidth,
-                            constraints.maxHeight);
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapUp: (d) => _handleTap(d.localPosition, size),
-                          child: AnimatedBuilder(
-                            animation: _t,
-                            builder: (context, _) {
-                              return CustomPaint(
-                                size: size,
-                                painter: _RadarPainter(
-                                  current: _lerpList(_curFrom, _curTo, _t.value),
-                                  previous:
-                                      _lerpList(_prevFrom, _prevTo, _t.value),
-                                  labels: data
-                                      .map((d) => d.domainName)
-                                      .toList(),
-                                  maxValue: widget.maxValue,
-                                  currentColor: _current,
-                                  previousColor: _previous,
-                                  selected: _selected,
-                                  currentLabel: widget.currentLabel,
-                                  previousLabel: widget.previousLabel,
-                                ),
-                              );
-                            },
-                          ),
-                        );
-                      },
+              Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: _current.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 16,
-            runSpacing: 8,
-            children: [
-              _LegendDot(color: _current, label: widget.currentLabel),
-              _LegendDot(color: _previous, label: widget.previousLabel),
+                    child: const Icon(Icons.radar_rounded, size: 19,
+                        color: _current),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(widget.title,
+                        style: AssessmentUi.cardTitleStyle(panelWidth)),
+                  ),
+                ],
+              ),
+              if (data.length >= 3) ...[
+                const SizedBox(height: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 44),
+                  child: Text(
+                    'Tap a point to see its score',
+                    style:
+                        TextStyle(fontSize: 12.5, color: Colors.grey.shade500),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              SizedBox(
+                height: chartHeight,
+                child: Semantics(
+                  label: _semanticsSummary,
+                  child: data.length < 3
+                      ? _BarFallback(
+                          data: data,
+                          current: _current,
+                          previous: _previous,
+                        )
+                      : LayoutBuilder(
+                          builder: (context, constraints) {
+                            final size = Size(constraints.maxWidth,
+                                constraints.maxHeight);
+                            return GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapUp: (d) =>
+                                  _handleTap(d.localPosition, size),
+                              child: AnimatedBuilder(
+                                animation: _t,
+                                builder: (context, _) {
+                                  return CustomPaint(
+                                    size: size,
+                                    painter: _RadarPainter(
+                                      current:
+                                          _lerpList(_curFrom, _curTo, _t.value),
+                                      previous: _lerpList(
+                                          _prevFrom, _prevTo, _t.value),
+                                      labels: data
+                                          .map((d) => d.domainName)
+                                          .toList(),
+                                      maxValue: widget.maxValue,
+                                      currentColor: _current,
+                                      previousColor: _previous,
+                                      selected: _selected,
+                                      currentLabel: widget.currentLabel,
+                                      previousLabel: widget.previousLabel,
+                                    ),
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 16,
+                runSpacing: 8,
+                children: [
+                  _LegendDot(color: _current, label: widget.currentLabel),
+                  _LegendDot(color: _previous, label: widget.previousLabel),
+                ],
+              ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

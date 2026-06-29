@@ -24,14 +24,15 @@ class ClassroomAssessmentListView extends StatelessWidget {
     final cubit = context.read<AssessmentsCubit>();
     return BlocBuilder<AssessmentsCubit, AssessmentsState>(
       builder: (context, state) {
+        final width = MediaQuery.sizeOf(context).width;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: AssessmentUi.bodyPadding(width),
           children: [
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text('Classroom Assessments',
-                      style: AssessmentUi.sectionTitle),
+                      style: AssessmentUi.sectionTitleStyle(width)),
                 ),
                 MonthPicker(
                   month: state.period.start,
@@ -53,14 +54,17 @@ class ClassroomAssessmentListView extends StatelessWidget {
                 builder: (context, constraints) {
                   final columns =
                       AssessmentUi.gridColumns(constraints.maxWidth);
+                  final spacing =
+                      constraints.maxWidth >= AssessmentUi.tabletMax ? 18.0 : 14.0;
                   return GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: columns,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      mainAxisExtent: 220,
+                      mainAxisSpacing: spacing,
+                      crossAxisSpacing: spacing,
+                      mainAxisExtent:
+                          AssessmentUi.cardExtent(constraints.maxWidth),
                     ),
                     itemCount: state.classrooms.length,
                     itemBuilder: (context, i) => Entrance(
@@ -100,6 +104,8 @@ class _ClassroomCard extends StatelessWidget {
         .where((a) => studentCodes.contains(a.studentId));
     final overall = AssessmentAggregation.mean(records);
     final accent = AssessmentUi.scoreAccent(overall);
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= AssessmentUi.tabletMax;
 
     return AssessmentCard(
       accent: accent,
@@ -119,7 +125,7 @@ class _ClassroomCard extends StatelessWidget {
                   initials: '',
                   icon: Icons.groups_rounded,
                   gradient: AssessmentUi.classroomGradient,
-                  radius: 22,
+                  radius: AssessmentUi.avatarRadius(width),
                 ),
               ),
               const SizedBox(width: 11),
@@ -130,8 +136,9 @@ class _ClassroomCard extends StatelessWidget {
                     Text(classroom.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: wide ? 16.5 : 15)),
                     const SizedBox(height: 4),
                     Row(
                       children: [
@@ -154,15 +161,15 @@ class _ClassroomCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              ScoreRing(score: overall, size: 50),
+              ScoreRing(score: overall, size: wide ? 56 : 50),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: SingleChildScrollView(
               child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
+                spacing: AssessmentUi.wrapSpacing(width),
+                runSpacing: AssessmentUi.wrapSpacing(width),
                 children: domains.map((d) {
                   final avg =
                       AssessmentAggregation.domainAverage(records, d.id);

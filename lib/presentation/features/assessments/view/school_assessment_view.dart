@@ -52,8 +52,10 @@ class SchoolAssessmentView extends StatelessWidget {
           ],
         );
 
+        final width = MediaQuery.sizeOf(context).width;
+        final gap = AssessmentUi.sectionGap(width);
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: AssessmentUi.bodyPadding(width),
           children: [
             AssessmentGradientHeader(
               gradient: AssessmentUi.schoolGradient,
@@ -66,17 +68,28 @@ class SchoolAssessmentView extends StatelessWidget {
                 onChanged: cubit.setPeriodMonth,
               ),
             ),
-            const SizedBox(height: 14),
+            SizedBox(height: gap),
             _StatsCard(
               classrooms: state.classrooms.length,
               students: activeStudents,
               domains: domains.length,
               assessments: current.length,
             ),
-            const SizedBox(height: 16),
-            table,
-            const SizedBox(height: 16),
-            insights,
+            SizedBox(height: gap),
+            if (AssessmentUi.useTwoColumn(width))
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(flex: 3, child: table),
+                  const SizedBox(width: 24),
+                  Expanded(flex: 2, child: insights),
+                ],
+              )
+            else ...[
+              table,
+              SizedBox(height: gap),
+              insights,
+            ],
           ],
         );
       },
@@ -109,8 +122,9 @@ class _StatsCard extends StatelessWidget {
       _StatData(Icons.fact_check_rounded, 'Assessments', assessments,
           const Color(0xFF16A34A)),
     ];
+    final width = MediaQuery.sizeOf(context).width;
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(AssessmentUi.cardPadding(width)),
       decoration: AssessmentUi.softSurface(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,12 +143,14 @@ class _StatsCard extends StatelessWidget {
                     size: 19, color: Color(0xFF6366F1)),
               ),
               const SizedBox(width: 10),
-              const Text('Assessment Statistics', style: AssessmentUi.cardTitle),
+              Text('Assessment Statistics',
+                  style: AssessmentUi.cardTitleStyle(width)),
             ],
           ),
           const SizedBox(height: 16),
           LayoutBuilder(builder: (context, constraints) {
-            final columns = constraints.maxWidth >= 520 ? 4 : 2;
+            // 4-up once the card is wide enough for tiles to stay legible.
+            final columns = constraints.maxWidth >= 560 ? 4 : 2;
             return GridView.count(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),

@@ -23,14 +23,15 @@ class ParameterManagementView extends StatelessWidget {
     return BlocBuilder<AssessmentsCubit, AssessmentsState>(
       builder: (context, state) {
         final domains = state.activeDomains;
+        final width = MediaQuery.sizeOf(context).width;
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: AssessmentUi.bodyPadding(width),
           children: [
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text('Assessment Domains',
-                      style: AssessmentUi.sectionTitle),
+                      style: AssessmentUi.sectionTitleStyle(width)),
                 ),
                 if (canManage)
                   _GradientButton(

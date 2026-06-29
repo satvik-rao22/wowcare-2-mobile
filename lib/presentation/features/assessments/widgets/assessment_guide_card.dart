@@ -19,8 +19,10 @@ class AssessmentGuideCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
+    return LayoutBuilder(builder: (context, c) {
+      final width = c.maxWidth;
+      return Container(
+      padding: EdgeInsets.all(AssessmentUi.cardPadding(width)),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
@@ -40,12 +42,13 @@ class AssessmentGuideCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
-              Icon(Icons.menu_book_rounded, size: 20, color: Color(0xFF6366F1)),
-              SizedBox(width: 8),
+            children: [
+              const Icon(Icons.menu_book_rounded,
+                  size: 20, color: Color(0xFF6366F1)),
+              const SizedBox(width: 8),
               Text(
                 'Assessment Guide',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                style: AssessmentUi.cardTitleStyle(width),
               ),
             ],
           ),
@@ -113,5 +116,6 @@ class AssessmentGuideCard extends StatelessWidget {
         ],
       ),
     );
+    });
   }
 }

@@ -42,9 +42,10 @@ class StudentAssessmentListView extends StatelessWidget {
 
         final students = state.studentsInClassroom(selectedCode);
         final domains = state.domainsForClassroom(selectedCode);
+        final width = MediaQuery.sizeOf(context).width;
 
         return ListView(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+          padding: AssessmentUi.bodyPadding(width),
           children: [
             _Filters(
               classrooms: state.classrooms,
@@ -61,15 +62,18 @@ class StudentAssessmentListView extends StatelessWidget {
                 builder: (context, constraints) {
                   final columns =
                       AssessmentUi.gridColumns(constraints.maxWidth);
+                  final spacing =
+                      constraints.maxWidth >= AssessmentUi.tabletMax ? 18.0 : 14.0;
                   return GridView.builder(
                     shrinkWrap: true,
                     physics: const NeverScrollableScrollPhysics(),
                     gridDelegate:
                         SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: columns,
-                      mainAxisSpacing: 14,
-                      crossAxisSpacing: 14,
-                      mainAxisExtent: 218,
+                      mainAxisSpacing: spacing,
+                      crossAxisSpacing: spacing,
+                      mainAxisExtent:
+                          AssessmentUi.cardExtent(constraints.maxWidth),
                     ),
                     itemCount: students.length,
                     itemBuilder: (context, i) {
@@ -110,13 +114,20 @@ class _Filters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    // Full-width on tight phones (where 240 would crowd the month picker, and
+    // an unbounded Wrap child would overflow), a touch wider on web canvases.
+    // A finite width is required because Wrap hands children unbounded width.
+    final dropdownWidth = width < AssessmentUi.mobileMax
+        ? width - AssessmentUi.gutter(width) * 2
+        : (width >= AssessmentUi.tabletMax ? 320.0 : 240.0);
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         SizedBox(
-          width: 240,
+          width: dropdownWidth,
           child: DropdownButtonFormField<String>(
             initialValue: selectedCode,
             isExpanded: true,
@@ -165,6 +176,8 @@ class _StudentCard extends StatelessWidget {
     final records = state.studentAssessments(student.code, state.period);
     final overall = AssessmentAggregation.mean(records);
     final accent = AssessmentUi.scoreAccent(overall);
+    final width = MediaQuery.sizeOf(context).width;
+    final wide = width >= AssessmentUi.tabletMax;
 
     return AssessmentCard(
       accent: accent,
@@ -183,7 +196,7 @@ class _StudentCard extends StatelessWidget {
                   gradient: student.avatarUrl == null
                       ? AssessmentUi.studentGradient
                       : null,
-                  radius: 22,
+                  radius: AssessmentUi.avatarRadius(width),
                 ),
               ),
               const SizedBox(width: 11),
@@ -194,8 +207,9 @@ class _StudentCard extends StatelessWidget {
                     Text(student.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 15)),
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: wide ? 16.5 : 15)),
                     const SizedBox(height: 2),
                     Text(
                       AssessmentUi.scoreSummary(overall),
@@ -211,15 +225,15 @@ class _StudentCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              ScoreRing(score: overall, size: 50),
+              ScoreRing(score: overall, size: wide ? 56 : 50),
             ],
           ),
           const SizedBox(height: 12),
           Expanded(
             child: SingleChildScrollView(
               child: Wrap(
-                spacing: 6,
-                runSpacing: 6,
+                spacing: AssessmentUi.wrapSpacing(width),
+                runSpacing: AssessmentUi.wrapSpacing(width),
                 children: domains.map<Widget>((d) {
                   final avg =
                       AssessmentAggregation.domainAverage(records, d.id);

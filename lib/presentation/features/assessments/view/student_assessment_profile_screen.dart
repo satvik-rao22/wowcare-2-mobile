@@ -65,15 +65,35 @@ class _StudentAssessmentProfileScreenState
           }
           _ensureSeeded(state);
           final domains = state.domainsForClassroom(student.classroomCode);
+          final width = MediaQuery.sizeOf(context).width;
+          final cubit = context.read<AssessmentsCubit>();
+
+          final scoring = _buildScoringColumn(context, state, student, domains);
+          final insights = _buildInsightsColumn(state, student, domains);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: AssessmentUi.bodyPadding(width),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _buildScoringColumn(context, state, student, domains),
-                const SizedBox(height: 16),
-                _buildInsightsColumn(state, student, domains),
+                _header(context, state, student, cubit),
+                SizedBox(height: AssessmentUi.sectionGap(width)),
+                if (AssessmentUi.useTwoColumn(width))
+                  // Wide/web: scoring on the left, the insights rail (radar +
+                  // scale guide) sticks alongside instead of below a long form.
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 3, child: scoring),
+                      const SizedBox(width: 24),
+                      Expanded(flex: 2, child: insights),
+                    ],
+                  )
+                else ...[
+                  scoring,
+                  SizedBox(height: AssessmentUi.sectionGap(width)),
+                  insights,
+                ],
               ],
             ),
           );
@@ -94,8 +114,6 @@ class _StudentAssessmentProfileScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _header(context, state, student, cubit),
-        const SizedBox(height: 14),
         if (domains.isEmpty)
           _emptyMilestones()
         else

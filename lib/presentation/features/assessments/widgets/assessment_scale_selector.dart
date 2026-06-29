@@ -22,6 +22,9 @@ class AssessmentScaleSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final buttonSize = AssessmentUi.scaleButtonSize(width, compact: compact);
+    final spacing = AssessmentUi.wrapSpacing(width);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -29,8 +32,8 @@ class AssessmentScaleSelector extends StatelessWidget {
           builder: (context, constraints) {
             // Wrap so the five buttons never overflow on narrow phones.
             return Wrap(
-              spacing: 6,
-              runSpacing: 6,
+              spacing: spacing,
+              runSpacing: spacing,
               children: AssessmentScale.values.map((score) {
                 final selected = value == score;
                 return Semantics(
@@ -41,7 +44,7 @@ class AssessmentScaleSelector extends StatelessWidget {
                     score: score,
                     selected: selected,
                     disabled: disabled,
-                    compact: compact,
+                    size: buttonSize,
                     onTap: disabled ? null : () => onChanged(score),
                   ),
                 );
@@ -84,19 +87,20 @@ class _ScaleButton extends StatelessWidget {
     required this.score,
     required this.selected,
     required this.disabled,
-    required this.compact,
+    required this.size,
     required this.onTap,
   });
 
   final int score;
   final bool selected;
   final bool disabled;
-  final bool compact;
+  final double size;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final size = compact ? 42.0 : 48.0;
+    // Number scales with the button so it stays proportionate on web.
+    final fontSize = size * 0.34;
     // Each point carries its own meaning-colour (1 red … 5 green); selecting it
     // fills with that colour, so the scale reads like a traffic-light gradient.
     final color = AssessmentUi.scaleColor(score);
@@ -140,7 +144,7 @@ class _ScaleButton extends StatelessWidget {
               child: Text(
                 '$score',
                 style: TextStyle(
-                  fontSize: compact ? 14 : 16,
+                  fontSize: fontSize,
                   fontWeight: FontWeight.w800,
                   color: selected ? Colors.white : color,
                 ),

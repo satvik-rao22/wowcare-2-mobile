@@ -86,11 +86,16 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen>
           if (state.isLoading) {
             return const Center(child: PrimaryCircularLoader());
           }
+          final width = MediaQuery.sizeOf(context).width;
+          // On wide canvases the few tabs comfortably fill the bar (centred,
+          // even widths); on phones they scroll from the start edge.
+          final fillTabs = width >= AssessmentUi.tabletMax;
+          final headerGutter = AssessmentUi.gutter(width);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: EdgeInsets.fromLTRB(headerGutter, 12, headerGutter, 0),
                 child: Row(
                   children: [
                     Container(
@@ -112,13 +117,10 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen>
                           color: Colors.white, size: 20),
                     ),
                     const SizedBox(width: 10),
-                    const Text(
+                    Text(
                       'Assessments',
-                      style: TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: AssessmentUi.sectionTitleStyle(width)
+                          .copyWith(color: AppColors.primaryColor),
                     ),
                     const Spacer(),
                     if (state.errorMessage != null)
@@ -133,8 +135,9 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen>
               const SizedBox(height: 12),
               TabBar(
                 controller: _controller,
-                isScrollable: true,
-                tabAlignment: TabAlignment.start,
+                isScrollable: !fillTabs,
+                tabAlignment:
+                    fillTabs ? TabAlignment.fill : TabAlignment.start,
                 indicatorSize: TabBarIndicatorSize.tab,
                 dividerColor: Colors.transparent,
                 indicatorPadding:
@@ -149,7 +152,8 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen>
                     fontSize: 12.5, fontWeight: FontWeight.w700),
                 unselectedLabelStyle: const TextStyle(
                     fontSize: 12.5, fontWeight: FontWeight.w600),
-                labelPadding: const EdgeInsets.symmetric(horizontal: 14),
+                labelPadding:
+                    EdgeInsets.symmetric(horizontal: fillTabs ? 8 : 14),
                 tabs: tabs
                     .map((t) => Tab(
                           icon: Icon(t.icon, size: 18),

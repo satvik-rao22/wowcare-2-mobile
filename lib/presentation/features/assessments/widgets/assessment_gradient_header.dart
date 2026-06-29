@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/initials_avatar.dart';
 
 /// The coloured gradient banner shown at the top of every assessment profile /
@@ -41,100 +42,112 @@ class AssessmentGradientHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget avatar = InitialsAvatar(
-      seed: seed,
-      initials: initials,
-      icon: icon,
-      imageUrl: avatarUrl,
-      gradient: avatarUrl == null ? gradient : null,
-      radius: 26,
-    );
-    if (heroTag != null) {
-      avatar = Hero(tag: heroTag!, child: avatar);
-    }
+    return LayoutBuilder(
+      builder: (context, c) {
+        final width = c.maxWidth;
+        final wide = width >= AssessmentUi.tabletMax;
+        final pad = AssessmentUi.cardPadding(width);
+        final avatarRadius = AssessmentUi.avatarRadius(width, base: 26);
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: _shadowColor.withValues(alpha: 0.32),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              // White ring lifts the avatar off the same-hue banner.
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.12),
-                      blurRadius: 8,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: avatar,
+        Widget avatar = InitialsAvatar(
+          seed: seed,
+          initials: initials,
+          icon: icon,
+          imageUrl: avatarUrl,
+          gradient: avatarUrl == null ? gradient : null,
+          radius: avatarRadius,
+        );
+        if (heroTag != null) {
+          avatar = Hero(tag: heroTag!, child: avatar);
+        }
+
+        return Container(
+          padding: EdgeInsets.all(pad),
+          decoration: BoxDecoration(
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [
+              BoxShadow(
+                color: _shadowColor.withValues(alpha: 0.32),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.white)),
-                    const SizedBox(height: 2),
-                    Text(subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 12.5, color: Colors.white70)),
-                  ],
-                ),
-              ),
-              if (overall != null || icon != null)
-                _OverallAverage(overall: overall),
             ],
           ),
-          if (monthPicker != null) ...[
-            const SizedBox(height: 16),
-            Align(alignment: Alignment.centerLeft, child: monthPicker!),
-          ],
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  // White ring lifts the avatar off the same-hue banner.
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 2.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.12),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: avatar,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: wide ? 24 : 18,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white)),
+                        const SizedBox(height: 2),
+                        Text(subtitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: wide ? 14.5 : 12.5,
+                                color: Colors.white70)),
+                      ],
+                    ),
+                  ),
+                  if (overall != null || icon != null)
+                    _OverallAverage(overall: overall, wide: wide),
+                ],
+              ),
+              if (monthPicker != null) ...[
+                const SizedBox(height: 16),
+                Align(alignment: Alignment.centerLeft, child: monthPicker!),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 class _OverallAverage extends StatelessWidget {
-  const _OverallAverage({required this.overall});
+  const _OverallAverage({required this.overall, this.wide = false});
 
   final double? overall;
+  final bool wide;
 
   @override
   Widget build(BuildContext context) {
+    final numberSize = wide ? 38.0 : 28.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         if (overall == null)
-          const Text('—',
+          Text('—',
               style: TextStyle(
-                  fontSize: 28,
+                  fontSize: numberSize,
                   fontWeight: FontWeight.w800,
                   color: Colors.white))
         else
@@ -144,8 +157,8 @@ class _OverallAverage extends StatelessWidget {
             curve: Curves.easeOutCubic,
             builder: (context, v, _) => Text(
               v.toStringAsFixed(1),
-              style: const TextStyle(
-                  fontSize: 28,
+              style: TextStyle(
+                  fontSize: numberSize,
                   height: 1,
                   fontWeight: FontWeight.w800,
                   color: Colors.white),
