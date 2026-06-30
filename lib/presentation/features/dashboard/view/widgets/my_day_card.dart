@@ -26,6 +26,11 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_act
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import '../../../../../core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 
@@ -1507,6 +1512,9 @@ class _ShimmerLine extends StatelessWidget {
 // placeholder until the real messaging API is integrated.
 // ---------------------------------------------------------------------------
 
+// Shows the logged-in user's latest conversations (up to 2) using the same row representation as
+// the messaging inbox (avatar + title + last message + time + unread). Tapping a row opens that
+// conversation thread. Empty → "No recent chat".
 class _CommunicationRowWidget extends StatefulWidget {
   const _CommunicationRowWidget();
 
@@ -1516,68 +1524,260 @@ class _CommunicationRowWidget extends StatefulWidget {
 }
 
 class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
-  String _displayName = '';
+  StreamSubscription<List<ConversationEntity>>? _sub;
+  List<ConversationEntity> _items = const [];
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadDisplayName());
+    unawaited(_init());
   }
 
-  Future<void> _loadDisplayName() async {
-    final storage = serviceLocator<StorageService>();
-    final name = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
-    if (!mounted) return;
-    setState(() => _displayName = name);
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  /// Mirrors the messaging inbox: seed from the Isar cache for a fast first frame, then watch the
+  /// Firestore inbox in realtime. Uses type: null so ALL conversation types are included — the REST
+  /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
+  Future<void> _init() async {
+    try {
+      final cached =
+          await serviceLocator<GetCachedConversationsEntityUseCase>().call();
+      cached.fold((_) {}, (list) {
+        if (mounted && list.isNotEmpty) {
+          setState(() {
+            _items = _top2(list);
+            _loading = false;
+          });
+        }
+      });
+    } catch (_) {
+      // cache seed is best-effort
+    }
+
+    _sub = serviceLocator<WatchConversationsUseCase>().call().listen(
+      (list) {
+        if (!mounted) return;
+        setState(() {
+          _items = _top2(list);
+          _loading = false;
+        });
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() => _loading = false);
+      },
+    );
+  }
+
+  List<ConversationEntity> _top2(List<ConversationEntity> list) {
+    final sorted = [...list]..sort((a, b) {
+      final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
+      final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
+      return bt.compareTo(at);
+    });
+    return sorted.take(2).toList(growable: false);
+  }
+
+  void _openConversation(ConversationEntity conversation) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ConversationThreadScreen(conversation: conversation),
+      ),
+    );
+  }
+
+  // Compact relative time for the preview row.
+  String _formatTime(DateTime? dt) {
+    if (dt == null) return '';
+    final local = dt.toLocal();
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final msgDay = DateTime(local.year, local.month, local.day);
+    final diff = today.difference(msgDay).inDays;
+    final hh = local.hour.toString().padLeft(2, '0');
+    final mm = local.minute.toString().padLeft(2, '0');
+    final time = '$hh:$mm';
+    if (diff == 0) return time;
+    if (diff == 1) return 'Yesterday';
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    if (diff < 7) return days[local.weekday - 1];
+    return '${local.day}/${local.month}/${local.year % 100}';
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      width: double.infinity,
       decoration: const BoxDecoration(
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
         color: Color.fromRGBO(44, 99, 226, 0.05),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          DocumentImageWidget(
-            fileUuid: '',
-            name: _displayName,
-            size: 50,
-            fontSize: 20,
-            disableProfileLookupFallback: true,
-            disableAttendanceStatusLookup: true,
+      child: _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _displayName.isNotEmpty ? _displayName : '—',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  'Chat Not Found',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
+        ),
+      );
+    }
+    if (_items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        child: Row(
+          children: [
+            Icon(
+              Icons.forum_outlined,
+              size: 20,
+              color: AppColors.primaryColor.withValues(alpha: 0.4),
             ),
+            const SizedBox(width: 10),
+            Text(
+              'No recent chat',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    return Column(
+      children: [
+        for (int i = 0; i < _items.length; i++) ...[
+          if (i > 0)
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: AppColors.primaryColor.withValues(alpha: 0.06),
+            ),
+          _RecentChatRow(
+            conversation: _items[i],
+            timeLabel: _formatTime(_items[i].lastMessageAt),
+            onTap: () => _openConversation(_items[i]),
           ),
-          const SizedBox(width: 8),
-          _ChatActionButton(onPressed: () {}),
         ],
+      ],
+    );
+  }
+}
+
+class _RecentChatRow extends StatelessWidget {
+  const _RecentChatRow({
+    required this.conversation,
+    required this.timeLabel,
+    required this.onTap,
+  });
+
+  final ConversationEntity conversation;
+  final String timeLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final unread = conversation.unreadCount;
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            DocumentImageWidget(
+              fileUuid: conversation.avatarUrl,
+              name: conversation.title,
+              size: 50,
+              fontSize: 20,
+              disableProfileLookupFallback: true,
+              disableAttendanceStatusLookup: true,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          conversation.title.isNotEmpty
+                              ? conversation.title
+                              : 'Conversation',
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: AppColors.primaryColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                      if (timeLabel.isNotEmpty)
+                        Text(
+                          timeLabel,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          MessageContentProcessor.previewText(
+                            conversation.lastMessagePreview,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                          ),
+                        ),
+                      ),
+                      if (unread > 0)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF00B894),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            unread > 99 ? '99+' : '$unread',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1611,30 +1811,3 @@ class _CustomChip extends StatelessWidget {
   }
 }
 
-class _ChatActionButton extends StatelessWidget {
-  const _ChatActionButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          gradient: AppColors.buildPrimaryGradient(),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        alignment: Alignment.center,
-        child: SvgPicture.asset(
-          MediaRes.communicationIcon,
-          width: 24,
-          height: 24,
-          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
-        ),
-      ),
-    );
-  }
-}

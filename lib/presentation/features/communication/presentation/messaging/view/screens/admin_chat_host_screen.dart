@@ -19,6 +19,7 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -209,6 +210,19 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Parents see the Admin Chat as a direct per-child thread (draft + create-on-first-send),
+    // mirroring their Room Chat — admins resolve server-side from the child's studentCode. Admins
+    // and directors get the conversation list below.
+    if (context.watch<RoleCubit>().isParent) {
+      return const GlobalScaffold(
+        hasBackButton: false,
+        bodyPadding: EdgeInsets.fromLTRB(12, 8, 12, 8),
+        body: ParentDirectMessagingScreen(
+          conversationType: ConversationType.adminChat,
+          notCreatedLabel: 'Start Conversation with Admin',
+        ),
+      );
+    }
     return GlobalScaffold(
       hasBackButton: false,
       bodyPadding: EdgeInsets.zero,
