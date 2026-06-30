@@ -911,6 +911,13 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
     await cubit.refreshSwitchProfileAvailability();
     if (!context.mounted) return;
     await cubit.load(isParent: context.read<RoleCubit>().isParent);
+    if (!context.mounted) return;
+
+    // Land on the new persona's dashboard. DashboardScreen branches on RoleCubit,
+    // so this shows the correct (admin/staff/parent) dashboard and rebuilds it
+    // fresh — otherwise a stale Billing/Messaging/etc. screen lingers after the
+    // switch and shows the previous persona's data.
+    context.go(DashboardScreen.routeName);
   } catch (e) {
     if (!context.mounted) return;
     CoreUtils.showTopSnackBar(

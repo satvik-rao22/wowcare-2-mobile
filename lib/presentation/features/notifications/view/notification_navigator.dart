@@ -5,6 +5,7 @@ import 'package:wowcare/src/app_router.dart';
 import '../../../../core/util/active_school_switcher.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
+import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../cubit/push_notification_cubit.dart';
 import '../routing/notification_route_resolver.dart';
 
@@ -53,11 +54,16 @@ class _NotificationNavigatorState extends State<NotificationNavigator> {
   }
 
   Future<void> _route(PushNotification message) async {
-    final destination = NotificationRouteResolver.resolve(message);
-    if (destination == null) {
+    // Cheap, persona-independent check first so we don't switch school for an
+    // action that has no in-app destination.
+    if (NotificationRouteResolver.resolve(message) == null) {
       AppLogger.d('[FCM] No route mapped for action: ${message.action}');
       return;
     }
+    // Capture the role cubit before the async gap; reading `.isParent` after the
+    // switch then reflects the TARGET school's persona (the cubit instance lives
+    // above this widget, so it's safe to use post-await without `context`).
+    final roleCubit = context.read<RoleCubit>();
     // If the notification targets a different school the user belongs to, switch
     // the active org/school (and reset role/caches) BEFORE redirecting, so the
     // destination screen loads the notified school's data — not the current one.
@@ -68,6 +74,14 @@ class _NotificationNavigatorState extends State<NotificationNavigator> {
         schoolCode: message.schoolCode,
       );
     }
+    // Resolve again with the resolved persona: billing actions open the parent
+    // vs admin billing screen depending on whether the current user is a
+    // guardian. Non-billing actions are unaffected.
+    final destination = NotificationRouteResolver.resolve(
+      message,
+      isGuardian: roleCubit.isParent,
+    );
+    if (destination == null) return;
     // URL changes (incl. the `highlightCode` query param) → go_router rebuilds
     // the branch, so the destination screen can scroll-to / flash the target.
     AppLogger.d(

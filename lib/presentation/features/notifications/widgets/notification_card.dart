@@ -23,7 +23,16 @@ class NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = NotificationCategoryStyle.of(notification.category);
+    // Prefer the real backend `module` (ATTENDANCE / CLASSROOM / USER / …) so
+    // the chip reflects the actual source, not the 3-bucket category (which
+    // collapses unknown modules to "Staff"). Falls back to the category label.
+    final module = (notification.data['module'] ?? '').trim();
+    final chipLabel = module.isNotEmpty
+        ? NotificationCategoryStyle.moduleLabel(module)
+        : notification.category.label;
+    final style = module.isNotEmpty
+        ? NotificationCategoryStyle.forModule(module)
+        : NotificationCategoryStyle.of(notification.category);
     final isUnread = !notification.isRead;
 
     return Material(
@@ -98,7 +107,7 @@ class NotificationCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _CategoryChip(
-                          label: notification.category.label,
+                          label: chipLabel,
                           style: style,
                         ),
                       ],
