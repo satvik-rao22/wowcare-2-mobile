@@ -367,10 +367,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     List<Message> messages,
     String guardianUserCode,
   ) {
-    return messages.where((m) {
-      if (!m.isPrivate) return true;
-      return m.privateParentUserCode == guardianUserCode;
-    }).toList();
+    // A guardian's private tab shows ONLY that guardian's private messages.
+    // Non-private (group) messages live in the dedicated "Group Chat" tab, so
+    // every message appears in exactly one staff tab.
+    return messages
+        .where((m) => m.isPrivate && m.privateParentUserCode == guardianUserCode)
+        .toList();
   }
 
   List<Message> _messagesForParentTab(
@@ -612,12 +614,198 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     _inputFocusNode.requestFocus();
   }
 
+  /// Renders one message pane (the message list + new-message / loading-older
+  /// overlays) for a single tab. Extracted so the Group Chat tab and each
+  /// per-parent private tab share identical rendering — they differ only in
+  /// the [messages] shown, the scroll [controller], and the [scrollBehavior].
+  Widget _buildThreadPane({
+    required List<Message> messages,
+    required AutoScrollController controller,
+    required ChatScrollBehavior scrollBehavior,
+    required CommunicationState state,
+  }) {
+    return Stack(
+      children: [
+        ListView.builder(
+          controller: controller,
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          reverse: true,
+          itemCount: messages.length,
+          itemBuilder: (context, index) {
+            final message = messages[messages.length - 1 - index];
+            final messageId = message.id;
+            bool showDateHeader = false;
+            final prevListIndex = messages.length - 2 - index;
+            if (prevListIndex >= 0) {
+              final prevMessage = messages[prevListIndex];
+              final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+              final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                message.time,
+                _schoolTz,
+              );
+              final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                prevMessage.time,
+                _schoolTz,
+              );
+              showDateHeader = _currDate.year != _prevDate.year ||
+                  _currDate.month != _prevDate.month ||
+                  _currDate.day != _prevDate.day;
+            } else {
+              showDateHeader = true;
+            }
+            final prevMessage =
+                prevListIndex >= 0 ? messages[prevListIndex] : null;
+            final isGrouped =
+                !showDateHeader && _isSameSender(prevMessage, message);
+
+            return AutoScrollTag(
+              key: ValueKey(messageId),
+              controller: controller,
+              index: index,
+              highlightColor: Colors.green.withValues(alpha: 0.7),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (showDateHeader)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: _buildDateChip(message.time),
+                      ),
+                    ),
+                  if (showDateHeader) const SizedBox(height: 10),
+                  SizedBox(height: isGrouped ? 2.0 : 8.0),
+                  ThreadMessageTile(
+                    threadId: widget.parentInfo['code'] as String,
+                    messageCode: message.code,
+                    quotedMessageId: message.quotedMessageId,
+                    onDeleteAttachment: (attachment) {
+                      if (attachment.attachmentId != null) {
+                        context.read<CommunicationCubit>().deleteAttachment(
+                              widget.parentInfo['code'] as String,
+                              attachment.attachmentId!,
+                            );
+                      }
+                    },
+                    currentUserCode: _currentUserCode,
+                    reactionsController: _reactionsController,
+                    isParentMessaging: true,
+                    senderIsOrgSide: _isOrgSideSender(message),
+                    viewerIsGuardian: widget.isGuardian,
+                    onReplyFromMenu: message.isDeleted
+                        ? null
+                        : () {
+                            setState(() {
+                              _quotedMessageId = message.id;
+                              _quotedMessage = message;
+                            });
+                          },
+                    onCopy: message.isDeleted
+                        ? null
+                        : () {
+                            Clipboard.setData(
+                              ClipboardData(
+                                text: MessageContentProcessor.stripHtmlTags(
+                                  message.text,
+                                ),
+                              ),
+                            );
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message: 'Message copied successfully',
+                              isSuccess: true,
+                            );
+                          },
+                    onEdit: message.isDeleted ? null : () => _startEditing(message),
+                    onDelete: message.isDeleted
+                        ? null
+                        : () {
+                            context.read<CommunicationCubit>().deleteMessage(
+                                  widget.parentInfo['code'] as String,
+                                  message.code,
+                                );
+                            CoreUtils.showTopSnackBar(
+                              context: context,
+                              message: 'Message deleted successfully',
+                              isSuccess: true,
+                            );
+                          },
+                    onInfo: message.isDeleted
+                        ? null
+                        : () => _showMessageStatusDialog(context, message),
+                    onScrollToQuoted: (quoteId) {
+                      _scrollToMessage(quoteId);
+                    },
+                    onReactionAdded: (emoji) {
+                      final myReaction =
+                          message.reactions[_currentUserCode ?? 'me'];
+                      if (myReaction == emoji) {
+                        context.read<CommunicationCubit>().removeReaction(
+                              widget.parentInfo['code'] as String,
+                              message.code,
+                              emoji,
+                              currentUserCode: _currentUserCode,
+                            );
+                      } else {
+                        context.read<CommunicationCubit>().addReaction(
+                              widget.parentInfo['code'] as String,
+                              message.code,
+                              emoji,
+                              currentUserCode: _currentUserCode,
+                            );
+                      }
+                    },
+                    onRemoveReaction: (emoji) {
+                      context.read<CommunicationCubit>().removeReaction(
+                            widget.parentInfo['code'] as String,
+                            message.code,
+                            emoji,
+                            currentUserCode: _currentUserCode,
+                          );
+                    },
+                    onReactionTap: () => _showEmojiPicker(context, message),
+                    isGrouped: isGrouped,
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 8,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: scrollBehavior.showNewMessageIndicator,
+            builder: (_, visible, __) => NewMessagesIndicator(
+              visible: visible,
+              onTap: () => scrollBehavior.scrollToBottom(),
+            ),
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          child: LoadingOlderIndicator(
+            visible:
+                state is CommunicationLoaded && state.isLoadingOlderMessages,
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
+    // Staff/admin view with private mode on: a "Group Chat" tab (non-private
+    // messages) followed by one tab per guardian (that guardian's private
+    // thread). Matches _tabCount = 1 + guardianCount and the scroll/send index
+    // math, which all treat index 0 as the group tab.
     final tabNames = _privateModeEnabled
-        ? [parent1Name, parent2Name]
+        ? <String>['Group Chat', ..._guardianEntries.take(2).map((e) => e.value)]
         : ['${parent1Name}, ${parent2Name} and Staff'];
 
     return BlocConsumer<CommunicationCubit, CommunicationState>(
@@ -640,6 +828,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         final _parent2Messages = _guardianEntries.length > 1
             ? _messagesForParentTab(_messages, _guardianEntries[1].key)
             : const <Message>[];
+        // Group Chat tab (staff/admin, private mode on): non-private messages
+        // only — the per-parent private messages live in their own tabs.
+        final _groupMessages = _messages.where((m) => !m.isPrivate).toList();
+        // TEMP DIAGNOSTIC (remove after verifying). Counts over the UNFILTERED
+        // message set feeding the staff tabs, surfaced both to the console and
+        // as an on-screen banner so we can read it without a console.
+        final _dbgPrivate = _messages.where((m) => m.isPrivate).length;
+        final _dbgWithPpc = _messages
+            .where((m) => (m.privateParentUserCode ?? '').isNotEmpty)
+            .length;
+        final _dbgStats =
+            'DBG v2 · total=${_messages.length} priv=$_dbgPrivate ppc=$_dbgWithPpc';
+        for (final m in _messages) {
+          debugPrint(
+            '[PRIV-DBG] code=${m.code} isPrivate=${m.isPrivate} '
+            'ppc=${m.privateParentUserCode} sender=${m.senderUserCode}',
+          );
+        }
         if (state is CommunicationLoading && _messages.isEmpty) {
           if (!widget.showOwnScaffold) return const ChatThreadShimmer();
           return Scaffold(body: const ChatThreadShimmer());
@@ -692,6 +898,35 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               controller: _tabController,
                               children: _privateModeEnabled
                                   ? [
+                                      // Tab 0: Group Chat (non-private).
+                                      Column(
+                                        children: [
+                                          Container(
+                                            width: double.infinity,
+                                            color: Colors.amber,
+                                            padding: const EdgeInsets.all(6),
+                                            child: Text(
+                                              _dbgStats,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                          ),
+                                          Expanded(
+                                            child: _buildThreadPane(
+                                              messages: _groupMessages,
+                                              controller: _groupController,
+                                              scrollBehavior:
+                                                  _groupScrollBehavior,
+                                              state: state,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      // Tab 1: first guardian's private thread.
+                                      if (_guardianEntries.isNotEmpty)
                                       Stack(
                                         children: [
                                           ListView.builder(
@@ -985,6 +1220,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                           ),
                                         ],
                                       ),
+                                      // Tab 2: second guardian's private thread.
+                                      if (_guardianEntries.length > 1)
                                       Stack(
                                         children: [
                                           ListView.builder(
@@ -1659,6 +1896,35 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                   controller: _tabController,
                                   children: _privateModeEnabled
                                       ? [
+                                          // Tab 0: Group Chat (non-private).
+                                          Column(
+                                            children: [
+                                              Container(
+                                                width: double.infinity,
+                                                color: Colors.amber,
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  _dbgStats,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.black,
+                                                  ),
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: _buildThreadPane(
+                                                  messages: _groupMessages,
+                                                  controller: _groupController,
+                                                  scrollBehavior:
+                                                      _groupScrollBehavior,
+                                                  state: state,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          // Tab 1: first guardian's private thread.
+                                          if (_guardianEntries.isNotEmpty)
                                           Stack(
                                             children: [
                                               ListView.builder(
@@ -1952,6 +2218,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                               ),
                                             ],
                                           ),
+                                          // Tab 2: second guardian's private thread.
+                                          if (_guardianEntries.length > 1)
                                           Stack(
                                             children: [
                                               ListView.builder(

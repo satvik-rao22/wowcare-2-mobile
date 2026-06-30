@@ -23,6 +23,12 @@ class MessageCollection {
   String? senderName;
   List<String>? receivers;
 
+  /// Private-thread fields. Without persisting these, a message round-tripped through the Isar
+  /// cache loses its private flag (defaults to isPrivate=false) and wrongly shows in the Group tab
+  /// instead of the target parent's private tab.
+  bool? isPrivate;
+  String? privateParentUserCode;
+
   List<RecipientStatusCollection>? deliveredTo;
   List<RecipientStatusCollection>? readBy;
   List<ChatAttachmentCollection>? attachments;
@@ -45,6 +51,8 @@ class MessageCollection {
       ..deletedAt = message.deletedAt
       ..quotedMessageId = message.quotedMessageId
       ..senderName = message.senderName
+      ..isPrivate = message.isPrivate
+      ..privateParentUserCode = message.privateParentUserCode
       ..receivers = message.receivers
       ..deliveredTo = message.deliveredTo
           .map((e) => RecipientStatusCollection.fromEntity(e))
@@ -93,6 +101,13 @@ class MessageCollection {
       deletedAt: deletedAt,
       quotedMessageId: quotedMessageId,
       senderName: senderName,
+      // Last line of defense: a message with a privateParentUserCode is
+      // private even if the cached isPrivate flag was never set (older rows /
+      // any write path that stored the code but not the flag). Keeps private
+      // messages out of the Group tab.
+      isPrivate: (isPrivate ?? false) ||
+          ((privateParentUserCode ?? '').isNotEmpty),
+      privateParentUserCode: privateParentUserCode,
       receivers: receivers ?? [],
       deliveredTo: deliveredTo?.map((e) => e.toEntity()).toList() ?? [],
       readBy: readBy?.map((e) => e.toEntity()).toList() ?? [],

@@ -54,12 +54,25 @@ class ConversationThreadScreen extends StatefulWidget {
 
     /// Initial private-mode state seed (from [ConversationEntity.privateModeStates]).
     this.initialPrivateModeEnabled = false,
+
+    /// When true the [conversation] is a placeholder that doesn't exist on the
+    /// server yet (e.g. a classroom chat never used). The thread shows the
+    /// composer over an empty list, and the conversation is created lazily on
+    /// the first send via [onResolveConversation] — mirroring the web client.
+    this.isDraft = false,
+
+    /// Creates/resolves the real conversation for a draft thread on first send.
+    /// Required when [isDraft] is true. Returns the real conversation, or null
+    /// on failure.
+    this.onResolveConversation,
   });
 
   final ConversationEntity conversation;
   final bool showOwnScaffold;
   final bool showPrivateModeToggle;
   final bool initialPrivateModeEnabled;
+  final bool isDraft;
+  final Future<ConversationEntity?> Function()? onResolveConversation;
 
   @override
   State<ConversationThreadScreen> createState() =>
@@ -70,6 +83,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     with WidgetsBindingObserver {
   late final ConversationThreadCubit _cubit;
   final TextEditingController _inputController = TextEditingController();
+
+  /// The conversation actually backing this thread. Starts as
+  /// [widget.conversation] but switches to the cubit's resolved conversation
+  /// the moment a draft (e.g. a brand-new classroom chat) is created on first
+  /// send — so participant-dependent UI (bubble alignment, header roster) uses
+  /// the real participants immediately instead of waiting for a refresh/revisit.
+  ConversationEntity? _resolvedConversation;
+  ConversationEntity get _conversation =>
+      _resolvedConversation ?? widget.conversation;
 
   // `AutoScrollController` is required by [ChatScrollBehavior]'s signature,
   // but only plain `ScrollController`/`ScrollPosition` members are used here
@@ -183,6 +205,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       removeReactionUseCase: serviceLocator(),
       markConversationReadUseCase: serviceLocator(),
       attachmentUploader: serviceLocator(),
+      isDraft: widget.isDraft,
+      onResolveConversation: widget.onResolveConversation,
     );
     _searchUseCase = SearchMessagesUseCase(serviceLocator());
 
@@ -420,7 +444,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   // ── Participants ──────────────────────────────────────────────────────────
 
   List<ParticipantDisplayData> get _participantData =>
-      widget.conversation.participants.map((p) {
+      _conversation.participants.map((p) {
         final roleStr = p.role.toApiString().toUpperCase();
         final normalised = roleStr == 'PARENT' ? 'GUARDIAN' : roleStr;
         return ParticipantDisplayData(
@@ -434,7 +458,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     ParticipantInfoDialog.show(
       context,
       participants: _participantData,
-      studentName: widget.conversation.title,
+      studentName: _conversation.title,
     );
   }
 
@@ -599,9 +623,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   // ── Participant header ────────────────────────────────────────────────────
 
   Widget _buildParticipantHeader() {
-    final participants = widget.conversation.participants;
-    final title = widget.conversation.title.isNotEmpty
-        ? widget.conversation.title
+    final participants = _conversation.participants;
+    final title = _conversation.title.isNotEmpty
+        ? _conversation.title
         : 'Conversation';
     final count = participants.isNotEmpty ? participants.length : null;
 
@@ -747,7 +771,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             Builder(
               builder: (context) {
                 final isAdminChat =
-                    widget.conversation.type == ConversationType.adminChat;
+                    _conversation.type == ConversationType.adminChat;
                 final visibleParticipants = isAdminChat
                     ? participants
                           .where(
@@ -867,7 +891,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// the sender can't be matched against this conversation's participant
   /// list, same fallback rationale as ParentMessagingThread's equivalent.
   bool _isOrgSideSender(String senderCode) {
-    final role = widget.conversation.participants
+    final role = _conversation.participants
             .where((p) => p.userCode == senderCode)
             .firstOrNull
             ?.role ??
@@ -1089,9 +1113,22 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     );
   }
 
+  /// Once a draft thread's conversation is created on first send, the cubit
+  /// emits the real [ConversationEntity] (with participants). Adopt it so the
+  /// header roster and bubble alignment update immediately — no refresh needed.
+  void _syncResolvedConversation(ConversationThreadState state) {
+    final resolved = state.conversation;
+    if (resolved != null &&
+        resolved.code.isNotEmpty &&
+        resolved.code != _conversation.code) {
+      setState(() => _resolvedConversation = resolved);
+    }
+  }
+
   Widget _buildThreadBody() {
     return BlocConsumer<ConversationThreadCubit, ConversationThreadState>(
       listener: (context, state) {
+        _syncResolvedConversation(state);
         _onMessagesChanged(state.messages);
       },
       builder: (context, state) {

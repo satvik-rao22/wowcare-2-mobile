@@ -87,7 +87,13 @@ class MessageFirestoreItem {
       schoolCode: d['schoolCode'] as String? ?? '',
       isDeleted: d['isDeleted'] as bool? ?? false,
       isEdited: d['isEdited'] as bool? ?? false,
-      isPrivate: d['isPrivate'] as bool? ?? false,
+      // ppc-presence is authoritative (backend invariant isPrivate = ppc != null)
+      // and takes precedence over the `isPrivate`/`private` booleans, which can
+      // be false even when ppc is set — see message_model.dart.
+      isPrivate: ((d['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
+              false) ||
+          (d['isPrivate'] as bool? ?? false) ||
+          (d['private'] as bool? ?? false),
       reactions: _parseReactions(d['reactions']),
       editedAt: _parseTimestamp(d['editedAt']),
       deletedAt: _parseTimestamp(d['deletedAt']),

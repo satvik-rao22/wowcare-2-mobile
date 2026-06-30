@@ -105,6 +105,12 @@ abstract class ConversationEntityRepository {
     String classroomCode,
   );
 
+  /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster.
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  });
+
   // ─── Mutations ──────────────────────────────────────────────────────────────
 
   /// Create a new conversation.

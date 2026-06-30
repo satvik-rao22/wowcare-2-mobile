@@ -77,6 +77,9 @@ class CommunicationPermissionService {
       case ConversationType.adminChat:
         // admin + parent only
         return !_roleCubit.isStaff && !_roleCubit.isKiosk;
+      case ConversationType.classroomChat:
+        // staff + admin only (no parents)
+        return !_roleCubit.isParent && !_roleCubit.isKiosk;
     }
   }
 
@@ -89,6 +92,9 @@ class CommunicationPermissionService {
         return flags.isParentMessagingEnabled;
       case ConversationType.adminChat:
         return flags.isAdminChatEnabled;
+      case ConversationType.classroomChat:
+        // Classroom chat rides with staff messaging.
+        return flags.isStaffMessagingEnabled;
     }
   }
 }

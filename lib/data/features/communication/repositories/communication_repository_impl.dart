@@ -665,8 +665,14 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           ? entity.senderName
           : existing?.senderName
       ..receivers = existing?.receivers
-      // ..isPrivate = entity.isPrivate
-      // ..privateParentUserCode = entity.privateParentUserCode
+      // Persist private-mode metadata through the realtime cache merge.
+      // Leaving these unset made cached realtime messages default to
+      // isPrivate=false, so private messages wrongly surfaced in the Group
+      // tab instead of the owning parent's private tab. Never downgrade a
+      // message already known to be private from either source.
+      ..isPrivate = entity.isPrivate || (existing?.isPrivate ?? false)
+      ..privateParentUserCode =
+          entity.privateParentUserCode ?? existing?.privateParentUserCode
       ..deliveredTo = entity.readReceipts.isNotEmpty
           ? entity.readReceipts
                 .map(
