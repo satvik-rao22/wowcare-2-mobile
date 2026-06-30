@@ -117,8 +117,12 @@ class CommunicationRemoteDataSourceImpl
       if (message.quotedMessageId != null)
         'replyToMessageId': message.quotedMessageId,
       if (message.isPrivate) 'isPrivate': true,
-      // if (message.privateParentUserCode != null)
-      //   'privateParentUserCode': message.privateParentUserCode,
+      // Scope the private message to the target guardian's thread. Without this a STAFF/ADMIN
+      // private message has no target, so the backend stores it as a normal (group) message and
+      // it shows up in the Group tab; a guardian's own message also loses its thread scope.
+      if (message.privateParentUserCode != null &&
+          message.privateParentUserCode!.isNotEmpty)
+        'privateParentUserCode': message.privateParentUserCode,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);
@@ -152,7 +156,7 @@ class CommunicationRemoteDataSourceImpl
         reactions: parsed.reactions,
         senderName: parsed.senderName,
         isPrivate: parsed.isPrivate,
-        // privateParentUserCode: parsed.privateParentUserCode,
+        privateParentUserCode: parsed.privateParentUserCode,
       );
     } else {
       throw Exception(response.data?['message'] ?? 'Failed to send message');

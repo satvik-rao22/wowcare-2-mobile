@@ -83,7 +83,16 @@ class MessageModel extends Message {
           ? json['senderDisplayName'] as String
           : json['senderName'] as String?,
       receivers: const [],
-      isPrivate: json['isPrivate'] as bool? ?? false,
+      // Privacy is driven by the presence of privateParentUserCode (the backend
+      // invariant is isPrivate = privateParentUserCode != null). ppc-presence
+      // takes PRECEDENCE over the `isPrivate`/`private` booleans because the API
+      // returns isPrivate=false even when ppc is set (mapper bug) — trusting the
+      // boolean first lets web-sent private messages leak into the staff Group
+      // tab instead of the owning parent's private tab.
+      isPrivate: ((json['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
+              false) ||
+          (json['isPrivate'] as bool? ?? false) ||
+          (json['private'] as bool? ?? false),
       privateParentUserCode: json['privateParentUserCode'] as String?,
     );
   }

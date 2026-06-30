@@ -248,6 +248,22 @@ class ConversationEntityRepositoryImpl
     }
   }
 
+  @override
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  }) async {
+    try {
+      await _remote.reconcileClassroomChat(
+        classroomCode: classroomCode,
+        classroomName: classroomName,
+      );
+      return const Right(unit);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
   // ─── Mutations ──────────────────────────────────────────────────────────────
 
   @override

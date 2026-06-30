@@ -4,6 +4,7 @@ import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart'
     show ChatAttachment;
@@ -46,7 +47,11 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required MarkConversationReadUseCase markConversationReadUseCase,
     required ChatAttachmentUploader attachmentUploader,
     Duration markReadDebounceDuration = const Duration(seconds: 2),
+    bool isDraft = false,
+    Future<ConversationEntity?> Function()? onResolveConversation,
   }) : _currentUserCode = currentUserCode,
+       _isDraft = isDraft,
+       _onResolveConversation = onResolveConversation,
        _watchMessagesUseCase = watchMessagesUseCase,
        _getMessagesUseCase = getMessagesUseCase,
        _sendMessageUseCase = sendMessageUseCase,
@@ -63,6 +68,18 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        );
 
   final String _currentUserCode;
+
+  /// True until a draft conversation (e.g. a classroom chat that doesn't exist
+  /// yet) has been created on the server. While draft, realtime/API loads are
+  /// skipped (an empty conversationCode would 403) and the thread shows the
+  /// composer over an empty list — the conversation is created lazily on the
+  /// first send via [_onResolveConversation], mirroring the web client.
+  bool _isDraft;
+
+  /// Creates (or resolves) the real conversation for a draft thread on first
+  /// send. Returns the now-real [ConversationEntity], or null on failure.
+  final Future<ConversationEntity?> Function()? _onResolveConversation;
+
   final WatchMessagesUseCase _watchMessagesUseCase;
   final GetMessagesEntityUseCase _getMessagesUseCase;
   final SendMessageEntityUseCase _sendMessageUseCase;
@@ -114,6 +131,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   /// Falls back silently to the API path ([loadMessages]) when Firestore has no
   /// messages subcollection or returns an error.
   void startWatchingMessages() {
+    // Draft thread (conversation not created yet): nothing to watch — show the
+    // composer over an empty list. The realtime listener attaches once the
+    // first send creates the real conversation (see [_resolveDraftConversation]).
+    if (_isDraft) {
+      _emitDraftEmpty();
+      return;
+    }
     // TEMP DEBUG LOGGING — remove after realtime investigation.
     debugPrint(
       '[REALTIME-DEBUG][ConversationThreadCubit] startWatchingMessages called | '
@@ -171,10 +195,62 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         );
   }
 
+  /// Emits a loaded-but-empty state for a draft thread so the UI shows the
+  /// composer over an empty "say hello" list instead of a shimmer or error.
+  void _emitDraftEmpty() {
+    emit(
+      ConversationThreadState.loaded(
+        conversationCode: state.conversationCode,
+        messages: const [],
+        isFromCache: false,
+        hasOlderMessages: false,
+        conversation: state.conversation,
+      ),
+    );
+  }
+
+  /// Lazily creates the real conversation for a draft thread (first send),
+  /// mirroring the web client's create-on-first-message flow. On success the
+  /// state is rebound to the real conversationCode + conversation and the
+  /// realtime listener is attached. Returns false (and surfaces a sendError)
+  /// when creation fails, so the caller aborts the send.
+  Future<bool> _resolveDraftConversation() async {
+    final resolver = _onResolveConversation;
+    if (resolver == null) {
+      _isDraft = false;
+      return true;
+    }
+    final conversation = await resolver();
+    if (isClosed) return false;
+    if (conversation == null || conversation.code.isEmpty) {
+      emit(
+        state.copyWith(
+          isSending: false,
+          sendError: 'Could not start the chat. Please try again.',
+        ),
+      );
+      return false;
+    }
+    _isDraft = false;
+    emit(
+      state.copyWith(
+        conversationCode: conversation.code,
+        conversation: conversation,
+      ),
+    );
+    // Attach realtime now that a real conversation exists.
+    startWatchingMessages();
+    return true;
+  }
+
   // ─── Load / Refresh ─────────────────────────────────────────────────────────
 
   /// Load messages from API. Used on first entry and as Firestore fallback.
   Future<void> loadMessages() async {
+    if (_isDraft) {
+      _emitDraftEmpty();
+      return;
+    }
     emit(state.copyWith(isLoading: true, clearError: true));
 
     final result = await _getMessagesUseCase(
@@ -305,6 +381,12 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     bool isPrivate = false,
     String? threadParentCode,
   }) async {
+    // Draft thread: create the real conversation before sending (web parity).
+    if (_isDraft) {
+      final resolved = await _resolveDraftConversation();
+      if (!resolved) return;
+    }
+
     final tempCode = 'temp-${DateTime.now().millisecondsSinceEpoch}';
 
     AttachmentEntity toOptimisticEntity(ChatAttachment a) =>

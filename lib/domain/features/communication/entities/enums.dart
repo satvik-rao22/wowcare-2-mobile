@@ -13,7 +13,12 @@
 enum ConversationType {
   roomChat,
   adminChat,
-  staffDirect;
+  staffDirect,
+
+  /// CLASSROOM_CHAT: Staff group conversation for a specific classroom.
+  ///   Participants: staff assigned to the classroom (primary/allowed) + Admins/Directors.
+  ///   Excluded: Parents. Scoped to a classroom (not a student).
+  classroomChat;
 
   /// Serialise to the string sent by the backend API.
   String toApiString() {
@@ -24,6 +29,8 @@ enum ConversationType {
         return 'ADMIN_CHAT';
       case ConversationType.staffDirect:
         return 'STAFF_DIRECT';
+      case ConversationType.classroomChat:
+        return 'CLASSROOM_CHAT';
     }
   }
 
@@ -36,6 +43,8 @@ enum ConversationType {
         return ConversationType.adminChat;
       case 'STAFF_DIRECT':
         return ConversationType.staffDirect;
+      case 'CLASSROOM_CHAT':
+        return ConversationType.classroomChat;
       default:
         throw ArgumentError('Unknown ConversationType: $value');
     }

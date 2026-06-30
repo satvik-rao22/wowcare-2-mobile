@@ -107,6 +107,9 @@ class CreateConversationEntityCubit extends Cubit<CreateConversationState> {
           studentCode: studentCode ?? '',
           participantCodes: participantCodes,
         );
+      case ConversationType.classroomChat:
+        // Classroom chats are provisioned server-side (not created from this screen).
+        return Future<void>.value();
     }
   }
 
@@ -227,6 +230,9 @@ class CreateConversationEntityCubit extends Cubit<CreateConversationState> {
           return 'Staff cannot start admin chat conversations.';
         }
         return null;
+      case ConversationType.classroomChat:
+        // CLASSROOM_CHAT: provisioned automatically, not started manually here.
+        return 'Classroom chats are created automatically.';
     }
   }
 
@@ -238,6 +244,8 @@ class CreateConversationEntityCubit extends Cubit<CreateConversationState> {
         return 'Parent messaging';
       case ConversationType.adminChat:
         return 'Admin chat';
+      case ConversationType.classroomChat:
+        return 'Classroom chat';
     }
   }
 }

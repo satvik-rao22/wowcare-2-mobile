@@ -835,6 +835,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           attachments: m.attachments,
           senderName: m.senderName,
           receivers: m.receivers,
+          // Preserve private-mode metadata across optimistic rebuilds —
+          // dropping these made a private message lose isPrivate on
+          // react/edit and jump into the Group tab.
+          isPrivate: m.isPrivate,
+          privateParentUserCode: m.privateParentUserCode,
         );
       }
       return m;
@@ -885,6 +890,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           attachments: m.attachments,
           senderName: m.senderName,
           receivers: m.receivers,
+          // Preserve private-mode metadata across optimistic rebuilds —
+          // dropping these made a private message lose isPrivate on
+          // react/edit and jump into the Group tab.
+          isPrivate: m.isPrivate,
+          privateParentUserCode: m.privateParentUserCode,
         );
       }
       return m;
@@ -1014,6 +1024,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           attachments: m.attachments,
           senderName: m.senderName,
           receivers: m.receivers,
+          // Preserve private-mode metadata across optimistic rebuilds —
+          // dropping these made a private message lose isPrivate on
+          // react/edit and jump into the Group tab.
+          isPrivate: m.isPrivate,
+          privateParentUserCode: m.privateParentUserCode,
         );
       }
       return m;

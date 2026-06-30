@@ -803,6 +803,7 @@ class _TypeChip extends StatelessWidget {
       ConversationType.staffDirect => ('Staff Direct', const Color(0xFF6C5CE7)),
       ConversationType.roomChat => ('Room Chat', const Color(0xFF00B894)),
       ConversationType.adminChat => ('Admin Chat', const Color(0xFF0984E3)),
+      ConversationType.classroomChat => ('Classroom', const Color(0xFFE17055)),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -835,6 +836,7 @@ class _EmptyState extends StatelessWidget {
       ConversationType.staffDirect => 'No staff conversations yet',
       ConversationType.roomChat => 'No parent conversations yet',
       ConversationType.adminChat => 'No admin chats yet',
+      ConversationType.classroomChat => 'No classroom conversations yet',
     };
     return Center(
       child: Column(
