@@ -1,3 +1,4 @@
+import '../../../../domain/features/reports/entities/report_type.dart';
 import '../models/report_response_model.dart';
 import '../models/recent_report_model.dart';
 
@@ -8,16 +9,23 @@ import '../models/recent_report_model.dart';
 abstract class ReportsRemoteDataSource {
   /// Generate a report by type and filters.
   ///
-  /// POST request to:
+  /// The endpoint is resolved from [reportType] via an exhaustive switch in
+  /// the implementation (see `ReportsRemoteDataSourceImpl._generateEndpointFor`),
+  /// not string matching — current mapping:
   /// - `/api/v1/attendance/student-attendance/reports/generate` (student attendance)
   /// - `/api/v1/attendance/staff-attendance/reports/generate` (staff attendance)
-  /// - `/api/v1/staff/staff/reports/generate` (staff directory)
-  /// - `/api/v1/student/student/reports/generate` (student management)
-  /// - `/api/v1/student/settings/immunization/report` (immunization)
+  /// - `/api/v1/staff/reports/generate` (staff directory)
+  /// - `/api/v1/student/reports/generate` (student management)
+  /// - `/api/v1/student/settings/immunization/report` (immunization — UNCONFIRMED,
+  ///   see TODO at the switch case; some reports of this being replaced by
+  ///   `/api/v1/student/reports/generate` with `reportType=IMMUNIZATION` are
+  ///   unverified against the live backend)
+  /// - `/api/v1/reports/billing/generate` (billing)
   ///
-  /// Throws DioException on network/server errors.
+  /// Throws DioException on network/server errors, FormatException if the
+  /// backend response doesn't match the expected contract.
   Future<ReportResponseModel> generateReport({
-    required String reportType,
+    required ReportType reportType,
     required Map<String, dynamic> requestBody,
   });
 

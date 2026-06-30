@@ -91,7 +91,9 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
       if (tagCodes != null && tagCodes!.isNotEmpty)
         'tagCodes': tagCodes,
 
-      'statusFilter': statusFilter,
+      // Backend expects an array even though the UI is single-select
+      // (confirmed against the web client's payload for this report type).
+      'statusFilter': [statusFilter],
       'format': format,
     };
   }

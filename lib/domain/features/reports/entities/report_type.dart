@@ -15,7 +15,9 @@ enum ReportType {
   // Student Management (3 types)
   studentsAndFamily('STUDENTS_AND_FAMILY'),
   emergencyContacts('EMERGENCY_CONTACTS'),
-  studentIncident('STUDENT_INCIDENT'),
+  // Backend value confirmed as SCHOOL_INCIDENT against the web client's
+  // verified payload — STUDENT_INCIDENT does not match the backend contract.
+  studentIncident('SCHOOL_INCIDENT'),
 
   // Immunization (2 types)
   immunization('IMMUNIZATION'),

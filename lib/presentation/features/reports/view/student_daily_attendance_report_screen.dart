@@ -50,14 +50,16 @@ class _StudentDailyAttendanceReportScreenState
 
   void _onGenerate() {
     final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final classroomCodes = _selectedClassrooms.value
+        .map((name) => classroomNameToCode[name] ?? name)
+        .toList();
 
     final params = ReportRequestParams(
       reportType: ReportType.studentDailyAttendance,
       startDate: _date.value,
       endDate: _date.value,
-      classroomCodes: _selectedClassrooms.value.isEmpty
-          ? null
-          : _selectedClassrooms.value,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
     );
 
     unawaited(cubit.generateReport(params));

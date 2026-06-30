@@ -1244,11 +1244,6 @@ PODS:
     - SwiftyGif
   - emoji_picker_flutter (0.0.1):
     - Flutter
-  - ffmpeg_kit_flutter_new_https (7.1.1):
-    - ffmpeg_kit_flutter_new_https/https (= 7.1.1)
-    - Flutter
-  - ffmpeg_kit_flutter_new_https/https (7.1.1):
-    - Flutter
   - file_picker (0.0.1):
     - DKImagePickerController/PhotoGallery
     - Flutter
@@ -1606,7 +1601,6 @@ DEPENDENCIES:
   - connectivity_plus (from `.symlinks/plugins/connectivity_plus/ios`)
   - device_info_plus (from `.symlinks/plugins/device_info_plus/ios`)
   - emoji_picker_flutter (from `.symlinks/plugins/emoji_picker_flutter/ios`)
-  - ffmpeg_kit_flutter_new_https (from `.symlinks/plugins/ffmpeg_kit_flutter_new_https/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - file_saver (from `.symlinks/plugins/file_saver/ios`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
@@ -1690,8 +1684,6 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/device_info_plus/ios"
   emoji_picker_flutter:
     :path: ".symlinks/plugins/emoji_picker_flutter/ios"
-  ffmpeg_kit_flutter_new_https:
-    :path: ".symlinks/plugins/ffmpeg_kit_flutter_new_https/ios"
   file_picker:
     :path: ".symlinks/plugins/file_picker/ios"
   file_saver:
@@ -1765,7 +1757,6 @@ SPEC CHECKSUMS:
   DKImagePickerController: 946cec48c7873164274ecc4624d19e3da4c1ef3c
   DKPhotoGallery: b3834fecb755ee09a593d7c9e389d8b5d6deed60
   emoji_picker_flutter: ece213fc274bdddefb77d502d33080dc54e616cc
-  ffmpeg_kit_flutter_new_https: 050a01a102dda69a3d70a4076403b6a7fd54f82a
   file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
   file_saver: 6cdbcddd690cb02b0c1a0c225b37cd805c2bf8b6
   Firebase: 7d62445aeabdaea36f7d372f33052fed9a72514f

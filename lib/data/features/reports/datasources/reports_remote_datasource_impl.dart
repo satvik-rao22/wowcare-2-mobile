@@ -4,6 +4,7 @@ import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/storage_keys.dart' as storage_keys;
+import '../../../../domain/features/reports/entities/report_type.dart';
 import '../models/report_response_model.dart';
 import '../models/recent_report_model.dart';
 import 'reports_remote_datasource.dart';
@@ -19,286 +20,165 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
   @override
   Future<ReportResponseModel> generateReport({
-    required String reportType,
+    required ReportType reportType,
     required Map<String, dynamic> requestBody,
   }) async {
-    // Determine endpoint based on report type
-    late String endpoint;
+    final endpoint = _generateEndpointFor(reportType);
 
-    // Billing reports (accounts MS). Checked first because STUDENT_BILLING_MAPPING would
-    // otherwise match the STUDENT_ attendance branch below.
-    const billingReportTypes = <String>{
-      'TRANSACTION',
-      'INVOICE',
-      'PAYMENT_SUMMARY',
-      'OUTSTANDING',
-      'REFUND',
-      'STUDENT_BILLING_MAPPING',
-    };
-
-    if (billingReportTypes.contains(reportType)) {
-      endpoint = ApiPaths.billingReportGenerate;
-    } else if (reportType.startsWith('STUDENT_')) {
-      // Student attendance reports
-      endpoint = ApiPaths.studentAttendanceReportsGenerate;
-    } else if (reportType.startsWith('STAFF_')) {
-      if (reportType == 'STAFF_DETAILS') {
-        // Staff directory
-        endpoint = ApiPaths.staffReportsGenerate;
-      } else {
-        // Staff attendance reports
-        endpoint = ApiPaths.staffAttendanceReportsGenerate;
-      }
-    } else if (reportType == 'STUDENTS_AND_FAMILY' ||
-        reportType == 'EMERGENCY_CONTACTS' ||
-        reportType == 'STUDENT_INCIDENT' ||
-        reportType == 'ANNUAL_STATE_IMMUNIZATION') {
-      // Student management reports
-      endpoint = ApiPaths.studentManagementReportsGenerate;
-    } else if (reportType == 'IMMUNIZATION') {
-      // Immunization report
-      endpoint = ApiPaths.studentImmunizationReport;
-    } else {
-      throw ArgumentError('Unknown report type: $reportType');
-    }
-
-    AppLogger.d('Posting to $endpoint with payload: $requestBody');
+    AppLogger.d(
+      '[REPORTS] Generating ${reportType.backendValue} -> $endpoint, payload: $requestBody',
+    );
+    _logPayloadFieldTypes(requestBody);
     final response = await _dio.post<Map<String, dynamic>>(
       ApiPaths.url(endpoint),
       data: requestBody,
     );
 
     final responseData = response.data ?? {};
-    AppLogger.d('Response from $endpoint: $responseData');
+    AppLogger.d('[REPORTS] Response from $endpoint: $responseData');
     return ReportResponseModel.fromJson(responseData);
   }
 
-  @override
-  Future<List<RecentReportModel>> getRecentStudentAttendanceReports() async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = ApiPaths.studentAttendanceReportsRecent;
-    AppLogger.d('[REPORTS] Student Attendance API: Loading with schoolCode=$schoolCode');
-
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        queryParameters: {'schoolCode': schoolCode},
+  /// Logs the runtime type of every collection-shaped field in the outgoing
+  /// payload. Catches exactly the class of bug that caused statusFilter to
+  /// be serialized as a String instead of a List<String> — that mistake is
+  /// invisible in a plain payload dump (both print as a quoted value) but
+  /// immediately obvious once the runtime type is logged alongside it.
+  void _logPayloadFieldTypes(Map<String, dynamic> requestBody) {
+    const collectionFields = [
+      'roomCodes',
+      'classroomCodes',
+      'tagCodes',
+      'statusFilter',
+      'studentCodes',
+      'staffCodes',
+      'vaccineCodes',
+    ];
+    for (final field in collectionFields) {
+      if (!requestBody.containsKey(field)) continue;
+      final value = requestBody[field];
+      final isList = value is List;
+      AppLogger.d(
+        '[REPORTS] payload.$field = $value (runtime type: ${value.runtimeType}'
+        '${isList ? '' : ' — WARNING: expected a List'})',
       );
+    }
+  }
 
-      final data = response.data ?? {};
-      AppLogger.d('[REPORTS] Student Attendance API: Raw response keys=${data.keys.toList()}');
-
-      // Try multiple response format possibilities
-      List? reportsList;
-
-      // Try data['reports'] first (original format)
-      reportsList = data['reports'] as List?;
-      if (reportsList != null) {
-        AppLogger.d('[REPORTS] Student Attendance Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data'] (alternative format)
-      final dataField = data['data'];
-      if (dataField is List) {
-        reportsList = dataField;
-        AppLogger.d('[REPORTS] Student Attendance Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data']['reports'] (nested format)
-      if (dataField is Map) {
-        reportsList = dataField['reports'] as List?;
-        if (reportsList != null) {
-          AppLogger.d('[REPORTS] Student Attendance Reports Count: ${reportsList.length}');
-          return reportsList
-              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      AppLogger.d('[REPORTS] Student Attendance Reports Count: 0 (no reports array found)');
-      return [];
-    } catch (e) {
-      AppLogger.e('[REPORTS] Student Attendance Reports Error: $e');
-      return [];
+  /// Exhaustive mapping from [ReportType] to its generate endpoint.
+  ///
+  /// A `switch` over the enum (not string `startsWith`/`contains` matching)
+  /// so the analyzer raises a compile-time error if a new [ReportType] case
+  /// is added without a matching endpoint here — no runtime
+  /// `ArgumentError("Unknown report type")` is reachable.
+  String _generateEndpointFor(ReportType reportType) {
+    switch (reportType) {
+      case ReportType.studentDailyAttendance:
+      case ReportType.studentAbsent:
+      case ReportType.studentAttendancePerStudent:
+        return ApiPaths.studentAttendanceReportsGenerate;
+      case ReportType.staffAbsent:
+      case ReportType.staffAttendance:
+      case ReportType.staffAttendancePerStaff:
+        return ApiPaths.staffAttendanceReportsGenerate;
+      case ReportType.staffDetails:
+        return ApiPaths.staffReportsGenerate;
+      case ReportType.studentsAndFamily:
+      case ReportType.emergencyContacts:
+      case ReportType.studentIncident:
+      case ReportType.annualStateImmunization:
+        return ApiPaths.studentManagementReportsGenerate;
+      case ReportType.immunization:
+        // TODO(backend-confirm): unverified whether this dedicated route is
+        // still live, or whether immunization now goes through
+        // ApiPaths.studentManagementReportsGenerate with
+        // reportType=IMMUNIZATION. Do not change without a captured
+        // request/response pair from the live backend — flipping this
+        // blind risks breaking a currently-working report.
+        return ApiPaths.studentImmunizationReport;
+      case ReportType.billingTransaction:
+      case ReportType.billingInvoice:
+      case ReportType.billingPaymentSummary:
+      case ReportType.billingOutstanding:
+      case ReportType.billingRefund:
+      case ReportType.billingStudentMapping:
+        return ApiPaths.billingReportGenerate;
     }
   }
 
   @override
-  Future<List<RecentReportModel>> getRecentStaffAttendanceReports() async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = ApiPaths.staffAttendanceReportsRecent;
-    AppLogger.d('[REPORTS] Staff Attendance API: Loading with schoolCode=$schoolCode');
-
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        queryParameters: {'schoolCode': schoolCode},
-      );
-
-      final data = response.data ?? {};
-      AppLogger.d('[REPORTS] Staff Attendance API: Raw response keys=${data.keys.toList()}');
-
-      // Try multiple response format possibilities
-      List? reportsList;
-
-      // Try data['reports'] first (original format)
-      reportsList = data['reports'] as List?;
-      if (reportsList != null) {
-        AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data'] (alternative format)
-      final dataField = data['data'];
-      if (dataField is List) {
-        reportsList = dataField;
-        AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data']['reports'] (nested format)
-      if (dataField is Map) {
-        reportsList = dataField['reports'] as List?;
-        if (reportsList != null) {
-          AppLogger.d('[REPORTS] Staff Attendance Reports Count: ${reportsList.length}');
-          return reportsList
-              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      AppLogger.d('[REPORTS] Staff Attendance Reports Count: 0 (no reports array found)');
-      return [];
-    } catch (e) {
-      AppLogger.e('[REPORTS] Staff Attendance Reports Error: $e');
-      return [];
-    }
+  Future<List<RecentReportModel>> getRecentStudentAttendanceReports() {
+    return _fetchRecentReports(
+      label: 'Student Attendance',
+      endpoint: ApiPaths.studentAttendanceReportsRecent,
+    );
   }
 
   @override
-  Future<List<RecentReportModel>> getRecentStaffReports() async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = ApiPaths.staffReportsRecent;
-    AppLogger.d('[REPORTS] Staff Reports API: Loading with schoolCode=$schoolCode');
-
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        queryParameters: {'schoolCode': schoolCode},
-      );
-
-      final data = response.data ?? {};
-      AppLogger.d('[REPORTS] Staff Reports API: Raw response keys=${data.keys.toList()}');
-
-      // Try multiple response format possibilities
-      List? reportsList;
-
-      // Try data['reports'] first (original format)
-      reportsList = data['reports'] as List?;
-      if (reportsList != null) {
-        AppLogger.d('[REPORTS] Staff Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data'] (alternative format)
-      final dataField = data['data'];
-      if (dataField is List) {
-        reportsList = dataField;
-        AppLogger.d('[REPORTS] Staff Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data']['reports'] (nested format)
-      if (dataField is Map) {
-        reportsList = dataField['reports'] as List?;
-        if (reportsList != null) {
-          AppLogger.d('[REPORTS] Staff Reports Count: ${reportsList.length}');
-          return reportsList
-              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      AppLogger.d('[REPORTS] Staff Reports Count: 0 (no reports array found)');
-      return [];
-    } catch (e) {
-      AppLogger.e('[REPORTS] Staff Reports Error: $e');
-      return [];
-    }
+  Future<List<RecentReportModel>> getRecentStaffAttendanceReports() {
+    return _fetchRecentReports(
+      label: 'Staff Attendance',
+      endpoint: ApiPaths.staffAttendanceReportsRecent,
+    );
   }
 
   @override
-  Future<List<RecentReportModel>> getRecentStudentManagementReports() async {
+  Future<List<RecentReportModel>> getRecentStaffReports() {
+    return _fetchRecentReports(
+      label: 'Staff Reports',
+      endpoint: ApiPaths.staffReportsRecent,
+    );
+  }
+
+  @override
+  Future<List<RecentReportModel>> getRecentStudentManagementReports() {
+    return _fetchRecentReports(
+      label: 'Student Management',
+      endpoint: ApiPaths.studentManagementReportsRecent,
+    );
+  }
+
+  /// Shared GET + parse for all "recent reports" endpoints.
+  ///
+  /// Does NOT catch errors — DioException/parse failures propagate to the
+  /// caller so they can be surfaced as a [Failure] instead of being hidden
+  /// behind an empty list (see `ReportsRepositoryImpl.getRecentReports`,
+  /// which wraps each source individually and logs/aggregates failures
+  /// without losing results from sources that did succeed).
+  Future<List<RecentReportModel>> _fetchRecentReports({
+    required String label,
+    required String endpoint,
+  }) async {
     final schoolCode =
         await _storageService.getString(storage_keys.StorageKeys.schoolCode);
-    final endpoint = ApiPaths.studentManagementReportsRecent;
-    AppLogger.d('[REPORTS] Student Management API: Loading with schoolCode=$schoolCode');
+    AppLogger.d('[REPORTS] $label API: Loading with schoolCode=$schoolCode');
 
-    try {
-      final response = await _dio.get<Map<String, dynamic>>(
-        ApiPaths.url(endpoint),
-        queryParameters: {'schoolCode': schoolCode},
-      );
+    final response = await _dio.get<Map<String, dynamic>>(
+      ApiPaths.url(endpoint),
+      queryParameters: {'schoolCode': schoolCode},
+    );
 
-      final data = response.data ?? {};
-      AppLogger.d('[REPORTS] Student Management API: Raw response keys=${data.keys.toList()}');
+    final data = response.data ?? {};
+    AppLogger.d('[REPORTS] $label API: Raw response keys=${data.keys.toList()}');
 
-      // Try multiple response format possibilities
-      List? reportsList;
-
-      // Try data['reports'] first (original format)
-      reportsList = data['reports'] as List?;
-      if (reportsList != null) {
-        AppLogger.d('[REPORTS] Student Management Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data'] (alternative format)
-      final dataField = data['data'];
-      if (dataField is List) {
-        reportsList = dataField;
-        AppLogger.d('[REPORTS] Student Management Reports Count: ${reportsList.length}');
-        return reportsList
-            .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-            .toList();
-      }
-
-      // Try data['data']['reports'] (nested format)
-      if (dataField is Map) {
-        reportsList = dataField['reports'] as List?;
-        if (reportsList != null) {
-          AppLogger.d('[REPORTS] Student Management Reports Count: ${reportsList.length}');
-          return reportsList
-              .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-        }
-      }
-
-      AppLogger.d('[REPORTS] Student Management Reports Count: 0 (no reports array found)');
-      return [];
-    } catch (e) {
-      AppLogger.e('[REPORTS] Student Management Reports Error: $e');
-      return [];
+    // The backend's envelope shape for this family of endpoints hasn't been
+    // confirmed (see audit), so we still try the three observed shapes
+    // rather than assuming one — but unlike before, finding none of them
+    // returns an empty list normally (not via a swallowed exception).
+    List? reportsList = data['reports'] as List?;
+    final dataField = data['data'];
+    if (reportsList == null && dataField is List) {
+      reportsList = dataField;
+    } else if (reportsList == null && dataField is Map) {
+      reportsList = dataField['reports'] as List?;
     }
+
+    AppLogger.d('[REPORTS] $label Reports Count: ${reportsList?.length ?? 0}');
+    if (reportsList == null) return const [];
+
+    return reportsList
+        .map((item) => RecentReportModel.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   @override

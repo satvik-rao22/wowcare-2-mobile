@@ -53,11 +53,16 @@ class _StudentEmergencyContactReportScreenState
     }
 
     final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final classroomCodes = _selectedClassrooms.value
+        .map((name) => classroomNameToCode[name] ?? name)
+        .toList();
+
     final params = ReportRequestParams(
       reportType: ReportType.emergencyContacts,
       startDate: DateTime.now(),
       endDate: DateTime.now(),
-      classroomCodes: _selectedClassrooms.value,
+      classroomCodes: classroomCodes,
     );
     cubit.generateReport(params);
   }

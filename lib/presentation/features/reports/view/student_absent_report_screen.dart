@@ -59,13 +59,16 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     }
 
     final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final classroomCodes = _selectedClassrooms.value
+        .map((name) => classroomNameToCode[name] ?? name)
+        .toList();
+
     final params = ReportRequestParams(
       reportType: ReportType.studentAbsent,
       startDate: _fromDate.value,
       endDate: _toDate.value,
-      classroomCodes: _selectedClassrooms.value.isEmpty
-          ? null
-          : _selectedClassrooms.value,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
     );
 
     unawaited(cubit.generateReport(params));

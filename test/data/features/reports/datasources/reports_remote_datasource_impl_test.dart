@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource_impl.dart';
+import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 
 class FakeDio extends Fake implements Dio {
   Map<String, dynamic>? Function(String path)? responseBuilder;
@@ -80,7 +81,7 @@ void main() {
   group('ReportsRemoteDataSourceImpl', () {
     group('generateReport', () {
       test('routes STUDENT_DAILY_ATTENDANCE to student-attendance endpoint', () async {
-        const reportType = 'STUDENT_DAILY_ATTENDANCE';
+        const reportType = ReportType.studentDailyAttendance;
         final requestBody = <String, dynamic>{'startDate': '2026-01-01', 'endDate': '2026-01-01'};
         final responseData = {
           'reportId': 'report-123',
@@ -109,7 +110,7 @@ void main() {
       });
 
       test('routes STUDENT_ABSENT to student-attendance endpoint', () async {
-        const reportType = 'STUDENT_ABSENT';
+        const reportType = ReportType.studentAbsent;
         final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
 
         fakeDio.responseBuilder = (path) {
@@ -132,7 +133,7 @@ void main() {
       });
 
       test('routes STAFF_ABSENT to staff-attendance endpoint', () async {
-        const reportType = 'STAFF_ABSENT';
+        const reportType = ReportType.staffAbsent;
         final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
 
         fakeDio.responseBuilder = (path) {
@@ -155,7 +156,7 @@ void main() {
       });
 
       test('routes STAFF_DETAILS to staff endpoint', () async {
-        const reportType = 'STAFF_DETAILS';
+        const reportType = ReportType.staffDetails;
         final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
 
         fakeDio.responseBuilder = (path) {
@@ -178,7 +179,7 @@ void main() {
       });
 
       test('routes STUDENTS_AND_FAMILY to student endpoint', () async {
-        const reportType = 'STUDENTS_AND_FAMILY';
+        const reportType = ReportType.studentsAndFamily;
         final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
 
         fakeDio.responseBuilder = (path) {
@@ -201,7 +202,7 @@ void main() {
       });
 
       test('routes EMERGENCY_CONTACTS to student endpoint', () async {
-        const reportType = 'EMERGENCY_CONTACTS';
+        const reportType = ReportType.emergencyContacts;
         final requestBody = <String, dynamic>{};
 
         fakeDio.responseBuilder = (path) {
@@ -224,7 +225,7 @@ void main() {
       });
 
       test('routes IMMUNIZATION to immunization endpoint', () async {
-        const reportType = 'IMMUNIZATION';
+        const reportType = ReportType.immunization;
         final requestBody = <String, dynamic>{'studentCodes': ['STU-1']};
 
         fakeDio.responseBuilder = (path) {
@@ -246,36 +247,30 @@ void main() {
         expect(result.reportType, 'IMMUNIZATION');
       });
 
-      test('throws ArgumentError for unknown report type', () async {
-        const reportType = 'UNKNOWN_TYPE';
-        final requestBody = <String, dynamic>{};
+      // No "unknown report type" test: reportType is now a ReportType enum,
+      // not a String, and ReportsRemoteDataSourceImpl._generateEndpointFor
+      // switches over it exhaustively with no default case. The analyzer
+      // rejects any new ReportType case that isn't handled there at
+      // compile time, so the old runtime ArgumentError path is structurally
+      // unreachable — there is nothing left for a test to exercise.
+
+      test('throws FormatException when backend response is missing required fields', () async {
+        const reportType = ReportType.studentDailyAttendance;
+        final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
+
+        fakeDio.responseBuilder = (_) => null;
 
         expect(
           () => dataSource.generateReport(
             reportType: reportType,
             requestBody: requestBody,
           ),
-          throwsA(isA<ArgumentError>()),
+          throwsA(isA<FormatException>()),
         );
-      });
-
-      test('handles null response data gracefully', () async {
-        const reportType = 'STUDENT_DAILY_ATTENDANCE';
-        final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
-
-        fakeDio.responseBuilder = (_) => null;
-
-        final result = await dataSource.generateReport(
-          reportType: reportType,
-          requestBody: requestBody,
-        );
-
-        expect(result.reportId, '');
-        expect(result.reportType, '');
       });
 
       test('propagates DioException from network errors', () async {
-        const reportType = 'STUDENT_DAILY_ATTENDANCE';
+        const reportType = ReportType.studentDailyAttendance;
         final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
 
         fakeDio.shouldThrow = true;

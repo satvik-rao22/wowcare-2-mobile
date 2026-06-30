@@ -62,6 +62,10 @@ class _StudentImmunizationReportScreenState
 
   void _onGenerate() {
     final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final classroomCodes = _selectedClassrooms
+        .map((name) => classroomNameToCode[name] ?? name)
+        .toList();
 
     // Map vaccine selection to backend codes
     final vaccineCodes = _mapVaccineToCode(_vaccine);
@@ -77,7 +81,7 @@ class _StudentImmunizationReportScreenState
       statusFilters: statusFilters,
       includeParentName: _showParentInfo,
       includeParentEmail: _showParentInfo,
-      classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
       format: _format,
     );

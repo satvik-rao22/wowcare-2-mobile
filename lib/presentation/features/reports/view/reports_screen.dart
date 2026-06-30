@@ -422,11 +422,17 @@ class _ReportsScreenState extends State<ReportsScreen>
           BlocListener<StudentCubit, StudentState>(
             listenWhen: (prev, curr) => prev.items != curr.items,
             listener: (context, state) {
+              final nameToCodeMap = <String, String>{};
+              final studentNames = <String>[];
+              for (final student in state.items) {
+                if (student.fullName.isNotEmpty) {
+                  studentNames.add(student.fullName);
+                  nameToCodeMap[student.fullName] = student.code;
+                }
+              }
               context.read<ReportsCubit>().setStudentNames(
-                state.items
-                    .map((s) => s.fullName)
-                    .where((n) => n.isNotEmpty)
-                    .toList(growable: false),
+                studentNames,
+                nameToCodeMap: nameToCodeMap,
               );
             },
           ),

@@ -16,6 +16,7 @@ class ReportsState extends Equatable {
     required this.tagNames,
     this.classroomNameToCode = const <String, String>{},
     this.staffNameToCode = const <String, String>{},
+    this.studentNameToCode = const <String, String>{},
     this.generatedReport,
     this.recentReports = const <ReportMetadataEntity>[],
     this.dynamicTagNames = const <String>[],
@@ -33,6 +34,7 @@ class ReportsState extends Equatable {
         tagNames = const <String>[],
         classroomNameToCode = const <String, String>{},
         staffNameToCode = const <String, String>{},
+        studentNameToCode = const <String, String>{},
         generatedReport = null,
         recentReports = const <ReportMetadataEntity>[],
         dynamicTagNames = const <String>[],
@@ -48,6 +50,7 @@ class ReportsState extends Equatable {
   final List<String> tagNames;
   final Map<String, String> classroomNameToCode;
   final Map<String, String> staffNameToCode;
+  final Map<String, String> studentNameToCode;
   final dynamic generatedReport;
   final List<ReportMetadataEntity> recentReports;
   final List<String> dynamicTagNames;
@@ -72,6 +75,7 @@ class ReportsState extends Equatable {
     List<String>? tagNames,
     Map<String, String>? classroomNameToCode,
     Map<String, String>? staffNameToCode,
+    Map<String, String>? studentNameToCode,
     dynamic generatedReport,
     List<ReportMetadataEntity>? recentReports,
     List<String>? dynamicTagNames,
@@ -88,6 +92,7 @@ class ReportsState extends Equatable {
       tagNames: tagNames ?? this.tagNames,
       classroomNameToCode: classroomNameToCode ?? this.classroomNameToCode,
       staffNameToCode: staffNameToCode ?? this.staffNameToCode,
+      studentNameToCode: studentNameToCode ?? this.studentNameToCode,
       generatedReport: generatedReport ?? this.generatedReport,
       recentReports: recentReports ?? this.recentReports,
       dynamicTagNames: dynamicTagNames ?? this.dynamicTagNames,
@@ -107,6 +112,7 @@ class ReportsState extends Equatable {
         tagNames,
         classroomNameToCode,
         staffNameToCode,
+        studentNameToCode,
         generatedReport,
         recentReports,
         dynamicTagNames,
