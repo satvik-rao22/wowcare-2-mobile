@@ -643,7 +643,13 @@ class _ConversationTileContent extends StatelessWidget {
           // built-in attendance dot (real "signed in today" vs "absent"
           // vs nothing) is wired up properly instead.
           leading: DocumentImageWidget(
-            fileUuid: conversation.avatarUrl,
+            fileUuid: '',
+            imageUrl: conversation.avatarUrl.startsWith('http')
+                ? conversation.avatarUrl
+                : null,
+            mediaAssetCode: conversation.avatarUrl.startsWith('http')
+                ? null
+                : conversation.avatarUrl,
             name: conversation.title,
             size: 52,
             studentCode: conversation.studentCode,

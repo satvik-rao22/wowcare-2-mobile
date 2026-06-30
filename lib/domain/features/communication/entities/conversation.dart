@@ -95,6 +95,10 @@ class ConversationParticipant extends Equatable {
   /// Only meaningful for guardian/parent participants.
   final bool privateModeEnabled;
 
+  /// Participant's profile photo — either a resolved URL or a raw
+  /// media-asset code, mirroring [ParticipantEntity.avatarUrl].
+  final String? avatarUrl;
+
   const ConversationParticipant({
     required this.id,
     required this.conversationId,
@@ -109,6 +113,7 @@ class ConversationParticipant extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.privateModeEnabled = false,
+    this.avatarUrl,
   });
 
   /// Mirrors [ParticipantEntity.isActive] — `leftAt == null` means still an
@@ -131,6 +136,7 @@ class ConversationParticipant extends Equatable {
         createdAt,
         updatedAt,
         privateModeEnabled,
+        avatarUrl,
       ];
 }
 

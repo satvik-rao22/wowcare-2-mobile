@@ -11,11 +11,13 @@ class ParticipantDisplayData {
     required this.userCode,
     required this.displayName,
     required this.role, // ADMIN | STAFF | GUARDIAN
+    this.avatarUrl,
   });
 
   final String userCode;
   final String displayName;
   final String role;
+  final String? avatarUrl;
 }
 
 /// Shows a modal dialog with grouped conversation participants.
@@ -350,6 +352,14 @@ class _ParticipantTile extends StatelessWidget {
           // Avatar
           DocumentImageWidget(
             fileUuid: '',
+            imageUrl: (data.avatarUrl ?? '').startsWith('http')
+                ? data.avatarUrl
+                : null,
+            mediaAssetCode:
+                (data.avatarUrl ?? '').isNotEmpty &&
+                    !(data.avatarUrl ?? '').startsWith('http')
+                ? data.avatarUrl
+                : null,
             staffCode: isStaffPersona ? data.userCode : null,
             name: data.displayName,
             size: 42,

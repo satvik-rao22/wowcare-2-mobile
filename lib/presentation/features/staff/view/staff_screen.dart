@@ -22,6 +22,7 @@ import 'package:wowcare/shared/common/widgets/post_add_staff_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -1647,7 +1648,24 @@ class _StaffScreenState extends State<StaffScreen> {
                               : StaffPanelType.attendance;
                         });
                       },
-                      onMessageTap: () {},
+                      onMessageTap: () {
+                        final recipients = _selectedStaffCodes.map((code) {
+                          final staff = staffState.items.firstWhere(
+                            (e) => e.code == code,
+                          );
+                          return SelectedRecipient(
+                            code: staff.code,
+                            name: staff.name,
+                            isStaff: true,
+                            avatar:
+                                staff.profilePhotoAssetCode ??
+                                staff.profileImage ??
+                                '',
+                            designation: staff.designation,
+                          );
+                        }).toList();
+                        openMessagingShortcut(context, recipients: recipients);
+                      },
                       onProfileTap: selectedCount == 1
                           ? () {
                               final staffState = staffCubit.state;

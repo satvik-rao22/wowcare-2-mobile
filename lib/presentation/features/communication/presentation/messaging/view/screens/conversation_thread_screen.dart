@@ -452,6 +452,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           userCode: p.userCode,
           displayName: p.userName.isNotEmpty ? p.userName : p.userCode,
           role: normalised,
+          avatarUrl: p.avatarUrl,
         );
       }).toList();
 
@@ -819,6 +820,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           children: [
                             DocumentImageWidget(
                               fileUuid: '',
+                              imageUrl: (p.avatarUrl ?? '').startsWith('http')
+                                  ? p.avatarUrl
+                                  : null,
+                              mediaAssetCode:
+                                  (p.avatarUrl ?? '').isNotEmpty &&
+                                      !(p.avatarUrl ?? '').startsWith('http')
+                                  ? p.avatarUrl
+                                  : null,
                               staffCode: (p.staffCode ?? '').trim().isNotEmpty
                                   ? p.staffCode
                                   : null,

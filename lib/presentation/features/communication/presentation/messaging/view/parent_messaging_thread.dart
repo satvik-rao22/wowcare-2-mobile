@@ -3096,6 +3096,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           userCode: p.userCode,
           displayName: p.userName.isNotEmpty ? p.userName : p.userCode,
           role: normalised,
+          avatarUrl: p.avatarUrl,
         );
       }).toList();
 
@@ -3193,7 +3194,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   ),
                 if (!widget.isGuardian) const SizedBox(width: 10),
                 DocumentImageWidget(
-                  fileUuid: widget.parentInfo['avatar'] as String? ?? '',
+                  fileUuid: '',
+                  imageUrl: (widget.parentInfo['avatar'] as String? ?? '')
+                          .startsWith('http')
+                      ? widget.parentInfo['avatar'] as String?
+                      : null,
+                  mediaAssetCode:
+                      (widget.parentInfo['avatar'] as String? ?? '')
+                              .isNotEmpty &&
+                          !(widget.parentInfo['avatar'] as String? ?? '')
+                              .startsWith('http')
+                      ? widget.parentInfo['avatar'] as String?
+                      : null,
                   name: title,
                   size: 34,
                 ),

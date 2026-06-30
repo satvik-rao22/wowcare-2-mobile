@@ -58,6 +58,14 @@ class ParentParticipantChips extends StatelessWidget {
               children: [
                 DocumentImageWidget(
                   fileUuid: '',
+                  imageUrl: (p.avatarUrl ?? '').startsWith('http')
+                      ? p.avatarUrl
+                      : null,
+                  mediaAssetCode:
+                      (p.avatarUrl ?? '').isNotEmpty &&
+                          !(p.avatarUrl ?? '').startsWith('http')
+                      ? p.avatarUrl
+                      : null,
                   staffCode: isStaffPersona ? p.userCode : null,
                   name: name,
                   size: 16,
