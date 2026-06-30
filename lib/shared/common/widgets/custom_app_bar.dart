@@ -31,6 +31,8 @@ import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/user_details_school_roles.dart';
 
+import '../../../src/app_router.dart';
+
 class TabBarStyle {
   final TabAlignment? tabAlignment;
   final Decoration? indicator;
@@ -133,8 +135,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 // In StatefulShellRoute, context.canPop() may not work as expected because
                 // the route hierarchy differs from traditional Navigator stacks.
                 // Always try to pop from the shell context first, preserving route history.
-                debugPrint('[CustomAppBar] Back button pressed. '
-                    'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}');
+                debugPrint(
+                  '[CustomAppBar] Back button pressed. '
+                  'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}',
+                );
 
                 if (context.canPop()) {
                   context.pop();
@@ -154,7 +158,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         if (!isKiosk)
           IconButton(
             icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
-            onPressed: () {},
+            onPressed: () => context.push(AppRoutes.messagingEntry),
           ),
         if (!isKiosk)
           Stack(
@@ -168,7 +172,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onPressed: () {
                   // Don't stack a second notification page when the bell is
                   // tapped again while already on it.
-                  if (currentRoute == NotificationCenterScreen.routeName) return;
+                  if (currentRoute == NotificationCenterScreen.routeName)
+                    return;
                   context.push(NotificationCenterScreen.routeName);
                 },
               ),
@@ -197,8 +202,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
             ],
           ),
-        if (!isKiosk)
-          const _AppBarKebabMenu(),
+        if (!isKiosk) const _AppBarKebabMenu(),
       ],
       bottom: hasTabs
           ? PreferredSize(
@@ -266,7 +270,9 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
   @override
   void initState() {
     super.initState();
-    _profileHeaderCubit = ProfileMenuHeaderCubit(serviceLocator<StorageService>());
+    _profileHeaderCubit = ProfileMenuHeaderCubit(
+      serviceLocator<StorageService>(),
+    );
     _profileHeaderCubit.loadSummary();
     _loadSwitchProfileAvailability();
   }
@@ -280,10 +286,10 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
   Future<void> _loadSwitchProfileAvailability() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final org =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) return;
       final users = await readCachedUserAccessDetailsUsers(storage);
       final distinct = distinctActiveRolesForCurrentSchoolFromUserDetails(
@@ -322,9 +328,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
       icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
       offset: const Offset(0, 48),
       color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       itemBuilder: (context) => [
         PopupMenuItem<int>(
           enabled: false,
@@ -389,8 +393,9 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                 ),
                 builder: (context, snapshot) {
                   final pin = (snapshot.data ?? '').trim();
-                  final text =
-                      pin.isNotEmpty ? 'Sign-in pin : $pin' : 'Sign-in pin';
+                  final text = pin.isNotEmpty
+                      ? 'Sign-in pin : $pin'
+                      : 'Sign-in pin';
                   return Text(
                     text,
                     style: TextStyle(
@@ -567,8 +572,8 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
             final storage = serviceLocator<StorageService>();
             final name =
                 (await storage.getString(StorageKeys.displayName) ?? '').trim();
-            final email =
-                (await storage.getString(StorageKeys.email) ?? '').trim();
+            final email = (await storage.getString(StorageKeys.email) ?? '')
+                .trim();
             final activeRole =
                 (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
                     .trim();
@@ -854,8 +859,9 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
         }
       }
     }
-    final nextIndex =
-        currentIndex < 0 ? 0 : ((currentIndex + 1) % roles.length);
+    final nextIndex = currentIndex < 0
+        ? 0
+        : ((currentIndex + 1) % roles.length);
     final nextRole = roles[nextIndex];
 
     await cubit.persistPersonaSwitch(nextRole);
@@ -885,9 +891,9 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
     if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
       try {
         await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
-              organizationCode: orgCode,
-              schoolCode: schoolCode,
-            );
+          organizationCode: orgCode,
+          schoolCode: schoolCode,
+        );
       } catch (_) {}
     }
     if (!context.mounted) return;

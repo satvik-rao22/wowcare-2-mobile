@@ -34,6 +34,7 @@ import 'package:wowcare/presentation/features/classrooom/views/screens/classroom
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
@@ -82,6 +83,7 @@ class AppRoutes {
   static const String activityFeed = ActivityFeedScreen.routeName;
   static const String messaging = MessagingScreen.routeName;
   static const String adminChat = AdminChatHostScreen.routeName;
+  static const String messagingEntry = MessagingEntryScreen.routeName;
   static const String parentBilling = ParentBillingScreen.routeName;
 }
 
@@ -1107,6 +1109,10 @@ final GoRouter appRouter = GoRouter(
             GoRoute(
               path: AppRoutes.adminChat,
               builder: (context, state) => const AdminChatHostScreen(),
+            ),
+            GoRoute(
+              path: AppRoutes.messagingEntry,
+              builder: (context, state) => const MessagingEntryScreen(),
             ),
           ],
         ),
