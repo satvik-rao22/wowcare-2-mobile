@@ -11,8 +11,6 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_c
 import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';

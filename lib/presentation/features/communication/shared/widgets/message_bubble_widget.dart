@@ -624,8 +624,42 @@ class _MessageBubbleState extends State<MessageBubble>
                           const SizedBox(height: 8),
                       ],
 
-                      // Message text — enriched HTML with auto-linked URLs/emails
-                      if (message.text.trim().isNotEmpty)
+                      // Message text — enriched HTML with auto-linked URLs/emails.
+                      // Private messages don't show their text in the bubble —
+                      // only a red lock icon is shown instead (below).
+                      // if (message.text.trim().isNotEmpty)
+                      //   Flexible(
+                      //     fit: FlexFit.loose,
+                      //     child: _StableHtml(
+                      //       data: MessageContentProcessor.enrich(message.text),
+                      //       linkColor: useLightText
+                      //           ? Colors.white
+                      //           : AppColors.primaryColor,
+                      //       onLinkTap: MessageContentProcessor.launchLink,
+                      //       style: {
+                      //         'body': html.Style(
+                      //           margin: html.Margins.zero,
+                      //           padding: html.HtmlPaddings.zero,
+                      //           fontSize: html.FontSize(15.5),
+                      //           fontFamily: 'Manrope',
+                      //           color: useLightText
+                      //               ? Colors.white
+                      //               : AppColors.primaryColor,
+                      //         ),
+                      //         'p': html.Style(
+                      //           margin: html.Margins.zero,
+                      //           padding: html.HtmlPaddings.zero,
+                      //         ),
+                      //       },
+                      //     ),
+                      //   ),
+                      if (message.isPrivate)
+                        const Icon(
+                          Icons.lock,
+                          size: 18,
+                          color: Color(0xFFD63031),
+                        )
+                      else if (message.text.trim().isNotEmpty)
                         Flexible(
                           fit: FlexFit.loose,
                           child: _StableHtml(

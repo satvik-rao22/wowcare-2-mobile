@@ -578,7 +578,9 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         widget.staffName.trim().isNotEmpty && widget.staffName.trim() != '-';
     final _classroomVal = (staff?.roomName ?? widget.roomName).trim();
     final hasClassroom =
-        _classroomVal.isNotEmpty && _classroomVal != '-' && _classroomVal != '—';
+        _classroomVal.isNotEmpty &&
+        _classroomVal != '-' &&
+        _classroomVal != '—';
     // Skip the fetch only when both the name and a real primary classroom name
     // (not a placeholder) are already available.
     if (hasName && hasClassroom) return;

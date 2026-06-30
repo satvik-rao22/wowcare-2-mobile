@@ -538,8 +538,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
     }
 
-    // Admin GPS (picker) cannot sign in for future date/time. QR uses "now" so skip.
-    if (isStaffAdmin && !isQrForTime && occurredAt.isAfter(nowUtc)) {
+    // Admin GPS (picker) cannot sign in for future date/time. QR and the
+    // dashboard's personal GPS sign-in (forceSelf) both use "now" — checking
+    // them here against a separately-captured nowUtc risked a false positive
+    // from clock drift between the two reads, so they're excluded.
+    if (isStaffAdmin &&
+        !isQrForTime &&
+        !widget.forceSelf &&
+        occurredAt.isAfter(nowUtc)) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
@@ -599,7 +605,12 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
 
     late final Map<String, dynamic> payload;
     final bool isQrSignIn = widget.qrToken.isNotEmpty;
-    final String signInMethod = isQrSignIn ? 'QR' : (isStaffAdmin ? 'APP' : 'GPS');
+    // The dashboard's personal sign-in card (forceSelf) is a GPS sign-in for
+    // both admin and staff personas — only the admin bulk picker flow reports
+    // 'APP'.
+    final String signInMethod = isQrSignIn
+        ? 'QR'
+        : (isStaffAdmin && !widget.forceSelf ? 'APP' : 'GPS');
 
     // QR scan is always self sign-in — the person holding the phone is signing
     // in themselves against the school kiosk QR. Admin bulk sign-in only happens
