@@ -133,6 +133,10 @@ class _AttendanceField extends StatelessWidget {
             MediaRes.gpsMethodIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case ProfileAbsentMarkMethod.qr:
@@ -142,15 +146,23 @@ class _AttendanceField extends StatelessWidget {
             MediaRes.qrAttendanceIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case ProfileAbsentMarkMethod.kiosk:
         return Tooltip(
           message: 'Kiosk',
-          child: Icon(
-            Icons.point_of_sale_outlined,
-            size: size,
-            color: AppColors.themeColor,
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case ProfileAbsentMarkMethod.app:

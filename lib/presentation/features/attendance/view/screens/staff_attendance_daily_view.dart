@@ -950,10 +950,13 @@ class _StaffAttendanceDailyViewScreenState
           hasSignIn: item.hasSignIn,
           signInTime: effectiveSignIn ?? item.formattedSignInTime,
           signOutTime: effectiveSignOut ?? item.formattedSignOutTime,
-          signInBy: _normalizeByName(item.signedInBy),
+          signInBy:
+              _normalizeByName(item.signedInBy) ??
+              (_isKioskOrPinMethod(item.signedInMethod) ? 'Kiosk' : null),
           signOutBy:
               _normalizeByName(item.signedOutBy) ??
-              (transferSignOut ? _loggedInUserName : null),
+              (transferSignOut ? _loggedInUserName : null) ??
+              (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null),
           // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
           signInMethod: _resolveSignMethodForDisplay(
             method: item.signedInMethod,
@@ -1174,6 +1177,14 @@ class _StaffAttendanceDailyViewScreenState
     final value = raw?.trim();
     if (value == null || value.isEmpty) return null;
     return value;
+  }
+
+  /// Kiosk/PIN sign-ins don't have a meaningful "signed by" person, so when
+  /// the backend doesn't return a real name we display "Kiosk" instead.
+  bool _isKioskOrPinMethod(String? method) {
+    if (method == null) return false;
+    final normalized = method.trim().toUpperCase();
+    return normalized == 'PIN' || normalized == 'KIOSK';
   }
 
   SignMethod? _mapMethodStringToEnum(String? method) {

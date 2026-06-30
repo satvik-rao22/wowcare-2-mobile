@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 enum SignMethod {
   gps,
   qr,
+  pin,
   kiosk,
   direct,
   web,
@@ -371,6 +372,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             MediaRes.gpsMethodIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.qr:
@@ -380,15 +385,36 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             MediaRes.qrAttendanceIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.kiosk:
         return Tooltip(
           message: 'Kiosk',
-          child: Icon(
-            Icons.point_of_sale_outlined,
-            size: size,
-            color: AppColors.themeColor,
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case SignMethod.pin:
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.direct:
