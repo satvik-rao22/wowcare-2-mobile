@@ -69,6 +69,16 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
     return vals.reduce((a, b) => a + b) / vals.length;
   }
 
+  /// Scoring progress for one domain's classroom-relevant milestones — drives
+  /// the stepper's per-step state (none / partial / complete).
+  ({bool any, bool all}) _domainProgress(
+      AssessmentsState state, AssessmentDomain domain, String classroomCode) {
+    final ms = state.milestonesForClassroom(domain, classroomCode);
+    if (ms.isEmpty) return (any: false, all: false);
+    final scored = ms.where((m) => _scores.containsKey(m.id)).length;
+    return (any: scored > 0, all: scored == ms.length);
+  }
+
   void _pickScore(String milestoneId, int score) {
     setState(() => _scores[milestoneId] = score);
   }
@@ -172,6 +182,18 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                       scoredCount: _scores.length,
                     ),
                   ),
+                  if (n > 0) ...[
+                    const SizedBox(height: 14),
+                    _DomainStepper(
+                      domains: domains,
+                      stepIndex: _stepIndex,
+                      progressOf: (d) =>
+                          _domainProgress(state, d, student.classroomCode),
+                      onTap: (i) {
+                        if (i != _stepIndex) setState(() => _stepIndex = i);
+                      },
+                    ),
+                  ],
                   if (n == 0)
                     const Padding(
                       padding: EdgeInsets.fromLTRB(20, 40, 20, 20),
@@ -387,6 +409,177 @@ class _Hero extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------- stepper
+
+/// Tappable horizontal stepper letting the assessor jump freely between
+/// domains (and the trailing Review step) instead of only Back/Next. Each node
+/// reflects its scoring state: complete (all milestones scored → green check),
+/// partial (some scored → brand ring), or untouched (grey), with the current
+/// step filled. Scrolls horizontally when domains overflow the width.
+class _DomainStepper extends StatelessWidget {
+  const _DomainStepper({
+    required this.domains,
+    required this.stepIndex,
+    required this.progressOf,
+    required this.onTap,
+  });
+
+  final List<AssessmentDomain> domains;
+  final int stepIndex;
+  final ({bool any, bool all}) Function(AssessmentDomain) progressOf;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final reviewIndex = domains.length;
+    final nodes = <Widget>[];
+    for (var i = 0; i < domains.length; i++) {
+      if (i > 0) nodes.add(const _StepConnector());
+      final p = progressOf(domains[i]);
+      nodes.add(_StepNode(
+        index: i,
+        label: domains[i].name,
+        current: stepIndex == i,
+        complete: p.all,
+        partial: p.any && !p.all,
+        onTap: () => onTap(i),
+      ));
+    }
+    // Trailing Review step.
+    nodes.add(const _StepConnector());
+    nodes.add(_StepNode(
+      index: reviewIndex,
+      label: 'Review',
+      icon: Icons.flag_rounded,
+      current: stepIndex >= reviewIndex,
+      complete: false,
+      partial: false,
+      onTap: () => onTap(reviewIndex),
+    ));
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: nodes),
+    );
+  }
+}
+
+/// One node in [_DomainStepper] — a tappable numbered/checked circle with a
+/// short label beneath it.
+class _StepNode extends StatelessWidget {
+  const _StepNode({
+    required this.index,
+    required this.label,
+    required this.current,
+    required this.complete,
+    required this.partial,
+    required this.onTap,
+    this.icon,
+  });
+
+  final int index;
+  final String label;
+  final bool current;
+  final bool complete;
+  final bool partial;
+  final VoidCallback onTap;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    const green = Color(0xFF16A34A);
+    final Color circleColor;
+    final Color borderColor;
+    final Color fgColor;
+    if (current) {
+      circleColor = AssessmentUi.brand;
+      borderColor = AssessmentUi.brand;
+      fgColor = Colors.white;
+    } else if (complete) {
+      circleColor = const Color(0xFFECFDF3);
+      borderColor = green;
+      fgColor = green;
+    } else if (partial) {
+      circleColor = Colors.white;
+      borderColor = AssessmentUi.brand;
+      fgColor = AssessmentUi.brand;
+    } else {
+      circleColor = Colors.white;
+      borderColor = AssessmentUi.hairline;
+      fgColor = AssessmentUi.inkMuted;
+    }
+
+    final Widget glyph;
+    if (complete && !current) {
+      glyph = Icon(Icons.check_rounded, size: 18, color: fgColor);
+    } else if (icon != null) {
+      glyph = Icon(icon, size: 16, color: fgColor);
+    } else {
+      glyph = Text(
+        '${index + 1}',
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w800,
+          color: fgColor,
+        ),
+      );
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: SizedBox(
+        width: 64,
+        child: Column(
+          children: [
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              width: 34,
+              height: 34,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: circleColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: borderColor, width: 2),
+              ),
+              child: glyph,
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              maxLines: 2,
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 10.5,
+                height: 1.15,
+                fontWeight: current ? FontWeight.w700 : FontWeight.w600,
+                color: current ? AssessmentUi.ink : AssessmentUi.inkMuted,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Thin connector line between two stepper nodes (aligned to the circle row).
+class _StepConnector extends StatelessWidget {
+  const _StepConnector();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 2,
+      margin: const EdgeInsets.only(top: 16),
+      color: AssessmentUi.hairline,
     );
   }
 }
