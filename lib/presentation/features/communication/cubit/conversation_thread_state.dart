@@ -69,6 +69,7 @@ class ConversationThreadState extends Equatable {
       messages.any((m) => m.isPending || m.status.name == 'sending');
 
   ConversationThreadState copyWith({
+    String? conversationCode,
     List<MessageEntity>? messages,
     bool? isLoading,
     bool? isRefreshing,
@@ -82,7 +83,7 @@ class ConversationThreadState extends Equatable {
     bool clearError = false,
   }) {
     return ConversationThreadState(
-      conversationCode: conversationCode,
+      conversationCode: conversationCode ?? this.conversationCode,
       messages: messages ?? this.messages,
       isLoading: isLoading ?? this.isLoading,
       isRefreshing: isRefreshing ?? this.isRefreshing,

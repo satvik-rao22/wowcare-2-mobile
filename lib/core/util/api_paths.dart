@@ -866,6 +866,9 @@ class ApiPaths {
       '$conversations/student/$studentCode';
   static String messagingConversationsByClassroom(String classroomCode) =>
       '$conversations/classroom/$classroomCode';
+  /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster.
+  static String messagingClassroomReconcile(String classroomCode) =>
+      '$conversations/classroom/$classroomCode/reconcile';
   static String messagingConversationParticipants(String code) =>
       '$conversations/$code/participants';
   // DELETE /api/v1/conversations/{code}/participants/{userCode}

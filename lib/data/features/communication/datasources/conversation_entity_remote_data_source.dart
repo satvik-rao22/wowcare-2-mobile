@@ -62,6 +62,13 @@ abstract class ConversationEntityRemoteDataSource {
     String classroomCode,
   );
 
+  /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster
+  /// (admins + classroom staff). Idempotent. [classroomName] is the chat title on first creation.
+  Future<void> reconcileClassroomChat({
+    required String classroomCode,
+    String? classroomName,
+  });
+
   Future<ConversationEntityDto> createConversation({
     required String type,
     required String studentCode,
@@ -287,6 +294,19 @@ class ConversationEntityRemoteDataSourceImpl
     return content
         .map((e) => ConversationEntityDto.fromJson(e as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<void> reconcileClassroomChat({
+    required String classroomCode,
+    String? classroomName,
+  }) async {
+    final base = _url(ApiPaths.messagingClassroomReconcile(classroomCode));
+    final endpoint = (classroomName != null && classroomName.isNotEmpty)
+        ? '$base?classroomName=${Uri.encodeQueryComponent(classroomName)}'
+        : base;
+    final response = await apiClient.client.post(endpoint, data: <String, dynamic>{});
+    _assertSuccess(response.data, 'Failed to provision classroom chat');
   }
 
   @override

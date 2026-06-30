@@ -221,6 +221,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       participants: legacyParticipantsFromEntities(conversation.participants),
       organizationCode: conversation.organizationCode,
       schoolCode: conversation.schoolCode,
+      privateModeActive: conversation.privateModeActive,
+      privateModeActivatedBy: conversation.privateModeActivatedBy,
     );
   }
 
@@ -768,6 +770,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                     organizationCode:
                                         conversation.organizationCode,
                                     schoolCode: conversation.schoolCode,
+                                    privateModeActive:
+                                        conversation.privateModeActive,
+                                    privateModeActivatedBy:
+                                        conversation.privateModeActivatedBy,
                                   ),
                                 );
                               }, childCount: conversationsToDisplay.length),
@@ -860,6 +866,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     List<ConversationParticipant> participants = const [],
     String organizationCode = '',
     String schoolCode = '',
+    // Conversation-level private mode. The backend tracks private mode on the
+    // CONVERSATION (privateModeActive / privateModeActivatedBy), never on
+    // participants, so this is the only reliable signal the Parent Messaging
+    // thread can use to show per-parent private tabs. Consumed ONLY by the
+    // ParentMessagingThread branch below; StaffMessagingThread ignores it.
+    bool privateModeActive = false,
+    String? privateModeActivatedBy,
   }) {
     final route = MaterialPageRoute(
       builder: (_) => BlocProvider<CommunicationCubit>(
@@ -913,10 +926,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       )
                       .map((p) => p.userName)
                       .toList(),
-                  'privateModeActive': participants.any(
-                    (p) => p.privateModeEnabled,
-                  ),
-                  'privateModeActivatedBy': null,
+                  // Conversation-level flag from the backend = the source of
+                  // truth for whether a guardian turned private mode on.
+                  // (Per-participant privateModeEnabled is never set by the
+                  // toggle, so deriving from participants was always false.)
+                  'privateModeActive': privateModeActive,
+                  'privateModeActivatedBy': privateModeActivatedBy,
                   'privateModeActivatedAt': null,
                 },
                 isGuardian: false,

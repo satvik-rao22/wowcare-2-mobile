@@ -87,7 +87,13 @@ class MessageEntityDto {
       text: json['content'] as String? ?? json['text'] as String? ?? '',
       messageType: json['messageType'] as String? ?? json['type'] as String? ?? 'TEXT',
       status: json['status'] as String? ?? 'SENT',
-      isPrivate: json['isPrivate'] as bool? ?? false,
+      // ppc-presence is authoritative (backend invariant isPrivate = ppc != null)
+      // and takes precedence over the API's `isPrivate`/`private` booleans, which
+      // come back false even when ppc is set — see message_model.dart.
+      isPrivate: ((json['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
+              false) ||
+          (json['isPrivate'] as bool? ?? false) ||
+          (json['private'] as bool? ?? false),
       isEdited: json['isEdited'] as bool? ?? json['edited'] as bool? ?? false,
       isDeleted: json['isDeleted'] as bool? ?? json['deleted'] as bool? ?? false,
       deletedPlaceholder: json['deletedPlaceholder'] as String?,
