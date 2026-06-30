@@ -856,17 +856,6 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                           ),
                         ),
                       ),
-                      if (_fteDisplay != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          'FTE: ${_fteDisplay!}',
-                          style: const TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
                       const SizedBox(height: 8),
                       FutureBuilder<StudentHealthModel?>(
                         future: _healthFuture,

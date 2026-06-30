@@ -57,12 +57,19 @@ val dartEnvironment: String by lazy {
 // reports implicit-dependency validation errors for every task that reads from
 // android/app (mergeAssets, mergeShaders, compileFlutterBuild, ...).
 val copyGoogleServices by tasks.registering {
-    val srcPath = "firebase/$dartEnvironment/google-services.json"
+    // Firebase is intentionally pinned to the UAT project (wowcare2-uat) for ALL
+    // build environments. `dartEnvironment` still drives the rest of the build;
+    // only the google-services.json is forced to the uat folder. To restore
+    // per-environment Firebase projects, change this back to
+    // "firebase/$dartEnvironment/google-services.json".
+    val firebaseConfigEnvironment = "uat"
+    println("[firebase] build env=$dartEnvironment → using firebase/$firebaseConfigEnvironment config (wowcare2-uat)")
+    val srcPath = "firebase/$firebaseConfigEnvironment/google-services.json"
     doLast {
         val src = file(srcPath)
         require(src.exists()) {
             "Missing android/app/$srcPath\n" +
-                "Download it from the Firebase console for the '$dartEnvironment' project and place it there."
+                "Download it from the Firebase console for the '$firebaseConfigEnvironment' project and place it there."
         }
         copy {
             from(src)
