@@ -553,7 +553,8 @@ class _StaffDirectoryTile extends StatelessWidget {
             vertical: 10,
           ),
           leading: DocumentImageWidget(
-            fileUuid: staff.avatarAssetCode ?? '',
+            fileUuid: '',
+            mediaAssetCode: staff.avatarAssetCode,
             name: staff.name,
             size: 46,
           ),
@@ -629,7 +630,18 @@ class _ConversationTileContent extends StatelessWidget {
           leading: Stack(
             children: [
               DocumentImageWidget(
-                fileUuid: conversation.avatarUrl,
+                fileUuid: '',
+                // `conversation.avatarUrl` is either a resolved URL or a raw
+                // media-asset code depending on which screen started the
+                // conversation — `fileUuid` is never actually used to
+                // resolve an image (only `imageUrl`/`mediaAssetCode` are),
+                // so route to whichever matches the value's shape.
+                imageUrl: conversation.avatarUrl.startsWith('http')
+                    ? conversation.avatarUrl
+                    : null,
+                mediaAssetCode: conversation.avatarUrl.startsWith('http')
+                    ? null
+                    : conversation.avatarUrl,
                 name: conversation.title,
                 size: 52,
               ),

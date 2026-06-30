@@ -37,6 +37,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/loadi
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
 
 /// Full-screen conversation thread for v2 conversations (STAFF_DIRECT, ROOM_CHAT, ADMIN_CHAT).
 class ConversationThreadScreen extends StatefulWidget {
@@ -640,17 +641,19 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         children: [
           Row(
             children: [
-              CircleAvatar(
-                radius: 18,
-                backgroundColor: AppColors.primaryColor.withValues(alpha: 0.12),
-                child: Text(
-                  title.isNotEmpty ? title[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
-                  ),
-                ),
+              DocumentImageWidget(
+                fileUuid: '',
+                // `avatarUrl` is either a resolved URL or a raw media-asset
+                // code depending on which screen started the conversation.
+                imageUrl: _conversation.avatarUrl.startsWith('http')
+                    ? _conversation.avatarUrl
+                    : null,
+                mediaAssetCode: _conversation.avatarUrl.startsWith('http')
+                    ? null
+                    : _conversation.avatarUrl,
+                name: title,
+                size: 36,
+                fontSize: 15,
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -797,9 +800,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                       final name = p.userName.isNotEmpty
                           ? p.userName
                           : _roleFallbackName(roleStr);
-                      final initial = name.isNotEmpty
-                          ? name[0].toUpperCase()
-                          : '?';
                       final color = _roleColor(roleStr);
 
                       return Container(
@@ -817,17 +817,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            CircleAvatar(
-                              radius: 8,
-                              backgroundColor: color.withValues(alpha: 0.25),
-                              child: Text(
-                                initial,
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  fontWeight: FontWeight.w700,
-                                  color: color,
-                                ),
-                              ),
+                            DocumentImageWidget(
+                              fileUuid: '',
+                              staffCode: (p.staffCode ?? '').trim().isNotEmpty
+                                  ? p.staffCode
+                                  : null,
+                              name: name,
+                              size: 16,
+                              fontSize: 9,
                             ),
                             const SizedBox(width: 4),
                             Text(
@@ -891,7 +888,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// the sender can't be matched against this conversation's participant
   /// list, same fallback rationale as ParentMessagingThread's equivalent.
   bool _isOrgSideSender(String senderCode) {
-    final role = _conversation.participants
+    final role =
+        _conversation.participants
             .where((p) => p.userCode == senderCode)
             .firstOrNull
             ?.role ??
@@ -1397,21 +1395,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
                   return ListTile(
                     dense: true,
-                    leading: CircleAvatar(
-                      radius: 16,
-                      backgroundColor: AppColors.primaryColor.withValues(
-                        alpha: 0.12,
-                      ),
-                      child: Text(
-                        hit.senderName.isNotEmpty
-                            ? hit.senderName[0].toUpperCase()
-                            : '?',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primaryColor,
-                        ),
-                      ),
+                    leading: DocumentImageWidget(
+                      fileUuid: '',
+                      name: hit.senderName,
+                      size: 32,
+                      fontSize: 12,
                     ),
                     title: Text(
                       hit.senderName,

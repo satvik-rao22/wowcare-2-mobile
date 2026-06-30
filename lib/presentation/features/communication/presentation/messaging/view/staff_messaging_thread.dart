@@ -60,6 +60,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   /// down to it from the top.
   bool _isPositionedAtBottom = false;
 
+  /// `staffInfo['avatar']` is either a resolved URL or a raw media-asset
+  /// code depending on which screen started the conversation — `fileUuid`
+  /// on [DocumentImageWidget] is never actually used to resolve an image
+  /// (only `imageUrl`/`mediaAssetCode` are), so route to whichever one
+  /// matches the value's shape instead.
+  String get _rawStaffAvatar =>
+      (widget.staffInfo['avatar'] as String?)?.trim() ?? '';
+  String? get _staffAvatarAsImageUrl =>
+      _rawStaffAvatar.startsWith('http') ? _rawStaffAvatar : null;
+  String? get _staffAvatarAsMediaAssetCode =>
+      _rawStaffAvatar.startsWith('http') ? null : _rawStaffAvatar;
+
   String? _currentUserCode;
 
   /// Guards against firing more than one `loadOlderMessages` request while
@@ -878,8 +890,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                 Stack(
                                                   children: [
                                                     DocumentImageWidget(
-                                                      fileUuid: widget
-                                                          .staffInfo['avatar'],
+                                                      fileUuid: '',
+                                                      imageUrl:
+                                                          _staffAvatarAsImageUrl,
+                                                      mediaAssetCode:
+                                                          _staffAvatarAsMediaAssetCode,
                                                       name: widget
                                                           .staffInfo['name'],
                                                       size: 45,

@@ -9,6 +9,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
 import '../../../core/util/api_constants.dart';
 import '../../../core/util/api_paths.dart';
+import '../../../core/util/logger_service.dart';
 import 'image_upload_models.dart';
 
 class ImageUploadService {
@@ -810,6 +811,7 @@ class ImageUploadService {
     final normalizedAssetCode = assetCode.trim();
     if (normalizedAssetCode.isEmpty) return '';
     final deadline = DateTime.now().add(timeout);
+    var hasLoggedFailure = false;
     while (true) {
       try {
         final endpoint =
@@ -825,8 +827,14 @@ class ImageUploadService {
         if (_extractDocumentAssetStatus(body) == 'PROCESSING') {
           _processingAssetCodes.add(normalizedAssetCode);
         }
-      } catch (_) {
-        // Keep retrying for eventual consistency after finalize.
+      } catch (e) {
+        // Keep retrying for eventual consistency after finalize, but log
+        // once per call so a 500/expired asset doesn't crash the app and
+        // doesn't spam the console once per poll tick.
+        if (!hasLoggedFailure) {
+          hasLoggedFailure = true;
+          AppLogger.e('Media asset lookup failed for $normalizedAssetCode', e);
+        }
       }
       if (DateTime.now().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);

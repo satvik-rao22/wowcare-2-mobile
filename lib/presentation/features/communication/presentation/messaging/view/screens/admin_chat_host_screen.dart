@@ -446,14 +446,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
                 children: [
-                  CircleAvatar(
-                    radius: 22,
-                    backgroundImage: (student.profileImage ?? '').isNotEmpty
-                        ? NetworkImage(student.profileImage!)
-                        : null,
-                    child: (student.profileImage ?? '').isEmpty
-                        ? Text(name.isNotEmpty ? name[0].toUpperCase() : '?')
-                        : null,
+                  DocumentImageWidget(
+                    fileUuid: '',
+                    imageUrl: student.profileImage,
+                    studentCode: student.code,
+                    name: name,
+                    size: 44,
                   ),
                   const SizedBox(width: 12),
                   Expanded(

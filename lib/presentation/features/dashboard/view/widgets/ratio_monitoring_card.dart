@@ -316,6 +316,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   /// classroom). A zero means "no one signed in", not "missing classroom".
   TableRow _buildDataRow(RatioMonitoringClassroom room) {
     return TableRow(
+      key: ValueKey(room.code),
       children: [
         // ── Classroom name ──────────────────────────────────────────────────
         GestureDetector(

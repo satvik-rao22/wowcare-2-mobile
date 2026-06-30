@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Reusable horizontal scrollable participant chips component.
 ///
@@ -45,7 +46,6 @@ class ParticipantChips extends StatelessWidget {
           final p = visibleParticipants[index];
           final roleStr = _roleToDisplay(p.role);
           final name = p.userName.isNotEmpty ? p.userName : _roleFallbackName(roleStr);
-          final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
           final color = _roleColor(roleStr);
 
           return Container(
@@ -58,17 +58,14 @@ class ParticipantChips extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircleAvatar(
-                  radius: 8,
-                  backgroundColor: color.withValues(alpha: 0.25),
-                  child: Text(
-                    initial,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: color,
-                    ),
-                  ),
+                DocumentImageWidget(
+                  fileUuid: '',
+                  staffCode: (p.staffCode ?? '').trim().isNotEmpty
+                      ? p.staffCode
+                      : null,
+                  name: name,
+                  size: 16,
+                  fontSize: 9,
                 ),
                 const SizedBox(width: 4),
                 Text(

@@ -306,6 +306,7 @@ class _MovementsCardState extends State<MovementsCard> {
                 final isOverflowSlot = index == 4 && students.length > 5;
                 final s = students[index];
                 return Positioned(
+                  key: ValueKey('student_${s.id}'),
                   right: index * 5.0,
                   child: isOverflowSlot
                       ? Container(

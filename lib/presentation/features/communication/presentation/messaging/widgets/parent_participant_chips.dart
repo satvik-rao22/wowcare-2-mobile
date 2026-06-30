@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Legacy-compatible participant chips for ParentMessagingThread.
 ///
@@ -33,8 +34,17 @@ class ParentParticipantChips extends StatelessWidget {
           final p = participants[index];
           final roleStr = _roleToDisplay(p.role);
           final name = p.userName.isNotEmpty ? p.userName : _roleFallbackName(roleStr);
-          final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
           final color = _roleColor(roleStr);
+          const staffRoles = {
+            'STAFF',
+            'TEACHER',
+            'ADMIN',
+            'DIRECTOR',
+            'PRINCIPAL',
+            'ASSISTANT_DIRECTOR',
+            'LEAD_TEACHER',
+          };
+          final isStaffPersona = staffRoles.contains(p.role.toUpperCase());
 
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -46,17 +56,12 @@ class ParentParticipantChips extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircleAvatar(
-                  radius: 8,
-                  backgroundColor: color.withValues(alpha: 0.25),
-                  child: Text(
-                    initial,
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: color,
-                    ),
-                  ),
+                DocumentImageWidget(
+                  fileUuid: '',
+                  staffCode: isStaffPersona ? p.userCode : null,
+                  name: name,
+                  size: 16,
+                  fontSize: 9,
                 ),
                 const SizedBox(width: 4),
                 Text(

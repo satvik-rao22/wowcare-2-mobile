@@ -128,7 +128,15 @@ class MessagingListTile extends StatelessWidget {
               ],
             ),
             child: DocumentImageWidget(
-              fileUuid: conversation.avatarUrl,
+              fileUuid: '',
+              // `avatarUrl` is either a resolved URL or a raw media-asset
+              // code depending on which screen started the conversation.
+              imageUrl: conversation.avatarUrl.startsWith('http')
+                  ? conversation.avatarUrl
+                  : null,
+              mediaAssetCode: conversation.avatarUrl.startsWith('http')
+                  ? null
+                  : conversation.avatarUrl,
               name: conversation.title,
               size: 52,
             ),

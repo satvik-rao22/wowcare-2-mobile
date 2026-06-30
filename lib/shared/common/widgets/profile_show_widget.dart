@@ -12,6 +12,7 @@ import 'package:wowcare/core/util/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class DocumentImageWidget extends StatefulWidget {
   static const Duration _profilePhotoCacheTtl = Duration(minutes: 10);
@@ -605,57 +606,13 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   Future<String> _fetchDocumentAssetUrl(String assetCode) async {
     final normalizedAssetCode = assetCode.trim();
     if (normalizedAssetCode.isEmpty) return '';
-    try {
-      final apiClient = serviceLocator<ApiClient>();
-      final endpoint =
-          '${ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '')}'
-          '${ApiPaths.documentMediaAssetByCodePath(normalizedAssetCode)}';
-      final response = await apiClient.client.get<dynamic>(endpoint);
-      final body = response.data;
-      return _extractDocumentAssetUrl(body);
-    } catch (_) {
-      return '';
-    }
-  }
-
-  String _extractDocumentAssetUrl(dynamic body) {
-    if (body is! Map) return '';
-    final data = body['data'];
-    if (data is! Map) return '';
-
-    String pickUrl(Map map) {
-      final candidates = <dynamic>[
-        map['deliveryUrl'],
-        map['artifactUrl'],
-        map['url'],
-        map['thumbnailUrl'],
-        map['originalDownloadUrl'],
-      ];
-      for (final raw in candidates) {
-        final value = (raw ?? '').toString().trim();
-        if (value.isNotEmpty) return value;
-      }
-      return '';
-    }
-
-    final direct = pickUrl(data);
-    if (direct.isNotEmpty) return direct;
-
-    final variants = data['variants'];
-    if (variants is List) {
-      for (final row in variants.whereType<Map>()) {
-        final defaultVariant =
-            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
-        if (!defaultVariant) continue;
-        final url = pickUrl(row);
-        if (url.isNotEmpty) return url;
-      }
-      for (final row in variants.whereType<Map>()) {
-        final url = pickUrl(row);
-        if (url.isNotEmpty) return url;
-      }
-    }
-    return '';
+    // Delegates to ImageUploadService's cached/deduped/cooldown-protected
+    // resolver instead of calling the endpoint directly, so a 500/expired
+    // asset doesn't trigger a fresh network call on every rebuild of this
+    // widget and is logged exactly once per failure window.
+    return serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
+      assetCode: normalizedAssetCode,
+    );
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {

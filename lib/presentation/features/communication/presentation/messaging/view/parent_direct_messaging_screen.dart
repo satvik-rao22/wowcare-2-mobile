@@ -23,6 +23,7 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
 
 /// Parent/Guardian messaging entry point.
@@ -454,8 +455,9 @@ class _ParentDirectMessagingScreenState
   /// Shows the same card layout as the active thread but with a centered
   /// "not yet created" placeholder in the message area.
   Widget _buildNoConversationThread(BuildContext context) {
-    final childName =
-        context.read<ParentChildCubit>().state.selectedChild?.name ?? '';
+    final selectedChild = context.read<ParentChildCubit>().state.selectedChild;
+    final childName = selectedChild?.name ?? '';
+    final childCode = selectedChild?.code;
     return Column(
       mainAxisSize: MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -479,21 +481,14 @@ class _ParentDirectMessagingScreenState
                   padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 17,
-                        backgroundColor: AppColors.primaryColor.withValues(
-                          alpha: 0.12,
-                        ),
-                        child: Text(
-                          childName.isNotEmpty
-                              ? childName[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                          ),
-                        ),
+                      DocumentImageWidget(
+                        fileUuid: '',
+                        studentCode: (childCode ?? '').trim().isNotEmpty
+                            ? childCode
+                            : null,
+                        name: childName,
+                        size: 34,
+                        fontSize: 15,
                       ),
                       const SizedBox(width: 10),
                       Expanded(
