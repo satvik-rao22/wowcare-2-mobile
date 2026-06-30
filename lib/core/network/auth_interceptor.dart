@@ -20,7 +20,7 @@ enum _RoleBucket { guardian, staff, schoolAdmin, organizationAdmin, kiosk, unkno
 /// Role-conditional (driven by the validated `x-role`):
 /// - GUARDIAN            → `x-guardian-code` + `x-school-code`
 /// - STAFF / SCHOOL_ADMIN → `x-staff-code` + `x-school-code`
-/// - ORGANIZATION_ADMIN  → `x-staff-code` (org-level, no school)
+/// - ORGANIZATION_ADMIN  → `x-staff-code` + `x-school-code` (when a school is selected)
 /// - KIOSK               → none (defaults only)
 ///
 /// A missing/invalid required header makes the backend reject the request 401.
@@ -129,8 +129,14 @@ class AuthInterceptor extends Interceptor {
         _setSchool(options, resolvedSchoolCode);
         break;
       case _RoleBucket.organizationAdmin:
-        // Org-level: staff code only, no school scoping.
+        // Org admins still operate within a selected school, and many
+        // school-scoped endpoints (attendance sign-in/status, expected/summary
+        // cards, classroom list, …) REQUIRE `x-school-code` or they reject with
+        // 400 "Headers values not found". Send it whenever a school is selected;
+        // _setSchool no-ops when there's no school, so pure org-level calls are
+        // unaffected.
         _setStaff(options, staffHeader);
+        _setSchool(options, resolvedSchoolCode);
         break;
       case _RoleBucket.kiosk:
         // Defaults only — no staff / guardian / school codes.

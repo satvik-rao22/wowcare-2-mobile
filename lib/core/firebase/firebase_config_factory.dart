@@ -14,6 +14,12 @@ abstract final class FirebaseConfigFactory {
   ///
   /// Resolved at compile time from --dart-define=ENVIRONMENT=<LOCAL|QA|UAT|PROD>.
   static FirebaseOptions get currentPlatform {
+    // Firebase is intentionally pinned to the UAT project (wowcare2-uat) for ALL
+    // build environments. To restore per-environment Firebase projects, delete
+    // this early return and let the env switch below run.
+    return FirebaseOptionsUat.currentPlatform;
+
+    // ignore: dead_code
     switch (_env.toUpperCase()) {
       case 'LOCAL':
         return FirebaseOptionsLocal.currentPlatform;

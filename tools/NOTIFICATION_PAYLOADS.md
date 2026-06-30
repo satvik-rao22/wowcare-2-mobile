@@ -243,6 +243,33 @@ under *Messaging* below — only the `android` + `apns` blocks are added):
 > `conversationCode`) or one **aggregated** push per conversation (latest preview +
 > `unreadCount`)? This decides the Android grouping strategy.
 
+## Billing  (`type: BILLING`)
+
+> Parent-facing billing pushes. **Invoices are per-student** — when siblings are
+> billed, each child gets its **own** invoice, so send **one push per `invoiceCode`**
+> (a 2-child family = 2 pushes), each deep-linking to that child's invoice. Payments
+> are **family-level** (`familyCode`, no `studentCode`).
+> **Amounts are strings** (`"100.00"`, not a number); send `currency` (e.g. `USD`).
+> The body text carries the human amount + `{Student Name}` (backend-substituted).
+>
+> ⚠️ **Pending app support:** `INVOICE_GENERATED`, `BILLING_PLAN_CHANGED`,
+> `FEE_STRUCTURE_CHANGED` currently open the **admin** billing screen
+> (`/dashboard/billing`); the parent-billing route fix is pending. `PAYMENT_SUCCESS`
+> and `INVOICE_DUE` already open **parent billing**. Per-invoice **highlight** (scroll
+> to / flash the invoice by `invoiceCode`) is not wired yet — send the codes now; the
+> app will use them once that lands.
+
+| `action` | Recipient | Required `data` keys | Optional | Opens |
+|---|---|---|---|---|
+| `PAYMENT_SUCCESS` | Parents | `familyCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `balance` | parent billing |
+| `INVOICE_GENERATED` | Parents | `invoiceCode`, `studentCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `familyCode` | billing (→ parent, app fix pending) |
+| `INVOICE_DUE` | Parents | `invoiceCode`, `studentCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `familyCode` | parent billing |
+| `BILLING_PLAN_CHANGED` | Parents | `studentCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `familyCode` | billing (→ parent, app fix pending) |
+| `FEE_STRUCTURE_CHANGED` | Parents | `studentCode`, `organizationCode`, `schoolCode` | `amount`, `currency`, `familyCode` | billing (→ parent, app fix pending) |
+
+> **Frequency** (backend scheduling, not part of the payload): `INVOICE_DUE` repeats
+> **every day until paid**; all others fire **once**.
+
 ---
 
 # JSON message bodies (one per action)
@@ -655,4 +682,53 @@ Pattern is always the same: `collapse_key` / `tag` / `apns-collapse-id` / `threa
   "data": { "action": "NEW_MESSAGE", "type": "MESSAGING", "conversationCode": "CNV_K57JWFS5Z1DY", "conversationType": "ROOM_CHAT", "isGroup": "true", "conversationTitle": "Amy Smith — Blue-D", "senderDisplayName": "Bhakti", "senderRole": "PARENT", "senderUserCode": "USR-72442fe9", "messageId": "465", "messageType": "TEXT", "preview": "Good", "unreadCount": "3", "studentCode": "STD_7B1D6DFF-8", "classroomCode": "CLS_72A4628B-8", "sentAt": "2026-06-23T05:12:03Z", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" },
   "android": { "collapse_key": "CNV_K57JWFS5Z1DY", "notification": { "tag": "CNV_K57JWFS5Z1DY", "channel_id": "wowcare_messages", "notification_priority": "PRIORITY_HIGH" } },
   "apns": { "headers": { "apns-collapse-id": "CNV_K57JWFS5Z1DY", "apns-priority": "10" }, "payload": { "aps": { "thread-id": "CNV_K57JWFS5Z1DY", "badge": 3 } } } } }
+```
+
+## Billing
+
+Sample codes (Fisher family): `FAM_01760A5A` (family), `STD_5038E682` (Jeremiah),
+`STD_294F34E9` (Conrad / sibling), `INV_B4C76DB7-6` (Jeremiah's invoice),
+`INV_D54D98AC-4` (Conrad's invoice). All `data` values are strings; `amount`/`balance`
+are decimal strings; `currency` is ISO (e.g. `USD`).
+
+**Payment Success** (family-level — no `studentCode`):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Payment Successful", "body": "Congratulations! Your payment of $25.00 is successful. Thanks" },
+  "data": { "action": "PAYMENT_SUCCESS", "type": "BILLING", "familyCode": "FAM_01760A5A", "amount": "25.00", "balance": "130.00", "currency": "USD", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**New Invoice Generated — child 1 (Jeremiah):**
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "New Invoice", "body": "New Invoice for Jeremiah Fisher — $100.00" },
+  "data": { "action": "INVOICE_GENERATED", "type": "BILLING", "invoiceCode": "INV_B4C76DB7-6", "studentCode": "STD_5038E682", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**New Invoice Generated — child 2 / sibling (Conrad):** separate push, own `invoiceCode`:
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "New Invoice", "body": "New Invoice for Conrad Fisher — $100.00" },
+  "data": { "action": "INVOICE_GENERATED", "type": "BILLING", "invoiceCode": "INV_D54D98AC-4", "studentCode": "STD_294F34E9", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**Invoice Due** (`amount` = outstanding; repeat daily until paid):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Invoice Due", "body": "Invoice for Conrad Fisher is due — $100.00" },
+  "data": { "action": "INVOICE_DUE", "type": "BILLING", "invoiceCode": "INV_D54D98AC-4", "studentCode": "STD_294F34E9", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**Billing Plan Changed** (per-student; `amount` = new fee if available):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Billing Plan Changed", "body": "Billing Plan is changed for Jeremiah Fisher" },
+  "data": { "action": "BILLING_PLAN_CHANGED", "type": "BILLING", "studentCode": "STD_5038E682", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
+```
+
+**Fee Structure Changed** (per-student):
+```json
+{ "message": { "token": "<device-token>",
+  "notification": { "title": "Fee Structure Changed", "body": "Fee structure is changed for Jeremiah Fisher" },
+  "data": { "action": "FEE_STRUCTURE_CHANGED", "type": "BILLING", "studentCode": "STD_5038E682", "amount": "100.00", "currency": "USD", "familyCode": "FAM_01760A5A", "organizationCode": "ORG_67F60097-C", "schoolCode": "SCH_74709D20-7" } } }
 ```

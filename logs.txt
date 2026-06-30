@@ -1,0 +1,12 @@
+Checking for wireless devices...
+
+Connected devices:
+sdk gphone16k arm64 (mobile) • emulator-5554                        • android-arm64  • Android 17 (API 37) (emulator)
+iPhone 16 (mobile)           • 77B40B5E-240D-43F2-8F7C-5EC469FF47B1 • ios            • com.apple.CoreSimulator.SimRuntime.iOS-18-0 (simulator)
+macOS (desktop)              • macos                                • darwin-arm64   • macOS 26.5.1 25F80 darwin-arm64
+Chrome (web)                 • chrome                               • web-javascript • Google Chrome 149.0.7827.197
+[1]: sdk gphone16k arm64 (emulator-5554)
+[2]: iPhone 16 (77B40B5E-240D-43F2-8F7C-5EC469FF47B1)
+[3]: macOS (macos)
+[4]: Chrome (chrome)
+Please choose one (or "q" to quit): 
