@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_c
 import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_billing_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_newsletters_card.dart';
@@ -48,6 +49,10 @@ class _ParentDashboardState extends State<ParentDashboard> {
         return const MyChildsDayCard();
       case ParentDashboardCard.studentAttendance:
         return const StudentAttendanceCard();
+      case ParentDashboardCard.studentBilling:
+        // Self-contained: provides its own ParentBillingCubit (guardian
+        // family-ledger summary + first 5 transactions).
+        return const ParentBillingDashboardCard();
       case ParentDashboardCard.studentNewsletters:
         return const StudentNewslettersCard();
     }

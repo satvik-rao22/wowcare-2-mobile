@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart'
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_shifts_card.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_billing_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/enrollment_card.dart';
 import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
@@ -75,6 +76,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
           value: _coordinator.movementsCubit,
           child: const MovementsCard(),
         );
+      case AdminDashboardCard.billing:
+        // Self-contained: provides its own TransactionsCubit (overview +
+        // first 5 transactions). Not part of the coordinator's prefetch.
+        return const AdminBillingCard();
     }
   }
 
