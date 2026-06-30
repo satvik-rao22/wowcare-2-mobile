@@ -36,7 +36,18 @@ import '../../../../../../domain/features/communication/entities/conversation.da
 /// The `+` button lets the parent start a new Room Chat conversation when
 /// no conversation exists yet for their student.
 class ParentDirectMessagingScreen extends StatefulWidget {
-  const ParentDirectMessagingScreen({super.key});
+  const ParentDirectMessagingScreen({
+    super.key,
+    this.conversationType = ConversationType.roomChat,
+    this.notCreatedLabel = 'Room Chat not yet created',
+  });
+
+  /// Which student-scoped chat this is — ROOM_CHAT (default) or ADMIN_CHAT.
+  /// The flow is identical; only the conversation type + empty-state label differ.
+  final ConversationType conversationType;
+
+  /// Empty-state heading shown when no conversation exists yet for the child.
+  final String notCreatedLabel;
 
   @override
   State<ParentDirectMessagingScreen> createState() =>
@@ -60,7 +71,7 @@ class _ParentDirectMessagingScreenState
   void initState() {
     super.initState();
     _listCubit = ConversationListCubit(
-      conversationType: ConversationType.roomChat,
+      conversationType: widget.conversationType,
       watchConversationsUseCase: serviceLocator<WatchConversationsUseCase>(),
       getConversationsUseCase: serviceLocator<GetConversationsEntityUseCase>(),
       getCachedConversationsUseCase:
@@ -378,7 +389,7 @@ class _ParentDirectMessagingScreenState
     // one.
     final createResult = await serviceLocator<CreateOrOpenConversationUseCase>()
         .call(
-          type: ConversationType.roomChat,
+          type: widget.conversationType,
           studentCode: child.code,
           participantCodes: const [],
           // Backend requires a non-empty title ("Title is required");
@@ -531,8 +542,8 @@ class _ParentDirectMessagingScreenState
                           color: Colors.grey.withValues(alpha: 0.35),
                         ),
                         const SizedBox(height: 12),
-                        const CustomTextWidget(
-                          text: 'Room Chat not yet created',
+                        CustomTextWidget(
+                          text: widget.notCreatedLabel,
                           fontSize: 15,
                           fontColor: Colors.grey,
                         ),
