@@ -123,11 +123,23 @@ class FcmTokenRegistrationService {
     if (raw == null || raw.isEmpty) return '';
     try {
       final list = jsonDecode(raw) as List<dynamic>;
+      // 1) Exact org + school match (school-scoped personas).
       for (final entry in list) {
         if (entry is! Map) continue;
         final org = (entry['organizationCode'] ?? '').toString().trim();
         final school = (entry['schoolCode'] ?? '').toString().trim();
         if (org == organizationCode && school == schoolCode) {
+          return (entry['role'] ?? '').toString().trim();
+        }
+      }
+      // 2) Org-level fallback: ORGANIZATION_ADMIN entries are stored with an
+      //    empty schoolCode (org-scoped), so the exact match above never hits
+      //    them. Without this an org admin resolves to '' → normalized STAFF.
+      for (final entry in list) {
+        if (entry is! Map) continue;
+        final org = (entry['organizationCode'] ?? '').toString().trim();
+        final school = (entry['schoolCode'] ?? '').toString().trim();
+        if (org == organizationCode && school.isEmpty) {
           return (entry['role'] ?? '').toString().trim();
         }
       }

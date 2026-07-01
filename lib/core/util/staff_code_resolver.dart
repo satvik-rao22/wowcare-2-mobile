@@ -54,11 +54,17 @@ Future<String> resolveStaffCodeForLoggedInUser({
       staffCodeOrganization == currentOrganizationCode &&
       staffCodeSchool == currentSchoolCode) {
     // Re-validate cached mapping against backend to avoid using stale staffCode.
+    // Org admins are org-level: the lookup expects '-' and 404s on a real
+    // school code, so resolve the right lookup school instead of the raw one.
     try {
       final verified = await staffRepository.getStaffCodeForUser(
         userCode: currentUserCode,
         organizationCode: currentOrganizationCode,
-        schoolCode: currentSchoolCode,
+        schoolCode: staffCodeLookupSchoolCode(
+          rolesJson: rolesJsonEarly,
+          organizationCode: currentOrganizationCode,
+          schoolCode: currentSchoolCode,
+        ),
       );
       final verifiedTrimmed = (verified ?? '').trim();
       if (verifiedTrimmed.isNotEmpty) {
