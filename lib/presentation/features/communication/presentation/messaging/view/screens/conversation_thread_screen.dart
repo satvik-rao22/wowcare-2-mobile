@@ -218,8 +218,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     unawaited(_loadDraft());
 
     // Private mode toggle only available in room chats
-    final canShowPrivateToggle = widget.showPrivateModeToggle &&
-        _conversation.type == ConversationType.roomChat;
+    final canShowPrivateToggle =
+        widget.showPrivateModeToggle &&
+        _conversation.type == ConversationType.roomChat.toApiString();
 
     if (canShowPrivateToggle) {
       _privateModeToggleCubit = PrivateModeToggleCubit(
@@ -648,18 +649,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         : 'Conversation';
     final count = participants.isNotEmpty ? participants.length : null;
 
-    return SafeArea(
-      bottom: false,
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          color: Colors.transparent,
-          border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
-        ),
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
             children: [
               DocumentImageWidget(
@@ -697,10 +696,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   ],
                 ),
               ),
-              // Private Mode toggle — parent persona only (not shown in admin chat)
+              // Private Mode toggle — room chats only
               if (widget.showPrivateModeToggle &&
                   _privateModeToggleCubit != null &&
-                  _conversation.type != ConversationType.adminChat)
+                  _conversation.type == ConversationType.roomChat.toApiString())
                 BlocConsumer<PrivateModeToggleCubit, PrivateModeToggleState>(
                   bloc: _privateModeToggleCubit,
                   listener: (context, pmState) {
@@ -798,12 +797,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               ),
             ],
           ),
-          if (participants.isNotEmpty && _senderRole != ParticipantRole.parent) ...[
+          if (participants.isNotEmpty &&
+              _senderRole != ParticipantRole.parent) ...[
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
                 final isAdminChat =
-                    _conversation.type == ConversationType.adminChat;
+                    _conversation.type ==
+                    ConversationType.adminChat.toApiString();
                 final visibleParticipants = isAdminChat
                     ? participants
                           .where(
@@ -901,26 +902,25 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             ),
           ],
           if (_senderRole == ParticipantRole.parent &&
-              (_conversation.type == ConversationType.adminChat ||
-               _conversation.type == ConversationType.roomChat)) ...[
+              (_conversation.type == ConversationType.adminChat.toApiString() ||
+                  _conversation.type ==
+                      ConversationType.roomChat.toApiString())) ...[
             const SizedBox(height: 8),
             _buildPrivateModeHeader(),
           ],
         ],
       ),
-      ),
     );
   }
 
   Widget _buildPrivateModeHeader() {
-    final parentParticipant = _conversation.participants
-        .firstWhere(
-          (p) => p.role == ParticipantRole.parent && p.userCode != _senderCode,
-          orElse: () => _conversation.participants.firstWhere(
-            (p) => p.role == ParticipantRole.parent,
-            orElse: () => _conversation.participants.first,
-          ),
-        );
+    final parentParticipant = _conversation.participants.firstWhere(
+      (p) => p.role == ParticipantRole.parent && p.userCode != _senderCode,
+      orElse: () => _conversation.participants.firstWhere(
+        (p) => p.role == ParticipantRole.parent,
+        orElse: () => _conversation.participants.first,
+      ),
+    );
 
     final parentName = parentParticipant.userName.isNotEmpty
         ? parentParticipant.userName
@@ -931,18 +931,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       decoration: BoxDecoration(
         color: const Color(0xFFFFF9E6),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFFFE8B3),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFFFE8B3), width: 1),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.lock_outline,
-            size: 14,
-            color: Color(0xFFC9A000),
-          ),
+          const Icon(Icons.lock_outline, size: 14, color: Color(0xFFC9A000)),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
@@ -1187,11 +1180,21 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                       emoji: emoji,
                       currentUserCode: _senderCode,
                     );
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Reaction removed',
+                      isSuccess: true,
+                    );
                   } else {
                     _cubit.addReaction(
                       messageCode: msg.code,
                       emoji: emoji,
                       currentUserCode: _senderCode,
+                    );
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message: 'Reaction added',
+                      isSuccess: true,
                     );
                   }
                 },
@@ -1200,6 +1203,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     messageCode: msg.code,
                     emoji: emoji,
                     currentUserCode: _senderCode,
+                  );
+                  CoreUtils.showTopSnackBar(
+                    context: context,
+                    message: 'Reaction removed',
+                    isSuccess: true,
                   );
                 },
                 onReactionTap: () => _showEmojiPicker(context, msg),
@@ -1236,7 +1244,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             message: state.successMessage!,
             isSuccess: true,
           );
-          _cubit.clearSuccess();
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) _cubit.clearSuccess();
+          });
         }
       },
       builder: (context, state) {
@@ -1244,10 +1254,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (widget.showOwnScaffold) ...[
-              CustomTextWidget(text: 'Messaging', fontSize: 16),
-              const SizedBox(height: 10),
-            ],
+            // if (widget.showOwnScaffold) ...[
+            //   // CustomTextWidget(text: 'Messaging ', fontSize: 16),
+            //   const SizedBox(height: 10),
+            // ],
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
@@ -1296,27 +1306,23 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         ],
                       ),
                     ),
-                    Flexible(
-                      fit: FlexFit.loose,
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight: MediaQuery.of(context).size.height * 0.6,
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: const BorderRadius.vertical(
+                          bottom: Radius.circular(12),
                         ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: const BorderRadius.vertical(
-                              bottom: Radius.circular(12),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 6,
-                                offset: const Offset(0, -2),
-                              ),
-                            ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, -2),
                           ),
-                          child: ChatInputBar(
+                        ],
+                      ),
+                      child: SafeArea(
+                        top: false,
+                        child: ChatInputBar(
                           controller: _inputController,
                           focusNode: _inputFocusNode,
                           isSending: state.isSending,
@@ -1346,11 +1352,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
           ],
         );
       },
@@ -1634,11 +1639,21 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   emoji: emoji.emoji,
                   currentUserCode: _senderCode,
                 );
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Reaction removed',
+                  isSuccess: true,
+                );
               } else {
                 _cubit.addReaction(
                   messageCode: message.code,
                   emoji: emoji.emoji,
                   currentUserCode: _senderCode,
+                );
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Reaction added',
+                  isSuccess: true,
                 );
               }
             },

@@ -486,34 +486,34 @@ class _MessageBubbleState extends State<MessageBubble>
                         constraints: BoxConstraints(
                           maxWidth: screenWidth * 0.72,
                         ),
-                        child: ChatMessageWrapper(
-                          messageId: widget.message.code.isNotEmpty
-                              ? widget.message.code
-                              : widget.message.id,
-                          controller: widget.reactionsController,
-                          // Edit/Delete menu visibility (inside
-                          // _buildReactionsConfig) is gated on true identity
-                          // (isMe), never alignRight — sharing a side with
-                          // another staff member must not let you edit or
-                          // delete their message.
-                          config: _buildReactionsConfig(isMe),
-                          alignment: alignRight
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          onReactionAdded: (emoji) {
-                            final userCode = widget.currentUserCode ?? 'me';
-                            final myReaction =
-                                widget.message.reactions[userCode];
-                            if (myReaction != null && myReaction == emoji) {
-                              widget.onRemoveReaction?.call(emoji);
-                            } else {
-                              widget.onReactionAdded?.call(emoji);
-                            }
-                          },
-                          onMenuItemTapped: _handleMenuItemTap,
-                          child: GestureDetector(
-                            onDoubleTap: _handleDoubleTapReaction,
-                            child: RepaintBoundary(
+                        child: RepaintBoundary(
+                          child: ChatMessageWrapper(
+                            messageId: widget.message.code.isNotEmpty
+                                ? widget.message.code
+                                : widget.message.id,
+                            controller: widget.reactionsController,
+                            // Edit/Delete menu visibility (inside
+                            // _buildReactionsConfig) is gated on true identity
+                            // (isMe), never alignRight — sharing a side with
+                            // another staff member must not let you edit or
+                            // delete their message.
+                            config: _buildReactionsConfig(isMe),
+                            alignment: alignRight
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            onReactionAdded: (emoji) {
+                              final userCode = widget.currentUserCode ?? 'me';
+                              final myReaction =
+                                  widget.message.reactions[userCode];
+                              if (myReaction != null && myReaction == emoji) {
+                                widget.onRemoveReaction?.call(emoji);
+                              } else {
+                                widget.onReactionAdded?.call(emoji);
+                              }
+                            },
+                            onMenuItemTapped: _handleMenuItemTap,
+                            child: GestureDetector(
+                              onDoubleTap: _handleDoubleTapReaction,
                               child: _buildBubble(alignRight, isMe),
                             ),
                           ),

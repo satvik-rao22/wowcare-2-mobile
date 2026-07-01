@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -10,9 +9,8 @@ import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
-import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_usecase.dart';
 
 class DocumentImageWidget extends StatefulWidget {
   static const Duration _profilePhotoCacheTtl = Duration(minutes: 10);
@@ -121,77 +119,6 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       <String, DateTime>{};
   static final Map<String, Future<String?>> _profilePhotoInFlight =
       <String, Future<String?>>{};
-
-  // ── Batch sign-in status fetching ──────────────────────────────────────────
-  // All widget instances share these static queues. A 50 ms debounce timer
-  // coalesces rapid concurrent requests into a single POST that sends all
-  // pending codes at once, matching the batch API contract:
-  //   POST /api/v1/attendance/student-attendance/sign-in/status
-  //   body: { "studentCodes": ["STD_…", …] }  →  { "data": { "STD_…": "SIGNED_IN", … } }
-  static final Map<String, Completer<String?>> _pendingStudentCodes =
-      <String, Completer<String?>>{};
-  static final Map<String, Completer<String?>> _pendingStaffCodes =
-      <String, Completer<String?>>{};
-  static Timer? _studentBatchTimer;
-  static Timer? _staffBatchTimer;
-  static const Duration _kBatchDebounce = Duration(milliseconds: 50);
-
-  static Future<String?> _batchStudentStatus(String studentCode) {
-    final existing = _pendingStudentCodes[studentCode];
-    if (existing != null) return existing.future;
-    final c = Completer<String?>();
-    _pendingStudentCodes[studentCode] = c;
-    _studentBatchTimer?.cancel();
-    _studentBatchTimer = Timer(_kBatchDebounce, _flushStudentBatch);
-    return c.future;
-  }
-
-  static Future<String?> _batchStaffStatus(String staffCode) {
-    final existing = _pendingStaffCodes[staffCode];
-    if (existing != null) return existing.future;
-    final c = Completer<String?>();
-    _pendingStaffCodes[staffCode] = c;
-    _staffBatchTimer?.cancel();
-    _staffBatchTimer = Timer(_kBatchDebounce, _flushStaffBatch);
-    return c.future;
-  }
-
-  static Future<void> _flushStudentBatch() async {
-    if (_pendingStudentCodes.isEmpty) return;
-    final batch = Map<String, Completer<String?>>.from(_pendingStudentCodes);
-    _pendingStudentCodes.clear();
-    _studentBatchTimer = null;
-    try {
-      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
-      final map = await useCase(studentCodes: batch.keys.toList());
-      batch.forEach((code, completer) {
-        if (!completer.isCompleted) completer.complete(map[code]);
-      });
-    } catch (_) {
-      batch.forEach((_, completer) {
-        if (!completer.isCompleted) completer.complete(null);
-      });
-    }
-  }
-
-  static Future<void> _flushStaffBatch() async {
-    if (_pendingStaffCodes.isEmpty) return;
-    final batch = Map<String, Completer<String?>>.from(_pendingStaffCodes);
-    _pendingStaffCodes.clear();
-    _staffBatchTimer = null;
-    try {
-      final useCase = serviceLocator<GetStaffTodaySignInStatusMapUseCase>();
-      final map = await useCase(staffCodes: batch.keys.toList());
-      batch.forEach((code, completer) {
-        if (!completer.isCompleted) completer.complete(map[code]);
-      });
-    } catch (_) {
-      batch.forEach((_, completer) {
-        if (!completer.isCompleted) completer.complete(null);
-      });
-    }
-  }
-  // ───────────────────────────────────────────────────────────────────────────
 
   Color? _avatarColor;
   Color? _statusDotColor;
@@ -607,18 +534,56 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final normalizedAssetCode = assetCode.trim();
     if (normalizedAssetCode.isEmpty) return '';
     try {
-      // Delegates to ImageUploadService's cached/deduped/cooldown-protected
-      // resolver instead of calling the endpoint directly, so a 500/expired
-      // asset doesn't trigger a fresh network call on every rebuild of this
-      // widget and is logged exactly once per failure window.
-      final url = await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
-        assetCode: normalizedAssetCode,
-      );
-      return url.trim();
+      final apiClient = serviceLocator<ApiClient>();
+      final endpoint =
+          '${ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '')}'
+          '${ApiPaths.documentMediaAssetByCodePath(normalizedAssetCode)}';
+      final response = await apiClient.client.get<dynamic>(endpoint);
+      final body = response.data;
+      return _extractDocumentAssetUrl(body);
     } catch (_) {
-      // If resolution fails, return empty string to allow fallback to initials/placeholder
       return '';
     }
+  }
+
+  String _extractDocumentAssetUrl(dynamic body) {
+    if (body is! Map) return '';
+    final data = body['data'];
+    if (data is! Map) return '';
+
+    String pickUrl(Map map) {
+      final candidates = <dynamic>[
+        map['deliveryUrl'],
+        map['artifactUrl'],
+        map['url'],
+        map['thumbnailUrl'],
+        map['originalDownloadUrl'],
+      ];
+      for (final raw in candidates) {
+        final value = (raw ?? '').toString().trim();
+        if (value.isNotEmpty) return value;
+      }
+      return '';
+    }
+
+    final direct = pickUrl(data);
+    if (direct.isNotEmpty) return direct;
+
+    final variants = data['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final defaultVariant =
+            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+        if (!defaultVariant) continue;
+        final url = pickUrl(row);
+        if (url.isNotEmpty) return url;
+      }
+      for (final row in variants.whereType<Map>()) {
+        final url = pickUrl(row);
+        if (url.isNotEmpty) return url;
+      }
+    }
+    return '';
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
@@ -673,9 +638,11 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     try {
       String? status;
       if (staffCode != null && staffCode.isNotEmpty) {
-        status = await _batchStaffStatus(staffCode);
+        final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
+        status = await useCase(staffCode: staffCode);
       } else if (studentCode != null && studentCode.isNotEmpty) {
-        status = await _batchStudentStatus(studentCode);
+        final useCase = serviceLocator<GetStudentTodaySignInStatusUseCase>();
+        status = await useCase(studentCode: studentCode);
       }
 
       if (!mounted) return;
@@ -769,7 +736,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withValues(alpha: 0.95),
+              color: AppColors.primaryColor.withOpacity(0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(
@@ -857,12 +824,20 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
                 backgroundImage: const AssetImage(MediaRes.userImageMale),
               ));
 
-    // Show initials if name exists, otherwise show placeholder
-    if (widget.name != null && widget.name!.isNotEmpty) {
+    // Fixed: Improved null safety checks
+    if (widget.name == null ||
+        widget.name!.isEmpty ||
+        widget.fileUuid.isNotEmpty) {
+      return _buildImageContainer(child: placeholder);
+    } else {
       return CircleAvatar(
         backgroundColor:
             _avatarColor ??
-            _pickStableProfileAvatarColor(widget.name!.trim()),
+            _pickStableProfileAvatarColor(
+              widget.name?.trim().isNotEmpty == true
+                  ? widget.name!.trim()
+                  : widget.fileUuid,
+            ),
         radius: widget.size / 2,
         child: Text(
           StringUtils.getInitials(widget.name!),
@@ -874,7 +849,6 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         ),
       );
     }
-    return _buildImageContainer(child: placeholder);
   }
 
   Widget _buildNetworkAvatar(String imageUrl) {
