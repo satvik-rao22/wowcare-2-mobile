@@ -6,8 +6,7 @@ import 'package:wowcare/modules/attendance_v2/core/theme/av2_text_styles.dart';
 import '../data/fixtures/regularization_fixtures.dart';
 import '../presentation/screens/reg_admin_inbox_screen.dart';
 import '../presentation/screens/reg_staff_list_screen.dart';
-import '../presentation/widgets/reg_gate_dialog.dart';
-import '../presentation/widgets/reg_raise_sheet.dart';
+import '../presentation/widgets/reg_resolve_sheet.dart';
 
 /// Standalone preview of the regularization screens/widgets (static data):
 ///
@@ -49,16 +48,12 @@ class _DevMenu extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(Av2Spacing.md),
             children: [
-              _btn(context, 'Next-day gate pop-up (staff)', () async {
-                final action = await showRegGateDialog(
+              _btn(context, 'Next-day gate sheet (staff)', () async {
+                await showRegResolveSheet(
                   context,
                   item: RegularizationFixtures.pendingGate,
                   mandatory: true,
                 );
-                if (action == RegGateAction.raise && context.mounted) {
-                  await showRegRaiseSheet(
-                      context, item: RegularizationFixtures.pendingGate);
-                }
               }),
               const SizedBox(height: Av2Spacing.sm),
               _btn(context, 'Staff: my regularizations', () {

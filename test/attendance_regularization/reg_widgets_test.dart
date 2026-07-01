@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/modules/attendance_regularization/data/fixtures/regularization_fixtures.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_admin_inbox_screen.dart';
 import 'package:wowcare/modules/attendance_regularization/presentation/screens/reg_staff_list_screen.dart';
-import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_gate_dialog.dart';
+import 'package:wowcare/modules/attendance_regularization/presentation/widgets/reg_resolve_sheet.dart';
 
 void main() {
   final sizes = <String, Size>{
@@ -65,12 +65,35 @@ void main() {
     await tester.tap(find.text('Mohan Sonone'));
     await tester.pumpAndSettle();
 
+    // Admin can only approve (with optional modify) — no reject.
     expect(find.text('Approve'), findsOneWidget);
-    expect(find.text('Reject'), findsOneWidget);
+    expect(find.text('Reject'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('gate dialog shows confirm + correct actions', (tester) async {
+  testWidgets('admin inbox can bulk approve all', (tester) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(MaterialApp(
+      home: RegAdminInboxScreen(requests: RegularizationFixtures.adminInbox),
+    ));
+    await tester.pumpAndSettle();
+
+    final approveAll = find.textContaining('Approve all');
+    expect(approveAll, findsOneWidget);
+    await tester.tap(approveAll);
+    await tester.pumpAndSettle();
+
+    // Confirmation dialog before approving everything.
+    expect(find.textContaining('Approve all'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('resolve sheet merges context + correction in one sheet',
+      (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -81,7 +104,7 @@ void main() {
         builder: (context) => Scaffold(
           body: Center(
             child: ElevatedButton(
-              onPressed: () => showRegGateDialog(
+              onPressed: () => showRegResolveSheet(
                 context,
                 item: RegularizationFixtures.pendingGate,
                 mandatory: true,
@@ -96,9 +119,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Finish yesterday first'), findsOneWidget);
-    // Confirm button carries the soft sign-out time (17:30 → 05:30p).
-    expect(find.text('I left at 05:30p'), findsOneWidget);
-    expect(find.text('I left at a different time'), findsOneWidget);
+    // Consequence + time + reason + submit all in one sheet.
+    expect(find.textContaining("won't be counted"), findsOneWidget);
+    expect(find.text('Actual sign-out time'), findsOneWidget);
+    expect(find.text('Confirm & submit'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }

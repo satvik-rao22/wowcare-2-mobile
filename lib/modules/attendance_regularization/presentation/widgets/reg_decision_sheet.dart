@@ -8,19 +8,17 @@ import '../../domain/entities/regularization_request.dart';
 
 class RegDecision {
   const RegDecision({
-    required this.approved,
     this.signInLocal,
     this.signOutLocal,
     this.note = '',
   });
-  final bool approved;
   final DateTime? signInLocal; // admin-adjusted (modify) — null if unchanged
   final DateTime? signOutLocal;
   final String note;
 }
 
-/// Admin sheet to decide a request: adjust the time (modify), then Approve, or
-/// Reject with a note.
+/// Admin sheet to approve a request — optionally adjusting (modifying) the time
+/// with a reason. There is no reject: admins approve, correcting if needed.
 Future<RegDecision?> showRegDecisionSheet(
   BuildContext context, {
   required RegularizationRequest request,
@@ -49,7 +47,6 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
   TimeOfDay? _inTime;
   TimeOfDay? _outTime;
   final _note = TextEditingController();
-  String? _error;
 
   @override
   void initState() {
@@ -88,20 +85,11 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
   void _approve() => Navigator.pop(
         context,
         RegDecision(
-          approved: true,
           signInLocal: _combine(_inTime),
           signOutLocal: _combine(_outTime),
           note: _note.text.trim(),
         ),
       );
-
-  void _reject() {
-    if (_note.text.trim().isEmpty) {
-      setState(() => _error = 'Add a note to reject.');
-      return;
-    }
-    Navigator.pop(context, RegDecision(approved: false, note: _note.text.trim()));
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -146,56 +134,32 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
                 _timeField(_outTime!, () => _pick(isIn: false)),
                 const SizedBox(height: Av2Spacing.md),
               ],
-              Text('Note', style: Av2Text.bodyMedium),
+              Text('Reason for change', style: Av2Text.bodyMedium),
               const SizedBox(height: Av2Spacing.xs),
               _noteField(),
-              if (_error != null) ...[
-                const SizedBox(height: Av2Spacing.xs),
-                Text(_error!,
-                    style: Av2Text.caption.copyWith(color: Av2Colors.danger)),
-              ],
               const SizedBox(height: Av2Spacing.lg),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _reject,
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: Av2Colors.danger),
-                        padding: const EdgeInsets.symmetric(vertical: 13),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-                        ),
-                      ),
-                      child: Text('Reject',
-                          style: Av2Text.bodyMedium.copyWith(color: Av2Colors.danger)),
-                    ),
-                  ),
-                  const SizedBox(width: Av2Spacing.sm),
-                  Expanded(
-                    child: Material(
-                      color: Colors.transparent,
-                      borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-                      child: InkWell(
-                        onTap: _approve,
+              SizedBox(
+                width: double.infinity,
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
+                  child: InkWell(
+                    onTap: _approve,
+                    borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
+                    child: Ink(
+                      height: 46,
+                      decoration: BoxDecoration(
+                        gradient: Av2Colors.primaryGradient,
                         borderRadius: BorderRadius.circular(Av2Spacing.radiusSm),
-                        child: Ink(
-                          height: 46,
-                          decoration: BoxDecoration(
-                            gradient: Av2Colors.primaryGradient,
-                            borderRadius:
-                                BorderRadius.circular(Av2Spacing.radiusSm),
-                          ),
-                          child: Center(
-                            child: Text('Approve',
-                                style: Av2Text.bodyMedium
-                                    .copyWith(color: Colors.white)),
-                          ),
-                        ),
+                      ),
+                      child: Center(
+                        child: Text('Approve',
+                            style: Av2Text.bodyMedium
+                                .copyWith(color: Colors.white)),
                       ),
                     ),
                   ),
-                ],
+                ),
               ),
             ],
           ),
@@ -248,7 +212,7 @@ class _RegDecisionSheetState extends State<_RegDecisionSheet> {
       maxLines: 2,
       style: Av2Text.body,
       decoration: InputDecoration(
-        hintText: 'Optional for approve · required to reject',
+        hintText: 'Optional · why you adjusted the time',
         hintStyle: Av2Text.body.copyWith(color: Av2Colors.textTertiary),
         filled: true,
         fillColor: Av2Colors.surfaceMuted,

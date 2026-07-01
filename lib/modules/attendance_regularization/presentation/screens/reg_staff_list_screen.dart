@@ -6,9 +6,8 @@ import 'package:wowcare/modules/attendance_v2/core/utils/av2_date_formatter.dart
 
 import '../../domain/entities/missed_signout.dart';
 import '../../domain/entities/regularization_request.dart';
-import '../widgets/reg_gate_dialog.dart';
-import '../widgets/reg_raise_sheet.dart';
 import '../widgets/reg_request_tile.dart';
+import '../widgets/reg_resolve_sheet.dart';
 import '../widgets/reg_scaffold.dart';
 
 /// Staff "my regularizations" — an optional needs-attention banner (unresolved
@@ -72,18 +71,14 @@ class RegStaffListScreen extends StatelessWidget {
   }
 
   Future<void> _resolve(BuildContext context, MissedSignout item) async {
-    final action = await showRegGateDialog(context, item: item, mandatory: false);
-    if (action == null) return;
-    if (action == RegGateAction.raise) {
-      final result = await showRegRaiseSheet(context, item: item);
-      if (result == null) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Regularization request submitted')),
-      );
-    } else if (action == RegGateAction.confirmSoftTime) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign-out confirmed')),
-      );
-    }
+    final result = await showRegResolveSheet(context, item: item);
+    if (result == null || !context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(result.confirmedSoftTime
+            ? 'Sign-out confirmed'
+            : 'Regularization request submitted'),
+      ),
+    );
   }
 }
