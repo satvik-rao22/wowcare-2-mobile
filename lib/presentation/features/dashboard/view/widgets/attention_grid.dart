@@ -460,7 +460,6 @@ class _ShimmerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 90,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -471,6 +470,7 @@ class _ShimmerCard extends StatelessWidget {
         baseColor: Colors.grey[300]!,
         highlightColor: Colors.grey[100]!,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(

@@ -20,6 +20,8 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
@@ -40,7 +42,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     with WidgetsBindingObserver {
   //final ScrollController _scrollController = ScrollController();
   final AutoScrollController _scrollController = AutoScrollController();
-  final TextEditingController _controller = TextEditingController();
+  final HtmlAwareTextController _controller = HtmlAwareTextController();
   late final ChatScrollBehavior _scrollBehavior = ChatScrollBehavior(
     _scrollController,
   );
@@ -59,6 +61,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   /// already sitting at the latest message instead of visibly scrolling
   /// down to it from the top.
   bool _isPositionedAtBottom = false;
+
+  /// `staffInfo['avatar']` is either a resolved URL or a raw media-asset
+  /// code depending on which screen started the conversation — `fileUuid`
+  /// on [DocumentImageWidget] is never actually used to resolve an image
+  /// (only `imageUrl`/`mediaAssetCode` are), so route to whichever one
+  /// matches the value's shape instead.
+  String get _rawStaffAvatar =>
+      (widget.staffInfo['avatar'] as String?)?.trim() ?? '';
+  String? get _staffAvatarAsImageUrl =>
+      _rawStaffAvatar.startsWith('http') ? _rawStaffAvatar : null;
+  String? get _staffAvatarAsMediaAssetCode =>
+      _rawStaffAvatar.startsWith('http') ? null : _rawStaffAvatar;
 
   String? _currentUserCode;
 
@@ -118,13 +132,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           ? storedUserCode
           : null;
 
-      AppLogger.d(
-        '[CHAT OWNERSHIP] initState identity resolution:\n'
-        '  loginResponse.userCode → "$userCodeFromAuth"\n'
-        '  storage.userCode       → "$storedUserCode"\n'
-        '  resolved               → "$_currentUserCode"\n'
-        '  threadId               → "${widget.staffInfo['code']}"',
-      );
 
       if (mounted) {
         final threadId = widget.staffInfo['code'] as String;
@@ -133,6 +140,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           currentUserId: _currentUserCode,
         );
         if (!mounted) return;
+        unawaited(
+          context.read<CommunicationCubit>().markConversationRead(threadId),
+        );
         // Realtime listener starts only after the API/Isar history has
         // loaded — Firestore only ever applies deltas on top of it.
         context.read<CommunicationCubit>().startWatchingThread(threadId);
@@ -238,6 +248,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     final hasNewLatest = latestId != null && latestId != _lastMessageId;
     _lastMessageId = latestId;
     if (!hasNewLatest) return;
+    unawaited(
+      context.read<CommunicationCubit>().markConversationRead(
+        widget.staffInfo['code'] as String,
+      ),
+    );
     // Sending always scrolls to bottom, regardless of scroll position.
     // Other growth (realtime/API) only scrolls when already near bottom.
     if (wasOwnSend) {
@@ -674,14 +689,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                             quoteId,
                                                           );
                                                         },
-                                                    onReply: () {
-                                                      setState(() {
-                                                        _quotedMessageCode =
-                                                            message.code;
-                                                        _quotedMessage =
-                                                            message;
-                                                      });
-                                                    },
+                                                    onReply:
+                                                        message.isDeleted
+                                                        ? null
+                                                        : () {
+                                                            setState(() {
+                                                              _quotedMessageCode =
+                                                                  message.code;
+                                                              _quotedMessage =
+                                                                  message;
+                                                            });
+                                                          },
                                                     onReplyFromMenu:
                                                         message.isDeleted
                                                         ? null
@@ -878,8 +896,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                 Stack(
                                                   children: [
                                                     DocumentImageWidget(
-                                                      fileUuid: widget
-                                                          .staffInfo['avatar'],
+                                                      fileUuid: '',
+                                                      imageUrl:
+                                                          _staffAvatarAsImageUrl,
+                                                      mediaAssetCode:
+                                                          _staffAvatarAsMediaAssetCode,
                                                       name: widget
                                                           .staffInfo['name'],
                                                       size: 45,
@@ -1186,14 +1207,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                   quoteId,
                                                                 );
                                                               },
-                                                          onReply: () {
-                                                            setState(() {
-                                                              _quotedMessageCode =
-                                                                  message.code;
-                                                              _quotedMessage =
-                                                                  message;
-                                                            });
-                                                          },
+                                                          onReply:
+                                                              message.isDeleted
+                                                              ? null
+                                                              : () {
+                                                                  setState(() {
+                                                                    _quotedMessageCode =
+                                                                        message.code;
+                                                                    _quotedMessage =
+                                                                        message;
+                                                                  });
+                                                                },
                                                           onReplyFromMenu: () {
                                                             setState(() {
                                                               _quotedMessageCode =
@@ -1847,50 +1871,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     );
   }
 
-  String _formatTimeShort(
-    DateTime dt, {
-    bool use24Hour = false,
-    String separator = ':',
-  }) {
-    if (use24Hour) {
-      return "${dt.hour.toString().padLeft(2, '0')}${separator}${dt.minute.toString().padLeft(2, '0')}";
-    }
+  String _formatTimeShort(DateTime dt) =>
+      MessagingTimeFormatter.bubbleTime(dt);
 
-    final hour = dt.hour;
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final minute = dt.minute.toString().padLeft(2, '0');
-
-    return '$hour12$separator$minute $period';
-  }
-  // String _formatTimeShort(DateTime dt) {
-  //   return "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
-  // }
-
-  String _formatFullTime(DateTime dt) {
-    final now = DateTime.now();
-    String dayPart =
-        (dt.day == now.day && dt.month == now.month && dt.year == now.year)
-        ? 'Today'
-        : (dt.day == now.day - 1
-              ? 'Yesterday'
-              : '${dt.day} ${_monthName(dt.month)} ${dt.year}');
-
-    return '$dayPart, ${dt.hour}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour < 12 ? 'AM' : 'PM'}';
-  }
-
-  String _monthName(int month) => [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ][month - 1];
+  String _formatFullTime(DateTime dt) =>
+      MessagingTimeFormatter.infoTime(dt);
 }

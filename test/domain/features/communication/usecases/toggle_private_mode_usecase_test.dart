@@ -145,6 +145,15 @@ class _FakeRepo implements ConversationEntityRepository {
     // TODO: implement markConversationDelivered
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  }) {
+    // TODO: implement reconcileClassroomChat
+    throw UnimplementedError();
+  }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

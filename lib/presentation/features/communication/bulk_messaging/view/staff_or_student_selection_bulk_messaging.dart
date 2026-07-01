@@ -16,6 +16,7 @@ import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/safe_state_mixin.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../app/di/di.dart';
+import '../../../../../domain/features/classroom/entities/classroom.dart';
 import '../../../classrooom/views/filters/designation_display_utils.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
@@ -23,6 +24,7 @@ import '../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../../shared/common/widgets/custom_search_bar.dart';
 import '../../../student/cubit/student_cubit.dart';
 import '../widgets/selection_shimmer.dart';
+import '../../../../../core/util/attendance_classroom_scope.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
   const StaffOrStudentSelectionBulkMessaging({
@@ -57,6 +59,12 @@ class _StaffOrStudentSelectionBulkMessagingState
     with SafeStateMixin {
   final TextEditingController _searchController = TextEditingController();
   List<String> _selectedClassrooms = [];
+
+  /// The current user's primary classroom code (resolved for any persona,
+  /// admin included) — used to default the classroom dropdown instead of
+  /// whichever classroom happens to sort first alphabetically.
+  String? _primaryClassroomCode;
+  bool _primaryClassroomResolved = false;
   // Default to Active-only (per spec); user can switch to Upcoming explicitly.
   String? _selectedStatus = 'Active';
   bool _selectAll = false;
@@ -142,7 +150,10 @@ class _StaffOrStudentSelectionBulkMessagingState
           (s) => {
             'code': s.code,
             'name': '${s.name}',
-            'avatar': s.profileImage, // fileUuid
+            // `profileImage` is never populated by the data layer for
+            // StaffMember (always null) — `profilePhotoAssetCode` is the
+            // field that's actually set.
+            'avatar': s.profilePhotoAssetCode ?? '',
             'dateTime': null,
             'message': '',
             'isSigned': false,
@@ -163,7 +174,10 @@ class _StaffOrStudentSelectionBulkMessagingState
           (s) => {
             'code': s.code,
             'name': '${s.firstName} ${s.lastName}',
-            'avatar': s.profileImage, // fileUuid
+            // Use the asset code (consistent with the rest of the avatar
+            // resolution chain) rather than the separately-cached resolved
+            // URL in `profileImage`.
+            'avatar': s.profilePhotoAssetCode ?? '',
             'dateTime': null,
             'message': '',
             'isSigned': false,
@@ -310,12 +324,15 @@ class _StaffOrStudentSelectionBulkMessagingState
         return status != null && _selectedStatus!.toLowerCase() == status;
       }).toList();
     }
-    if (_selectedClassrooms.isNotEmpty) {
-      filtered = filtered.where((person) {
-        final classroom = person['classroom'] as String?;
-        return classroom != null && _selectedClassrooms.contains(classroom);
-      }).toList();
-    }
+    // Classroom isn't re-filtered here: `person['classroom']` for students
+    // comes from `Student.primaryClassroomName`, which the data layer never
+    // populates (always null/empty) — re-applying it client-side as a name
+    // match against `_selectedClassrooms` silently emptied the whole grid
+    // the moment any classroom (single or "select all") was selected, since
+    // `''` never matches a real classroom name. StudentCubit/StaffCubit
+    // already filter by classroom server-side via `_applyStudentFiltersToCubit`
+    // / `_applyStaffFiltersToCubit`, so `parentList`/`staffList` are already
+    // pre-filtered correctly by the time they reach here.
     // Designation isn't filtered here: `person['designation']` is the raw
     // backend code (e.g. "LEAD_TEACHER") while `_selectedDesignations` holds
     // display labels (e.g. "Lead Teacher"), so a direct match always misses.
@@ -415,21 +432,63 @@ class _StaffOrStudentSelectionBulkMessagingState
           unawaited(_loadTags());
         }
 
-        // Auto-select first classroom if already available. Skipped when
-        // filters are hidden (e.g. Admin/Director-only picker) — that flow
-        // wants every matching staff member, not just one classroom's.
-        final classrooms = classroomCubit.state.classrooms;
-        if (!widget.hideFilters &&
-            classrooms.isNotEmpty &&
-            _selectedClassrooms.isEmpty) {
-          setState(() {
-            _selectedClassrooms = [classrooms.first.name];
-          });
-          unawaited(_applyContactFiltersToCubit());
-        }
+        // Resolve the current user's primary classroom (admin or staff) in
+        // parallel with classroom/student loading, so the dropdown can
+        // default to it instead of whichever classroom sorts first.
+        unawaited(_resolvePrimaryClassroomCode());
+        _applyDefaultClassroomSelectionIfNeeded();
       }
     });
     _searchController.addListener(_applyFilters);
+  }
+
+  /// Resolves the logged-in user's primary classroom code for any persona
+  /// (admin included) and applies it as the default classroom selection once
+  /// known — reuses the same resolver already used elsewhere (e.g. the
+  /// Classroom screen) to default an admin/staff user onto their own room.
+  Future<void> _resolvePrimaryClassroomCode() async {
+    String? code;
+    try {
+      code = await resolveStaffPrimaryClassroomCodeAnyPersona();
+    } catch (_) {
+      code = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _primaryClassroomCode = code;
+      _primaryClassroomResolved = true;
+    });
+    _applyDefaultClassroomSelectionIfNeeded();
+  }
+
+  /// Defaults the classroom dropdown to the user's primary classroom (falling
+  /// back to the first classroom if no primary is resolved/matched). Skipped
+  /// when filters are hidden (e.g. Admin/Director-only picker — that flow
+  /// wants every matching staff member, not just one classroom's), once a
+  /// selection already exists, or before the primary-classroom lookup
+  /// finishes (avoids briefly defaulting to the wrong classroom and then
+  /// jumping to the real primary a moment later). Safe to call repeatedly —
+  /// from initState, from the primary-classroom resolver, and whenever the
+  /// classroom list itself updates — since whichever of "classrooms loaded"
+  /// or "primary resolved" finishes last is what actually applies it.
+  void _applyDefaultClassroomSelectionIfNeeded() {
+    if (widget.hideFilters || _selectedClassrooms.isNotEmpty) return;
+    if (!_primaryClassroomResolved) return;
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    if (classrooms.isEmpty) return;
+
+    final primaryCode = (_primaryClassroomCode ?? '').trim();
+    final primaryMatches = primaryCode.isEmpty
+        ? const <Classroom>[]
+        : classrooms.where((c) => c.code.trim() == primaryCode).toList();
+    final defaultName = primaryMatches.isNotEmpty
+        ? primaryMatches.first.name
+        : classrooms.first.name;
+
+    setState(() {
+      _selectedClassrooms = [defaultName];
+    });
+    unawaited(_applyContactFiltersToCubit());
   }
 
   void _applyFilters() {
@@ -455,14 +514,7 @@ class _StaffOrStudentSelectionBulkMessagingState
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: BlocListener<ClassroomCubit, ClassroomState>(
           listener: (context, state) {
-            if (!widget.hideFilters &&
-                state.classrooms.isNotEmpty &&
-                _selectedClassrooms.isEmpty) {
-              setState(() {
-                _selectedClassrooms = [state.classrooms.first.name];
-              });
-              unawaited(_applyContactFiltersToCubit());
-            }
+            _applyDefaultClassroomSelectionIfNeeded();
           },
           child: BlocBuilder<ClassroomCubit, ClassroomState>(
             builder: (context, classroomState) {
@@ -816,6 +868,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                             );
 
                                                   return CommonSelectionItem(
+                                                    key: ValueKey(
+                                                      person['code'],
+                                                    ),
                                                     name: person['name'],
                                                     avatarUuid:
                                                         person['avatar'] ?? '',

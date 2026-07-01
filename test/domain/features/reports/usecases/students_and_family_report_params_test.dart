@@ -105,7 +105,7 @@ void main() {
       expect(body['tagCodes'], tags);
     });
 
-    test('toRequestBody includes status filter', () {
+    test('toRequestBody includes status filter as a single-element array', () {
       final params = StudentsAndFamilyReportParams(
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
@@ -118,7 +118,9 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['statusFilter'], 'Inactive');
+      // Backend expects an array even for the single-select UI value
+      // (confirmed against the web client's verified payload).
+      expect(body['statusFilter'], ['Inactive']);
     });
 
     test('toCacheIdentifier includes field selections', () {

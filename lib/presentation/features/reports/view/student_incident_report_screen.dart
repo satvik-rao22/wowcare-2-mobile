@@ -60,11 +60,16 @@ class _StudentIncidentReportScreenState
 
     AppLogger.d('[INCIDENT-UI] Creating report params');
     final cubit = context.read<ReportsCubit>();
+    final studentNameToCode = cubit.state.studentNameToCode;
+    final studentCodes = _selectedStudents
+        .map((name) => studentNameToCode[name] ?? name)
+        .toList();
+
     final params = ReportRequestParams(
       reportType: ReportType.studentIncident,
       startDate: _startDate,
       endDate: _endDate,
-      studentCodes: _selectedStudents.isEmpty ? null : _selectedStudents,
+      studentCodes: studentCodes.isEmpty ? null : studentCodes,
       format: _format,
     );
 

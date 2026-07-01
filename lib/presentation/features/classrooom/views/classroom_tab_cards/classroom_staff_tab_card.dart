@@ -32,6 +32,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 /// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
 /// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
@@ -1065,7 +1066,28 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                           : StaffPanelType.activities;
                     });
                   },
-                  onMessageTap: () {},
+                  onMessageTap: () {
+                    final codes = _getSelectedStaffCodes();
+                    final selected = <SelectedRecipient>[];
+                    for (final code in codes) {
+                      final staff = _allStaff.firstWhere(
+                        (s) => s.staffCode == code,
+                        orElse: () => _filteredStaff.firstWhere(
+                          (s) => s.staffCode == code,
+                        ),
+                      );
+                      selected.add(
+                        SelectedRecipient(
+                          code: staff.staffCode,
+                          name: staff.name,
+                          isStaff: true,
+                          avatar: staff.photoUuid,
+                          designation: staff.designation,
+                        ),
+                      );
+                    }
+                    openMessagingShortcut(context, recipients: selected);
+                  },
                   onProfileTap: _getSelectedStaffCodes().length == 1
                       ? () {
                           final code = _getSelectedStaffCodes().first;

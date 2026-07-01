@@ -25,6 +25,7 @@ ConversationParticipant legacyParticipantFromEntity(ParticipantEntity p) {
     notificationsEnabled: p.notificationsEnabled,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
+    avatarUrl: p.avatarUrl,
   );
 }
 

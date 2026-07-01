@@ -22,6 +22,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 class StaffProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/staff-profile';
@@ -729,7 +730,24 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               );
             },
           ),
-          _buildActionIcon(MediaRes.communicationIcon, onTap: () {}),
+          _buildActionIcon(
+            MediaRes.communicationIcon,
+            onTap: () {
+              final code = widget.staffCode.trim();
+              if (code.isEmpty) return;
+              openMessagingShortcut(
+                context,
+                recipients: [
+                  SelectedRecipient(
+                    code: code,
+                    name: widget.name,
+                    isStaff: true,
+                    designation: widget.designation,
+                  ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );

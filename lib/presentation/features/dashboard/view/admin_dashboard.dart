@@ -57,7 +57,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case AdminDashboardCard.myDay:
         return const MyDayCard();
       case AdminDashboardCard.enrollment:
-        return const EnrollmentCard(isDashboard: true);
+        return BlocProvider<SchoolStatusCubit>.value(
+          value: _coordinator.schoolStatusCubit,
+          child: const EnrollmentCard(isDashboard: true),
+        );
       case AdminDashboardCard.ratioMonitoring:
         return BlocProvider<RatioMonitoringCubit>.value(
           value: _coordinator.ratioMonitoringCubit,

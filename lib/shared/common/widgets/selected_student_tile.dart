@@ -50,7 +50,19 @@ class SelectedStudentTile extends StatelessWidget {
           ? MainAxisAlignment.center
           : MainAxisAlignment.start,
       children: [
-        DocumentImageWidget(fileUuid: '', name: name, size: 35),
+        DocumentImageWidget(
+          fileUuid: '',
+          // `avatarUrl` is either a resolved URL or a raw media-asset code
+          // depending on the caller — `fileUuid` is never actually used to
+          // resolve an image (only `imageUrl`/`mediaAssetCode` are), so
+          // route to whichever matches the value's shape.
+          imageUrl: (avatarUrl ?? '').startsWith('http') ? avatarUrl : null,
+          mediaAssetCode: (avatarUrl ?? '').startsWith('http')
+              ? null
+              : avatarUrl,
+          name: name,
+          size: 35,
+        ),
         SizedBox(width: useViewColors ? 8 : 4),
         if (fillWidth)
           Expanded(

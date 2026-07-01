@@ -56,13 +56,15 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
       'startDate': startDate.toIso8601String().split('T')[0],
       'endDate': endDate.toIso8601String().split('T')[0],
       'vaccineCodes': vaccineCodes,
-      'statuses': statusFilters,
+      // Key names confirmed against the web client's verified IMMUNIZATION
+      // payload: roomCodes/tagCodes/statusFilter, not classrooms/tags/statuses.
+      'statusFilter': statusFilters,
       'includeParentName': includeParentName,
       'includeParentEmail': includeParentEmail,
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'classrooms': classroomCodes,
+        'roomCodes': classroomCodes,
       if (tagCodes != null && tagCodes!.isNotEmpty)
-        'tags': tagCodes,
+        'tagCodes': tagCodes,
       'format': format,
     };
   }

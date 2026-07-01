@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart'
     show GeneratedReportItem;
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -198,15 +200,23 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
     'Dec',
   ];
 
+  DateTime _toSchoolTime(DateTime dt) =>
+      SchoolZoneDateTime.dateTimeFromInstantInSchool(
+        dt,
+        SchoolTimezoneResolver.lastKnownTimeZone,
+      );
+
   String _formatDate(DateTime dt) {
-    final day = dt.day.toString().padLeft(2, '0');
-    return '${_months[dt.month - 1]} $day, ${dt.year}';
+    final schoolDt = _toSchoolTime(dt);
+    final day = schoolDt.day.toString().padLeft(2, '0');
+    return '${_months[schoolDt.month - 1]} $day, ${schoolDt.year}';
   }
 
   String _formatTime(DateTime dt) {
-    final hour12 = ((dt.hour + 11) % 12) + 1;
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final ampm = dt.hour < 12 ? 'AM' : 'PM';
+    final schoolDt = _toSchoolTime(dt);
+    final hour12 = ((schoolDt.hour + 11) % 12) + 1;
+    final minute = schoolDt.minute.toString().padLeft(2, '0');
+    final ampm = schoolDt.hour < 12 ? 'AM' : 'PM';
     return '${hour12.toString().padLeft(2, '0')}:$minute $ampm';
   }
 }

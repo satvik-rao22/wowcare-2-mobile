@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource.dart';
 import 'package:wowcare/data/features/reports/models/recent_report_model.dart';
@@ -18,7 +19,7 @@ class FakeRemoteDataSource extends Fake implements ReportsRemoteDataSource {
 
   @override
   Future<ReportResponseModel> generateReport({
-    required String reportType,
+    required ReportType reportType,
     required Map<String, dynamic> requestBody,
   }) async {
     if (shouldThrow) throw Exception('API Error');
@@ -372,13 +373,35 @@ void main() {
         expect(secondResult[0].reportId, 'report-2');
       });
 
-      test('propagates errors from API', () async {
+      test('propagates a Failure when every source fails (no more silent [])', () async {
         fakeDataSource.shouldThrow = true;
 
         expect(
           () => repository.getRecentReports(),
-          throwsException,
+          throwsA(isA<ServerFailure>()),
         );
+      });
+
+      test('returns partial results and logs when only some sources fail', () async {
+        fakeDataSource.recentStudentAttendanceResponse = () async => [
+          RecentReportModel(
+            reportId: 'ok-1',
+            reportType: 'STUDENT_DAILY_ATTENDANCE',
+            generatedAt: '2026-01-15T10:00:00Z',
+          ),
+        ];
+        fakeDataSource.recentStaffAttendanceResponse =
+            () async => throw Exception('Staff attendance MS down');
+        fakeDataSource.recentStaffResponse = () async => [];
+        fakeDataSource.recentStudentManagementResponse = () async => [];
+
+        // One source failing must not discard results from the others —
+        // this preserves the original graceful-degradation UX while no
+        // longer hiding the failure (it's logged via AppLogger.e).
+        final result = await repository.getRecentReports();
+
+        expect(result, hasLength(1));
+        expect(result[0].reportId, 'ok-1');
       });
     });
 
@@ -494,7 +517,7 @@ void main() {
         expect(result[0].fileName, 'report.xlsx');
       });
 
-      test('handles invalid report type with fallback to STUDENT_DAILY_ATTENDANCE', () async {
+      test('throws for an unrecognized reportType instead of silently falling back', () async {
         fakeDataSource.generateReportResponse = () async => ReportResponseModel(
           reportId: 'report-123',
           reportType: 'INVALID_TYPE',
@@ -507,10 +530,13 @@ void main() {
           endDate: DateTime(2026, 1, 15),
         );
 
-        final result = await repository.generateReport(params);
-
-        // Should fallback to studentDailyAttendance
-        expect(result.reportType, ReportType.studentDailyAttendance);
+        // An unrecognized reportType in the backend response means the
+        // contract has drifted — failing loudly surfaces that immediately
+        // instead of silently mislabeling the report.
+        expect(
+          () => repository.generateReport(params),
+          throwsA(isA<FormatException>()),
+        );
       });
     });
   });

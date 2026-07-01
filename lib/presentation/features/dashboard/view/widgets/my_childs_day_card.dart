@@ -126,6 +126,16 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   // callbacks when ancestor InheritedWidgets rebuild.
   bool _geofenceInitScheduled = false;
 
+  // Dedup guard for sign-in status loads: tracks the last set of codes we
+  // fetched so that context.watch<MyChildsDayCubit>() firing every second
+  // (clock timer) does not re-trigger the attendance API on each tick.
+  List<String> _lastSignInStatusCodes = [];
+
+  // In-flight gate: prevents concurrent network requests when multiple
+  // call sites (BlocListener, app-resume, post-sign-in) fire in rapid
+  // succession.  Reset in finally so a failed request always unblocks.
+  bool _isSignInStatusLoading = false;
+
   /// Returns true when the selected child is currently signed in.
   bool get _isSelectedChildSignedIn {
     final code = _selectedChildCode;
@@ -179,11 +189,17 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         );
       });
     }
-    // Load sign-in status for all children
+    // Load sign-in status only when the set of child codes has actually
+    // changed. Without this guard, context.watch<MyChildsDayCubit>() in
+    // build() causes didChangeDependencies to fire every second (clock timer),
+    // which would trigger the attendance API on every tick.
     final allChildCodes = parentChildProvider.children
         .map((c) => c.code)
         .toList();
-    if (allChildCodes.isNotEmpty) {
+    final sortedKey = (List<String>.from(allChildCodes)..sort()).join(',');
+    final lastKey = (List<String>.from(_lastSignInStatusCodes)..sort()).join(',');
+    if (allChildCodes.isNotEmpty && sortedKey != lastKey) {
+      _lastSignInStatusCodes = List<String>.from(allChildCodes);
       unawaited(_loadChildrenSignInStatus(allChildCodes));
     }
 
@@ -233,7 +249,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   }
 
   Future<void> _loadChildrenSignInStatus(List<String> childCodes) async {
-    if (childCodes.isEmpty) return;
+    if (childCodes.isEmpty || _isSignInStatusLoading) return;
+    _isSignInStatusLoading = true;
     try {
       final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
       final map = await useCase(studentCodes: childCodes);
@@ -243,6 +260,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       });
     } catch (_) {
       // If status check fails, keep empty map
+    } finally {
+      _isSignInStatusLoading = false;
     }
   }
 

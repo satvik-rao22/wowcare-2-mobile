@@ -2,10 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
 
 class MessagingListTile extends StatelessWidget {
   final Conversation conversation;
@@ -36,59 +35,8 @@ class MessagingListTile extends StatelessWidget {
     return 'Start a new conversation';
   }
 
-  String _formatMessageTime(DateTime? dateTime) {
-    if (dateTime == null) return '—';
-
-    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final schoolDateTime = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      dateTime,
-      schoolTz,
-    );
-    final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
-      schoolTz,
-    );
-
-    final today = DateTime(schoolNow.year, schoolNow.month, schoolNow.day);
-    final messageDate = DateTime(
-      schoolDateTime.year,
-      schoolDateTime.month,
-      schoolDateTime.day,
-    );
-    final difference = today.difference(messageDate).inDays;
-    final timeStr =
-        "${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}";
-
-    if (difference == 0) return "Today | $timeStr";
-    if (difference == 1) return "Yesterday | $timeStr";
-    if (difference < 7) {
-      final days = [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ];
-      return "${days[schoolDateTime.weekday - 1]} | $timeStr";
-    }
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return "${schoolDateTime.day} ${months[schoolDateTime.month - 1]} ${schoolDateTime.year} | $timeStr";
-  }
+  String _formatMessageTime(DateTime? dateTime) =>
+      MessagingTimeFormatter.conversationTime(dateTime);
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +76,15 @@ class MessagingListTile extends StatelessWidget {
               ],
             ),
             child: DocumentImageWidget(
-              fileUuid: conversation.avatarUrl,
+              fileUuid: '',
+              // `avatarUrl` is either a resolved URL or a raw media-asset
+              // code depending on which screen started the conversation.
+              imageUrl: conversation.avatarUrl.startsWith('http')
+                  ? conversation.avatarUrl
+                  : null,
+              mediaAssetCode: conversation.avatarUrl.startsWith('http')
+                  ? null
+                  : conversation.avatarUrl,
               name: conversation.title,
               size: 52,
             ),
@@ -161,7 +117,8 @@ class MessagingListTile extends StatelessWidget {
           ),
           subtitle: Row(
             children: [
-              Expanded(
+              Flexible(
+                fit: FlexFit.tight,
                 child: Text(
                   _lastMessagePreviewText(conversation),
                   maxLines: 1,
@@ -174,31 +131,33 @@ class MessagingListTile extends StatelessWidget {
                 ),
               ),
               if (conversation.unreadCount > 0)
-                Container(
-                  margin: const EdgeInsets.only(left: 12),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF00B894),
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF00B894).withValues(alpha: 0.35),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00B894),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00B894).withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      conversation.unreadCount > 99
+                          ? '99+'
+                          : '${conversation.unreadCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
                       ),
-                    ],
-                  ),
-                  child: Text(
-                    conversation.unreadCount > 99
-                        ? '99+'
-                        : '${conversation.unreadCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),

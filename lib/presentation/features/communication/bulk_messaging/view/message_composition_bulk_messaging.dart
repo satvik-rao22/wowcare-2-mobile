@@ -277,9 +277,18 @@ class _MessageCompositionBulkMessagingState
                                         itemBuilder: (context, index) {
                                           final String name = compositionState
                                               .selectedRecipientNames[index];
+                                          final avatar = index <
+                                                  compositionState
+                                                      .selectedRecipients
+                                                      .length
+                                              ? compositionState
+                                                      .selectedRecipients[index]['avatar']
+                                                  as String?
+                                              : null;
 
                                           return SelectedStudentTile(
                                             name: name,
+                                            avatarUrl: avatar,
                                             onTap: () => _removeRecipient(name),
                                           );
                                         },

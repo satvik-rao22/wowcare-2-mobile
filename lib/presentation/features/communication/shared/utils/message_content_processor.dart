@@ -1,6 +1,16 @@
 import 'dart:async';
 import 'package:url_launcher/url_launcher.dart';
 
+/// Supported preview types for composer/message cards.
+enum PreviewKind { url, email, phone }
+
+class PreviewMatch {
+  const PreviewMatch({required this.kind, required this.value});
+
+  final PreviewKind kind;
+  final String value;
+}
+
 /// Enriches HTML message content with auto-linked URLs / emails, and
 /// provides a single entry-point for launching links.
 ///
@@ -10,6 +20,21 @@ class MessageContentProcessor {
   MessageContentProcessor._();
 
   // ── Patterns ───────────────────────────────────────────────────────────────
+
+  static final RegExp _urlPattern = RegExp(
+    '(?:https?://[^\\s<>()"\']+|www\\.[a-zA-Z0-9\\-]+\\.[a-zA-Z]{2,}[^\\s<>()"\']*)',
+    caseSensitive: false,
+  );
+
+  static final RegExp _emailPattern = RegExp(
+    r'(?:[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})',
+    caseSensitive: false,
+  );
+
+  static final RegExp _phonePattern = RegExp(
+    r'(?<!\w)(?:\+|00)?(?:\(?\d{2,4}\)?[\s.-]?){2,4}\d{2,4}(?!\w)',
+    caseSensitive: false,
+  );
 
   /// Matches bare URLs, email addresses, and phone numbers (in that order).
   /// URL must be matched first so that a phone-like sequence inside a URL
@@ -85,6 +110,49 @@ class MessageContentProcessor {
     }
 
     return buf.toString();
+  }
+
+  static PreviewMatch? detectFirstPreview(String text) {
+    if (text.trim().isEmpty) return null;
+
+    final plain = stripHtmlTags(text).trim();
+    if (plain.isEmpty) return null;
+
+    final urlMatch = _urlPattern.firstMatch(plain);
+    if (urlMatch != null) {
+      var value = _trimTrailingPunctuation(urlMatch.group(0)!);
+      if (value.toLowerCase().startsWith('www.')) {
+        value = 'https://$value';
+      }
+      return PreviewMatch(kind: PreviewKind.url, value: value);
+    }
+
+    final emailMatch = _emailPattern.firstMatch(plain);
+    if (emailMatch != null) {
+      final value = _trimTrailingPunctuation(emailMatch.group(0)!);
+      return PreviewMatch(kind: PreviewKind.email, value: value);
+    }
+
+    final phoneMatch = _phonePattern.firstMatch(plain);
+    if (phoneMatch != null) {
+      final value = _trimTrailingPunctuation(phoneMatch.group(0)!);
+      return PreviewMatch(kind: PreviewKind.phone, value: value);
+    }
+
+    return null;
+  }
+
+  static String _trimTrailingPunctuation(String value) {
+    var sanitized = value;
+    while (sanitized.isNotEmpty &&
+        (sanitized.endsWith('.') ||
+            sanitized.endsWith(',') ||
+            sanitized.endsWith('!') ||
+            sanitized.endsWith('?') ||
+            sanitized.endsWith(')'))) {
+      sanitized = sanitized.substring(0, sanitized.length - 1);
+    }
+    return sanitized;
   }
 
   /// Converts bare URLs and email addresses in [text] to `<a href="">` tags.

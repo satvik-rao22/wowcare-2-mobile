@@ -1661,6 +1661,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<WatchConversationsLegacyUseCase>(),
       markConversationDeliveredUseCase:
           serviceLocator<MarkConversationDeliveredUseCase>(),
+      markConversationReadUseCase:
+          serviceLocator<MarkConversationReadUseCase>(),
       storageService: serviceLocator<StorageService>(),
     ),
   );

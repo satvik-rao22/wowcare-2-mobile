@@ -64,10 +64,12 @@ class ReportRequestParams extends Equatable implements ReportParams {
       'format': format,
     };
 
-    // Map field names based on report type for API compatibility
+    // Map field names based on report type for API compatibility.
+    // Confirmed against the web client's verified payloads per report type.
     if (reportType == ReportType.studentAbsent ||
         reportType == ReportType.studentAttendancePerStudent ||
-        reportType == ReportType.staffAttendancePerStaff) {
+        reportType == ReportType.staffAttendancePerStaff ||
+        reportType == ReportType.emergencyContacts) {
       // These reports use roomCodes instead of classroomCodes
       if (classroomCodes != null && classroomCodes!.isNotEmpty) {
         body['roomCodes'] = classroomCodes;

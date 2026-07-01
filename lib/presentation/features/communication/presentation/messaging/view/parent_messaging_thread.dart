@@ -14,6 +14,8 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
@@ -34,6 +36,9 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/new_m
 import '../widgets/thread_message_tile.dart';
 import '../../../cubit/private_mode_toggle_cubit.dart';
 import '../../../cubit/private_mode_toggle_state.dart';
+import '../../../cubit/conversation_list_cubit.dart';
+import '../../../cubit/conversation_list_state.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 import '../../../../../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import '../../../../../../domain/features/communication/usecases/get_conversation_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
@@ -60,7 +65,7 @@ class ParentMessagingThread extends StatefulWidget {
 
 class _ParentMessagingThreadState extends State<ParentMessagingThread>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  final TextEditingController _controller = TextEditingController();
+  final HtmlAwareTextController _controller = HtmlAwareTextController();
 
   final AutoScrollController _groupController = AutoScrollController();
   final AutoScrollController _parent1Controller = AutoScrollController();
@@ -125,6 +130,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   /// the same backend resource the v2 Admin Chat toggle already uses).
   PrivateModeToggleCubit? _privateModeToggleCubit;
 
+  /// Optional subscription to [ConversationListCubit] changes — wired when
+  /// the cubit is in scope so that remote private-mode state changes from
+  /// other devices propagate to [_privateModeToggleCubit] in realtime. Null
+  /// when [ConversationListCubit] is not available in the widget tree (e.g.
+  /// when this thread is opened from a non-list context).
+  StreamSubscription<ConversationListState>? _conversationListSubscription;
+
   bool get _privateModeActive =>
       widget.parentInfo['privateModeActive'] as bool? ?? false;
 
@@ -146,10 +158,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
   bool get _privateModeEnabled => !widget.isGuardian && _privateModeActive;
 
-  bool get _isGuardianPrivateModeOwner =>
-      _privateModeActivatedBy != null &&
-      _privateModeActivatedBy == _currentUserCode;
-
   @override
   void initState() {
     super.initState();
@@ -168,6 +176,34 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     _groupController.addListener(_onScroll);
     _parent1Controller.addListener(_onScroll);
     _parent2Controller.addListener(_onScroll);
+
+    // Subscribe to ConversationListCubit (if available in this widget tree)
+    // to receive realtime private-mode state changes from other devices. The
+    // try-catch is intentional: the cubit may not be in scope when this
+    // thread is opened from entry points that don't provide it.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        final convCode = widget.parentInfo['code'] as String;
+        _conversationListSubscription =
+            context.read<ConversationListCubit>().stream.listen(
+          (listState) {
+            if (!mounted) return;
+            final updated = listState.conversations
+                .where((c) => c.code == convCode)
+                .firstOrNull;
+            if (updated == null) return;
+            _privateModeToggleCubit?.syncFromRemote(
+              active: updated.privateModeActive,
+              activatedBy: updated.privateModeActivatedBy,
+            );
+          },
+        );
+      } catch (_) {
+        // ConversationListCubit not in scope — private-mode won't sync
+        // from remote changes in this session (existing behaviour).
+      }
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -205,20 +241,23 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
               serviceLocator(),
             ),
             conversationCode: widget.parentInfo['code'] as String,
+            viewerRole: () => widget.isGuardian
+                ? RoomChatViewerRole.guardian
+                : RoomChatViewerRole.staffOrAdmin,
             initialEnabled: myInitialPrivateModeEnabled,
           );
         }
       });
       final convCode = widget.parentInfo['code'] as String;
-      AppLogger.d(
-        '[ParentThread] loading messages for $convCode '
-        'currentUserId=$currentUserId',
-      );
       await context.read<CommunicationCubit>().loadMessages(
         convCode,
         currentUserId: currentUserId,
       );
       if (!mounted) return;
+      // Clear unread count for this conversation now that the user is viewing it.
+      unawaited(
+        context.read<CommunicationCubit>().markConversationRead(convCode),
+      );
       // Realtime listener starts only after the API/Isar history has
       // loaded — Firestore only ever applies deltas on top of it.
       context.read<CommunicationCubit>().startWatchingThread(
@@ -259,6 +298,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     _tabController?.dispose();
     _inputFocusNode.dispose();
     _privateModeToggleCubit?.close();
+    _conversationListSubscription?.cancel();
     super.dispose();
   }
 
@@ -331,6 +371,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     final hasNewLatest = latestId != null && latestId != _lastMessageId;
     _lastMessageId = latestId;
     if (!hasNewLatest) return;
+    // New messages arrived while the conversation is open — clear the unread count.
+    unawaited(
+      context.read<CommunicationCubit>().markConversationRead(
+        widget.parentInfo['code'] as String,
+      ),
+    );
     // Sending always scrolls to bottom, regardless of scroll position.
     // Other growth (realtime/API) only scrolls when already near bottom.
     if (wasOwnSend) {
@@ -398,6 +444,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       if (widget.isGuardian) {
         return messages.where((m) {
           if (!m.isPrivate) return true;
+          // Always show the guardian's own private messages (both confirmed
+          // messages scoped to their user code and optimistic sends whose
+          // isSentByMe is true before the server confirms the user code).
+          if (m.isSentByMe) return true;
           return m.privateParentUserCode == _currentUserCode;
         }).toList();
       }
@@ -623,7 +673,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     required AutoScrollController controller,
     required ChatScrollBehavior scrollBehavior,
     required CommunicationState state,
+    bool isLoading = false,
   }) {
+    if (isLoading) return const ChatThreadShimmer();
     return Stack(
       children: [
         ListView.builder(
@@ -691,8 +743,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     reactionsController: _reactionsController,
                     isParentMessaging: true,
                     senderIsOrgSide: _isOrgSideSender(message),
-                    viewerIsGuardian: widget.isGuardian,
-                    onReplyFromMenu: message.isDeleted
+                    onReply:message.isDeleted
+                        ? null
+                        : () {
+                            setState(() {
+                              _quotedMessageId = message.id;
+                              _quotedMessage = message;
+                            });
+                          },
+                    onReplyFromMenu:message.isDeleted
                         ? null
                         : () {
                             setState(() {
@@ -796,6 +855,20 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
+  /// Generate summary text for the main tab, excluding staff if none exist.
+  String _generateSummaryText() {
+    final hasStaff = _participants.any((p) {
+      final role = p.role.toUpperCase();
+      return role == 'STAFF' ||
+          role == 'TEACHER' ||
+          role == 'ADMIN' ||
+          role == 'DIRECTOR';
+    });
+    return hasStaff
+        ? '${parent1Name}, ${parent2Name} and Staff'
+        : '${parent1Name}, ${parent2Name}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isLandscape =
@@ -806,7 +879,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     // math, which all treat index 0 as the group tab.
     final tabNames = _privateModeEnabled
         ? <String>['Group Chat', ..._guardianEntries.take(2).map((e) => e.value)]
-        : ['${parent1Name}, ${parent2Name} and Staff'];
+        : [_generateSummaryText()];
 
     return BlocConsumer<CommunicationCubit, CommunicationState>(
       listener: (context, state) {
@@ -815,10 +888,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         }
       },
       builder: (context, state) {
-        debugPrint(
-          '[REALTIME-DEBUG][ParentConversationThread] widget rebuilt | '
-          'messageCount=${_activeMessages.length}',
-        );
         final _messages = _activeMessages;
         // Computed once per build, used by both layout branches' Parent1/
         // Parent2 tab panes below — avoids recomputing per list item.
@@ -831,35 +900,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         // Group Chat tab (staff/admin, private mode on): non-private messages
         // only — the per-parent private messages live in their own tabs.
         final _groupMessages = _messages.where((m) => !m.isPrivate).toList();
-        // TEMP DIAGNOSTIC (remove after verifying). Counts over the UNFILTERED
-        // message set feeding the staff tabs, surfaced both to the console and
-        // as an on-screen banner so we can read it without a console.
-        final _dbgPrivate = _messages.where((m) => m.isPrivate).length;
-        final _dbgWithPpc = _messages
-            .where((m) => (m.privateParentUserCode ?? '').isNotEmpty)
-            .length;
-        final _dbgStats =
-            'DBG v2 · total=${_messages.length} priv=$_dbgPrivate ppc=$_dbgWithPpc';
-        for (final m in _messages) {
-          debugPrint(
-            '[PRIV-DBG] code=${m.code} isPrivate=${m.isPrivate} '
-            'ppc=${m.privateParentUserCode} sender=${m.senderUserCode}',
-          );
-        }
-        if (state is CommunicationLoading && _messages.isEmpty) {
-          if (!widget.showOwnScaffold) return const ChatThreadShimmer();
-          return Scaffold(body: const ChatThreadShimmer());
-        }
-        if (state is CommunicationError && _messages.isEmpty) {
-          final errorBody = _buildErrorState(context, state.message);
-          if (!widget.showOwnScaffold) return errorBody;
-          return Scaffold(body: SafeArea(child: errorBody));
-        }
-        if (state is CommunicationLoaded && _messages.isEmpty) {
-          final emptyBody = _buildEmptyConversationState(context);
-          if (!widget.showOwnScaffold) return emptyBody;
-          return Scaffold(body: SafeArea(child: emptyBody));
-        }
+        // Derived flags used by the full layout to decide what to show in the
+        // message area — the header and composer are ALWAYS rendered so the
+        // screen doesn't re-layout when messages arrive.
+        final isLoadingMessages = state is CommunicationLoading && _messages.isEmpty;
+        final hasError = state is CommunicationError && _messages.isEmpty;
+        final isEmpty = state is CommunicationLoaded && _messages.isEmpty;
+        // Resolved once here so the inline conditionals below can reference it
+        // without a cast (Dart doesn't narrow through a boolean variable).
+        final errorMessage = state is CommunicationError ? state.message : '';
         final threadBody = GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: () => FocusScope.of(context).unfocus(),
@@ -901,19 +950,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                       // Tab 0: Group Chat (non-private).
                                       Column(
                                         children: [
-                                          Container(
-                                            width: double.infinity,
-                                            color: Colors.amber,
-                                            padding: const EdgeInsets.all(6),
-                                            child: Text(
-                                              _dbgStats,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                          ),
                                           Expanded(
                                             child: _buildThreadPane(
                                               messages: _groupMessages,
@@ -921,6 +957,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                               scrollBehavior:
                                                   _groupScrollBehavior,
                                               state: state,
+                                              isLoading: isLoadingMessages,
                                             ),
                                           ),
                                         ],
@@ -1058,8 +1095,17 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           _isOrgSideSender(
                                                             message,
                                                           ),
-                                                      viewerIsGuardian:
-                                                          widget.isGuardian,
+                                                      onReply:
+                                                          message.isDeleted
+                                                          ? null
+                                                          : () {
+                                                              setState(() {
+                                                                _quotedMessageId =
+                                                                    message.id;
+                                                                _quotedMessage =
+                                                                    message;
+                                                              });
+                                                            },
                                                       onReplyFromMenu:
                                                           message.isDeleted
                                                           ? null
@@ -1348,8 +1394,17 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           _isOrgSideSender(
                                                             message,
                                                           ),
-                                                      viewerIsGuardian:
-                                                          widget.isGuardian,
+                                                      onReply:
+                                                          message.isDeleted
+                                                          ? null
+                                                          : () {
+                                                              setState(() {
+                                                                _quotedMessageId =
+                                                                    message.id;
+                                                                _quotedMessage =
+                                                                    message;
+                                                              });
+                                                            },
                                                       onReplyFromMenu:
                                                           message.isDeleted
                                                           ? null
@@ -1512,6 +1567,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                       ),
                                     ]
                                   : [
+                                      if (isLoadingMessages)
+                                        const ChatThreadShimmer()
+                                      else if (hasError)
+                                        _buildErrorState(context, errorMessage)
+                                      else if (isEmpty)
+                                        _buildEmptyConversationState(context)
+                                      else
                                       Stack(
                                         children: [
                                           ListView.builder(
@@ -1636,8 +1698,17 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           _isOrgSideSender(
                                                             message,
                                                           ),
-                                                      viewerIsGuardian:
-                                                          widget.isGuardian,
+                                                      onReply:
+                                                          message.isDeleted
+                                                          ? null
+                                                          : () {
+                                                              setState(() {
+                                                                _quotedMessageId =
+                                                                    message.id;
+                                                                _quotedMessage =
+                                                                    message;
+                                                              });
+                                                            },
                                                       onReplyFromMenu:
                                                           message.isDeleted
                                                           ? null
@@ -1899,19 +1970,6 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                           // Tab 0: Group Chat (non-private).
                                           Column(
                                             children: [
-                                              Container(
-                                                width: double.infinity,
-                                                color: Colors.amber,
-                                                padding: const EdgeInsets.all(6),
-                                                child: Text(
-                                                  _dbgStats,
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.black,
-                                                  ),
-                                                ),
-                                              ),
                                               Expanded(
                                                 child: _buildThreadPane(
                                                   messages: _groupMessages,
@@ -1919,6 +1977,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                   scrollBehavior:
                                                       _groupScrollBehavior,
                                                   state: state,
+                                                  isLoading: isLoadingMessages,
                                                 ),
                                               ),
                                             ],
@@ -2058,8 +2117,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _isOrgSideSender(
                                                                 message,
                                                               ),
-                                                          viewerIsGuardian:
-                                                              widget.isGuardian,
+                                                          onReply: message.isDeleted
+                                                              ? null
+                                                              : () {
+                                                                  setState(() {
+                                                                    _quotedMessageId =
+                                                                        message.id;
+                                                                    _quotedMessage =
+                                                                        message;
+                                                                  });
+                                                                },
                                                           onReplyFromMenu: () {
                                                             setState(() {
                                                               _quotedMessageId =
@@ -2353,8 +2420,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _isOrgSideSender(
                                                                 message,
                                                               ),
-                                                          viewerIsGuardian:
-                                                              widget.isGuardian,
+                                                          onReply: message.isDeleted
+                                                              ? null
+                                                              : () {
+                                                                  setState(() {
+                                                                    _quotedMessageId =
+                                                                        message.id;
+                                                                    _quotedMessage =
+                                                                        message;
+                                                                  });
+                                                                },
                                                           onReplyFromMenu: () {
                                                             setState(() {
                                                               _quotedMessageId =
@@ -2515,6 +2590,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                           ),
                                         ]
                                       : [
+                                          if (isLoadingMessages)
+                                            const ChatThreadShimmer()
+                                          else if (hasError)
+                                            _buildErrorState(context, errorMessage)
+                                          else if (isEmpty)
+                                            _buildEmptyConversationState(context)
+                                          else
                                           Stack(
                                             children: [
                                               ListView.builder(
@@ -2648,8 +2730,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               _isOrgSideSender(
                                                                 message,
                                                               ),
-                                                          viewerIsGuardian:
-                                                              widget.isGuardian,
+                                                          onReply: message.isDeleted
+                                                              ? null
+                                                              : () {
+                                                                  setState(() {
+                                                                    _quotedMessageId =
+                                                                        message.id;
+                                                                    _quotedMessage =
+                                                                        message;
+                                                                  });
+                                                                },
                                                           onReplyFromMenu: () {
                                                             setState(() {
                                                               _quotedMessageId =
@@ -3096,6 +3186,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           userCode: p.userCode,
           displayName: p.userName.isNotEmpty ? p.userName : p.userCode,
           role: normalised,
+          avatarUrl: p.avatarUrl,
         );
       }).toList();
 
@@ -3193,7 +3284,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   ),
                 if (!widget.isGuardian) const SizedBox(width: 10),
                 DocumentImageWidget(
-                  fileUuid: widget.parentInfo['avatar'] as String? ?? '',
+                  fileUuid: '',
+                  imageUrl: (widget.parentInfo['avatar'] as String? ?? '')
+                          .startsWith('http')
+                      ? widget.parentInfo['avatar'] as String?
+                      : null,
+                  mediaAssetCode:
+                      (widget.parentInfo['avatar'] as String? ?? '')
+                              .isNotEmpty &&
+                          !(widget.parentInfo['avatar'] as String? ?? '')
+                              .startsWith('http')
+                      ? widget.parentInfo['avatar'] as String?
+                      : null,
                   name: title,
                   size: 34,
                 ),
@@ -3230,10 +3332,17 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         >(
                           listener: (context, toggleState) {
                             if (toggleState.errorMessage != null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(toggleState.errorMessage!),
-                                ),
+                              CoreUtils.showTopSnackBar(
+                                context: context,
+                                message: toggleState.errorMessage!,
+                                isError: true,
+                              );
+                            }
+                            if (toggleState.successMessage != null) {
+                              CoreUtils.showTopSnackBar(
+                                context: context,
+                                message: toggleState.successMessage!,
+                                isSuccess: true,
                               );
                             }
                           },
@@ -3284,7 +3393,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           if (participants.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: ParentParticipantChips(participants: participants),
+              child: ParentParticipantChips(
+                participants: participants,
+                privateModeEnabled: _privateModeActive,
+              ),
             ),
         ],
       ),
@@ -3624,47 +3736,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  String _formatTimeShort(
-    DateTime dt, {
-    bool use24Hour = false,
-    String separator = ':',
-  }) {
-    if (use24Hour) {
-      return "${dt.hour.toString().padLeft(2, '0')}${separator}${dt.minute.toString().padLeft(2, '0')}";
-    }
+  String _formatTimeShort(DateTime dt) =>
+      MessagingTimeFormatter.bubbleTime(dt);
 
-    final hour = dt.hour;
-    final period = hour >= 12 ? 'PM' : 'AM';
-    final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
-    final minute = dt.minute.toString().padLeft(2, '0');
-
-    return '$hour12$separator$minute $period';
-  }
-
-  String _formatFullTime(DateTime dt) {
-    final now = DateTime.now();
-    String dayPart =
-        (dt.day == now.day && dt.month == now.month && dt.year == now.year)
-        ? 'Today'
-        : (dt.day == now.day - 1
-              ? 'Yesterday'
-              : '${dt.day} ${_monthName(dt.month)} ${dt.year}');
-
-    return '$dayPart, ${dt.hour}:${dt.minute.toString().padLeft(2, '0')} ${dt.hour < 12 ? 'AM' : 'PM'}';
-  }
-
-  String _monthName(int month) => [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ][month - 1];
+  String _formatFullTime(DateTime dt) =>
+      MessagingTimeFormatter.infoTime(dt);
 }

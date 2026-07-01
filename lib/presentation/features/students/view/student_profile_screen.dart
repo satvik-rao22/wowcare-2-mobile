@@ -27,6 +27,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
@@ -1043,15 +1044,29 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 AppAccessModules.parentMessaging,
                 AppAccessModules.staffMessaging,
               ]);
-              if (messagingOk) {
+              if (!messagingOk) {
+                ModuleAccess.showFeatureRestricted(context);
+                return;
+              }
+              final code = (_activeStudentCode ?? '').trim();
+              if (code.isEmpty) {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Messaging is available from the Messages section.',
-                  isError: false,
+                  message: 'Student details not loaded yet. Please try again.',
+                  isError: true,
                 );
-              } else {
-                ModuleAccess.showFeatureRestricted(context);
+                return;
               }
+              openMessagingShortcut(
+                context,
+                recipients: [
+                  SelectedRecipient(
+                    code: code,
+                    name: _displayName,
+                    isStaff: false,
+                  ),
+                ],
+              );
             },
           ),
           _buildActionIcon(

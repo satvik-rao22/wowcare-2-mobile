@@ -66,7 +66,7 @@ void main() {
 
       expect(body['reportType'], 'IMMUNIZATION');
       expect(body['vaccineCodes'], const ['DTaP', 'Polio']);
-      expect(body['statuses'], const ['ACTIVE', 'UPCOMING']);
+      expect(body['statusFilter'], const ['ACTIVE', 'UPCOMING']);
     });
 
     test('toRequestBody includes parent info flags', () {
@@ -101,8 +101,8 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body.containsKey('classrooms'), false);
-      expect(body.containsKey('tags'), false);
+      expect(body.containsKey('roomCodes'), false);
+      expect(body.containsKey('tagCodes'), false);
     });
 
     test('toRequestBody includes non-empty arrays', () {
@@ -121,8 +121,8 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['classrooms'], classrooms);
-      expect(body['tags'], tags);
+      expect(body['roomCodes'], classrooms);
+      expect(body['tagCodes'], tags);
     });
 
     test('toCacheIdentifier includes vaccine and status filters', () {
@@ -227,8 +227,8 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['statuses'].length, 3);
-      expect(body['statuses'], contains('INACTIVE'));
+      expect(body['statusFilter'].length, 3);
+      expect(body['statusFilter'], contains('INACTIVE'));
     });
 
     test('correctly handles ACTIVE status filter', () {
@@ -245,7 +245,7 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['statuses'], ['ACTIVE']);
+      expect(body['statusFilter'], ['ACTIVE']);
     });
 
     test('correctly handles UPCOMING status filter', () {
@@ -262,7 +262,7 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['statuses'], ['UPCOMING']);
+      expect(body['statusFilter'], ['UPCOMING']);
     });
 
     test('correctly handles INACTIVE status filter', () {
@@ -279,7 +279,7 @@ void main() {
 
       final body = params.toRequestBody();
 
-      expect(body['statuses'], ['INACTIVE']);
+      expect(body['statusFilter'], ['INACTIVE']);
     });
   });
 }

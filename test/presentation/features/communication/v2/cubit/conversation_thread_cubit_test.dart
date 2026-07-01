@@ -293,6 +293,15 @@ class _FakeConversationEntityRepository
   Future<Either<Failure, void>> markConversationDelivered(
     String conversationCode,
   ) async => const Right(null);
+
+  @override
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  }) {
+    // TODO: implement reconcileClassroomChat
+    throw UnimplementedError();
+  }
 }
 
 /// Overrides `upload()` entirely, so the real `ImageUploadService`/

@@ -60,6 +60,7 @@ import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
 import 'add_student_wizard_screen.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 class StudentScreen extends StatefulWidget {
   const StudentScreen({
@@ -1303,7 +1304,28 @@ class _StudentScreenState extends State<StudentScreen> {
                                 });
                               }
                             : null,
-                        onMessageTap: () {},
+                        onMessageTap: () {
+                          final selected = <SelectedRecipient>[
+                            for (
+                              var i = 0;
+                              i < _selectedDemo.length && i < students.length;
+                              i++
+                            )
+                              if (_selectedDemo[i])
+                                SelectedRecipient(
+                                  code: students[i].code,
+                                  name: students[i].fullName,
+                                  isStaff: false,
+                                  // Use the asset code (consistent with the
+                                  // rest of the avatar resolution chain)
+                                  // rather than the separately-cached
+                                  // resolved URL in `profileImage`.
+                                  avatar:
+                                      students[i].profilePhotoAssetCode ?? '',
+                                ),
+                          ];
+                          openMessagingShortcut(context, recipients: selected);
+                        },
                         onProfileTap: selectedCount == 1
                             ? () {
                                 final idx = _selectedDemo.indexWhere((e) => e);

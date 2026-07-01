@@ -20,6 +20,7 @@ import '../../../../domain/features/communication/usecases/delete_attachment_use
 import '../../../../domain/features/communication/usecases/remove_reaction_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/clear_cache_usecase.dart';
 import '../../../../domain/features/communication/usecases/mark_conversation_delivered_usecase.dart';
+import '../../../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
@@ -43,6 +44,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final WatchMessagesLegacyUseCase watchMessagesUseCase;
   final WatchConversationsLegacyUseCase watchConversationsUseCase;
   final MarkConversationDeliveredUseCase markConversationDeliveredUseCase;
+  final MarkConversationReadUseCase markConversationReadUseCase;
   final StorageService storageService;
 
   CommunicationCubit({
@@ -62,8 +64,16 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.watchMessagesUseCase,
     required this.watchConversationsUseCase,
     required this.markConversationDeliveredUseCase,
+    required this.markConversationReadUseCase,
     required this.storageService,
   }) : super(CommunicationInitial());
+
+  /// Marks a conversation as read via the API so the unread badge and count
+  /// clear immediately for the current user. Called by screens when they open
+  /// a thread or receive new messages while the thread is in the foreground.
+  Future<void> markConversationRead(String conversationCode) async {
+    await markConversationReadUseCase(conversationCode);
+  }
 
   static const _uuid = Uuid();
 
@@ -122,11 +132,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     String? organizationCode,
     String? schoolCode,
   }) {
-    // TEMP DEBUG LOGGING — remove after realtime investigation.
-    debugPrint(
-      '[REALTIME-DEBUG][CommunicationCubit] startWatchingThread called | '
-      'threadId=$threadId listener created',
-    );
 
     if (_watchedThreadId == threadId && _messagesSubscription != null) return;
     _messagesSubscription?.cancel();
@@ -137,19 +142,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       schoolCode: schoolCode,
     ).listen(
       (messages) {
-        debugPrint(
-          '[REALTIME-DEBUG][CommunicationCubit] snapshot received | '
-          'threadId=$threadId count=${messages.length} '
-          'latestMessageId=${messages.isNotEmpty ? messages.last.id : null} '
-          'sender=${messages.isNotEmpty ? messages.last.senderUserCode : null} '
-          'sentAt=${messages.isNotEmpty ? messages.last.time : null}',
-        );
         if (isClosed || messages.isEmpty) {
-          debugPrint(
-            '[REALTIME-DEBUG][CommunicationCubit] EARLY RETURN — skipped emit | '
-            'threadId=$threadId isClosed=$isClosed messagesEmpty=${messages.isEmpty}',
-          );
-          return;
+            return;
         }
         final priorState = state is CommunicationLoaded
             ? state as CommunicationLoaded
@@ -191,11 +185,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
                 activeThreadId: threadId,
               ),
         );
-        debugPrint(
-          '[REALTIME-DEBUG][CommunicationCubit] state emitted | '
-          'threadId=$threadId prevCount=$debugPrevCount '
-          'newCount=${mergedMessages.length}',
-        );
       },
       // Firestore is a notification layer on top of API/Isar — if the
       // realtime stream errors (missing index, permissions, offline, etc.)
@@ -210,11 +199,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// (or all types when null). Mirrors [startWatchingThread] — only deltas
   /// flow through; [loadConversations] remains the source of history.
   void startWatchingConversations({String? type}) {
-    // TEMP DEBUG LOGGING — remove after realtime investigation.
-    debugPrint(
-      '[REALTIME-DEBUG][CommunicationCubit] startWatchingConversations called | '
-      'type=$type listener created',
-    );
 
     if (_watchedConversationsType == type &&
         _conversationsSubscription != null) {
@@ -224,17 +208,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     _watchedConversationsType = type;
     _conversationsSubscription = watchConversationsUseCase(type: type).listen(
       (conversations) {
-        debugPrint(
-          '[REALTIME-DEBUG][CommunicationCubit] snapshot received (list) | '
-          'type=$type count=${conversations.length} '
-          'ids=${conversations.map((c) => c.code).toList()}',
-        );
         if (isClosed || conversations.isEmpty) {
-          debugPrint(
-            '[REALTIME-DEBUG][CommunicationCubit] EARLY RETURN — skipped emit (list) | '
-            'type=$type isClosed=$isClosed conversationsEmpty=${conversations.isEmpty}',
-          );
-          return;
+            return;
         }
         final prior = state is CommunicationConversationsLoaded
             ? state as CommunicationConversationsLoaded
@@ -260,10 +235,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             hasMoreByType: prior?.hasMoreByType ?? const {},
             isLoadingMoreByType: prior?.isLoadingMoreByType ?? const {},
           ),
-        );
-        debugPrint(
-          '[REALTIME-DEBUG][CommunicationCubit] state emitted (list) | '
-          'type=$type prevCount=$debugPrevCount newCount=${sorted.length}',
         );
         unawaited(_markDeliveredForIncomingMessages(conversations));
       },

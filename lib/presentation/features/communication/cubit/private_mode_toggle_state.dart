@@ -9,6 +9,7 @@ class PrivateModeToggleState extends Equatable {
     required this.isEnabled,
     this.isLoading = false,
     this.errorMessage,
+    this.successMessage,
   });
 
   /// Whether private mode is currently active.
@@ -21,19 +22,29 @@ class PrivateModeToggleState extends Equatable {
   /// successful toggle or explicit reset.
   final String? errorMessage;
 
+  /// Non-null immediately after the API confirms a successful toggle.
+  /// Consumers should display this once and treat it as a one-shot event.
+  /// Not emitted by [PrivateModeToggleCubit.syncFromRemote] — only by a
+  /// real user-initiated toggle — so realtime sync does not re-fire it.
+  final String? successMessage;
+
   PrivateModeToggleState copyWith({
     bool? isEnabled,
     bool? isLoading,
     String? errorMessage,
+    String? successMessage,
     bool clearError = false,
+    bool clearSuccess = false,
   }) {
     return PrivateModeToggleState(
       isEnabled: isEnabled ?? this.isEnabled,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      successMessage:
+          clearSuccess ? null : (successMessage ?? this.successMessage),
     );
   }
 
   @override
-  List<Object?> get props => [isEnabled, isLoading, errorMessage];
+  List<Object?> get props => [isEnabled, isLoading, errorMessage, successMessage];
 }

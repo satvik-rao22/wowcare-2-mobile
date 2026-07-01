@@ -18,11 +18,13 @@ import 'package:wowcare/domain/features/communication/usecases/get_conversations
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
 
 /// Parent/Guardian messaging entry point.
@@ -61,7 +63,8 @@ class _ParentDirectMessagingScreenState
   // Used only when no conversation exists yet — keeps the input bar visible
   // and lets the parent draft the first message (text + attachments) before
   // any conversation has been created server-side.
-  final TextEditingController _emptyInputController = TextEditingController();
+  final HtmlAwareTextController _emptyInputController =
+      HtmlAwareTextController();
   final FocusNode _emptyInputFocus = FocusNode();
   List<ChatAttachment> _pendingNewConversationAttachments = [];
   bool _isStartingConversation = false;
@@ -230,10 +233,6 @@ class _ParentDirectMessagingScreenState
             }
           },
           builder: (context, state) {
-            debugPrint(
-              '[REALTIME-DEBUG][ParentConversationList] widget rebuilt | '
-              'conversationCount=${state.conversations.length}',
-            );
             return RefreshIndicator(
               onRefresh: _listCubit.refresh,
               child: Column(
@@ -345,7 +344,9 @@ class _ParentDirectMessagingScreenState
         if (attachments.isEmpty) return;
         // Only one attachment may be pending at a time, matching the
         // existing in-thread composer's behavior.
-        setState(() => _pendingNewConversationAttachments = [attachments.first]);
+        setState(
+          () => _pendingNewConversationAttachments = [attachments.first],
+        );
       },
       onEmojiSelected: (emoji) {
         final pos = _emptyInputController.selection.isValid
@@ -418,9 +419,9 @@ class _ParentDirectMessagingScreenState
             : null;
         final storedUserCode =
             (await serviceLocator<StorageService>().getString(
-                  StorageKeys.userCode,
-                ) ??
-                '')
+                      StorageKeys.userCode,
+                    ) ??
+                    '')
                 .trim();
         final senderUserCode = authState is AuthLoaded
             ? authState.loginResponse.userCode
@@ -465,8 +466,9 @@ class _ParentDirectMessagingScreenState
   /// Shows the same card layout as the active thread but with a centered
   /// "not yet created" placeholder in the message area.
   Widget _buildNoConversationThread(BuildContext context) {
-    final childName =
-        context.read<ParentChildCubit>().state.selectedChild?.name ?? '';
+    final selectedChild = context.read<ParentChildCubit>().state.selectedChild;
+    final childName = selectedChild?.name ?? '';
+    final childCode = selectedChild?.code;
     return Column(
       mainAxisSize: MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -490,21 +492,14 @@ class _ParentDirectMessagingScreenState
                   padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
                   child: Row(
                     children: [
-                      CircleAvatar(
-                        radius: 17,
-                        backgroundColor: AppColors.primaryColor.withValues(
-                          alpha: 0.12,
-                        ),
-                        child: Text(
-                          childName.isNotEmpty
-                              ? childName[0].toUpperCase()
-                              : '?',
-                          style: const TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15,
-                          ),
-                        ),
+                      DocumentImageWidget(
+                        fileUuid: '',
+                        studentCode: (childCode ?? '').trim().isNotEmpty
+                            ? childCode
+                            : null,
+                        name: childName,
+                        size: 34,
+                        fontSize: 15,
                       ),
                       const SizedBox(width: 10),
                       Expanded(

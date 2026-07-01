@@ -14,6 +14,7 @@ class ConversationThreadState extends Equatable {
     this.conversation,
     this.sendError,
     this.errorMessage,
+    this.successMessage,
   });
 
   const ConversationThreadState.initial({required String conversationCode})
@@ -26,7 +27,8 @@ class ConversationThreadState extends Equatable {
         hasOlderMessages = true,
         conversation = null,
         sendError = null,
-        errorMessage = null;
+        errorMessage = null,
+        successMessage = null;
 
   const ConversationThreadState.loaded({
     required String conversationCode,
@@ -43,7 +45,8 @@ class ConversationThreadState extends Equatable {
         hasOlderMessages = hasOlderMessages,
         conversation = conversation,
         sendError = null,
-        errorMessage = null;
+        errorMessage = null,
+        successMessage = null;
 
   final String conversationCode;
   final List<MessageEntity> messages;
@@ -63,6 +66,9 @@ class ConversationThreadState extends Equatable {
   /// Non-null when loading or refresh failed.
   final String? errorMessage;
 
+  /// Non-null when an operation (e.g., reaction add/remove) succeeded.
+  final String? successMessage;
+
   bool get hasMessages => messages.isNotEmpty;
 
   bool get hasPendingMessages =>
@@ -79,8 +85,10 @@ class ConversationThreadState extends Equatable {
     ConversationEntity? conversation,
     String? sendError,
     String? errorMessage,
+    String? successMessage,
     bool clearSendError = false,
     bool clearError = false,
+    bool clearSuccess = false,
   }) {
     return ConversationThreadState(
       conversationCode: conversationCode ?? this.conversationCode,
@@ -93,6 +101,7 @@ class ConversationThreadState extends Equatable {
       conversation: conversation ?? this.conversation,
       sendError: clearSendError ? null : (sendError ?? this.sendError),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
+      successMessage: clearSuccess ? null : (successMessage ?? this.successMessage),
     );
   }
 
@@ -108,5 +117,6 @@ class ConversationThreadState extends Equatable {
         conversation,
         sendError,
         errorMessage,
+        successMessage,
       ];
 }

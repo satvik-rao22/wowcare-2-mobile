@@ -39,10 +39,7 @@ class MessagingEntryScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _Header(
-                    onClose: () => context.pop(),
-                    responsive: responsive,
-                  ),
+                  _Header(onClose: () => context.pop(), responsive: responsive),
                   Padding(
                     padding: EdgeInsets.fromLTRB(
                       responsive.horizontalSpacing,
@@ -65,8 +62,7 @@ class MessagingEntryScreen extends StatelessWidget {
                                 iconSize: responsive.isTablet ? 30 : 26,
                                 fontSize: responsive.buttonFontSize,
                                 verticalPadding: responsive.isTablet ? 26 : 22,
-                                onTap: () =>
-                                    context.push(AppRoutes.messaging),
+                                onTap: () => context.push(AppRoutes.messaging),
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                             ],
@@ -82,8 +78,9 @@ class MessagingEntryScreen extends StatelessWidget {
                                     ),
                                     iconSize: responsive.isTablet ? 30 : 26,
                                     fontSize: responsive.labelFontSize + 2,
-                                    verticalPadding:
-                                        responsive.isTablet ? 26 : 22,
+                                    verticalPadding: responsive.isTablet
+                                        ? 26
+                                        : 22,
                                     horizontalPadding: 12,
                                     onTap: () =>
                                         context.push(AppRoutes.adminChat),
@@ -92,15 +89,16 @@ class MessagingEntryScreen extends StatelessWidget {
                                 SizedBox(width: responsive.horizontalSpacing),
                                 Expanded(
                                   child: CommunicationLauncherButton(
-                                    label: 'Room Chat',
+                                    label: 'Room Chats',
                                     iconAsset: MediaRes.classroomIcon,
                                     unreadCount: unread.unreadFor(
                                       ConversationType.roomChat,
                                     ),
                                     iconSize: responsive.isTablet ? 30 : 26,
                                     fontSize: responsive.labelFontSize + 2,
-                                    verticalPadding:
-                                        responsive.isTablet ? 26 : 22,
+                                    verticalPadding: responsive.isTablet
+                                        ? 26
+                                        : 22,
                                     horizontalPadding: 12,
                                     // Reuses the existing Parent Messaging
                                     // sub-tab inside MessagingScreen — the
@@ -139,35 +137,32 @@ class _Header extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(
         horizontal: responsive.horizontalSpacing,
-        vertical: responsive.isTablet ? 32 : 28,
+        vertical: responsive.isTablet ? 30 : 25,
       ),
       decoration: const BoxDecoration(color: Color(0xFFF1F1FB)),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            'Messaging',
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 36 : 32,
-              fontWeight: FontWeight.w800,
-              fontFamily: 'Manrope',
-              color: AppColors.primaryColor,
-            ),
-          ),
           GestureDetector(
-            onTap: onClose,
+            onTap: () =>
+                Navigator.of(context).pop(), //  Back to the previous screen
             child: Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white,
-                border: Border.all(color: AppColors.dividerColor),
-              ),
+
               child: const Icon(
-                Icons.close,
+                Icons.arrow_back,
                 size: 20,
                 color: AppColors.primaryColor,
               ),
+            ),
+          ),
+          Text(
+            'Messaging',
+            style: TextStyle(
+              fontSize: responsive.isTablet ? 25 : 20,
+              fontWeight: FontWeight.w800,
+              fontFamily: 'Manrope',
+              color: AppColors.primaryColor,
             ),
           ),
         ],

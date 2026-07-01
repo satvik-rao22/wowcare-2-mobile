@@ -72,6 +72,19 @@ class _StudentAttendancePerStudentReportScreenState
     }
 
     final cubit = context.read<ReportsCubit>();
+    final reportsState = cubit.state;
+
+    final studentCodes = _selectedStudents.isNotEmpty
+        ? _selectedStudents
+            .map((name) => reportsState.studentNameToCode[name] ?? name)
+            .toList()
+        : null;
+    final classroomCodes = _selectedClassrooms.isNotEmpty
+        ? _selectedClassrooms
+            .map((name) => reportsState.classroomNameToCode[name] ?? name)
+            .toList()
+        : null;
+
     final params = ReportRequestParams(
       reportType: ReportType.studentAttendancePerStudent,
       startDate: _periodDate,
@@ -84,8 +97,8 @@ class _StudentAttendancePerStudentReportScreenState
               : 30,
         ),
       ),
-      studentCodes: _selectedStudents.isEmpty ? null : _selectedStudents,
-      classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
+      studentCodes: studentCodes,
+      classroomCodes: classroomCodes,
     );
 
     unawaited(cubit.generateReport(params));

@@ -113,7 +113,7 @@ class _CommunicationLauncherButtonState
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.primaryColor,
+                    color: AppColors.successColor,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: Colors.white, width: 1.5),
                   ),

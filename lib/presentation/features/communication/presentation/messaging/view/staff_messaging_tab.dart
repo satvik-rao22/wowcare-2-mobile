@@ -26,6 +26,7 @@ import '../../../../student/cubit/student_cubit.dart';
 import '../../../cubit/communication_state.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../widgets/messaging_list_tile.dart';
 
 class StaffMessagingTab extends StatefulWidget {
@@ -1010,7 +1011,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
           (s) => _FilteredContact(
             code: s.code,
             name: s.name,
-            avatarUrl: s.profileImage,
+            // `profileImage` is never populated by the data layer for
+            // StaffMember (always null) — `profilePhotoAssetCode` is the
+            // field that's actually set.
+            avatarUrl: s.profilePhotoAssetCode,
             subtitle: formatDesignationForDisplay(s.designation),
           ),
         )
@@ -1064,18 +1068,20 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 22,
-              backgroundImage: (contact.avatarUrl ?? '').isNotEmpty
-                  ? NetworkImage(contact.avatarUrl!)
+            DocumentImageWidget(
+              fileUuid: '',
+              // `avatarUrl` is either a resolved URL or a raw media-asset
+              // code depending on which list this contact came from.
+              imageUrl: (contact.avatarUrl ?? '').startsWith('http')
+                  ? contact.avatarUrl
                   : null,
-              child: (contact.avatarUrl ?? '').isEmpty
-                  ? Text(
-                      contact.name.isNotEmpty
-                          ? contact.name[0].toUpperCase()
-                          : '?',
-                    )
-                  : null,
+              mediaAssetCode: (contact.avatarUrl ?? '').startsWith('http')
+                  ? null
+                  : contact.avatarUrl,
+              staffCode: widget.isStaffMessaging ? contact.code : null,
+              studentCode: widget.isStaffMessaging ? null : contact.code,
+              name: contact.name,
+              size: 44,
             ),
             const SizedBox(width: 12),
             Expanded(

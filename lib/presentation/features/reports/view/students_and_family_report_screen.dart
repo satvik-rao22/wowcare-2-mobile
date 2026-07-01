@@ -130,6 +130,10 @@ class _StudentsAndFamilyReportScreenState
     }
 
     final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final classroomCodes = _selectedClassrooms.value
+        .map((name) => classroomNameToCode[name] ?? name)
+        .toList();
     final params = StudentsAndFamilyReportParams(
       reportType: ReportType.studentsAndFamily,
       startDate: DateTime.now(),
@@ -137,9 +141,7 @@ class _StudentsAndFamilyReportScreenState
       studentFieldsSelected: _selectedStudentFields.value,
       parentFieldsSelected: _selectedParentFields.value,
       statusFilter: _status.value,
-      classroomCodes: _selectedClassrooms.value.isEmpty
-          ? null
-          : _selectedClassrooms.value,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       tagCodes: _selectedTags.value.isEmpty ? null : _selectedTags.value,
       format: _format.value,
     );

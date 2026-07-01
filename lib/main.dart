@@ -25,6 +25,7 @@ import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.da
 import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
@@ -381,6 +382,14 @@ class MyApp extends StatelessWidget {
         BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
         BlocProvider<ParentChildCubit>(
           create: (_) => serviceLocator<ParentChildCubit>(),
+        ),
+        // Provided at root so CustomAppBar's BlocBuilder<UnreadBadgeCubit>
+        // is satisfied on every route — including screens pushed onto the root
+        // navigator (AddStudentScreen, EditStudentProfileDetailsScreen, etc.)
+        // that are outside the GlobalScaffold subtree.
+        // startWatching() is called in GlobalScaffold.initState() after login.
+        BlocProvider<UnreadBadgeCubit>(
+          create: (_) => serviceLocator<UnreadBadgeCubit>(),
         ),
       ],
       child: BlocBuilder<ThemeCubit, ThemeData>(

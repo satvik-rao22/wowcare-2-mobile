@@ -78,9 +78,12 @@ class ReportsCubit extends Cubit<ReportsState> {
     ));
   }
 
-  void setStudentNames(List<String> names) {
+  void setStudentNames(List<String> names, {Map<String, String>? nameToCodeMap}) {
     if (isClosed) return;
-    emit(state.copyWith(studentNames: names));
+    emit(state.copyWith(
+      studentNames: names,
+      studentNameToCode: nameToCodeMap ?? state.studentNameToCode,
+    ));
   }
 
   void setStaffNames(List<String> names, {Map<String, String>? nameToCodeMap}) {

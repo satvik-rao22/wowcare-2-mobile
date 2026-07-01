@@ -44,6 +44,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
     as absent_form;
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 class _AttendanceCacheEntry {
   const _AttendanceCacheEntry({
@@ -1673,7 +1674,19 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                         _showActivitiesPanel = false;
                       });
                     },
-                    onMessageTap: () {},
+                    onMessageTap: () {
+                      final selected = selectedStudents
+                          .map(
+                            (s) => SelectedRecipient(
+                              code: s.studentCode,
+                              name: s.fullName,
+                              isStaff: false,
+                              avatar: s.profilePictureUrl ?? '',
+                            ),
+                          )
+                          .toList();
+                      openMessagingShortcut(context, recipients: selected);
+                    },
                     onActivitiesTap: canStudentActivities
                         ? () {
                             setState(() {

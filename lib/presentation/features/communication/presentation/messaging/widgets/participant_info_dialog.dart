@@ -11,11 +11,13 @@ class ParticipantDisplayData {
     required this.userCode,
     required this.displayName,
     required this.role, // ADMIN | STAFF | GUARDIAN
+    this.avatarUrl,
   });
 
   final String userCode;
   final String displayName;
   final String role;
+  final String? avatarUrl;
 }
 
 /// Shows a modal dialog with grouped conversation participants.
@@ -67,17 +69,6 @@ class ParticipantInfoDialog extends StatelessWidget {
   }
 
   // ── Colors per role ────────────────────────────────────────────────────────
-
-  static Color _avatarColor(String role) {
-    switch (role.toUpperCase()) {
-      case 'ADMIN':
-        return const Color(0xFFF59E0B);
-      case 'STAFF':
-        return const Color(0xFF10B981);
-      default:
-        return const Color(0xFF6C63FF);
-    }
-  }
 
   static Color _badgeBg(String role) {
     switch (role.toUpperCase()) {
@@ -286,7 +277,17 @@ class _StudentCard extends StatelessWidget {
       child: Row(
         children: [
           DocumentImageWidget(
-            fileUuid: avatarUuid ?? '',
+            fileUuid: '',
+            // `avatarUuid` is either a resolved URL or a raw media-asset
+            // code depending on the caller — `fileUuid` is never actually
+            // used to resolve an image (only `imageUrl`/`mediaAssetCode`
+            // are), so route to whichever matches the value's shape.
+            imageUrl: (avatarUuid ?? '').startsWith('http')
+                ? avatarUuid
+                : null,
+            mediaAssetCode: (avatarUuid ?? '').startsWith('http')
+                ? null
+                : avatarUuid,
             name: name,
             size: 52,
             fontSize: 20,
@@ -339,42 +340,30 @@ class _ParticipantTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final role = data.role.toUpperCase();
-    final avatarColor = ParticipantInfoDialog._avatarColor(role);
     final badgeBg = ParticipantInfoDialog._badgeBg(role);
     final badgeFg = ParticipantInfoDialog._badgeFg(role);
     final badgeLabel = ParticipantInfoDialog._badgeLabel(role);
-
-    final initials = data.displayName.trim().isEmpty
-        ? '?'
-        : data.displayName
-              .trim()
-              .split(' ')
-              .where((w) => w.isNotEmpty)
-              .take(2)
-              .map((w) => w[0].toUpperCase())
-              .join();
+    final isStaffPersona = role == 'STAFF' || role == 'ADMIN';
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
           // Avatar
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: avatarColor,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              initials,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 14,
-              ),
-            ),
+          DocumentImageWidget(
+            fileUuid: '',
+            imageUrl: (data.avatarUrl ?? '').startsWith('http')
+                ? data.avatarUrl
+                : null,
+            mediaAssetCode:
+                (data.avatarUrl ?? '').isNotEmpty &&
+                    !(data.avatarUrl ?? '').startsWith('http')
+                ? data.avatarUrl
+                : null,
+            staffCode: isStaffPersona ? data.userCode : null,
+            name: data.displayName,
+            size: 42,
+            fontSize: 14,
           ),
           const SizedBox(width: 12),
 
