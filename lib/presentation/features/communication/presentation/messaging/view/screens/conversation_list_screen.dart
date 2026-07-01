@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
@@ -764,43 +763,8 @@ class _ConversationTileContent extends StatelessWidget {
     );
   }
 
-  String _formatTime(DateTime? dt) {
-    if (dt == null) return '—';
-    final tz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final local = SchoolZoneDateTime.dateTimeFromInstantInSchool(dt, tz);
-    final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
-      tz,
-    );
-    final today = DateTime(now.year, now.month, now.day);
-    final msgDay = DateTime(local.year, local.month, local.day);
-    final diff = today.difference(msgDay).inDays;
-    final hh = local.hour.toString().padLeft(2, '0');
-    final mm = local.minute.toString().padLeft(2, '0');
-    final time = '$hh:$mm';
-
-    if (diff == 0) return 'Today | $time';
-    if (diff == 1) return 'Yesterday | $time';
-    if (diff < 7) {
-      const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-      return '${days[local.weekday - 1]} | $time';
-    }
-    const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return '${local.day} ${months[local.month - 1]} ${local.year} | $time';
-  }
+  String _formatTime(DateTime? dt) =>
+      MessagingTimeFormatter.conversationTime(dt);
 }
 
 // ─── Type indicator chip ──────────────────────────────────────────────────────

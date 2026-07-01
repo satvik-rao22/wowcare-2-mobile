@@ -71,18 +71,12 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   /// badge immediately when the user opens that thread — before Firestore
   /// confirms the read receipt (~1-3 s later).
   Future<void> startWatching() async {
-    // TEMP DEBUG LOGGING — remove after realtime investigation.
     final String debugUserCode =
         (await _storageService.getString(StorageKeys.userCode)) ?? '';
     final String debugOrgCode =
         (await _storageService.getString(StorageKeys.organizationCode)) ?? '';
     final String debugSchoolCode =
         (await _storageService.getString(StorageKeys.schoolCode)) ?? '';
-    debugPrint(
-      '[REALTIME-DEBUG][ConversationListCubit] startWatching called | '
-      'type=${_conversationType.toApiString()} user=$debugUserCode '
-      'org=$debugOrgCode school=$debugSchoolCode',
-    );
 
     // 1. Emit Isar cache immediately for a fast first frame.
     final cacheResult = await _getCachedConversationsUseCase(
@@ -98,11 +92,6 @@ class ConversationListCubit extends Cubit<ConversationListState> {
             conversations: _sortedByLatest(cached),
             isFromCache: true,
           ));
-          debugPrint(
-            '[REALTIME-DEBUG][ConversationListCubit] state emitted (cache) | '
-            'type=${_conversationType.toApiString()} prevCount=$debugPrevCount '
-            'newCount=${cached.length}',
-          );
         }
       },
     );
@@ -115,31 +104,15 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       (conversations) {
         if (isClosed) return;
         _firestoreActive = true;
-        debugPrint(
-          '[REALTIME-DEBUG][ConversationListCubit] snapshot received | '
-          'type=${_conversationType.toApiString()} count=${conversations.length} '
-          'ids=${conversations.map((c) => c.code).toList()} '
-          'lastMessages=${conversations.map((c) => '${c.code}:${c.lastMessagePreview}@${c.lastMessageAt}').toList()} '
-          'unreadCounts=${conversations.map((c) => '${c.code}:${c.unreadCount}').toList()}',
-        );
         final int debugPrevCount = state.conversations.length;
         emit(ConversationListState.loaded(
           conversationType: _conversationType,
           conversations: _sortedByLatest(conversations),
           isFromCache: false,
         ));
-        debugPrint(
-          '[REALTIME-DEBUG][ConversationListCubit] state emitted (firestore) | '
-          'type=${_conversationType.toApiString()} prevCount=$debugPrevCount '
-          'newCount=${conversations.length}',
-        );
         unawaited(_markDeliveredForIncomingMessages(conversations));
       },
       onError: (error) {
-        debugPrint(
-          '[REALTIME-DEBUG][ConversationListCubit] firestore error | '
-          'type=${_conversationType.toApiString()} error=$error',
-        );
         if (!_firestoreActive) unawaited(_fallbackToApi());
       },
     );

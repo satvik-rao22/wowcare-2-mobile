@@ -12,9 +12,9 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -48,15 +48,12 @@ class MessageBubble extends StatefulWidget {
   /// Whether THIS MESSAGE's sender is staff/admin/teacher/director (true) or
   /// guardian/parent (false). Null means "unknown/not applicable" — used by
   /// Staff Direct (1:1), which intentionally keeps the legacy "my message
-  /// vs. their message" layout instead of the role-based one (see
-  /// docs/messaging/06-ui-standards.md §6.2). Must be supplied together with
-  /// [viewerIsGuardian] for the role-based layout to take effect.
+  /// vs. their message" two-tone look instead of the role-colored one (see
+  /// docs/messaging/06-ui-standards.md §6.2). When non-null (Room Chat /
+  /// Admin Chat), it drives bubble *color* for messages that aren't mine —
+  /// it never drives alignment, which is always identity-based (see
+  /// [_alignRight]).
   final bool? senderIsOrgSide;
-
-  /// Whether the person currently viewing this thread is a guardian/parent.
-  /// Null has the same "not applicable" meaning as [senderIsOrgSide] — both
-  /// must be non-null together, or both are ignored.
-  final bool? viewerIsGuardian;
 
   const MessageBubble({
     required this.message,
@@ -79,7 +76,6 @@ class MessageBubble extends StatefulWidget {
     this.isDeleted = false,
     this.isGrouped = false,
     this.senderIsOrgSide,
-    this.viewerIsGuardian,
     super.key,
   });
 
@@ -179,24 +175,12 @@ class _MessageBubbleState extends State<MessageBubble>
       (widget.currentUserCode != null &&
           widget.currentUserCode == widget.message.senderUserCode);
 
-  /// Drives every visual "which side/color does this bubble use" decision.
-  ///
-  /// When [MessageBubble.senderIsOrgSide] and [MessageBubble.viewerIsGuardian]
-  /// are both supplied (Room Chat / Admin Chat), this implements the
-  /// role-based rule: every staff/admin/teacher/director message shares one
-  /// side+gradient regardless of which one of them sent it, and every
-  /// guardian message shares the other side+gradient regardless of which
-  /// guardian sent it.
-  ///
-  /// When either is null (Staff Direct, 1:1 — the one PRD-documented
-  /// exception, see docs/messaging/06-ui-standards.md §6.2), falls back to
-  /// the legacy "my message vs. their message" behavior driven by [_isMe].
-  bool get _alignRight {
-    final orgSide = widget.senderIsOrgSide;
-    final guardianViewer = widget.viewerIsGuardian;
-    if (orgSide == null || guardianViewer == null) return _isMe;
-    return guardianViewer ? !orgSide : orgSide;
-  }
+  /// Which side this bubble renders on. Always identity-based — a message
+  /// is right-aligned if and only if the current viewer sent it. Role
+  /// ([MessageBubble.senderIsOrgSide]) only ever decides bubble *color* for
+  /// messages that aren't mine (see [_buildBubble]), never which side they
+  /// render on.
+  bool get _alignRight => _isMe;
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info regardless of who
@@ -207,9 +191,9 @@ class _MessageBubbleState extends State<MessageBubble>
         availableReactions: ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
         menuItems: [],
         enableLongPress: true,
-        enableDoubleTap: false,
+        enableDoubleTap: true,
         showAddReactionButton: true,
-        showContextMenu: false,
+        showContextMenu: true,
         enableHapticFeedback: true,
         reactionSize: 24,
       );
@@ -225,7 +209,7 @@ class _MessageBubbleState extends State<MessageBubble>
           MenuItem(label: 'Info', icon: Icons.info_outline),
         ],
         enableLongPress: true,
-        enableDoubleTap: false,
+        enableDoubleTap: true,
         showAddReactionButton: true,
         showContextMenu: true,
         enableHapticFeedback: true,
@@ -236,8 +220,7 @@ class _MessageBubbleState extends State<MessageBubble>
     return ChatReactionsConfig(
       availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
       menuItems: [
-        if (isMe)
-          const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
+        if (isMe) const MenuItem(label: 'Edit', icon: Icons.edit_outlined),
         if (isMe)
           const MenuItem(
             label: 'Delete',
@@ -249,7 +232,7 @@ class _MessageBubbleState extends State<MessageBubble>
         const MenuItem(label: 'Info', icon: Icons.info_outline),
       ],
       enableLongPress: true,
-      enableDoubleTap: false,
+      enableDoubleTap: true,
       showAddReactionButton: true,
       showContextMenu: true,
       enableHapticFeedback: true,
@@ -275,6 +258,29 @@ class _MessageBubbleState extends State<MessageBubble>
         widget.onInfo?.call();
         break;
     }
+  }
+
+  void _handleDoubleTapReaction() {
+    if (widget.isDeleted) return;
+
+    final emoji = '❤️';
+    final userCode = widget.currentUserCode ?? 'me';
+    final myReaction = widget.message.reactions[userCode];
+
+    if (myReaction == emoji) {
+      widget.onRemoveReaction?.call(emoji);
+    } else {
+      widget.onReactionAdded?.call(emoji);
+    }
+
+    HapticFeedback.mediumImpact();
+  }
+
+  void _showPrivateMessageToast() {
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'This is a private message.',
+    );
   }
 
   void _showDeleteBottomSheet() {
@@ -362,7 +368,6 @@ class _MessageBubbleState extends State<MessageBubble>
     );
   }
 
-
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -383,8 +388,14 @@ class _MessageBubbleState extends State<MessageBubble>
           );
 
     return GestureDetector(
-      onHorizontalDragUpdate: (widget.onReply != null && !widget.isDeleted && !widget.isInactive) ? _onDragUpdate : null,
-      onHorizontalDragEnd: (widget.onReply != null && !widget.isDeleted && !widget.isInactive) ? _onDragEnd : null,
+      onHorizontalDragUpdate:
+          (widget.onReply != null && !widget.isDeleted && !widget.isInactive)
+          ? _onDragUpdate
+          : null,
+      onHorizontalDragEnd:
+          (widget.onReply != null && !widget.isDeleted && !widget.isInactive)
+          ? _onDragEnd
+          : null,
       child: Padding(
         // Grouped messages get reduced top spacing — feels like a continuation.
         padding: EdgeInsets.only(
@@ -425,7 +436,9 @@ class _MessageBubbleState extends State<MessageBubble>
 
               // Bubble content
               Align(
-                alignment: alignRight ? Alignment.centerRight : Alignment.centerLeft,
+                alignment: alignRight
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
                 child: Transform.translate(
                   offset: Offset(_dragOffset, 0),
                   child: Column(
@@ -489,7 +502,8 @@ class _MessageBubbleState extends State<MessageBubble>
                               : Alignment.centerLeft,
                           onReactionAdded: (emoji) {
                             final userCode = widget.currentUserCode ?? 'me';
-                            final myReaction = widget.message.reactions[userCode];
+                            final myReaction =
+                                widget.message.reactions[userCode];
                             if (myReaction != null && myReaction == emoji) {
                               widget.onRemoveReaction?.call(emoji);
                             } else {
@@ -497,7 +511,12 @@ class _MessageBubbleState extends State<MessageBubble>
                             }
                           },
                           onMenuItemTapped: _handleMenuItemTap,
-                          child: _buildBubble(alignRight, isMe),
+                          child: GestureDetector(
+                            onDoubleTap: _handleDoubleTapReaction,
+                            child: RepaintBoundary(
+                              child: _buildBubble(alignRight, isMe),
+                            ),
+                          ),
                         ),
                       ),
 
@@ -550,14 +569,16 @@ class _MessageBubbleState extends State<MessageBubble>
     final message = widget.message;
     final isDeleted = widget.isDeleted;
     final orgSide = widget.senderIsOrgSide;
-    // Room/Admin Chat (orgSide non-null): BOTH sides are now colored
-    // gradients — Staff Gradient for org-side senders, Pink Gradient for
-    // guardian senders — so text/icon contrast must be light on either
-    // side, not just on whichever side happens to be "isMe". Staff Direct
+    // Room/Admin Chat (orgSide non-null): "my" message always keeps the
+    // current sender gradient (light text) no matter which side of the
+    // conversation I'm on. A message that isn't mine is colored by the
+    // *sender's* role instead: an org-side (staff/admin/teacher/director)
+    // sender gets a flat white bubble with primary-colored text, a
+    // guardian sender keeps the pink gradient (light text). Staff Direct
     // (orgSide null) keeps the legacy look: gradient (light text) only for
     // the viewer's own messages, flat light background (dark text) for the
     // other party's.
-    final useLightText = orgSide != null ? true : isMe;
+    final useLightText = orgSide == null ? isMe : !(orgSide && !isMe);
     final hasOnlyEmoji =
         message.text.trim().length <= 3 &&
         message.text.trim().runes.every(
@@ -567,19 +588,30 @@ class _MessageBubbleState extends State<MessageBubble>
               (r == 0x20),
         ); // Space
 
+    Color? bubbleColor;
+    LinearGradient? bubbleGradient;
+    if (orgSide == null) {
+      // Staff Direct (1:1) — legacy "my message vs. their message" look.
+      bubbleColor = isMe ? null : const Color.fromRGBO(220, 230, 255, 1);
+      bubbleGradient = isMe ? AppColors.buildPrimaryGradient() : null;
+    } else if (isMe) {
+      bubbleGradient = AppColors.buildPrimaryGradient();
+    } else if (orgSide) {
+      bubbleColor = Colors.white;
+    } else {
+      bubbleGradient = AppColors.buildPinkGradient();
+    }
+
     return Material(
       color: Colors.transparent,
       child: Container(
-        margin: EdgeInsets.only(left: alignRight ? 60 : 0, right: alignRight ? 0 : 60),
+        margin: EdgeInsets.only(
+          left: alignRight ? 60 : 0,
+          right: alignRight ? 0 : 60,
+        ),
         decoration: BoxDecoration(
-          color: orgSide == null && !isMe
-              ? const Color.fromRGBO(220, 230, 255, 1)
-              : null,
-          gradient: orgSide != null
-              ? (orgSide
-                    ? AppColors.buildStaffGradient()
-                    : AppColors.buildPinkGradient())
-              : (isMe ? AppColors.buildPrimaryGradient() : null),
+          color: bubbleColor,
+          gradient: bubbleGradient,
           borderRadius: _buildBubbleBorderRadius(alignRight),
           boxShadow: [
             BoxShadow(
@@ -604,191 +636,143 @@ class _MessageBubbleState extends State<MessageBubble>
                     fontStyle: FontStyle.italic,
                   ),
                 )
-              : IntrinsicWidth(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Quoted preview
-                      if (message.quotedMessageId != null &&
-                          widget.quotedMessage != null)
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: _buildQuotePreview(useLightText),
-                        ),
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Quoted preview
+                    if (message.quotedMessageId != null &&
+                        widget.quotedMessage != null)
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _buildQuotePreview(useLightText),
+                      ),
 
-                      // Attachments
-                      if (message.hasAttachments) ...[
-                        _buildAttachmentsPreview(),
-                        if (message.text.trim().isNotEmpty)
-                          const SizedBox(height: 8),
-                      ],
+                    // Attachments
+                    if (message.hasAttachments) ...[
+                      _buildAttachmentsPreview(),
+                      if (message.text.trim().isNotEmpty)
+                        const SizedBox(height: 8),
+                    ],
 
-                      // Message text — enriched HTML with auto-linked URLs/emails.
-                      // Private messages don't show their text in the bubble —
-                      // only a red lock icon is shown instead (below).
-                      // if (message.text.trim().isNotEmpty)
-                      //   Flexible(
-                      //     fit: FlexFit.loose,
-                      //     child: _StableHtml(
-                      //       data: MessageContentProcessor.enrich(message.text),
-                      //       linkColor: useLightText
-                      //           ? Colors.white
-                      //           : AppColors.primaryColor,
-                      //       onLinkTap: MessageContentProcessor.launchLink,
-                      //       style: {
-                      //         'body': html.Style(
-                      //           margin: html.Margins.zero,
-                      //           padding: html.HtmlPaddings.zero,
-                      //           fontSize: html.FontSize(15.5),
-                      //           fontFamily: 'Manrope',
-                      //           color: useLightText
-                      //               ? Colors.white
-                      //               : AppColors.primaryColor,
-                      //         ),
-                      //         'p': html.Style(
-                      //           margin: html.Margins.zero,
-                      //           padding: html.HtmlPaddings.zero,
-                      //         ),
-                      //       },
-                      //     ),
-                      //   ),
-                      if (message.isPrivate)
-                        const Icon(
-                          Icons.lock,
-                          size: 18,
-                          color: Color(0xFFD63031),
-                        )
-                      else if (message.text.trim().isNotEmpty)
-                        Flexible(
-                          fit: FlexFit.loose,
-                          child: _StableHtml(
-                            data: MessageContentProcessor.enrich(message.text),
-                            linkColor: useLightText
-                                ? Colors.white
-                                : AppColors.primaryColor,
-                            onLinkTap: MessageContentProcessor.launchLink,
-                            style: {
-                              'body': html.Style(
-                                margin: html.Margins.zero,
-                                padding: html.HtmlPaddings.zero,
-                                fontSize: html.FontSize(15.5),
-                                fontFamily: 'Manrope',
-                                color: useLightText
-                                    ? Colors.white
-                                    : AppColors.primaryColor,
-                              ),
-                              'p': html.Style(
-                                margin: html.Margins.zero,
-                                padding: html.HtmlPaddings.zero,
-                              ),
-                            },
-                          ),
-                        ),
-
-                      // Link preview card — shown for the first URL found in the
-                      // message text. Only rendered for non-deleted messages that
-                      // actually contain an http/https URL.
-                      if (!isDeleted) ...[
-                        Builder(
-                          builder: (_) {
-                            final previewUrl = extractFirstUrl(message.text);
-                            if (previewUrl == null)
-                              return const SizedBox.shrink();
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: LinkPreviewCard(
-                                url: previewUrl,
-                                isMe: useLightText,
-                              ),
-                            );
+                    // Message text — enriched HTML with auto-linked URLs/emails.
+                    if (message.text.trim().isNotEmpty)
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: _StableHtml(
+                          data: MessageContentProcessor.enrich(message.text),
+                          linkColor: useLightText
+                              ? const Color(0xFF64B5F6)
+                              : Colors.blue,
+                          onLinkTap: MessageContentProcessor.launchLink,
+                          style: {
+                            'body': html.Style(
+                              margin: html.Margins.zero,
+                              padding: html.HtmlPaddings.zero,
+                              fontSize: html.FontSize(15.5),
+                              fontFamily: 'Manrope',
+                              color: useLightText
+                                  ? Colors.white
+                                  : AppColors.primaryColor,
+                            ),
+                            'p': html.Style(
+                              margin: html.Margins.zero,
+                              padding: html.HtmlPaddings.zero,
+                            ),
                           },
                         ),
-                      ],
+                      ),
 
-                      // Edited status check
-                      if (message.editedAt != null) ...[
-                        const SizedBox(height: 6),
+                    // Link preview card — shown for the first URL found in the
+                    // message text. Only rendered for non-deleted messages that
+                    // actually contain an http/https URL.
+                    if (!isDeleted) ...[
+                      Builder(
+                        builder: (_) {
+                          final preview =
+                              MessageContentProcessor.detectFirstPreview(
+                                message.text,
+                              );
+                          if (preview == null) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: PreviewCard(
+                              preview: preview,
+                              isMe: useLightText,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+
+                    // Edited status check
+                    if (message.editedAt != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Edited',
+                        style: TextStyle(
+                          color: useLightText
+                              ? Colors.white.withValues(alpha: 0.7)
+                              : Colors.grey,
+                          fontSize: 12,
+                          decoration: TextDecoration.none,
+                        ),
+                      ),
+                    ],
+
+                    // Time and delivery status at bottom of bubble
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: alignRight
+                          ? MainAxisAlignment.end
+                          : MainAxisAlignment.start,
+                      children: [
                         Text(
-                          'Edited',
+                          _formatTime(widget.message.time),
                           style: TextStyle(
                             color: useLightText
                                 ? Colors.white.withValues(alpha: 0.7)
-                                : Colors.grey,
-                            fontSize: 12,
-                            decoration: TextDecoration.none,
+                                : Colors.grey[600],
+                            fontSize: 12.0,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
-                      ],
-
-                      // Private message label chip (PRD AC7)
-                      if (message.isPrivate) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.visibility_off_outlined,
+                        if (message.isPrivate &&
+                            widget.senderIsOrgSide != null) ...[
+                          const SizedBox(width: 4),
+                          GestureDetector(
+                            onTap: _showPrivateMessageToast,
+                            child: Icon(
+                              Icons.lock_outline_rounded,
                               size: 12,
                               color: useLightText
                                   ? Colors.white.withValues(alpha: 0.85)
                                   : const Color(0xFFD63031),
                             ),
-                            const SizedBox(width: 4),
-                            Text(
-                              'Private Message',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: useLightText
-                                    ? Colors.white.withValues(alpha: 0.85)
-                                    : const Color(0xFFD63031),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-
-                      // Time and delivery status at bottom of bubble
-                      const SizedBox(height: 4),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: alignRight
-                            ? MainAxisAlignment.end
-                            : MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            _formatTime(widget.message.time),
-                            style: TextStyle(
-                              color: useLightText
-                                  ? Colors.white.withValues(alpha: 0.7)
-                                  : Colors.grey[600],
-                              fontSize: 12.0,
-                              fontWeight: FontWeight.w400,
-                            ),
                           ),
-                          // Read/delivery ticks are identity-only — only the
-                          // literal sender (isMe) sees their own message's
-                          // delivery status, regardless of which side it
-                          // renders on.
-                          if (isMe) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              widget.message.isRead
-                                  ? Icons.done_all
-                                  : widget.message.isDelivered
-                                  ? Icons.done_all
-                                  : Icons.done,
-                              size: 14,
-                              color: widget.message.isRead
-                                  ? AppColors.primaryColor
-                                  : Colors.white.withValues(alpha: 0.7),
-                            ),
-                          ],
                         ],
-                      ),
-                    ],
-                  ),
+                        // Read/delivery ticks are identity-only — only the
+                        // literal sender (isMe) sees their own message's
+                        // delivery status, regardless of which side it
+                        // renders on.
+                        if (isMe) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            widget.message.isRead
+                                ? Icons.done_all
+                                : widget.message.isDelivered
+                                ? Icons.done_all
+                                : Icons.done,
+                            size: 14,
+                            color: widget.message.isRead
+                                ? AppColors.primaryColor
+                                : Colors.white.withValues(alpha: 0.7),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
         ),
       ),
@@ -845,6 +829,7 @@ class _MessageBubbleState extends State<MessageBubble>
           data: quoted.text.length > 120
               ? '${quoted.text.substring(0, 120)}…'
               : quoted.text,
+          linkColor: isMe ? const Color(0xFF64B5F6) : Colors.blue,
           style: {
             'body': html.Style(
               margin: html.Margins.zero,
@@ -1201,16 +1186,7 @@ class _MessageBubbleState extends State<MessageBubble>
 
   // ── Time formatter ────────────────────────────────────────────────────────
 
-  String _formatTime(DateTime dt) {
-    final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final schoolDateTime = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      dt,
-      schoolTz,
-    );
-    final hhMM =
-        '${schoolDateTime.hour.toString().padLeft(2, '0')}:${schoolDateTime.minute.toString().padLeft(2, '0')}';
-    return MessageContentProcessor.smartBubbleTime(dt, hhMM);
-  }
+  String _formatTime(DateTime dt) => MessagingTimeFormatter.bubbleTime(dt);
 }
 
 /// Shown instead of the broken-image icon when the backend has reported the

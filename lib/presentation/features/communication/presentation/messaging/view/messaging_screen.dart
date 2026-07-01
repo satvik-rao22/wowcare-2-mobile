@@ -66,8 +66,9 @@ class _MessagingScreenState extends State<MessagingScreen>
     super.didChangeDependencies();
     // Shell branches can keep this widget alive; apply drawer deep-links only
     // when the route `tab` query actually changes (not on every rebuild).
-    final tabQuery =
-        GoRouterState.of(context).uri.queryParameters['tab']?.trim().toLowerCase();
+    final tabQuery = GoRouterState.of(
+      context,
+    ).uri.queryParameters['tab']?.trim().toLowerCase();
     if (tabQuery == _lastRouteTabQuery) return;
     _lastRouteTabQuery = tabQuery;
     _applyDeepLinkTabIndex(tabQuery == 'newsletter' ? 1 : 0);
@@ -99,9 +100,9 @@ class _MessagingScreenState extends State<MessagingScreen>
     // Drives MessagingTab's Staff/Parent sub-tab from the `msgTab` deep-link
     // query param, so the drawer's "Parent Messaging" item lands directly on
     // the Parent Messaging sub-tab instead of always opening Staff Messaging.
-    final msgTabQuery = GoRouterState.of(context).uri.queryParameters['msgTab']
-        ?.trim()
-        .toLowerCase();
+    final msgTabQuery = GoRouterState.of(
+      context,
+    ).uri.queryParameters['msgTab']?.trim().toLowerCase();
     final messagingSubTabIndex = msgTabQuery == 'parent' ? 1 : 0;
 
     return BlocProvider<CommunicationCubit>(

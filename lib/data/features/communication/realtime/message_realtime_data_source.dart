@@ -251,16 +251,17 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
         .limitToLast(limit)
         .snapshots()
         .map(
-          (snapshot) => snapshot.docChanges
-              // `removed` only means the doc fell out of the
-              // `limitToLast(limit)` window (e.g. an older message pushed
-              // out by a new one) — it must NOT be treated as "delete this
-              // from local history," or paginated/cached older messages
-              // would be wiped the moment the thread gets busy. Only
-              // `added`/`modified` represent an actual content change worth
-              // merging.
-              .where((change) => change.type != DocumentChangeType.removed)
-              .map((change) => MessageFirestoreItem.fromFirestore(change.doc))
+          (snapshot) => snapshot.docs
+              // Using `docs` (the full current window) rather than
+              // `docChanges` (delta only). With `docChanges`, subsequent
+              // Firestore events after the initial snapshot only carry the
+              // 1–2 changed documents, so the cubit would replace its
+              // entire message list with just the delta — losing all
+              // previous messages. `docs` always delivers the complete set
+              // of documents currently matching the query (last `limit`
+              // messages), which is what the cubit expects to replace
+              // state.messages with.
+              .map((doc) => MessageFirestoreItem.fromFirestore(doc))
               .map((item) => item.toEntity())
               .where((entity) => VisibilityHelper.canViewMessage(
                     entity,

@@ -43,7 +43,6 @@ class EntityMessageTile extends StatelessWidget {
     this.onReactionTap,
     this.isParentMessaging = false,
     this.senderIsOrgSide,
-    this.viewerIsGuardian,
   });
 
   final String messageCode;
@@ -64,10 +63,8 @@ class EntityMessageTile extends StatelessWidget {
   final VoidCallback? onReactionTap;
   final bool isParentMessaging;
 
-  /// See [MessageBubble.senderIsOrgSide] — both this and [viewerIsGuardian]
-  /// must be supplied together (or left null together) by the caller.
+  /// See [MessageBubble.senderIsOrgSide].
   final bool? senderIsOrgSide;
-  final bool? viewerIsGuardian;
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +114,6 @@ class EntityMessageTile extends StatelessWidget {
           isParentMessaging: isParentMessaging,
           isGrouped: isGrouped,
           senderIsOrgSide: senderIsOrgSide,
-          viewerIsGuardian: viewerIsGuardian,
         );
       },
     );

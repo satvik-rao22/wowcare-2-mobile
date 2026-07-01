@@ -11,6 +11,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -30,6 +31,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/chat_
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/entity_message_tile.dart';
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
@@ -83,7 +85,7 @@ class ConversationThreadScreen extends StatefulWidget {
 class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     with WidgetsBindingObserver {
   late final ConversationThreadCubit _cubit;
-  final TextEditingController _inputController = TextEditingController();
+  final HtmlAwareTextController _inputController = HtmlAwareTextController();
 
   /// The conversation actually backing this thread. Starts as
   /// [widget.conversation] but switches to the cubit's resolved conversation
@@ -215,10 +217,17 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     unawaited(_loadSenderInfo());
     unawaited(_loadDraft());
 
-    if (widget.showPrivateModeToggle) {
+    // Private mode toggle only available in room chats
+    final canShowPrivateToggle = widget.showPrivateModeToggle &&
+        _conversation.type == ConversationType.roomChat;
+
+    if (canShowPrivateToggle) {
       _privateModeToggleCubit = PrivateModeToggleCubit(
         togglePrivateModeUseCase: TogglePrivateModeUseCase(serviceLocator()),
         conversationCode: widget.conversation.code,
+        viewerRole: () => _senderRole == ParticipantRole.parent
+            ? RoomChatViewerRole.guardian
+            : RoomChatViewerRole.staffOrAdmin,
         initialEnabled:
             widget.conversation.privateModeActive ||
             widget.initialPrivateModeEnabled,
@@ -496,13 +505,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
     if (_editingMessage != null) {
       final messageCode = _editingMessage!.code;
-      _inputController.clear();
       final originalEditMsg = _editingMessage!;
-      setState(() {
-        _editingMessage = null;
-      });
 
+      // Only clear and submit if text actually changed
       if (text != originalEditMsg.text) {
+        setState(() {
+          _editingMessage = null;
+        });
+        _inputController.clear();
+
         await _cubit.editMessage(messageCode: messageCode, newText: text);
         if (mounted) {
           CoreUtils.showTopSnackBar(
@@ -511,6 +522,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             isSuccess: true,
           );
         }
+      } else {
+        // Text unchanged — just cancel edit
+        setState(() {
+          _editingMessage = null;
+        });
+        _inputController.clear();
       }
       return;
     }
@@ -631,15 +648,18 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         : 'Conversation';
     final count = participants.isNotEmpty ? participants.length : null;
 
-    return Container(
-      decoration: const BoxDecoration(
-        color: Colors.transparent,
-        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
-      ),
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return SafeArea(
+      bottom: false,
+      child: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          color: Colors.transparent,
+          border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+        ),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           Row(
             children: [
               DocumentImageWidget(
@@ -677,9 +697,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   ],
                 ),
               ),
-              // Private Mode toggle — parent persona only
+              // Private Mode toggle — parent persona only (not shown in admin chat)
               if (widget.showPrivateModeToggle &&
-                  _privateModeToggleCubit != null)
+                  _privateModeToggleCubit != null &&
+                  _conversation.type != ConversationType.adminChat)
                 BlocConsumer<PrivateModeToggleCubit, PrivateModeToggleState>(
                   bloc: _privateModeToggleCubit,
                   listener: (context, pmState) {
@@ -688,6 +709,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         context: context,
                         message: pmState.errorMessage!,
                         isError: true,
+                      );
+                    }
+                    if (pmState.successMessage != null) {
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: pmState.successMessage!,
+                        isSuccess: true,
                       );
                     }
                     setState(() {
@@ -770,7 +798,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               ),
             ],
           ),
-          if (participants.isNotEmpty) ...[
+          if (participants.isNotEmpty && _senderRole != ParticipantRole.parent) ...[
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
@@ -872,6 +900,62 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               },
             ),
           ],
+          if (_senderRole == ParticipantRole.parent &&
+              (_conversation.type == ConversationType.adminChat ||
+               _conversation.type == ConversationType.roomChat)) ...[
+            const SizedBox(height: 8),
+            _buildPrivateModeHeader(),
+          ],
+        ],
+      ),
+      ),
+    );
+  }
+
+  Widget _buildPrivateModeHeader() {
+    final parentParticipant = _conversation.participants
+        .firstWhere(
+          (p) => p.role == ParticipantRole.parent && p.userCode != _senderCode,
+          orElse: () => _conversation.participants.firstWhere(
+            (p) => p.role == ParticipantRole.parent,
+            orElse: () => _conversation.participants.first,
+          ),
+        );
+
+    final parentName = parentParticipant.userName.isNotEmpty
+        ? parentParticipant.userName
+        : parentParticipant.userCode;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF9E6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: const Color(0xFFFFE8B3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.lock_outline,
+            size: 14,
+            color: Color(0xFFC9A000),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Private by $parentName',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFFC9A000),
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -1055,12 +1139,22 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 onEdit: msg.isDeleted
                     ? null
                     : () {
+                        final cleanedText =
+                            MessageContentProcessor.stripHtmlTags(msg.text);
                         setState(() {
                           _editingMessage = msg;
-                          _inputController.text =
-                              MessageContentProcessor.stripHtmlTags(msg.text);
+                          _inputController.value = TextEditingValue(
+                            text: cleanedText,
+                            selection: TextSelection.collapsed(
+                              offset: cleanedText.length,
+                            ),
+                          );
                         });
-                        _inputFocusNode.requestFocus();
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            _inputFocusNode.requestFocus();
+                          }
+                        });
                       },
                 onDelete: msg.isDeleted
                     ? null
@@ -1111,7 +1205,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 onReactionTap: () => _showEmojiPicker(context, msg),
                 isParentMessaging: _senderRole == ParticipantRole.parent,
                 senderIsOrgSide: _isOrgSideSender(msg.senderCode),
-                viewerIsGuardian: _senderRole == ParticipantRole.parent,
               ),
             ],
           );
@@ -1137,12 +1230,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       listener: (context, state) {
         _syncResolvedConversation(state);
         _onMessagesChanged(state.messages);
+        if (state.successMessage != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.successMessage!,
+            isSuccess: true,
+          );
+          _cubit.clearSuccess();
+        }
       },
       builder: (context, state) {
-        debugPrint(
-          '[REALTIME-DEBUG][AdminConversationThread] widget rebuilt | '
-          'messageCount=${state.messages.length}',
-        );
         return Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1158,6 +1255,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   color: const Color(0xFFF4F7FD),
                 ),
                 child: Column(
+                  mainAxisSize: MainAxisSize.max,
                   children: [
                     _buildParticipantHeader(),
                     // ── In-thread search bar ─────────────────────────────────
@@ -1198,53 +1296,61 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         ],
                       ),
                     ),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: const BorderRadius.vertical(
-                          bottom: Radius.circular(12),
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(context).size.height * 0.6,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
-                            blurRadius: 6,
-                            offset: const Offset(0, -2),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: const BorderRadius.vertical(
+                              bottom: Radius.circular(12),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, -2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: ChatInputBar(
-                        controller: _inputController,
-                        focusNode: _inputFocusNode,
-                        isSending: state.isSending,
-                        onSend: () => unawaited(_sendMessage()),
-                        onAttachmentTap: _showAttachmentSheet,
-                        pendingAttachments: _pendingAttachments,
-                        onRemoveAttachment: (i) =>
-                            setState(() => _pendingAttachments.removeAt(i)),
-                        quotedMessage: _quotedMessage != null
-                            ? mapMessageEntityToMessage(
-                                _quotedMessage!,
-                                _senderCode,
-                              )
-                            : null,
-                        onCancelQuote: () =>
-                            setState(() => _quotedMessage = null),
-                        editingMessage: _editingMessage != null
-                            ? mapMessageEntityToMessage(
-                                _editingMessage!,
-                                _senderCode,
-                              )
-                            : null,
-                        onCancelEdit: () => setState(() {
-                          _editingMessage = null;
-                          _inputController.clear();
-                        }),
+                          child: ChatInputBar(
+                          controller: _inputController,
+                          focusNode: _inputFocusNode,
+                          isSending: state.isSending,
+                          onSend: () => unawaited(_sendMessage()),
+                          onAttachmentTap: _showAttachmentSheet,
+                          pendingAttachments: _pendingAttachments,
+                          onRemoveAttachment: (i) =>
+                              setState(() => _pendingAttachments.removeAt(i)),
+                          quotedMessage: _quotedMessage != null
+                              ? mapMessageEntityToMessage(
+                                  _quotedMessage!,
+                                  _senderCode,
+                                )
+                              : null,
+                          onCancelQuote: () =>
+                              setState(() => _quotedMessage = null),
+                          editingMessage: _editingMessage != null
+                              ? mapMessageEntityToMessage(
+                                  _editingMessage!,
+                                  _senderCode,
+                                )
+                              : null,
+                          onCancelEdit: () => setState(() {
+                            _editingMessage = null;
+                            _inputController.clear();
+                          }),
+                        ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+          ),
           ],
         );
       },

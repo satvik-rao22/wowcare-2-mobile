@@ -16,6 +16,7 @@ import 'package:wowcare/domain/features/communication/repositories/conversation_
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 
 // ── Controllable fake repository ──────────────────────────────────────────────
 
@@ -153,6 +154,15 @@ class _ControllableRepo implements ConversationEntityRepository {
     // TODO: implement markConversationDelivered
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  }) {
+    // TODO: implement reconcileClassroomChat
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -160,9 +170,11 @@ class _ControllableRepo implements ConversationEntityRepository {
 PrivateModeToggleCubit _build(
   _ControllableRepo repo, {
   bool initialEnabled = false,
+  RoomChatViewerRole viewerRole = RoomChatViewerRole.guardian,
 }) => PrivateModeToggleCubit(
   togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
   conversationCode: 'CONV-INT-001',
+  viewerRole: () => viewerRole,
   initialEnabled: initialEnabled,
 );
 
@@ -252,6 +264,24 @@ void main() {
         expect(emitted[1].isEnabled, isTrue);
         expect(emitted[1].isLoading, isFalse);
         expect(emitted[1].errorMessage, isNull);
+      },
+    );
+
+    test(
+      'staff/admin viewer cannot enable private mode end-to-end',
+      () async {
+        final repo = _ControllableRepo();
+        final cubit = _build(
+          repo,
+          viewerRole: RoomChatViewerRole.staffOrAdmin,
+        );
+        addTearDown(cubit.close);
+
+        await cubit.toggle();
+
+        expect(repo.calls, isEmpty, reason: 'API must never be reached');
+        expect(cubit.state.isEnabled, isFalse);
+        expect(cubit.state.errorMessage, isNotNull);
       },
     );
   });

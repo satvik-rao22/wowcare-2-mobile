@@ -34,6 +34,16 @@ class RoomChatPrivacyHelper {
     return privateParentUserCode == context.viewerUserCode;
   }
 
+  /// Whether [viewerRole] is allowed to flip a ROOM_CHAT conversation's
+  /// Private Mode toggle. Only the guardian persona may enable/disable
+  /// Private Mode — staff, admin, director, educator, assistant, and any
+  /// future non-guardian role must never be able to. Single source of truth
+  /// for this rule so it can be enforced both in the UI (hide/disable the
+  /// control) and in the business layer (refuse the mutation even if a
+  /// caller manages to invoke it anyway).
+  static bool canModifyPrivateMode(RoomChatViewerRole viewerRole) =>
+      viewerRole == RoomChatViewerRole.guardian;
+
   /// Filters [messages] down to what a guardian should see in their merged
   /// thread view: every public message, plus only the private messages
   /// scoped to [currentGuardianUserCode].

@@ -606,13 +606,19 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
   Future<String> _fetchDocumentAssetUrl(String assetCode) async {
     final normalizedAssetCode = assetCode.trim();
     if (normalizedAssetCode.isEmpty) return '';
-    // Delegates to ImageUploadService's cached/deduped/cooldown-protected
-    // resolver instead of calling the endpoint directly, so a 500/expired
-    // asset doesn't trigger a fresh network call on every rebuild of this
-    // widget and is logged exactly once per failure window.
-    return serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
-      assetCode: normalizedAssetCode,
-    );
+    try {
+      // Delegates to ImageUploadService's cached/deduped/cooldown-protected
+      // resolver instead of calling the endpoint directly, so a 500/expired
+      // asset doesn't trigger a fresh network call on every rebuild of this
+      // widget and is logged exactly once per failure window.
+      final url = await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
+        assetCode: normalizedAssetCode,
+      );
+      return url.trim();
+    } catch (_) {
+      // If resolution fails, return empty string to allow fallback to initials/placeholder
+      return '';
+    }
   }
 
   Future<void> _loadAttendanceStatusIfNeeded() async {
@@ -851,20 +857,12 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
                 backgroundImage: const AssetImage(MediaRes.userImageMale),
               ));
 
-    // Fixed: Improved null safety checks
-    if (widget.name == null ||
-        widget.name!.isEmpty ||
-        widget.fileUuid.isNotEmpty) {
-      return _buildImageContainer(child: placeholder);
-    } else {
+    // Show initials if name exists, otherwise show placeholder
+    if (widget.name != null && widget.name!.isNotEmpty) {
       return CircleAvatar(
         backgroundColor:
             _avatarColor ??
-            _pickStableProfileAvatarColor(
-              widget.name?.trim().isNotEmpty == true
-                  ? widget.name!.trim()
-                  : widget.fileUuid,
-            ),
+            _pickStableProfileAvatarColor(widget.name!.trim()),
         radius: widget.size / 2,
         child: Text(
           StringUtils.getInitials(widget.name!),
@@ -876,6 +874,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         ),
       );
     }
+    return _buildImageContainer(child: placeholder);
   }
 
   Widget _buildNetworkAvatar(String imageUrl) {

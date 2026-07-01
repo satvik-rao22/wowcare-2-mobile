@@ -13,6 +13,7 @@ import 'package:wowcare/domain/features/communication/repositories/conversation_
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_state.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/room_chat_privacy_helper.dart';
 
 // ── Minimal fake base (satisfies interface without mockito) ───────────────────
 
@@ -154,6 +155,15 @@ class _FakeRepo implements ConversationEntityRepository {
     // TODO: implement markConversationDelivered
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Unit>> reconcileClassroomChat(
+    String classroomCode, {
+    String? classroomName,
+  }) {
+    // TODO: implement reconcileClassroomChat
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper to build a testable widget tree ────────────────────────────────────
@@ -185,10 +195,15 @@ Widget _subject(PrivateModeToggleCubit cubit) {
   );
 }
 
-PrivateModeToggleCubit _cubit(_FakeRepo repo, {bool initialEnabled = false}) =>
+PrivateModeToggleCubit _cubit(
+  _FakeRepo repo, {
+  bool initialEnabled = false,
+  RoomChatViewerRole viewerRole = RoomChatViewerRole.guardian,
+}) =>
     PrivateModeToggleCubit(
       togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
       conversationCode: 'CONV-001',
+      viewerRole: () => viewerRole,
       initialEnabled: initialEnabled,
     );
 
@@ -258,9 +273,10 @@ void main() {
 
       await tester.pumpWidget(_subject(cubit));
 
-      // Fire toggle — will hang
-      unawaited(tester.tap(find.byKey(const Key('pm_switch'))));
-      await tester.pump(); // Start the async call and enter loading state
+      // Fire the tap synchronously; the cubit's async toggle() starts but won't
+      // settle until the completer resolves. A single pump reveals loading state.
+      await tester.tap(find.byKey(const Key('pm_switch')));
+      await tester.pump();
 
       final sw = tester.widget<Switch>(find.byKey(const Key('pm_switch')));
       expect(

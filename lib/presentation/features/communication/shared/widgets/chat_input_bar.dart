@@ -2,9 +2,11 @@ import 'dart:async';
 import 'dart:io';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
@@ -47,6 +49,7 @@ class ChatInputBar extends StatefulWidget {
     this.focusNode,
     this.editingMessage,
     this.onCancelEdit,
+
     /// When true a formatting toolbar (B/I/U/S/Bullet/Numbered) is shown
     /// above the keyboard whenever the text field has focus.
     this.showRichTextToolbar = true,
@@ -78,14 +81,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
   bool _hasFocus = false;
 
   // Link preview state
-  String? _detectedUrl;
+  PreviewMatch? _detectedPreview;
   bool _linkPreviewDismissed = false;
   Timer? _urlDetectDebounce;
 
   late final FocusNode _internalFocusNode;
 
-  FocusNode get _effectiveFocusNode =>
-      widget.focusNode ?? _internalFocusNode;
+  FocusNode get _effectiveFocusNode => widget.focusNode ?? _internalFocusNode;
 
   @override
   void initState() {
@@ -117,16 +119,21 @@ class _ChatInputBarState extends State<ChatInputBar> {
     final hasText = widget.controller.text.trim().isNotEmpty;
     if (hasText != _hasText) setState(() => _hasText = hasText);
 
-    // Debounce URL detection to avoid spamming on every keystroke.
+    // Debounce preview detection to avoid spamming on every keystroke.
     _urlDetectDebounce?.cancel();
     _urlDetectDebounce = Timer(const Duration(milliseconds: 600), () {
       if (!mounted) return;
-      final url = extractFirstUrl(widget.controller.text);
-      if (url != _detectedUrl) {
+      final preview = MessageContentProcessor.detectFirstPreview(
+        widget.controller.text,
+      );
+      final samePreview =
+          preview?.kind == _detectedPreview?.kind &&
+          preview?.value == _detectedPreview?.value;
+      if (!samePreview) {
         setState(() {
-          _detectedUrl = url;
-          // Reset dismiss flag whenever the URL changes.
-          if (url != null) _linkPreviewDismissed = false;
+          _detectedPreview = preview;
+          // Reset dismiss flag whenever the preview changes.
+          if (preview != null) _linkPreviewDismissed = false;
         });
       }
     });
@@ -171,80 +178,100 @@ class _ChatInputBarState extends State<ChatInputBar> {
     if (_emojiPickerVisible) {
       setState(() => _emojiPickerVisible = false);
     }
+    // Restore focus so the keyboard stays open between sends.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _effectiveFocusNode.requestFocus();
+    });
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _QuotePreview(
-          message: widget.quotedMessage,
-          onCancel: widget.onCancelQuote,
-        ),
-        _EditPreview(
-          message: widget.editingMessage,
-          onCancel: widget.onCancelEdit,
-        ),
-        _AttachmentPreviewStrip(
-          attachments: widget.pendingAttachments,
-          onRemove: widget.onRemoveAttachment,
-        ),
-        // Composer link preview strip — shown when a URL is detected in the
-        // draft and the user has not dismissed it.
-        if (_detectedUrl != null && !_linkPreviewDismissed)
-          ComposerLinkPreview(
-            url: _detectedUrl!,
-            onDismiss: () => setState(() => _linkPreviewDismissed = true),
-          ),
-        // Rich-text formatting toolbar — visible when field is focused or text
-        // already contains formatted content (indicated by _hasText).
-        if (widget.showRichTextToolbar && (_hasFocus || _hasText))
-          RichTextToolbar(controller: widget.controller),
-        _InputRow(
-          controller: widget.controller,
-          focusNode: _effectiveFocusNode,
-          hintText: widget.hintText,
-          maxLength: widget.maxLength,
-          showCharCounter: widget.showCharCounter,
-          isSending: widget.isSending,
-          // An attachment-only message is valid too — the send button must
-          // not stay disabled just because the text field is empty.
-          hasText: _hasText || widget.pendingAttachments.isNotEmpty,
-          emojiVisible: _emojiPickerVisible,
-          onEmojiToggle: _toggleEmojiPicker,
-          onAttachmentTap: widget.onAttachmentTap,
-          onSend: _handleSend,
-        ),
-        if (_emojiPickerVisible)
-          SizedBox(
-            height: (MediaQuery.of(context).size.height * 0.35).clamp(160.0, 280.0),
-            child: EmojiPicker(
-              onEmojiSelected: _onEmojiSelected,
-              config: Config(
-                checkPlatformCompatibility: true,
-                emojiViewConfig: EmojiViewConfig(
-                  backgroundColor: const Color(0xFFF4F6FB),
-                  emojiSizeMax: 28,
+    final screenSize = MediaQuery.of(context).size;
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final safeAreaInset = MediaQuery.of(context).padding.bottom;
+
+
+    return SafeArea(
+      top: false,
+      child: AnimatedSize(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        alignment: Alignment.bottomCenter,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _QuotePreview(
+              message: widget.quotedMessage,
+              onCancel: widget.onCancelQuote,
+            ),
+            _EditPreview(
+              message: widget.editingMessage,
+              onCancel: widget.onCancelEdit,
+            ),
+            _AttachmentPreviewStrip(
+              attachments: widget.pendingAttachments,
+              onRemove: widget.onRemoveAttachment,
+            ),
+            // Composer preview strip — shown when a URL/email/phone is
+            // detected in the draft and the user has not dismissed it.
+            if (_detectedPreview != null && !_linkPreviewDismissed)
+              ComposerLinkPreview(
+                preview: _detectedPreview!,
+                onDismiss: () => setState(() => _linkPreviewDismissed = true),
+              ),
+            // Rich-text formatting toolbar — visible when field is focused or
+            // text already contains formatted content (indicated by _hasText).
+            if (widget.showRichTextToolbar && (_hasFocus || _hasText))
+              RichTextToolbar(controller: widget.controller),
+            _InputRow(
+              controller: widget.controller,
+              focusNode: _effectiveFocusNode,
+              hintText: widget.hintText,
+              maxLength: widget.maxLength,
+              showCharCounter: widget.showCharCounter,
+              isSending: widget.isSending,
+              // An attachment-only message is valid too — the send button must
+              // not stay disabled just because the text field is empty.
+              hasText: _hasText || widget.pendingAttachments.isNotEmpty,
+              emojiVisible: _emojiPickerVisible,
+              onEmojiToggle: _toggleEmojiPicker,
+              onAttachmentTap: widget.onAttachmentTap,
+              onSend: _handleSend,
+            ),
+            if (_emojiPickerVisible)
+              SizedBox(
+                height: (MediaQuery.of(context).size.height * 0.35).clamp(
+                  160.0,
+                  280.0,
                 ),
-                categoryViewConfig: const CategoryViewConfig(
-                  backgroundColor: Colors.white,
-                  indicatorColor: AppColors.primaryColor,
-                  iconColorSelected: AppColors.primaryColor,
-                  recentTabBehavior: RecentTabBehavior.RECENT,
-                ),
-                bottomActionBarConfig: const BottomActionBarConfig(
-                  enabled: false,
-                ),
-                searchViewConfig: const SearchViewConfig(
-                  backgroundColor: Colors.white,
+                child: EmojiPicker(
+                  onEmojiSelected: _onEmojiSelected,
+                  config: Config(
+                    checkPlatformCompatibility: true,
+                    emojiViewConfig: EmojiViewConfig(
+                      backgroundColor: const Color(0xFFF4F6FB),
+                      emojiSizeMax: 28,
+                    ),
+                    categoryViewConfig: const CategoryViewConfig(
+                      backgroundColor: Colors.white,
+                      indicatorColor: AppColors.primaryColor,
+                      iconColorSelected: AppColors.primaryColor,
+                      recentTabBehavior: RecentTabBehavior.RECENT,
+                    ),
+                    bottomActionBarConfig: const BottomActionBarConfig(
+                      enabled: false,
+                    ),
+                    searchViewConfig: const SearchViewConfig(
+                      backgroundColor: Colors.white,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -481,6 +508,22 @@ class _AttachmentPreviewStrip extends StatelessWidget {
 
 // ── Input row ──────────────────────────────────────────────────────────────────
 
+class _CopyIntent extends Intent {
+  const _CopyIntent();
+}
+
+class _CutIntent extends Intent {
+  const _CutIntent();
+}
+
+class _PasteIntent extends Intent {
+  const _PasteIntent();
+}
+
+class _SelectAllIntent extends Intent {
+  const _SelectAllIntent();
+}
+
 class _InputRow extends StatelessWidget {
   const _InputRow({
     required this.controller,
@@ -510,6 +553,124 @@ class _InputRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final useHtmlAwareClipboard = controller is HtmlAwareTextController;
+    final textField = ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 130),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        contextMenuBuilder: controller is HtmlAwareTextController
+            ? (context, editableTextState) =>
+                  HtmlAwareTextSelectionControls.buildContextMenu(
+                    context,
+                    editableTextState,
+                    controller as HtmlAwareTextController,
+                  )
+            : null,
+        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+        onSubmitted: (_) {},
+        keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
+        minLines: 1,
+        maxLines: null,
+        maxLength: maxLength,
+        textCapitalization: TextCapitalization.sentences,
+        style: const TextStyle(
+          fontSize: 15,
+          color: Color(0xFF1E293B),
+          fontFamily: 'Manrope',
+        ),
+        onChanged: (value) {
+          if (controller is HtmlAwareTextController) {
+            final textController = controller as HtmlAwareTextController;
+            if (textController.text != value) {
+              textController.value = TextEditingValue(
+                text: value,
+                selection: textController.selection,
+              );
+            }
+          }
+        },
+        decoration: InputDecoration(
+          hintText: hintText,
+          hintStyle: const TextStyle(
+            color: Color(0xFFB2BEC3),
+            fontSize: 15,
+            fontFamily: 'Manrope',
+          ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 12,
+          ),
+          counterText: showCharCounter ? null : '',
+        ),
+      ),
+    );
+
+    final fieldWithShortcuts = useHtmlAwareClipboard
+        ? Shortcuts(
+            shortcuts: <ShortcutActivator, Intent>{
+              const SingleActivator(LogicalKeyboardKey.keyC, control: true):
+                  const _CopyIntent(),
+              const SingleActivator(LogicalKeyboardKey.keyC, meta: true):
+                  const _CopyIntent(),
+              const SingleActivator(LogicalKeyboardKey.keyX, control: true):
+                  const _CutIntent(),
+              const SingleActivator(LogicalKeyboardKey.keyX, meta: true):
+                  const _CutIntent(),
+              const SingleActivator(LogicalKeyboardKey.keyV, control: true):
+                  const _PasteIntent(),
+              const SingleActivator(LogicalKeyboardKey.keyV, meta: true):
+                  const _PasteIntent(),
+              const SingleActivator(LogicalKeyboardKey.keyA, control: true):
+                  const _SelectAllIntent(),
+              const SingleActivator(LogicalKeyboardKey.keyA, meta: true):
+                  const _SelectAllIntent(),
+            },
+            child: Actions(
+              actions: <Type, Action<Intent>>{
+                _CopyIntent: CallbackAction<_CopyIntent>(
+                  onInvoke: (_) async {
+                    if (controller is HtmlAwareTextController) {
+                      await (controller as HtmlAwareTextController)
+                          .copySelectionToClipboard();
+                    }
+                    return null;
+                  },
+                ),
+                _CutIntent: CallbackAction<_CutIntent>(
+                  onInvoke: (_) async {
+                    if (controller is HtmlAwareTextController) {
+                      await (controller as HtmlAwareTextController)
+                          .cutSelectionToClipboard();
+                    }
+                    return null;
+                  },
+                ),
+                _PasteIntent: CallbackAction<_PasteIntent>(
+                  onInvoke: (_) async {
+                    if (controller is HtmlAwareTextController) {
+                      await (controller as HtmlAwareTextController)
+                          .pasteFromClipboard();
+                    }
+                    return null;
+                  },
+                ),
+                _SelectAllIntent: CallbackAction<_SelectAllIntent>(
+                  onInvoke: (_) {
+                    if (controller is HtmlAwareTextController) {
+                      (controller as HtmlAwareTextController).selectAllText();
+                    }
+                    return null;
+                  },
+                ),
+              },
+              child: textField,
+            ),
+          )
+        : textField;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
       child: Row(
@@ -555,36 +716,14 @@ class _InputRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: controller,
-                      focusNode: focusNode,
-                      minLines: 1,
-                      maxLines: 6,
-                      maxLength: maxLength,
-                      textCapitalization: TextCapitalization.sentences,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        color: Color(0xFF1E293B),
-                        fontFamily: 'Manrope',
-                      ),
-                      decoration: InputDecoration(
-                        hintText: hintText,
-                        hintStyle: const TextStyle(
-                          color: Color(0xFFB2BEC3),
-                          fontSize: 15,
-                          fontFamily: 'Manrope',
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        counterText: showCharCounter ? null : '',
-                      ),
-                    ),
+                    // ConstrainedBox caps the field at ~5 lines (~130 px).
+                    // Beyond that the TextField scrolls internally — the
+                    // composer never pushes the message list off-screen.
+                    child: fieldWithShortcuts,
                   ),
 
-                  // Attachment icon inside pill
+                  // Attachment icon inside pill — stays pinned to the bottom
+                  // of the pill regardless of how tall the text field grows.
                   Tooltip(
                     message: 'Add Attachment',
                     child: GestureDetector(
@@ -690,4 +829,3 @@ class _CircleActionButton extends StatelessWidget {
     );
   }
 }
-

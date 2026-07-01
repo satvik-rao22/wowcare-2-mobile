@@ -25,6 +25,8 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/core/util/string_utils.dart';
@@ -156,9 +158,50 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             ),
       actions: [
         if (!isKiosk)
-          IconButton(
-            icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
-            onPressed: () => context.push(AppRoutes.messagingEntry),
+          BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
+            builder: (context, badgeState) {
+              final role = context.read<RoleCubit>();
+              final int unreadCount = role.isParent
+                  ? badgeState.parentTotal
+                  : role.isAdmin
+                  ? badgeState.adminTotal
+                  : badgeState.staffTotal;
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: SvgPicture.asset(
+                      MediaRes.chatsIcon,
+                      width: 22,
+                      height: 22,
+                    ),
+                    onPressed: () => context.push(AppRoutes.messagingEntry),
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color.fromRGBO(179, 38, 30, 1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         if (!isKiosk)
           Stack(

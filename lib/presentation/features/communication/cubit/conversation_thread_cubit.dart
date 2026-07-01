@@ -138,11 +138,6 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       _emitDraftEmpty();
       return;
     }
-    // TEMP DEBUG LOGGING — remove after realtime investigation.
-    debugPrint(
-      '[REALTIME-DEBUG][ConversationThreadCubit] startWatchingMessages called | '
-      'conversationCode=${state.conversationCode} listener created',
-    );
 
     _messagesSubscription?.cancel();
     // Use this conversation's own org/school rather than the session's
@@ -160,12 +155,6 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             if (isClosed) return;
             _firestoreActive = true;
             final latest = fresh.isNotEmpty ? fresh.last : null;
-            debugPrint(
-              '[REALTIME-DEBUG][ConversationThreadCubit] snapshot received | '
-              'conversationCode=${state.conversationCode} count=${fresh.length} '
-              'latestMessageId=${latest?.id} sender=${latest?.senderCode} '
-              'sentAt=${latest?.sentAt}',
-            );
             final merged = _mergePendingMessages(_sortedOldestFirst(fresh));
             final int debugPrevCount = state.messages.length;
             emit(
@@ -177,18 +166,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
                 conversation: state.conversation,
               ),
             );
-            debugPrint(
-              '[REALTIME-DEBUG][ConversationThreadCubit] state emitted | '
-              'conversationCode=${state.conversationCode} prevCount=$debugPrevCount '
-              'newCount=${merged.length}',
-            );
             _scheduleMarkRead();
           },
           onError: (error) {
-            debugPrint(
-              '[REALTIME-DEBUG][ConversationThreadCubit] firestore error | '
-              'conversationCode=${state.conversationCode} error=$error',
-            );
             // Firestore messages subcollection unavailable — load via API once.
             if (!_firestoreActive) unawaited(loadMessages());
           },
@@ -397,6 +377,10 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           uploadedBy: senderCode,
         );
 
+    // For a guardian-sent private message, set privateParentUserCode to the
+    // sender's own code. This ensures VisibilityHelper.canViewMessage() returns
+    // true for the sender during the optimistic phase (before the backend
+    // confirms the message and Firestore delivers it with the real value set).
     final optimistic = MessageEntity(
       id: tempCode,
       code: tempCode,
@@ -411,6 +395,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       isPrivate: isPrivate,
+      privateParentUserCode: isPrivate ? senderCode : null,
       threadParentCode: threadParentCode,
       localTempCode: tempCode,
       attachments: attachments.map(toOptimisticEntity).toList(),
@@ -677,7 +662,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         ),
       );
       unawaited(refreshMessages());
-    }, (_) {});
+    }, (_) {
+      emit(
+        state.copyWith(
+          successMessage: 'Reaction added',
+          clearSuccess: false,
+        ),
+      );
+    });
   }
 
   Future<void> removeReaction({
@@ -717,13 +709,26 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         ),
       );
       unawaited(refreshMessages());
-    }, (_) {});
+    }, (_) {
+      emit(
+        state.copyWith(
+          successMessage: 'Reaction removed',
+          clearSuccess: false,
+        ),
+      );
+    });
   }
 
   // ─── Mark read ───────────────────────────────────────────────────────────────
 
   Future<void> markConversationRead() async {
     await _markRead();
+  }
+
+  void clearSuccess() {
+    if (!isClosed) {
+      emit(state.copyWith(clearSuccess: true));
+    }
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────

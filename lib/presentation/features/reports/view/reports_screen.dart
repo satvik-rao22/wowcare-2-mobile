@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
@@ -695,6 +696,121 @@ class _ReportsScreenState extends State<ReportsScreen>
       ),
     );
   }
+
+  /// Downloads the report bytes, saves them to device storage, and opens
+  /// the saved file with the OS's default handler — unlike
+  /// [_downloadAndViewReport], which only renders bytes in-memory and never
+  /// persists anything, this is what makes "Download" actually download.
+  Future<void> _downloadAndSaveReport(
+    BuildContext context,
+    String assetCode,
+    String fileName,
+  ) async {
+    final cubit = context.read<ReportsCubit>();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            Text('Downloading $fileName...'),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final fileData = await cubit.downloadReport(assetCode);
+
+      if (!mounted) return;
+      Navigator.pop(context); // close downloading dialog
+
+      if (fileData == null || fileData.isEmpty) {
+        AppLogger.e('[REPORTS-UI-DOWN] Bytes empty for assetCode=$assetCode');
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to download report',
+          isError: true,
+        );
+        return;
+      }
+
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (_) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Saving file...'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      final filePath = await cubit.saveReportFile(
+        fileData: Uint8List.fromList(fileData),
+        fileName: fileName,
+        assetCode: assetCode,
+      );
+
+      if (!mounted) return;
+      Navigator.pop(context); // close saving dialog
+
+      if (filePath == null) {
+        AppLogger.e('[REPORTS-UI-DOWN] Save failed for assetCode=$assetCode');
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to save file',
+          isError: true,
+        );
+        return;
+      }
+
+      AppLogger.i('[REPORTS-UI-DOWN] Saved: $filePath');
+      if (mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: '$fileName saved successfully',
+          isSuccess: true,
+        );
+      }
+
+      final opened = await cubit.openReportFile(
+        filePath: filePath,
+        fileName: fileName,
+        assetCode: assetCode,
+      );
+
+      if (!opened && mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Saved. Open from file manager to view',
+          isSuccess: true,
+        );
+      }
+    } catch (e) {
+      AppLogger.e('[REPORTS-UI-DOWN] Exception for assetCode=$assetCode: $e');
+      if (mounted) {
+        try {
+          Navigator.pop(context);
+        } catch (_) {}
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Error: $e',
+          isError: true,
+        );
+      }
+    }
+  }
 }
 
 class _GeneratedReportsTab extends StatefulWidget {
@@ -922,7 +1038,7 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
               if (assetCode != null) {
                 await context
                     .findAncestorStateOfType<_ReportsScreenState>()
-                    ?._downloadAndViewReport(
+                    ?._downloadAndSaveReport(
                       context,
                       assetCode,
                       reports
@@ -957,17 +1073,43 @@ class _ReportsTab extends StatelessWidget {
   final List<ReportExportFormat> formats;
   final void Function(BuildContext context, String name) onGenerate;
 
+  /// Whether this tab's report cards depend on classroom/student/staff
+  /// lookup data that's still loading. Compliance and Billing reports use
+  /// only date ranges (no classroom/student/staff selection), so they have
+  /// nothing to wait for and always render immediately.
+  bool _isLoadingLookupData(BuildContext context) {
+    switch (tabIndex) {
+      case 1: // Student
+        return context.select<ClassroomCubit, bool>((c) => c.state.isLoading) ||
+            context.select<StudentCubit, bool>((c) => c.state.isLoading);
+      case 2: // Staff
+        return context.select<ClassroomCubit, bool>((c) => c.state.isLoading) ||
+            context.select<StaffCubit, bool>((c) => c.state.isLoading);
+      default:
+        return false;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isLoading = _isLoadingLookupData(context);
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      child: _ReportsList(
-        reports: reports,
-        formats: formats,
-        onGenerate: (item, _) {
-          onGenerate(context, item.name);
-        },
-      ),
+      child: isLoading
+          ? Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: GeneratedReportsListShimmer(
+                rowCount: reports.isEmpty ? 4 : reports.length,
+              ),
+            )
+          : _ReportsList(
+              reports: reports,
+              formats: formats,
+              onGenerate: (item, _) {
+                onGenerate(context, item.name);
+              },
+            ),
     );
   }
 }

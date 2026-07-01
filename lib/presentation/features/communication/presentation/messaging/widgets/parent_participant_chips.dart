@@ -8,30 +8,42 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 /// Works with ConversationParticipant (legacy data structure).
 /// Displays participants as horizontal scrollable chips with avatar, name, and role.
 ///
+/// When privateModeEnabled is true, filters to show only guardian/parent participants.
 /// This is the legacy equivalent of ParticipantChips which works with ParticipantEntity.
 class ParentParticipantChips extends StatelessWidget {
   const ParentParticipantChips({
     super.key,
     required this.participants,
+    this.privateModeEnabled = false,
   });
 
   final List<ConversationParticipant> participants;
+  final bool privateModeEnabled;
 
   @override
   Widget build(BuildContext context) {
-    if (participants.isEmpty) return const SizedBox.shrink();
+    // Filter participants based on private mode
+    final filteredParticipants = privateModeEnabled
+        ? participants
+            .where((p) =>
+                p.role.toUpperCase() == 'PARENT' ||
+                p.role.toUpperCase() == 'GUARDIAN')
+            .toList()
+        : participants;
+
+    if (filteredParticipants.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
       height: 28,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: participants.length,
+        itemCount: filteredParticipants.length,
         separatorBuilder: (_, __) => const SizedBox(width: 6),
         itemBuilder: (context, index) {
-          if (index < 0 || index >= participants.length) {
+          if (index < 0 || index >= filteredParticipants.length) {
             return const SizedBox.shrink();
           }
-          final p = participants[index];
+          final p = filteredParticipants[index];
           final roleStr = _roleToDisplay(p.role);
           final name = p.userName.isNotEmpty ? p.userName : _roleFallbackName(roleStr);
           final color = _roleColor(roleStr);
