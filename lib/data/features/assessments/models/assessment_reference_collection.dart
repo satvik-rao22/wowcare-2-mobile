@@ -51,6 +51,7 @@ class AssessmentStudentCollection {
   late String name;
   String? avatarUrl;
   late String status;
+  List<String> tags = const <String>[];
 
   AssessmentStudentCollection();
 
@@ -61,7 +62,8 @@ class AssessmentStudentCollection {
       ..schoolId = s.schoolId
       ..name = s.name
       ..avatarUrl = s.avatarUrl
-      ..status = s.status;
+      ..status = s.status
+      ..tags = s.tags;
   }
 
   AssessmentStudent toEntity() => AssessmentStudent(
@@ -71,5 +73,6 @@ class AssessmentStudentCollection {
         avatarUrl: avatarUrl,
         status: status,
         schoolId: schoolId,
+        tags: tags,
       );
 }

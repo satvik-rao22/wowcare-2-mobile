@@ -4,13 +4,13 @@ import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_ut
 
 /// The four top-level destinations of the Assessments module, surfaced as a
 /// bottom navigation bar (mirrors the standalone redesign). Parents never reach
-/// the module, so every persona that gets here sees all four tabs (Framework is
-/// read-only for staff).
+/// the module, so every persona that gets here sees all four tabs (Parameters
+/// is read-only for staff).
 enum AssessmentSection {
   students('Students', Icons.face_rounded),
   classrooms('Classrooms', Icons.meeting_room_rounded),
   school('School', Icons.school_rounded),
-  framework('Framework', Icons.account_tree_rounded);
+  framework('Parameters', Icons.account_tree_rounded);
 
   const AssessmentSection(this.label, this.icon);
 

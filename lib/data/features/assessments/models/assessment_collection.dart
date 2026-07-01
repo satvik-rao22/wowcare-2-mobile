@@ -43,6 +43,7 @@ class AssessmentCollection {
   late DateTime periodStart;
   late DateTime periodEnd;
   String? impersonatorId;
+  bool published = false;
 
   AssessmentCollection();
 
@@ -60,7 +61,8 @@ class AssessmentCollection {
       ..assessedAt = assessment.assessedAt
       ..periodStart = assessment.periodStart
       ..periodEnd = assessment.periodEnd
-      ..impersonatorId = assessment.impersonatorId;
+      ..impersonatorId = assessment.impersonatorId
+      ..published = assessment.published;
   }
 
   Assessment toEntity() {
@@ -78,6 +80,7 @@ class AssessmentCollection {
       periodEnd: periodEnd,
       schoolId: schoolId,
       impersonatorId: impersonatorId,
+      published: published,
     );
   }
 }

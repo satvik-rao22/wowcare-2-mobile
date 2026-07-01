@@ -44,9 +44,9 @@ void main() {
       expect(find.text('Students'), findsOneWidget);
       expect(find.text('Classrooms'), findsOneWidget);
       expect(find.text('School'), findsOneWidget);
-      expect(find.text('Framework'), findsOneWidget);
+      expect(find.text('Parameters'), findsOneWidget);
 
-      await tester.tap(find.text('Framework'));
+      await tester.tap(find.text('Parameters'));
       expect(selected, AssessmentSection.framework);
     });
   });

@@ -21,6 +21,7 @@ class Assessment extends Equatable {
     required this.periodEnd,
     this.schoolId = '',
     this.impersonatorId,
+    this.published = false,
   });
 
   final String id;
@@ -47,6 +48,10 @@ class Assessment extends Equatable {
   /// Set only when a CWW Super Admin acted via impersonation (PRD §19).
   final String? impersonatorId;
 
+  /// Whether this record has been published to make the assessment visible
+  /// as finalized. Set on every record for a student+period together.
+  final bool published;
+
   Assessment copyWith({
     String? id,
     String? studentId,
@@ -61,6 +66,7 @@ class Assessment extends Equatable {
     DateTime? periodEnd,
     String? schoolId,
     String? Function()? impersonatorId,
+    bool? published,
   }) {
     return Assessment(
       id: id ?? this.id,
@@ -77,6 +83,7 @@ class Assessment extends Equatable {
       schoolId: schoolId ?? this.schoolId,
       impersonatorId:
           impersonatorId != null ? impersonatorId() : this.impersonatorId,
+      published: published ?? this.published,
     );
   }
 
@@ -89,6 +96,7 @@ class Assessment extends Equatable {
         notes,
         periodStart,
         assessedAt,
+        published,
       ];
 }
 

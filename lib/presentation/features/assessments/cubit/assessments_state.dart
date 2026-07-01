@@ -28,6 +28,8 @@ class AssessmentsState extends Equatable {
     required this.currentUserName,
     required this.roleKey,
     required this.schoolId,
+    this.statusFilter = const {'ACTIVE'},
+    this.tagFilter = const {},
     this.errorMessage,
   });
 
@@ -63,6 +65,13 @@ class AssessmentsState extends Equatable {
   /// Lowercased persona key: 'admin' | 'staff' | 'parent'.
   final String roleKey;
   final String schoolId;
+
+  /// Student-list status filter: subset of {'ACTIVE', 'INACTIVE'}. Defaults to
+  /// active-only, matching the list's pre-filter behaviour.
+  final Set<String> statusFilter;
+
+  /// Student-list tag filter (empty = no tag restriction).
+  final Set<String> tagFilter;
   final String? errorMessage;
 
   bool get isStaffPersona => roleKey == 'staff' || roleKey == 'teacher';
@@ -153,6 +162,33 @@ class AssessmentsState extends Equatable {
   int studentCountIn(String classroomCode) =>
       studentsInClassroom(classroomCode).length;
 
+  /// Students in [classroomCode] matching the Students-tab [statusFilter] and
+  /// [tagFilter] (used by [StudentsListBody] instead of [studentsInClassroom],
+  /// which stays active-only for classroom/school roll-up aggregation).
+  List<AssessmentStudent> visibleStudentsInClassroom(String classroomCode) {
+    return students.where((s) {
+      if (s.classroomCode != classroomCode) return false;
+      if (statusFilter.isNotEmpty &&
+          !statusFilter.contains(s.status.toUpperCase())) {
+        return false;
+      }
+      if (tagFilter.isNotEmpty && !tagFilter.any(s.tags.contains)) {
+        return false;
+      }
+      return true;
+    }).toList();
+  }
+
+  /// All distinct student tags across the school, sorted for the filter sheet.
+  List<String> get allTags {
+    final set = <String>{};
+    for (final s in students) {
+      set.addAll(s.tags);
+    }
+    final list = set.toList()..sort();
+    return list;
+  }
+
   AssessmentStudent? studentByCode(String code) {
     for (final s in students) {
       if (s.code == code) return s;
@@ -189,6 +225,14 @@ class AssessmentsState extends Equatable {
     return null;
   }
 
+  /// Whether every scored record for [studentId] in [period] has been
+  /// published (records are always published together, so any one record's
+  /// flag represents the whole set — checking `every` is just the safe form).
+  bool isPublished(String studentId, AssessmentPeriod period) {
+    final records = studentAssessments(studentId, period);
+    return records.isNotEmpty && records.every((a) => a.published);
+  }
+
   AssessmentsState copyWith({
     List<AssessmentDomain>? domains,
     List<Assessment>? assessments,
@@ -202,6 +246,8 @@ class AssessmentsState extends Equatable {
     String? currentUserName,
     String? roleKey,
     String? schoolId,
+    Set<String>? statusFilter,
+    Set<String>? tagFilter,
     String? Function()? errorMessage,
   }) {
     return AssessmentsState(
@@ -219,6 +265,8 @@ class AssessmentsState extends Equatable {
       currentUserName: currentUserName ?? this.currentUserName,
       roleKey: roleKey ?? this.roleKey,
       schoolId: schoolId ?? this.schoolId,
+      statusFilter: statusFilter ?? this.statusFilter,
+      tagFilter: tagFilter ?? this.tagFilter,
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
     );
   }
@@ -237,6 +285,8 @@ class AssessmentsState extends Equatable {
         currentUserName,
         roleKey,
         schoolId,
+        statusFilter,
+        tagFilter,
         errorMessage,
       ];
 }

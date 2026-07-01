@@ -16,6 +16,7 @@ class AssessmentModel {
     required this.periodEnd,
     this.schoolId = '',
     this.impersonatorId,
+    this.published = false,
   });
 
   factory AssessmentModel.fromJson(Map<String, dynamic> json) {
@@ -40,6 +41,7 @@ class AssessmentModel {
       ),
       schoolId: (json['schoolId'] ?? '').toString(),
       impersonatorId: json['impersonatorId']?.toString(),
+      published: json['published'] == true,
     );
   }
 
@@ -56,6 +58,7 @@ class AssessmentModel {
   final DateTime periodEnd;
   final String schoolId;
   final String? impersonatorId;
+  final bool published;
 
   Assessment toEntity() => Assessment(
         id: id,
@@ -71,5 +74,6 @@ class AssessmentModel {
         periodEnd: periodEnd,
         schoolId: schoolId,
         impersonatorId: impersonatorId,
+        published: published,
       );
 }

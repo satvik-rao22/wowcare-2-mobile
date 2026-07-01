@@ -131,6 +131,27 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
     _safeEmit(state.copyWith(selectedClassroomCode: () => classroomCode));
   }
 
+  // ------------------------------------------------------- student filters
+
+  void toggleStatusFilter(String status) {
+    final next = Set<String>.from(state.statusFilter);
+    if (!next.remove(status)) next.add(status);
+    _safeEmit(state.copyWith(statusFilter: next));
+  }
+
+  void toggleTagFilter(String tag) {
+    final next = Set<String>.from(state.tagFilter);
+    if (!next.remove(tag)) next.add(tag);
+    _safeEmit(state.copyWith(tagFilter: next));
+  }
+
+  void clearAssessmentFilters() {
+    _safeEmit(state.copyWith(
+      statusFilter: const {'ACTIVE'},
+      tagFilter: const {},
+    ));
+  }
+
   // ----------------------------------------------------- parameter management
 
   Future<bool> saveDomain(AssessmentDomain domain) async {
@@ -225,6 +246,22 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
           schoolId: state.schoolId,
         ));
       }
+      if (records.isEmpty) return;
+      await _bulkUpsertAssessments(records);
+      _mergeAssessments(records, studentId: studentId, period: period);
+    });
+  }
+
+  /// Marks every scored record for [studentId] in the current period as
+  /// published (a status flag only — publishing never locks the records from
+  /// further edits).
+  Future<bool> publishStudentAssessments(String studentId) async {
+    return _guardSave(() async {
+      final period = state.period;
+      final records = state
+          .studentAssessments(studentId, period)
+          .map((a) => a.copyWith(published: true))
+          .toList();
       if (records.isEmpty) return;
       await _bulkUpsertAssessments(records);
       _mergeAssessments(records, studentId: studentId, period: period);

@@ -28,7 +28,7 @@ class AssessmentRepositoryImpl implements AssessmentRepository {
   static const _uuid = Uuid();
 
   /// One-shot seed flag so user mutations aren't resurrected by reseeding.
-  static const String _seededFlagKey = 'assessments_mock_seeded_v1';
+  static const String _seededFlagKey = 'assessments_mock_seeded_v2';
 
   // ----------------------------------------------------------------- domains
 
@@ -307,16 +307,18 @@ class AssessmentRepositoryImpl implements AssessmentRepository {
       }
     }
 
-    final existingStudents = await _localDataSource.getStudents();
-    if (existingStudents.isEmpty) {
-      final students = await _seedDataSource.fetchStudents();
-      if (students.isNotEmpty) {
-        await _localDataSource.upsertStudents(
-          students
-              .map((m) => AssessmentStudentCollection.fromEntity(m.toEntity()))
-              .toList(),
-        );
-      }
+    // Unconditionally re-upserted (unlike the other sections) so bumping
+    // [_seededFlagKey] can backfill new mock fields (e.g. tags) onto students
+    // an earlier version already seeded. Safe: students are a read-only
+    // snapshot never mutated by this module, and the `code` index is
+    // unique+replace so this overwrites in place without duplicating rows.
+    final students = await _seedDataSource.fetchStudents();
+    if (students.isNotEmpty) {
+      await _localDataSource.upsertStudents(
+        students
+            .map((m) => AssessmentStudentCollection.fromEntity(m.toEntity()))
+            .toList(),
+      );
     }
 
     final existingAssessments = await _localDataSource.getAssessments();

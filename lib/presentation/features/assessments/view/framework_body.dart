@@ -10,7 +10,7 @@ import 'package:wowcare/presentation/features/assessments/widgets/entrance.dart'
 import 'package:wowcare/presentation/features/assessments/widgets/parameter_form_sheets.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
-/// Framework tab — browse/manage the Domain → Subdomain → Milestone hierarchy.
+/// Parameters tab — browse/manage the Domain → Subdomain → Milestone hierarchy.
 /// Staff see it read-only (a banner explains why); admins get add/edit/
 /// deactivate and classroom assignment. The level shown is driven by the
 /// [domainId]/[subdomainId] drill-state owned by the shell.
@@ -250,7 +250,7 @@ class _ReadOnlyBanner extends StatelessWidget {
           SizedBox(width: 8),
           Expanded(
             child: Text(
-              'Read-only — you can view the framework you assess against.',
+              'Read-only — you can view the parameters you assess against.',
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,

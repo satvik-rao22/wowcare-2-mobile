@@ -1250,6 +1250,11 @@ const AssessmentStudentCollectionSchema = CollectionSchema(
       id: 5,
       name: r'status',
       type: IsarType.string,
+    ),
+    r'tags': PropertySchema(
+      id: 6,
+      name: r'tags',
+      type: IsarType.stringList,
     )
   },
   estimateSize: _assessmentStudentCollectionEstimateSize,
@@ -1323,6 +1328,13 @@ int _assessmentStudentCollectionEstimateSize(
   bytesCount += 3 + object.name.length * 3;
   bytesCount += 3 + object.schoolId.length * 3;
   bytesCount += 3 + object.status.length * 3;
+  bytesCount += 3 + object.tags.length * 3;
+  {
+    for (var i = 0; i < object.tags.length; i++) {
+      final value = object.tags[i];
+      bytesCount += value.length * 3;
+    }
+  }
   return bytesCount;
 }
 
@@ -1338,6 +1350,7 @@ void _assessmentStudentCollectionSerialize(
   writer.writeString(offsets[3], object.name);
   writer.writeString(offsets[4], object.schoolId);
   writer.writeString(offsets[5], object.status);
+  writer.writeStringList(offsets[6], object.tags);
 }
 
 AssessmentStudentCollection _assessmentStudentCollectionDeserialize(
@@ -1353,6 +1366,7 @@ AssessmentStudentCollection _assessmentStudentCollectionDeserialize(
   object.name = reader.readString(offsets[3]);
   object.schoolId = reader.readString(offsets[4]);
   object.status = reader.readString(offsets[5]);
+  object.tags = reader.readStringList(offsets[6]) ?? [];
   return object;
 }
 
@@ -1375,6 +1389,8 @@ P _assessmentStudentCollectionDeserializeProp<P>(
       return (reader.readString(offset)) as P;
     case 5:
       return (reader.readString(offset)) as P;
+    case 6:
+      return (reader.readStringList(offset) ?? []) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
   }
@@ -2571,6 +2587,233 @@ extension AssessmentStudentCollectionQueryFilter on QueryBuilder<
       ));
     });
   }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsElementEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsElementGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsElementLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsElementBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'tags',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsElementStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsElementEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+          QAfterFilterCondition>
+      tagsElementContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'tags',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+          QAfterFilterCondition>
+      tagsElementMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'tags',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsElementIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'tags',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsElementIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'tags',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsLengthEqualTo(int length) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'tags',
+        length,
+        true,
+        length,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'tags',
+        0,
+        true,
+        0,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'tags',
+        0,
+        false,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsLengthLessThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'tags',
+        0,
+        true,
+        length,
+        include,
+      );
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsLengthGreaterThan(
+    int length, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'tags',
+        length,
+        include,
+        999999,
+        true,
+      );
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QAfterFilterCondition> tagsLengthBetween(
+    int lower,
+    int upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.listLength(
+        r'tags',
+        lower,
+        includeLower,
+        upper,
+        includeUpper,
+      );
+    });
+  }
 }
 
 extension AssessmentStudentCollectionQueryObject on QueryBuilder<
@@ -2815,6 +3058,13 @@ extension AssessmentStudentCollectionQueryWhereDistinct on QueryBuilder<
       return query.addDistinctBy(r'status', caseSensitive: caseSensitive);
     });
   }
+
+  QueryBuilder<AssessmentStudentCollection, AssessmentStudentCollection,
+      QDistinct> distinctByTags() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'tags');
+    });
+  }
 }
 
 extension AssessmentStudentCollectionQueryProperty on QueryBuilder<
@@ -2865,6 +3115,13 @@ extension AssessmentStudentCollectionQueryProperty on QueryBuilder<
       statusProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'status');
+    });
+  }
+
+  QueryBuilder<AssessmentStudentCollection, List<String>, QQueryOperations>
+      tagsProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'tags');
     });
   }
 }

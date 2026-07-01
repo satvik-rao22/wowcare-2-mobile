@@ -8,18 +8,24 @@ import 'package:wowcare/domain/features/assessments/entities/assessment_paramete
 import 'package:wowcare/domain/features/assessments/entities/assessment_references.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_scale.dart';
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
+import 'package:wowcare/presentation/features/assessments/utils/assessment_access.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_aggregation.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/assessment_confirm_dialog.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_radar_chart.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/scale_button_row.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// In-place scoring stepper for one student in the active period (PRD §12.2).
 ///
-/// One step per classroom-relevant domain — each offering a "set whole domain"
-/// quick-pick with copy-to-all, and per-milestone 1–5 scoring with optional
-/// notes — followed by a Review step (radar this-vs-last period + domain
-/// summary). The footer drives Back/Next/Review/Save; saving upserts every
-/// scored milestone in a single transaction via the cubit, then exits.
+/// Starts on an Overview step (radar this-vs-last period + domain summary;
+/// empty until the student has any scores), then one step per
+/// classroom-relevant domain — each offering a "set whole domain" quick-pick
+/// with copy-to-all, and per-milestone 1–5 scoring with optional notes — and
+/// ends on a Review step (same summary as Overview). The footer drives
+/// Back/Next/Review/Save; saving upserts every scored milestone in a single
+/// transaction via the cubit, then exits. Once every milestone is scored, a
+/// Publish button (on Overview and Review) marks the assessment finalized.
 class StudentStepperBody extends StatefulWidget {
   const StudentStepperBody({
     super.key,
@@ -57,6 +63,19 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
   double? _overall() {
     if (_scores.isEmpty) return null;
     return _scores.values.reduce((a, b) => a + b) / _scores.length;
+  }
+
+  /// Whether every classroom-relevant milestone (across all domains) has a
+  /// draft score — the "all params completed and ranked" gate for Publish.
+  bool _isFullyScored(AssessmentsState state, String classroomCode) {
+    final domains = state.domainsForClassroom(classroomCode);
+    if (domains.isEmpty) return false;
+    for (final domain in domains) {
+      for (final m in state.milestonesForClassroom(domain, classroomCode)) {
+        if (!_scores.containsKey(m.id)) return false;
+      }
+    }
+    return true;
   }
 
   double? _domainAvg(AssessmentsState state, AssessmentDomain domain,
@@ -149,9 +168,32 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
     }
   }
 
+  Future<void> _publish(AssessmentsCubit cubit) async {
+    final confirmed = await AssessmentConfirmDialog.show(
+      context,
+      title: 'Publish assessment?',
+      message: 'This marks the assessment as finalized for the period. You '
+          'can still edit scores afterward.',
+      confirmLabel: 'Publish',
+      destructive: false,
+    );
+    if (!confirmed || !mounted) return;
+    final saved = await cubit.saveStudentAssessments(
+      studentId: widget.studentCode,
+      drafts: Map<String, int>.from(_scores),
+      notes: Map<String, String?>.from(_notes),
+    );
+    if (!saved || !mounted) return;
+    final published = await cubit.publishStudentAssessments(widget.studentCode);
+    if (!mounted) return;
+    _toast(published ? 'Assessment published' : 'Failed to publish. Please try again.');
+  }
+
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<AssessmentsCubit>();
+    final canEnterAssessments =
+        AssessmentAccess.canEnterAssessments(context.watch<RoleCubit>());
     return BlocBuilder<AssessmentsCubit, AssessmentsState>(
       builder: (context, state) {
         final student = state.studentByCode(widget.studentCode);
@@ -161,8 +203,19 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
         _seed(state);
         final domains = state.domainsForClassroom(student.classroomCode);
         final n = domains.length;
-        final isReview = _stepIndex >= n && n > 0;
+        final isOverview = _stepIndex == 0;
+        final isReview = _stepIndex >= n + 1 && n > 0;
         final classroom = state.classroomByCode(student.classroomCode);
+        final isPublished = state.isPublished(widget.studentCode, state.period);
+        final showPublish = canEnterAssessments &&
+            !isPublished &&
+            _isFullyScored(state, student.classroomCode);
+        final stepLabel = isOverview
+            ? 'Overview'
+            : isReview
+                ? 'Review'
+                : 'Domain $_stepIndex of $n';
+        final progress = n == 0 ? 1.0 : (_stepIndex + 1) / (n + 2);
 
         return Column(
           children: [
@@ -177,20 +230,24 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                       classroomName: classroom?.name ?? '',
                       period: state.period,
                       overall: _overall(),
-                      stepIndex: _stepIndex,
-                      domainCount: n,
+                      stepLabel: stepLabel,
+                      progress: progress,
                       scoredCount: _scores.length,
+                      isPublished: isPublished,
                     ),
                   ),
                   if (n > 0) ...[
                     const SizedBox(height: 14),
                     _DomainStepper(
                       domains: domains,
-                      stepIndex: _stepIndex,
+                      stepIndex: _stepIndex - 1,
                       progressOf: (d) =>
                           _domainProgress(state, d, student.classroomCode),
                       onTap: (i) {
-                        if (i != _stepIndex) setState(() => _stepIndex = i);
+                        final target = i + 1;
+                        if (target != _stepIndex) {
+                          setState(() => _stepIndex = target);
+                        }
                       },
                     ),
                   ],
@@ -199,10 +256,22 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                       padding: EdgeInsets.fromLTRB(20, 40, 20, 20),
                       child: Text(
                         'No milestones are assigned for this classroom. '
-                        'Add them under Framework first.',
+                        'Add them under Parameters first.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AssessmentUi.inkMuted),
                       ),
+                    )
+                  else if (isOverview)
+                    _OverviewStep(
+                      state: state,
+                      student: student,
+                      domains: domains,
+                      draftDomainAvg: (d) =>
+                          _domainAvg(state, d, student.classroomCode),
+                      assessed: _scores.isNotEmpty,
+                      showPublish: showPublish,
+                      saving: state.isSaving,
+                      onPublish: () => unawaited(_publish(cubit)),
                     )
                   else if (isReview)
                     _ReviewStep(
@@ -211,20 +280,24 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                       domains: domains,
                       draftDomainAvg: (d) =>
                           _domainAvg(state, d, student.classroomCode),
+                      showPublish: showPublish,
+                      saving: state.isSaving,
+                      onPublish: () => unawaited(_publish(cubit)),
                     )
                   else
                     _DomainStep(
                       state: state,
                       classroomCode: student.classroomCode,
-                      domain: domains[_stepIndex],
+                      domain: domains[_stepIndex - 1],
                       scores: _scores,
                       notes: _notes,
                       openNotes: _openNotes,
-                      domainDraft: _domainDraft[domains[_stepIndex].id],
+                      domainDraft: _domainDraft[domains[_stepIndex - 1].id],
                       onPickScore: _pickScore,
-                      onPickDomain: (v) => _pickDomain(domains[_stepIndex].id, v),
-                      onCopyToAll: () =>
-                          _copyToAll(state, domains[_stepIndex], student.classroomCode),
+                      onPickDomain: (v) =>
+                          _pickDomain(domains[_stepIndex - 1].id, v),
+                      onCopyToAll: () => _copyToAll(
+                          state, domains[_stepIndex - 1], student.classroomCode),
                       onToggleNote: _toggleNote,
                       onNote: _setNote,
                     ),
@@ -233,9 +306,13 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
             ),
             if (n > 0)
               _Footer(
-                stepIndex: _stepIndex,
-                domainCount: n,
+                isFirstStep: _stepIndex == 0,
                 isReview: isReview,
+                nextLabel: isOverview
+                    ? (_scores.isEmpty ? 'Start' : 'Next')
+                    : (isReview
+                        ? 'Save All Assessments'
+                        : (_stepIndex < n ? 'Next' : 'Review')),
                 saving: state.isSaving,
                 onPrev: () {
                   if (_stepIndex == 0) {
@@ -267,26 +344,23 @@ class _Hero extends StatelessWidget {
     required this.classroomName,
     required this.period,
     required this.overall,
-    required this.stepIndex,
-    required this.domainCount,
+    required this.stepLabel,
+    required this.progress,
     required this.scoredCount,
+    required this.isPublished,
   });
 
   final AssessmentStudent student;
   final String classroomName;
   final AssessmentPeriod period;
   final double? overall;
-  final int stepIndex;
-  final int domainCount;
+  final String stepLabel;
+  final double progress;
   final int scoredCount;
+  final bool isPublished;
 
   @override
   Widget build(BuildContext context) {
-    final isReview = stepIndex >= domainCount;
-    final stepLabel = isReview
-        ? 'Review'
-        : 'Domain ${stepIndex + 1} of $domainCount';
-    final progress = (stepIndex + 1) / (domainCount + 1);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -326,15 +400,25 @@ class _Hero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      student.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            student.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                        if (isPublished) ...[
+                          const SizedBox(width: 8),
+                          const _PublishedChip(),
+                        ],
+                      ],
                     ),
                     Text(
                       '$classroomName · ${AssessmentUi.shortMonthLabel(period.start)}',
@@ -405,6 +489,38 @@ class _Hero extends StatelessWidget {
                 backgroundColor: Colors.white.withValues(alpha: 0.25),
                 valueColor: const AlwaysStoppedAnimation<Color>(Colors.white),
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small "Published" pill shown in the [_Hero] once every record for this
+/// student+period is published (PRD ask: a status chip, not a lock).
+class _PublishedChip extends StatelessWidget {
+  const _PublishedChip();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.check_circle_rounded, size: 12, color: Colors.white),
+          SizedBox(width: 4),
+          Text(
+            'Published',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
           ),
         ],
@@ -1043,12 +1159,18 @@ class _ReviewStep extends StatelessWidget {
     required this.student,
     required this.domains,
     required this.draftDomainAvg,
+    required this.showPublish,
+    required this.saving,
+    required this.onPublish,
   });
 
   final AssessmentsState state;
   final AssessmentStudent student;
   final List<AssessmentDomain> domains;
   final double? Function(AssessmentDomain) draftDomainAvg;
+  final bool showPublish;
+  final bool saving;
+  final VoidCallback onPublish;
 
   @override
   Widget build(BuildContext context) {
@@ -1098,83 +1220,246 @@ class _ReviewStep extends StatelessWidget {
                 AssessmentUi.shortMonthLabel(state.period.previous.start),
           ),
           const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: AssessmentUi.softSurface(),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Domain summary',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: AssessmentUi.ink,
+          _DomainSummaryCard(domains: domains, draftDomainAvg: draftDomainAvg),
+          if (showPublish) ...[
+            const SizedBox(height: 14),
+            _PublishButton(saving: saving, onTap: onPublish),
+          ],
+        ],
+      ),
+    );
+  }
+
+  static String _short(String name) => name.split(' ').first;
+}
+
+/// "Domain summary" card (name + mini progress bar + average per domain),
+/// shared by [_OverviewStep] and [_ReviewStep].
+class _DomainSummaryCard extends StatelessWidget {
+  const _DomainSummaryCard({
+    required this.domains,
+    required this.draftDomainAvg,
+  });
+
+  final List<AssessmentDomain> domains;
+  final double? Function(AssessmentDomain) draftDomainAvg;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: AssessmentUi.softSurface(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Domain summary',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AssessmentUi.ink,
+            ),
+          ),
+          const SizedBox(height: 11),
+          ...domains.map((d) {
+            final avg = draftDomainAvg(d);
+            final color = AssessmentUi.scoreAccent(avg);
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 13),
+              child: Row(
+                children: [
+                  Container(
+                    width: 9,
+                    height: 9,
+                    decoration: BoxDecoration(
+                      color: AssessmentUi.domainColor(d.id),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 11),
-                ...domains.map((d) {
-                  final avg = draftDomainAvg(d);
-                  final color = AssessmentUi.scoreAccent(avg);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 13),
-                    child: Row(
+                  const SizedBox(width: 11),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 9,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            color: AssessmentUi.domainColor(d.id),
-                            borderRadius: BorderRadius.circular(3),
+                        Text(
+                          d.name,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AssessmentUi.ink,
                           ),
                         ),
-                        const SizedBox(width: 11),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                d.name,
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: AssessmentUi.ink,
-                                ),
-                              ),
-                              const SizedBox(height: 5),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(999),
-                                child: LinearProgressIndicator(
-                                  value: ((avg ?? 0) / 5).clamp(0, 1),
-                                  minHeight: 6,
-                                  backgroundColor: const Color(0xFFF0EEF6),
-                                  valueColor:
-                                      AlwaysStoppedAnimation<Color>(color),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        SizedBox(
-                          width: 30,
-                          child: Text(
-                            AssessmentAggregation.formatAverage(avg),
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w800,
-                              color: color,
-                            ),
+                        const SizedBox(height: 5),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: LinearProgressIndicator(
+                            value: ((avg ?? 0) / 5).clamp(0, 1),
+                            minHeight: 6,
+                            backgroundColor: const Color(0xFFF0EEF6),
+                            valueColor: AlwaysStoppedAnimation<Color>(color),
                           ),
                         ),
                       ],
                     ),
-                  );
-                }),
-              ],
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 30,
+                    child: Text(
+                      AssessmentAggregation.formatAverage(avg),
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: color,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+/// Green "Publish" pill shown on [_OverviewStep] and [_ReviewStep] once every
+/// milestone is scored and the assessment isn't already published.
+class _PublishButton extends StatelessWidget {
+  const _PublishButton({required this.saving, required this.onTap});
+
+  final bool saving;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          onTap: saving ? null : onTap,
+          borderRadius: BorderRadius.circular(14),
+          child: Ink(
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                  colors: [Color(0xFF16A34A), Color(0xFF15803D)]),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Container(
+              height: 48,
+              alignment: Alignment.center,
+              child: saving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.campaign_rounded,
+                            size: 17, color: Colors.white),
+                        SizedBox(width: 7),
+                        Text(
+                          'Publish',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ------------------------------------------------------------- overview step
+
+class _OverviewStep extends StatelessWidget {
+  const _OverviewStep({
+    required this.state,
+    required this.student,
+    required this.domains,
+    required this.draftDomainAvg,
+    required this.assessed,
+    required this.showPublish,
+    required this.saving,
+    required this.onPublish,
+  });
+
+  final AssessmentsState state;
+  final AssessmentStudent student;
+  final List<AssessmentDomain> domains;
+  final double? Function(AssessmentDomain) draftDomainAvg;
+  final bool assessed;
+  final bool showPublish;
+  final bool saving;
+  final VoidCallback onPublish;
+
+  @override
+  Widget build(BuildContext context) {
+    final previous =
+        state.studentAssessments(student.code, state.period.previous);
+    final radar = domains
+        .map((d) => RadarDatum(
+              domainId: d.id,
+              domainName: _short(d.name),
+              current: draftDomainAvg(d) ?? 0,
+              previous: AssessmentAggregation.domainAverage(previous, d.id) ?? 0,
+            ))
+        .toList();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Overview',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: AssessmentUi.ink,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            assessed
+                ? 'Progress for ${student.name} this month'
+                : 'Not yet assessed for '
+                    '${AssessmentUi.shortMonthLabel(state.period.start)}',
+            style: const TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF8A8398),
+            ),
+          ),
+          const SizedBox(height: 15),
+          AssessmentRadarChart(
+            title: 'Progress this month vs last',
+            data: radar,
+            currentLabel: AssessmentUi.shortMonthLabel(state.period.start),
+            previousLabel:
+                AssessmentUi.shortMonthLabel(state.period.previous.start),
+          ),
+          if (assessed) ...[
+            const SizedBox(height: 14),
+            _DomainSummaryCard(domains: domains, draftDomainAvg: draftDomainAvg),
+          ],
+          if (showPublish) ...[
+            const SizedBox(height: 14),
+            _PublishButton(saving: saving, onTap: onPublish),
+          ],
         ],
       ),
     );
@@ -1187,27 +1472,24 @@ class _ReviewStep extends StatelessWidget {
 
 class _Footer extends StatelessWidget {
   const _Footer({
-    required this.stepIndex,
-    required this.domainCount,
+    required this.isFirstStep,
     required this.isReview,
+    required this.nextLabel,
     required this.saving,
     required this.onPrev,
     required this.onNext,
   });
 
-  final int stepIndex;
-  final int domainCount;
+  final bool isFirstStep;
   final bool isReview;
+  final String nextLabel;
   final bool saving;
   final VoidCallback onPrev;
   final VoidCallback onNext;
 
   @override
   Widget build(BuildContext context) {
-    final prevLabel = stepIndex == 0 ? 'Exit' : 'Back';
-    final nextLabel = isReview
-        ? 'Save All Assessments'
-        : (stepIndex < domainCount - 1 ? 'Next' : 'Review');
+    final prevLabel = isFirstStep ? 'Exit' : 'Back';
     return Container(
       padding: EdgeInsets.fromLTRB(
           16, 12, 16, 12 + MediaQuery.of(context).padding.bottom),

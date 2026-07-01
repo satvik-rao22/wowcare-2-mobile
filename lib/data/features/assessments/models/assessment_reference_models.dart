@@ -41,6 +41,7 @@ class AssessmentStudentModel {
     this.avatarUrl,
     this.status = 'ACTIVE',
     this.schoolId = '',
+    this.tags = const <String>[],
   });
 
   factory AssessmentStudentModel.fromJson(Map<String, dynamic> json) =>
@@ -52,6 +53,9 @@ class AssessmentStudentModel {
         avatarUrl: json['avatar']?.toString(),
         status: (json['status'] ?? 'ACTIVE').toString(),
         schoolId: (json['schoolId'] ?? '').toString(),
+        tags: (json['tags'] as List<dynamic>? ?? const [])
+            .map((t) => t.toString())
+            .toList(),
       );
 
   final String code;
@@ -60,6 +64,7 @@ class AssessmentStudentModel {
   final String? avatarUrl;
   final String status;
   final String schoolId;
+  final List<String> tags;
 
   AssessmentStudent toEntity() => AssessmentStudent(
         code: code,
@@ -68,5 +73,6 @@ class AssessmentStudentModel {
         avatarUrl: avatarUrl,
         status: status,
         schoolId: schoolId,
+        tags: tags,
       );
 }

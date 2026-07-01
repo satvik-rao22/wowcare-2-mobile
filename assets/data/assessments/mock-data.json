@@ -8,14 +8,14 @@
     { "code": "CLS-KINDER", "name": "Kindergarten Prep", "ageGroup": "4–5y", "schoolId": "SCH-DEMO" }
   ],
   "students": [
-    { "code": "STU-EMMA", "name": "Emma Chen", "classroomCode": "CLS-PRESCHOOL", "status": "ACTIVE", "schoolId": "SCH-DEMO" },
-    { "code": "STU-LIAM", "name": "Liam Patel", "classroomCode": "CLS-PRESCHOOL", "status": "ACTIVE", "schoolId": "SCH-DEMO" },
-    { "code": "STU-SOFIA", "name": "Sofia Nguyen", "classroomCode": "CLS-PRESCHOOL", "status": "ACTIVE", "schoolId": "SCH-DEMO" },
-    { "code": "STU-OLIVIA", "name": "Olivia Brooks", "classroomCode": "CLS-PREK", "status": "ACTIVE", "schoolId": "SCH-DEMO" },
+    { "code": "STU-EMMA", "name": "Emma Chen", "classroomCode": "CLS-PRESCHOOL", "status": "ACTIVE", "schoolId": "SCH-DEMO", "tags": ["IEP", "Speech Therapy"] },
+    { "code": "STU-LIAM", "name": "Liam Patel", "classroomCode": "CLS-PRESCHOOL", "status": "ACTIVE", "schoolId": "SCH-DEMO", "tags": ["ESL"] },
+    { "code": "STU-SOFIA", "name": "Sofia Nguyen", "classroomCode": "CLS-PRESCHOOL", "status": "INACTIVE", "schoolId": "SCH-DEMO", "tags": ["Allergy"] },
+    { "code": "STU-OLIVIA", "name": "Olivia Brooks", "classroomCode": "CLS-PREK", "status": "ACTIVE", "schoolId": "SCH-DEMO", "tags": ["New Enrollment"] },
     { "code": "STU-NOAH", "name": "Noah Garcia", "classroomCode": "CLS-PREK", "status": "ACTIVE", "schoolId": "SCH-DEMO" },
-    { "code": "STU-AVA", "name": "Ava Johnson", "classroomCode": "CLS-KINDER", "status": "ACTIVE", "schoolId": "SCH-DEMO" },
+    { "code": "STU-AVA", "name": "Ava Johnson", "classroomCode": "CLS-KINDER", "status": "ACTIVE", "schoolId": "SCH-DEMO", "tags": ["IEP"] },
     { "code": "STU-ETHAN", "name": "Ethan Williams", "classroomCode": "CLS-KINDER", "status": "ACTIVE", "schoolId": "SCH-DEMO" },
-    { "code": "STU-MIA", "name": "Mia Rodriguez", "classroomCode": "CLS-LITTLE", "status": "ACTIVE", "schoolId": "SCH-DEMO" }
+    { "code": "STU-MIA", "name": "Mia Rodriguez", "classroomCode": "CLS-LITTLE", "status": "ACTIVE", "schoolId": "SCH-DEMO", "tags": ["Allergy", "ESL"] }
   ],
   "domains": [
     {

@@ -40,6 +40,7 @@ class AssessmentStudent extends Equatable {
     this.avatarUrl,
     this.status = 'ACTIVE',
     this.schoolId = '',
+    this.tags = const <String>[],
   });
 
   /// Stable student identifier (matches `Student.code` elsewhere).
@@ -51,6 +52,9 @@ class AssessmentStudent extends Equatable {
   final String? avatarUrl;
   final String status;
   final String schoolId;
+
+  /// Local mock tags (e.g. "IEP", "ESL") used to filter the student list.
+  final List<String> tags;
 
   bool get isActive => status.toUpperCase() == 'ACTIVE';
 
@@ -67,5 +71,6 @@ class AssessmentStudent extends Equatable {
   }
 
   @override
-  List<Object?> get props => [code, name, classroomCode, status, schoolId];
+  List<Object?> get props =>
+      [code, name, classroomCode, status, schoolId, tags];
 }

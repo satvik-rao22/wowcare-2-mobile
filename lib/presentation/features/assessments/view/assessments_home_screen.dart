@@ -158,7 +158,7 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen> {
         onBack: _back,
       );
     }
-    // Framework drill-down.
+    // Parameters drill-down.
     final domain =
         _fwDomainId == null ? null : state.domainById(_fwDomainId!);
     final matchingSubs = _fwSubdomainId == null || domain == null
@@ -181,7 +181,7 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen> {
       );
     }
     return AssessmentBackBar(
-      title: domain?.name ?? 'Framework',
+      title: domain?.name ?? 'Parameters',
       subtitle: 'Subdomains',
       onBack: _back,
       actionLabel: canManage ? 'Subdomain' : null,
@@ -224,7 +224,7 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen> {
   }
 }
 
-/// Gradient extended FAB for adding a domain (Framework tab, admins only).
+/// Gradient extended FAB for adding a domain (Parameters tab, admins only).
 class _AddDomainFab extends StatelessWidget {
   const _AddDomainFab({required this.onTap});
 

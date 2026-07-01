@@ -278,6 +278,34 @@ abstract final class AssessmentUi {
     return domainPalette[i];
   }
 
+  /// Fixed emoji for the 5 seeded domains; any admin-created domain falls
+  /// back to a small deterministic pool (hashed like [domainColor]) so it
+  /// still gets a stable glyph instead of a blank tile.
+  static const Map<String, String> _domainEmoji = <String, String>{
+    'DOM-SE': '😊',
+    'DOM-LL': '💬',
+    'DOM-COG': '🧠',
+    'DOM-PH': '🏃',
+    'DOM-CE': '🎨',
+  };
+
+  static const List<String> _domainEmojiFallbackPool = <String>[
+    '⭐',
+    '🔷',
+    '🔶',
+    '🌟',
+    '🧩',
+  ];
+
+  static String domainEmoji(String domainId) {
+    final fixed = _domainEmoji[domainId];
+    if (fixed != null) return fixed;
+    if (domainId.isEmpty) return _domainEmojiFallbackPool.first;
+    final i = domainId.codeUnits.fold<int>(0, (s, c) => s + c) %
+        _domainEmojiFallbackPool.length;
+    return _domainEmojiFallbackPool[i];
+  }
+
   /// Horizontal brand gradient for primary buttons / header banners.
   static const LinearGradient brandGradient = LinearGradient(
     colors: studentGradientColors,

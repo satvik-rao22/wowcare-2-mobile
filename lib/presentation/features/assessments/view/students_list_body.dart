@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_parameters.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_references.dart';
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_access.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_aggregation.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/assessment_filter_sheet.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_option_sheet.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_scope_chip.dart';
-import 'package:wowcare/presentation/features/assessments/widgets/domain_score_tile.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/entrance.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/initials_avatar.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/period_picker.dart';
@@ -43,11 +44,16 @@ class StudentsListBody extends StatelessWidget {
         }
 
         final classroom = state.classroomByCode(selectedCode);
-        final students = state.studentsInClassroom(selectedCode);
+        final students = state.visibleStudentsInClassroom(selectedCode);
         final domains = state.domainsForClassroom(selectedCode);
         final assessedCount = students
             .where((s) => state.studentAssessments(s.code, state.period).isNotEmpty)
             .length;
+        final activeFilterCount = state.tagFilter.length +
+            (state.statusFilter.length == 1 &&
+                    state.statusFilter.contains('ACTIVE')
+                ? 0
+                : state.statusFilter.length);
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
@@ -71,6 +77,11 @@ class StudentsListBody extends StatelessWidget {
                   period: state.period,
                   onChanged: cubit.setPeriodMonth,
                 ),
+                const SizedBox(width: 8),
+                _FilterButton(
+                  activeCount: activeFilterCount,
+                  onTap: () => showAssessmentFilterSheet(context),
+                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -85,7 +96,7 @@ class StudentsListBody extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (students.isEmpty)
-              const _Empty(message: 'No active students in this classroom.')
+              const _Empty(message: 'No students match the current filters.')
             else
               ...students.asMap().entries.map((e) => Entrance(
                     index: e.key,
@@ -127,6 +138,65 @@ class StudentsListBody extends StatelessWidget {
   }
 }
 
+/// Opens [showAssessmentFilterSheet]; shows a small badge when any filter is
+/// active beyond the default (active-only, no tags).
+class _FilterButton extends StatelessWidget {
+  const _FilterButton({required this.activeCount, required this.onTap});
+
+  final int activeCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          width: 48,
+          height: 48,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: AssessmentUi.hairline),
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              const Icon(Icons.tune_rounded,
+                  size: 19, color: AssessmentUi.ink),
+              if (activeCount > 0)
+                Positioned(
+                  right: -6,
+                  top: -6,
+                  child: Container(
+                    width: 16,
+                    height: 16,
+                    alignment: Alignment.center,
+                    decoration: const BoxDecoration(
+                      color: AppColors.themeColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Text(
+                      '$activeCount',
+                      style: const TextStyle(
+                        fontSize: 9.5,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StudentCard extends StatelessWidget {
   const _StudentCard({
     required this.student,
@@ -153,7 +223,7 @@ class _StudentCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
           decoration: AssessmentUi.softSurface(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -215,8 +285,9 @@ class _StudentCard extends StatelessWidget {
                       .map<Widget>((d) => Expanded(
                             child: Padding(
                               padding: const EdgeInsets.only(right: 5),
-                              child: DomainScoreTile(
-                                shortLabel: _short(d.name),
+                              child: _DomainScoreBadge(
+                                domainName: d.name,
+                                emoji: AssessmentUi.domainEmoji(d.id),
                                 score: AssessmentAggregation.domainAverage(
                                     records, d.id),
                               ),
@@ -231,8 +302,51 @@ class _StudentCard extends StatelessWidget {
       ),
     );
   }
+}
 
-  static String _short(String name) => name.split(' ').first;
+/// Compact domain glyph + score shown on a student card (replaces the
+/// previous domain-name label to save space); long-pressing reveals the full
+/// domain name via [Tooltip] (Flutter's default trigger mode on mobile).
+class _DomainScoreBadge extends StatelessWidget {
+  const _DomainScoreBadge({
+    required this.domainName,
+    required this.emoji,
+    required this.score,
+  });
+
+  final String domainName;
+  final String emoji;
+  final double? score;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = AssessmentUi.badgeStyle(score);
+    return Tooltip(
+      message: domainName,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
+        decoration: BoxDecoration(
+          color: style.background,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Column(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 13, height: 1.1)),
+            const SizedBox(height: 1),
+            Text(
+              score == null ? '–' : score!.toStringAsFixed(1),
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.1,
+                fontWeight: FontWeight.w800,
+                color: style.foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _StatusPill extends StatelessWidget {
