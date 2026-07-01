@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -200,6 +202,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       await _cubit.refreshSwitchProfileAvailability();
       if (!mounted) return;
       await _cubit.load(isParent: context.read<RoleCubit>().isParent);
+      if (!mounted) return;
+
+      // Land on the new persona's dashboard. DashboardScreen branches on
+      // RoleCubit, so this shows the correct (admin/staff/parent) dashboard and
+      // rebuilds it fresh — otherwise a stale screen lingers after the switch.
+      context.go(DashboardScreen.routeName);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(

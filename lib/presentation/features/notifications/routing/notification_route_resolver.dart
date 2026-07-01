@@ -60,8 +60,29 @@ class NotificationRouteResolver {
 
   /// Resolve a notification to its destination, or null when the action is
   /// unknown / has no in-app target.
-  static NotificationDestination? resolve(PushNotification n) {
+  ///
+  /// [isGuardian] is the **current user's** persona at tap time. Billing actions
+  /// open a different screen per persona (guardians → parent billing; staff /
+  /// admins → the dashboard billing screen), which the action string alone can't
+  /// express — so the caller passes the resolved persona in.
+  static NotificationDestination? resolve(
+    PushNotification n, {
+    bool isGuardian = false,
+  }) {
     final action = NotificationAction.canonical(n.action);
+
+    // Billing is persona-routed (see [_billingActions]). Guardians land on the
+    // parent billing screen, everyone else on the admin/dashboard billing
+    // screen. `invoiceCode` rides along as `highlightCode` so the row can be
+    // flashed once per-invoice highlighting is wired on the billing screens.
+    if (_billingActions.contains(action)) {
+      return _dest(
+        isGuardian ? AppRoutes.parentBilling : _billing,
+        n,
+        highlight: _kInvoice,
+      );
+    }
+
     final builder = _table[action];
     if (builder == null) return null;
     return builder(n);
@@ -102,6 +123,18 @@ class NotificationRouteResolver {
   // Movement cards match by integer id, so prefer `movement_id` for highlight.
   static const _kMovement = ['movement_id', 'movement_code', 'movementCode'];
   static const _kActivity = ['activityCode', 'activity_code'];
+  static const _kInvoice = ['invoiceCode', 'invoice_code'];
+
+  /// Billing actions are routed by the current user's persona in [resolve]
+  /// (guardian → parent billing, staff/admin → dashboard billing) rather than by
+  /// a fixed entry in [_table].
+  static const Set<String> _billingActions = <String>{
+    NotificationAction.invoiceGenerated,
+    NotificationAction.invoiceDue,
+    NotificationAction.paymentSuccess,
+    NotificationAction.billingPlanChanged,
+    NotificationAction.feeStructureChanged,
+  };
 
   /// Classroom routes also pre-select the dropdown via `classroomCode` (the
   /// existing ClassroomScreen contract), in addition to `highlightCode`.
@@ -362,17 +395,10 @@ class NotificationRouteResolver {
           queryParameters: {'tab': 'newsletter'},
         ),
 
-    // ── Billing (admin → /dashboard/billing, parent → parent billing) ────────
-    NotificationAction.invoiceGenerated: (n) =>
-        const NotificationDestination(path: _billing),
-    NotificationAction.billingPlanChanged: (n) =>
-        const NotificationDestination(path: _billing),
-    NotificationAction.feeStructureChanged: (n) =>
-        const NotificationDestination(path: _billing),
-    NotificationAction.invoiceDue: (n) =>
-        const NotificationDestination(path: AppRoutes.parentBilling),
-    NotificationAction.paymentSuccess: (n) =>
-        const NotificationDestination(path: AppRoutes.parentBilling),
+    // ── Billing ──────────────────────────────────────────────────────────────
+    // Persona-routed in [resolve] (guardian → parent billing, staff/admin →
+    // dashboard billing), so the billing actions are intentionally NOT in this
+    // table. See [_billingActions].
 
     // ── Settings (no settings screen in mobile → stay in notif center) ───────
     NotificationAction.schoolSettingsChanged: (n) =>
