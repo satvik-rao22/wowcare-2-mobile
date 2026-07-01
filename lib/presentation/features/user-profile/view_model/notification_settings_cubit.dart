@@ -86,6 +86,18 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
       final organizationCode = await _read(StorageKeys.organizationCode);
       final role = await _resolveRole(roleFallback);
 
+      // The service 500s on an empty schoolCode/userCode, so don't fire a
+      // request we know is malformed — show the (unticked) default matrix
+      // instead. Mirrors PaymentSettingsCubit's empty-school guard.
+      if (userCode.isEmpty || schoolCode.isEmpty) {
+        _changedRowTitles.clear();
+        emit(state.copyWith(
+          settings: _defaultSettings(),
+          isLoading: false,
+        ));
+        return;
+      }
+
       final prefs = await _getPreferences(
         userCode: userCode,
         schoolCode: schoolCode,
@@ -127,6 +139,17 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
       final schoolCode = await _read(StorageKeys.schoolCode);
       final organizationCode = await _read(StorageKeys.organizationCode);
       final role = await _resolveRole(roleFallback);
+
+      // Can't persist preferences without an active school — the service 500s
+      // on an empty schoolCode. Surface it instead of silently "saving".
+      if (userCode.isEmpty || schoolCode.isEmpty) {
+        emit(state.copyWith(
+          isSaving: false,
+          errorMessage: 'No active school selected. Please reselect a school '
+              'and try again.',
+        ));
+        return false;
+      }
 
       // Send ONLY the rows the user toggled (scoped to the active role). Each
       // changed row still fans out to all of its definition codes.
@@ -253,6 +276,7 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
     'New activity is recorded for my child',
     'Invoice is received',
     'Payment is successful / failed',
+    'Refund is initiated/successful/failed',
     'My child’s profile/details are updated',
     'Sign‑in alert just after start time (if not already done)',
     'Sign‑out alert just after end time (if not already done)',

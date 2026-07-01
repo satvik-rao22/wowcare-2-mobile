@@ -32,6 +32,7 @@ abstract final class NotificationRoles {
   static const Set<String> all = <String>{admin, staff, guardian};
   static const Set<String> adminStaff = <String>{admin, staff};
   static const Set<String> adminOnly = <String>{admin};
+  static const Set<String> staffOnly = <String>{staff};
   static const Set<String> guardianOnly = <String>{guardian};
 }
 
@@ -58,9 +59,13 @@ class NotificationPreferenceGroup {
 
 /// The source of truth for row ⇄ definition-code grouping.
 ///
-/// NOTE: codes are best-effort placeholders derived from the approved actions in
-/// `tools/NOTIFICATION_PAYLOADS.md`. Confirm/replace with the official 3cdot
-/// `definitionCode` values before release.
+/// This mirrors the web frontend's `NOTIFICATION_DEFINITIONS` source of truth
+/// (row label ⇄ categoryName ⇄ definitionCodes, grouped per persona). Almost all
+/// codes are the official 3cdot `*_DEF` values. The only remaining placeholders
+/// (which 3cdot hasn't turned into `*_DEF` codes yet) are Messaging
+/// (`MESSAGE_FROM_STAFF`/`MESSAGE_FROM_PARENT`) and ratio
+/// (`RATIO_BREACHED`/`CAPACITY_EXCEEDED`) — same as on web. Those are absent from
+/// [allowedDefinitionCodes] and won't persist until the backend adds them.
 class NotificationPreferenceCatalog {
   NotificationPreferenceCatalog._();
 
@@ -120,6 +125,21 @@ class NotificationPreferenceCatalog {
     'STAFF_MARKED_ABSENT_DEF',
     'STUD_ATTENDANCE_NOT_MARKED_DEF',
     'STAFF_ATTENDANCE_NOT_MARKED_DEF',
+    // Newsletter / Activity / Incidents
+    'NEWSLETTER_RECEIVED_DEF',
+    'ACTIVITY_RECORDED_DEF',
+    'INCIDENT_APPROVAL_PENDING_DEF',
+    // Billing — guardian (parent) facing
+    'INV_GEN_GUARD_DEF',
+    'INV_DUE_GUARD_DEF',
+    'PAY_SUC_GUARD_DEF',
+    'PAY_FAIL_GUARD_DEF',
+    'REF_INIT_GUARD_DEF',
+    'REF_SUC_GUARD_DEF',
+    'REF_FAIL_GUARD_DEF',
+    // Billing — admin facing
+    'INV_DUE_ADMIN_DEF',
+    'PAY_FAIL_ADMIN_DEF',
   };
 
   static const List<NotificationPreferenceGroup> groups =
@@ -145,6 +165,7 @@ class NotificationPreferenceCatalog {
       definitionCodes: <String>['RATIO_BREACHED', 'CAPACITY_EXCEEDED'],
       roles: NotificationRoles.adminStaff,
     ),
+    // Staff-only: admin gets these codes under "Today’s attendance…" instead.
     NotificationPreferenceGroup(
       title: 'Student is signed‑in / signed‑out (or marked absent)',
       categoryName: 'ATTENDANCE',
@@ -153,12 +174,18 @@ class NotificationPreferenceCatalog {
         'STUDENT_SIGN_OUT_DEF',
         'STUDENT_MARKED_ABSENT_DEF',
       ],
-      roles: NotificationRoles.adminStaff,
+      roles: NotificationRoles.staffOnly,
     ),
     NotificationPreferenceGroup(
       title: 'Today’s attendance is not marked for Students & Staff',
       categoryName: 'ATTENDANCE',
       definitionCodes: <String>[
+        'STUDENT_SIGN_IN_DEF',
+        'STUDENT_SIGN_OUT_DEF',
+        'STUDENT_MARKED_ABSENT_DEF',
+        'STAFF_SIGN_IN_DEF',
+        'STAFF_SIGN_OUT_DEF',
+        'STAFF_MARKED_ABSENT_DEF',
         'STUD_ATTENDANCE_NOT_MARKED_DEF',
         'STAFF_ATTENDANCE_NOT_MARKED_DEF',
       ],
@@ -169,7 +196,7 @@ class NotificationPreferenceCatalog {
     NotificationPreferenceGroup(
       title: 'Newsletter is received',
       categoryName: 'NEWSLETTER',
-      definitionCodes: <String>['NEWSLETTER_RECEIVED'],
+      definitionCodes: <String>['NEWSLETTER_RECEIVED_DEF'],
       roles: NotificationRoles.all,
     ),
 
@@ -178,7 +205,7 @@ class NotificationPreferenceCatalog {
       title: 'Student’s birthday',
       categoryName: 'STUDENT',
       definitionCodes: <String>['STUDENT_BIRTHDATE_NOT_ADDED_DEF'],
-      roles: NotificationRoles.adminStaff,
+      roles: NotificationRoles.staffOnly,
     ),
     NotificationPreferenceGroup(
       title: 'Students – Immunization (not added, upcoming, expiry/overdue)',
@@ -234,7 +261,7 @@ class NotificationPreferenceCatalog {
     NotificationPreferenceGroup(
       title: 'Upcoming student starting the school',
       categoryName: 'STUDENT',
-      definitionCodes: <String>['UPCOMING_STUDENT_START'],
+      definitionCodes: <String>['STUDENT_BIRTHDATE_NOT_ADDED_DEF'],
       roles: NotificationRoles.adminOnly,
     ),
 
@@ -242,14 +269,14 @@ class NotificationPreferenceCatalog {
     NotificationPreferenceGroup(
       title: 'Sign‑in alert just after shift start time (if not already done)',
       categoryName: 'SCHEDULING',
-      definitionCodes: <String>['STAFF_SIGN_IN_REMINDER'],
-      roles: NotificationRoles.adminStaff,
+      definitionCodes: <String>['STAFF_SIGN_IN_DEF'],
+      roles: NotificationRoles.staffOnly,
     ),
     NotificationPreferenceGroup(
       title: 'Sign‑out alert just after shift end time (if not already done)',
       categoryName: 'SCHEDULING',
-      definitionCodes: <String>['STAFF_SIGN_OUT_REMINDER'],
-      roles: NotificationRoles.adminStaff,
+      definitionCodes: <String>['STAFF_SIGN_OUT_DEF', 'STAFF_MARKED_ABSENT_DEF'],
+      roles: NotificationRoles.staffOnly,
     ),
     NotificationPreferenceGroup(
       title: 'My schedule when published/updated',
@@ -260,12 +287,18 @@ class NotificationPreferenceCatalog {
         'EDIT_SHIFT_DEF',
         'DELETE_SHIFT_DEF',
       ],
-      roles: NotificationRoles.adminStaff,
+      roles: NotificationRoles.staffOnly,
     ),
     NotificationPreferenceGroup(
       title: 'Classroom shifts/schedule needs attention',
       categoryName: 'SCHEDULING',
-      definitionCodes: <String>['SCHEDULE_UNDER_RATIO_DEF'],
+      definitionCodes: <String>[
+        'PUBLISH_SHIFT_DEF',
+        'UPCOMING_SHIFT_AND_BREAK_DEF',
+        'EDIT_SHIFT_DEF',
+        'DELETE_SHIFT_DEF',
+        'SCHEDULE_UNDER_RATIO_DEF',
+      ],
       roles: NotificationRoles.adminOnly,
     ),
 
@@ -287,7 +320,9 @@ class NotificationPreferenceCatalog {
     NotificationPreferenceGroup(
       title: 'Payment refunded / Failed',
       categoryName: 'BILLING',
-      definitionCodes: <String>['PAYMENT_FAILED', 'REFUND_FAILED'],
+      // Admin billing exposes invoice-due + failed-payment (there is no
+      // admin-facing refund definition; refunds are guardian-only).
+      definitionCodes: <String>['INV_DUE_ADMIN_DEF', 'PAY_FAIL_ADMIN_DEF'],
       roles: NotificationRoles.adminOnly,
     ),
 
@@ -295,10 +330,7 @@ class NotificationPreferenceCatalog {
     NotificationPreferenceGroup(
       title: 'Incident is approved/rejected/acknowledged',
       categoryName: 'ACTIVITIES',
-      definitionCodes: <String>[
-        'INCIDENT_APPROVAL_PENDING',
-        'INCIDENT_ACKNOWLEDGEMENT_PENDING',
-      ],
+      definitionCodes: <String>['INCIDENT_APPROVAL_PENDING_DEF'],
       roles: NotificationRoles.adminOnly,
     ),
 
@@ -316,37 +348,54 @@ class NotificationPreferenceCatalog {
     NotificationPreferenceGroup(
       title: 'New activity is recorded for my child',
       categoryName: 'ACTIVITIES',
-      definitionCodes: <String>['ACTIVITY_RECORDED'],
+      definitionCodes: <String>['ACTIVITY_RECORDED_DEF'],
       roles: NotificationRoles.guardianOnly,
     ),
     NotificationPreferenceGroup(
       title: 'Invoice is received',
       categoryName: 'BILLING',
-      definitionCodes: <String>['INVOICE_RECEIVED'],
+      definitionCodes: <String>['INV_GEN_GUARD_DEF', 'INV_DUE_GUARD_DEF'],
       roles: NotificationRoles.guardianOnly,
     ),
     NotificationPreferenceGroup(
       title: 'Payment is successful / failed',
       categoryName: 'BILLING',
-      definitionCodes: <String>['PAYMENT_SUCCESS', 'PAYMENT_FAILED'],
+      definitionCodes: <String>['PAY_SUC_GUARD_DEF', 'PAY_FAIL_GUARD_DEF'],
+      roles: NotificationRoles.guardianOnly,
+    ),
+    NotificationPreferenceGroup(
+      title: 'Refund is initiated/successful/failed',
+      categoryName: 'BILLING',
+      definitionCodes: <String>[
+        'REF_INIT_GUARD_DEF',
+        'REF_SUC_GUARD_DEF',
+        'REF_FAIL_GUARD_DEF',
+      ],
       roles: NotificationRoles.guardianOnly,
     ),
     NotificationPreferenceGroup(
       title: 'My child’s profile/details are updated',
       categoryName: 'STUDENT',
-      definitionCodes: <String>['STUDENT_DOCUMENT_CHANGED'],
+      definitionCodes: <String>[
+        'ADD_STUDENT_DEF',
+        'DEACTIVATE_STUDENT_DEF',
+        'DELETE_STUDENT_DEF',
+        'STUDENT_PARENT_NOT_ADDED_DEF',
+        'STUDENT_BIRTHDATE_NOT_ADDED_DEF',
+        'STUDENT_SCHEDULE_NOT_ADDED_DEF',
+      ],
       roles: NotificationRoles.guardianOnly,
     ),
     NotificationPreferenceGroup(
       title: 'Sign‑in alert just after start time (if not already done)',
       categoryName: 'ATTENDANCE',
-      definitionCodes: <String>['CHILD_SIGN_IN_REMINDER'],
+      definitionCodes: <String>['STUDENT_SIGN_IN_DEF'],
       roles: NotificationRoles.guardianOnly,
     ),
     NotificationPreferenceGroup(
       title: 'Sign‑out alert just after end time (if not already done)',
       categoryName: 'ATTENDANCE',
-      definitionCodes: <String>['CHILD_SIGN_OUT_REMINDER'],
+      definitionCodes: <String>['STUDENT_SIGN_OUT_DEF'],
       roles: NotificationRoles.guardianOnly,
     ),
   ];

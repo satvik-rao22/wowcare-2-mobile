@@ -258,7 +258,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Ratio is breached', 1, v),
                                   onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Ratio is breached', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
                                   title: 'Student is signed in/Signed out',
                                   inAppValue: state.settings['Student is signed‑in / signed‑out (or marked absent)']![0],
@@ -278,7 +278,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Newsletter is received', 1, v),
                                   onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Newsletter is received', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
                                   title: 'Student’s Birthday',
                                   inAppValue: state.settings['Student’s birthday']![0],
@@ -288,7 +288,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Student’s birthday', 1, v),
                                   onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Student’s birthday', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
                                   title: 'Sign in alert just after shift start (if not done already)',
                                   inAppValue: state.settings['Sign‑in alert just after shift start time (if not already done)']![0],
@@ -298,7 +298,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑in alert just after shift start time (if not already done)', 1, v),
                                   onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑in alert just after shift start time (if not already done)', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
                                   title: 'Sign out alert just after shift end (if not done already)',
                                   inAppValue: state.settings['Sign‑out alert just after shift end time (if not already done)']![0],
@@ -308,7 +308,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑out alert just after shift end time (if not already done)', 1, v),
                                   onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑out alert just after shift end time (if not already done)', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
                                   title: 'My schedule when published/updated',
                                   inAppValue: state.settings['My schedule when published/updated']![0],
@@ -481,6 +481,16 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                   onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment is successful / failed', 0, v),
                                   onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment is successful / failed', 1, v),
                                   onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment is successful / failed', 2, v),
+                                ),
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'Refund is initiated/successful/failed',
+                                  inAppValue: state.settings['Refund is initiated/successful/failed']![0],
+                                  emailValue: state.settings['Refund is initiated/successful/failed']![1],
+                                  pushValue: state.settings['Refund is initiated/successful/failed']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Refund is initiated/successful/failed', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Refund is initiated/successful/failed', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Refund is initiated/successful/failed', 2, v),
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
