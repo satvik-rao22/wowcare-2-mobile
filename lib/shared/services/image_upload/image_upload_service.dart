@@ -9,12 +9,47 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
 import '../../../core/util/api_constants.dart';
 import '../../../core/util/api_paths.dart';
+import '../../../core/util/logger_service.dart';
 import 'image_upload_models.dart';
 
 class ImageUploadService {
   ImageUploadService(this._apiClient);
 
   final ApiClient _apiClient;
+
+  /// Caches resolved delivery URLs by asset code so the same thumbnail is not
+  /// re-resolved over the network every time its widget rebuilds (e.g. on list
+  /// scroll/recycling). Asset URLs are stable once finalized.
+  final Map<String, String> _assetUrlCache = <String, String>{};
+
+  /// Dedupes concurrent resolutions of the same asset code so a list of cards
+  /// sharing one code issues a single network call.
+  final Map<String, Future<String>> _assetUrlInFlight = <String, Future<String>>{};
+
+  /// When an asset never finishes backend processing, [_waitForDocumentAssetUrlByCode]
+  /// gives up after its timeout — but on its own that's only a one-time
+  /// reprieve: a chat bubble's `AttachmentUrlResolver` re-creates its State
+  /// (and re-calls [getMediaAssetUrlByCode]) every time the message list
+  /// rebuilds (scroll recycling, a realtime delta for any other message,
+  /// the keyboard opening, …), which would otherwise restart a brand new
+  /// 15-second poll loop each time — visible as the same asset code being
+  /// GET-polled forever, minutes after it was first requested. Remembering
+  /// *when* an asset last failed lets us skip straight back to "still
+  /// unresolved" without hitting the network again until the cooldown
+  /// passes.
+  final Map<String, DateTime> _assetUrlFailedAt = <String, DateTime>{};
+  static const Duration _assetUrlFailureCooldown = Duration(seconds: 30);
+
+  /// Asset codes whose most recent media-asset poll reported
+  /// `status: "PROCESSING"` (or similar) rather than a hard failure — lets
+  /// the UI show "still processing" instead of a generic broken-image
+  /// state while the backend pipeline catches up.
+  final Set<String> _processingAssetCodes = <String>{};
+
+  /// True if [assetCode]'s most recent poll found it still backend-side
+  /// processing (no delivery URL yet, but not a failure either).
+  bool isAssetProcessing(String assetCode) =>
+      _processingAssetCodes.contains(assetCode.trim());
 
   Future<UploadSessionResult> createActivityUploadSession({
     required String organizationCode,
@@ -503,6 +538,83 @@ class ImageUploadService {
     return sessionCode;
   }
 
+  /// Bootstraps an upload session scoped to a conversation so a picked chat
+  /// attachment can go through the same generic presign → S3 PUT → complete
+  /// flow used by student/staff documents and activity media.
+  Future<UploadSessionResult> createConversationAttachmentUploadSession({
+    required String conversationCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingConversationUploadSessionPath(conversationCode.trim()),
+      ApiConstants.communicationBaseUrl,
+    );
+    // The messaging service reads org/school from the X-Organization-Code /
+    // X-School-Code headers (already attached by the API client interceptor
+    // for every request) rather than query params — confirmed against the
+    // working web-app request for this endpoint.
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{},
+    );
+    return _parseUploadSessionResponse(response.data);
+  }
+
+  /// Registers a completed document-service asset against the conversation.
+  /// Required before the asset can be referenced from `sendMessage` — the
+  /// messaging service tracks attachments by its own integer id, not by the
+  /// document service's asset code.
+  Future<int> registerConversationAttachment({
+    required String conversationCode,
+    required String assetCode,
+    required String originalFilename,
+    required String mimeType,
+    required int fileSizeBytes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingConversationAttachmentsPath(conversationCode.trim()),
+      ApiConstants.communicationBaseUrl,
+    );
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assetCode': assetCode,
+            'originalFilename': originalFilename,
+            'mimeType': mimeType,
+            'fileSize': fileSizeBytes,
+          },
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected attachment registration response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Failed to register attachment',
+      );
+    }
+
+    final data = body['data'];
+    final rawId = data is Map<String, dynamic>
+        ? (data['id'] ?? data['attachmentId'])
+        : null;
+    final attachmentId = rawId is int ? rawId : int.tryParse('$rawId');
+    if (attachmentId == null) {
+      throw Exception('Attachment registered but no id was returned');
+    }
+    return attachmentId;
+  }
+
   Future<UploadSessionResult> createStudentDocumentUploadSession({
     required String studentCode,
     required String schoolCode,
@@ -699,6 +811,7 @@ class ImageUploadService {
     final normalizedAssetCode = assetCode.trim();
     if (normalizedAssetCode.isEmpty) return '';
     final deadline = DateTime.now().add(timeout);
+    var hasLoggedFailure = false;
     while (true) {
       try {
         final endpoint =
@@ -707,19 +820,69 @@ class ImageUploadService {
         final response = await _apiClient.client.get<dynamic>(endpoint);
         final body = response.data;
         final resolved = _extractDocumentAssetUrl(body);
-        if (resolved.isNotEmpty) return resolved;
-      } catch (_) {
-        // Keep retrying for eventual consistency after finalize.
+        if (resolved.isNotEmpty) {
+          _processingAssetCodes.remove(normalizedAssetCode);
+          return resolved;
+        }
+        if (_extractDocumentAssetStatus(body) == 'PROCESSING') {
+          _processingAssetCodes.add(normalizedAssetCode);
+        }
+      } catch (e) {
+        // Keep retrying for eventual consistency after finalize, but log
+        // once per call so a 500/expired asset doesn't crash the app and
+        // doesn't spam the console once per poll tick.
+        if (!hasLoggedFailure) {
+          hasLoggedFailure = true;
+          AppLogger.e('Media asset lookup failed for $normalizedAssetCode', e);
+        }
       }
       if (DateTime.now().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }
 
+  /// Synchronous lookup of an already-resolved asset URL, or null if it has
+  /// not been resolved yet. Lets widgets seed a FutureBuilder with cached data
+  /// and skip the loading frame entirely.
+  String? cachedMediaAssetUrl(String assetCode) =>
+      _assetUrlCache[assetCode.trim()];
+
   Future<String> getMediaAssetUrlByCode({
     required String assetCode,
   }) async {
-    return _waitForDocumentAssetUrlByCode(assetCode: assetCode);
+    final normalized = assetCode.trim();
+    if (normalized.isEmpty) return '';
+
+    // Already resolved this session → return instantly, no loader.
+    final cached = _assetUrlCache[normalized];
+    if (cached != null) return cached;
+
+    // Failed (still backend-processing/unresolvable) recently → don't hit
+    // the network again until the cooldown passes, no matter how many times
+    // the calling widget gets rebuilt in the meantime.
+    final failedAt = _assetUrlFailedAt[normalized];
+    if (failedAt != null &&
+        DateTime.now().difference(failedAt) < _assetUrlFailureCooldown) {
+      return '';
+    }
+
+    // A resolution for this code is already running → share its result.
+    final inFlight = _assetUrlInFlight[normalized];
+    if (inFlight != null) return inFlight;
+
+    final future = _waitForDocumentAssetUrlByCode(assetCode: normalized)
+        .then((String url) {
+      if (url.isNotEmpty) {
+        _assetUrlCache[normalized] = url;
+        _assetUrlFailedAt.remove(normalized);
+      } else {
+        _assetUrlFailedAt[normalized] = DateTime.now();
+      }
+      return url;
+    }).whenComplete(() => _assetUrlInFlight.remove(normalized));
+
+    _assetUrlInFlight[normalized] = future;
+    return future;
   }
 
   UploadSessionResult _parseUploadSessionResponse(dynamic body) {
@@ -743,11 +906,25 @@ class ImageUploadService {
     final documentApiBasePath = (data['documentApiBasePath'] ?? '/api/v1')
         .toString()
         .trim();
+    final ownerType = (data['ownerType'] ?? '').toString().trim();
+    final ownerCode = (data['ownerCode'] ?? '').toString().trim();
     return UploadSessionResult(
       sessionCode: sessionCode,
       documentApiBasePath:
           documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+      ownerType: ownerType.isEmpty ? null : ownerType,
+      ownerCode: ownerCode.isEmpty ? null : ownerCode,
     );
+  }
+
+  /// The document service's coarse asset status (`PROCESSING`, `READY`,
+  /// `COMPLETED`, …), upper-cased for comparison. Used to tell "still
+  /// being processed, normal to wait" apart from a genuine failure.
+  String _extractDocumentAssetStatus(dynamic body) {
+    if (body is! Map) return '';
+    final data = body['data'];
+    if (data is! Map) return '';
+    return (data['status'] ?? '').toString().trim().toUpperCase();
   }
 
   String _extractDocumentAssetUrl(dynamic body) {

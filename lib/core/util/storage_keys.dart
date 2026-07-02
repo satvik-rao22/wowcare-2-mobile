@@ -1,6 +1,11 @@
 class StorageKeys {
   StorageKeys._();
 
+  /// Set once on first launch. Lives in SharedPreferences (wiped on iOS/Android
+  /// uninstall), so its ABSENCE means a fresh install — used to wipe Keychain
+  /// secure credentials that survive uninstall on iOS.
+  static const String appInstalledMarker = 'app_installed_marker_v1';
+
   // Storage Keys
   static const String accessToken = 'accessToken';
   static const String refreshToken = 'refreshToken';
@@ -8,6 +13,12 @@ class StorageKeys {
   static const String refreshExpiresIn = 'refreshExpiresIn';
   static const String tokenType = 'tokenType';
   static const String userCode = 'userCode';
+
+  /// JWT `sub` claim extracted from the access token at login time.
+  /// NOTE: the messaging backend stores the USR-/STF-... [userCode] as
+  /// `senderUserCode`, not this UUID. Use [userCode] for chat ownership checks.
+  static const String authUserId = 'authUserId';
+
   static const String email = 'email';
   static const String displayName = 'displayName';
   static const String firstLogin = 'firstLogin';
@@ -16,7 +27,11 @@ class StorageKeys {
   static const String activeSchoolRole = 'activeSchoolRole';
   static const String rememberMe = 'rememberMe';
   static const String username = 'username';
-  static const String password = 'password';
+
+  /// SECURITY: the password is NEVER persisted. This key exists only so that
+  /// any plaintext value written by an old app version can be located and
+  /// purged on login/logout (see AuthLocalDataSource). Do not write to it.
+  static const String legacyPasswordPurgeKey = 'password';
   static const String loginCacheKey = 'login_cache';
   static const String loginCacheTimestamp = 'login_cache_timestamp';
   /// Currently selected org/school (used for API calls).

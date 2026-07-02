@@ -2,18 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/network/api_client.dart';
-import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 
 class ClassroomOverviewScreen extends StatefulWidget {
-  const ClassroomOverviewScreen({Key? key}) : super(key: key);
+  const ClassroomOverviewScreen({super.key, this.initialStudentFilter});
   static const routeName = '/classroom-overview-screen';
+  final String? initialStudentFilter;
 
   @override
-  State<ClassroomOverviewScreen> createState() => _ClassroomOverviewScreenState();
+  State<ClassroomOverviewScreen> createState() =>
+      _ClassroomOverviewScreenState();
 }
 
 class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
@@ -30,6 +33,16 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
   void initState() {
     super.initState();
     _cacheManager = CacheManager(serviceLocator());
+    if (widget.initialStudentFilter != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go(
+            StudentScreen.routeName,
+            extra: {'filter': widget.initialStudentFilter},
+          );
+        }
+      });
+    }
   }
 
   String _enrolledCountCacheKey(String classroomCode) {
@@ -50,9 +63,11 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
     final map = Map<String, dynamic>.from(data);
 
     setState(() {
-      _enrolledCount = (map['enrolledCount'] as num?)?.toInt() ?? _enrolledCount;
+      _enrolledCount =
+          (map['enrolledCount'] as num?)?.toInt() ?? _enrolledCount;
       _activeCount = (map['activeCount'] as num?)?.toInt() ?? _activeCount;
-      _upcomingCount = (map['upcomingCount'] as num?)?.toInt() ?? _upcomingCount;
+      _upcomingCount =
+          (map['upcomingCount'] as num?)?.toInt() ?? _upcomingCount;
       _loadedFromCacheOnce = true;
     });
   }
@@ -61,12 +76,8 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
     final code = classroomCode.trim();
     if (code.isEmpty) return;
 
-    final path = '/api/v1/student-classroom/enrolled-count/$code';
-    final url = ApiPaths.url(path);
-    final dio = serviceLocator<ApiClient>().client;
-
-    final response = await dio.get<dynamic>(url);
-    final body = response.data;
+    final body = await serviceLocator<ClassroomRepository>()
+        .getStudentClassroomEnrolledCount(classroomCode: code);
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected enrolled-count API response format');
     }
@@ -99,19 +110,21 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()
-        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
+      create: (_) =>
+          serviceLocator<ClassroomCubit>()
+            ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final totalClassrooms = state.classrooms.length;
-          final firstCode =
-              state.classrooms.isNotEmpty ? state.classrooms.first.code.trim() : '';
-          final effectiveCode =
-              (_selectedClassroomCode ?? '').trim().isNotEmpty
-                  ? _selectedClassroomCode!.trim()
-                  : firstCode;
+          final firstCode = state.classrooms.isNotEmpty
+              ? state.classrooms.first.code.trim()
+              : '';
+          final effectiveCode = (_selectedClassroomCode ?? '').trim().isNotEmpty
+              ? _selectedClassroomCode!.trim()
+              : firstCode;
 
-          if (effectiveCode.isNotEmpty && effectiveCode != _selectedClassroomCode) {
+          if (effectiveCode.isNotEmpty &&
+              effectiveCode != _selectedClassroomCode) {
             _selectedClassroomCode = effectiveCode;
             // No loader: show cached values immediately if available, then refresh.
             if (!_loadedFromCacheOnce) {
@@ -133,7 +146,9 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
               builder: (context, constraints) {
                 return SingleChildScrollView(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    constraints: BoxConstraints(
+                      minHeight: constraints.maxHeight,
+                    ),
                     child: Container(
                       color: Colors.white,
                       padding: const EdgeInsets.all(8),
@@ -216,6 +231,23 @@ class _EnrollmentOverviewCard extends StatelessWidget {
             rightColor: AppColors.mustardProgressBar,
             leftValue: activeCount.toDouble(),
             rightValue: upcomingCount.toDouble(),
+            onTitleTap: () {
+              context.go(
+                StudentScreen.routeName,
+              );
+            },
+            onLeftTap: () {
+              context.go(
+                StudentScreen.routeName,
+                extra: {'filter': 'ACTIVE'},
+              );
+            },
+            onRightTap: () {
+              context.go(
+                StudentScreen.routeName,
+                extra: {'filter': 'UPCOMING'},
+              );
+            },
           ),
           const SizedBox(height: 16),
           _SectionRow(
@@ -285,6 +317,9 @@ class _SectionRow extends StatelessWidget {
     required this.rightColor,
     this.leftValue = 0,
     this.rightValue = 0,
+    this.onTitleTap,
+    this.onLeftTap,
+    this.onRightTap,
   });
 
   final String title;
@@ -295,35 +330,65 @@ class _SectionRow extends StatelessWidget {
   final Color rightColor;
   final double leftValue;
   final double rightValue;
+  final VoidCallback? onTitleTap;
+  final VoidCallback? onLeftTap;
+  final VoidCallback? onRightTap;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                fontFamily: 'Manrope',
+        onTitleTap != null
+            ? GestureDetector(
+                onTap: onTitleTap,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Manrope',
+                      ),
+                    ),
+                    Text(
+                      value,
+                      style: const TextStyle(
+                        color: AppColors.themeColor,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: 'Manrope',
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      fontFamily: 'Manrope',
+                    ),
+                  ),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      color: AppColors.themeColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Manrope',
+                    ),
+                  ),
+                ],
               ),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                color: AppColors.themeColor,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Manrope',
-              ),
-            ),
-          ],
-        ),
         const SizedBox(height: 16),
         ClipRRect(
           borderRadius: BorderRadius.circular(10),
@@ -347,9 +412,23 @@ class _SectionRow extends StatelessWidget {
         const SizedBox(height: 8),
         Row(
           children: [
-            Expanded(child: _LegendDot(color: leftColor, label: leftLabel)),
+            Expanded(
+              child: onLeftTap != null
+                  ? GestureDetector(
+                      onTap: onLeftTap,
+                      child: _LegendDot(color: leftColor, label: leftLabel),
+                    )
+                  : _LegendDot(color: leftColor, label: leftLabel),
+            ),
             const SizedBox(width: 8),
-            Expanded(child: _LegendDot(color: rightColor, label: rightLabel)),
+            Expanded(
+              child: onRightTap != null
+                  ? GestureDetector(
+                      onTap: onRightTap,
+                      child: _LegendDot(color: rightColor, label: rightLabel),
+                    )
+                  : _LegendDot(color: rightColor, label: rightLabel),
+            ),
           ],
         ),
       ],
@@ -423,10 +502,7 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
               2: FlexColumnWidth(1),
               3: FlexColumnWidth(1),
             },
-            children: [
-              _ratioHeaderRow(),
-              _ratioEmptyRow(),
-            ],
+            children: [_ratioHeaderRow(), _ratioEmptyRow()],
           ),
         ],
       ),
@@ -537,4 +613,3 @@ class _RatioHeaderCell extends StatelessWidget {
     );
   }
 }
-

@@ -174,11 +174,7 @@ class _ClassroomStaffFilterScreenState extends State<ClassroomStaffFilterScreen>
               setState(() {
                 _selectedStatusUi
                   ..clear()
-                  ..addAll(
-                    selectedItems.isEmpty
-                        ? const <String>[]
-                        : <String>[selectedItems.last],
-                  );
+                  ..addAll(selectedItems);
               });
             },
           );

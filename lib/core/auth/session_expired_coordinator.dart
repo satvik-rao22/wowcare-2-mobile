@@ -1,25 +1,26 @@
 import 'dart:convert';
-
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
+import 'package:wowcare/domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
 
 /// When the refresh token is expired or refresh fails: call logout API, clear local
 /// session, reset [AuthCubit], and navigate to sign-in.
 class SessionExpiredCoordinator {
   SessionExpiredCoordinator._();
-  static final SessionExpiredCoordinator instance = SessionExpiredCoordinator._();
+  static final SessionExpiredCoordinator instance =
+      SessionExpiredCoordinator._();
 
   bool _busy = false;
 
@@ -33,6 +34,10 @@ class SessionExpiredCoordinator {
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();
       final cached = await authLocal.getCachedLoginResponse();
+
+      try {
+        await serviceLocator<UnregisterDeviceFcmTokenUseCase>()();
+      } catch (_) {}
 
       if (cached != null &&
           cached.refreshToken.isNotEmpty &&
@@ -61,16 +66,18 @@ class SessionExpiredCoordinator {
         }
       }
 
+      // clearCache() preserves the "Remember me" username + flag (password is in
+      // the secure store) so the sign-in form can pre-fill after a session
+      // expiry. Do NOT clearCredentials() — that would break the pre-fill.
       await authLocal.clearCache();
-      await authLocal.clearCredentials();
 
       final ctx = CoreUtils.rootNavigatorKey.currentContext;
       if (ctx != null && ctx.mounted) {
         try {
-          ctx.read<ParentChildProvider>().invalidate();
+          ctx.read<ParentChildCubit>().invalidate();
         } catch (_) {}
         try {
-          ctx.read<RoleProvider>().resetSessionForLogout();
+          ctx.read<RoleCubit>().resetSessionForLogout();
         } catch (_) {}
         try {
           ctx.read<AuthCubit>().logout();
@@ -80,10 +87,11 @@ class SessionExpiredCoordinator {
           message: userMessage,
           isError: true,
         );
-        Navigator.of(ctx, rootNavigator: true).pushAndRemoveUntil(
-          MaterialPageRoute<void>(builder: (_) => const SignInScreen()),
-          (_) => false,
-        );
+        // Navigate via go_router (the app's router). An imperative
+        // Navigator.pushAndRemoveUntil doesn't stick here because go_router
+        // re-syncs to its configured location, leaving the user on the
+        // previous (logged-in) screen.
+        ctx.go(SignInScreen.routeName);
       }
     } finally {
       _busy = false;

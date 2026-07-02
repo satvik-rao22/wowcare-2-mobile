@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/data/features/student/models/student_pickup_models.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/entities/student_pickup.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
@@ -34,16 +33,14 @@ class StudentPickupTabCard extends StatefulWidget {
   final String? studentCode;
   final Future<void> Function()? onRefresh;
 
-
   @override
-  State<StudentPickupTabCard> createState() =>
-      _StudentPickupTabCardState();
+  State<StudentPickupTabCard> createState() => _StudentPickupTabCardState();
 }
 
 class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
   static const int _maxPickupsPerStudent = 4;
 
-  late Future<List<StudentPickupModel>> _pickupsFuture;
+  late Future<List<StudentPickup>> _pickupsFuture;
   bool _isMutating = false;
 
   @override
@@ -52,13 +49,16 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
     _pickupsFuture = _buildPickupsFuture();
   }
 
-  Future<List<StudentPickupModel>> _buildPickupsFuture({bool forceRefresh = false}) {
+  Future<List<StudentPickup>> _buildPickupsFuture({bool forceRefresh = false}) {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
-      return Future.value(const <StudentPickupModel>[]);
+      return Future.value(const <StudentPickup>[]);
     }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-    return repo.getStudentPickups(studentCode: code, forceRefresh: forceRefresh);
+    final repo = serviceLocator<StudentRepository>();
+    return repo.getStudentPickups(
+      studentCode: code,
+      forceRefresh: forceRefresh,
+    );
   }
 
   Future<void> _handleRefresh() async {
@@ -75,9 +75,9 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -85,7 +85,8 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
+          // Space between the tab bar and the heading/+ row.
+          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
           child: Column(
             children: [
               Padding(
@@ -106,10 +107,10 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         onTap: () async {
                           final code = widget.studentCode ?? '';
                           if (code.isEmpty) return;
-                          final repo =
-                              serviceLocator<StudentRepository>() as StudentRepositoryImpl;
-                          final current =
-                              await repo.getStudentPickups(studentCode: code);
+                          final repo = serviceLocator<StudentRepository>();
+                          final current = await repo.getStudentPickups(
+                            studentCode: code,
+                          );
                           if (current.length >= _maxPickupsPerStudent) {
                             if (!mounted) return;
                             CoreUtils.showTopSnackBar(
@@ -122,7 +123,8 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           }
                           final result = await Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => AddPickupScreen(studentCode: code),
+                              builder: (_) =>
+                                  AddPickupScreen(studentCode: code),
                             ),
                           );
                           if (result == true && mounted) {
@@ -139,17 +141,11 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<StudentPickupModel>>(
+              FutureBuilder<List<StudentPickup>>(
                 future: _pickupsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(
-                        size: 28,
-                        strokeWidth: 2.5,
-                      ),
-                    );
+                    return const StudentDetailCardsShimmer();
                   }
 
                   if (snapshot.hasError) {
@@ -165,7 +161,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                     );
                   }
 
-                  final pickups = snapshot.data ?? const <StudentPickupModel>[];
+                  final pickups = snapshot.data ?? const <StudentPickup>[];
                   if (pickups.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -190,18 +186,21 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                           relation: _formatRelation(pickups[i].relation),
                           email: _valueOrDash(pickups[i].email),
                           rawEmail: pickups[i].email,
-                          phoneNumber: _formatPhoneNumber(pickups[i].phoneNumber),
+                          phoneNumber: _formatPhoneNumber(
+                            pickups[i].phoneNumber,
+                          ),
                           rawRelation: pickups[i].relation,
                           rawPhoneNumber: pickups[i].phoneNumber,
                           firstName: pickups[i].firstName,
                           lastName: pickups[i].lastName,
+                          photoUrl: pickups[i].profilePhotoUrl,
+                          photoAssetCode: pickups[i].profilePhotoAssetCode,
                           onRefresh: _handleRefresh,
                           isLoading: _isMutating,
                           onSetLoading: (v) => setState(() => _isMutating = v),
                           showActionButtons: canStudentWrite,
                         ),
-                        if (i != pickups.length - 1)
-                          const SizedBox(height: 12),
+                        if (i != pickups.length - 1) const SizedBox(height: 12),
                       ],
                     ],
                   );
@@ -213,7 +212,6 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
       ),
     );
   }
-
 }
 
 String _valueOrDash(String? v) {
@@ -266,6 +264,8 @@ class _PickupCard extends StatefulWidget {
     this.phoneNumber,
     this.onRefresh,
     this.showActionButtons = true,
+    this.photoUrl,
+    this.photoAssetCode,
   });
   final String studentCode;
   final String pickupCode;
@@ -282,6 +282,9 @@ class _PickupCard extends StatefulWidget {
   final String? email;
   final String? rawEmail;
   final String? phoneNumber;
+  final String? photoUrl;
+  final String? photoAssetCode;
+
   /// Called after edit or delete so parent can refresh pickups list and profile cache.
   final Future<void> Function()? onRefresh;
   final bool showActionButtons;
@@ -304,8 +307,9 @@ class _PickupCardState extends State<_PickupCard> {
       MaterialPageRoute(
         builder: (_) => AddPickupScreen(
           studentCode: widget.studentCode,
-          pickupCode:
-              widget.pickupCode.trim().isEmpty ? null : widget.pickupCode,
+          pickupCode: widget.pickupCode.trim().isEmpty
+              ? null
+              : widget.pickupCode,
           initialFirstName: widget.firstName,
           initialLastName: widget.lastName,
           initialEmail: widget.rawEmail,
@@ -340,7 +344,7 @@ class _PickupCardState extends State<_PickupCard> {
             }
             widget.onSetLoading(true);
             try {
-              final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+              final repo = serviceLocator<StudentRepository>();
               final message = await repo.deletePickup(
                 code: widget.pickupCode,
                 studentCode: widget.studentCode,
@@ -381,10 +385,17 @@ class _PickupCardState extends State<_PickupCard> {
         return IntrinsicHeight(
           child: Container(
             width: constraints.maxWidth,
-            decoration: BoxDecoration(
+            // Match the Health tab cards: themeColor outline, square top-left.
+            decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
+              borderRadius: BorderRadius.only(
+                topRight: Radius.circular(8),
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(8),
+              ),
+              border: Border.fromBorderSide(
+                BorderSide(color: AppColors.themeColor, width: 1),
+              ),
             ),
             clipBehavior: Clip.antiAlias,
             child: Column(
@@ -399,6 +410,13 @@ class _PickupCardState extends State<_PickupCard> {
                     children: [
                       DocumentImageWidget(
                         fileUuid: '',
+                        imageUrl: (widget.photoUrl ?? '').trim().isNotEmpty
+                            ? widget.photoUrl!.trim()
+                            : null,
+                        mediaAssetCode:
+                            (widget.photoAssetCode ?? '').trim().isNotEmpty
+                            ? widget.photoAssetCode!.trim()
+                            : null,
                         name: widget.name,
                         size: 50,
                       ),
@@ -434,16 +452,16 @@ class _PickupCardState extends State<_PickupCard> {
                           Text(
                             'Type',
                             style: AppTextStyles.label.copyWith(
-                              color: AppColors.primaryColor.withOpacity(0.5),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.5,
+                              ),
                               fontSize: 14,
                               letterSpacing: 14 * (-3 / 100),
                             ),
                           ),
                           Text(
                             _formatPickupType(widget.pickupType),
-                            style: AppTextStyles.value.copyWith(
-                              fontSize: 15,
-                            ),
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
                           ),
                         ],
                       ),
@@ -455,16 +473,16 @@ class _PickupCardState extends State<_PickupCard> {
                           Text(
                             'Relation',
                             style: AppTextStyles.label.copyWith(
-                              color: AppColors.primaryColor.withOpacity(0.5),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.5,
+                              ),
                               fontSize: 14,
                               letterSpacing: 14 * (-3 / 100),
                             ),
                           ),
                           Text(
                             widget.relation ?? '-',
-                            style: AppTextStyles.value.copyWith(
-                              fontSize: 15,
-                            ),
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
                           ),
                         ],
                       ),
@@ -476,7 +494,9 @@ class _PickupCardState extends State<_PickupCard> {
                           Text(
                             'Email ID',
                             style: AppTextStyles.label.copyWith(
-                              color: AppColors.primaryColor.withOpacity(0.5),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.5,
+                              ),
                               fontSize: 14,
                               letterSpacing: 14 * (-3 / 100),
                             ),
@@ -488,9 +508,7 @@ class _PickupCardState extends State<_PickupCard> {
                                       widget.email != '-')
                                   ? widget.email!
                                   : '-',
-                              style: AppTextStyles.value.copyWith(
-                                fontSize: 15,
-                              ),
+                              style: AppTextStyles.value.copyWith(fontSize: 15),
                               overflow: TextOverflow.ellipsis,
                               textAlign: TextAlign.right,
                             ),
@@ -505,16 +523,16 @@ class _PickupCardState extends State<_PickupCard> {
                           Text(
                             'Phone Number',
                             style: AppTextStyles.label.copyWith(
-                              color: AppColors.primaryColor.withOpacity(0.5),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.5,
+                              ),
                               fontSize: 14,
                               letterSpacing: 14 * (-3 / 100),
                             ),
                           ),
                           Text(
                             widget.phoneNumber ?? '-',
-                            style: AppTextStyles.value.copyWith(
-                              fontSize: 15,
-                            ),
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
                           ),
                         ],
                       ),
@@ -523,7 +541,9 @@ class _PickupCardState extends State<_PickupCard> {
                         if (isCarpool)
                           CustomButtonLayout(
                             confirmButtonLabel: 'Delete',
-                            onPressedConfirm: widget.isLoading ? null : _onDelete,
+                            onPressedConfirm: widget.isLoading
+                                ? null
+                                : _onDelete,
                             showCancelButton: false,
                             isForm: false,
                             isLoading: widget.isLoading,
@@ -533,7 +553,9 @@ class _PickupCardState extends State<_PickupCard> {
                             confirmButtonLabel: 'Edit',
                             cancelButtonLabel: 'Delete',
                             onPressedConfirm: widget.isLoading ? null : _onEdit,
-                            onPressedCancel: widget.isLoading ? null : _onDelete,
+                            onPressedCancel: widget.isLoading
+                                ? null
+                                : _onDelete,
                             isForm: false,
                             isLoading: widget.isLoading,
                           ),
@@ -550,19 +572,3 @@ class _PickupCardState extends State<_PickupCard> {
     );
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

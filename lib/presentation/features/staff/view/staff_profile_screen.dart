@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -17,9 +19,10 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.da
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_documents_tab.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 class StaffProfileScreen extends StatefulWidget {
   static const String routeName = '/dashboard/staff-profile';
@@ -34,17 +37,30 @@ class StaffProfileScreen extends StatefulWidget {
     this.employmentStatus,
     this.classroomNames,
     this.classroomNameByCode,
+    this.initialTabIndex = 0,
+    this.highlightCode,
   });
+
+  /// Tab to open on entry (0 Profile, 1 Dates, 2 Documents) — set by
+  /// notification deep-links.
+  final int initialTabIndex;
+
+  /// Row code to highlight inside the opened tab (e.g. documentCode on the
+  /// Documents tab). Null for normal navigation.
+  final String? highlightCode;
 
   final String staffCode;
   final String name;
+
   /// API employment status (e.g. ACTIVE, UPCOMING) for avatar status dot.
   final String? employmentStatus;
   final String classroom;
   final String designation;
   final String phoneNumber;
+
   /// Optional cached classroom names from StaffScreen (to avoid re-calling classrooms API).
   final List<String>? classroomNames;
+
   /// Optional mapping from classroom code -> display name.
   final Map<String, String>? classroomNameByCode;
 
@@ -55,7 +71,6 @@ class StaffProfileScreen extends StatefulWidget {
 class _StaffProfileScreenState extends State<StaffProfileScreen>
     with TickerProviderStateMixin {
   late TabController _tabController;
-  final ImagePicker _picker = ImagePicker();
 
   late String _displayName;
   late String _displayDesignation;
@@ -82,22 +97,33 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     if (upper == 'PART_TIME') return 'Part-Time';
 
     final parts = upper.split(RegExp(r'[_\s]+'));
-    final words = parts.map((part) {
-      if (part.isEmpty) return '';
-      final lower = part.toLowerCase();
-      return lower[0].toUpperCase() + lower.substring(1);
-    }).where((w) => w.isNotEmpty);
+    final words = parts
+        .map((part) {
+          if (part.isEmpty) return '';
+          final lower = part.toLowerCase();
+          return lower[0].toUpperCase() + lower.substring(1);
+        })
+        .where((w) => w.isNotEmpty);
     return words.join(' ');
   }
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _displayName = widget.name;
     _displayDesignation = _formatEnumLabel(widget.designation);
     _displayClassroom = widget.classroom;
     _loadUploadContext();
+    // Deep-link case: opened by code straight to a non-Profile tab. The summary
+    // (name/designation/classroom) is normally pushed up by the Profile tab,
+    // which TabBarView builds lazily — so it never runs when we land on Dates or
+    // Documents. Fetch here too so the header loads regardless of the tab.
+    _ensureHeaderProfileLoaded();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       // If classroom is a code (or not present in passed cache), resolve using
@@ -106,10 +132,43 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     });
   }
 
+  /// Loads the staff profile at the screen level so the header (name,
+  /// designation, classroom, photo) populates even when the user deep-links
+  /// straight to a tab other than Profile. Only runs when we were opened by code
+  /// without a pre-supplied name (the notification-redirect path).
+  Future<void> _ensureHeaderProfileLoaded() async {
+    final code = widget.staffCode.trim();
+    if (code.isEmpty || _displayName.trim().isNotEmpty) return;
+    try {
+      final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+        staffCode: code,
+      );
+      if (!mounted) return;
+      setState(() {
+        final name = profile.fullName.trim();
+        if (name.isNotEmpty) _displayName = name;
+        final designation = profile.designation.trim();
+        if (designation.isNotEmpty) {
+          _displayDesignation = _formatEnumLabel(designation);
+        }
+        final photo = profile.profilePhotoUrl.trim();
+        if (photo.isNotEmpty) _profilePhotoUrl = photo;
+      });
+      // Prefer the human-readable name the API already returns; fall back to the
+      // code (which _applyHeaderClassroomFromProfile then resolves to a name).
+      final classroomName = profile.primaryClassroomName.trim();
+      _applyHeaderClassroomFromProfile(
+        classroomName.isNotEmpty ? classroomName : profile.primaryClassroomCode,
+      );
+    } catch (_) {
+      // Profile tab's own load still surfaces errors when visited.
+    }
+  }
+
   Future<void> _loadUploadContext() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     if (!mounted) return;
@@ -147,8 +206,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     setState(() => _isResolvingClassroom = true);
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       // Try active-classrooms list first (fast, cached on backend).
       if (schoolCode.isNotEmpty) {
         final useCase = serviceLocator<GetActiveClassroomsUseCase>();
@@ -171,7 +230,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       }
 
       // Fallback: fetch by code (works even when not in active list).
-      final details = await serviceLocator<GetClassroomByCodeUseCase>()(code: raw);
+      final details = await serviceLocator<GetClassroomByCodeUseCase>()(
+        code: raw,
+      );
       final name = details.name.trim();
       if (!mounted) return;
       if (name.isNotEmpty) {
@@ -218,8 +279,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
 
   Future<void> _pickProfileImage() async {
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
+      // Shared file picker → every allowed image format is selectable.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
+      );
+      final imagePath = picked?.path;
+      if (imagePath == null || imagePath.isEmpty) return;
       final staffCode = widget.staffCode.trim();
       if (staffCode.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -247,16 +313,20 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       setState(() => _isUploadingProfilePhoto = true);
       setState(() => _profilePhotoUploadPercent = 0);
       final uploadService = serviceLocator<ImageUploadService>();
-      final file = File(image.path);
-      final sessionCode = await uploadService.createStaffProfilePhotoUploadSession(
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-      );
+      final file = File(imagePath);
+      final sessionCode = await uploadService
+          .createStaffProfilePhotoUploadSession(
+            staffCode: staffCode,
+            schoolCode: schoolCode,
+            organizationCode: organizationCode,
+          );
       if (mounted) setState(() => _profilePhotoUploadPercent = 15);
-      final lowerPath = image.path.toLowerCase();
+      final lowerPath = imagePath.toLowerCase();
       final fileName = lowerPath.split(Platform.pathSeparator).last;
-      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      final mime = FilePickerUtils.getMimeType(
+        fileName.contains('.') ? fileName.split('.').last : '',
+      );
+      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
       final presign = await uploadService.createAssetPresign(
         sessionCode: sessionCode,
         documentApiBasePath: '/api/v1',
@@ -337,7 +407,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   Widget build(BuildContext context) {
     return GlobalScaffold(
       hasBackButton: true,
-      showCustomNavigationBar: false,
+      showCustomNavigationBar: true,
       body: Column(
         children: [
           SingleChildScrollView(
@@ -357,12 +427,14 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
-                color: AppColors.primaryColor.withOpacity(0.5),
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
                 fontFamily: 'Manrope',
                 fontSize: 16,
               ),
               labelColor: Colors.black,
-              unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
+              unselectedLabelColor: AppColors.primaryColor.withValues(
+                alpha: 0.5,
+              ),
               tabAlignment: TabAlignment.center,
               tabs: const [
                 Tab(text: 'Profile'),
@@ -384,15 +456,18 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   classroomNameByCode: widget.classroomNameByCode,
                   onProfileSummaryChanged:
                       (String name, String classroom, String designation) {
-                    setState(() {
-                      _displayName = name;
-                      _displayDesignation = _formatEnumLabel(designation);
-                    });
-                    _applyHeaderClassroomFromProfile(classroom);
-                  },
+                        setState(() {
+                          _displayName = name;
+                          _displayDesignation = _formatEnumLabel(designation);
+                        });
+                        _applyHeaderClassroomFromProfile(classroom);
+                      },
                 ),
                 StaffDatesTab(staffCode: widget.staffCode),
-                StaffDocumentsTab(staffCode: widget.staffCode),
+                StaffDocumentsTab(
+                  staffCode: widget.staffCode,
+                  highlightCode: widget.highlightCode,
+                ),
               ],
             ),
           ),
@@ -419,7 +494,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       DocumentImageWidget(
                         fileUuid: widget.staffCode,
                         imageUrl: _profilePhotoUrl,
-                        name: widget.name,
+                        // Use the resolved display name so the no-photo branch
+                        // renders the coloured initials avatar. On a deep-link
+                        // widget.name starts empty, which fell back to the grey
+                        // placeholder instead of initials.
+                        name: _displayName.trim().isNotEmpty
+                            ? _displayName
+                            : widget.name,
                         staffCode: widget.staffCode,
                         staffEmploymentStatus: widget.employmentStatus,
                         size: 90,
@@ -440,10 +521,12 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                   vertical: 7,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primaryColor.withOpacity(0.25),
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.25,
+                                  ),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: Colors.white.withOpacity(0.22),
+                                    color: Colors.white.withValues(alpha: 0.22),
                                   ),
                                 ),
                                 child: Column(
@@ -461,27 +544,31 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                     ClipRRect(
                                       borderRadius: BorderRadius.circular(999),
                                       child: LinearProgressIndicator(
-                                        value: (_profilePhotoUploadPercent / 100)
-                                            .clamp(0.0, 1.0),
+                                        value:
+                                            (_profilePhotoUploadPercent / 100)
+                                                .clamp(0.0, 1.0),
                                         minHeight: 4,
-                                        backgroundColor:
-                                            Colors.white.withOpacity(0.22),
+                                        backgroundColor: Colors.white
+                                            .withValues(alpha: 0.22),
                                         valueColor:
                                             const AlwaysStoppedAnimation<Color>(
-                                          AppColors.themeColor,
-                                        ),
+                                              AppColors.themeColor,
+                                            ),
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         SvgPicture.asset(
                                           MediaRes.uploadIcon,
                                           height: 10,
                                           width: 10,
                                           colorFilter: ColorFilter.mode(
-                                            Colors.white.withOpacity(0.92),
+                                            Colors.white.withValues(
+                                              alpha: 0.92,
+                                            ),
                                             BlendMode.srcIn,
                                           ),
                                         ),
@@ -491,7 +578,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                               ? 'Finalizing'
                                               : 'Uploading',
                                           style: TextStyle(
-                                            color: Colors.white.withOpacity(0.92),
+                                            color: Colors.white.withValues(
+                                              alpha: 0.92,
+                                            ),
                                             fontSize: 10,
                                             fontWeight: FontWeight.w600,
                                           ),
@@ -514,7 +603,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.08),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
                             ],
                           ),
                           child: Container(
@@ -523,7 +616,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                               gradient: AppColors.buildPrimaryGradient(),
                               borderRadius: BorderRadius.circular(14),
                             ),
-                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                            child: const Icon(
+                              Icons.camera_alt,
+                              color: Colors.white,
+                              size: 16,
+                            ),
                           ),
                         ),
                       ),
@@ -550,7 +647,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       Text(
                         _displayDesignation,
                         style: TextStyle(
-                          color: AppColors.primaryColor.withOpacity(0.7),
+                          color: AppColors.primaryColor.withValues(alpha: 0.7),
                           fontSize: 14,
                           fontWeight: FontWeight.w500,
                         ),
@@ -559,7 +656,10 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                       ),
                       const SizedBox(height: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.blue[50],
                           borderRadius: BorderRadius.circular(4),
@@ -594,45 +694,60 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildActionIcon(MediaRes.calenderClockIcon, onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StudentAttendanceProfile(
-                  studentCode: '',
-                  studentId: 0, // Staff profile - using placeholder ID
-                  studentName: widget.name,
-                  studentPhotoUuid: null,
-                  roomName: widget.classroom,
-                  isSignedIn: false,
-                  isAbsent: false,
-                  isExpectedToday: true,
-                  isPresentToday: false,
-                  profileStatus: 'A',
+          _buildActionIcon(
+            MediaRes.calenderClockIcon,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StudentAttendanceProfile(
+                    studentCode: '',
+                    studentId: 0, // Staff profile - using placeholder ID
+                    studentName: widget.name,
+                    studentPhotoUuid: null,
+                    roomName: widget.classroom,
+                    isSignedIn: false,
+                    isAbsent: false,
+                    isExpectedToday: true,
+                    isPresentToday: false,
+                    profileStatus: 'A',
+                  ),
                 ),
-              ),
-            );
-          }),
-          _buildActionIcon(MediaRes.timerIcon, onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StudentAttendanceProfile(
-                  studentCode: '',
-                  studentId: 0, // Staff profile - using placeholder ID
-                  studentName: widget.name,
-                  studentPhotoUuid: null,
-                  roomName: widget.classroom,
-                  isSignedIn: false,
-                  isAbsent: false,
-                  isExpectedToday: true,
-                  isPresentToday: false,
-                  profileStatus: 'A',
-                ),
-              ),
-            );
-          }),
-          _buildActionIcon(MediaRes.communicationIcon, onTap: () {}),
+              );
+            },
+          ),
+          // Staff Scheduling — opens scheduling pre-selected on this staff.
+          _buildActionIcon(
+            MediaRes.staff_Schedule_drawer_icon,
+            onTap: () {
+              final code = widget.staffCode.trim();
+              if (code.isEmpty) return;
+              context.go(
+                Uri(
+                  path: StaffSchedulingScreen.routeName,
+                  queryParameters: <String, String>{'staffCode': code},
+                ).toString(),
+              );
+            },
+          ),
+          _buildActionIcon(
+            MediaRes.communicationIcon,
+            onTap: () {
+              final code = widget.staffCode.trim();
+              if (code.isEmpty) return;
+              openMessagingShortcut(
+                context,
+                recipients: [
+                  SelectedRecipient(
+                    code: code,
+                    name: widget.name,
+                    isStaff: true,
+                    designation: widget.designation,
+                  ),
+                ],
+              );
+            },
+          ),
         ],
       ),
     );
@@ -655,14 +770,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                     BlendMode.srcIn,
                   ),
                 )
-              : Image.asset(
-                  asset,
-                  height: 28,
-                  color: Colors.white,
-                ),
+              : Image.asset(asset, height: 28, color: Colors.white),
         ),
       ),
     );
   }
-
 }

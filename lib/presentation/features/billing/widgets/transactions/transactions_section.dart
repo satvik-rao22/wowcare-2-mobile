@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/amount_invoiced_stat_bar.dart';
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
+import 'package:wowcare/presentation/features/billing/widgets/create_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/models/student_models.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/billing_transaction_card.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/send_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/receive_payment_issue_refund_screen.dart';
@@ -12,240 +18,196 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class TransactionsSection extends StatefulWidget {
-  const TransactionsSection({super.key});
+  const TransactionsSection({
+    super.key,
+    this.onRegisterRefresh,
+    this.onRegisterLoadNextPage,
+    this.onLoadMoreNeeded,
+    this.initialFilter,
+    this.onNavigateToOutstanding,
+  });
+
+  /// Lets the parent (Billing page) trigger a pull-to-refresh of this tab.
+  final void Function(Future<void> Function())? onRegisterRefresh;
+
+  /// Registers the "load next page" callback with the parent's scroll handler.
+  final void Function(VoidCallback)? onRegisterLoadNextPage;
+
+  /// Asks the parent to re-check whether the next page should load (e.g. when
+  /// the current content doesn't fill the viewport).
+  final VoidCallback? onLoadMoreNeeded;
+
+  /// A summary-card filter to apply on first load — set when the user taps a
+  /// filter on the Student(s) tab and is routed here. Ignored for Outstanding.
+  final BillingSummaryFilter? initialFilter;
+
+  /// Routes an Outstanding tap back to the Student(s) tab (Outstanding lives
+  /// there, not in the Transactions list).
+  final VoidCallback? onNavigateToOutstanding;
 
   @override
   State<TransactionsSection> createState() => _TransactionsSectionState();
 }
 
 class _TransactionsSectionState extends State<TransactionsSection> {
+  late final TransactionsCubit _cubit = serviceLocator<TransactionsCubit>();
   final TextEditingController _searchController = TextEditingController();
 
-  // TODO: Replace with real API data when the backend is ready.
-  final List<_TransactionRecord> _transactions = <_TransactionRecord>[
-    _TransactionRecord(
-      status: TransactionStatus.paid,
-      item: TransactionItem(
-        id: 1001,
-        transactionType: 'Invoice',
-        date: DateTime(2025, 11, 2, 9, 30),
-        amount: 275.0,
-        status: 'Sent',
-        description: 'Tuition Invoice November',
-        studentName: 'John Doe',
-        classroom: 'Grade 5 - A',
-        studentId: 201,
-        refTable: 'Invoice',
-        refTableId: 5001,
-        paymentMode: 'Bank Transfer',
-        balance: 0,
-        note: 'Paid in full',
-        endDate: '2025-11-10',
-        studentOpenBalance: 0,
-      ),
-    ),
-    _TransactionRecord(
-      status: TransactionStatus.inProcess,
-      item: TransactionItem(
-        id: 1002,
-        transactionType: 'Invoice',
-        date: DateTime(2025, 11, 4, 14, 10),
-        amount: 190.0,
-        status: 'In-Process',
-        description: 'After School Activities',
-        studentName: 'Emily Carter',
-        classroom: 'Grade 3 - B',
-        studentId: 202,
-        refTable: 'Invoice',
-        refTableId: 5002,
-        paymentMode: 'Credit Card',
-        balance: 90.0,
-        note: 'Awaiting payment confirmation',
-        endDate: '2025-11-12',
-        studentOpenBalance: 90.0,
-      ),
-    ),
-    _TransactionRecord(
-      status: TransactionStatus.unpaid,
-      item: TransactionItem(
-        id: 1003,
-        transactionType: 'Payment',
-        date: DateTime(2025, 11, 4, 16, 45),
-        amount: 210.0,
-        status: 'Draft',
-        description: 'Transportation Plan',
-        studentName: 'Liam Johnson',
-        classroom: 'Grade 1 - C',
-        studentId: 203,
-        refTable: 'Payment',
-        refTableId: 6001,
-        paymentMode: 'ACH',
-        balance: 210.0,
-        note: 'Parent requested ACH',
-        endDate: '2025-11-18',
-        studentOpenBalance: 210.0,
-      ),
-    ),
-    _TransactionRecord(
-      status: TransactionStatus.paid,
-      item: TransactionItem(
-        id: 1004,
-        transactionType: 'Payment',
-        date: DateTime(2025, 11, 6, 10, 5),
-        amount: 320.0,
-        status: 'Success',
-        description: 'Meal Plan - Quarter 4',
-        studentName: 'Sophia Martinez',
-        classroom: 'Grade 4 - A',
-        studentId: 204,
-        refTable: 'Payment',
-        refTableId: 6002,
-        paymentMode: 'Cash',
-        balance: 0,
-        note: 'Payment received at front desk',
-        endDate: '2025-11-15',
-        studentOpenBalance: 0,
-      ),
-    ),
-    _TransactionRecord(
-      status: TransactionStatus.refund,
-      item: TransactionItem(
-        id: 1005,
-        transactionType: 'Refund',
-        date: DateTime(2025, 11, 7, 11, 20),
-        amount: 85.0,
-        status: 'Success',
-        description: 'Activity Refund',
-        studentName: 'Mason Lee',
-        classroom: 'Pre-K - Butterflies',
-        studentId: 205,
-        refTable: 'Refund',
-        refTableId: 7001,
-        paymentMode: 'Credit Card',
-        balance: 0,
-        note: 'Refund processed to card',
-        endDate: '2025-11-09',
-        studentOpenBalance: 0,
-      ),
-    ),
-    _TransactionRecord(
-      status: TransactionStatus.failed,
-      item: TransactionItem(
-        id: 1006,
-        transactionType: 'Payment',
-        date: DateTime(2025, 11, 7, 18, 30),
-        amount: 145.0,
-        status: 'Failed',
-        description: 'Late Fee Payment',
-        studentName: 'Ava Patel',
-        classroom: 'Grade 2 - A',
-        studentId: 206,
-        refTable: 'Payment',
-        refTableId: 6003,
-        paymentMode: 'Credit Card',
-        balance: 145.0,
-        note: 'Card declined',
-        endDate: '2025-11-14',
-        studentOpenBalance: 145.0,
-      ),
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _cubit.loadOverview();
+    final TransactionFilter? initial =
+        transactionFilterOf(widget.initialFilter);
+    if (initial != null) {
+      _cubit.applyFilter(initial);
+    } else {
+      _cubit.loadTransactions();
+    }
+    widget.onRegisterRefresh?.call(_refresh);
+    widget.onRegisterLoadNextPage?.call(_cubit.loadNextPage);
+  }
+
+  /// Reloads the overview totals + the transactions list for this tab.
+  Future<void> _refresh() async {
+    await Future.wait<void>([
+      _cubit.loadOverview(),
+      _cubit.loadTransactions(),
+    ]);
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final List<_TransactionRecord> visibleTransactions = _visibleTransactions();
-    final double totalInvoiced = _totalAmountFor(
-      <TransactionStatus>{
-        TransactionStatus.paid,
-        TransactionStatus.inProcess,
-        TransactionStatus.unpaid,
-      },
-    );
-    final double totalPaid = _totalAmountFor(<TransactionStatus>{TransactionStatus.paid});
-    final double totalInProcess =
-        _totalAmountFor(<TransactionStatus>{TransactionStatus.inProcess});
-    final double paidPercent = _percentage(totalPaid, totalInvoiced);
-    final double inProcessPercent = _percentage(totalInProcess, totalInvoiced);
-    final double unpaidPercent =
-        _percentage(_totalAmountFor(<TransactionStatus>{TransactionStatus.unpaid}), totalInvoiced);
-    final double totalRefund =
-        _totalAmountFor(<TransactionStatus>{TransactionStatus.refund});
-    final double refundPercent = _percentage(totalRefund, totalInvoiced);
+    return BlocProvider<TransactionsCubit>.value(
+      value: _cubit,
+      child: BlocListener<TransactionsCubit, TransactionsState>(
+        listenWhen: (p, c) =>
+            (p.errorMessage != c.errorMessage && c.errorMessage != null) ||
+            (p.successMessage != c.successMessage && c.successMessage != null),
+        listener: (context, state) {
+          if (state.errorMessage != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.errorMessage!,
+              isError: true,
+            );
+          } else if (state.successMessage != null) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.successMessage!,
+              isSuccess: true,
+            );
+          }
+        },
+        child: BlocBuilder<TransactionsCubit, TransactionsState>(
+          builder: (context, state) {
+            final List<TransactionRecord> visibleTransactions =
+                state.visibleTransactions;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        const SizedBox(height: 4),
-        // Text(
-        //   'Transactions',
-        //   style: const TextStyle(
-        //     fontFamily: 'Manrope',
-        //     fontSize: 17,
-        //     fontWeight: FontWeight.w600,
-        //     color: AppColors.primaryColor,
-        //   ),
-        // ),
-        // const SizedBox(height: 16),
-        const AccountingDateRangeSelector(),
-        const SizedBox(height: 12),
-        AmountInvoicedStatBar(
-          totalAmount: totalInvoiced,
-          paidPercentage: paidPercent,
-          inProcessPercentage: inProcessPercent,
-          unpaidPercentage: unpaidPercent,
-          refundPercentage: refundPercent,
-        ),
-        const SizedBox(height: 12),
-        _buildSearchBar(context),
-        const SizedBox(height: 16),
-        if (visibleTransactions.isEmpty)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: Text(
-                'No transactions match your filters.',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primaryColor,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const SizedBox(height: 4),
+                AccountingDateRangeSelector(
+                  initialStartDate: state.dateFrom,
+                  initialEndDate: state.dateTo,
+                  onRangeChanged: (start, end) =>
+                      _cubit.setDateRange(start, end),
                 ),
-              ),
-            ),
-          )
-        else
-          Column(
-            children: visibleTransactions
-                .map(
-                  (_TransactionRecord record) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: BillingTransactionCard(
-                      transaction: record.item,
-                      onView: () => _openViewInvoice(record.item),
-                      onViewReceipt: () => _openViewReceipt(record.item, 'receipt'),
-                      onSendInvoice: () => _openSendInvoice(record.item),
-                      onReceivePayment: () => _openReceivePayment(record.item),
-                      onIssueRefund: () => _openIssueRefund(record.item),
-                      onBillingProfile: () => _openTransactionDetails(record.item),
-                      onDelete: () => _showActionFeedback('Delete confirmed'),
-                      onLongPress: () => _openTransactionDetails(record.item),
+                const SizedBox(height: 12),
+                AmountInvoicedStatBar(
+                  totalAmount: state.totalInvoiced,
+                  netPaidAmount: state.netPaidAmount,
+                  paidAmount: state.paidAmount,
+                  inProcessAmount: state.inProcessAmount,
+                  outstandingAmount: state.outstandingAmount,
+                  refundedAmount: state.refundedAmount,
+                  selectedFilter: billingFilterOf(state.activeFilter),
+                  onFilterTap: _onFilterTap,
+                ),
+                const SizedBox(height: 12),
+                _buildSearchBar(context),
+                const SizedBox(height: 16),
+                if (state.isLoading)
+                  ...List.generate(
+                    5,
+                    (_) => const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: BillingTransactionShimmer(),
+                    ),
+                  )
+                else if (visibleTransactions.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: Text(
+                        'No transactions match your filters.',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
+                  )
+                else ...[
+                  // Short content → ask the parent to load the next page.
+                  if (state.hasMore)
+                    Builder(builder: (_) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        widget.onLoadMoreNeeded?.call();
+                      });
+                      return const SizedBox.shrink();
+                    }),
+                  ...visibleTransactions.map(
+                    (TransactionRecord record) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: BillingTransactionCard(
+                        transaction: record.item,
+                        onView: () => _openViewInvoice(record.item),
+                        onViewReceipt: () =>
+                            _openViewReceipt(record.item, 'receipt'),
+                        onSendInvoice: () => _openSendInvoice(record.item),
+                        onReceivePayment: () =>
+                            _openReceivePayment(record.item),
+                        onIssueRefund: () => _openIssueRefund(record.item),
+                        onEditInvoice: () => _openEditInvoice(record.item),
+                        onBillingProfile: () =>
+                            _openTransactionDetails(record.item),
+                        onMessage: _showMessageUnavailable,
+                        onCancel: () => _confirmCancel(record.item),
+                        onDelete: () => _confirmDelete(record.item),
+                        onLongPress: () =>
+                            _openTransactionDetails(record.item),
+                      ),
                     ),
                   ),
-                )
-                .toList(),
-          ),
-      ],
+                  if (state.isLoadingMore)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 16),
+                      child: Center(child: PrimaryCircularLoader()),
+                    ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
@@ -261,7 +223,7 @@ class _TransactionsSectionState extends State<TransactionsSection> {
                 child: CustomSearchBar(
                   controller: _searchController,
                   hintText: 'Search by student, ID, or description',
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (value) => _cubit.setSearchQuery(value),
                 ),
               ),
               const SizedBox(width: 8),
@@ -299,42 +261,103 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     );
   }
 
-  void _clearSearch() {
-    setState(() {
-      _searchController.clear();
-    });
-  }
-
-  List<_TransactionRecord> _visibleTransactions() {
-    final String query = _searchController.text.trim().toLowerCase();
-    final Iterable<_TransactionRecord> filtered = _transactions.where((_TransactionRecord transaction) {
-      final TransactionItem item = transaction.item;
-      final bool matchesQuery = query.isEmpty ||
-          item.studentName.toLowerCase().contains(query) ||
-          item.id.toString().contains(query) ||
-          item.description.toLowerCase().contains(query);
-      return matchesQuery;
-    });
-    return filtered.toList();
-  }
-
-  double _totalAmountFor(Set<TransactionStatus> statuses) {
-    return _transactions
-        .where((_TransactionRecord transaction) => statuses.contains(transaction.status))
-        .fold<double>(0, (double sum, _TransactionRecord record) => sum + record.item.amount);
-  }
-
-  double _percentage(double value, double total) {
-    if (total <= 0) {
-      return 0;
+  /// Handles a summary-card tap. The four list filters scope the Transactions
+  /// list in place (re-tapping the active one clears it); Outstanding routes
+  /// back to the Student(s) tab.
+  void _onFilterTap(BillingSummaryFilter filter) {
+    if (filter == BillingSummaryFilter.outstanding) {
+      widget.onNavigateToOutstanding?.call();
+      return;
     }
-    return (value / total) * 100;
+    final tapped = transactionFilterOf(filter);
+    final next = _cubit.state.activeFilter == tapped ? null : tapped;
+    _cubit.applyFilter(next);
   }
 
-  void _showActionFeedback(String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$label tapped (UI only).'),
+  void _clearSearch() {
+    _searchController.clear();
+    _cubit.clearSearch();
+    _cubit.applyFilter(null);
+  }
+
+  void _showMessageUnavailable() {
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Messaging is not available yet.',
+      isWarning: true,
+    );
+  }
+
+  /// Opens the invoice in edit mode (Create Invoice screen). The form is
+  /// hydrated from `GET /invoices/by-code/{code}` and PATCHes on save.
+  void _openEditInvoice(TransactionItem item) {
+    final code = _invoiceCodeOrWarn(item);
+    if (code == null) return;
+    Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => CreateInvoiceScreen(
+          selectedStudents: [Student(code: '', fullName: item.studentName)],
+          initialInvoiceData: <String, dynamic>{'invoiceCode': code},
+        ),
+      ),
+    );
+  }
+
+  /// Guards against rows without a backend invoice code (cannot act on them).
+  String? _invoiceCodeOrWarn(TransactionItem item) {
+    final code = item.invoiceCode?.trim();
+    if (code == null || code.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'This invoice cannot be modified.',
+        isWarning: true,
+      );
+      return null;
+    }
+    return code;
+  }
+
+  void _confirmCancel(TransactionItem item) {
+    final code = _invoiceCodeOrWarn(item);
+    if (code == null) return;
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_cancel',
+      action: () => _cubit.cancelInvoice(code),
+    );
+  }
+
+  void _confirmDelete(TransactionItem item) {
+    final code = _invoiceCodeOrWarn(item);
+    if (code == null) return;
+    _showInvoiceActionSheet(
+      item: item,
+      type: 'invoice_delete',
+      action: () => _cubit.deleteInvoice(code),
+    );
+  }
+
+  /// Confirms a cancel/delete via the shared bottom sheet; the cubit emits the
+  /// success/error message which the BlocListener surfaces.
+  void _showInvoiceActionSheet({
+    required TransactionItem item,
+    required String type,
+    required Future<void> Function() action,
+  }) {
+    final name =
+        item.description.trim().isNotEmpty ? item.description : item.studentName;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) => DeleteConfirmationBottomSheet(
+        name: name,
+        type: type,
+        onDelete: () async {
+          await action();
+          if (mounted) Navigator.of(sheetCtx).pop();
+        },
+        onCancel: () => Navigator.of(sheetCtx).pop(),
       ),
     );
   }
@@ -368,10 +391,15 @@ class _TransactionsSectionState extends State<TransactionsSection> {
   }
 
   void _openTransactionDetails(TransactionItem item) {
+    final familyCode = (item.familyCode ?? '').trim();
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => TransactionDetailsScreen(
           transaction: item,
+          // When we know the family, load the real family ledger.
+          ownerType: familyCode.isNotEmpty ? 'FAMILY' : null,
+          ownerCode: familyCode.isNotEmpty ? familyCode : null,
+          familyName: item.studentName,
         ),
       ),
     );
@@ -398,40 +426,3 @@ class _TransactionsSectionState extends State<TransactionsSection> {
     );
   }
 }
-
-class _TransactionRecord {
-  const _TransactionRecord({
-    required this.item,
-    required this.status,
-  });
-
-  final TransactionItem item;
-  final TransactionStatus status;
-}
-
-enum TransactionStatus {
-  paid,
-  inProcess,
-  unpaid,
-  refund,
-  failed,
-}
-
-extension on TransactionStatus {
-  String get displayLabel {
-    switch (this) {
-      case TransactionStatus.paid:
-        return 'Paid';
-      case TransactionStatus.inProcess:
-        return 'In Process';
-      case TransactionStatus.unpaid:
-        return 'Unpaid';
-      case TransactionStatus.refund:
-        return 'Refund';
-      case TransactionStatus.failed:
-        return 'Failed';
-    }
-  }
-}
-
-

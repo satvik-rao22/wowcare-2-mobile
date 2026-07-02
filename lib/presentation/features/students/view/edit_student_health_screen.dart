@@ -2,9 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
@@ -16,7 +15,7 @@ class EditStudentHealthScreen extends StatefulWidget {
   });
 
   final String studentCode;
-  final StudentHealthModel? initialHealth;
+  final StudentHealth? initialHealth;
 
   @override
   State<EditStudentHealthScreen> createState() =>
@@ -34,12 +33,15 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
   void initState() {
     super.initState();
     final initial = widget.initialHealth;
-    _allergyController =
-        TextEditingController(text: (initial?.allergy ?? '').trim());
-    _medicationsController =
-        TextEditingController(text: (initial?.medications ?? '').trim());
-    _dietRestrictionsController =
-        TextEditingController(text: (initial?.dietRestrictions ?? '').trim());
+    _allergyController = TextEditingController(
+      text: (initial?.allergy ?? '').trim(),
+    );
+    _medicationsController = TextEditingController(
+      text: (initial?.medications ?? '').trim(),
+    );
+    _dietRestrictionsController = TextEditingController(
+      text: (initial?.dietRestrictions ?? '').trim(),
+    );
     _photoPermission = initial?.photoPermission ?? true;
   }
 
@@ -56,7 +58,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+      final repo = serviceLocator<StudentRepository>();
 
       final body = {
         'allergy': _allergyController.text.trim(),
@@ -151,7 +153,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -219,5 +221,3 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
     );
   }
 }
-
-

@@ -10,13 +10,17 @@ class FilePickerUtils {
   /// application/msword,
   /// application/vnd.openxmlformats-officedocument.wordprocessingml.document,
   /// application/vnd.ms-excel,
-  /// application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+  /// application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,
+  /// application/vnd.ms-powerpoint,
+  /// application/vnd.openxmlformats-officedocument.presentationml.presentation
   static const List<String> allowedDocumentExtensions = [
     'pdf',
     'doc',
     'docx',
     'xls',
     'xlsx',
+    'ppt',
+    'pptx',
   ];
 
   /// Allowed video formats: video/mp4, video/quicktime, video/webm
@@ -107,6 +111,8 @@ class FilePickerUtils {
       'tiff': 'image/tiff',
       'xls': 'application/vnd.ms-excel',
       'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       'mp4': 'video/mp4',
       'mov': 'video/quicktime',
       'webm': 'video/webm',

@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/resend_invoice_usecase.dart';
+import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
 class SendInvoiceScreen extends StatefulWidget {
-  const SendInvoiceScreen({
-    super.key,
-    required this.transaction,
-  });
+  const SendInvoiceScreen({super.key, required this.transaction});
 
   final TransactionItem transaction;
 
@@ -22,11 +23,11 @@ class SendInvoiceScreen extends StatefulWidget {
 
 class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   // Dummy data for UI
-  Map<String, dynamic>? _addressEntity;
   Map<String, dynamic>? _invoiceDetails;
 
   // Form controllers
-  final TextEditingController _invoiceNumberController = TextEditingController();
+  final TextEditingController _invoiceNumberController =
+      TextEditingController();
   final TextEditingController _dueDateController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -44,29 +45,25 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   void _initializeDummyData() {
     // Load dummy data
     Map<String, dynamic>? invoiceData;
-    if (widget.transaction.refTable == 'Invoice' && widget.transaction.refTableId != null) {
+    if (widget.transaction.refTable == 'Invoice' &&
+        widget.transaction.refTableId != null) {
       invoiceData = {
         'invoiceNumber': 'INV-2025-${widget.transaction.refTableId}',
-        'startDate': widget.transaction.date.subtract(const Duration(days: 30)).toIso8601String(),
+        'startDate': widget.transaction.date
+            .subtract(const Duration(days: 30))
+            .toIso8601String(),
         'endDate': widget.transaction.date.toIso8601String(),
         'dueDate': widget.transaction.endDate != null
             ? DateTime.parse(widget.transaction.endDate!).toIso8601String()
-            : widget.transaction.date.add(const Duration(days: 7)).toIso8601String(),
+            : widget.transaction.date
+                  .add(const Duration(days: 7))
+                  .toIso8601String(),
         'invoiceAmount': widget.transaction.amount,
         'description': widget.transaction.description,
       };
     }
 
-    setState(() {
-      _addressEntity = {
-        'line': '123 Main Street',
-        'city': 'New York',
-        'state': 'NY',
-        'country': 'USA',
-        'zipcode': '10001',
-      };
-      _invoiceDetails = invoiceData;
-    });
+    _invoiceDetails = invoiceData;
 
     // Update form with invoice data if available
     if (invoiceData != null) {
@@ -77,7 +74,8 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   void _initializeFormData() {
     // Generate invoice number based on current date
     final now = DateTime.now();
-    _invoiceNumber = 'INV${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+    _invoiceNumber =
+        'INV${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     _invoiceNumberController.text = _invoiceNumber;
 
     // Pre-fill with transaction data
@@ -98,7 +96,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     if (invoiceData['dueDate'] != null) {
       try {
         final dueDateParsed = DateTime.parse(invoiceData['dueDate'].toString());
-        _dueDateController.text = DateUtilsNew.formatToReadableDate(dueDateParsed);
+        _dueDateController.text = DateUtilsNew.formatToReadableDate(
+          dueDateParsed,
+        );
       } catch (e) {
         // Date parsing failed, keep current value
       }
@@ -106,12 +106,14 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
 
     // Update amount
     if (invoiceData['invoiceAmount'] != null) {
-      final invoiceAmount = double.tryParse(invoiceData['invoiceAmount'].toString()) ?? 0.0;
+      final invoiceAmount =
+          double.tryParse(invoiceData['invoiceAmount'].toString()) ?? 0.0;
       _amountController.text = invoiceAmount.toStringAsFixed(2);
     }
 
     // Update description if available
-    if (invoiceData['description'] != null && invoiceData['description'].toString().isNotEmpty) {
+    if (invoiceData['description'] != null &&
+        invoiceData['description'].toString().isNotEmpty) {
       _descriptionController.text = invoiceData['description'].toString();
     }
   }
@@ -162,58 +164,50 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
     super.dispose();
   }
 
+  bool _isSending = false;
+
+  /// A draft is issued (POST /issue); an already-issued invoice is re-sent
+  /// (PATCH /resend).
+  bool get _isDraft =>
+      widget.transaction.status.toUpperCase().contains('DRAFT');
+
   Future<void> _sendInvoice() async {
-    if (!mounted) return;
+    if (_isSending) return;
+    final code = widget.transaction.invoiceCode?.trim();
+    if (code == null || code.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'This invoice cannot be sent.',
+        isWarning: true,
+      );
+      return;
+    }
 
-    // Show success message
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Invoice sent successfully!'),
-        backgroundColor: AppColors.billingSuccessColor,
-      ),
-    );
-
-    // Navigate back
-    Navigator.pop(context, true);
-  }
-
-  Widget _buildCurrentSchoolDetail() {
-    // Dummy school data
-    const schoolName = 'WowCare School';
-    const schoolDescription = 'Excellence in Education';
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DocumentImageWidget(
-          fileUuid: '',
-          size: 60,
-          name: schoolName,
-          fontSize: 18,
-        ),
-        const SizedBox(height: 8),
-        Text(
-          schoolName,
-          style: AppTextStyles.title.copyWith(
-            color: AppColors.primaryColor,
-          ),
-        ),
-        Text(
-          schoolDescription,
-          style: AppTextStyles.body.copyWith(
-            color: AppColors.primaryColor,
-          ),
-        ),
-        if (_addressEntity != null)
-          Text(
-            '${_addressEntity!['line']}, ${_addressEntity!['city']}, ${_addressEntity!['state']}, ${_addressEntity!['country']}, ${_addressEntity!['zipcode']}',
-            style: AppTextStyles.body.copyWith(
-              color: AppColors.primaryColor,
-            ),
-          ),
-      ],
-    );
+    setState(() => _isSending = true);
+    try {
+      if (_isDraft) {
+        await serviceLocator<IssueInvoiceUseCase>()(code);
+      } else {
+        await serviceLocator<ResendInvoiceUseCase>()(code);
+      }
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: _isDraft
+            ? 'Invoice sent successfully.'
+            : 'Invoice re-sent successfully.',
+        isSuccess: true,
+      );
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isSending = false);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    }
   }
 
   Widget _buildBilledForRow() {
@@ -229,8 +223,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
         DocumentImageWidget(
           fileUuid: widget.transaction.studentPhotoUuid ?? '',
           name: widget.transaction.studentName,
-          size: 32,
-          fontSize: 14,
+          size: 50,
         ),
         const SizedBox(width: 5),
         Text(
@@ -244,9 +237,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
           const SizedBox(width: 8),
           Text(
             widget.transaction.classroom,
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.primaryColor,
-            ),
+            style: AppTextStyles.small.copyWith(color: AppColors.primaryColor),
           ),
         ],
       ],
@@ -318,7 +309,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               ),
             ),
             Text(
-              _dueDateController.text.isEmpty ? 'Not set' : _dueDateController.text,
+              _dueDateController.text.isEmpty
+                  ? 'Not set'
+                  : _dueDateController.text,
               style: TextStyle(
                 fontSize: 15,
                 color: AppColors.billingGreyDark,
@@ -369,17 +362,16 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               ),
             ],
           ),
-          Divider(
-            thickness: 0.5,
-            color: AppColors.billingGreyTransparent,
-          ),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           // Table Row
           Row(
             children: [
               Expanded(
                 flex: 4,
                 child: Text(
-                  _descriptionController.text.isEmpty ? '-' : _descriptionController.text,
+                  _descriptionController.text.isEmpty
+                      ? '-'
+                      : _descriptionController.text,
                   style: AppTextStyles.title.copyWith(
                     fontSize: 16,
                     color: AppColors.primaryColor,
@@ -400,14 +392,11 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
               ),
             ],
           ),
-          Divider(
-            thickness: 0.5,
-            color: AppColors.billingGreyTransparent,
-          ),
+          Divider(thickness: 0.5, color: AppColors.billingGreyTransparent),
           // Total Row with highlighted background
           Container(
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.1),
+              color: AppColors.primaryColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
@@ -447,147 +436,63 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = responsive.isTablet;
-    final isLargeTablet = responsive.isLargeTablet;
-    final containerWidth = isLargeTablet
-        ? (screenWidth * 0.8).clamp(800.0, 1200.0)
-        : isTablet
-            ? screenWidth * 0.9
-            : screenWidth - 32.0;
-    final horizontalSpacing = isLargeTablet
-        ? (screenWidth * 0.1).clamp(32.0, 64.0)
-        : isTablet
-            ? 32.0
-            : 16.0;
-    final verticalSpacing = isLargeTablet
-        ? 32.0
-        : isTablet
-            ? 24.0
-            : 16.0;
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
-    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-      child: Scaffold(
-        backgroundColor: AppColors.billingCardColor,
-        appBar: const CustomAppBar(hasBackButton: true),
-        body: Stack(
+    return StaffFormLayout(
+      title: 'Send Invoice',
+      bottomBar: _buildBottomBar(),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: Image.asset(
-                  MediaRes.wowcareMobileBg,
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-              ),
-            ),
-            SingleChildScrollView(
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalSpacing),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Send Invoice',
-                        style: AppTextStyles.title.copyWith(
-                          fontSize: responsive.titleFontSize,
-                          color: AppColors.billingTextColor,
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: responsive.isTablet ? 32.0 : 20.0),
-                  Container(
-                    width: containerWidth,
-                    margin: EdgeInsets.symmetric(horizontal: horizontalSpacing),
-                    padding: EdgeInsets.all(isTablet ? 32.0 : 16.0),
-                    decoration: BoxDecoration(
-                      color: AppColors.billingCardColor,
-                      borderRadius: BorderRadius.all(
-                        Radius.circular(isTablet ? 40.0 : 24.0),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppColors.billingShadowColorLight,
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      children: [
-                        // School Details
-                        _buildCurrentSchoolDetail(),
-                        SizedBox(height: verticalSpacing),
-                        // Billed For Row
-                        _buildBilledForRow(),
-                        SizedBox(height: verticalSpacing),
-                        // Invoice Details Section
-                        _buildInvoiceDetailsSection(),
-                        SizedBox(height: verticalSpacing),
-                        // Invoice Table
-                        _buildInvoiceTable(),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
+            const BillingSchoolHeader(),
+            const SizedBox(height: 20),
+            _buildBilledForRow(),
+            const SizedBox(height: 16),
+            _buildInvoiceDetailsSection(),
+            const SizedBox(height: 16),
+            _buildInvoiceTable(),
           ],
         ),
-        bottomNavigationBar: Container(
-          padding: EdgeInsets.only(
-            bottom: safeAreaBottom,
-            left: 16,
-            right: 16,
-            top: 8,
-          ),
+      ),
+    );
+  }
+
+  Widget _buildBottomBar() {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        child: DecoratedBox(
           decoration: BoxDecoration(
-            color: AppColors.billingCardColor,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, -4),
-                blurRadius: 16,
-              ),
-            ],
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            ),
+            borderRadius: BorderRadius.circular(12),
+            gradient: AppColors.buildPrimaryGradient(),
           ),
-          child: Container(
-            height: responsive.buttonHeight,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-            ),
-            child: TextButton(
-              onPressed: _sendInvoice,
-              child: Text(
-                'Send Invoice',
-                style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.buttonFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.billingCardColor,
-                ),
+          child: TextButton(
+            onPressed: _isSending ? null : _sendInvoice,
+            style: TextButton.styleFrom(
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
+            child: _isSending
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : Text(
+                    _isDraft ? 'Send Invoice' : 'Resend Invoice',
+                    style: TextStyle(
+                      color: AppColors.billingButtonTextColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ),
       ),
     );
   }
 }
-

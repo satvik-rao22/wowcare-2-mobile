@@ -58,6 +58,7 @@ abstract class StaffShiftRepository {
     required DateTime dateFrom,
     required DateTime dateTo,
     String? classroomCode,
+    List<String> shiftStatus = const <String>[],
   });
 
   /// `GET /api/v1/staff-shifts/{shiftCode}` — full detail for one shift.

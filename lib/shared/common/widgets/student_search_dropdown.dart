@@ -62,7 +62,7 @@
 //         _isLoadingStudents = false;
 //       });
 //     } catch (e) {
-//       print('Error loading students: $e');
+//       AppLogger.d('Error loading students: $e');
 //       setState(() {
 //         _isLoadingStudents = false;
 //       });
@@ -114,7 +114,7 @@
 //         _isSearching = false;
 //       });
 //     } catch (e) {
-//       print('Error searching students on server: $e');
+//       AppLogger.d('Error searching students on server: $e');
 //       setState(() {
 //         _isSearching = false;
 //       });

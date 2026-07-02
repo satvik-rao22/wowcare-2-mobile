@@ -1,24 +1,33 @@
 import 'package:isar/isar.dart';
 import 'package:wowcare/core/util/isar_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
-
 part 'message_collection.g.dart';
 
 @collection
 class MessageCollection {
-  Id get isarId => fastHash(id);
+  Id get isarId => fastHash(code.isNotEmpty ? code : id);
 
   late String id;
+  late String code;
   @Index()
   late String threadId;
   late String text;
-  late bool isSentByMe;
+  bool? isSentByMe;
+  String? senderUserCode;
   late DateTime time;
   DateTime? deliveredAt;
   DateTime? readAt;
+  DateTime? editedAt;
+  DateTime? deletedAt;
   String? quotedMessageId;
   String? senderName;
   List<String>? receivers;
+
+  /// Private-thread fields. Without persisting these, a message round-tripped through the Isar
+  /// cache loses its private flag (defaults to isPrivate=false) and wrongly shows in the Group tab
+  /// instead of the target parent's private tab.
+  bool? isPrivate;
+  String? privateParentUserCode;
 
   List<RecipientStatusCollection>? deliveredTo;
   List<RecipientStatusCollection>? readBy;
@@ -30,14 +39,20 @@ class MessageCollection {
   factory MessageCollection.fromEntity(Message message, String threadId) {
     return MessageCollection()
       ..id = message.id
+      ..code = message.code
       ..threadId = threadId
       ..text = message.text
       ..isSentByMe = message.isSentByMe
+      ..senderUserCode = message.senderUserCode
       ..time = message.time
       ..deliveredAt = message.deliveredAt
       ..readAt = message.readAt
+      ..editedAt = message.editedAt
+      ..deletedAt = message.deletedAt
       ..quotedMessageId = message.quotedMessageId
       ..senderName = message.senderName
+      ..isPrivate = message.isPrivate
+      ..privateParentUserCode = message.privateParentUserCode
       ..receivers = message.receivers
       ..deliveredTo = message.deliveredTo
           .map((e) => RecipientStatusCollection.fromEntity(e))
@@ -57,16 +72,42 @@ class MessageCollection {
           .toList();
   }
 
-  Message toEntity() {
+  /// Converts to a domain [Message].
+  ///
+  /// When [currentUserId] is supplied the [isSentByMe] flag is re-derived
+  /// from [senderUserCode] at read-time, which is the authoritative source.
+  /// This prevents stale/null Isar booleans from flipping the bubble style.
+  Message toEntity({String? currentUserId}) {
+    final normalizedUserId = currentUserId?.trim();
+    final normalizedSenderCode = senderUserCode?.trim();
+    final resolvedIsSentByMe =
+        (normalizedUserId != null &&
+            normalizedUserId.isNotEmpty &&
+            normalizedSenderCode != null &&
+            normalizedSenderCode.isNotEmpty)
+        ? normalizedSenderCode == normalizedUserId
+        : (isSentByMe ?? false);
+
     return Message(
       id: id,
+      code: code,
       text: text,
-      isSentByMe: isSentByMe,
+      isSentByMe: resolvedIsSentByMe,
+      senderUserCode: normalizedSenderCode,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,
+      editedAt: editedAt,
+      deletedAt: deletedAt,
       quotedMessageId: quotedMessageId,
       senderName: senderName,
+      // Last line of defense: a message with a privateParentUserCode is
+      // private even if the cached isPrivate flag was never set (older rows /
+      // any write path that stored the code but not the flag). Keeps private
+      // messages out of the Group tab.
+      isPrivate: (isPrivate ?? false) ||
+          ((privateParentUserCode ?? '').isNotEmpty),
+      privateParentUserCode: privateParentUserCode,
       receivers: receivers ?? [],
       deliveredTo: deliveredTo?.map((e) => e.toEntity()).toList() ?? [],
       readBy: readBy?.map((e) => e.toEntity()).toList() ?? [],
@@ -110,6 +151,8 @@ class ChatAttachmentCollection {
   late String mimeType;
   late String remoteUrl;
   String? localPath;
+  String? code;
+  int? attachmentId;
 
   ChatAttachmentCollection();
 
@@ -120,7 +163,9 @@ class ChatAttachmentCollection {
       ..sizeBytes = attachment.sizeBytes
       ..mimeType = attachment.mimeType
       ..remoteUrl = attachment.remoteUrl
-      ..localPath = attachment.localPath;
+      ..localPath = attachment.localPath
+      ..code = attachment.code
+      ..attachmentId = attachment.attachmentId;
   }
 
   ChatAttachment toEntity() {
@@ -131,6 +176,8 @@ class ChatAttachmentCollection {
       mimeType: mimeType,
       remoteUrl: remoteUrl,
       localPath: localPath,
+      code: code,
+      attachmentId: attachmentId,
     );
   }
 }

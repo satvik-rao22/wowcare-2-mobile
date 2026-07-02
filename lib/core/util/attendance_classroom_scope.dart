@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 
 import '../storage/storage_service.dart';
@@ -38,6 +39,83 @@ Future<String> _resolveActivePersonaRole(StorageService storage) async {
 final Options attendanceListQueryOptions = Options(
   listFormat: ListFormat.multiCompatible,
 );
+
+/// Resolves the `classroomCodes` query param for attendance list APIs.
+///
+/// - [selectedClassroomCodes]: user-selected filter from the classroom dropdown.
+/// - [allowedClassroomCodes]: permission scope for scoped staff (from profile).
+///
+/// When the user picks classrooms, returns the intersection with allowed scope.
+/// When nothing is selected, returns null so the API applies scope via
+/// [allowedClassroomCodes] only.
+List<String>? resolveAttendanceFilterClassroomCodes({
+  List<String>? selectedClassroomCodes,
+  required List<String> allowedClassroomCodes,
+}) {
+  final selected = selectedClassroomCodes
+          ?.map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList() ??
+      const <String>[];
+
+  if (allowedClassroomCodes.isEmpty) {
+    return selected.isEmpty ? null : List<String>.from(selected);
+  }
+
+  final allowedSet = allowedClassroomCodes
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toSet();
+
+  if (selected.isEmpty) {
+    return null;
+  }
+
+  final narrowed =
+      selected.where((c) => allowedSet.contains(c)).toList(growable: false);
+  return narrowed.isEmpty ? null : narrowed;
+}
+
+/// Maps classroom dropdown labels (names or codes) to API `classroomCodes`.
+List<String>? resolveClassroomNamesToCodes({
+  required List<String> selectedNamesOrCodes,
+  required List<Classroom> classrooms,
+}) {
+  if (selectedNamesOrCodes.isEmpty || classrooms.isEmpty) return null;
+
+  final nameToCode = <String, String>{};
+  final knownCodes = <String>{};
+  for (final c in classrooms) {
+    final code = c.code.trim();
+    final name = c.name.trim();
+    if (code.isNotEmpty) {
+      knownCodes.add(code);
+    }
+    if (name.isNotEmpty) {
+      nameToCode[name] = code;
+      nameToCode[name.toLowerCase()] = code;
+    }
+    if (code.isNotEmpty && (name.isEmpty || name == code)) {
+      nameToCode[code] = code;
+    }
+  }
+
+  final codes = <String>[];
+  for (final selected in selectedNamesOrCodes) {
+    final trimmed = selected.trim();
+    if (trimmed.isEmpty) continue;
+    final fromName =
+        nameToCode[trimmed] ?? nameToCode[trimmed.toLowerCase()];
+    if (fromName != null && fromName.isNotEmpty) {
+      codes.add(fromName);
+    } else if (knownCodes.contains(trimmed)) {
+      codes.add(trimmed);
+    }
+  }
+
+  if (codes.isEmpty) return null;
+  return codes.toSet().toList(growable: false);
+}
 
 /// Resolves `allowedClassroomCodes` for every attendance API call.
 ///
@@ -125,6 +203,59 @@ Future<List<String>> resolveAttendanceAllowedClassroomCodes({
         .toList();
   } catch (_) {
     return <String>[];
+  }
+}
+
+/// Primary classroom code for scoped staff personas (teacher/staff), or null
+/// for admin/parent personas.
+Future<String?> resolveStaffPrimaryClassroomCode({
+  required StorageService storage,
+}) async {
+  final shouldScope = await isAttendanceScopedStaffPersona(storage: storage);
+  if (!shouldScope) return null;
+
+  try {
+    final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+    if (staffCode.isEmpty) return null;
+
+    final repo = serviceLocator<StaffRepository>();
+    final profile = await repo.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+    final primary = profile.primaryClassroomCode.trim();
+    if (primary.isNotEmpty) return primary;
+
+    final allowed = profile.allowedClassroomCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+    return allowed.isNotEmpty ? allowed.first : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Like [resolveStaffPrimaryClassroomCode] but resolves the staff member's
+/// primary classroom for ANY persona — including admins, whose classroom lists
+/// are not attendance-scoped. Use this to pre-select the primary classroom on
+/// screens that show it to admins too (daily/custom/classroom). Returns null
+/// when unavailable; callers should fall back to the top sorted classroom (and
+/// must ignore it when it resolves to a non-selectable room like Office).
+Future<String?> resolveStaffPrimaryClassroomCodeAnyPersona() async {
+  try {
+    final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
+    if (staffCode.isEmpty) return null;
+
+    final repo = serviceLocator<StaffRepository>();
+    final profile = await repo.getStaffProfile(
+      staffCode: staffCode,
+      forEditStaff: true,
+    );
+    final primary = profile.primaryClassroomCode.trim();
+    return primary.isNotEmpty ? primary : null;
+  } catch (_) {
+    return null;
   }
 }
 

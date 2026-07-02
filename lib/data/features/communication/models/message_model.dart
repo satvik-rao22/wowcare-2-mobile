@@ -1,20 +1,22 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
 class MessageModel extends Message {
-  final String code;
   final String? conversationCode;
   final String senderUserCode;
 
   const MessageModel({
     required super.id,
+    required super.code,
     required super.text,
     required super.isSentByMe,
     required super.time,
-    required this.code,
     this.conversationCode,
     required this.senderUserCode,
     super.deliveredAt,
     super.readAt,
+    super.editedAt,
+    super.deletedAt,
     super.deliveredTo,
     super.readBy,
     super.reactions,
@@ -22,17 +24,34 @@ class MessageModel extends Message {
     super.attachments,
     super.senderName,
     super.receivers,
-  });
+    super.isPrivate = false,
+    super.privateParentUserCode,
+  }) : super(senderUserCode: senderUserCode);
 
   factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
-    final senderCode = json['senderUserCode'] as String? ?? '';
+    final senderCode = (json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '').trim();
+    final normalizedUserId = currentUserId?.trim();
+    final isMine = normalizedUserId != null &&
+        normalizedUserId.isNotEmpty &&
+        senderCode.isNotEmpty &&
+        senderCode == normalizedUserId;
+
+    AppLogger.d(
+      '[CHAT OWNERSHIP] fromJson\n'
+      '  messageId      = ${json['id']}\n'
+      '  code           = ${json['code']}\n'
+      '  senderUserCode = $senderCode\n'
+      '  currentUserId  = $normalizedUserId\n'
+      '  isMine         = $isMine',
+    );
+
     return MessageModel(
       id: (json['id'] ?? '').toString(),
       code: json['code'] as String? ?? '',
-      conversationCode: json['conversationCode'] as String?,
+      conversationCode: json['conversationCode'] as String? ?? json['conversation_code'] as String?,
       senderUserCode: senderCode,
       text: json['content'] as String? ?? '',
-      isSentByMe: currentUserId != null && senderCode == currentUserId,
+      isSentByMe: isMine,
       time: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : DateTime.now(),
@@ -40,9 +59,19 @@ class MessageModel extends Message {
           ? DateTime.now()
           : null,
       readAt: json['status'] == 'READ' ? DateTime.now() : null,
-      deliveredTo: const [], // API doesn't seem to provide these in a list yet
+      editedAt: json['editedAt'] != null
+          ? DateTime.parse(json['editedAt'] as String)
+          : null,
+      deletedAt: json['deletedAt'] != null
+          ? DateTime.parse(json['deletedAt'] as String)
+          : null,
+      deliveredTo: const [],
       readBy: const [],
-      reactions: const {}, // API snippet doesn't show reactions
+      reactions: {
+        for (var r in (json['reactions'] as List<dynamic>?) ?? [])
+          if (r is Map<String, dynamic> && r['userCode'] != null && r['emoji'] != null)
+            r['userCode'].toString(): r['emoji'].toString()
+      },
       quotedMessageId: (json['replyToMessageId'] ?? '').toString().isEmpty
           ? null
           : json['replyToMessageId'].toString(),
@@ -50,12 +79,24 @@ class MessageModel extends Message {
               ?.map((e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
-      senderName: json['senderName'] as String?,
+      senderName: (json['senderDisplayName'] as String?)?.isNotEmpty == true
+          ? json['senderDisplayName'] as String
+          : json['senderName'] as String?,
       receivers: const [],
+      // Privacy is driven by the presence of privateParentUserCode (the backend
+      // invariant is isPrivate = privateParentUserCode != null). ppc-presence
+      // takes PRECEDENCE over the `isPrivate`/`private` booleans because the API
+      // returns isPrivate=false even when ppc is set (mapper bug) — trusting the
+      // boolean first lets web-sent private messages leak into the staff Group
+      // tab instead of the owning parent's private tab.
+      isPrivate: ((json['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
+              false) ||
+          (json['isPrivate'] as bool? ?? false) ||
+          (json['private'] as bool? ?? false),
+      privateParentUserCode: json['privateParentUserCode'] as String?,
     );
   }
 
-  @override
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -67,6 +108,7 @@ class MessageModel extends Message {
       'replyToMessageId': quotedMessageId,
       'attachments': attachments.map((e) => (e as ChatAttachmentModel).toJson()).toList(),
       'senderName': senderName,
+      if (privateParentUserCode != null) 'privateParentUserCode': privateParentUserCode,
     };
   }
 }
@@ -80,8 +122,8 @@ class RecipientStatusModel extends RecipientStatus {
 
   factory RecipientStatusModel.fromJson(Map<String, dynamic> json) {
     return RecipientStatusModel(
-      name: json['name'] as String,
-      userId: json['user_id'] as String?,
+      name: json['name'] as String? ?? '',
+      userId: json['user_id'] as String? ?? json['userId'] as String?,
       timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp'] as String) : null,
     );
   }
@@ -103,16 +145,32 @@ class ChatAttachmentModel extends ChatAttachment {
     required super.mimeType,
     required super.remoteUrl,
     super.localPath,
+    super.code,
+    super.attachmentId,
   });
 
   factory ChatAttachmentModel.fromJson(Map<String, dynamic> json) {
+    final rawId = json['attachmentId'] ?? json['id'];
+    // The messaging service's own attachment row (returned inline with each
+    // message — see GET .../messages/conversation/{code}) uses a different
+    // shape than the local upload-pipeline model below: `originalFilename`,
+    // `attachmentType`, `fileSize`, `assetCode`, and a `fileUrl`/
+    // `thumbnailUrl` that is null until the document service finishes
+    // resolving it (see AttachmentUrlResolver for that resolution step).
     return ChatAttachmentModel(
-      name: json['name'] as String,
-      type: json['type'] as String,
-      sizeBytes: json['size_bytes'] as int,
-      mimeType: json['mime_type'] as String,
-      remoteUrl: json['remote_url'] as String,
-      localPath: json['local_path'] as String?,
+      name: (json['name'] ?? json['originalFilename']) as String? ?? '',
+      type: (json['type'] ?? json['attachmentType']) as String? ?? '',
+      sizeBytes:
+          (json['size_bytes'] ?? json['sizeBytes'] ?? json['fileSize']) as int? ?? 0,
+      mimeType: (json['mime_type'] ?? json['mimeType']) as String? ?? '',
+      remoteUrl: (json['remote_url'] ??
+              json['remoteUrl'] ??
+              json['fileUrl'] ??
+              json['thumbnailUrl']) as String? ??
+          '',
+      localPath: (json['local_path'] ?? json['localPath']) as String?,
+      code: (json['code'] ?? json['assetCode']) as String?,
+      attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
     );
   }
 
@@ -124,6 +182,8 @@ class ChatAttachmentModel extends ChatAttachment {
       'mime_type': mimeType,
       'remote_url': remoteUrl,
       'local_path': localPath,
+      'code': code,
+      'attachmentId': attachmentId,
     };
   }
 }

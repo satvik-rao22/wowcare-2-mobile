@@ -145,7 +145,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) async {
     final model = await _remoteDataSource.getDailyActivityFeed(
       classroomCode: classroomCode,
@@ -174,7 +174,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) async {
     final model = await _remoteDataSource.getRangeActivityFeed(
       classroomCode: classroomCode,
@@ -409,6 +409,11 @@ class ActivityRepositoryImpl implements ActivityRepository {
       ownerType: ownerType,
       ownerCode: ownerCode,
     );
+  }
+
+  @override
+  Future<int> getPendingIncidentCount() {
+    return _remoteDataSource.getPendingIncidentCount();
   }
 }
 

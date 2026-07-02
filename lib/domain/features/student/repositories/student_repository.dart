@@ -1,8 +1,24 @@
 import '../entities/student.dart';
 import '../entities/student_documents_page.dart';
+import '../entities/student_guardian.dart';
+import '../entities/student_health.dart';
+import '../entities/student_immunization.dart';
 import '../entities/student_important_dates.dart';
+import '../entities/student_physical_exam.dart';
+import '../entities/student_physician.dart';
+import '../entities/student_pickup.dart';
+import '../entities/student_profile.dart';
+import '../entities/student_regular_schedule.dart';
 
 abstract class StudentRepository {
+  /// Fetches a single student profile via `GET /api/v1/student/student/{code}`.
+  Future<StudentProfile> getStudentProfile({required String code});
+
+  /// Fetches a student's regular schedule from the dedicated schedule API:
+  /// `GET /api/v1/regular-schedules?studentCode={studentCode}`.
+  Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
+    required String studentCode,
+  });
   Future<StudentPage> getStudentPage({
     required String schoolCode,
     String? code,
@@ -12,6 +28,7 @@ abstract class StudentRepository {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page,
     int size,
@@ -60,6 +77,13 @@ abstract class StudentRepository {
 
   /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
   Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
+  /// Links siblings onto a newly created student via
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling` (add-student flow only).
+  Future<String> addStudentSibling({
     required String studentCode,
     required List<String> siblingCodes,
   });
@@ -123,7 +147,9 @@ abstract class StudentRepository {
   /// Creates or links a guardian user to a student via `/api/v1/guardian-user`.
   ///
   /// Returns the backend `message` field.
-  Future<String> createGuardianUser({
+  /// Returns the backend `message` and the newly created `guardianCode`
+  /// (needed to upload the guardian's profile photo right after creation).
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -141,17 +167,13 @@ abstract class StudentRepository {
   /// Fetches all guardians/parents for a school via `GET /api/v1/guardian`.
   ///
   /// Returns a list of display names (e.g. "First Last") suitable for dropdowns.
-  Future<List<String>> getGuardianNamesForSchool({
-    required String schoolCode,
-  });
+  Future<List<String>> getGuardianNamesForSchool({required String schoolCode});
 
   /// Fetches all tag names for a school via `GET /api/v1/tags`.
   ///
   /// Returns a list of tag display names (e.g. "5 Days", "Vegetarian") suitable
   /// for dropdowns.
-  Future<List<String>> getTagNamesForSchool({
-    required String schoolCode,
-  });
+  Future<List<String>> getTagNamesForSchool({required String schoolCode});
 
   /// Returns a mapping from tag display name to tag code for a given school.
   ///
@@ -192,9 +214,15 @@ abstract class StudentRepository {
   ///
   /// The returned map must contain keys: 'activeCount', 'upcomingCount',
   /// and 'enrolledCount'.
-  Future<Map<String, int>> getStudentCounts({
-    required String schoolCode,
-  });
+  Future<Map<String, int>> getStudentCounts({required String schoolCode});
+
+  /// `GET /api/v1/student/student-documents/expiry-count`
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
+      getStudentDocumentExpiryCount({required String schoolCode});
+
+  /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode});
 
   /// Updates a student's tags via `POST /api/v1/student-tags`.
   ///
@@ -230,6 +258,156 @@ abstract class StudentRepository {
     required String studentCode,
   });
 
+  /// Fetches a student's pickup contacts.
+  ///
+  /// [forceRefresh] bypasses the local cache and re-fetches from the network.
+  Future<List<StudentPickup>> getStudentPickups({
+    required String studentCode,
+    bool forceRefresh = false,
+  });
+
+  /// Adds a pickup contact for a student. Returns the backend `message` field.
+  Future<String> addPickup({
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String relation,
+    String? relationshipDescription,
+    required String pickupType,
+    String? carpoolId,
+  });
+
+  /// Updates an existing pickup contact. Returns the backend `message` field.
+  Future<String> updatePickup({
+    required String code,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String relation,
+    String? clockPin,
+    String? relationshipDescription,
+    String? pickupType,
+    String? carpoolId,
+  });
+
+  /// Deletes a pickup contact. Returns the backend `message` field.
+  Future<String> deletePickup({
+    required String code,
+    required String studentCode,
+  });
+
+  /// Raw guardians list for a school (includes email/mobile/code), used by UI
+  /// flows that need full guardian details for dropdown selection.
+  Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
+    required String schoolCode,
+  });
+
+  // --- Physicians ---
+
+  /// Fetches a student's physician contacts.
+  Future<List<StudentPhysician>> getStudentPhysicians({
+    required String studentCode,
+  });
+
+  /// Adds a physician for a student. Returns the created physician.
+  Future<StudentPhysician> addPhysician({
+    required String schoolCode,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    String? specialty,
+    String? notes,
+  });
+
+  /// Updates a physician. Returns the updated physician.
+  Future<StudentPhysician> updatePhysician({
+    required String code,
+    required String studentCode,
+    required String firstName,
+    required String lastName,
+    required String email,
+    required String phoneNumber,
+    required String address,
+    String? specialty,
+    String? notes,
+  });
+
+  /// Deletes a physician. Returns the backend `message` field.
+  Future<String> deletePhysician({
+    required String code,
+    required String studentCode,
+  });
+
+  // --- Health ---
+
+  /// Fetches a student's health details.
+  Future<StudentHealth> getStudentHealth({required String studentCode});
+
+  /// Updates a student's health details. Returns the updated health record.
+  Future<StudentHealth> updateStudentHealth({
+    required String studentCode,
+    required Map<String, dynamic> body,
+  });
+
+  // --- Immunizations ---
+
+  /// Fetches a student's immunization (vaccine dose) records.
+  Future<List<StudentImmunization>> getStudentImmunizations({
+    required String studentCode,
+    bool forceRefresh = false,
+  });
+
+  /// Updates a single immunization record (due/administered date + status).
+  /// Returns the updated record.
+  Future<StudentImmunization> updateStudentImmunizationRecord({
+    required String studentCode,
+    required StudentImmunization record,
+    required DateTime date,
+    required String status,
+    String? exemptionReason,
+  });
+
+  // --- Physical exams ---
+
+  /// Fetches a student's physical exam records.
+  Future<List<StudentPhysicalExam>> getStudentPhysicalExams({
+    required String studentCode,
+    bool forceRefresh = false,
+  });
+
+  /// Adds a physical exam record. Returns the created record.
+  Future<StudentPhysicalExam> addStudentPhysicalExam({
+    required String studentCode,
+    required DateTime examDate,
+    required String status,
+    String? notes,
+  });
+
+  /// Updates a physical exam record. Returns the updated record.
+  Future<StudentPhysicalExam> updateStudentPhysicalExam({
+    required String studentCode,
+    required String examCode,
+    required DateTime examDate,
+    required String status,
+    String? notes,
+  });
+
+  // --- Guardians ---
+
+  /// Fetches a student's guardians/parents.
+  ///
+  /// [forceRefresh] bypasses the local cache and re-fetches from the network.
+  Future<List<StudentGuardian>> getStudentGuardians({
+    required String studentCode,
+    bool forceRefresh = false,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
@@ -240,6 +418,7 @@ abstract class StudentRepositoryWithCache {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -256,6 +435,7 @@ abstract class StudentRepositoryWithCache {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -264,4 +444,3 @@ abstract class StudentRepositoryWithCache {
 
   Future<StudentDocumentsPage?> loadCachedStudentDocuments(String studentCode);
 }
-

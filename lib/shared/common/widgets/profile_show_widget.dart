@@ -3,8 +3,10 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
@@ -28,6 +30,12 @@ class DocumentImageWidget extends StatefulWidget {
 
   /// Optional student code for attendance status dot.
   final String? studentCode;
+
+  /// Optional classroom code — when set (and no [imageUrl]/[mediaAssetCode] is
+  /// given), the widget resolves and renders the classroom logo via the
+  /// classroom-logo asset-codes endpoint → document service, mirroring how
+  /// staff/student profile photos are resolved.
+  final String? classroomCode;
   final double size;
   final String? placeholderAsset;
   final BoxShape shape;
@@ -62,6 +70,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.staffEmploymentStatus,
     this.studentEnrollmentStatus,
     this.studentCode,
+    this.classroomCode,
     this.size = 50.0,
     this.placeholderAsset,
     this.shape = BoxShape.circle,
@@ -77,10 +86,7 @@ class DocumentImageWidget extends StatefulWidget {
     this.disableAttendanceStatusLookup = false,
   }) : super(key: key);
 
-  static void clearProfilePhotoCache({
-    String? studentCode,
-    String? staffCode,
-  }) {
+  static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
     final student = (studentCode ?? '').trim();
     final staff = (staffCode ?? '').trim();
     if (student.isEmpty && staff.isEmpty) {
@@ -148,7 +154,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     if (oldWidget.imageUrl != widget.imageUrl ||
         oldWidget.mediaAssetCode != widget.mediaAssetCode ||
         oldWidget.studentCode != widget.studentCode ||
-        oldWidget.staffCode != widget.staffCode) {
+        oldWidget.staffCode != widget.staffCode ||
+        oldWidget.classroomCode != widget.classroomCode) {
       _resolvedImageUrl = _seedImageUrl();
       _resolveProfilePhotoIfNeeded();
     }
@@ -167,6 +174,12 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
     if (mediaAssetCode.isNotEmpty) {
       final key = 'asset:$mediaAssetCode';
+      final cached = _cachedUrlIfFresh(key);
+      if (cached != null && cached.isNotEmpty) return cached;
+    }
+    final classroomCode = widget.classroomCode?.trim() ?? '';
+    if (classroomCode.isNotEmpty) {
+      final key = 'classroom:$classroomCode';
       final cached = _cachedUrlIfFresh(key);
       if (cached != null && cached.isNotEmpty) return cached;
     }
@@ -189,7 +202,8 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final cached = _profilePhotoUrlCache[key];
     final fetchedAt = _profilePhotoFetchedAt[key];
     if (cached == null || fetchedAt == null) return null;
-    if (DateTime.now().difference(fetchedAt) > DocumentImageWidget._profilePhotoCacheTtl) {
+    if (DateTime.now().difference(fetchedAt) >
+        DocumentImageWidget._profilePhotoCacheTtl) {
       _profilePhotoUrlCache.remove(key);
       _profilePhotoFetchedAt.remove(key);
       return null;
@@ -203,17 +217,29 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final studentCode = widget.studentCode?.trim() ?? '';
     final staffCode = widget.staffCode?.trim() ?? '';
     final mediaAssetCode = widget.mediaAssetCode?.trim() ?? '';
-    if (studentCode.isEmpty && staffCode.isEmpty && mediaAssetCode.isEmpty) {
+    final classroomCode = widget.classroomCode?.trim() ?? '';
+    if (studentCode.isEmpty &&
+        staffCode.isEmpty &&
+        mediaAssetCode.isEmpty &&
+        classroomCode.isEmpty) {
       return;
     }
 
-    if (widget.disableProfileLookupFallback && mediaAssetCode.isEmpty) {
+    // [disableProfileLookupFallback] only gates the student/staff profile
+    // fallback. A classroom logo is a deliberate lookup, so it must proceed.
+    if (widget.disableProfileLookupFallback &&
+        mediaAssetCode.isEmpty &&
+        classroomCode.isEmpty) {
       return;
     }
 
     final cacheKey = mediaAssetCode.isNotEmpty
         ? 'asset:$mediaAssetCode'
-        : (studentCode.isNotEmpty ? 'student:$studentCode' : 'staff:$staffCode');
+        : classroomCode.isNotEmpty
+        ? 'classroom:$classroomCode'
+        : (studentCode.isNotEmpty
+              ? 'student:$studentCode'
+              : 'staff:$staffCode');
     final cached = _cachedUrlIfFresh(cacheKey);
     if (cached != null && cached.isNotEmpty) {
       if (!mounted) return;
@@ -235,6 +261,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       studentCode: studentCode,
       staffCode: staffCode,
       mediaAssetCode: mediaAssetCode,
+      classroomCode: classroomCode,
     );
     _profilePhotoInFlight[cacheKey] = future;
     try {
@@ -247,6 +274,9 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       if ((resolved ?? '').trim().isNotEmpty) {
         setState(() => _resolvedImageUrl = resolved!.trim());
       }
+    } catch (_) {
+      // Photo resolution failed (e.g. network / 404). Keep the initials
+      // fallback instead of letting the error propagate unhandled.
     } finally {
       _profilePhotoInFlight.remove(cacheKey);
     }
@@ -256,6 +286,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     required String studentCode,
     required String staffCode,
     required String mediaAssetCode,
+    required String classroomCode,
   }) async {
     final apiClient = serviceLocator<ApiClient>();
     if (mediaAssetCode.isNotEmpty) {
@@ -264,19 +295,38 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final documentUrl = await _fetchDocumentAssetUrl(mediaAssetCode);
       if (documentUrl.isNotEmpty) return documentUrl;
     }
-    if (studentCode.isNotEmpty) {
-      final endpoint = ApiPaths.urlWithBase(
-        ApiPaths.studentProfile(studentCode),
-        ApiConstants.studentBaseUrl,
+    if (classroomCode.isNotEmpty) {
+      final schoolCode = await _currentSchoolCode();
+      final assetCode = await _fetchClassroomLogoAssetCode(
+        classroomCode: classroomCode,
+        schoolCode: schoolCode,
       );
-      final response = await apiClient.client.get<dynamic>(endpoint);
-      final data = _extractDataMap(response.data);
-      final directUrl = _extractPhotoUrl(data);
+      if (assetCode.isEmpty) return null;
+      final documentUrl = await _fetchDocumentAssetUrl(assetCode);
+      return documentUrl.isEmpty ? null : documentUrl;
+    }
+    if (studentCode.isNotEmpty) {
+      String? directUrl;
+      String assetCode = '';
+      String schoolCode = '';
+      // The student profile endpoint may 404; don't throw uncaught — fall back
+      // to the asset-code lookup below.
+      try {
+        final endpoint = ApiPaths.urlWithBase(
+          ApiPaths.studentProfile(studentCode),
+          ApiConstants.studentBaseUrl,
+        );
+        final response = await apiClient.client.get<dynamic>(endpoint);
+        final data = _extractDataMap(response.data);
+        directUrl = _extractPhotoUrl(data);
+        assetCode = _extractAssetCode(data);
+        schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+      } catch (_) {
+        // Ignore and try the asset-code lookup.
+      }
       if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
-
-      String assetCode = _extractAssetCode(data);
       if (assetCode.isEmpty) {
-        final schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+        if (schoolCode.isEmpty) schoolCode = await _currentSchoolCode();
         assetCode = await _fetchStudentProfilePhotoAssetCode(
           studentCode: studentCode,
           schoolCode: schoolCode,
@@ -287,18 +337,28 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       return documentUrl.isEmpty ? null : documentUrl;
     }
     if (staffCode.isNotEmpty) {
-      final endpoint = ApiPaths.urlWithBase(
-        ApiPaths.staffProfileByCodePath(staffCode),
-        ApiConstants.staffBaseUrl,
-      );
-      final response = await apiClient.client.get<dynamic>(endpoint);
-      final data = _extractDataMap(response.data);
-      final directUrl = _extractPhotoUrl(data);
+      String? directUrl;
+      String assetCode = '';
+      String schoolCode = '';
+      // The staff profile-by-code endpoint may 404 (e.g. local backends). Don't
+      // let that throw uncaught — fall back to the asset-code lookup below, the
+      // same way daily/custom views resolve the photo.
+      try {
+        final endpoint = ApiPaths.urlWithBase(
+          ApiPaths.staffProfileByCodePath(staffCode),
+          ApiConstants.staffBaseUrl,
+        );
+        final response = await apiClient.client.get<dynamic>(endpoint);
+        final data = _extractDataMap(response.data);
+        directUrl = _extractPhotoUrl(data);
+        assetCode = _extractAssetCode(data);
+        schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+      } catch (_) {
+        // Ignore and try the asset-code lookup.
+      }
       if ((directUrl ?? '').trim().isNotEmpty) return directUrl;
-
-      String assetCode = _extractAssetCode(data);
       if (assetCode.isEmpty) {
-        final schoolCode = (data?['schoolCode'] ?? '').toString().trim();
+        if (schoolCode.isEmpty) schoolCode = await _currentSchoolCode();
         assetCode = await _fetchStaffProfilePhotoAssetCode(
           staffCode: staffCode,
           schoolCode: schoolCode,
@@ -418,6 +478,53 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         orElse: () => <String, dynamic>{},
       );
       return (match['assetCode'] ?? '').toString().trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  Future<String> _currentSchoolCode() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      return (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Resolves the classroom's logo asset code from
+  /// `GET /classroom/classroom-logo/asset-codes?classroomCode=&schoolCode=`,
+  /// matching the row whose `classroomCode` equals the requested one.
+  Future<String> _fetchClassroomLogoAssetCode({
+    required String classroomCode,
+    required String schoolCode,
+  }) async {
+    final normalizedClassroom = classroomCode.trim();
+    final normalizedSchool = schoolCode.trim();
+    if (normalizedClassroom.isEmpty || normalizedSchool.isEmpty) return '';
+    try {
+      final apiClient = serviceLocator<ApiClient>();
+      final endpoint = ApiPaths.url(ApiPaths.classroomLogoAssetCodes);
+      final response = await apiClient.client.get<dynamic>(
+        endpoint,
+        queryParameters: <String, dynamic>{
+          'classroomCode': normalizedClassroom,
+          'schoolCode': normalizedSchool,
+        },
+      );
+      final body = response.data;
+      if (body is! Map) return '';
+      final data = body['data'];
+      if (data is! List) return '';
+      final match = data.whereType<Map>().firstWhere(
+        (row) =>
+            (row['classroomCode'] ?? '').toString().trim().toUpperCase() ==
+            normalizedClassroom.toUpperCase(),
+        orElse: () => <String, dynamic>{},
+      );
+      return (match['logoAssetCode'] ?? match['assetCode'] ?? '')
+          .toString()
+          .trim();
     } catch (_) {
       return '';
     }
@@ -580,8 +687,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
 
   @override
   Widget build(BuildContext context) {
-    final imageUrlToShow =
-        (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
+    final imageUrlToShow = (_resolvedImageUrl ?? widget.imageUrl ?? '').trim();
     final hasImageUrl = imageUrlToShow.isNotEmpty;
     return GestureDetector(
       onTap: widget.onTap,

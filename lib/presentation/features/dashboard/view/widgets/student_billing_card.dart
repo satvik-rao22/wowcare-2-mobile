@@ -154,8 +154,18 @@ const double _mockCurrentBalance = 850.00;
 
 String _formatDate(DateTime dt) {
   const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
   return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
 }
@@ -233,8 +243,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             decoration: BoxDecoration(
               color: AppColors.billingPaymentBadgeColor,
               borderRadius: BorderRadius.circular(6),
@@ -265,18 +274,12 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         children: [
           Text(
             '\$${transaction.amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 20,
-              color: AppColors.primaryColor,
-            ),
+            style: const TextStyle(fontSize: 20, color: AppColors.primaryColor),
           ),
           const SizedBox(height: 5),
           Text(
             'Paid On: ${_formatDate(paidOn)}',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.primaryColor,
-            ),
+            style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
           ),
         ],
       ),
@@ -368,9 +371,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
               child: OutlinedButton(
                 onPressed: () {},
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: AppColors.billingBorderMedium,
-                  ),
+                  side: BorderSide(color: AppColors.billingBorderMedium),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -408,8 +409,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         children: [
           Container(
             width: 80,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             decoration: BoxDecoration(
               color: AppColors.billingInvoiceBadgeColor,
               borderRadius: BorderRadius.circular(6),
@@ -440,18 +440,12 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         children: [
           Text(
             '\$${invoice.invoiceAmount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 20,
-              color: AppColors.primaryColor,
-            ),
+            style: const TextStyle(fontSize: 20, color: AppColors.primaryColor),
           ),
           const SizedBox(height: 5),
           Text(
             'Created On: ${_formatDate(dueDate)}',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.primaryColor,
-            ),
+            style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
           ),
         ],
       ),
@@ -538,9 +532,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
               child: OutlinedButton(
                 onPressed: () {},
                 style: OutlinedButton.styleFrom(
-                  side: BorderSide(
-                    color: AppColors.billingBorderMedium,
-                  ),
+                  side: BorderSide(color: AppColors.billingBorderMedium),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
@@ -574,8 +566,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         children: [
           Container(
             width: 80,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
             decoration: BoxDecoration(
               color: AppColors.billingRefundBadgeColor,
               borderRadius: BorderRadius.circular(6),
@@ -606,18 +597,12 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         children: [
           Text(
             '\$${transaction.amount.toStringAsFixed(2)}',
-            style: const TextStyle(
-              fontSize: 20,
-              color: AppColors.primaryColor,
-            ),
+            style: const TextStyle(fontSize: 20, color: AppColors.primaryColor),
           ),
           const SizedBox(height: 5),
           Text(
             'Paid On: ${_formatDate(paidOn)}',
-            style: const TextStyle(
-              fontSize: 14,
-              color: AppColors.primaryColor,
-            ),
+            style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
           ),
         ],
       ),
@@ -741,10 +726,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         const Center(
           child: Text(
             'No Transactions',
-            style: TextStyle(
-              fontSize: 16,
-              color: AppColors.primaryColor,
-            ),
+            style: TextStyle(fontSize: 16, color: AppColors.primaryColor),
           ),
         ),
       ];
@@ -786,9 +768,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -812,8 +792,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
               // Student grid
               // --------------------------------------------------------------
               GridView.builder(
-                gridDelegate:
-                    const SliverGridDelegateWithFixedCrossAxisCount(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   mainAxisSpacing: 0,
                   childAspectRatio: 2,
@@ -870,8 +849,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
                   Expanded(
                     flex: 3,
                     child: Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 20.0),
+                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
                       child: CustomButtonLayout(
                         isForm: false,
                         showCancelButton: false,

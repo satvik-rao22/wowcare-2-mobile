@@ -121,7 +121,7 @@ abstract class ActivityRemoteDataSource {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   });
 
   /// Date range classroom feed:
@@ -137,8 +137,12 @@ abstract class ActivityRemoteDataSource {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   });
+
+  /// Count of pending incident approvals:
+  /// `GET /api/v2/activities/admin/activities/pending-incident-count`.
+  Future<int> getPendingIncidentCount();
 }
 
 class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
@@ -600,13 +604,15 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     var basePath = documentApiBasePath.trim();
     if (basePath.isEmpty) {
-      basePath = ApiConstants.isUat ? '' : '/document-ms/api/v1';
+      basePath = ApiConstants.isUat ? '/api/v1/document' : '/document-ms/api/v1';
     }
     if (!basePath.startsWith('/')) {
       basePath = '/$basePath';
     }
-    if (ApiConstants.isUat && basePath.startsWith('/api/v1/document')) {
-      basePath = basePath.replaceFirst('/api/v1/document', '');
+    // UAT: documentMsBaseUrl is the bare gateway host, so the document MS
+    // namespace (`/api/v1/document`) must live in the path itself.
+    if (ApiConstants.isUat && !basePath.startsWith('/api/v1/document')) {
+      basePath = '/api/v1/document';
     }
     basePath = basePath.replaceAll(RegExp(r'/+$'), '');
     final endpoint =
@@ -654,7 +660,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) async {
     final ats = (activityTypeCodes ?? const <String>[])
         .map((e) => e.trim())
@@ -723,7 +729,7 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) async {
     final ats = (activityTypeCodes ?? const <String>[])
         .map((e) => e.trim())
@@ -779,6 +785,28 @@ class ActivityRemoteDataSourceImpl implements ActivityRemoteDataSource {
     }
 
     return ActivityFeedPageModel.fromJson(body);
+  }
+
+  @override
+  Future<int> getPendingIncidentCount() async {
+    final url = ApiPaths.urlWithBase(
+      ApiPaths.pendingIncidentCount,
+      ApiConstants.activityBaseUrl,
+    );
+    final response = await _client.get<dynamic>(url);
+    final body = response.data;
+
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected pending incident count API response format');
+    }
+
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data field in pending incident count response');
+    }
+
+    final count = data['count'];
+    return count is int ? count : 0;
   }
 }
 

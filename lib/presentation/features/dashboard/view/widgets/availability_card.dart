@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
+import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
+import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 // ---------------------------------------------------------------------------
-// Local model — mirrors AvailableCount from the reference project.
+// UI-layer model — one row in the classroom availability table.
+// firstShiftCount  = morning available spots
+// secondShiftCount = afternoon available spots
 // ---------------------------------------------------------------------------
 class _AvailableCount {
   const _AvailableCount({
@@ -23,59 +32,7 @@ class _AvailableCount {
 }
 
 // ---------------------------------------------------------------------------
-// Mock data — realistic classroom names with morning / afternoon availability.
-// ---------------------------------------------------------------------------
-const List<_AvailableCount> _mockData = [
-  _AvailableCount(
-      roomId: '1',
-      roomName: 'Bluebell Room',
-      firstShiftCount: 3,
-      secondShiftCount: 2),
-  _AvailableCount(
-      roomId: '2',
-      roomName: 'Daisy Room',
-      firstShiftCount: 0,
-      secondShiftCount: 1),
-  _AvailableCount(
-      roomId: '3',
-      roomName: 'Maple Room',
-      firstShiftCount: 5,
-      secondShiftCount: 4),
-  _AvailableCount(
-      roomId: '4',
-      roomName: 'Sunflower Room',
-      firstShiftCount: 2,
-      secondShiftCount: -1),
-  _AvailableCount(
-      roomId: '5',
-      roomName: 'Oak Room',
-      firstShiftCount: 1,
-      secondShiftCount: 0),
-  _AvailableCount(
-      roomId: '6',
-      roomName: 'Willow Room',
-      firstShiftCount: 4,
-      secondShiftCount: 3),
-  _AvailableCount(
-      roomId: '7',
-      roomName: 'Rosebud Room',
-      firstShiftCount: 0,
-      secondShiftCount: 2),
-  _AvailableCount(
-      roomId: '8',
-      roomName: 'Cedar Room',
-      firstShiftCount: 3,
-      secondShiftCount: -2),
-  _AvailableCount(
-      roomId: '9',
-      roomName: 'Jasmine Room',
-      firstShiftCount: 6,
-      secondShiftCount: 5),
-];
-
-// ---------------------------------------------------------------------------
 // Inline colour helper — deterministic colour from room name.
-// Replaces ColorUtils.getColorFromName from the reference project.
 // ---------------------------------------------------------------------------
 Color _colorFromName(String name) {
   final palette = AppColors.profileAvatarColors;
@@ -85,7 +42,7 @@ Color _colorFromName(String name) {
 }
 
 // ---------------------------------------------------------------------------
-// Inline initials helper — replaces StringUtils.getInitials.
+// Inline initials helper.
 // ---------------------------------------------------------------------------
 String _initialsFromName(String name) {
   final parts = name.trim().split(RegExp(r'\s+'));
@@ -96,18 +53,64 @@ String _initialsFromName(String name) {
 }
 
 // ---------------------------------------------------------------------------
+// Converts a FutureAvailabilityGrid + selected date into display rows.
+//
+// The API returns entries with shift=MORNING and shift=AFTERNOON when called
+// with shift=ALL (isTwoShifts=true). Each classroom gets one row whose
+// firstShiftCount/secondShiftCount map to morning/afternoon availableSpots.
+//
+// When only FULL_DAY entries exist, both columns show the same value so the
+// table remains consistent without UI changes.
+// ---------------------------------------------------------------------------
+List<_AvailableCount> _buildRows(
+  FutureAvailabilityGrid grid,
+  DateTime selectedDate,
+) {
+  // Build a quick lookup: classroomCode -> { morning, afternoon }
+  final morning = <String, int>{};
+  final afternoon = <String, int>{};
+
+  for (final entry in grid.availability) {
+    if (!_isSameDay(entry.date, selectedDate)) continue;
+    final code = entry.classroomCode;
+    switch (entry.shift) {
+      case FutureAvailabilityShift.morning:
+        morning[code] = entry.availableSpots;
+      case FutureAvailabilityShift.afternoon:
+        afternoon[code] = entry.availableSpots;
+      case FutureAvailabilityShift.fullDay:
+        // FULL_DAY: mirror to both columns so the table always renders.
+        morning[code] = entry.availableSpots;
+        afternoon[code] = entry.availableSpots;
+      case FutureAvailabilityShift.all:
+        // "all" is a request-time sentinel, not an entry-level shift value.
+        break;
+    }
+  }
+
+  return grid.classrooms
+      .map((c) {
+        return _AvailableCount(
+          roomId: c.code,
+          roomName: c.name,
+          firstShiftCount: morning[c.code] ?? 0,
+          secondShiftCount: afternoon[c.code] ?? 0,
+        );
+      })
+      .toList(growable: false);
+}
+
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
+
+// ---------------------------------------------------------------------------
 // AvailabilityCard
 // ---------------------------------------------------------------------------
 
 /// Dashboard card that shows morning / afternoon seat availability per
-/// classroom, with date navigation and a collapse toggle.
-///
-/// UI-only (static mock data). No state management, no API calls.
+/// classroom for a selected date. Wired to [FutureAvailabilityCubit].
 class AvailabilityCard extends StatefulWidget {
-  const AvailabilityCard({
-    super.key,
-    this.isDashboard = true,
-  });
+  const AvailabilityCard({super.key, this.isDashboard = true});
 
   /// When [true] the list is initially capped at [_initialDisplayCount] rows
   /// with a Show More / Show Less footer, matching the dashboard usage.
@@ -130,15 +133,21 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   // -------------------------------------------------------------------------
 
   void _changeDate(int days) {
+    final newDate = _selectedAvailabilityDate.add(Duration(days: days));
     setState(() {
-      _selectedAvailabilityDate =
-          _selectedAvailabilityDate.add(Duration(days: days));
+      _selectedAvailabilityDate = newDate;
     });
+    // ignore: discarded_futures
+    context.read<FutureAvailabilityCubit>().load(
+      date: newDate,
+      isTwoShifts: true,
+    );
   }
 
   Widget _buildAvailabilityDateNavigator() {
-    final formattedDate =
-        DateFormat('EEE, MMM d').format(_selectedAvailabilityDate);
+    final formattedDate = DateFormat(
+      'EEE, MMM d',
+    ).format(_selectedAvailabilityDate);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -168,7 +177,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
           ),
         ),
         const SizedBox(width: 8),
-        // Calendar icon — opens nothing in UI-only port
+        // Calendar icon
         Material(
           child: InkWell(
             onTap: () {},
@@ -206,42 +215,80 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.cardColor,
-      ),
-      child: Column(
-        children: [
-          // Header row
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
-            child: DashboardCardHeader(
-              title: 'Availability',
-              showRedirect: true,
-              onRedirect: () {},
-              minimized: _minimized,
-              onToggle: () {
-                setState(() {
-                  _minimized = !_minimized;
-                });
-              },
-              trailing: _buildAvailabilityDateNavigator(),
+    return BlocBuilder<FutureAvailabilityCubit, FutureAvailabilityState>(
+      buildWhen: (prev, curr) => prev.errorMessage != curr.errorMessage,
+      builder: (context, state) {
+        return DashboardCardErrorOverlay(
+          show: state.errorMessage != null,
+          onRetry: () => context.read<FutureAvailabilityCubit>().load(
+            date: _selectedAvailabilityDate,
+            isTwoShifts: true,
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.cardBorderColor),
+              borderRadius: BorderRadius.circular(12),
+              color: AppColors.cardColor,
+            ),
+            child: Column(
+              children: [
+                // Header row
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 4, 0, 8),
+                  child: DashboardCardHeader(
+                    title: 'Availability',
+                    showRedirect: true,
+                    onRedirect: () =>
+                        context.go(FutureAvailabilityScreen.routeName),
+                    minimized: _minimized,
+                    onToggle: () {
+                      setState(() {
+                        _minimized = !_minimized;
+                      });
+                    },
+                    trailing: _buildAvailabilityDateNavigator(),
+                  ),
+                ),
+
+                /// Collapsible body
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeInOut,
+                  child: _minimized ? const SizedBox.shrink() : _buildBody(),
+                ),
+              ],
             ),
           ),
+        );
+      },
+    );
+  }
 
-          /// Collapsible body
-          AnimatedSize(
-            duration: const Duration(milliseconds: 250),
-            curve: Curves.easeInOut,
-            child: _minimized
-                ? const SizedBox.shrink()
-                : _buildTable(_mockData),
-          ),
-        ],
-      ),
+  // -------------------------------------------------------------------------
+  // Body — driven by cubit state
+  // -------------------------------------------------------------------------
+
+  Widget _buildBody() {
+    return BlocBuilder<FutureAvailabilityCubit, FutureAvailabilityState>(
+      builder: (context, state) {
+        // Show shimmer when:
+        // (a) first ever load with no data yet, or
+        // (b) actively loading/refreshing for a different date than what is
+        //     currently displayed — prevents showing stale data on date switch.
+        final bool dateMatches =
+            state.selectedDate != null &&
+            _isSameDay(state.selectedDate!, _selectedAvailabilityDate);
+
+        if (state.grid == null || (state.isRefreshing && !dateMatches)) {
+          return AvailabilityCardShimmer();
+        }
+
+        // Build display rows from the grid for the selected date.
+        // Computed here (inside BlocBuilder) so it only runs on state changes.
+        final rows = _buildRows(state.grid!, _selectedAvailabilityDate);
+        return _buildTable(rows);
+      },
     );
   }
 
@@ -252,9 +299,12 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   Widget _buildTable(List<_AvailableCount> data) {
     if (data.isEmpty) {
       return const Center(
-        child: Text(
-          'No classroom data available',
-          style: TextStyle(fontSize: 16, color: Colors.grey),
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text(
+            'No classroom data available',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
         ),
       );
     }
@@ -291,7 +341,8 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
                 displayedClassrooms.length,
                 (index) => _buildDataRow(
                   displayedClassrooms[index],
-                  isLast: index == displayedClassrooms.length - 1 &&
+                  isLast:
+                      index == displayedClassrooms.length - 1 &&
                       (!hasMoreToShow || !widget.isDashboard),
                 ),
               ),
@@ -400,7 +451,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   TableRow _buildDataRow(_AvailableCount item, {bool isLast = false}) {
     return TableRow(
       children: [
-        // Classroom name cell — navigation removed (empty onTap)
+        // Classroom name cell
         GestureDetector(
           onTap: () {},
           child: Container(
@@ -485,7 +536,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   }
 
   // -------------------------------------------------------------------------
-  // Classroom avatar — inline equivalent of DocumentImageWidget / ColorUtils
+  // Classroom avatar
   // -------------------------------------------------------------------------
 
   Widget _buildClassroomAvatar(String roomName) {
@@ -515,8 +566,9 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
     final alphaRooms = <_AvailableCount>[];
 
     for (final item in data) {
-      final firstChar =
-          item.roomName.trim().isNotEmpty ? item.roomName.trim()[0] : '';
+      final firstChar = item.roomName.trim().isNotEmpty
+          ? item.roomName.trim()[0]
+          : '';
       if (RegExp(r'^\d').hasMatch(firstChar)) {
         numericRooms.add(item);
       } else {
@@ -525,9 +577,11 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
     }
 
     numericRooms.sort(
-        (a, b) => a.roomName.toLowerCase().compareTo(b.roomName.toLowerCase()));
+      (a, b) => a.roomName.toLowerCase().compareTo(b.roomName.toLowerCase()),
+    );
     alphaRooms.sort(
-        (a, b) => a.roomName.toLowerCase().compareTo(b.roomName.toLowerCase()));
+      (a, b) => a.roomName.toLowerCase().compareTo(b.roomName.toLowerCase()),
+    );
 
     return [...numericRooms, ...alphaRooms];
   }

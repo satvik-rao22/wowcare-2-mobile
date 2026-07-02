@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../shared/common/widgets/highlightable_card.dart';
 import '../model/scheduling_models.dart';
 import '../utils/scheduling_block_status_style.dart';
 import 'scheduling_day_timeline.dart';
@@ -139,7 +140,17 @@ class DayClassroomSection extends StatefulWidget {
     this.onStaffShiftTap,
     this.onStaffSlotTap,
     this.staffAttendanceStatusByCode,
+    this.highlightShiftCode,
+    this.highlightClassroomCode,
   });
+
+  /// Shift code from a notification deep-link; the matching shift row scrolls
+  /// into view and flashes.
+  final String? highlightShiftCode;
+
+  /// Classroom code from a notification deep-link (SHIFT_UNDER_RATIO); in DAY
+  /// view the matching classroom row scrolls into view and flashes.
+  final String? highlightClassroomCode;
 
   final ClassroomDaySchedule classroom;
   final SchedulingViewMode viewMode;
@@ -200,38 +211,46 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        SchedulingDayGanttRow(
-          left: InkWell(
-            onTap: hasStaff ? () => setState(() => _expanded = !_expanded) : null,
-            child: Row(
-              children: [
-                Expanded(
-                  child: Center(
-                    child: ClassroomRowLeft(
-                      classroomCode: widget.classroom.classroomCode,
-                      classroomName: widget.classroom.classroomName,
+        // Flash the classroom row when it's the under-ratio notification target.
+        HighlightableCard(
+          code: widget.classroom.classroomCode,
+          highlightCode: widget.highlightClassroomCode,
+          scrollOnHighlight: true,
+          borderRadius: 8,
+          child: SchedulingDayGanttRow(
+            left: InkWell(
+              onTap:
+                  hasStaff ? () => setState(() => _expanded = !_expanded) : null,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Center(
+                      child: ClassroomRowLeft(
+                        classroomCode: widget.classroom.classroomCode,
+                        classroomName: widget.classroom.classroomName,
+                      ),
                     ),
                   ),
-                ),
-                if (hasStaff)
-                  Icon(
-                    _expanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    size: 18,
-                    color: AppColors.primaryColor,
-                  ),
-              ],
+                  if (hasStaff)
+                    Icon(
+                      _expanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: AppColors.primaryColor,
+                    ),
+                ],
+              ),
             ),
-          ),
-          right: SchedulingClassroomDayTimeline(
-            slots: widget.classroom.daySlots,
-            slotDetails: widget.classroom.slotDetails,
-            day: widget.day,
-            classroomName: widget.classroom.classroomName,
-            dayStartMinutes: widget.classroom.timelineStartMinutes,
-            dayEndMinutes: widget.classroom.timelineEndMinutes,
-            slotMinutes: widget.classroom.slotMinutes,
+            right: SchedulingClassroomDayTimeline(
+              slots: widget.classroom.daySlots,
+              slotDetails: widget.classroom.slotDetails,
+              day: widget.day,
+              classroomName: widget.classroom.classroomName,
+              dayStartMinutes: widget.classroom.timelineStartMinutes,
+              dayEndMinutes: widget.classroom.timelineEndMinutes,
+              slotMinutes: widget.classroom.slotMinutes,
+            ),
           ),
         ),
         if (_expanded)
@@ -301,20 +320,26 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
         ),
         if (_expanded)
           for (int i = 0; i < staff.length; i++)
-            SchedulingTableRow(
-              isLast: widget.isLast && i == staff.length - 1,
-              left: StaffRowLeft(
-                entry: staff[i],
-                attendanceStatus:
-                    widget._attendanceStatusForStaff(staff[i].staffCode),
-              ),
-              right: StaffTimeRangePill(
-                startTime: staff[i].startTime,
-                endTime: staff[i].endTime,
-                isPublished: staff[i].isPublished,
-                onTap: widget.onStaffShiftTap == null
-                    ? null
-                    : () => widget.onStaffShiftTap!(staff[i]),
+            HighlightableCard(
+              code: staff[i].shiftCode,
+              highlightCode: widget.highlightShiftCode,
+              scrollOnHighlight: true,
+              borderRadius: 8,
+              child: SchedulingTableRow(
+                isLast: widget.isLast && i == staff.length - 1,
+                left: StaffRowLeft(
+                  entry: staff[i],
+                  attendanceStatus:
+                      widget._attendanceStatusForStaff(staff[i].staffCode),
+                ),
+                right: StaffTimeRangePill(
+                  startTime: staff[i].startTime,
+                  endTime: staff[i].endTime,
+                  isPublished: staff[i].isPublished,
+                  onTap: widget.onStaffShiftTap == null
+                      ? null
+                      : () => widget.onStaffShiftTap!(staff[i]),
+                ),
               ),
             ),
       ],

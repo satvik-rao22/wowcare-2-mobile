@@ -2,22 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/data/features/student/models/student_physician_models.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/entities/student_physician.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/view/add_physician_screen.dart';
-
 
 class StudentPhysicianTabCard extends StatefulWidget {
   const StudentPhysicianTabCard({
@@ -33,14 +31,13 @@ class StudentPhysicianTabCard extends StatefulWidget {
   final String classroom;
   final String? studentCode;
 
-
   @override
   State<StudentPhysicianTabCard> createState() =>
       _StudentPhysicianTabCardState();
 }
 
 class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
-  late Future<List<StudentPhysicianModel>> _physiciansFuture;
+  late Future<List<StudentPhysician>> _physiciansFuture;
 
   @override
   void initState() {
@@ -48,12 +45,12 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
     _physiciansFuture = _buildPhysiciansFuture();
   }
 
-  Future<List<StudentPhysicianModel>> _buildPhysiciansFuture() {
+  Future<List<StudentPhysician>> _buildPhysiciansFuture() {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
-      return Future.value(const <StudentPhysicianModel>[]);
+      return Future.value(const <StudentPhysician>[]);
     }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    final repo = serviceLocator<StudentRepository>();
     // Repository handles cache via CacheManager; first call may use cache,
     // subsequent ones will hit API when cache is invalidated after mutations.
     return repo.getStudentPhysicians(studentCode: code);
@@ -89,9 +86,11 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
+        !role.isStaff &&
+        !role.isParent;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,
@@ -128,17 +127,11 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                 ),
               ),
               const SizedBox(height: 16),
-              FutureBuilder<List<StudentPhysicianModel>>(
+              FutureBuilder<List<StudentPhysician>>(
                 future: _physiciansFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Padding(
-                      padding: EdgeInsets.only(top: 16),
-                      child: PrimaryCircularLoader(
-                        size: 28,
-                        strokeWidth: 2.5,
-                      ),
-                    );
+                    return const StudentDetailCardsShimmer();
                   }
 
                   if (snapshot.hasError) {
@@ -155,7 +148,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                   }
 
                   final physicians =
-                      snapshot.data ?? const <StudentPhysicianModel>[];
+                      snapshot.data ?? const <StudentPhysician>[];
                   if (physicians.isEmpty) {
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
@@ -198,10 +191,9 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
       ),
     );
   }
-
 }
 
-class _PhysicianCard extends StatelessWidget{
+class _PhysicianCard extends StatelessWidget {
   const _PhysicianCard({
     required this.code,
     required this.studentCode,
@@ -250,29 +242,30 @@ class _PhysicianCard extends StatelessWidget{
     return IntrinsicHeight(
       child: Container(
         width: double.infinity,
-        decoration: BoxDecoration(
+        // Match the Family/Pickup cards: themeColor outline, square top-left.
+        decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
+          borderRadius: BorderRadius.only(
+            topRight: Radius.circular(8),
+            bottomLeft: Radius.circular(8),
+            bottomRight: Radius.circular(8),
+          ),
+          border: Border.fromBorderSide(
+            BorderSide(color: AppColors.themeColor, width: 1),
+          ),
         ),
         clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
             Container(
               height: 60,
-              padding: EdgeInsets.symmetric(
-                horizontal: isTablet ? 24 : 16,
-              ),
+              padding: EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16),
               alignment: Alignment.center,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.start,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    name: name,
-                    size: 45,
-                  ),
+                  DocumentImageWidget(fileUuid: '', name: name, size: 45),
                   SizedBox(width: isTablet ? 16 : 9),
                   Flexible(
                     child: Text(
@@ -298,7 +291,8 @@ class _PhysicianCard extends StatelessWidget{
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (phoneNumber != null && phoneNumber!.trim().isNotEmpty) ...[
+                  if (phoneNumber != null &&
+                      phoneNumber!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -306,16 +300,16 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Phone Number',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
                         Text(
                           _formatPhoneNumber(phoneNumber),
-                          style: AppTextStyles.value.copyWith(
-                            fontSize: 15,
-                          ),
+                          style: AppTextStyles.value.copyWith(fontSize: 15),
                         ),
                       ],
                     ),
@@ -329,16 +323,16 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Email ID',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
                         Text(
                           email!,
-                          style: AppTextStyles.value.copyWith(
-                            fontSize: 15,
-                          ),
+                          style: AppTextStyles.value.copyWith(fontSize: 15),
                         ),
                       ],
                     ),
@@ -352,16 +346,16 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Address',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
                         Text(
                           address!,
-                          style: AppTextStyles.value.copyWith(
-                            fontSize: 15,
-                          ),
+                          style: AppTextStyles.value.copyWith(fontSize: 15),
                         ),
                       ],
                     ),
@@ -375,16 +369,16 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Specialty',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
                         Text(
                           specialty!,
-                          style: AppTextStyles.value.copyWith(
-                            fontSize: 15,
-                          ),
+                          style: AppTextStyles.value.copyWith(fontSize: 15),
                         ),
                       ],
                     ),
@@ -398,7 +392,9 @@ class _PhysicianCard extends StatelessWidget{
                         Text(
                           'Notes',
                           style: AppTextStyles.label.copyWith(
-                            color: AppColors.primaryColor.withOpacity(0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                             fontSize: 14,
                             letterSpacing: 14 * (-3 / 100),
                           ),
@@ -408,9 +404,7 @@ class _PhysicianCard extends StatelessWidget{
                           child: Text(
                             notes!,
                             textAlign: TextAlign.right,
-                            style: AppTextStyles.value.copyWith(
-                              fontSize: 15,
-                            ),
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
                           ),
                         ),
                       ],
@@ -418,102 +412,85 @@ class _PhysicianCard extends StatelessWidget{
                     const SizedBox(height: 10),
                   ],
                   if (showActionButtons) ...[
-                  const SizedBox(height: 12),
-                  CustomButtonLayout(
-                    confirmButtonLabel: 'Edit',
-                    cancelButtonLabel: 'Delete',
-                    onPressedConfirm: () async {
-                      final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => AddPhysicianScreen(
-                            studentCode: studentCode,
-                            physicianCode: code,
-                            isEdit: true,
-                            initialFirstName: firstName,
-                            initialLastName: lastName,
-                            initialEmail: email,
-                            initialPhoneNumber: phoneNumber,
-                            initialAddress: address,
-                            initialNotes: notes,
+                    const SizedBox(height: 12),
+                    CustomButtonLayout(
+                      confirmButtonLabel: 'Edit',
+                      cancelButtonLabel: 'Delete',
+                      gradientCancelLabel: true,
+                      onPressedConfirm: () async {
+                        final result = await Navigator.of(context).push<bool>(
+                          MaterialPageRoute(
+                            builder: (_) => AddPhysicianScreen(
+                              studentCode: studentCode,
+                              physicianCode: code,
+                              isEdit: true,
+                              initialFirstName: firstName,
+                              initialLastName: lastName,
+                              initialEmail: email,
+                              initialPhoneNumber: phoneNumber,
+                              initialAddress: address,
+                              initialNotes: notes,
+                            ),
                           ),
-                        ),
-                      );
+                        );
 
-                      if (result == true && onChanged != null) {
-                        await onChanged!();
-                      }
-                    },
-                    onPressedCancel: () async {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true,
-                        backgroundColor: Colors.transparent,
-                        builder: (ctx) {
-                          return DeleteConfirmationBottomSheet(
-                            name: name,
-                            type: 'physician',
-                            onDelete: () async {
-                              try {
-                                final repo = serviceLocator<StudentRepository>()
-                                    as StudentRepositoryImpl;
-                                final message = await repo.deletePhysician(
-                                  code: code,
-                                  studentCode: studentCode,
-                                );
-                                Navigator.of(ctx).pop();
-                                if (onChanged != null) {
-                                  await onChanged!();
+                        if (result == true && onChanged != null) {
+                          await onChanged!();
+                        }
+                      },
+                      onPressedCancel: () async {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (ctx) {
+                            return DeleteConfirmationBottomSheet(
+                              name: name,
+                              type: 'physician',
+                              onDelete: () async {
+                                try {
+                                  final repo =
+                                      serviceLocator<StudentRepository>();
+                                  final message = await repo.deletePhysician(
+                                    code: code,
+                                    studentCode: studentCode,
+                                  );
+                                  Navigator.of(ctx).pop();
+                                  if (onChanged != null) {
+                                    await onChanged!();
+                                  }
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: message,
+                                    isSuccess: true,
+                                  );
+                                } catch (e) {
+                                  Navigator.of(ctx).pop();
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        ApiErrorHandler.extractErrorMessage(e),
+                                    isError: true,
+                                  );
                                 }
-                                CoreUtils.showTopSnackBar(
-                                  context: context,
-                                  message: message,
-                                  isSuccess: true,
-                                );
-                              } catch (e) {
+                              },
+                              onCancel: () {
                                 Navigator.of(ctx).pop();
-                                CoreUtils.showTopSnackBar(
-                                  context: context,
-                                  message: ApiErrorHandler.extractErrorMessage(e),
-                                  isError: true,
-                                );
-                              }
-                            },
-                            onCancel: () {
-                              Navigator.of(ctx).pop();
-                            },
-                          );
-                        },
-                      );
-                    },
-                    isForm: false,
-                  ),
-                  const SizedBox(height: 12),
+                              },
+                            );
+                          },
+                        );
+                      },
+                      isForm: false,
+                    ),
+                    const SizedBox(height: 12),
                   ],
                 ],
               ),
             ),
           ],
-
         ),
       ),
     );
-
   }
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

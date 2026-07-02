@@ -102,33 +102,31 @@ class _ClassroomProgressCardState extends State<ClassroomProgressCard> {
         radarShape: RadarShape.polygon,
         tickCount: 5,
         titlePositionPercentageOffset: 0.2,
-        getTitle: (index, angle) =>
-            RadarChartTitle(text: _categories[index]),
+        getTitle: (index, angle) => RadarChartTitle(text: _categories[index]),
         titleTextStyle: const TextStyle(
           color: AppColors.primaryColor,
           fontSize: 12,
         ),
         tickBorderData: const BorderSide(width: 1, color: Colors.grey),
         // Hide the numeric tick labels.
-        ticksTextStyle: const TextStyle(
-          color: Colors.transparent,
-          fontSize: 0,
-        ),
+        ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 0),
         radarBackgroundColor: Colors.transparent,
         gridBorderData: BorderSide(color: Colors.grey.shade300),
         radarBorderData: BorderSide(color: Colors.grey.shade400),
         dataSets: [
           RadarDataSet(
-            dataEntries:
-                _lastMonthValues.map((e) => RadarEntry(value: e)).toList(),
+            dataEntries: _lastMonthValues
+                .map((e) => RadarEntry(value: e))
+                .toList(),
             borderColor: AppColors.accentColor,
             fillColor: AppColors.accentColor.withValues(alpha: 0.4),
             entryRadius: 0,
             borderWidth: 1.5,
           ),
           RadarDataSet(
-            dataEntries:
-                _thisMonthValues.map((e) => RadarEntry(value: e)).toList(),
+            dataEntries: _thisMonthValues
+                .map((e) => RadarEntry(value: e))
+                .toList(),
             borderColor: AppColors.themeColor,
             fillColor: AppColors.themeColor.withValues(alpha: 0.4),
             entryRadius: 0,

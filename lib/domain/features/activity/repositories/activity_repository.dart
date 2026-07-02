@@ -42,7 +42,7 @@ abstract class ActivityRepository {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   });
 
   /// `GET /api/v1/activities/feed/range`
@@ -57,7 +57,7 @@ abstract class ActivityRepository {
     List<String>? approvalStatuses,
     bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   });
 
   /// `GET /api/v2/activities/{cardGroupCode}`
@@ -153,5 +153,9 @@ abstract class ActivityRepository {
     required String ownerType,
     required String ownerCode,
   });
+
+  /// Returns count of pending incident approvals via
+  /// `GET /api/v2/activities/admin/activities/pending-incident-count`.
+  Future<int> getPendingIncidentCount();
 }
 

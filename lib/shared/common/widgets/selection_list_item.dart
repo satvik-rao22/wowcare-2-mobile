@@ -46,7 +46,18 @@ class CommonSelectionItem extends StatelessWidget {
                 ),
               ),
               DocumentImageWidget(
-                fileUuid: avatarUuid ?? '',
+                fileUuid: '',
+                // `avatarUuid` is either a resolved URL or a raw media-asset
+                // code depending on the caller — `fileUuid` is never
+                // actually used to resolve an image (only
+                // `imageUrl`/`mediaAssetCode` are), so route to whichever
+                // matches the value's shape.
+                imageUrl: (avatarUuid ?? '').startsWith('http')
+                    ? avatarUuid
+                    : null,
+                mediaAssetCode: (avatarUuid ?? '').startsWith('http')
+                    ? null
+                    : avatarUuid,
                 name: name,
                 size: size,
                 fontSize: fontSize,

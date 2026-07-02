@@ -1,0 +1,72 @@
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
+
+class Newsletter {
+  const Newsletter({
+    required this.id,
+    required this.code,
+    required this.schoolCode,
+    required this.title,
+    required this.subtitle,
+    required this.status,
+    required this.sentAt,
+    required this.createdAt,
+    required this.recipientCount,
+    required this.classroomCodes,
+    this.recipientNames = const <String>[],
+    this.recipients = const <NewsletterRecipientSummary>[],
+    this.createdByName = '',
+    this.bodyHtml = '',
+    this.colorTheme = '',
+    this.backgroundPattern = 'plain',
+    this.components = const <NewsletterComponent>[],
+    this.attachments = const <NewsletterAttachment>[],
+  });
+
+  final int id;
+  final String code;
+  final String schoolCode;
+  final String title;
+  final String subtitle;
+  final String status;
+  final DateTime? sentAt;
+  final DateTime? createdAt;
+  final int recipientCount;
+  final List<String> classroomCodes;
+  final List<String> recipientNames;
+  final List<NewsletterRecipientSummary> recipients;
+  final String createdByName;
+  final String bodyHtml;
+  final String colorTheme;
+  final String backgroundPattern;
+  final List<NewsletterComponent> components;
+  final List<NewsletterAttachment> attachments;
+}
+
+class NewsletterRecipientSummary {
+  const NewsletterRecipientSummary({
+    required this.displayName,
+    required this.userCode,
+  });
+
+  final String displayName;
+  final String userCode;
+}
+
+class NewsletterPage {
+  const NewsletterPage({
+    required this.items,
+    required this.page,
+    required this.size,
+    required this.totalPages,
+    required this.totalElements,
+    required this.hasMore,
+  });
+
+  final List<Newsletter> items;
+  final int page;
+  final int size;
+  final int totalPages;
+  final int totalElements;
+  final bool hasMore;
+}

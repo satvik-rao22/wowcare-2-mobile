@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -13,50 +16,30 @@ class MessagingListTile extends StatelessWidget {
     required this.onTap,
   });
 
-  String _formatMessageTime(DateTime? dateTime) {
-    if (dateTime == null) return '—';
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final messageDate = DateTime(dateTime.year, dateTime.month, dateTime.day);
-    final difference = today.difference(messageDate).inDays;
-    final timeStr =
-        "${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}";
-
-    if (difference == 0) return "Today | $timeStr";
-    if (difference == 1) return "Yesterday | $timeStr";
-    if (difference < 7) {
-      final days = [
-        'Monday',
-        'Tuesday',
-        'Wednesday',
-        'Thursday',
-        'Friday',
-        'Saturday',
-        'Sunday',
-      ];
-      return "${days[dateTime.weekday - 1]} | $timeStr";
+  /// The backend's conversation-list summary only carries a plain-text
+  /// `lastMessagePreview` — empty for an attachment-only last message,
+  /// with no field at all for attachment name/type or reactions (those
+  /// only exist on the full `Message` entity inside a thread, not on this
+  /// list-level summary). `lastMessageAt` is what actually distinguishes
+  /// "no messages yet" from "the last message just had no text", so use
+  /// that instead of treating both cases as the empty-preview case.
+  String _lastMessagePreviewText(Conversation conversation) {
+    if (conversation.lastMessagePreview.isNotEmpty) {
+      return MessageContentProcessor.previewText(
+        conversation.lastMessagePreview,
+      );
     }
-    final months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    return "${dateTime.day} ${months[dateTime.month - 1]} ${dateTime.year} | $timeStr";
+    if (conversation.lastMessageAt != null) {
+      return '📎 Attachment';
+    }
+    return 'Start a new conversation';
   }
+
+  String _formatMessageTime(DateTime? dateTime) =>
+      MessagingTimeFormatter.conversationTime(dateTime);
 
   @override
   Widget build(BuildContext context) {
-    final bool isActive = conversation.status == 'ACTIVE';
-
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A6C5CE7), // Subtle theme splash
@@ -73,40 +56,38 @@ class MessagingListTile extends StatelessWidget {
             horizontal: 20,
             vertical: 12,
           ),
-          leading: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+          // No staffCode/studentCode is available on this legacy
+          // Conversation model (only the participant's userCode is, which
+          // isn't what the attendance "today sign-in status" API expects)
+          // — so there's no reliable signal to drive a real presence dot
+          // here. Showing one based on `conversation.status` (the
+          // conversation's own archived/active flag, unrelated to whether
+          // the person is actually signed in) was actively misleading, so
+          // it's removed rather than left showing the wrong thing.
+          leading: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
                 ),
-                child: DocumentImageWidget(
-                  fileUuid: conversation.avatarUrl,
-                  name: conversation.title,
-                  size: 52,
-                ),
-              ),
-              if (isActive)
-                Positioned(
-                  right: 2,
-                  bottom: 2,
-                  child: Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF00B115),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2.5),
-                    ),
-                  ),
-                ),
-            ],
+              ],
+            ),
+            child: DocumentImageWidget(
+              fileUuid: '',
+              // `avatarUrl` is either a resolved URL or a raw media-asset
+              // code depending on which screen started the conversation.
+              imageUrl: conversation.avatarUrl.startsWith('http')
+                  ? conversation.avatarUrl
+                  : null,
+              mediaAssetCode: conversation.avatarUrl.startsWith('http')
+                  ? null
+                  : conversation.avatarUrl,
+              name: conversation.title,
+              size: 52,
+            ),
           ),
           title: Padding(
             padding: const EdgeInsets.only(bottom: 4),
@@ -115,12 +96,12 @@ class MessagingListTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: CustomTextWidget(
-                    text: conversation.title.isNotEmpty 
-                        ? conversation.title 
+                    text: conversation.title.isNotEmpty
+                        ? conversation.title
                         : 'Unnamed Conversation',
                     fontWeight: FontWeight.w700,
                     fontSize: 17,
-                    fontColor: const Color(0xFF2D3436),
+                    fontColor: AppColors.primaryColor,
                   ),
                 ),
                 Text(
@@ -136,11 +117,10 @@ class MessagingListTile extends StatelessWidget {
           ),
           subtitle: Row(
             children: [
-              Expanded(
+              Flexible(
+                fit: FlexFit.tight,
                 child: Text(
-                  conversation.lastMessagePreview.isEmpty
-                      ? 'Start a new conversation'
-                      : conversation.lastMessagePreview,
+                  _lastMessagePreviewText(conversation),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -151,26 +131,33 @@ class MessagingListTile extends StatelessWidget {
                 ),
               ),
               if (conversation.unreadCount > 0)
-                Container(
-                  margin: const EdgeInsets.only(left: 12),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF6C5CE7), // Theme color
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF6C5CE7).withOpacity(0.3),
-                        blurRadius: 8,
-                        offset: const Offset(0, 2),
+                Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00B894),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF00B894).withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      conversation.unreadCount > 99
+                          ? '99+'
+                          : '${conversation.unreadCount}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w900,
                       ),
-                    ],
-                  ),
-                  child: Text(
-                    conversation.unreadCount.toString(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),

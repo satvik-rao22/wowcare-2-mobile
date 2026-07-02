@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -12,10 +11,8 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -25,9 +22,10 @@ import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class StaffTransferForm extends StatefulWidget {
@@ -51,7 +49,13 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
-  String? _currentClassroomCodeForSelection;
+  // The staff member's latest/current classroom code. Seeded from the
+  // entity (transfer-list API) for an instant first paint, then overridden
+  // by the staff's attendance/transfer history (the `isLastSequenceEntry`
+  // record — see [_hydrateSelfStaffClassroomDataIfNeeded]), which is the
+  // actually-dynamic source of truth. Re-hydrated after every successful
+  // transfer so this never goes stale.
+  String? _currentClassroomCode;
   bool _hasTransferTargets = true;
   late final ClassroomCubit _classroomCubit;
 
@@ -106,26 +110,107 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isAdmin);
   }
 
+  /// Resolves the staff member's LATEST current classroom and stores it in
+  /// [_currentClassroomCode]. Called on load and again after every
+  /// successful transfer so the displayed "Current Classroom" — and the
+  /// dropdown's exclusion filter — never goes stale.
+  ///
+  /// `StaffProfile.primaryClassroomCode` looked like the right source but
+  /// is actually a STATIC default assignment that does NOT change when a
+  /// staff member is transferred — using it showed the staff's permanent
+  /// "home" classroom instead of where they currently are. The real source
+  /// of truth is the staff's attendance/transfer history: the daily
+  /// attendance API record where `isLastSequenceEntry == true` is the
+  /// backend's own marker for "this is the staff's current placement."
+  /// Only falls back to the (static) profile field if that history can't
+  /// be resolved at all.
   Future<void> _hydrateSelfStaffClassroomDataIfNeeded({
     required bool isAdmin,
   }) async {
-    if (isAdmin || _selectedStaff.length != 1) return;
+    // Run for all roles (including admins) when a single staff member is
+    // selected. Admins can be assigned to a classroom too — skipping them
+    // caused 'N/A' in the Current Classroom field for every admin-initiated
+    // transfer.
+    if (_selectedStaff.length != 1) return;
     final selected = _selectedStaff.first;
     final selectedStaffCode = (selected.staffCode ?? '').trim();
     if (selectedStaffCode.isEmpty) return;
-    try {
-      final repo = serviceLocator<StaffRepository>();
-      final profile = await repo.getStaffProfile(
-        staffCode: selectedStaffCode,
-        forEditStaff: true,
-      );
+
+    // Seed from the entity immediately so the field isn't blank while the
+    // network round-trip below is in flight.
+    final existingCode = (selected.classroomCode ?? '').trim();
+    if (existingCode.isNotEmpty && (_currentClassroomCode ?? '').isEmpty) {
       if (!mounted) return;
-      setState(() {
-        _currentClassroomCodeForSelection = profile.primaryClassroomCode.trim();
-      });
-    } catch (_) {
-      // Keep fallback classroom from selected staff payload.
+      setState(() => _currentClassroomCode = existingCode);
     }
+
+    String fmt(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    var resolved = '';
+    try {
+      final now = DateTime.now();
+      final attendanceRepo = serviceLocator<AttendanceRepository>();
+      final dailyPage = await attendanceRepo.getStaffAttendanceDaily(
+        // A wide lookback, not just "today" — the most recent transfer may
+        // have happened on an earlier date with no attendance event today.
+        fromAttendanceDate: fmt(now.subtract(const Duration(days: 365))),
+        toAttendanceDate: fmt(now),
+        search: selectedStaffCode,
+        page: 0,
+        size: 100,
+      );
+
+      final staffItems = dailyPage.items
+          .where((i) => i.staffCode.trim() == selectedStaffCode)
+          .toList();
+
+      if (staffItems.isNotEmpty) {
+        final latest = staffItems.firstWhere(
+          (i) => i.isLastSequenceEntry == true,
+          orElse: () {
+            staffItems.sort(
+              (a, b) =>
+                  (b.sequenceNumber ?? 0).compareTo(a.sequenceNumber ?? 0),
+            );
+            return staffItems.first;
+          },
+        );
+        final toCode = (latest.toClassroomCode ?? '').trim();
+        resolved = (latest.isTransfer == true && toCode.isNotEmpty)
+            ? toCode
+            : latest.classroomCode.trim();
+      }
+    } catch (_) {
+      // Fall through to the static profile fallback below.
+    }
+
+    if (resolved.isEmpty) {
+      // Last resort only — this is the staff's static default classroom,
+      // not necessarily where they currently are.
+      try {
+        final repo = serviceLocator<StaffRepository>();
+        final profile = await repo.getStaffProfile(
+          staffCode: selectedStaffCode,
+          forEditStaff: true,
+        );
+        resolved = profile.primaryClassroomCode.trim();
+      } catch (_) {
+        // Keep whatever was already seeded from the entity above.
+      }
+    }
+
+    if (resolved.isEmpty || !mounted) return;
+    setState(() {
+      _currentClassroomCode = resolved;
+      // If the dropdown selection now matches the freshly-resolved current
+      // classroom (e.g. the user picked a target before this async
+      // resolution caught up), it's no longer a valid transfer target —
+      // clear it rather than leaving a stale, now-invalid selection.
+      if (_selectedToClassroomCode == resolved) {
+        _selectedToClassroomCode = null;
+      }
+    });
   }
 
   Future<bool> _resolveIsStaffAdminPersona() async {
@@ -153,31 +238,50 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     }
   }
 
-  /// Resolves display name from API [classroomName] / [classroomCode], matching daily attendance behavior.
+  /// Resolves the human-readable name of the staff member's LATEST current
+  /// classroom for display.
+  ///
+  /// Resolution order:
+  ///   1. [_currentClassroomCode] — the hydrated/authoritative code (from
+  ///      the staff profile, or the entity seed while that's loading). This
+  ///      always wins when present, since it reflects the most recent
+  ///      transfer.
+  ///   2. [staff.classroomCode]/[staff.classroomName] — entity-level
+  ///      fallback when nothing has been hydrated yet.
+  ///   3. Raw code — shown while the classrooms list is still loading.
+  ///   4. 'N/A' — only when nothing is known at all.
   String _resolveCurrentClassroomDisplay(
     StaffEntity? staff,
     List<Classroom> classrooms,
   ) {
-    if (staff == null && (_currentClassroomCodeForSelection ?? '').trim().isEmpty) {
-      return 'N/A';
-    }
+    final hydratedCode = (_currentClassroomCode ?? '').trim();
+    final entityCode = (staff?.classroomCode ?? '').trim();
     final apiName = (staff?.classroomName ?? '').trim();
-    final fallbackCode = (_currentClassroomCodeForSelection ?? '').trim();
-    final code = (staff?.classroomCode ?? '').trim().isNotEmpty
-        ? (staff?.classroomCode ?? '').trim()
-        : fallbackCode;
-    final apiNameLooksLikeCode =
-        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
-    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+
+    // The hydrated/profile code is authoritative; only fall back to the
+    // entity's code while nothing has been hydrated yet.
+    final code = hydratedCode.isNotEmpty ? hydratedCode : entityCode;
     if (code.isEmpty) {
       return apiName.isNotEmpty ? apiName : 'N/A';
     }
+
+    // Only trust the entity's display name when it actually matches the
+    // classroom we're showing — otherwise it's a stale name for a
+    // classroom the staff has since been transferred out of.
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (code == entityCode && apiName.isNotEmpty && !apiNameLooksLikeCode) {
+      return apiName;
+    }
+
     for (final c in classrooms) {
       if (c.code.trim() == code) {
         final n = c.name.trim();
         return n.isNotEmpty ? n : code;
       }
     }
+    // Classrooms list may still be loading — show the raw code as a
+    // fallback so the field is never blank/N/A while waiting.
     return code;
   }
 
@@ -226,12 +330,6 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     setState(() {
       _isSubmitting = true;
     });
-
-    final client = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceRecordsTransfer,
-      ApiConstants.attendanceBaseUrl,
-    );
 
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
@@ -336,23 +434,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     };
 
     try {
-      final body = Map<String, dynamic>.from(payload);
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.post<dynamic>(endpoint, data: body);
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Transferred successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
+      final result = await serviceLocator<AttendanceRepository>()
+          .submitStaffTransfer(payload: payload);
+      final success = result.success;
+      final message = result.message;
 
       if (!mounted) return;
 
@@ -367,16 +452,26 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       );
 
       if (success) {
-        if (isStaffAdmin) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StaffAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
-        } else {
-          Navigator.pop(context);
-        }
+        // Read the staff's post-transfer classroom straight from the
+        // backend response when it's echoed back (never inferred from a
+        // static field). `primaryClassroomCode` is deliberately NOT used
+        // here — it's the staff's static default classroom and doesn't
+        // change on transfer. Falls back to the submitted target, which we
+        // know is correct immediately after a successful transfer.
+        final responseClassroomCode = (result.currentClassroomCode ?? '')
+            .trim();
+        setState(() {
+          _currentClassroomCode = responseClassroomCode.isNotEmpty
+              ? responseClassroomCode
+              : toClassroomCode;
+        });
+        // Re-hydrate from the attendance/transfer history too, so the form
+        // (and any other open instance) is fully in sync rather than
+        // relying solely on the single transfer response or on navigating
+        // away.
+        await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isStaffAdmin);
+        if (!mounted) return;
+        redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
       }
     } catch (e) {
       if (!mounted) return;
@@ -422,9 +517,13 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
             _selectedStaff.isNotEmpty ? _selectedStaff.first : null,
             classroomState.classrooms,
           );
+          // Code to exclude from the "Transfer to Classroom" dropdown: the
+          // staff's LATEST current classroom. Falls back to the first
+          // selected staff's own code for a bulk transfer (multiple staff
+          // picked at once), where per-staff hydration isn't run.
           final currentClassroomCode =
-              (_currentClassroomCodeForSelection ?? '').trim().isNotEmpty
-              ? _currentClassroomCodeForSelection!.trim()
+              (_currentClassroomCode ?? '').trim().isNotEmpty
+              ? _currentClassroomCode!.trim()
               : ((_selectedStaff.isNotEmpty
                         ? (_selectedStaff.first.classroomCode ?? '')
                         : '')
@@ -519,7 +618,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             const SizedBox(height: 8),
                             IgnorePointer(
                               ignoring: _isStaffAdminPersona == false,
-                              child: SimpleTimePickerField(
+                              child: GradientTimePickerField(
                                 time: _selectedTransferTime,
                                 onTimeSelected: (t) {
                                   setState(() {
@@ -644,7 +743,7 @@ class RemoveStaffTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    staff.name.split(' ').first,
+                    staff.name,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,

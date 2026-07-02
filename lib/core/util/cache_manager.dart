@@ -95,6 +95,43 @@ class CacheManager {
     }
   }
 
+  /// Substring every standardized cache key contains
+  /// (`{feature}_{resource}_cache_{identifier}`).
+  static const String _cacheKeyMarker = '_cache_';
+
+  /// Removes every standardized cache entry (any key containing
+  /// [_cacheKeyMarker]) from storage. Used on school switch so the newly
+  /// selected school never hydrates from the previous school's cached data.
+  ///
+  /// [protectedKeys] are never removed — pass session/login cache keys that
+  /// must survive a school change (they are not school-scoped data).
+  Future<void> clearAllStandardCaches({
+    Set<String> protectedKeys = const <String>{},
+  }) async {
+    final keys = await _storageService.getKeys();
+    for (final key in keys) {
+      if (!key.contains(_cacheKeyMarker)) continue;
+      if (protectedKeys.contains(key)) continue;
+      await _storageService.remove(key);
+    }
+  }
+
+  /// Removes every standardized cache entry belonging to [feature] — any key
+  /// shaped `{feature}_{resource}_cache_{identifier}`. Use after a mutation to
+  /// drop all of a feature's cached reads so the next fetch is fresh.
+  ///
+  /// Example: `clearFeatureCaches('billing')` clears overview / family-summary /
+  /// ledger caches in one call.
+  Future<void> clearFeatureCaches(String feature) async {
+    final prefix = '${feature}_';
+    final keys = await _storageService.getKeys();
+    for (final key in keys) {
+      if (!key.contains(_cacheKeyMarker)) continue;
+      if (!key.startsWith(prefix)) continue;
+      await _storageService.remove(key);
+    }
+  }
+
   /// Invalidates cache using the standard key pattern.
   /// 
   /// This is a convenience method that builds the key and invalidates it.

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
+import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 
 /// Day shift calendar for [StaffSchedulingScreen]: hourly time column plus
 /// positioned shift blocks. The day column label is supplied by the parent
@@ -16,11 +17,17 @@ class StaffDayScheduleCalendar extends StatefulWidget {
     required this.schoolEndTime,
     this.classroomResolver,
     this.onShiftTap,
+    this.onEmptySlotTap,
+    this.highlightShiftCode,
   });
 
   final DailyShifts dailyRoomSchedule;
   final String dayColumnLabel;
   final ClassroomNameResolver? classroomResolver;
+
+  /// Notification deep-link: the work-shift block whose `shiftCode` matches this
+  /// scrolls into view and flashes.
+  final String? highlightShiftCode;
 
   /// School open time for the selected weekday (`hh:mm:ss a`).
   final String schoolStartTime;
@@ -32,6 +39,10 @@ class StaffDayScheduleCalendar extends StatefulWidget {
   /// considered an editable shift, so they ignore taps.
   final ValueChanged<Shift>? onShiftTap;
 
+  /// Fires when the user taps an empty hourly slot in the schedule column.
+  /// The value is snapped to the start of the tapped hour.
+  final ValueChanged<TimeOfDay>? onEmptySlotTap;
+
   @override
   State<StaffDayScheduleCalendar> createState() =>
       _StaffDayScheduleCalendarState();
@@ -39,6 +50,7 @@ class StaffDayScheduleCalendar extends StatefulWidget {
 
 class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
   late List<Shift> _shifts;
+  static const double cellHeightRow = 48;
 
   @override
   void initState() {
@@ -87,6 +99,35 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     final start = _parseTime(startTime);
     final end = _parseTime(endTime);
     return end.difference(start).inMinutes / 60.0;
+  }
+
+  int _minutesOf(DateTime time) => time.hour * 60 + time.minute;
+
+  TimeOfDay _timeOfDayFromMinutes(int minutes) {
+    final normalized = minutes.clamp(0, (24 * 60) - 1);
+    return TimeOfDay(hour: normalized ~/ 60, minute: normalized % 60);
+  }
+
+  bool _tapOverlapsExistingShift(double dy) {
+    final gridStart = _minutesOf(_parseTime(_slotGridStartLabel()));
+    final tappedMinutes = gridStart + ((dy / cellHeightRow) * 60).floor();
+    for (final shift in _shifts) {
+      final start = _minutesOf(_parseTime(shift.start));
+      final end = _minutesOf(_parseTime(shift.end));
+      if (tappedMinutes >= start && tappedMinutes < end) return true;
+    }
+    return false;
+  }
+
+  void _handleScheduleTap(TapDownDetails details) {
+    final callback = widget.onEmptySlotTap;
+    if (callback == null) return;
+    final dy = details.localPosition.dy;
+    if (dy < 0 || _tapOverlapsExistingShift(dy)) return;
+
+    final gridStart = _minutesOf(_parseTime(_slotGridStartLabel()));
+    final tappedHour = (dy / cellHeightRow).floor();
+    callback(_timeOfDayFromMinutes(gridStart + tappedHour * 60));
   }
 
   /// Returns the school start rounded DOWN to the hour, formatted as
@@ -396,6 +437,15 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       child: _buildSingleShift(shift, contentHeight),
     );
 
+    // Flash + scroll-into-view when this block is the notification target.
+    final highlightable = HighlightableCard(
+      code: shift.shiftCode,
+      highlightCode: widget.highlightShiftCode,
+      scrollOnHighlight: true,
+      borderRadius: 8,
+      child: shiftWidget,
+    );
+
     return Positioned(
       top: topSpace,
       left: 0,
@@ -403,11 +453,11 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       child: SizedBox(
         height: height,
         child: shift.isBreakShift || widget.onShiftTap == null
-            ? shiftWidget
+            ? highlightable
             : GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () => widget.onShiftTap!(shift),
-                child: shiftWidget,
+                child: highlightable,
               ),
       ),
     );
@@ -432,23 +482,29 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
           border: Border.all(color: Colors.grey.shade300),
         ),
         clipBehavior: Clip.antiAlias,
-        child: Stack(
-          children: [
-            ...workShifts.map(_buildTimeContainer),
-            ...breakShifts.map(_buildTimeContainer),
-            if (_shifts.isEmpty)
-              const Center(
-                child: Text(
-                  'No Shifts for Today',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 20,
-                    color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w600,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTapDown: _handleScheduleTap,
+          child: Stack(
+            children: [
+              ...workShifts.map(_buildTimeContainer),
+              ...breakShifts.map(_buildTimeContainer),
+              if (_shifts.isEmpty)
+                const Center(
+                  child: IgnorePointer(
+                    child: Text(
+                      'No Shifts for Today',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 20,
+                        color: AppColors.primaryColor,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );

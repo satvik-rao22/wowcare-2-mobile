@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 
 class CreateInvoiceDialog extends StatelessWidget {
   final VoidCallback? onSelectOneTime;
@@ -16,9 +18,7 @@ class CreateInvoiceDialog extends StatelessWidget {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -45,7 +45,11 @@ class CreateInvoiceDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
-                      child: Icon(Icons.close, size: 18, color: Color(0x99573353)),
+                      child: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Color(0x99573353),
+                      ),
                     ),
                   ),
                 ],
@@ -61,28 +65,12 @@ class CreateInvoiceDialog extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: _CreateInvoiceTypeCard(
-                      title: 'One-Time\nInvoice',
-                      subtitle:
-                          'Create a manual invoice for one or more students with custom line items',
-                      icon: Icons.receipt_long,
-                      onTap: onSelectOneTime,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _CreateInvoiceTypeCard(
-                      title: 'Recurring\nInvoice',
-                      subtitle:
-                          'Set up automatic recurring invoices for a student based on their schedule',
-                      icon: Icons.schedule,
-                      onTap: onSelectRecurring,
-                    ),
-                  ),
-                ],
+              BillingActionCard(
+                title: 'One-Time Invoice',
+                subtitle:
+                    'Create a manual invoice for one or more students with custom line items',
+                icon: Icons.receipt_long,
+                onTap: onSelectOneTime,
               ),
             ],
           ),
@@ -92,12 +80,12 @@ class CreateInvoiceDialog extends StatelessWidget {
   }
 }
 
-class _CreateInvoiceTypeCard extends StatefulWidget {
+class BillingActionCard extends StatefulWidget {
   final String title;
   final String subtitle;
   final IconData icon;
   final VoidCallback? onTap;
-  const _CreateInvoiceTypeCard({
+  const BillingActionCard({
     required this.title,
     required this.subtitle,
     required this.icon,
@@ -105,77 +93,100 @@ class _CreateInvoiceTypeCard extends StatefulWidget {
   });
 
   @override
-  State<_CreateInvoiceTypeCard> createState() => _CreateInvoiceTypeCardState();
+  State<BillingActionCard> createState() => BillingActionCardState();
 }
 
-class _CreateInvoiceTypeCardState extends State<_CreateInvoiceTypeCard> {
-  bool _isHighlighted = false;
+class BillingActionCardState extends State<BillingActionCard> {
+  late final BoolToggleCubit _cubit = BoolToggleCubit();
+  bool get _isHighlighted => _cubit.state;
 
-  void _setHighlight(bool v) {
-    if (_isHighlighted == v) return;
-    setState(() => _isHighlighted = v);
+  void _setHighlight(bool v) => _cubit.set(v);
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final Color bgColor = _isHighlighted ? AppColors.themeColor : AppColors.cardColor;
-    final Color borderColor = _isHighlighted ? AppColors.themeColor : AppColors.cardBorderColor;
-    final Color primaryText = _isHighlighted ? AppColors.billingButtonTextColor : AppColors.billingTextColor;
-    final Color secondaryText = _isHighlighted ? Colors.white70 : const Color(0x99573353);
-    final Color iconBg = _isHighlighted ? Colors.white24 : AppColors.themeColor.withOpacity(0.1);
-    final Color iconColor = _isHighlighted ? Colors.white : AppColors.themeColor;
+    return BlocProvider<BoolToggleCubit>.value(
+      value: _cubit,
+      child: BlocBuilder<BoolToggleCubit, bool>(
+        builder: (context, _) {
+          final Color bgColor = _isHighlighted
+              ? AppColors.themeColor
+              : AppColors.cardColor;
+          final Color borderColor = _isHighlighted
+              ? AppColors.themeColor
+              : AppColors.cardBorderColor;
+          final Color primaryText = _isHighlighted
+              ? AppColors.billingButtonTextColor
+              : AppColors.billingTextColor;
+          final Color secondaryText = _isHighlighted
+              ? Colors.white70
+              : const Color(0x99573353);
+          final Color iconBg = _isHighlighted
+              ? Colors.white24
+              : AppColors.themeColor.withValues(alpha: 0.1);
+          final Color iconColor = _isHighlighted
+              ? Colors.white
+              : AppColors.themeColor;
 
-    return InkWell(
-      onTap: widget.onTap,
-      onHighlightChanged: _setHighlight,
-      overlayColor: MaterialStatePropertyAll(
-        AppColors.themeColor.withOpacity(0.12),
-      ),
-      splashColor: AppColors.themeColor.withOpacity(0.16),
-      highlightColor: AppColors.themeColor.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(12),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: borderColor),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
+          return InkWell(
+            onTap: widget.onTap,
+            onHighlightChanged: _setHighlight,
+            overlayColor: MaterialStatePropertyAll(
+              AppColors.themeColor.withValues(alpha: 0.12),
+            ),
+            splashColor: AppColors.themeColor.withValues(alpha: 0.16),
+            highlightColor: AppColors.themeColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: iconBg,
-                borderRadius: BorderRadius.circular(10),
+                color: bgColor,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: borderColor),
               ),
-              child: Icon(widget.icon, color: iconColor, size: 22),
-            ),
-            const SizedBox(height: 12),
-            Text(
-              widget.title,
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: primaryText,
-                height: 1.2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: iconBg,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(widget.icon, color: iconColor, size: 22),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    widget.title,
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: primaryText,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    widget.subtitle,
+                    style: TextStyle(
+                      fontFamily: 'Manrope',
+                      fontSize: 12,
+                      color: secondaryText,
+                      height: 1.3,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 10),
-            Text(
-              widget.subtitle,
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: 12,
-                color: secondaryText,
-                height: 1.3,
-              ),
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

@@ -5,6 +5,9 @@ import 'package:lottie/lottie.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/auth/secure_credential_store.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -15,8 +18,8 @@ import 'package:wowcare/presentation/features/auth/view/school_selection_screen.
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 
 class SignInScreen extends StatefulWidget {
@@ -58,6 +61,8 @@ class _SignInScreenState extends State<SignInScreen>
     });
   }
 
+  bool _offeredBiometricPrefill = false;
+
   Future<void> _loadSavedCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
     final credentials = await localDataSource.getSavedCredentials();
@@ -68,20 +73,61 @@ class _SignInScreenState extends State<SignInScreen>
     if (mounted) {
       setState(() {
         emailController.text = credentials['username'] ?? '';
-        passwordController.text = credentials['password'] ?? '';
         rememberMe = rememberMeValue;
       });
+    }
+
+    // "Remember me" password pre-fill: the password lives only in the biometric-
+    // gated secure store. Offer a Face ID / fingerprint prompt to fill it in.
+    if (rememberMeValue) {
+      await _offerBiometricPrefill();
+    }
+  }
+
+  Future<void> _offerBiometricPrefill() async {
+    if (_offeredBiometricPrefill) return;
+    _offeredBiometricPrefill = true;
+    try {
+      final secureStore = serviceLocator<SecureCredentialStore>();
+      final has = await secureStore.hasSavedPassword();
+      AppLogger.d('[SignIn] biometric prefill: hasSavedPassword=$has');
+      if (!has) return;
+      final creds = await secureStore.revealWithBiometrics(
+        reason: 'Unlock your saved password to sign in',
+      );
+      AppLogger.d('[SignIn] biometric prefill: creds=${creds != null}');
+      if (creds == null || !mounted) return;
+      setState(() {
+        final user = creds['username'] ?? '';
+        if (user.isNotEmpty) emailController.text = user;
+        passwordController.text = creds['password'] ?? '';
+      });
+    } catch (e) {
+      AppLogger.d('[SignIn] biometric prefill error: $e');
+      // Biometric cancelled/unavailable — user just types the password.
     }
   }
 
   Future<void> _saveCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
+    final secureStore = serviceLocator<SecureCredentialStore>();
+    final username = emailController.text.trim().toLowerCase();
+    final password = passwordController.text.trim();
 
-    await localDataSource.saveCredentials(
-      emailController.text.trim(),
-      passwordController.text.trim(),
-      rememberMe,
+    AppLogger.d(
+      '[SignIn] _saveCredentials rememberMe=$rememberMe user="$username" '
+      'pwLen=${password.length}',
     );
+    // Username + rememberMe flag stay in normal storage (non-sensitive).
+    await localDataSource.saveCredentials(username, password, rememberMe);
+
+    // Password goes ONLY into the biometric-gated secure store, and only while
+    // "Remember me" is on. Unchecking it wipes the saved password immediately.
+    if (rememberMe) {
+      await secureStore.save(username: username, password: password);
+    } else {
+      await secureStore.clear();
+    }
   }
 
   Future<void> _navigateToSchoolSelection(BuildContext context) async {
@@ -105,11 +151,13 @@ class _SignInScreenState extends State<SignInScreen>
 
   Future<void> _handleSignIn(BuildContext context) async {
     if (formKey.currentState!.validate()) {
+      // Emails are case-insensitive; normalise so an upper-case entry doesn't
+      // get rejected as invalid credentials.
       await _saveCredentials();
 
       final authCubit = context.read<AuthCubit>();
       await authCubit.login(
-        username: emailController.text.trim(),
+        username: emailController.text.trim().toLowerCase(),
         password: passwordController.text.trim(),
       );
     }
@@ -117,15 +165,15 @@ class _SignInScreenState extends State<SignInScreen>
 
   Future<void> _preloadGuardianChildrenIfNeeded(BuildContext context) async {
     try {
-      // Ensure RoleProvider resolved from /users/details first.
-      await context.read<RoleProvider>().refreshAccessFromServer(force: true);
+      // Ensure RoleCubit resolved from /users/details first.
+      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
       if (!context.mounted) return;
-      if (!context.read<RoleProvider>().isParent) return;
+      if (!context.read<RoleCubit>().isParent) return;
 
       // Guardian only: prefetch children before opening dashboard so AppBar doesn't
       // have to trigger loading later.
-      context.read<ParentChildProvider>().invalidate();
-      await context.read<ParentChildProvider>().ensureLoaded(force: true);
+      context.read<ParentChildCubit>().invalidate();
+      await context.read<ParentChildCubit>().ensureLoaded(force: true);
     } catch (_) {
       // Non-blocking: dashboard can still open; AppBar dropdown will show empty.
     }
@@ -135,6 +183,18 @@ class _SignInScreenState extends State<SignInScreen>
     if (state is AuthLoaded) {
       // Save credentials after successful login
       _saveCredentials();
+
+      // KIOSK: detect from login response roles — no API call, no RoleCubit needed.
+      AppLogger.d('[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}');
+      if (loginResponseIsKioskUser(state.loginResponse.roles)) {
+        AppLogger.d('[SignIn] Kiosk user detected - redirecting to /kiosk');
+        if (context.mounted) {
+          context.go('/kiosk');
+        }
+        return;
+      }
+      AppLogger.d('[SignIn] Not a kiosk user - continuing normal flow');
+
       await _preloadGuardianChildrenIfNeeded(context);
 
       // The await above can outlive this screen (e.g. a duplicate auth event
@@ -166,6 +226,9 @@ class _SignInScreenState extends State<SignInScreen>
       // Role selection screen is no longer part of the flow.
       context.go(DashboardScreen.routeName);
     } else if (state is AuthError) {
+      // A failed login likely means the saved password is now wrong — wipe it
+      // from the secure store so we never pre-fill stale/incorrect credentials.
+      serviceLocator<SecureCredentialStore>().clear();
       // Show backend error message using the shared top snackbar
       CoreUtils.showTopSnackBar(
         context: context,

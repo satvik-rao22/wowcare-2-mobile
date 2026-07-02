@@ -1,59 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
+import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-// ---------------------------------------------------------------------------
-// Local mock model – mirrors the shape of NewsletterModel without any entity
-// or API dependency.
-// ---------------------------------------------------------------------------
-class _NewsletterItem {
-  const _NewsletterItem({
-    required this.title,
-    required this.createdBy,
-    required this.lastModified,
-    required this.recipientCount,
-    required this.classroom,
-    required this.accentColor,
-  });
-
-  final String title;
-  final String createdBy;
-  final String lastModified;
-  final int recipientCount;
-  final String classroom;
-  final Color accentColor;
-}
-
-const List<_NewsletterItem> _mockNewsletters = [
-  _NewsletterItem(
-    title: 'Spring Picnic Reminder',
-    createdBy: 'Sarah Johnson',
-    lastModified: 'May 14, 2026',
-    recipientCount: 42,
-    classroom: 'Sunflower Room',
-    accentColor: Color(0xFFFFD54F),
-  ),
-  _NewsletterItem(
-    title: 'Monthly Curriculum Update',
-    createdBy: 'David Lee',
-    lastModified: 'May 7, 2026',
-    recipientCount: 58,
-    classroom: 'Butterfly Room',
-    accentColor: Color(0xFF80CBC4),
-  ),
-  _NewsletterItem(
-    title: 'Health & Safety Guidelines',
-    createdBy: 'Maria Gomez',
-    lastModified: 'Apr 29, 2026',
-    recipientCount: 35,
-    classroom: 'Rainbow Room',
-    accentColor: Color(0xFFEF9A9A),
-  ),
-];
-
-// ---------------------------------------------------------------------------
-// Card widget
-// ---------------------------------------------------------------------------
 class StudentNewslettersCard extends StatefulWidget {
   const StudentNewslettersCard({super.key});
 
@@ -61,89 +22,193 @@ class StudentNewslettersCard extends StatefulWidget {
   State<StudentNewslettersCard> createState() => _StudentNewslettersCardState();
 }
 
-class _StudentNewslettersCardState extends State<StudentNewslettersCard> {
+class _StudentNewslettersCardState extends State<StudentNewslettersCard>
+    with AutomaticKeepAliveClientMixin {
   bool _minimized = false;
+  String _selectedChildCode = '';
+
+  static const List<Color> _newsletterAccentColors = <Color>[
+    Color(0xFFFFD54F),
+    Color(0xFF80CBC4),
+    Color(0xFFEF9A9A),
+    Color(0xFF90CAF9),
+    Color(0xFFA5D6A7),
+    Color(0xFFCE93D8),
+  ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final parentChildProvider = Provider.of<ParentChildCubit>(context);
+    final nextCode = (parentChildProvider.selectedChild?.code ?? '').trim();
+    if (nextCode != _selectedChildCode) {
+      _selectedChildCode = nextCode;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<StudentNewslettersCubit>().loadFirstPage(
+          studentCode: nextCode,
+        );
+      });
+    }
+  }
+
+  Future<void> _refresh() async {
+    final code = _selectedChildCode.trim();
+    if (code.isEmpty) return;
+    await context.read<StudentNewslettersCubit>().loadFirstPage(
+      studentCode: code,
+      forceRefresh: true,
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
+    super.build(context);
+    final isError = context.watch<StudentNewslettersCubit>().state.isError;
+    return DashboardCardErrorOverlay(
+      show: isError,
+      onRetry: _refresh,
+      child: Card(
+        elevation: 0,
+        color: Colors.white,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.1),
+          ),
         ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DashboardCardHeader(
-              title: 'Newsletter',
-              showRedirect: true,
-              onRedirect: () {},
-              minimized: _minimized,
-              onToggle: () => setState(() => _minimized = !_minimized),
-            ),
-            if (!_minimized) ...[
-              const SizedBox(height: 8),
-              ListView.separated(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _mockNewsletters.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  color: AppColors.primaryColor.withValues(alpha: 0.08),
-                ),
-                itemBuilder: (context, index) {
-                  return _NewsletterRow(item: _mockNewsletters[index]);
-                },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DashboardCardHeader(
+                title: 'Newsletter',
+                showRedirect: true,
+                onRedirect: () => context.go(ParentNewsletterScreen.routeName),
+                minimized: _minimized,
+                onToggle: () => setState(() => _minimized = !_minimized),
               ),
+              if (!_minimized) ...[
+                const SizedBox(height: 8),
+                BlocBuilder<StudentNewslettersCubit, StudentNewslettersState>(
+                  buildWhen: (prev, curr) =>
+                      prev.status != curr.status ||
+                      prev.items != curr.items ||
+                      prev.errorMessage != curr.errorMessage,
+                  builder: (context, state) {
+                    if (state.isLoading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: StudentAttendanceCardShimmer(),
+                      );
+                    }
+
+                    // On error with no data, show the same empty-state UI as a
+                    // genuinely empty list instead of an error banner.
+
+                    final items = state.items;
+                    if (items.isEmpty) {
+                      return _EmptyState(onRefresh: _refresh);
+                    }
+
+                    // Preserve original mock design density: show the first 3 rows.
+                    final visible = items.length > 3
+                        ? items.sublist(0, 3)
+                        : items;
+
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: visible.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: AppColors.primaryColor.withValues(alpha: 0.08),
+                      ),
+                      itemBuilder: (context, index) {
+                        final accentColor =
+                            _newsletterAccentColors[index %
+                                _newsletterAccentColors.length];
+                        final selectedChild = Provider.of<ParentChildCubit>(
+                          context,
+                        ).selectedChild;
+                        final classroomName =
+                            (selectedChild?.primaryClassroomName ??
+                                    selectedChild?.classroom ??
+                                    '')
+                                .toString()
+                                .trim();
+                        return _NewsletterRow(
+                          item: visible[index],
+                          accentColor: accentColor,
+                          classroomName: classroomName.isEmpty
+                              ? '-'
+                              : classroomName,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Individual newsletter row
-// ---------------------------------------------------------------------------
 class _NewsletterRow extends StatelessWidget {
-  const _NewsletterRow({required this.item});
+  const _NewsletterRow({
+    required this.item,
+    required this.accentColor,
+    required this.classroomName,
+  });
 
-  final _NewsletterItem item;
+  final NewsletterEntity item;
+  final Color accentColor;
+  final String classroomName;
+
+  String _formatCreatedAt(DateTime? createdAt) {
+    if (createdAt == null) return '-';
+    return DateUtilsNew.formatToReadableDate(createdAt);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final createdByName = item.createdByName.trim().isEmpty
+        ? '-'
+        : item.createdByName.trim();
+    // final recipientCount = item.recipientCount;
+
     return InkWell(
-      onTap: () {},
+      onTap: () {
+        final code = item.code.trim();
+        if (code.isEmpty) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => PreviewNewsletterScreen(
+              newsletterCode: code,
+              initialNewsletter: mapNewsletterEntityToNewsletter(item),
+            ),
+          ),
+        );
+      },
       borderRadius: BorderRadius.circular(8),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Placeholder image thumbnail
-            Container(
-              width: 75,
-              height: 75,
-              decoration: BoxDecoration(
-                color: item.accentColor.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.article_outlined,
-                color: item.accentColor,
-                size: 32,
-              ),
+            _NewsletterThumbnail(
+              assetCode: item.assetCode,
+              accentColor: accentColor,
             ),
             const SizedBox(width: 16),
-            // Text content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,41 +224,92 @@ class _NewsletterRow extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  _MetaRow(label: 'Created by', value: item.createdBy),
+                  _MetaRow(label: 'Created by', value: createdByName),
                   const SizedBox(height: 2),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        item.lastModified,
-                        style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                      ),
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.remove_red_eye_outlined,
-                            size: 14,
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Text(
+                          _formatCreatedAt(item.createdAt),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
                             color: Colors.grey[600],
+                            fontSize: 13,
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${item.recipientCount}',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
+                      // Row(
+                      //   mainAxisSize: MainAxisSize.min,
+                      //   children: [
+                      //     Icon(
+                      //       Icons.remove_red_eye_outlined,
+                      //       size: 14,
+                      //       color: Colors.grey[600],
+                      //     ),
+                      //     const SizedBox(width: 4),
+                      //     Text(
+                      //       '$recipientCount',
+                      //       maxLines: 1,
+                      //       overflow: TextOverflow.ellipsis,
+                      //       style: TextStyle(
+                      //         color: Colors.grey[600],
+                      //         fontSize: 13,
+                      //       ),
+                      //     ),
+                      //   ],
+                      // ),
                     ],
                   ),
                   const SizedBox(height: 2),
-                  _MetaRow(label: 'Classroom', value: item.classroom),
+                  _MetaRow(label: 'Classroom', value: classroomName),
                 ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _NewsletterThumbnail extends StatelessWidget {
+  const _NewsletterThumbnail({
+    required this.assetCode,
+    required this.accentColor,
+  });
+
+  final String? assetCode;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = assetCode != null && assetCode!.trim().isNotEmpty;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 75,
+        height: 75,
+        child: hasImage
+            ? DocumentImageWidget(
+                fileUuid: '',
+                mediaAssetCode: assetCode,
+                name: '',
+                size: 75,
+                fontSize: 0,
+                disableProfileLookupFallback: true,
+                disableAttendanceStatusLookup: true,
+              )
+            : Container(
+                color: accentColor.withValues(alpha: 0.18),
+                child: Icon(
+                  Icons.article_outlined,
+                  color: accentColor,
+                  size: 32,
+                ),
+              ),
       ),
     );
   }
@@ -207,18 +323,70 @@ class _MetaRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: Colors.grey[600], fontSize: 13),
-        ),
-        Text(
-          value,
-          style: const TextStyle(color: AppColors.primaryColor, fontSize: 13),
-        ),
-      ],
+    // Force bounded width so flex children never see unbounded constraints
+    // when the card is hosted in slivers / reorderable lists.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SizedBox(
+          width: constraints.maxWidth,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Flexible(
+                fit: FlexFit.loose,
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                fit: FlexFit.loose,
+                child: Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.onRefresh});
+
+  final Future<void> Function() onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'No newsletters found',
+            style: TextStyle(
+              color: AppColors.primaryColor.withValues(alpha: 0.7),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 8),
+          TextButton(onPressed: onRefresh, child: const Text('Refresh')),
+        ],
+      ),
     );
   }
 }

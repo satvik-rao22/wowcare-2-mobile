@@ -80,6 +80,7 @@ class StaffDocumentItemModel extends Equatable {
     required this.documentUrl,
     required this.documentSizeKb,
     required this.mimeType,
+    this.assetCode,
     required this.expiryDate,
     this.documentNotes,
     required this.expired,
@@ -94,6 +95,10 @@ class StaffDocumentItemModel extends Equatable {
   final String documentUrl;
   final int documentSizeKb;
   final String mimeType;
+
+  /// Media-asset code used to resolve a downloadable link (documentUrl is only
+  /// the file name).
+  final String? assetCode;
   final String expiryDate;
   final String? documentNotes;
   final bool expired;
@@ -109,6 +114,7 @@ class StaffDocumentItemModel extends Equatable {
       documentUrl: json['documentUrl'] as String? ?? '',
       documentSizeKb: json['documentSizeKb'] as int? ?? 0,
       mimeType: json['mimeType'] as String? ?? '',
+      assetCode: (json['assetCode'] as String?)?.trim(),
       expiryDate: json['expiryDate'] as String? ?? '',
       documentNotes: json['documentNotes'] as String?,
       expired: json['expired'] as bool? ?? false,
@@ -127,6 +133,8 @@ class StaffDocumentItemModel extends Equatable {
       'documentUrl': documentUrl,
       'documentSizeKb': documentSizeKb,
       'mimeType': mimeType,
+      if (assetCode != null && assetCode!.trim().isNotEmpty)
+        'assetCode': assetCode,
       'expiryDate': expiryDate,
       if (documentNotes != null) 'documentNotes': documentNotes,
       'expired': expired,
@@ -144,6 +152,7 @@ class StaffDocumentItemModel extends Equatable {
         documentUrl,
         documentSizeKb,
         mimeType,
+        assetCode,
         expiryDate,
         documentNotes,
         expired,
@@ -217,5 +226,25 @@ class StaffDocumentsPageModel extends Equatable {
 
   @override
   List<Object?> get props => [items, page, size, totalPages, totalElements, hasMore];
+}
+
+class StaffDocumentExpirySummaryModel {
+  const StaffDocumentExpirySummaryModel({
+    required this.expiredDocumentCount,
+    required this.expiringWithinWeekCount,
+  });
+
+  final int expiredDocumentCount;
+  final int expiringWithinWeekCount;
+
+  factory StaffDocumentExpirySummaryModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? const {};
+    return StaffDocumentExpirySummaryModel(
+      expiredDocumentCount:
+          (data['expiredDocumentCount'] as num?)?.toInt() ?? 0,
+      expiringWithinWeekCount:
+          (data['expiringWithinWeekCount'] as num?)?.toInt() ?? 0,
+    );
+  }
 }
 

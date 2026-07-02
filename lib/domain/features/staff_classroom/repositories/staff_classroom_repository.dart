@@ -21,5 +21,12 @@ abstract class StaffClassroomRepository {
     required String classroomCode,
     required List<String> staffCodes,
   });
+
+  /// Fetches the staff assignable to a classroom (manage-staff list),
+  /// excluding [excludeClassroomCode].
+  Future<List<StaffClassroomItem>> getManageStaffList({
+    required String schoolCode,
+    required String excludeClassroomCode,
+  });
 }
 

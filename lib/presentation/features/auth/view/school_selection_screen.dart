@@ -13,8 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({
@@ -416,14 +416,14 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                   );
                                   if (!context.mounted) return;
                                   await context
-                                      .read<RoleProvider>()
+                                      .read<RoleCubit>()
                                       .refreshAccessFromServer(force: true);
                                   if (!context.mounted) return;
                                   context
-                                      .read<ParentChildProvider>()
+                                      .read<ParentChildCubit>()
                                       .invalidate();
                                   await context
-                                      .read<ParentChildProvider>()
+                                      .read<ParentChildCubit>()
                                       .ensureLoaded(force: true);
                                   if (!context.mounted) return;
                                   context.go(DashboardScreen.routeName);

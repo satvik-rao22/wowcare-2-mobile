@@ -19,11 +19,9 @@ class PrimaryCircularLoader extends StatelessWidget {
       width: size,
       child: CircularProgressIndicator(
         strokeWidth: strokeWidth,
-        valueColor:
-            const AlwaysStoppedAnimation<Color>(AppColors.themeColor),
-        backgroundColor: AppColors.themeColor.withOpacity(0.1),
+        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.themeColor),
+        backgroundColor: AppColors.themeColor.withValues(alpha: 0.1),
       ),
     );
   }
 }
-

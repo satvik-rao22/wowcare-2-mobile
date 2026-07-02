@@ -20,7 +20,7 @@ import 'package:wowcare/presentation/features/availability/widgets/individual_mo
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_overview.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -40,7 +40,11 @@ MovementType _movementTypeFromEntity(IndividualMovementType type) {
 }
 
 class IndividualMovementScreen extends StatefulWidget {
-  const IndividualMovementScreen({super.key});
+  const IndividualMovementScreen({super.key, this.highlightCode});
+
+  /// Movement id (as string) from a notification deep-link; the matching
+  /// movement card scrolls into view and flashes.
+  final String? highlightCode;
 
   static const String routeName = '/dashboard/individual-movement';
 
@@ -97,6 +101,9 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   late final PageController _sectionPageController;
   late final IndividualMovementsCubit _individualMovementsCubit;
   int _currentSectionIndex = 0;
+  // Once we've auto-jumped to the bucket holding the deep-link highlighted
+  // movement, don't fight the user's subsequent swipes.
+  bool _highlightBucketApplied = false;
   bool _isDraggingCard = false;
   Timer? _edgeAutoPageTimer;
   int _edgeDirection = 0; // -1 left, 1 right, 0 none
@@ -126,7 +133,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     super.dispose();
   }
 
-  bool _canMutateMovements(RoleProvider roles) {
+  bool _canMutateMovements(RoleCubit roles) {
     if (roles.isParent) return false;
     if (roles.role == 'staff') {
       return roles.canWriteModule('availability') ||
@@ -204,7 +211,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   Future<void> _loadFilterOptions() async {
     final schoolCode = await _resolveSchoolCode();
     if (schoolCode.isEmpty || !mounted) return;
-    final roles = context.read<RoleProvider>();
+    final roles = context.read<RoleCubit>();
     final allowedClassrooms = await _resolveAllowedClassroomsForStaff(roles);
 
     final getStudents = serviceLocator<GetStudentPageUseCase>();
@@ -306,6 +313,36 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     ];
   }
 
+  /// A movement deep-link highlights a card by its numeric id, but that card may
+  /// live in any bucket (Overdue/Upcoming/Confirmed/Rejected) — and the board
+  /// opens on Overdue. Find which bucket holds it and swipe there once, so the
+  /// highlight flashes without the user having to switch buckets manually.
+  void _maybeJumpToHighlightBucket(List<MovementSection> sections) {
+    if (_highlightBucketApplied) return;
+    final target = (widget.highlightCode ?? '').trim();
+    if (target.isEmpty) return;
+    final bucketIndex = sections.indexWhere(
+      (s) => s.items.any((i) => i.id.toString() == target),
+    );
+    // Sections still empty (board not loaded yet) — wait for the next build.
+    if (bucketIndex < 0) {
+      if (sections.every((s) => s.items.isEmpty)) return;
+      _highlightBucketApplied = true; // loaded but not found; stop trying.
+      return;
+    }
+    _highlightBucketApplied = true;
+    if (bucketIndex == _currentSectionIndex) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_sectionPageController.hasClients) return;
+      _sectionPageController.animateToPage(
+        bucketIndex,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeInOut,
+      );
+      setState(() => _currentSectionIndex = bucketIndex);
+    });
+  }
+
   Future<void> _clearFilters() async {
     setState(() {
       _selectedStudents = const <String>[];
@@ -322,7 +359,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
   // Temporarily disabled: add movement flow is not needed right now.
   // Future<void> _openAddMovementScreen() async {
-  //   final RoleProvider roles = context.read<RoleProvider>();
+  //   final RoleCubit roles = context.read<RoleCubit>();
   //   if (!_canMutateMovements(roles)) {
   //     _toastViewOnly(context);
   //     return;
@@ -380,7 +417,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     MovementItem item,
     IndividualMovementAction action,
   ) async {
-    final RoleProvider roles = context.read<RoleProvider>();
+    final RoleCubit roles = context.read<RoleCubit>();
     if (!_canMutateMovements(roles)) {
       _toastViewOnly(context);
       return;
@@ -433,7 +470,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   }
 
   Future<void> _deleteMovement(MovementItem item) async {
-    final RoleProvider roles = context.read<RoleProvider>();
+    final RoleCubit roles = context.read<RoleCubit>();
     if (!_canMutateMovements(roles)) {
       _toastViewOnly(context);
       return;
@@ -489,7 +526,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   }
 
   Future<void> _openEditMovementScreen(MovementItem item) async {
-    final RoleProvider roles = context.read<RoleProvider>();
+    final RoleCubit roles = context.read<RoleCubit>();
     if (!_canMutateMovements(roles)) {
       _toastViewOnly(context);
       return;
@@ -753,7 +790,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     }
   }
 
-  Future<Set<String>> _resolveAllowedClassroomsForStaff(RoleProvider roles) async {
+  Future<Set<String>> _resolveAllowedClassroomsForStaff(RoleCubit roles) async {
     if (roles.role != 'staff') return const <String>{};
     try {
       final storage = serviceLocator<StorageService>();
@@ -770,7 +807,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
   }
 
   bool _canDragItem(MovementItem item) {
-    final roles = context.read<RoleProvider>();
+    final roles = context.read<RoleCubit>();
     return _canMutateMovements(roles);
   }
 
@@ -778,7 +815,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     MovementItem item,
     MovementBucket targetBucket,
   ) async {
-    final RoleProvider roles = context.read<RoleProvider>();
+    final RoleCubit roles = context.read<RoleCubit>();
     if (!_canMutateMovements(roles)) {
       _toastViewOnly(context);
       return;
@@ -880,13 +917,14 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       child: BlocBuilder<IndividualMovementsCubit, IndividualMovementsState>(
         builder: (BuildContext context, IndividualMovementsState state) {
           final sections = _buildSections(state.board);
+          _maybeJumpToHighlightBucket(sections);
           final students = _filterStudentCodes.isNotEmpty
               ? _filterStudentCodes
               : _uniqueStudents(state.board);
           final classrooms = _filterClassroomCodes.isNotEmpty
               ? _filterClassroomCodes
               : _uniqueClassrooms(state.board);
-          final roles = context.watch<RoleProvider>();
+          final roles = context.watch<RoleCubit>();
           final bool isViewOnly = !_canMutateMovements(roles);
           final studentNamesByCode = <String, String>{..._studentNamesByCode};
           final classroomNamesByCode = <String, String>{..._classroomNamesByCode};
@@ -1046,6 +1084,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                         onDragStarted: _onCardDragStarted,
                         onDragEnded: _onCardDragEnded,
                         onDragGlobalUpdate: _onCardDragGlobalUpdate,
+                        highlightCode: widget.highlightCode,
                       ),
                     const SizedBox(height: 20),
                   ],

@@ -1,34 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/shared/common/widgets/custom_floating_text_button.dart';
+import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
+import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
+import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
-
-/// Demo transaction data model for UI-only display
-class DemoTransaction {
-  final String id;
-  final String type; // 'Payment', 'Invoice', 'Refund'
-  final double amount;
-  final DateTime date;
-  final String status; // 'Completed', 'In Process', 'Cancelled'
-  final String? paymentMode;
-  final String description;
-  final String studentName;
-  final String studentRoom;
-
-  const DemoTransaction({
-    required this.id,
-    required this.type,
-    required this.amount,
-    required this.date,
-    required this.status,
-    this.paymentMode,
-    required this.description,
-    required this.studentName,
-    required this.studentRoom,
-  });
-}
 
 /// Demo statement data model for UI-only display
 class DemoStatement {
@@ -69,749 +45,304 @@ final List<DemoStatement> demoStatements = [
   ),
 ];
 
-/// Transaction card widget matching legacy billing screen ExpansionTile structure
+/// Transaction card backed by [FamilyLedgerTransactionEntity] from the API.
 class ParentTransactionCard extends StatelessWidget {
-  final DemoTransaction transaction;
+  final FamilyLedgerTransactionEntity transaction;
+
+  /// Family name, used as the row label for guardian-level rows (e.g. a card
+  /// payment) that carry no student.
+  final String familyName;
 
   const ParentTransactionCard({
     super.key,
     required this.transaction,
+    this.familyName = '',
   });
 
-  Widget _buildPaymentTile() {
-    return ExpansionTile(
-      controlAffinity: ListTileControlAffinity.trailing,
-      title: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            decoration: BoxDecoration(
-              color: AppColors.billingPaymentBadgeColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              'Payment',
-              style: AppTextStyles.value.copyWith(
-                fontSize: 14,
-                color: AppColors.secondaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Status: ${transaction.status}',
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.primaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-      trailing: Padding(
-        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '\$${transaction.amount.toStringAsFixed(2)}',
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 20,
-                    color: AppColors.primaryColor,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Paid On: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 13,
-                    color: AppColors.primaryColor,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      iconColor: Colors.transparent,
-      collapsedIconColor: Colors.transparent,
-      backgroundColor: AppColors.cardColor,
-      collapsedBackgroundColor: AppColors.cardColor,
-      collapsedShape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
-        const SizedBox(height: 5),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Payment Method',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Text(
-              transaction.paymentMode ?? 'N/A',
-              style: AppTextStyles.value.copyWith(
-                fontSize: 16,
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.end,
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Description',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                transaction.description,
-                style: AppTextStyles.value.copyWith(
-                  fontSize: 14,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: CustomFloatingTextButton(
-                onPressed: () {
-                  // TODO: Navigate to receipt view
-                },
-                label: 'View Receipt',
-                textStyle: AppTextStyles.button(
-                  color: AppColors.billingButtonTextColor,
-                ),
-                isFilled: true,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+  String get _type => transaction.transactionType.toLowerCase();
+
+  /// Header label: the student when present, otherwise the family name (for
+  /// guardian-level rows such as a card payment). The status is shown on the
+  /// right, not appended here.
+  String get _displayName {
+    if (transaction.studentName.trim().isNotEmpty) {
+      return transaction.studentName;
+    }
+    return familyName.trim().isNotEmpty
+        ? familyName.trim()
+        : transaction.studentName;
   }
 
-  Widget _buildInvoiceTile() {
-    return ExpansionTile(
-      controlAffinity: ListTileControlAffinity.trailing,
-      title: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            decoration: BoxDecoration(
-              color: AppColors.billingInvoiceBadgeColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              'Invoice',
-              style: AppTextStyles.value.copyWith(
-                fontSize: 14,
-                color: AppColors.secondaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Status: ${transaction.status}',
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.primaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-      trailing: Padding(
-        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '\$${transaction.amount.toStringAsFixed(2)}',
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 20,
-                    color: AppColors.primaryColor,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Due Date: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 13,
-                    color: AppColors.primaryColor,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      iconColor: Colors.transparent,
-      collapsedIconColor: Colors.transparent,
-      backgroundColor: AppColors.cardColor,
-      collapsedBackgroundColor: AppColors.cardColor,
-      collapsedShape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
-        const SizedBox(height: 5),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Student Name',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                DocumentImageWidget(
-                  fileUuid: '',
-                  name: transaction.studentName,
-                  size: 30,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        transaction.studentName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.value.copyWith(
-                          color: AppColors.primaryColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.end,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        transaction.studentRoom,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 13,
-                          color: AppColors.primaryColor,
-                        ),
-                        textAlign: TextAlign.end,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Description',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                transaction.description,
-                style: AppTextStyles.value.copyWith(
-                  fontSize: 14,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: CustomFloatingTextButton(
-                onPressed: () {
-                  // TODO: Navigate to invoice view
-                },
-                label: 'View Invoice',
-                textStyle: AppTextStyles.button(
-                  color: AppColors.billingButtonTextColor,
-                ),
-                isFilled: true,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+  /// Title-cases a raw backend status, treating underscores as word breaks so
+  /// `IN_PROCESS` renders as `In Process` rather than `In_process`.
+  String _formatStatus(String status) {
+    if (status.isEmpty) return status;
+    return status
+        .split(RegExp(r'[_\s]+'))
+        .where((word) => word.isNotEmpty)
+        .map((word) => word[0].toUpperCase() + word.substring(1).toLowerCase())
+        .join(' ');
   }
 
-  Widget _buildRefundTile() {
-    return ExpansionTile(
-      controlAffinity: ListTileControlAffinity.trailing,
-      title: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-            decoration: BoxDecoration(
-              color: AppColors.billingRefundBadgeColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              'Refund',
-              style: AppTextStyles.value.copyWith(
-                fontSize: 14,
-                color: AppColors.billingGreyDark,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Status: ${transaction.status}',
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.primaryColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-      trailing: Padding(
-        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '\$${transaction.amount.toStringAsFixed(2)}',
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 20,
-                    color: AppColors.primaryColor,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  'Paid On: ${DateUtilsNew.formatToReadableDate(transaction.date)}',
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 13,
-                    color: AppColors.primaryColor,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      iconColor: Colors.transparent,
-      collapsedIconColor: Colors.transparent,
-      backgroundColor: AppColors.cardColor,
-      collapsedBackgroundColor: AppColors.cardColor,
-      collapsedShape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-      children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
-        const SizedBox(height: 5),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Payment Method',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Text(
-              transaction.paymentMode ?? 'N/A',
-              style: AppTextStyles.value.copyWith(
-                fontSize: 16,
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.end,
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Description',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                transaction.description,
-                style: AppTextStyles.value.copyWith(
-                  fontSize: 14,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
+  String _dateLabel() {
+    if (transaction.date == null) return '';
+    // Labels (Due Date / Paid On / Refunded On) are dropped to save horizontal
+    // space; the badge already conveys the transaction type.
+    return DateUtilsNew.formatToReadableDate(transaction.date!);
+  }
+
+  /// Badge text: the transaction type with the status in brackets, e.g.
+  /// `Payment (In Process)` / `Invoice (Sent)`.
+  String _badgeLabel(String type) {
+    final status = _formatStatus(transaction.status);
+    return status.isEmpty ? type : '$type ($status)';
+  }
+
+  ({String label, Color color, Color textColor}) _badge() {
+    switch (_type) {
+      case 'invoice':
+        return (
+          label: 'Invoice',
+          color: AppColors.billingInvoiceBadgeColor,
+          textColor: AppColors.secondaryColor,
+        );
+      case 'refund':
+        return (
+          label: 'Refund',
+          color: AppColors.billingRefundBadgeColor,
+          textColor: AppColors.billingGreyDark,
+        );
+      default:
+        return (
+          label: 'Payment',
+          color: AppColors.billingPaymentBadgeColor,
+          textColor: AppColors.secondaryColor,
+        );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    switch (transaction.type) {
-      case 'Payment':
-        return _buildPaymentTile();
-      case 'Invoice':
-        return _buildInvoiceTile();
-      case 'Refund':
-        return _buildRefundTile();
-      default:
-        return _buildPaymentTile();
+    final isTablet = MediaQuery.of(context).size.width > 600;
+    final badge = _badge();
+
+    final expanded = <Widget>[];
+    if (transaction.method.isNotEmpty && _type != 'invoice') {
+      expanded
+        ..add(StaffCardDetailRow(
+          label: 'Payment Method',
+          value: transaction.method,
+        ))
+        ..add(const SizedBox(height: 10));
     }
+    expanded.add(StaffCardDetailRow(
+      label: 'Status',
+      value: _formatStatus(transaction.status),
+    ));
+    expanded.add(const SizedBox(height: 10));
+    if (transaction.description.isNotEmpty) {
+      expanded.add(StaffCardDetailRow(
+        label: 'Description',
+        value: transaction.description,
+      ));
+      expanded.add(const SizedBox(height: 10));
+    }
+    if (transaction.items.isNotEmpty) {
+      expanded.add(StaffCardDetailRow(
+        label: 'Items',
+        value: transaction.items.join(', '),
+      ));
+      expanded.add(const SizedBox(height: 10));
+    }
+    expanded.add(StaffCardDetailRow(
+      label: 'Amount',
+      value: '\$${transaction.amount.toStringAsFixed(2)}',
+    ));
+    if (_type == 'payment') {
+      expanded
+        ..add(const SizedBox(height: 16))
+        ..add(StaffCardActions(
+          primaryLabel: 'View Receipt',
+          onPrimary: () {/* TODO: receipt */},
+        ));
+    } else if (_type == 'invoice') {
+      expanded
+        ..add(const SizedBox(height: 16))
+        ..add(StaffCardActions(
+          primaryLabel: 'View Invoice',
+          onPrimary: () {/* TODO: invoice */},
+        ));
+    }
+
+    return StaffStyleCard(
+      leading: DocumentImageWidget(
+        fileUuid: '',
+        name: _displayName,
+        size: 50,
+      ),
+      header: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _displayName,
+                  style: BillingCardText.name(isTablet),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+                const SizedBox(height: 4),
+                _Badge(
+                  label: _badgeLabel(badge.label),
+                  color: badge.color,
+                  textColor: badge.textColor,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '\$${transaction.amount.toStringAsFixed(2)}',
+                style: BillingCardText.name(isTablet)
+                    .copyWith(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                _dateLabel(),
+                style: BillingCardText.note,
+                textAlign: TextAlign.right,
+              ),
+            ],
+          ),
+        ],
+      ),
+      expandedChildren: expanded,
+    );
   }
 }
 
-/// Statement card widget matching transaction card ExpansionTile structure
+/// Statement card — styled to match the staff card. Backed by a real
+/// [BillingStatementEntity]; Download (and View) fetch the statement PDF and
+/// open it on the device.
 class ParentStatementCard extends StatelessWidget {
-  final DemoStatement statement;
+  final BillingStatementEntity statement;
+
+  /// Names of the children this statement covers (shown as the card title).
+  final String studentNames;
+
+  /// Whether this statement's PDF is currently downloading.
+  final bool isDownloading;
+
+  final VoidCallback onDownload;
+  final VoidCallback? onView;
 
   const ParentStatementCard({
     super.key,
     required this.statement,
+    required this.studentNames,
+    required this.isDownloading,
+    required this.onDownload,
+    this.onView,
   });
+
+  String get _title => studentNames.isNotEmpty ? studentNames : 'Statement';
+
+  String get _formattedType => statement.statementType.isEmpty
+      ? '—'
+      : statement.statementType[0].toUpperCase() +
+          statement.statementType.substring(1).toLowerCase();
 
   @override
   Widget build(BuildContext context) {
-    return ExpansionTile(
-      controlAffinity: ListTileControlAffinity.trailing,
-      title: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+    final isTablet = MediaQuery.of(context).size.width > 600;
+    final generatedAt = statement.generatedAt;
+    return StaffStyleCard(
+      leading: DocumentImageWidget(
+        fileUuid: '',
+        name: _title,
+        size: 50,
+      ),
+      header: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-            decoration: BoxDecoration(
-              color: AppColors.billingPaymentBadgeColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
+          Flexible(
             child: Text(
-              'Statement',
-              style: AppTextStyles.value.copyWith(
-                fontSize: 14,
-                color: AppColors.secondaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
+              _title,
+              style: BillingCardText.name(isTablet),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: 5),
-          Text(
-            'Type: ${statement.statementType}',
-            style: AppTextStyles.small.copyWith(
-              color: AppColors.primaryColor,
-              fontWeight: FontWeight.w500,
-            ),
+          const SizedBox(width: 8),
+          _Badge(
+            label: 'Statement',
+            color: AppColors.billingPaymentBadgeColor,
+            textColor: AppColors.secondaryColor,
           ),
         ],
       ),
-      trailing: Padding(
-        padding: const EdgeInsets.only(top: 4.0), // Align with badge top padding
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.end,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Generated on: ${DateUtilsNew.formatToReadableDate(statement.generatedOn)}',
-                  style: AppTextStyles.value.copyWith(
-                    fontSize: 13,
-                    color: AppColors.primaryColor,
-                  ),
-                  textAlign: TextAlign.right,
-                ),
-                const SizedBox(height: 5),
-                SizedBox(
-                  width: 160,
-                  child: Text(
-                    'Period: ${DateUtilsNew.formatToReadableDate(statement.periodFrom)} - ${DateUtilsNew.formatToReadableDate(statement.periodTo)}',
-                    style: AppTextStyles.value.copyWith(
-                      fontSize: 13,
-                      color: AppColors.primaryColor,
-                    ),
-                    textAlign: TextAlign.right,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-      iconColor: Colors.transparent,
-      collapsedIconColor: Colors.transparent,
-      backgroundColor: AppColors.cardColor,
-      collapsedBackgroundColor: AppColors.cardColor,
-      collapsedShape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      shape: RoundedRectangleBorder(
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.2),
-        ),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      childrenPadding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-      children: [
-        Divider(
-          color: AppColors.billingDividerColor,
-        ),
-        const SizedBox(height: 12),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Student Name',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                DocumentImageWidget(
-                  fileUuid: '',
-                  name: statement.studentName,
-                  size: 30,
-                  fontSize: 12,
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        statement.studentName,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTextStyles.value.copyWith(
-                          color: AppColors.primaryColor,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        textAlign: TextAlign.end,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
+      expandedChildren: [
+        StaffCardDetailRow(
+          label: 'Statement Type',
+          value: _formattedType,
         ),
         const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Statement Type',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Text(
-              statement.statementType,
-              style: AppTextStyles.value.copyWith(
-                fontSize: 14,
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.end,
-            ),
-          ],
+        StaffCardDetailRow(
+          label: 'Generated On',
+          value: generatedAt != null
+              ? DateUtilsNew.formatToReadableDate(generatedAt)
+              : '—',
         ),
         const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Statement Period',
-              style: AppTextStyles.label.copyWith(
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                '${DateUtilsNew.formatToReadableDate(statement.periodFrom)} - ${DateUtilsNew.formatToReadableDate(statement.periodTo)}',
-                style: AppTextStyles.value.copyWith(
-                  fontSize: 14,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
+        StaffCardDetailRow(
+          label: 'Statement Period',
+          value:
+              '${DateUtilsNew.formatToReadableDate(statement.periodStart)} - ${DateUtilsNew.formatToReadableDate(statement.periodEnd)}',
         ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: CustomFloatingTextButton(
-                onPressed: () {
-                  // TODO: Navigate to statement view
-                },
-                label: 'View',
-                textStyle: AppTextStyles.button(
-                  color: AppColors.billingButtonTextColor,
-                ),
-                isFilled: false,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: CustomFloatingTextButton(
-                onPressed: () {
-                  // TODO: Navigate to statement download
-                },
-                label: 'Download',
-                textStyle: AppTextStyles.button(
-                  color: AppColors.billingButtonTextColor,
-                ),
-                isFilled: true,
-              ),
-            ),
-          ],
+        const SizedBox(height: 16),
+        StaffCardActions(
+          secondaryLabel: 'View',
+          onSecondary: isDownloading ? null : onView,
+          primaryLabel: isDownloading ? 'Downloading…' : 'Download',
+          onPrimary: isDownloading ? null : onDownload,
         ),
       ],
     );
   }
 }
 
+class _Badge extends StatelessWidget {
+  const _Badge({
+    required this.label,
+    required this.color,
+    required this.textColor,
+  });
+
+  final String label;
+  final Color color;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        label,
+        style: BillingCardText.label.copyWith(
+          color: textColor,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}

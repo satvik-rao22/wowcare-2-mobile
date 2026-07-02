@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -15,17 +16,31 @@ import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_car
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 class ClassroomScreen extends StatefulWidget {
   const ClassroomScreen({
     super.key,
     this.initialTabIndex = 0,
+    this.initialClassroomCode,
+    this.initialHighlightCode,
   });
 
   final int initialTabIndex;
+
+  /// When provided (e.g. from a notification deep-link), the dropdown opens
+  /// pre-selected on the classroom with this code instead of the first one.
+  final String? initialClassroomCode;
+
+  /// Row code to highlight inside the opened tab — studentCode on the Students
+  /// tab, staffCode on the Staff tab (from an assign-to-classroom notification).
+  final String? initialHighlightCode;
 
   static const routeName = '/classroom-screen';
 
@@ -34,13 +49,23 @@ class ClassroomScreen extends StatefulWidget {
 }
 
 class _ClassroomScreenState extends State<ClassroomScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, SchoolSwitchReloadMixin {
   late TabController _tabController;
   final ScrollController _studentsScrollController = ScrollController();
   final ScrollController _staffScrollController = ScrollController();
   final ScrollController _notesScrollController = ScrollController();
   Classroom? selectedRoom;
   bool _hideAssignFabForStaffPersona = false;
+  // Bumped on a school switch to re-key (recreate) the ClassroomCubit provider
+  // so the new school's classrooms load from scratch — this branch screen is
+  // kept alive in the shell and never re-inits on its own.
+  int _schoolReloadEpoch = 0;
+  // Whether [widget.initialClassroomCode] has already been honored, so a manual
+  // dropdown change afterwards isn't overridden on the next rebuild.
+  bool _appliedInitialClassroom = false;
+  bool _defaultClassroomPrefsResolved = false;
+  String? _staffPrimaryClassroomCode;
+  bool _defaultClassroomApplied = false;
 
   @override
   void initState() {
@@ -56,6 +81,82 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     });
 
     _resolveStaffPersonaRestrictions();
+    _resolveDefaultClassroomPrefs();
+  }
+
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    // Clear the previous school's selection/defaults and recreate the cubit.
+    setState(() {
+      selectedRoom = null;
+      _appliedInitialClassroom = false;
+      _defaultClassroomApplied = false;
+      _defaultClassroomPrefsResolved = false;
+      _schoolReloadEpoch++;
+    });
+    _resolveStaffPersonaRestrictions();
+    _resolveDefaultClassroomPrefs();
+  }
+
+  Future<void> _resolveDefaultClassroomPrefs() async {
+    try {
+      // Resolve the primary for any persona (admins included) so an admin whose
+      // primary is a real classroom lands on it; an Office primary is filtered
+      // out of the list and falls back to the top sorted classroom.
+      final primary = await resolveStaffPrimaryClassroomCodeAnyPersona();
+      if (!mounted) return;
+      setState(() {
+        _staffPrimaryClassroomCode = primary;
+        _defaultClassroomPrefsResolved = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _defaultClassroomPrefsResolved = true);
+    }
+  }
+
+  Classroom? _pickDefaultClassroom(List<Classroom> classrooms) {
+    if (classrooms.isEmpty) return null;
+
+    final targetCode = widget.initialClassroomCode?.trim();
+    if (!_appliedInitialClassroom &&
+        targetCode != null &&
+        targetCode.isNotEmpty) {
+      for (final c in classrooms) {
+        if (c.code.trim() == targetCode) {
+          _appliedInitialClassroom = true;
+          return c;
+        }
+      }
+      return classrooms.first;
+    }
+
+    final primaryCode = (_staffPrimaryClassroomCode ?? '').trim();
+    if (primaryCode.isNotEmpty) {
+      for (final c in classrooms) {
+        if (c.code.trim() == primaryCode) return c;
+      }
+    }
+
+    // Admin (and staff fallback): first classroom sorted alphabetically by name.
+    return classrooms.first;
+  }
+
+  void _applyDefaultClassroomSelection(List<Classroom> classrooms) {
+    if (_defaultClassroomApplied || !_defaultClassroomPrefsResolved) return;
+    if (classrooms.isEmpty) return;
+
+    final picked = _pickDefaultClassroom(classrooms);
+    if (picked == null) return;
+
+    _defaultClassroomApplied = true;
+    if (selectedRoom?.code == picked.code) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => selectedRoom = picked);
+    });
   }
 
   Future<void> _resolveStaffPersonaRestrictions() async {
@@ -67,6 +168,20 @@ class _ClassroomScreenState extends State<ClassroomScreen>
       setState(() => _hideAssignFabForStaffPersona = shouldScope);
     } catch (_) {
       // Fail open: keep FAB visible.
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ClassroomScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new notification target arrived while the screen is already alive
+    // (go_router rebuilds the branch with a new code) — re-apply on next build.
+    if (oldWidget.initialClassroomCode != widget.initialClassroomCode &&
+        widget.initialClassroomCode != null) {
+      setState(() {
+        _appliedInitialClassroom = false;
+        _defaultClassroomApplied = false;
+      });
     }
   }
 
@@ -170,14 +285,16 @@ class _ClassroomScreenState extends State<ClassroomScreen>
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<ClassroomCubit>(
+    return KeyedSubtree(
+      key: ValueKey<int>(_schoolReloadEpoch),
+      child: BlocProvider<ClassroomCubit>(
       create: (_) => serviceLocator<ClassroomCubit>()
         ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final classrooms = state.classrooms;
-          if (classrooms.isNotEmpty && selectedRoom == null) {
-            selectedRoom = classrooms.first;
+          if (classrooms.isNotEmpty) {
+            _applyDefaultClassroomSelection(classrooms);
           }
 
           final isInitialLoading = state.isLoading && classrooms.isEmpty;
@@ -188,28 +305,50 @@ class _ClassroomScreenState extends State<ClassroomScreen>
             floatingActionButton: _buildTabFab(context),
             body: Container(
               color: Colors.white,
-              padding: const EdgeInsets.all(8),
+              // Extra bottom padding clears the (extend-body) bottom nav so the
+              // tab box's bottom border is visible instead of sitting behind it.
+              padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + CustomNavigationBar.navBarHeight),
               child: Column(
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: ClassroomDropdown(
-                          items: dropdownItems.isEmpty
-                              ? const ['Loading...']
-                              : dropdownItems,
-                          value: dropdownItems.isEmpty
-                              ? 'Loading...'
-                              : (selectedRoom?.name ?? dropdownItems.first),
-                          onChanged: (value) {
-                            if (dropdownItems.isEmpty) return;
-                            setState(() {
-                              selectedRoom =
-                                  classrooms.firstWhere((c) => c.name == value);
-                            });
-                          },
-                        ),
+                        child: isInitialLoading
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 4),
+                                child: ShimmerLoader(
+                                  height: 24,
+                                  width: 160,
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(6),
+                                  ),
+                                ),
+                              )
+                            : HighlightableCard(
+                                // Flashes the dropdown when the screen was
+                                // opened from a classroom notification whose
+                                // code matches the (pre-selected) room.
+                                code: selectedRoom?.code,
+                                highlightCode: widget.initialClassroomCode,
+                                borderRadius: 8,
+                                child: ClassroomDropdown(
+                                  items: dropdownItems.isEmpty
+                                      ? const ['Loading...']
+                                      : dropdownItems,
+                                  value: dropdownItems.isEmpty
+                                      ? 'Loading...'
+                                      : (selectedRoom?.name ??
+                                          dropdownItems.first),
+                                  onChanged: (value) {
+                                    if (dropdownItems.isEmpty) return;
+                                    setState(() {
+                                      selectedRoom = classrooms
+                                          .firstWhere((c) => c.name == value);
+                                    });
+                                  },
+                                ),
+                              ),
                       ),
                       IconButton(
                         tooltip: 'Class profile',
@@ -291,17 +430,22 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                   ),
                   Expanded(
                     child: isInitialLoading
-                        ? const Center(child: PrimaryCircularLoader())
+                        ? const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                            child: ClassroomStudentsTabShimmer(),
+                          )
                         : TabBarView(
                             controller: _tabController,
                             children: [
                               ClassroomStudentsTabCard(
                                 scrollController: _studentsScrollController,
                                 selectedRoom: selectedRoom,
+                                highlightCode: widget.initialHighlightCode,
                               ),
                               ClassroomStaffTabCard(
                                 scrollController: _staffScrollController,
                                 selectedRoom: selectedRoom,
+                                highlightCode: widget.initialHighlightCode,
                               ),
                               ClassroomNotesTabCard(
                                 scrollController: _notesScrollController,
@@ -316,6 +460,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
           );
         },
       ),
+      ),
     );
   }
 
@@ -323,6 +468,11 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     // Show respective FAB only on Students (0) and Staff (1) tabs
     if (selectedRoom == null) return null;
     if (_hideAssignFabForStaffPersona) return null;
+    // Assigning students/staff to a room is a CLASSROOM write — hide for
+    // view-only personas.
+    if (!context.read<RoleCubit>().canWriteModule(AppAccessModules.classroom)) {
+      return null;
+    }
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600;
     final isLargeTablet = screenWidth >= 900;

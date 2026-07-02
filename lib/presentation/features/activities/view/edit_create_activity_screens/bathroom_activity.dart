@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_dropdown_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
@@ -17,13 +16,7 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
-import '../../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
@@ -114,13 +107,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   final Map<String, bool> _extraBoolByParamCode = {};
   List<Map<String, dynamic>> _detailParameterRows = [];
 
-  late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
-  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
-  late final CreateActivityUseCase _createActivityUseCase;
-  late final GetActivityUseCase _getActivityUseCase;
-  late final UpdateActivityUseCase _updateActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  late final ActivityEditorCubit _editor;
 
   ActivityItem get _effectiveActivity =>
       _liveActivity ?? widget.activityData!;
@@ -133,15 +120,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _getActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _getActivityTypeDetailsUseCase =
-        serviceLocator<GetActivityTypeDetailsUseCase>();
-    _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
-    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
-    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
+    _editor = serviceLocator<ActivityEditorCubit>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -199,7 +178,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     try {
       await _submitUpdateActivity();
       if (!_lastUpdateSucceeded) return;
-      final msg = await _approveActivityUseCase(code: code);
+      final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -229,7 +208,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _isApprovingOrRejecting = true);
     try {
-      final msg = await _rejectActivityUseCase(code: code);
+      final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
@@ -255,7 +234,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     if (code == null || code.isEmpty) return;
     setState(() => _loadingActivityDetail = true);
     try {
-      final detail = await _getActivityUseCase(code: code);
+      final detail = await _editor.getActivity(code: code);
       if (!mounted) return;
       final item = activityItemFromActivityDetail(
         detail,
@@ -623,7 +602,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     if (!mounted) return;
     setState(() => _loadingBathroomOptions = true);
     try {
-      final details = await _getActivityTypeDetailsUseCase(code: code);
+      final details = await _editor.getActivityTypeDetails(code: code);
       if (!mounted) return;
       final parameters = details.parameters;
       ActivityTypeParameter? bathroom = _findBathroomTypeParameter(parameters);
@@ -775,7 +754,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
 
     try {
       final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
+          await _editor.getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? bathroomSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -997,7 +976,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     try {
       // POST /api/v1/activities — same payload as MedicationActivityScreen (multi-student fan-out via studentCodes).
       final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          await _editor.getActivityTypeDetails(code: activityTypeCode);
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -1077,7 +1056,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         ..._buildExtraParameterValueEntries(),
       ];
 
-      final message = await _createActivityUseCase(
+      final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
         classroomCode: classroomCode,
         studentCodes: studentCodes,
@@ -1230,7 +1209,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     setState(() => _isSubmitting = true);
     try {
       final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
+          await _editor.getActivityTypeDetails(code: activityTypeCode);
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -1327,7 +1306,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
           );
           return;
         }
-        lastMessage = await _updateActivityUseCase(
+        lastMessage = await _editor.updateActivity(
           code: code,
           studentCodes: _selectedStudentsData
               .map((e) => (e['studentCode'] as String?)?.trim())
@@ -1388,6 +1367,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
+    _editor.close();
     super.dispose();
   }
 
@@ -1414,12 +1394,15 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: responsive.isTablet ? 16 : 12,
                   mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 50,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   return ActivityStudentDisplayTile(
                     name: _selectedStudents[index],
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
                   );
                 },
               )
@@ -1432,14 +1415,17 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   final String name = _selectedStudents[index];
-                  return SelectedStudentTile(
+                  return ActivityStudentDisplayTile(
                     name: name,
-                    onTap: () => _removeStudent(name),
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
+                    onRemove: () => _removeStudent(name),
                   );
                 },
               ),
@@ -1578,6 +1564,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
                 label: 'Requires Admin Approval',
                 isToggled: _requireAdminApproval,
                 labelOnLeftSide: true,
+                enabled: !_layoutAsEdit,
                 onToggle: (value) {
                   setState(() {
                     _requireAdminApproval = value;

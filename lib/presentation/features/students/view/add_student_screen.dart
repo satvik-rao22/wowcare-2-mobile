@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -134,11 +135,11 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         sameName = true;
       }
       // Debug
-      print(
+      AppLogger.d(
         '[AddStudent] Returning to previous screen with studentName="$studentName"',
       );
       CoreUtils.showTopSnackBar(
-        duration: sameName ? Duration(seconds: 2) :Duration(seconds: 4) ,
+        duration: sameName ? Duration(seconds: 2) : Duration(seconds: 4),
         context: context,
         message: widget.isEdit
             ? (sameName
@@ -148,7 +149,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         isSuccess: true,
       );
       final result = {'showPostAddPrompt': true, 'studentName': studentName};
-      print('[AddStudent] Navigator.pop result: ' + result.toString());
+      AppLogger.d('[AddStudent] Navigator.pop result: ' + result.toString());
       Navigator.pop(context, result);
     });
   }
@@ -234,7 +235,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -359,7 +360,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),

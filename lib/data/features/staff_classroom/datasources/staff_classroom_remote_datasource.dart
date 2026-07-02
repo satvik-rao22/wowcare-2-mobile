@@ -23,6 +23,13 @@ abstract class StaffClassroomRemoteDataSource {
     required String classroomCode,
     required List<String> staffCodes,
   });
+
+  /// Fetches the staff that can be assigned to a classroom (manage-staff list),
+  /// excluding [excludeClassroomCode].
+  Future<List<StaffClassroomItemModel>> getManageStaffList({
+    required String schoolCode,
+    required String excludeClassroomCode,
+  });
 }
 
 class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSource {
@@ -50,6 +57,7 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
 
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
+      'sort': 'name,asc',
     };
 
     if (code != null && code.trim().isNotEmpty) queryParameters['code'] = code.trim();
@@ -92,6 +100,38 @@ class StaffClassroomRemoteDataSourceImpl implements StaffClassroomRemoteDataSour
     final body = response.data;
     if (body is! Map<String, dynamic>) {
       throw Exception('Unexpected staff-classrooms API response format');
+    }
+
+    final data = body['data'] as List<dynamic>? ?? const [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(StaffClassroomItemModel.fromJson)
+        .toList();
+  }
+
+  @override
+  Future<List<StaffClassroomItemModel>> getManageStaffList({
+    required String schoolCode,
+    required String excludeClassroomCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffClassroomsManageStaffList,
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'schoolCode': schoolCode,
+        'excludeClassroomCode': excludeClassroomCode,
+        'status': const ['ACTIVE'],
+        'sort': 'name,asc',
+      },
+    );
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected manage-staff-list API response format');
     }
 
     final data = body['data'] as List<dynamic>? ?? const [];

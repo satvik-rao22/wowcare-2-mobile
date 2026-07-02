@@ -6,9 +6,23 @@ import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
+import '../../../../domain/features/student/entities/student_guardian.dart';
+import '../../../../domain/features/student/entities/student_health.dart';
+import '../../../../domain/features/student/entities/student_immunization.dart';
 import '../../../../domain/features/student/entities/student_important_dates.dart';
+import '../../../../domain/features/student/entities/student_physical_exam.dart';
+import '../../../../domain/features/student/entities/student_physician.dart';
+import '../../../../domain/features/student/entities/student_pickup.dart';
+import '../../../../domain/features/student/entities/student_profile.dart';
+import '../../../../domain/features/student/entities/student_regular_schedule.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
+import '../mappers/student_guardian_mapper.dart';
+import '../mappers/student_health_mapper.dart';
+import '../mappers/student_immunization_mapper.dart';
+import '../mappers/student_physical_exam_mapper.dart';
+import '../mappers/student_physician_mapper.dart';
+import '../mappers/student_pickup_mapper.dart';
 import '../models/student_models.dart';
 import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
@@ -24,11 +38,103 @@ class StudentRepositoryImpl
   final Map<String, Set<String>> _studentListCacheKeysBySchool = {};
 
   /// Raw guardians list for a school (includes email/mobile/code).
-  /// Not part of the domain interface; used by UI flows that need full guardian details.
+  /// Used by UI flows that need full guardian details.
+  @override
   Future<List<Map<String, dynamic>>> getGuardiansRawForSchool({
     required String schoolCode,
   }) {
     return _remoteDataSource.getGuardiansBySchool(schoolCode: schoolCode);
+  }
+
+  String _timeToLabel(dynamic raw) {
+    if (raw == null) return '';
+    if (raw is String) {
+      final s = raw.trim();
+      if (s.isEmpty) return '';
+      // Common backend formats:
+      // - "HH:mm:ss"
+      // - "HH:mm"
+      final parts = s.split(':');
+      if (parts.length >= 2) {
+        final h = int.tryParse(parts[0]) ?? 0;
+        final m = int.tryParse(parts[1]) ?? 0;
+        final dt = DateTime(2000, 1, 1, h, m);
+        final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+        final minute = dt.minute.toString().padLeft(2, '0');
+        final period = dt.hour >= 12 ? 'PM' : 'AM';
+        return '$hour12:$minute $period';
+      }
+      return s;
+    }
+    if (raw is Map) {
+      final h = int.tryParse('${raw['hour'] ?? 0}') ?? 0;
+      final m = int.tryParse('${raw['minute'] ?? 0}') ?? 0;
+      final dt = DateTime(2000, 1, 1, h, m);
+      final hour12 = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+      final minute = dt.minute.toString().padLeft(2, '0');
+      final period = dt.hour >= 12 ? 'PM' : 'AM';
+      return '$hour12:$minute $period';
+    }
+    return '';
+  }
+
+  Map<String, String> _scheduleByDayFromRegularSchedules(
+    List<dynamic> regularSchedules,
+  ) {
+    final scheduleByDay = <String, String>{};
+    for (final item in regularSchedules) {
+      if (item is! Map) continue;
+      final dow = (item['dayOfWeek'] ?? '').toString().toUpperCase().trim();
+      final startLabel = _timeToLabel(item['startTime']);
+      final endLabel = _timeToLabel(item['endTime']);
+      if (dow.isNotEmpty && startLabel.isNotEmpty && endLabel.isNotEmpty) {
+        scheduleByDay[dow] = '$startLabel - $endLabel';
+      }
+    }
+    return scheduleByDay;
+  }
+
+  @override
+  Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
+    required String studentCode,
+  }) async {
+    final rawList = await _remoteDataSource.getStudentRegularSchedules(
+      studentCode: studentCode,
+    );
+
+    int _extractInt(dynamic timeMap, String key) {
+      if (timeMap is! Map) return 0;
+      final v = timeMap[key];
+      if (v == null) return 0;
+      if (v is int) return v;
+      return int.tryParse(v.toString()) ?? 0;
+    }
+
+    return rawList.map((e) {
+      final startTime = e['startTime'];
+      final endTime = e['endTime'];
+      return StudentRegularScheduleEntry(
+        dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
+        startHour: _extractInt(startTime, 'hour'),
+        startMinute: _extractInt(startTime, 'minute'),
+        endHour: _extractInt(endTime, 'hour'),
+        endMinute: _extractInt(endTime, 'minute'),
+      );
+    }).toList(growable: false);
+  }
+
+  @override
+  Future<StudentProfile> getStudentProfile({required String code}) async {
+    final model = await _remoteDataSource.getStudentProfile(code);
+    return StudentProfile(
+      code: model.code.trim(),
+      schoolCode: model.schoolCode.trim(),
+      fullName: model.fullName.trim().isNotEmpty
+          ? model.fullName.trim()
+          : model.code.trim(),
+      classroomName: model.classroom?.trim(),
+      scheduleByDay: _scheduleByDayFromRegularSchedules(model.regularSchedules),
+    );
   }
 
   // Cache key helpers - following the pattern: {feature}_{resource}_cache_{identifier}
@@ -38,6 +144,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -67,6 +174,9 @@ class StudentRepositoryImpl
     final guardianKey = normList(
       guardianCodes,
     ).map((e) => e.toUpperCase()).join(',');
+    final attendanceKey = normList(
+      attendanceStatuses,
+    ).map((e) => e.toUpperCase()).join(',');
 
     final identifier = [
       schoolCode,
@@ -74,6 +184,7 @@ class StudentRepositoryImpl
       if (classroomKey.isNotEmpty) 'classrooms=$classroomKey',
       if (tagKey.isNotEmpty) 'tags=$tagKey',
       if (guardianKey.isNotEmpty) 'guardians=$guardianKey',
+      if (attendanceKey.isNotEmpty) 'attendanceStatus=$attendanceKey',
       if (searchKey.isNotEmpty) 'search=$searchKey',
       if (codeKey.isNotEmpty) 'code=$codeKey',
       if (firstNameKey.isNotEmpty) 'firstName=$firstNameKey',
@@ -209,7 +320,9 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<Map<String, int>> getStudentCounts({required String schoolCode}) async {
+  Future<Map<String, int>> getStudentCounts({
+    required String schoolCode,
+  }) async {
     final key = _studentCountsCacheKey(schoolCode);
     final cached = await _cacheManager.loadCache(key);
     if (cached != null) {
@@ -219,13 +332,31 @@ class StudentRepositoryImpl
         'enrolledCount': (cached['enrolledCount'] as num?)?.toInt() ?? 0,
       };
     }
-    final fresh = await _remoteDataSource.getStudentCounts(schoolCode: schoolCode);
+    final fresh = await _remoteDataSource.getStudentCounts(
+      schoolCode: schoolCode,
+    );
     await _cacheManager.saveCache(key, {
       'activeCount': fresh['activeCount'] ?? 0,
       'upcomingCount': fresh['upcomingCount'] ?? 0,
       'enrolledCount': fresh['enrolledCount'] ?? 0,
     });
     return fresh;
+  }
+
+  @override
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
+      getStudentDocumentExpiryCount({required String schoolCode}) async {
+    return _remoteDataSource.getStudentDocumentExpiryCount(
+      schoolCode: schoolCode,
+    );
+  }
+
+  @override
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+    return _remoteDataSource.getStudentPhysicalCheckupCount(
+      schoolCode: schoolCode,
+    );
   }
 
   static String _studentImmunizationCacheKey(String studentCode) =>
@@ -252,6 +383,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page = 0,
     int size = 10,
@@ -268,6 +400,7 @@ class StudentRepositoryImpl
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
+      attendanceStatuses: attendanceStatuses,
       search: search,
       page: page,
       size: size,
@@ -281,16 +414,14 @@ class StudentRepositoryImpl
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         guardianCodes: guardianCodes,
+        attendanceStatuses: attendanceStatuses,
         search: search,
         code: code,
         firstName: firstName,
         lastName: lastName,
       );
       _registerStudentListCacheKey(schoolCode, cacheKey);
-      await _cacheManager.saveCache(
-        cacheKey,
-        studentPageModel.toJson(),
-      );
+      await _cacheManager.saveCache(cacheKey, studentPageModel.toJson());
     }
 
     return _mapPageModelToEntity(studentPageModel);
@@ -348,6 +479,7 @@ class StudentRepositoryImpl
         documentUrl: documentUrl,
         documentSizeKb: m.size > 0 ? (m.size / 1024).ceil() : 0,
         mimeType: m.mimeType,
+        assetCode: m.assetCode,
         expiryDate: m.expiryDate,
         expired: false,
         createdAt: m.createdAt,
@@ -453,7 +585,8 @@ class StudentRepositoryImpl
     return message;
   }
 
-  Future<List<StudentPickupModel>> getStudentPickups({
+  @override
+  Future<List<StudentPickup>> getStudentPickups({
     required String studentCode,
     bool forceRefresh = false,
   }) async {
@@ -471,7 +604,9 @@ class StudentRepositoryImpl
           // Older cached payloads may not include pickup code. If so, bypass cache
           // so edit flow can always call PATCH /pickup/{code}.
           final hasMissingCode = list.any((p) => (p.code ?? '').trim().isEmpty);
-          if (!hasMissingCode) return list;
+          if (!hasMissingCode) {
+            return list.map((m) => m.toEntity()).toList(growable: false);
+          }
         }
       }
     }
@@ -502,9 +637,10 @@ class StudentRepositoryImpl
           .toList(),
     });
 
-    return models;
+    return models.map((m) => m.toEntity()).toList(growable: false);
   }
 
+  @override
   Future<String> addPickup({
     required String studentCode,
     required String firstName,
@@ -533,6 +669,7 @@ class StudentRepositoryImpl
     return message;
   }
 
+  @override
   Future<String> updatePickup({
     required String code,
     required String studentCode,
@@ -574,6 +711,7 @@ class StudentRepositoryImpl
     return message;
   }
 
+  @override
   Future<String> deletePickup({
     required String code,
     required String studentCode,
@@ -585,7 +723,8 @@ class StudentRepositoryImpl
     return message;
   }
 
-  Future<List<StudentPhysicianModel>> getStudentPhysicians({
+  @override
+  Future<List<StudentPhysician>> getStudentPhysicians({
     required String studentCode,
   }) async {
     // Try cache first
@@ -597,7 +736,9 @@ class StudentRepositoryImpl
           .whereType<Map<String, dynamic>>()
           .map(StudentPhysicianModel.fromJson)
           .toList(growable: false);
-      if (list.isNotEmpty) return list;
+      if (list.isNotEmpty) {
+        return list.map((m) => m.toEntity()).toList(growable: false);
+      }
     }
 
     // Fallback to API
@@ -624,17 +765,18 @@ class StudentRepositoryImpl
           .toList(),
     });
 
-    return models;
+    return models.map((m) => m.toEntity()).toList(growable: false);
   }
 
-  Future<StudentHealthModel> getStudentHealth({
+  @override
+  Future<StudentHealth> getStudentHealth({
     required String studentCode,
   }) async {
     final cached = await _cacheManager.loadCache(
       _studentHealthCacheKey(studentCode),
     );
     if (cached != null) {
-      return StudentHealthModel.fromJson(cached);
+      return StudentHealthModel.fromJson(cached).toEntity();
     }
 
     final model = await _remoteDataSource.getStudentHealth(code: studentCode);
@@ -644,10 +786,11 @@ class StudentRepositoryImpl
       model.toJson(),
     );
 
-    return model;
+    return model.toEntity();
   }
 
-  Future<StudentHealthModel> updateStudentHealth({
+  @override
+  Future<StudentHealth> updateStudentHealth({
     required String studentCode,
     required Map<String, dynamic> body,
   }) async {
@@ -661,10 +804,11 @@ class StudentRepositoryImpl
       model.toJson(),
     );
 
-    return model;
+    return model.toEntity();
   }
 
-  Future<List<StudentImmunizationModel>> getStudentImmunizations({
+  @override
+  Future<List<StudentImmunization>> getStudentImmunizations({
     required String studentCode,
     bool forceRefresh = false,
   }) async {
@@ -678,6 +822,7 @@ class StudentRepositoryImpl
           return items
               .whereType<Map<String, dynamic>>()
               .map(StudentImmunizationModel.fromJson)
+              .map((m) => m.toEntity())
               .toList(growable: false);
         }
       }
@@ -691,12 +836,13 @@ class StudentRepositoryImpl
       'items': models.map((e) => e.toJson()).toList(),
     });
 
-    return models;
+    return models.map((m) => m.toEntity()).toList(growable: false);
   }
 
-  Future<StudentImmunizationModel> updateStudentImmunizationRecord({
+  @override
+  Future<StudentImmunization> updateStudentImmunizationRecord({
     required String studentCode,
-    required StudentImmunizationModel record,
+    required StudentImmunization record,
     required DateTime date,
     required String status,
     String? exemptionReason,
@@ -730,10 +876,11 @@ class StudentRepositoryImpl
       _studentImmunizationCacheKey(studentCode),
     );
 
-    return model;
+    return model.toEntity();
   }
 
-  Future<List<StudentPhysicalExamModel>> getStudentPhysicalExams({
+  @override
+  Future<List<StudentPhysicalExam>> getStudentPhysicalExams({
     required String studentCode,
     bool forceRefresh = false,
   }) async {
@@ -747,6 +894,7 @@ class StudentRepositoryImpl
           return items
               .whereType<Map<String, dynamic>>()
               .map(StudentPhysicalExamModel.fromJson)
+              .map((m) => m.toEntity())
               .toList(growable: false);
         }
       }
@@ -760,10 +908,11 @@ class StudentRepositoryImpl
       'items': models.map((e) => e.toJson()).toList(),
     });
 
-    return models;
+    return models.map((m) => m.toEntity()).toList(growable: false);
   }
 
-  Future<StudentPhysicalExamModel> addStudentPhysicalExam({
+  @override
+  Future<StudentPhysicalExam> addStudentPhysicalExam({
     required String studentCode,
     required DateTime examDate,
     required String status,
@@ -784,10 +933,11 @@ class StudentRepositoryImpl
       _studentPhysicalExamsCacheKey(studentCode),
     );
 
-    return model;
+    return model.toEntity();
   }
 
-  Future<StudentPhysicalExamModel> updateStudentPhysicalExam({
+  @override
+  Future<StudentPhysicalExam> updateStudentPhysicalExam({
     required String studentCode,
     required String examCode,
     required DateTime examDate,
@@ -810,7 +960,7 @@ class StudentRepositoryImpl
       _studentPhysicalExamsCacheKey(studentCode),
     );
 
-    return model;
+    return model.toEntity();
   }
 
   @override
@@ -822,9 +972,7 @@ class StudentRepositoryImpl
     if (cached != null) {
       final raw = cached['map'] as Map<String, dynamic>?;
       if (raw != null && raw.isNotEmpty) {
-        return raw.map(
-          (k, v) => MapEntry(k.toString(), v.toString()),
-        );
+        return raw.map((k, v) => MapEntry(k.toString(), v.toString()));
       }
     }
 
@@ -841,9 +989,7 @@ class StudentRepositoryImpl
       }
     }
 
-    await _cacheManager.saveCache(key, {
-      'map': map,
-    });
+    await _cacheManager.saveCache(key, {'map': map});
     return map;
   }
 
@@ -860,7 +1006,8 @@ class StudentRepositoryImpl
     );
   }
 
-  Future<StudentPhysicianModel> addPhysician({
+  @override
+  Future<StudentPhysician> addPhysician({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -887,10 +1034,11 @@ class StudentRepositoryImpl
       _studentPhysiciansCacheKey(studentCode),
     );
 
-    return model;
+    return model.toEntity();
   }
 
-  Future<StudentPhysicianModel> updatePhysician({
+  @override
+  Future<StudentPhysician> updatePhysician({
     required String code,
     required String studentCode,
     required String firstName,
@@ -916,9 +1064,10 @@ class StudentRepositoryImpl
       _studentPhysiciansCacheKey(studentCode),
     );
 
-    return model;
+    return model.toEntity();
   }
 
+  @override
   Future<String> deletePhysician({
     required String code,
     required String studentCode,
@@ -933,7 +1082,7 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<String> createGuardianUser({
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -947,7 +1096,7 @@ class StudentRepositoryImpl
     String? userCode,
     String? organizationCode,
   }) async {
-    final message = await _remoteDataSource.createGuardianUser(
+    final result = await _remoteDataSource.createGuardianUser(
       schoolCode: schoolCode,
       studentCode: studentCode,
       firstName: firstName,
@@ -969,7 +1118,7 @@ class StudentRepositoryImpl
       includeFilterMetadata: true,
     );
 
-    return message;
+    return result;
   }
 
   @override
@@ -1188,7 +1337,8 @@ class StudentRepositoryImpl
     return names;
   }
 
-  Future<List<StudentGuardianModel>> getStudentGuardians({
+  @override
+  Future<List<StudentGuardian>> getStudentGuardians({
     required String studentCode,
     bool forceRefresh = false,
   }) async {
@@ -1202,7 +1352,15 @@ class StudentRepositoryImpl
             .whereType<Map<String, dynamic>>()
             .map(StudentGuardianModel.fromJson)
             .toList(growable: false);
-        if (list.isNotEmpty) return list;
+        if (list.isNotEmpty) {
+          // Older cached payloads may not include the guardian code. If so,
+          // bypass cache so the edit/delete flows can resolve a valid code.
+          final hasMissingCode =
+              list.any((g) => g.guardianCode.trim().isEmpty);
+          if (!hasMissingCode) {
+            return list.map((m) => m.toEntity()).toList(growable: false);
+          }
+        }
       }
     }
 
@@ -1219,7 +1377,7 @@ class StudentRepositoryImpl
       'items': models.map((e) => e.toJson()).toList(),
     });
 
-    return models;
+    return models.map((m) => m.toEntity()).toList(growable: false);
   }
 
   @override
@@ -1229,6 +1387,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -1240,6 +1399,7 @@ class StudentRepositoryImpl
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
+      attendanceStatuses: attendanceStatuses,
       search: search,
       code: code,
       firstName: firstName,
@@ -1260,6 +1420,7 @@ class StudentRepositoryImpl
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -1272,6 +1433,7 @@ class StudentRepositoryImpl
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         guardianCodes: guardianCodes,
+        attendanceStatuses: attendanceStatuses,
         search: search,
         code: code,
         firstName: firstName,
@@ -1424,6 +1586,21 @@ class StudentRepositoryImpl
     required List<String> siblingCodes,
   }) async {
     final message = await _remoteDataSource.updateStudentSiblings(
+      studentCode: studentCode,
+      siblingCodes: siblingCodes,
+    );
+
+    await _invalidateAllStudentListAndSummaryCaches();
+
+    return message;
+  }
+
+  @override
+  Future<String> addStudentSibling({
+    required String studentCode,
+    required List<String> siblingCodes,
+  }) async {
+    final message = await _remoteDataSource.addStudentSibling(
       studentCode: studentCode,
       siblingCodes: siblingCodes,
     );
