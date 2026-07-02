@@ -1,819 +1,822 @@
-# WowCare Tasks 2.0 — System Design
+# WowCare Tasks 2.0 — Engineering Design Document
 
 | | |
 |---|---|
-| **Scope** | Redesign of the Tasks module: multi-assignee tasks with per-person tracking, an admin rollup view, task comments, task hierarchy (sub-tasks), attachments with full history, and an audit trail. |
-| **Stack** | PostgreSQL → Spring Boot (Java) REST API → two clients: Flutter (mobile) + React (web). |
-| **Status** | Greenfield backend. Mobile currently runs local-only (Isar + bundled mock data); no production data exists, so this can be built correctly with no migration risk. |
-| **Audience** | Engineering (backend, web, mobile) + technical review. |
+| **Version** | v2.0 — post principal-architect review (lifecycles specified, holiday/pause/projection added, cascade invariant enforced) |
+| **Scope** | Multi-assignee tasks with per-person tracking, recurring tasks (each occurrence separately executed), admin rollups, comments, sub-tasks, versioned attachments, full audit trail. |
+| **Stack** | PostgreSQL → Spring Boot (Java) REST → Flutter (mobile) + React (web). |
+| **Architecture basis** | Aligned with the approved **Events/Calendar v4** platform architecture (series/occurrence split, audience targets, outbox → Kafka → `communication-service`). Tasks extend it with a per-person **work-execution layer**, and simplify it with a **rolling materialization window** built by an **idempotent scheduled job**. |
+| **Status** | Greenfield backend; mobile currently local-only. No production data → no migration risk. |
 
 ---
 
 ## Table of Contents
 
-1. [Overview](#1-overview)
-2. [Guiding principles](#2-guiding-principles)
-3. [Core model: Task + Assignment](#3-core-model-task--assignment)
+1. [The domain in plain language](#1-the-domain-in-plain-language)
+2. [Design principles](#2-design-principles)
+3. [Lifecycles — the state machines](#3-lifecycles--the-state-machines)
 4. [Data model (PostgreSQL)](#4-data-model-postgresql)
-5. [Derived data: counters, rollups, overdue, time zones](#5-derived-data-counters-rollups-overdue-time-zones)
-6. [API design](#6-api-design)
-7. [The admin & staff views](#7-the-admin--staff-views)
-8. [Security & multi-tenancy](#8-security--multi-tenancy)
-9. [Business rules & RBAC](#9-business-rules--rbac)
-10. [Client integration](#10-client-integration)
-11. [Offline & sync (mobile)](#11-offline--sync-mobile)
-12. [Operations](#12-operations)
-13. [Rollout plan](#13-rollout-plan)
-14. [Deliberately deferred (with rationale)](#14-deliberately-deferred-with-rationale)
-15. [Open product decisions](#15-open-product-decisions)
-- [Appendix A — Complete API reference](#appendix-a--complete-api-reference)
+5. [The recurrence engine](#5-the-recurrence-engine)
+6. [Serving reads — filters, pagination, performance](#6-serving-reads--filters-pagination-performance)
+7. [Security & multi-tenancy](#7-security--multi-tenancy)
+8. [Business rules & RBAC](#8-business-rules--rbac)
+9. [Clients & offline](#9-clients--offline)
+10. [Operations](#10-operations)
+11. [Rollout plan](#11-rollout-plan)
+12. [Deliberately deferred](#12-deliberately-deferred)
+13. [Open product decisions](#13-open-product-decisions)
+- [Appendix A — API reference](#appendix-a--api-reference)
+- [Appendix B — Worked example with dummy data](#appendix-b--worked-example-with-dummy-data)
 
 ---
 
-## 1. Overview
+## 1. The domain in plain language
 
-A **task** is a unit of work in a childcare school. A task can be **school-wide or scoped to a classroom**, and can be assigned to **many staff members**, with **each person's copy tracked independently** — its own status, priority, start/due dates and effort. The system serves three needs:
+A **task** is a unit of work in a childcare school — one-off ("plan Sports Day") or recurring ("check classroom temperature every weekday at 9"). A task can be assigned to many staff, and **each person's copy — and each recurrence — is tracked independently**: its own status, comments, attachments. Admins see each task once with a rollup; staff see only their own work; guardians see nothing.
 
-- **Admins** see each task **once**, with a rolled-up view of how all assignees are progressing, and can drill into any one person.
-- **Staff** see only their **own** work items, exactly as a personal to-do list.
-- Tasks support **discussion (comments)**, **sub-tasks (hierarchy)**, **attachments with full revision history**, and a complete **audit trail** for compliance.
+### 1.1 Vocabulary
 
-Guardians/parents have **no access** to the module.
+| Term | Meaning |
+|---|---|
+| **Series** (`task`) | The definition + recurrence rule. Never executed itself. A one-off task is a series that yields exactly one occurrence. |
+| **Target** (`task_assignment_target`) | *Who should do it*, as intent: a USER, CLASSROOM, ROLE, or DEPARTMENT — never a hard-coded list of people. |
+| **Occurrence** (`task_occurrence`) | One dated instance of the series — the executable unit. Comments/attachments/rollups per date live here. |
+| **Assignment** (`task_assignment`) | One person's execution of one occurrence — status, effort, completion. The atom of work and of reporting. |
+| **Window** | The rolling 60–90-day span of future occurrences kept materialized. Bounds storage *and* every write fan-out. |
+| **Activation** | The daily moment an occurrence's date arrives: roster freezes, work begins. The boundary between "plan" and "fact". |
+| **Projection** | Read-time RRULE expansion for dates beyond the window — display-only, no rows. |
+
+### 1.2 Why four layers
+
+```
+   TASK (series)  ── the "what" + recurrence rule + lifecycle. Not executable.
+     │
+     ├── TASK_ASSIGNMENT_TARGET(s)  ── the "who" as intent (USER|CLASSROOM|ROLE|DEPARTMENT)
+     │
+     ▼   (engine materializes a rolling window; targets resolve to people per occurrence)
+   TASK_OCCURRENCE  ── the "when": one dated instance. Rollup + per-day threads live here.
+     │
+     ▼
+   TASK_ASSIGNMENT  ── the per-person FACT: status, effort, completion, private thread.
+```
+
+- A recurring series can't carry "done" — only a date can → execution lives on occurrence/assignment.
+- Assigning to *people* breaks on turnover (edit thousands of rows when a teacher moves). Assigning to a **target** and resolving members per occurrence means the rule never changes — only classroom membership does.
+- One-off = single-occurrence series → **one code path**, no `if recurring` branching.
+
+This lets an admin see a task assigned to 100 people across 52 weeks as one series with per-occurrence rollups, gives each person independent daily state, and makes "Jane's tasks this week" one indexed query.
 
 ---
 
-## 2. Guiding principles
+## 2. Design principles
 
-Built on clean architecture (`presentation → domain → data`), consistent with the existing codebase, plus a deliberate scaling philosophy:
+> **Get the irreversible-later decisions right today; defer expensive machinery until metrics demand it — but reuse machinery the platform already runs.** (Notion/Figma ran single Postgres for years; their walls were operational, not query speed. We build shard-ready, not sharded.)
 
-> **Get the irreversible-later decisions right today; defer the expensive machinery until real metrics demand it.** Large task systems (Notion, Figma) ran a single PostgreSQL instance for years before sharding — and the wall they eventually hit was operational (VACUUM, transaction-ID wraparound), not query speed. WowCare is far smaller, so we build **shard-ready, not sharded.**
-
-**Seven rules adopted from day one** (cheap now, painful to retrofit):
-
-| # | Rule | Rationale |
+| # | Rule | Why |
 |---|---|---|
-| 1 | `school_code` on **every** table (leading every composite index), plus `organization_code` for cross-service consistency. | A school belongs to one org, so `school_code` alone scopes & shards data; `organization_code` matches staff_service et al. and enables org-level rollups. Enables RLS now, shard-by-tenant later, no model change. |
-| 2 | **Soft-delete** everything (`deleted_at`, `deleted_by`); never bulk hard-delete; keep a restore path. | A hard-delete maintenance script caused a multi-week data-loss outage at a major vendor. |
-| 3 | **No EAV.** Task fields are typed columns; flexible fields (if ever) use one `JSONB` column + GIN index — never a `field_values` table. | EAV custom-field tables are a well-known query/index performance trap. |
-| 4 | **Filter, sort and aggregate in SQL**, never by shipping all rows to the client. | Loading whole boards client-side is a documented scaling failure mode. |
-| 5 | **Keyset (cursor) pagination**, not `OFFSET`. | `OFFSET` degrades linearly on deep pages. |
-| 6 | **Append-only history** (`audit_log`) is its own time-partitioned table. | It is the one table that only ever grows; partitioning makes archival a metadata operation. |
-| 7 | **PostgreSQL does search** (trigram / `tsvector`) until a tenant exceeds ~1M rows with complex filters. | An external search engine is operational overhead we don't yet need. |
+| 1 | `school_code` on **every** table (leads every composite index) + `organization_code`. | Tenant scoping/RLS now, shard-by-tenant later. **Codes, not ids** — sibling services only have codes. |
+| 2 | **Soft-delete everything**; never bulk hard-delete; keep a restore path. | A hard-delete script caused a multi-week outage at a major vendor. |
+| 3 | **No EAV.** Typed columns; flexible fields (if ever) = one `JSONB` + GIN. | EAV custom-field tables are a known performance trap (Jira). |
+| 4 | **Filter/sort/aggregate in SQL**; never ship all rows to the client. | Client-side board loading is a documented scaling failure (monday.com). |
+| 5 | **Keyset pagination**, never `OFFSET`. | O(page) at any depth; stable under concurrent writes. |
+| 6 | **Rule vs. occurrence**: recurrence is a rule; work happens on materialized occurrences (+ read-time projection beyond the window). | Pure-virtual has nowhere to hang state; full materialization explodes rows. Hybrid is the calendar/CMMS-proven answer. |
+| 7 | **Read model maintained at write time.** Hot list screens read denormalized columns on one table; normalized rows stay the source of truth. | Every list = one index-only keyset scan. Denormalized fields exist **only** where a named query demands them. |
+| 8 | **The cascade invariant.** Any series/occurrence lifecycle change (delete, pause, cancel, reschedule, retitle-ALL) **must cascade to its assignment rows in the same transaction.** | The read model reads *only* `task_assignment` — an un-cascaded change leaves ghost work in "My Tasks". Bounded by the window, so always cheap. |
 
 ---
 
-## 3. Core model: Task + Assignment
+## 3. Lifecycles — the state machines
 
-The central decision. A multi-assignee task is **two levels**, not N independent copies:
+*The part diagrams hide and production exposes. Every transition below has exactly one owner.*
 
-- **Task** — the *definition* (the "what"), created once: title, description, scope, recurrence, hierarchy link.
-- **Task Assignment** — the *per-person instance* (the "who + their progress"): assignee, status, priority, start/due, effort. **One row per assignee.**
+### 3.1 Series: `series_status = ACTIVE | PAUSED | ENDED` (+ soft delete)
 
 ```
-                 ┌──────────────────────────────┐
-            ┌───▶│            TASK              │  defined ONCE
-            │    │  title, description, scope,  │  (TSK-…)
-            │    │  recurrence, parent_task_id  │
-            │    └───────────────┬──────────────┘
-   parent   │                    │ 1 : N
-  (depth 1) │                    ▼
-            │    ┌──────────────────────────────┐
-            └────│       TASK_ASSIGNMENT        │  one row PER PERSON (TSA-…)
-                 │  assignee, status, priority, │  individually editable
-                 │  start/due, effort, …        │
-                 └──────────────────────────────┘
+ ACTIVE ──pause──▶ PAUSED ──resume──▶ ACTIVE
+   │                                     
+   └──rrule exhausted / manual end──▶ ENDED
+ (soft delete is orthogonal: deleted_at set; restorable)
 ```
 
-This is what lets an admin see a task assigned to 100 people as **one row with a rollup**, lets each person carry different dates/priority, and makes "all tasks assigned to Jane" a simple indexed query on assignments.
+| Transition | Owner | What happens (cascade invariant, one transaction) |
+|---|---|---|
+| **Pause** | admin/creator | Stop generation. Future `SCHEDULED` occurrences → `CANCELLED (status_reason=SERIES_PAUSED)`; their assignments soft-deleted → they vanish from My Tasks. Past/ACTIVE untouched. |
+| **Resume** | admin/creator | Future `SERIES_PAUSED` occurrences flip back to `SCHEDULED`; rosters **re-resolved fresh** (membership may have changed while paused); generation resumes. |
+| **End** | nightly job / admin | `rrule_until` passed or manual: no further generation. History remains. |
+| **Delete** | admin/creator | Soft-delete series + future `SCHEDULED` occurrences + their assignments (same txn). **Past occurrences/assignments untouched — history is never deleted.** Today's `ACTIVE` occurrences remain finishable (default; product may flip). |
+| **Restore** | admin | Clear `deleted_at` on series; re-run `materializeWindow` — idempotent generation rebuilds the window. (In-progress state on deleted future rows is not resurrected; acceptable.) |
+
+### 3.2 Occurrence: `status = SCHEDULED | ACTIVE | CANCELLED | SKIPPED`
+
+```
+ (generated) ──▶ SCHEDULED ──daily activation job──▶ ACTIVE
+                     │                                  │
+                     ├─ cancel/skip (admin, holiday) ──▶ CANCELLED | SKIPPED (status_reason)
+                     │
+ "completed" is NOT a status — it is DERIVED (aggregate_status) from assignment counts.
+```
+
+- **Activation** (the freeze boundary): a daily job per school (start of school day, school tz) flips today's `SCHEDULED → ACTIVE`, stamps `activated_at`, and emits due-today notifications. **Re-resolution only ever touches `SCHEDULED`** — so an activated roster is frozen, and completed work can never be removed by a membership change. *(This job is the fix for the freeze gap: without it, nothing separated "plan" from "fact.")*
+- `CANCELLED/SKIPPED` = the calendar EXDATE: drop one date without harming the series. Reasons: `ADMIN`, `HOLIDAY`, `SERIES_PAUSED`, `SERIES_SPLIT`. Cancelling also soft-deletes the occurrence's open assignments (invariant #8).
+- Reschedule (`THIS_ONLY`): `scheduled_start_date` moves; identity `original_start_date` doesn't; child assignments' `occurrence_date/due_at` updated in the same txn.
+
+### 3.3 Assignment: `status = TO_DO | IN_PROGRESS | COMPLETED`
+
+- Created by resolution (or manual add, `is_manual_override=true` — never removed by re-resolution).
+- `assignee_name` is a refreshable display **cache** while open; it **freezes** at terminal status → "Completed by Alice" survives Alice's resignation.
+- `COMPLETED` stamps `completed_at`; the counter trigger updates the occurrence rollup in the same transaction.
+- Soft-deleting an assignment (removal, cascade) is an UPDATE — **the counter trigger fires on `UPDATE OF status, deleted_at`** so counts stay exact.
+
+### 3.4 Resolution timing (the correctness rule)
+
+The staff service answers **current** membership only — you cannot resolve "members as of a future date". Therefore:
+
+> **Resolve early, patch until active, freeze at activation.** Generation resolves against *today's* membership (`resolved_on = today`). The nightly job re-resolves **future `SCHEDULED`** occurrences against current membership (add joiners, remove leavers; skip `is_manual_override`). Activation freezes the roster. Past is immutable.
 
 ---
 
 ## 4. Data model (PostgreSQL)
 
-> Conventions: internal PK is `BIGINT GENERATED ALWAYS AS IDENTITY` (never exposed); the API exposes only the public `code`. Every table carries the tenant key (`organization_code` + `school_code`), `created_at`/`updated_at` (UTC `timestamptz`), `version` (optimistic lock), and `deleted_at`/`deleted_by` (soft delete). `school_code` leads composite indexes (a school is in exactly one org, so it alone scopes data); `organization_code` is carried for cross-service consistency and org-level queries. Tenant/audit columns are shown on the core tables and omitted elsewhere for brevity.
+> **Conventions.** PK `BIGINT GENERATED ALWAYS AS IDENTITY` (internal, never exposed); API exposes public `code` only. Every table: tenant (`organization_code`+`school_code`), `created_at`/`updated_at` (UTC), `version` (optimistic lock → `409`), `deleted_at`/`deleted_by`. `school_code` leads composite indexes. Times are wall-clock in the **school IANA tz**; instants (`*_at`) are UTC. Tenant/audit columns shown on core tables, elided elsewhere.
 
-### 4.1 `tasks` — the definition
+### 4.1 `task` — the series
 
 ```sql
-CREATE TABLE tasks (
+CREATE TABLE task (
   id                BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   code              VARCHAR(40)  NOT NULL UNIQUE,            -- TSK-XXXXXXXX
-  organization_code VARCHAR(40)  NOT NULL,                   -- tenant (matches staff_service)
-  school_code       VARCHAR(40)  NOT NULL,                   -- tenant (code, not id — cross-service safe)
+  organization_code VARCHAR(40)  NOT NULL,
+  school_code       VARCHAR(40)  NOT NULL,
   title             VARCHAR(300) NOT NULL,
   description       TEXT         NOT NULL DEFAULT '',
 
-  -- scope: school-wide or a specific classroom (PRD)
+  -- VISIBILITY dimension only (which board/filter shows it). Assignment is targets (§4.2).
   scope             VARCHAR(16)  NOT NULL DEFAULT 'SCHOOL_WIDE',  -- SCHOOL_WIDE | CLASSROOM
-  classroom_code    VARCHAR(40),                             -- required iff scope = CLASSROOM
+  classroom_code    VARCHAR(40),                             -- required iff scope=CLASSROOM
 
-  -- recurrence lives on the definition (shared cadence)
-  recurring          BOOLEAN     NOT NULL DEFAULT FALSE,
-  recurring_pattern  VARCHAR(16),                            -- DAILY|WEEKLY|MONTHLY
-  recurring_end_date DATE,
-  start_day          VARCHAR(16),                            -- weekday name or day-of-month
-  due_day            VARCHAR(16),
+  -- recurrence RULE (RRULE-lite; single source for generation & projection)
+  recurring_flag    BOOLEAN      NOT NULL DEFAULT FALSE,
+  rrule_freq        VARCHAR(8),                              -- DAILY | WEEKLY | MONTHLY
+  rrule_interval    INT          DEFAULT 1,                  -- every N
+  rrule_by_day      VARCHAR(20),                             -- 'MO,WE,FR'
+  rrule_by_monthday VARCHAR(20),                             -- '1,15'
+  rrule_until       DATE,                                    -- termination (v1: until only; no COUNT)
+  series_start_date DATE         NOT NULL,
+  series_start_time TIME         NOT NULL DEFAULT '09:00',
+  series_end_time   TIME         NOT NULL DEFAULT '17:00',
+  holiday_policy    VARCHAR(8)   NOT NULL DEFAULT 'SKIP',    -- SKIP | KEEP (school holidays)
 
-  -- hierarchy (self-reference, depth 1 enforced in service)
-  parent_task_id    BIGINT       REFERENCES tasks(id) ON DELETE SET NULL,
+  -- lifecycle (§3.1) + build flag + window marker
+  series_status     VARCHAR(8)   NOT NULL DEFAULT 'ACTIVE',  -- ACTIVE | PAUSED | ENDED
+  materialization_status VARCHAR(12) NOT NULL DEFAULT 'READY',  -- READY | BUILDING (large roster only)
+  horizon_until     DATE,                                    -- window materialized up to here
 
-  -- maintained rollup columns (trigger-kept; power the board AND its sorts)
-  assignment_total       INT     NOT NULL DEFAULT 0,
-  assignment_in_progress INT     NOT NULL DEFAULT 0,
-  assignment_completed   INT     NOT NULL DEFAULT 0,
-  assignment_overdue     INT     NOT NULL DEFAULT 0,         -- job-refreshed ("as of last refresh")
-  earliest_due_date      DATE,                               -- MIN(assignment.due_date); board sort key
+  -- lineage & hierarchy (two DIFFERENT relationships)
+  parent_series_id  BIGINT       REFERENCES task(id),        -- THIS_AND_FUTURE split lineage
+  parent_task_id    BIGINT       REFERENCES task(id) ON DELETE SET NULL,  -- sub-task, depth 1, v1: one-off only
 
-  -- derived, indexable, and CANNOT drift: a pure function of the counters above
+  -- read model: series-management board reads this, O(1), no LATERAL
+  next_occurrence_date   DATE,
+  next_occurrence_status VARCHAR(16),
+
+  created_by_code   VARCHAR(40)  NOT NULL,
+  created_by_name   VARCHAR(160) NOT NULL,                   -- snapshot
+  version INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ, deleted_by VARCHAR(40),
+  CONSTRAINT chk_task_scope CHECK ((scope='CLASSROOM') = (classroom_code IS NOT NULL))
+);
+CREATE INDEX idx_task_series ON task (school_code, series_status) WHERE deleted_at IS NULL;
+```
+
+**Why the non-obvious keys**
+
+| Field | Rationale |
+|---|---|
+| `scope`/`classroom_code` | **Visibility only** — which board/filters surface the task. It may legitimately differ from targets (a task *about* classroom 1-Blue assigned to the ROLE=NURSE). Ruling prevents the two concepts from silently conflicting. |
+| `rrule_*` | Structured rule → deterministic, testable date math; shared expansion code with Events. v1 supports `until` termination only (one path to test). |
+| `holiday_policy` | A school system must not generate compliance work on holidays. `SKIP` → the date materializes as `SKIPPED (HOLIDAY)` (visible on the calendar, no assignments); `KEEP` → normal. Consults the platform holiday calendar at generation. |
+| `series_status` | Pause/resume is table stakes in recurring systems; soft delete is *not* pause (§3.1). |
+| `materialization_status` | `READY`/`BUILDING` flag only. The window build is small and usually runs inside the create txn; `BUILDING` covers a large-roster background build. **Not** a multi-stage state machine — rejected as over-engineering for a windowed build. |
+| `horizon_until` | Window marker the nightly job advances. Bounds storage and every fan-out. |
+| `parent_series_id` vs `parent_task_id` | Split lineage vs sub-task hierarchy — two relationships, two columns. Hierarchy is v1-restricted to one-off tasks (sub-tasks of a *recurring* series have unclear semantics — deferred). |
+| `next_occurrence_*` | Read model for the "manage series" list: each series once + next-due summary without a per-row LATERAL. Maintained by the rollup trigger/window job. |
+
+### 4.2 `task_assignment_target` — the audience (intent, not people)
+
+```sql
+CREATE TABLE task_assignment_target (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code VARCHAR(40) NOT NULL UNIQUE,                          -- TGT-XXXXXXXX
+  task_id BIGINT NOT NULL REFERENCES task(id) ON DELETE CASCADE,
+  organization_code VARCHAR(40) NOT NULL, school_code VARCHAR(40) NOT NULL,
+  target_type VARCHAR(12) NOT NULL,                          -- USER | CLASSROOM | ROLE | DEPARTMENT
+  target_code VARCHAR(40) NOT NULL,
+  default_priority VARCHAR(8) NOT NULL DEFAULT 'MEDIUM',
+  version INT NOT NULL DEFAULT 0, created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ, deleted_by VARCHAR(40)
+);
+CREATE INDEX idx_target_task ON task_assignment_target (task_id) WHERE deleted_at IS NULL;
+```
+
+**Why:** the turnover-proofing. The series points at `CLASSROOM=1-Blue` or `ROLE=LEAD_TEACHER`, never at named people — staff changes never touch the rule, only future resolution. A one-off "assign Jane" is the degenerate `USER` target. A series may mix targets; **if one person matches several, the first target listed wins `source_target_code`** (the unique index in §4.4 prevents duplicates; resolution must expect the conflict).
+
+```
+id | code     | task_id | target_type | target_code  | default_priority
+ 1 | TGT_A1B2 | 900     | CLASSROOM   | CLS_71731C8E | MEDIUM
+```
+
+### 4.3 `task_occurrence` — the dated instance
+
+```sql
+CREATE TABLE task_occurrence (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code VARCHAR(40) NOT NULL UNIQUE,                          -- TOC-XXXXXXXX
+  task_id BIGINT NOT NULL REFERENCES task(id) ON DELETE CASCADE,
+  organization_code VARCHAR(40) NOT NULL, school_code VARCHAR(40) NOT NULL,
+  sequence_number INT NOT NULL,
+
+  original_start_date  DATE NOT NULL,                        -- IDENTITY — never moves
+  scheduled_start_date DATE NOT NULL,                        -- where it actually happens (reschedulable)
+  scheduled_start_time TIME NOT NULL,
+  scheduled_end_time   TIME NOT NULL,
+
+  override_title VARCHAR(300), override_description TEXT,    -- THIS_ONLY edits; NULL → inherit series
+  is_modified BOOLEAN NOT NULL DEFAULT FALSE,                -- exception: ALL-edits won't clobber it
+
+  status VARCHAR(12) NOT NULL DEFAULT 'SCHEDULED',           -- SCHEDULED|ACTIVE|CANCELLED|SKIPPED (§3.2)
+  status_reason VARCHAR(24),                                 -- ADMIN|HOLIDAY|SERIES_PAUSED|SERIES_SPLIT
+  activated_at TIMESTAMPTZ,                                  -- set by the activation job = roster freeze
+  resolved_at  TIMESTAMPTZ,                                  -- last resolution run
+
+  -- rollup (trigger-kept, in-txn) — completion is DERIVED, not a status
+  assignment_total INT NOT NULL DEFAULT 0,
+  assignment_in_progress INT NOT NULL DEFAULT 0,
+  assignment_completed INT NOT NULL DEFAULT 0,
   aggregate_status VARCHAR(16) GENERATED ALWAYS AS (
     CASE WHEN assignment_total = 0                                    THEN 'EMPTY'
          WHEN assignment_completed = assignment_total                 THEN 'COMPLETED'
          WHEN assignment_completed = 0 AND assignment_in_progress = 0 THEN 'NOT_STARTED'
          ELSE 'IN_PROGRESS' END) STORED,
 
-  created_by_code   VARCHAR(40)  NOT NULL,
-  created_by_name   VARCHAR(160) NOT NULL,                   -- historical snapshot (creator at creation time)
-  version           INT          NOT NULL DEFAULT 0,
-  created_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_at        TIMESTAMPTZ,
-  deleted_by        VARCHAR(40),
-  CONSTRAINT chk_task_scope CHECK ((scope = 'CLASSROOM') = (classroom_code IS NOT NULL))
-);
-CREATE INDEX idx_tasks_board  ON tasks (school_code, earliest_due_date)
-  INCLUDE (code, title, aggregate_status, assignment_total, assignment_completed) WHERE deleted_at IS NULL;
-CREATE INDEX idx_tasks_status ON tasks (school_code, aggregate_status) WHERE deleted_at IS NULL;
-CREATE INDEX idx_tasks_class  ON tasks (school_code, classroom_code)  WHERE scope = 'CLASSROOM' AND deleted_at IS NULL;
-CREATE INDEX idx_tasks_parent ON tasks (parent_task_id) WHERE deleted_at IS NULL;
-```
-
-Attachments and comments are **not** inline columns — they are first-class cross-linked tables (§4.3–4.4), which is what gives them independent history and lifecycle.
-
-### 4.2 `task_assignments` — the per-person instance
-
-```sql
-CREATE TABLE task_assignments (
-  id            BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code          VARCHAR(40)  NOT NULL UNIQUE,                -- TSA-XXXXXXXX
-  task_id       BIGINT       NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-  organization_code VARCHAR(40) NOT NULL,
-  school_code   VARCHAR(40)  NOT NULL,
-
-  assignee_code VARCHAR(40)  NOT NULL,                       -- staff code (source of truth = staff_service)
-  assignee_name VARCHAR(160) NOT NULL,                       -- DISPLAY CACHE only; refreshed on sync & staff-name change
-
-  status        VARCHAR(16)  NOT NULL DEFAULT 'TO_DO',       -- TO_DO|IN_PROGRESS|COMPLETED
-  status_rank   SMALLINT     NOT NULL DEFAULT 0,             -- orderable status (sort)
-  priority      VARCHAR(16)  NOT NULL DEFAULT 'MEDIUM',      -- LOW|MEDIUM|HIGH
-  priority_rank SMALLINT     NOT NULL DEFAULT 1,             -- LOW=0 MEDIUM=1 HIGH=2 (sort)
-  start_date    DATE         NOT NULL,
-  start_time    TIME         NOT NULL DEFAULT '09:00',       -- wall-clock in school tz; serialized HH:mm at the API edge
-  due_date      DATE         NOT NULL,
-  due_time      TIME         NOT NULL DEFAULT '17:00',
-  effort        NUMERIC(6,2) NOT NULL DEFAULT 0,
-  completed_at  TIMESTAMPTZ,
-
-  version       INT          NOT NULL DEFAULT 0,
-  created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_at    TIMESTAMPTZ,
-  deleted_by    VARCHAR(40)
-);
--- one ACTIVE assignment per person per task (allows re-adding a previously removed person)
-CREATE UNIQUE INDEX uq_assign_active ON task_assignments (task_id, assignee_code)
+  version INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ, deleted_by VARCHAR(40),
+  UNIQUE (task_id, original_start_date)                      -- duplicates structurally impossible
+);  -- NOT partitioned on day one (§12): global UNIQUE(code) = one-probe lookups
+CREATE INDEX idx_occ_calendar ON task_occurrence (school_code, scheduled_start_date, aggregate_status)
   WHERE deleted_at IS NULL;
-CREATE INDEX idx_assign_person ON task_assignments (assignee_code, school_code, due_date)
-  WHERE deleted_at IS NULL;                                   -- "Jane's tasks" + default sort
-CREATE INDEX idx_assign_open   ON task_assignments (school_code, due_date)
-  WHERE status <> 'COMPLETED' AND deleted_at IS NULL;         -- overdue / open queries
 ```
 
-> The partial unique index (`WHERE deleted_at IS NULL`) is deliberate: a plain `UNIQUE(task_id, assignee_code)` would block re-adding a staff member who was previously removed (their soft-deleted row would collide). This is a common, easily-missed correctness bug.
+**Why the non-obvious keys**
 
-> **Names — cache vs. snapshot:** `assignee_name` is a *live display cache* (staff_service is the source of truth; refreshed on sync and on staff-name change) so cards render offline without a service call. By contrast, `created_by_name`, `author_name` (§4.3) and `actor_name` (§4.5) are *historical snapshots* — the name at the moment of the action — and are intentionally **not** refreshed.
+| Field | Rationale |
+|---|---|
+| `original_start_date` vs `scheduled_start_date` | Reschedule-safe identity (Events v4 pattern): "move Monday's check to Tuesday" keeps identity, and re-running the generator can't duplicate it. |
+| `UNIQUE (task_id, original_start_date)` | With `ON CONFLICT DO NOTHING` this makes generation idempotent — crash recovery, self-heal, and restore all come free. The design's keystone. |
+| `activated_at` + `status=ACTIVE` | The **freeze boundary** (§3.2/§3.4). Re-resolution touches only `SCHEDULED`; completed work can never be un-assigned by a membership change. |
+| `aggregate_status` GENERATED STORED | Indexable, sortable, and **cannot drift** — Postgres computes it from the counters; no second trigger. |
+| `EMPTY` | Zero-member resolution is visible, not silent — surfaced to admin (an unstartable occurrence is a staffing signal). |
+| not partitioned yet | Partition keys must live inside unique constraints — day-one partitioning would break plain `UNIQUE(code)` lookups. Deferred with an explicit trigger (§12). |
 
-### 4.3 `task_comments` — discussion (task- or assignment-scoped)
+```
+id   | code     | task_id | original_start | scheduled_start | status    | status_reason | aggregate_status
+5001 | TOC_0624 | 900     | 2026-06-24     | 2026-06-24      | SCHEDULED | NULL          | NOT_STARTED
+5002 | TOC_0625 | 900     | 2026-06-25     | 2026-06-25      | SCHEDULED | NULL          | NOT_STARTED
+5003 | TOC_0704 | 900     | 2026-07-04     | 2026-07-04      | SKIPPED   | HOLIDAY       | EMPTY
+```
+
+### 4.4 `task_assignment` — per-person execution
 
 ```sql
-CREATE TABLE task_comments (
-  id                 BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code               VARCHAR(40)  NOT NULL UNIQUE,           -- CMT-XXXXXXXX
-  school_code        VARCHAR(40)  NOT NULL,
+CREATE TABLE task_assignment (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code VARCHAR(40) NOT NULL UNIQUE,                          -- TSA-XXXXXXXX
+  occurrence_id BIGINT NOT NULL REFERENCES task_occurrence(id) ON DELETE CASCADE,
+  organization_code VARCHAR(40) NOT NULL, school_code VARCHAR(40) NOT NULL,
 
-  task_id            BIGINT       REFERENCES tasks(id)            ON DELETE CASCADE,
-  task_assignment_id BIGINT       REFERENCES task_assignments(id) ON DELETE CASCADE,
+  assignee_code VARCHAR(40) NOT NULL,                        -- staff_service is source of truth
+  assignee_name VARCHAR(160) NOT NULL,                       -- CACHE while open; FREEZES at terminal status
+  source_target_code VARCHAR(40),                            -- which target resolved this person
+  resolved_on   DATE,                                        -- the date resolution RAN (not the occurrence date)
+  is_manual_override BOOLEAN NOT NULL DEFAULT FALSE,         -- hand add/remove → re-resolution never touches
 
-  author_code        VARCHAR(40)  NOT NULL,
-  author_name        VARCHAR(160) NOT NULL,                   -- historical snapshot (name at comment time; NOT refreshed)
-  body               TEXT         NOT NULL,                   -- 1..4000 chars, sanitized
-  is_edited          BOOLEAN      NOT NULL DEFAULT FALSE,
-  version            INT          NOT NULL DEFAULT 0,
-  created_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_at         TIMESTAMPTZ,
-  deleted_by         VARCHAR(40),
+  -- READ MODEL (rule #7): copied so "My Tasks" is one index-only keyset scan
+  occurrence_date DATE NOT NULL,                             -- = occurrence.scheduled_start_date
+  due_at TIMESTAMPTZ NOT NULL,                               -- resolved due instant (school tz)
+  title VARCHAR(300) NOT NULL,                               -- effective (override ?? series)
+  task_code VARCHAR(40) NOT NULL,                            -- deep-link without a join
 
-  CONSTRAINT chk_comment_target CHECK (   -- exactly one target
-    (task_id IS NOT NULL) <> (task_assignment_id IS NOT NULL))
+  status VARCHAR(16) NOT NULL DEFAULT 'TO_DO',               -- TO_DO|IN_PROGRESS|COMPLETED
+  status_rank SMALLINT NOT NULL DEFAULT 0,
+  priority VARCHAR(16) NOT NULL DEFAULT 'MEDIUM',
+  priority_rank SMALLINT NOT NULL DEFAULT 1,                 -- LOW=0 MED=1 HIGH=2 (text sorts wrong; CASE can't use an index)
+  effort NUMERIC(6,2) NOT NULL DEFAULT 0,
+  completed_at TIMESTAMPTZ,
+
+  version INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ, deleted_by VARCHAR(40)
+);  -- NOT partitioned on day one (§12)
+CREATE UNIQUE INDEX uq_assign_active ON task_assignment (occurrence_id, assignee_code)
+  WHERE deleted_at IS NULL;    -- one ACTIVE row per person/occurrence; re-adding a removed person works
+-- the My-Tasks workhorse: filter + window + sort + display columns, ONE index → index-only scan
+CREATE INDEX idx_my_tasks ON task_assignment (assignee_code, school_code, occurrence_date, id)
+  INCLUDE (title, status, priority, due_at, task_code) WHERE deleted_at IS NULL;
+-- overdue: partial index CANNOT contain now() (not immutable); the query supplies due_at < now()
+CREATE INDEX idx_assign_open_due ON task_assignment (school_code, due_at)
+  WHERE status <> 'COMPLETED' AND deleted_at IS NULL;
+```
+
+**Why the non-obvious keys**
+
+| Field | Rationale |
+|---|---|
+| `occurrence_id` (not `task_id`) | Execution hangs off the occurrence → Monday's status/thread genuinely separate from Tuesday's. |
+| read-model columns | Without them, "my tasks due this week sorted by date" is a cross-table join+sort with **no stable keyset cursor** — the app's most-used screen becomes its slowest. Maintained at write time; every fan-out is bounded by the window. `INCLUDE(title)` costs index size — accepted consciously for heap-free scans. |
+| `resolved_on` | The date resolution *ran* (auditable: "roster as resolved on Jun 23"). Not the occurrence date — future membership is unknowable (§3.4). |
+| `uq_assign_active` partial | Plain UNIQUE would block re-adding a previously removed person (soft-deleted row collides). Classic missed bug. |
+| counter trigger | Fires on `INSERT` and `UPDATE OF status, deleted_at` (soft delete must decrement). Lock order is always *assignment → occurrence* to prevent deadlocks. |
+
+```
+id   | code     | occ  | assignee     | assignee_name | source   | resolved_on | status      | completed_at
+8001 | TSA_9001 | 5001 | STF_7E922B33 | Brian Lopez   | TGT_A1B2 | 2026-06-23  | COMPLETED   | 06-24 09:07
+8002 | TSA_9002 | 5001 | STF_4B721F22 | Diego Patel   | TGT_A1B2 | 2026-06-23  | IN_PROGRESS | NULL
+8003 | TSA_9003 | 5001 | STF_2A833D11 | Carla Chen    | TGT_A1B2 | 2026-06-23  | TO_DO       | NULL
+→ occurrence 5001: total=3, completed=1, in_progress=1 → aggregate_status=IN_PROGRESS
+```
+
+### 4.5 `task_comment` — three scopes, exactly one target
+
+```sql
+CREATE TABLE task_comment (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code VARCHAR(40) NOT NULL UNIQUE, school_code VARCHAR(40) NOT NULL,
+  task_id            BIGINT REFERENCES task(id)            ON DELETE CASCADE,  -- series announcement
+  task_occurrence_id BIGINT REFERENCES task_occurrence(id) ON DELETE CASCADE,  -- one day's thread
+  task_assignment_id BIGINT REFERENCES task_assignment(id) ON DELETE CASCADE,  -- private 1:1 thread
+  author_code VARCHAR(40) NOT NULL, author_name VARCHAR(160) NOT NULL,         -- snapshot, never refreshed
+  body TEXT NOT NULL,                                        -- 1..4000 chars, sanitized
+  is_edited BOOLEAN NOT NULL DEFAULT FALSE,                  -- UI flag; before/after lives in audit_log
+  version INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_at TIMESTAMPTZ, deleted_by VARCHAR(40),
+  CONSTRAINT chk_comment_target CHECK (
+    (task_id IS NOT NULL)::int + (task_occurrence_id IS NOT NULL)::int + (task_assignment_id IS NOT NULL)::int = 1)
 );
-CREATE INDEX idx_comment_task   ON task_comments (task_id, created_at)            WHERE deleted_at IS NULL;
-CREATE INDEX idx_comment_assign ON task_comments (task_assignment_id, created_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_comment_occ    ON task_comment (task_occurrence_id, created_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_comment_assign ON task_comment (task_assignment_id, created_at) WHERE deleted_at IS NULL;
 ```
 
-- **Task-level** thread (`task_id`) — shared announcement, visible to all assignees + admin.
-- **Assignment-level** thread (`task_assignment_id`) — private between one assignee and admin/creator.
-- Comment **edit history** lives in `audit_log`; `is_edited` is only a UI flag. Deletes are soft (renders "deleted"). *Whether comments are editable at all is an open product decision — see §15.8.*
+Series note ("always use the wall thermometer") / day thread ("reading was high, escalated") / private thread ("out sick, Carla covers"). Comments on occurrences later cancelled by a split stay attached to the CANCELLED row — the UI renders them as historical. *Editable vs immutable: open decision §13.*
 
-### 4.4 `attachments` — versioned, with add/replace/delete history
-
-The DB stores only the object-store **key**, never the file bytes.
+### 4.6 `attachment` — versioned, full add/replace/delete history
 
 ```sql
-CREATE TABLE attachments (
-  id             BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code           VARCHAR(40)  NOT NULL UNIQUE,               -- ATT-XXXXXXXX (stable across versions)
-  school_code    VARCHAR(40)  NOT NULL,
-
-  -- polymorphic owner: a task OR assignment OR comment
-  task_id            BIGINT REFERENCES tasks(id)            ON DELETE CASCADE,
-  task_assignment_id BIGINT REFERENCES task_assignments(id) ON DELETE CASCADE,
-  comment_id         BIGINT REFERENCES task_comments(id)    ON DELETE CASCADE,
-
-  version        INT          NOT NULL DEFAULT 1,            -- bumps on replace; old rows kept
-  is_current     BOOLEAN      NOT NULL DEFAULT TRUE,
-  status         VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',     -- ACTIVE|DELETED
-
-  file_name      VARCHAR(300) NOT NULL,
-  storage_key    TEXT         NOT NULL,                      -- S3/GCS object key (immutable per version)
-  mime_type      VARCHAR(80)  NOT NULL,
-  size_bytes     BIGINT       NOT NULL,
-  checksum       VARCHAR(64),                                -- sha-256 (integrity / dedupe)
-
-  uploaded_by    VARCHAR(40)  NOT NULL,
-  uploaded_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_by     VARCHAR(40),
-  deleted_at     TIMESTAMPTZ,
-
+CREATE TABLE attachment (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code VARCHAR(40) NOT NULL UNIQUE,                          -- ATT-… stable across versions
+  school_code VARCHAR(40) NOT NULL,
+  task_id BIGINT REFERENCES task(id) ON DELETE CASCADE,
+  task_occurrence_id BIGINT REFERENCES task_occurrence(id) ON DELETE CASCADE,
+  task_assignment_id BIGINT REFERENCES task_assignment(id) ON DELETE CASCADE,
+  comment_id BIGINT REFERENCES task_comment(id) ON DELETE CASCADE,
+  version INT NOT NULL DEFAULT 1, is_current BOOLEAN NOT NULL DEFAULT TRUE,
+  status VARCHAR(16) NOT NULL DEFAULT 'ACTIVE',              -- ACTIVE | DELETED
+  file_name VARCHAR(300) NOT NULL, storage_key TEXT NOT NULL,
+  mime_type VARCHAR(80) NOT NULL, size_bytes BIGINT NOT NULL, checksum VARCHAR(64),
+  uploaded_by VARCHAR(40) NOT NULL, uploaded_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  deleted_by VARCHAR(40), deleted_at TIMESTAMPTZ,
   CONSTRAINT chk_attach_owner CHECK (
-    (task_id IS NOT NULL)::int + (task_assignment_id IS NOT NULL)::int
-    + (comment_id IS NOT NULL)::int = 1)
+    (task_id IS NOT NULL)::int + (task_occurrence_id IS NOT NULL)::int
+    + (task_assignment_id IS NOT NULL)::int + (comment_id IS NOT NULL)::int = 1)
 );
-CREATE INDEX idx_attach_task   ON attachments (task_id)            WHERE is_current AND status='ACTIVE';
-CREATE INDEX idx_attach_assign ON attachments (task_assignment_id) WHERE is_current AND status='ACTIVE';
 ```
 
-Lifecycle:
-- **Add** → insert v1, `is_current=true`.
-- **Replace** → insert a new row (same `code`, `version+1`, `is_current=true`); flip the prior row `is_current=false`. Old version + blob retained → full revision chain by `code`.
-- **Delete** → `status='DELETED'` + `deleted_by/at` (soft); blob retained for restore, expired later by storage lifecycle.
-- Every action recorded in `audit_log`. Access via short-lived **pre-signed URLs** generated on read.
+Add → v1. Replace → new row, same `code`, `version+1`, prior `is_current=false` (blob retained → revision chain). Delete → soft; blob kept for restore, expired by storage lifecycle. DB stores keys only; access via short-lived pre-signed URLs; server-side type/size validation + malware scan before `ACTIVE`. Every action audited.
 
-### 4.5 `audit_log` — edit history / compliance (time-partitioned)
+### 4.7 `audit_log` — compliance history (month-partitioned)
 
 ```sql
 CREATE TABLE audit_log (
-  id          BIGINT       GENERATED ALWAYS AS IDENTITY,
-  school_code VARCHAR(40)  NOT NULL,
-  entity_type VARCHAR(24)  NOT NULL,                          -- TASK|ASSIGNMENT|COMMENT|ATTACHMENT
-  entity_code VARCHAR(40)  NOT NULL,
-  action      VARCHAR(32)  NOT NULL,                          -- CREATED|UPDATED|STATUS_CHANGED|DELETED|RESTORED|ATTACH_*…
-  actor_code  VARCHAR(40)  NOT NULL,
-  actor_name  VARCHAR(160) NOT NULL,                          -- historical snapshot
-  changes     JSONB,                                          -- {"status":{"from":"TO_DO","to":"COMPLETED"}}
-  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now()
+  id BIGINT GENERATED ALWAYS AS IDENTITY,
+  school_code VARCHAR(40) NOT NULL,
+  entity_type VARCHAR(24) NOT NULL,          -- TASK|TARGET|OCCURRENCE|ASSIGNMENT|COMMENT|ATTACHMENT
+  entity_code VARCHAR(40) NOT NULL,
+  action VARCHAR(32) NOT NULL,               -- CREATED|UPDATED|STATUS_CHANGED|SERIES_SPLIT|PAUSED|RESOLVED|…
+  actor_code VARCHAR(40) NOT NULL, actor_name VARCHAR(160) NOT NULL,   -- snapshot; 'SYSTEM' for jobs
+  correlation_id UUID,                       -- stitches one user action across job/outbox side-effects
+  changes JSONB,                             -- {"status":{"from":"TO_DO","to":"COMPLETED"}}
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 ) PARTITION BY RANGE (created_at);
-
 CREATE INDEX idx_audit_entity ON audit_log (school_code, entity_type, entity_code, created_at DESC);
--- monthly partitions created ahead (pg_partman/cron); old months detached & archived
 ```
 
-Written **in the same transaction** as the mutation so history can never disagree with state.
+Written **in the same transaction** as the mutation — history can never disagree with state. Old months detach & archive (metadata op, not a giant DELETE).
 
-### 4.6 `notifications` — minimal model (reliable delivery)
+### 4.8 Reliability spine: `outbox` / `idempotency_key` (platform pattern)
 
 ```sql
-CREATE TABLE notifications (
-  id           BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code         VARCHAR(40)  NOT NULL UNIQUE,
-  school_code  VARCHAR(40)  NOT NULL,
-  recipient_code VARCHAR(40) NOT NULL,                        -- staff code
-  type         VARCHAR(40)  NOT NULL,                         -- TASK_ASSIGNED|COMMENT_ADDED|DUE_SOON|OVERDUE
-  entity_type  VARCHAR(24)  NOT NULL,
-  entity_code  VARCHAR(40)  NOT NULL,
-  title        VARCHAR(200) NOT NULL,
-  body         VARCHAR(500),
-  is_read      BOOLEAN      NOT NULL DEFAULT FALSE,
-  created_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
+CREATE TABLE outbox (
+  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  aggregate_type VARCHAR(24) NOT NULL, aggregate_code VARCHAR(40) NOT NULL,
+  event_type VARCHAR(40) NOT NULL,           -- NOTIFY_ASSIGNEES|DUE_SOON|OVERDUE|SERIES_ENDING|…
+  school_code VARCHAR(40) NOT NULL, payload JSONB NOT NULL,
+  status VARCHAR(12) NOT NULL DEFAULT 'PENDING', attempts INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(), processed_at TIMESTAMPTZ
 );
-CREATE INDEX idx_notif_inbox ON notifications (recipient_code, is_read, created_at DESC);
+CREATE TABLE idempotency_key (
+  key UUID PRIMARY KEY, school_code VARCHAR(40) NOT NULL,
+  response_code INT, response_body JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
 ```
 
-Producers write notifications via a **transactional outbox** (same DB transaction as the triggering change, dispatched asynchronously) so a push is never lost on a crash and never sent for a rolled-back change.
+- **`outbox` is for notifications only** (crash-safe: committed with the business change, relayed to Kafka `notification-events`, delivered by `communication-service`; never lost, never sent for a rollback). Materialization does **not** use it.
+- `idempotency_key`: a retried POST returns the original response, never a duplicate task.
+- `sync_inbox` (Kafka consumer dedup) is **deferred** with event-driven membership sync (§12); v1's nightly batch needs neither.
 
 ---
 
-## 5. Derived data: counters, rollups, overdue, time zones
+## 5. The recurrence engine
 
-- **Counters** (`assignment_total`, `assignment_in_progress`, `assignment_completed`) are maintained by a **trigger on `task_assignments`, in the same transaction** — they cannot drift regardless of code path. A nightly **reconciliation job** recomputes them from source as defense-in-depth.
-- **`aggregate_status` is a generated `STORED` column** derived from those counters (`EMPTY` / `NOT_STARTED` / `IN_PROGRESS` / `COMPLETED`). Because Postgres computes it, it is **indexable** (the board can sort/filter by it) yet **cannot drift** from the counts and needs no separate trigger. `progress_percent = round(100 × completed / total)`.
-- **`overdue` is never a cached value.** It is time-derived, so any stored count rots as the clock advances. The board's `assignment_overdue` is a coarse, job-refreshed convenience for sorting ("as of last refresh"); the authoritative overdue flag is computed live from the partial index `idx_assign_open` on detail reads. **Rule: never cache a value derived from the current time.**
-- **Time zones:** `start/due` are stored as a calendar **date** plus a wall-clock **time** as entered, interpreted in the **school's IANA time zone** (carried per school). Overdue and date sorting resolve the instant in that zone. Audit/system timestamps (`created_at`, etc.) are UTC `timestamptz`. The API returns the school `timeZone` so clients format consistently.
+### 5.1 `materializeWindow` — one idempotent routine
 
----
-
-## 6. API design
-
-### 6.1 Conventions
-
-- **Envelope:** every response is `{ "success": bool, "message": string, "data": <payload|null> }`.
-- **Errors:** standard HTTP codes — `400` validation, `401/403` auth, `404` not found, `409` version conflict, `422` business-rule violation, `429` rate-limited. `data` is null; `message` is human-readable.
-- **Concurrency:** mutating requests send the entity `version` (or `If-Match` ETag); a mismatch returns `409` (lost-update protection).
-- **Idempotency:** `POST` accepts an `Idempotency-Key` header; the server de-dupes for 24h so a retried create cannot duplicate a task.
-- **Pagination:** keyset/cursor — responses include `nextCursor` (null at end); no `OFFSET`.
-- **Caps:** max **200 assignees** per create request; comment body ≤ 4000 chars; attachment ≤ 10 MB; allowed types JPEG/PNG/WebP/PDF (validated **server-side**).
-- **Identity & tenant** are derived from the JWT, never the request body. **Assignee/author names are resolved server-side from the staff service** and snapshotted where needed; create/assign requests carry staff **codes only** — never client-supplied names.
-
-### 6.2 Endpoints
+Called (a) at create for the initial window and (b) nightly to roll forward + self-heal. **Membership is resolved via gRPC *before* the transaction opens** — remote calls inside an open transaction hold locks hostage to network latency.
 
 ```
-# Tasks (admin = definitions + rollup)
-GET    /api/v1/tasks                         # board: each task ONCE + rollup; filter+sort+cursor
-POST   /api/v1/tasks                         # create task + N assignments (one transaction)
-GET    /api/v1/tasks/{taskCode}              # definition + status breakdown + assignments + counts
-PATCH  /api/v1/tasks/{taskCode}              # edit definition (title/desc/scope/recurrence/parentTaskCode)
-DELETE /api/v1/tasks/{taskCode}              # soft delete (cascade to assignments/comments)
+routine materializeWindow(task, fromDate, toDate):
+  members  := resolveTargets(task.targets)                  -- gRPC OUTSIDE any txn (current membership)
+  holidays := holidayCalendar(school, fromDate..toDate)     -- platform service, read before txn
 
-# Assignments (per-person instances)
-GET    /api/v1/tasks/{taskCode}/assignments  # per-person list for one task (admin drill-in)
-POST   /api/v1/tasks/{taskCode}/assignments  # add a person
-PATCH  /api/v1/assignments/{assignmentCode}  # status/priority/dates/effort
-DELETE /api/v1/assignments/{assignmentCode}  # remove one person (soft)
-GET    /api/v1/assignments?assigneeCode=…    # all tasks assigned to a person (admin)
-GET    /api/v1/me/assignments                # "My Tasks" for the logged-in staff member
-
-# Comments / attachments / history
-GET|POST   /api/v1/tasks/{taskCode}/comments
-GET|POST   /api/v1/assignments/{assignmentCode}/comments
-PATCH|DELETE /api/v1/comments/{commentCode}
-POST|GET   /api/v1/{entity}/{code}/attachments         # entity ∈ tasks|assignments|comments
-PUT|DELETE /api/v1/attachments/{attachmentCode}        # replace (new version) | soft-delete
-GET        /api/v1/{entity}/{code}/history             # audit timeline
+  BEGIN TX (advisory lock on task.id)                       -- serializes vs splits & re-resolution
+    for each rule-date D in expandRRULE(task, fromDate, toDate):
+      if D in holidays and task.holiday_policy = 'SKIP':
+        INSERT task_occurrence (…, D, status='SKIPPED', status_reason='HOLIDAY')
+          ON CONFLICT (task_id, original_start_date) DO NOTHING       -- no assignments
+      else:
+        occ := INSERT task_occurrence (…, D, status='SCHEDULED')
+                 ON CONFLICT (task_id, original_start_date) DO NOTHING
+        if newly inserted:
+          INSERT task_assignment (occ, m, source_target_code, resolved_on=today,
+                                  occurrence_date=D, due_at, title, task_code)  for m in members
+          if members is empty → audit(OCCURRENCE_EMPTY) + admin notification via outbox
+    task.horizon_until := toDate;  refresh task.next_occurrence_*
+  COMMIT
 ```
 
-### 6.3 Lean GETs
+- **Recovery = idempotency, not a state machine.** A crashed/re-run job fills gaps; nothing double-generates. This also makes **restore-after-delete** nearly free.
+- **One transaction per series, jobs sharded by school** — never a global mega-transaction.
+- WINDOW = **60–90 days** (configurable). It bounds storage *and* the blast radius of every fan-out (membership change, reschedule, retitle).
+- Create: small roster → runs inside the create txn (task is `READY` immediately, `201` returns `occurrenceCount`); large roster → quick background build, `BUILDING → READY`.
+- Series with a **past** `series_start_date`: v1 **rejects** back-dated creation (422); back-filling history is an explicit admin import feature if ever needed (open decision §13).
 
-- **List** endpoints return a **thin projection** (code, title, status/priority, due, rollup counters, a small assignee-avatar preview) served from a **covering index** (index-only scan). No descriptions, nested arrays, or live aggregation.
-- **Detail** is the only "fat" read — one task + bounded `assignments[]` + first page of comments + current attachments. Bounded by one task, so it stays cheap.
-- No N+1: denormalized names + maintained counters mean a list row needs zero extra lookups.
+### 5.2 Daily activation job (the freeze boundary)
 
-### 6.4 Sorting & filtering (per persona, server-side)
+Per school, at start of school day (school tz): flip today's `SCHEDULED → ACTIVE`, stamp `activated_at`, enqueue due-today notifications. Re-resolution (§5.3) only touches `SCHEDULED` → activated rosters are frozen; completed work is untouchable by membership changes.
 
-Sorting is a **curated allow-list per endpoint**, each option backed by an index; arbitrary column sort is rejected (performance + safety). Every sort is keyset-paginated with `id` as a deterministic tiebreaker.
+### 5.3 Nightly membership re-resolution (future only)
 
-| Endpoint | Sort options |
-|---|---|
-| **Admin board** (`/tasks`) | `earliestDue` (default), `overdueCount`, `assignees`, `title`, `createdAt`, `progress`* |
-| **Staff / person** (`/me/assignments`, `?assigneeCode`) | `dueDate` (default), `priority`, `status`, `createdAt` |
+While rolling the window, re-resolve each **future `SCHEDULED`** occurrence against current membership: add joiners, soft-delete leavers' open rows (`is_manual_override` rows never touched), update `resolved_on`, recompute counters. Past/ACTIVE/terminal rows are never modified — history is what actually happened. *(Event-driven near-real-time sync via Kafka + `sync_inbox` is the deferred upgrade — §12.)*
 
-\* `progress` requires a maintained `progress_percent` column — added only if a screen actually sorts by it. Admin and staff sort **different tables** (task aggregates vs. per-person fields), so the menus differ by design. Enum fields sort on their `*_rank` columns, not text (else `HIGH < LOW < MEDIUM` alphabetically). Filters (status, priority, assignee, classroom, date range, overdue, search) apply server-side against the indexes in §4; staff filters implicitly scope to `assignee_code = me`.
+### 5.4 Virtual projection — the calendar beyond the window
 
-### 6.5 Create payload (illustrative)
+Materialized rows exist only inside the window, but users page calendars further ahead. Reads past `horizon_until` **merge materialized rows with projected ones** — computed from the RRULE at read time:
 
 ```jsonc
-POST /api/v1/tasks
-{
-  "title": "First-aid recertification",
-  "scope": "CLASSROOM",                                          // or SCHOOL_WIDE
-  "classroomCode": "4-YELLOW",                                   // required iff scope = CLASSROOM
-  "defaults": { "priority":"MEDIUM", "startDate":"2026-07-01", "dueDate":"2026-07-15" },
-  "assignees": [
-    { "code":"STF_A1" },                                         // codes ONLY — inherits defaults
-    { "code":"STF_B2", "priority":"HIGH", "dueDate":"2026-07-05" }
-  ]
-}
+{ "date":"2026-11-16", "title":"Daily classroom temperature check",
+  "projected": true }               // no code, no assignments, display-only
 ```
 
-The backend resolves each `code` to a staff name from the staff service and snapshots it onto the assignment; **the client never sends names.** The admin board response shows the task **once** with `rollup: { total, completed, inProgress, toDo, overdue, progressPercent }` and a short `assigneePreview`, not one row per person.
+Projection is a pure function of the rule (plus holiday calendar) — no writes from reads, infinite forward navigation, and the window still bounds all real rows. (This is exactly how calendar products render "forever" without storing it.)
+
+### 5.5 Edit scopes
+
+| Scope | Mechanics |
+|---|---|
+| **THIS_ONLY** | Update the one occurrence (`override_*`/reschedule, `is_modified=true`); cascade `occurrence_date/due_at/title` to its assignments (same txn). ALL-edits never clobber `is_modified` rows. |
+| **THIS_AND_FUTURE** | **Series split** (one txn): cap old series (`rrule_until = day-1`), `CANCEL (SERIES_SPLIT)` its future SCHEDULED occurrences + soft-delete their assignments (invariant #8), insert new series (`parent_series_id` = old), materialize it. |
+| **ALL** | Update series; batch-update future non-exception occurrences + their assignments' read-model copies (bounded by window); exceptions keep overrides. |
+| **CANCEL/SKIP one** | Occurrence `status` change + assignment soft-delete cascade. Never a hard delete. |
+
+### 5.6 Pause / resume / delete / restore
+
+Defined in §3.1. Implementation notes: pause's `CANCELLED (SERIES_PAUSED)` rows **block** `ON CONFLICT` regeneration by design — resume flips exactly those rows back to `SCHEDULED` and re-resolves rosters fresh, reusing existing machinery. Restore = clear `deleted_at` + `materializeWindow` (idempotent).
 
 ---
 
-## 7. The admin & staff views
+## 6. Serving reads — filters, pagination, performance
 
-1. **Admin board** (`GET /tasks`) — one card per task with a progress bar, status distribution, overdue chip, assignee-avatar stack.
-2. **Admin drill-in** (`GET /tasks/{code}`) — definition + per-assignee list (each with their own status/priority/due, inline-editable), plus the task-level comment thread.
-3. **Tasks by person** (`GET /assignments?assigneeCode=`) — everything on one staff member's plate.
-4. **Staff "My Tasks"** (`GET /me/assignments`) — the staff member's own assignments, rendered like the current task list; assignment detail carries the private comment thread.
+**Write/read split.** Writes via JPA/services (transactions; triggers keep rollups + read model true). **List reads via raw SQL/jOOQ on the read-model columns** — never ORM graph traversal. Invariant: **every list endpoint = one index-only, keyset-paginated scan on one table.**
+
+**Conventions.** Envelope `{success,message,data}`; errors `400/401/403/404/409/422/429`; `version`/`If-Match` → `409`; `Idempotency-Key` on creates; identity/tenant from JWT only; names resolved server-side (clients send codes). Sorting = curated allow-list per endpoint, each option index-backed; enum sorts use `*_rank`.
+
+### 6.1 Filters (server-side, indexed)
+
+| Filter | Driving column | Mechanism |
+|---|---|---|
+| status | `assignment.status` / `occurrence.aggregate_status` | equality on indexed/generated column |
+| priority | `assignment.priority_rank` | ordinal equality/range |
+| assignee | `assignment.assignee_code` | index lead |
+| classroom/scope | `task.scope`, `task.classroom_code` | board filter (visibility dimension) |
+| date range | `occurrence.scheduled_start_date` / `assignment.occurrence_date` | range on the index sort key; **a window is mandatory server-side** (defaulted if omitted — no unbounded scans) |
+| overdue | derived | index `(school_code, due_at) WHERE status<>'COMPLETED'`; the **query** supplies `due_at < now()` (never stored, never in an index predicate) |
+| text search | `title` | `ILIKE`/trigram now; GIN when hot (§12) |
+
+### 6.2 Pagination — keyset
+
+Order by `(sortKey, id)`; cursor = last row's tuple, base64, opaque. `WHERE (sortKey,id) > (:cur…) LIMIT n` → **O(page) at any depth**, stable under inserts. Response carries `nextCursor` (null at end). No `OFFSET`, no totals.
+
+### 6.3 Worked example — Staff "My Tasks"
+
+```
+GET /api/v1/me/assignments?from=2026-06-22&to=2026-06-28&status=TO_DO&limit=20
+Authorization: Bearer <jwt: staff=STF_7E922B33, school=SCH_SUNNYVALE>
+```
+```java
+var rows = jdbc.query("""
+   SELECT code, task_code, title, occurrence_date, due_at, status, priority
+     FROM task_assignment
+    WHERE assignee_code = :me AND school_code = :school AND deleted_at IS NULL
+      AND occurrence_date BETWEEN :from AND :to
+      AND (:status IS NULL OR status = :status)
+      AND (:curDate IS NULL OR (occurrence_date, id) > (:curDate, :curId))
+    ORDER BY occurrence_date, id
+    LIMIT :limit""", params, MyTaskRow::map);
+```
+```jsonc
+{ "success": true, "message": "My tasks",
+  "data": { "items": [
+      { "code":"TSA_9002","taskCode":"TSK_TEMPCHK","title":"Daily classroom temperature check",
+        "occurrenceDate":"2026-06-24","dueAt":"2026-06-24T09:15:00-05:00","status":"TO_DO","priority":"MEDIUM" },
+      { "code":"TSA_9018","taskCode":"TSK_TEMPCHK","title":"Daily classroom temperature check",
+        "occurrenceDate":"2026-06-25","dueAt":"2026-06-25T09:15:00-05:00","status":"TO_DO","priority":"MEDIUM" } ],
+    "nextCursor":"eyJkIjoiMjAyNi0wNi0yNSIsImlkIjo5MDE4fQ==", "timeZone":"America/Chicago" } }
+```
+**Performance:** one **index-only scan** on `idx_my_tasks` — no joins, no heap fetch, no sort. Flat latency at any history size or page depth. *Only possible because the read-model columns live on the assignment* — and only trustworthy because of cascade invariant #8 (deleted/paused series vanish from this index in the same transaction that changes them).
+
+### 6.4 Worked example — Admin board (occurrence-windowed)
+
+```
+GET /api/v1/tasks?from=2026-06-22&to=2026-06-28&status=IN_PROGRESS&limit=20
+```
+```sql
+SELECT o.code, COALESCE(o.override_title, t.title) AS title, o.scheduled_start_date,
+       o.aggregate_status, o.assignment_total, o.assignment_completed, o.status, o.status_reason
+  FROM task_occurrence o
+  JOIN task t ON t.id = o.task_id                       -- ≤ LIMIT primary-key joins
+ WHERE o.school_code = :school AND o.deleted_at IS NULL
+   AND o.scheduled_start_date BETWEEN :from AND :to
+   AND (:status IS NULL OR o.aggregate_status = :status)
+   AND (:cur IS NULL OR (o.scheduled_start_date, o.id) > (:curDate, :curId))
+ ORDER BY o.scheduled_start_date, o.id LIMIT :limit;
+```
+**Performance:** index range scan on `idx_occ_calendar` + ≤limit PK joins; keyset → O(page). A recurring task appears **once per due date** (an ops board). SKIPPED/HOLIDAY rows render as calendar context. The "manage series" list reads `task.next_occurrence_*` → O(1) per series, no join. Beyond `horizon_until`, results merge **projected** items (§5.4).
+
+### 6.5 Worked example — Occurrence detail (past or future — same query)
+
+`GET /api/v1/occurrences/TOC_0624` → four bounded index lookups, assembled: occurrence by global `UNIQUE(code)`, its assignments (frozen if past), first comment page (`idx_comment_occ`, keyset for more), current attachments. A **past** occurrence is identical — assignments are frozen history, names locked at completion. Archived partitions (when partitioning lands) serve cold reads with higher latency — acceptable, stated.
+
+### 6.6 Performance matrix
+
+| Endpoint | Index | Scan | Joins | Pagination | Profile |
+|---|---|---|---|---|---|
+| My Tasks / by-person | `idx_my_tasks` | **index-only** | none | keyset `(occurrence_date,id)` | O(page), flat |
+| Admin board | `idx_occ_calendar` | index range | ≤limit PK | keyset `(scheduled_start_date,id)` | O(page) |
+| Series-manage list | `task` + `next_occurrence_*` | index | none | keyset | O(page) |
+| Occurrence detail | `UNIQUE(code)` + FKs | lookups | assembled | comments keyset | bounded by one occurrence |
+| Overdue | `idx_assign_open_due` (+ `due_at < now()` in query) | index range | — | keyset | O(page) |
+
+**Write-side profile:** every fan-out (reschedule, retitle-ALL, membership change, pause, delete) is **bounded by the window × roster** and batched in one transaction — the rolling window is the system-wide write-amplification bound, not just a storage bound.
 
 ---
 
-## 8. Security & multi-tenancy
+## 7. Security & multi-tenancy
 
-- **AuthN/Z:** JWT carries identity, role, and active `organization_code`/`school_code`. Role and tenant are taken from the token, never the request body. Assignee and author **names are resolved from the staff service**, never trusted from the client — requests carry codes only.
-- **Tenant isolation:** every query is filtered by `school_code`; PostgreSQL **Row-Level Security** policies on each table enforce it at the database as a backstop, so an application bug can't leak across schools.
-- **RBAC** (§9) enforced in the service layer (source of truth), mirrored client-side only to hide affordances.
-- **Attachments:** type/size validated server-side; uploaded objects **malware-scanned** before becoming `ACTIVE`; access only via short-lived pre-signed URLs scoped to the requester's school.
-- **Input safety:** comment/description text is sanitized; the web client escapes on render (XSS). Bodies length-capped.
-- **Children's data:** task content may reference children — treat as sensitive PII. Audit all reads/writes (`audit_log`), encrypt at rest and in transit, and honor a configurable **retention policy** (§12). No task data is exposed to guardian/parent accounts.
+- **AuthN/Z:** JWT carries identity, role, `organization_code`/`school_code` — never trusted from the body. Names resolved from staff_service; clients send codes only. Rate limiting owned by the API gateway (`429`).
+- **Tenant isolation:** every query filtered by `school_code`; Postgres **Row-Level Security** per table as the DB backstop.
+- **Attachments:** server-side type/size validation; malware scan before `ACTIVE`; short-lived pre-signed URLs scoped to the school.
+- **Children's data = sensitive PII:** encrypt in transit/at rest; every **write** audited in-transaction; admin bulk **reads** logged at the app layer; configurable retention (§10); zero exposure to guardian accounts.
 
 ---
 
-## 9. Business rules & RBAC
+## 8. Business rules & RBAC
 
-**Rules:** one create = 1 task + N assignments in a transaction; assignees may override priority/start/due; staff edit their own assignment, admins edit any; editing the definition is limited to admin or the creator; hierarchy is depth-1 (a sub-task cannot have sub-tasks; same-school; no self-parent); deleting a parent promotes its children to top-level; comment edit/delete is author-or-admin; everything is soft-deleted.
+One create = series + targets (+ windowed occurrences/assignments). Hierarchy depth-1, **one-off tasks only in v1**. Deleting a hierarchy parent promotes children. Everything soft-deleted; lifecycle changes obey cascade invariant #8. `scope` is visibility; targets are assignment — they may differ by design.
 
 | Action | Admin | Staff (own) | Staff (other's) | Parent |
 |---|:--:|:--:|:--:|:--:|
-| View admin board / any person's tasks | ✅ | ❌ | ❌ | ❌ |
-| View "my tasks" | ✅ | ✅ | — | ❌ |
-| Create task + assignments | ✅ | ✅ (becomes creator) | — | ❌ |
-| Edit task definition | ✅ | ✅ if creator | ❌ | ❌ |
-| Update an assignment (status/priority/dates) | ✅ | ✅ own | ❌ | ❌ |
-| Add/remove assignees | ✅ | ✅ if creator | ❌ | ❌ |
-| Comment (task or own assignment) | ✅ | ✅ | ❌ | ❌ |
-| Edit/delete others' comment | ✅ | ❌ | ❌ | ❌ |
-| Add/replace/delete attachment | ✅ | ✅ on own | ❌ | ❌ |
-
-> Classroom scoping may add a visibility dimension (a classroom lead seeing only their classroom's tasks). That is an RBAC change beyond the `scope`/`classroom_code` columns — see open decision §15.9.
+| Board / any person's tasks | ✅ | ❌ | ❌ | ❌ |
+| "My tasks" | ✅ | ✅ | — | ❌ |
+| Create series + targets | ✅ | ✅ (creator) | — | ❌ |
+| Edit / pause / delete series | ✅ | ✅ if creator | ❌ | ❌ |
+| Update own assignment (status/priority/effort) | ✅ | ✅ | ❌ | ❌ |
+| Manual add/remove person on an occurrence | ✅ | ✅ if creator | ❌ | ❌ |
+| Comment (series / occurrence / own assignment) | ✅ | ✅ | ❌ | ❌ |
+| Attachments (add/replace/delete) | ✅ | ✅ on own | ❌ | ❌ |
+| Edit/delete others' comments | ✅ | ❌ | ❌ | ❌ |
 
 ---
 
-## 10. Client integration
+## 9. Clients & offline
 
-Both clients consume the identical JSON contract; they differ only in local persistence and the offline path (mobile only).
+One JSON contract; clients differ only in persistence + the offline path (mobile).
 
-**Flutter (mobile)** — replaces today's single `Task` model and multi-assignee fan-out:
-- Domain: `Task` (definition + rollup), `TaskAssignment` (per-person), `TaskComment`, `Attachment`.
-- State: `TaskBoardCubit` (admin), `MyTasksCubit` (staff), `TaskDetailCubit` (drill-in), `TaskCommentsCubit` (per-thread, paginated). The role gate decides which screen the Tasks tab mounts.
-- UI: board with progress bars; drill-in with per-assignee list; staff "My Tasks" reusing today's card on `TaskAssignment`; comment thread + composer; parent picker + sub-task panel + breadcrumb; versioned attachment list.
-- Data: Isar collections per entity + Dio remote datasources mapped to §6.2. `assignee_name` is cached for offline rendering and refreshed on sync.
+**Flutter:** domain `Task`/`TaskOccurrence`/`TaskAssignment`/`TaskComment`/`Attachment`; cubits `TaskBoardCubit` (admin), `MyTasksCubit` (staff), `TaskDetailCubit`, `TaskCommentsCubit`; Isar collections per entity; Dio datasources; `BUILDING` renders "setting up…"; `projected:true` items render dimmed/uninteractive.
 
-**React (web)** — API client + React Query hooks (`useTaskBoard`, `useTaskDetail`, `usePersonAssignments`, `useComments` infinite query, optimistic `useAddComment`/`useUpdateAssignment`); components for board row, assignee status table, person view, comment thread/composer, sub-task panel, attachment list.
+**React:** React Query hooks (`useTaskBoard`, `useSeriesDetail`, `useOccurrence`, `useMyAssignments`, `useComments` infinite, optimistic `useUpdateAssignment`) + board/occurrence/assignee/thread/attachment components.
+
+**Offline (mobile):** assignment edits & comments write optimistically to Isar (`pending` flag) + client outbox, replayed on reconnect; last-write-wins on `updated_at`; comments append-only (no merge conflicts). Rollups/occurrences are server-authoritative (server wins on reconcile). **RRULE expansion is server-side only** — clients never compute occurrence dates.
 
 ---
 
-## 11. Offline & sync (mobile)
+## 10. Operations
 
-- **Assignment edits** and **comments** write optimistically to Isar with a `pending` flag and queue in an **outbox**, replayed on reconnect; last-write-wins on `updated_at`, comments are append-only (no merge conflict).
-- **Create-while-offline** queues the whole `{task + assignments}` payload as one item so it replays atomically.
-- **Rollup counters** are server-authoritative; cached values render offline and reconcile on refresh (server wins).
+**Scheduled jobs** (all per-school sharded, per-series transactions, advisory-locked):
+
+| Job | When | Does |
+|---|---|---|
+| Window roll | nightly | `materializeWindow(horizon_until+1 … today+WINDOW)` per active series; marks `ENDED` when rule exhausted; refreshes `next_occurrence_*` |
+| Membership re-resolution | nightly (same pass) | re-resolve future `SCHEDULED` rosters (§5.3) |
+| Activation | daily, school-day start (school tz) | `SCHEDULED→ACTIVE` for today + due-today notifications (§5.2) |
+| Reconciliation | nightly | recompute counters from source; alert on drift |
+| Retention | monthly | detach/archive old `audit_log` partitions; purge soft-deleted rows + orphaned blobs past grace period |
+
+**Migrations:** Flyway, forward-only, additive. **Backups:** PITR + restore drills; soft-delete + retained blobs = app-level undo. **Observability (the dials that fire the §12 triggers):** per-tenant row counts, job failures + series stuck `BUILDING`, outbox lag/`attempts`, counter drift, slow-query log, `EMPTY` occurrence rate. A named owner watches them — a scalable design with nobody watching the dials just fails slower.
 
 ---
 
-## 12. Operations
-
-- **Migrations:** Flyway, forward-only, additive; the new column/tables need no backfill.
-- **Backups & restore:** automated PITR backups; periodic restore drills. Soft-delete + retained attachment blobs provide an application-level undo path.
-- **Retention/archival:** `audit_log` partitions detached and archived after the compliance window; soft-deleted rows and orphaned attachment blobs purged by a scheduled job after a grace period.
-- **Observability — the dials that trigger the deferred upgrades:** per-tenant row counts (tasks/assignments/comments/audit), slow-query log, index-hit ratio, counter-drift alerts (reconciliation diff), outbox lag. These are the signals that say "now build partitioning / search offload / read replicas" — someone must own watching them.
-
----
-
-## 13. Rollout plan
+## 11. Rollout plan
 
 | Phase | Backend | Mobile | Web |
 |---|---|---|---|
-| **1 — Core** | `tasks` + `task_assignments` + counters + create/board/detail/me/person + assignment PATCH | split models; board + my-tasks + drill-in; new create payload | board + drill-in + person view |
-| **2 — Hierarchy** | `parent_task_id` + validation + sub-task rollups | parent picker, sub-task panel, breadcrumb | sub-task panel, breadcrumb |
-| **3 — Comments + Attachments** | `task_comments`, `attachments`, `audit_log` + CRUD | threads + composer + versioned attachments + outbox | threads + attachment UI |
-| **4 — Notifications** | `notifications` + outbox dispatch (assigned / comment / due-soon / overdue) | in-app + push | in-app |
+| **1 — Core (one-off)** | `task`+`target`+`occurrence`+`assignment`, generation routine, activation job, notification outbox, board/detail/me/person reads | split models; board, my-tasks, drill-in; create | board, drill-in, person view |
+| **2 — Recurrence** | RRULE expansion, window roll + re-resolution jobs, holiday policy, edit scopes, pause/resume, projection | recurrence form, occurrence calendar (incl. projected) | recurrence UI, occurrence list |
+| **3 — Comments + Attachments** | `task_comment`, `attachment`, `audit_log` CRUD | threads + composer + versioned attachments + offline outbox | threads + attachment UI |
+| **4 — Notifications+** | due-soon / overdue / series-ending events; escalation hooks | in-app + push | in-app |
 
-Phase 1 is the foundation; 2 and 3 parallelize after it; 4 is additive.
+1 is the foundation; 2 depends on it; 3 parallelizes; 4 is additive.
 
 ---
 
-## 14. Deliberately deferred (with rationale)
-
-These were considered and **intentionally** scoped out — not overlooked. Each has a clear trigger to revisit.
+## 12. Deliberately deferred (each with its revisit trigger)
 
 | Deferred | Why now | Revisit when |
 |---|---|---|
-| Database **sharding** / multiple DBs | Single Postgres serves us for years; sharding adds large complexity. | A single table approaches billions of rows, or vertical scaling nears its ceiling. |
-| **Elasticsearch** search offload | Postgres trigram/FTS is sufficient at our scale. | A tenant exceeds ~1M rows with complex multi-field search. |
-| **Partitioning** comments/notifications | Only `audit_log` grows unboundedly today. | Either table crosses a few million rows. |
-| **Read replicas / caching tier** | Primary handles current read volume. | Read CPU sustained high; board latency regresses. |
-| **Recurrence auto-regeneration** engine | Needs a scheduler + "series" model; recurrence is metadata + one resolved window today. | Product confirms tasks must auto-recreate each cycle (decision §15.2). |
-| **Threaded replies / mentions / reactions** on comments | Flat threads meet the core need. | Collaboration usage demands it. |
-| **Custom/flexible fields** | No requirement yet; JSONB path is reserved (never EAV). | A school needs configurable task fields. |
-| **Real-time (WebSocket) updates** | Pull-to-refresh + optimistic updates suffice. | Live multi-user co-editing becomes a requirement. |
+| **Partitioning** `task_occurrence`/`task_assignment` | Global `UNIQUE(code)` = one-probe lookups; launch volume modest. *Note: at hundreds of schools with daily series this trigger arrives within months — it's a scheduled Phase-2, not a maybe.* | Either table crosses a few million rows → partition by date + routing key in cursors. |
+| **Event-driven membership sync** (Kafka consumer + `sync_inbox`) | Nightly batch reflects changes in future occurrences within a day — they're *future*. | Near-real-time future rosters become a product requirement. |
+| **Multi-stage async materialization pipeline** | Idempotent windowed job is simpler and sufficient; generation isn't latency-sensitive. | Distributed/parallel materialization or strict recovery SLAs. |
+| **DB sharding** | Single Postgres serves for years; tenant keys make it mechanical later. | A table nears billions of rows / vertical ceiling. |
+| **Elasticsearch** | Postgres trigram/FTS suffices. | A tenant > ~1M rows with complex multi-field search. |
+| **Reporting pre-aggregates / replica** | Live queries fine at launch; classroom grouping = 3-table join, tolerable. | Monthly/yearly reports slow down or contend with OLTP. |
+| **Completion verification workflow** (staff completes → admin verifies) | v1 completion is self-reported. | Compliance/audit demands sign-off (likely — see §13). |
+| **`rrule_count`, custom fields, threads/mentions, checklists, templates, webhooks** | Not required yet; JSONB path reserved (never EAV). | Product pull. |
 
 ---
 
-## 15. Open product decisions
+## 13. Open product decisions
 
-1. **Per-person overrides at create** — confirm which fields staff may differ on (priority + dates only, or also effort?).
-2. **Recurrence** — auto-regenerate a fresh task+assignments each cycle (needs a scheduler), or remain metadata + one resolved window?
-3. **Comment scope default on mobile** — open the assignment (1:1) thread by default with a separate task-level "Announcements" tab, or surface both inline?
-4. **Aggregate "Completed"** — only when *all* assignees finish, or a quorum?
-5. **Parent delete** — promote children to top-level (current default) or cascade-delete?
-6. **Audit retention window** — how long must edit history be kept for compliance?
-7. **Per-assignment title/description override** — do per-person copies ever need a custom title/description? If the real need is personalized *instructions*, prefer a per-assignment `note` field over overriding the shared title — overriding it fractures the single-task identity the admin rollup depends on. Recommendation: don't add until a concrete use case exists.
-8. **Comments — editable or immutable?** Schema currently allows edits (`is_edited` + full audit history). For audit integrity in a childcare setting, immutability (post a correction rather than edit) may be the stronger choice. Product to decide.
-9. **Classroom-scoped task visibility** — does a classroom lead see only their classroom's tasks (an RBAC change, not just the new `scope`/`classroom_code` columns), or do all staff see school-wide tasks plus their classroom's? Affects the board's default filter and the assignee pool.
+1. **Per-person overrides at create** — priority + dates only, or effort too?
+2. **Aggregate "Completed"** — all assignees, or a quorum?
+3. **Comment scope default (mobile)** — occurrence thread + separate "Announcements" tab, or both inline?
+4. **Comments — editable or immutable?** (audit integrity may favor immutable + post-a-correction.)
+5. **Classroom-lead visibility** — sees only their classroom's tasks? (RBAC change beyond the columns.)
+6. **Holiday default** — `SKIP` (recommended) confirmed? Per-school override?
+7. **Delete-day semantics** — today's `ACTIVE` occurrences remain finishable on series delete (current default) or are cancelled?
+8. **Completion verification** — needed for compliance tasks (temperature/medication checks)? If yes → Phase-4 workflow + proof-of-completion attachment flag.
+9. **Back-dated series** — rejected in v1; is an admin back-fill/import needed?
+10. **Audit retention window** — how long for compliance?
+11. **Forward-roster projection** — show projected assignee names on SCHEDULED/projected occurrences, or just the target label ("1-Blue teachers")?
 
 ---
 
-## Appendix A — Complete API reference
+## Appendix A — API reference
 
-Every endpoint with full request/response. Shared shapes are defined once in A.0–A.1 and referenced by name to keep each endpoint concise.
+Conventions in §6. Occurrence-scoped where execution is involved.
 
-### A.0 Shared conventions
+```
+# Series
+GET    /api/v1/tasks                                  # occurrence-windowed board (mandatory/defaulted window)
+POST   /api/v1/tasks                                  # create series + targets (+ initial window)
+GET    /api/v1/tasks/{taskCode}                       # series + rule + targets + next-occurrence summary
+PATCH  /api/v1/tasks/{taskCode}?scope=THIS|FUTURE|ALL # edit (scope semantics §5.5)
+POST   /api/v1/tasks/{taskCode}/pause | /resume       # series lifecycle (§3.1)
+DELETE /api/v1/tasks/{taskCode}                       # soft delete + cascade (§3.1)
+POST   /api/v1/tasks/{taskCode}/restore               # undelete + rematerialize
 
-**Base URL:** `/api/v1` · **Content-Type:** `application/json` · **All dates** ISO-8601; clock times `HH:mm` in the school time zone; `*At` timestamps UTC.
+# Occurrences
+GET    /api/v1/tasks/{taskCode}/occurrences?from&to   # materialized + projected (beyond horizon)
+GET    /api/v1/occurrences/{occurrenceCode}           # detail: rollup + assignments + comments + attachments
+PATCH  /api/v1/occurrences/{occurrenceCode}           # reschedule / THIS_ONLY override / cancel / skip
 
-**Headers**
+# Assignments
+GET    /api/v1/occurrences/{occurrenceCode}/assignments
+POST   /api/v1/occurrences/{occurrenceCode}/assignments   # manual add (is_manual_override)
+PATCH  /api/v1/assignments/{assignmentCode}               # status/priority/effort
+DELETE /api/v1/assignments/{assignmentCode}               # manual remove (soft)
+GET    /api/v1/assignments?assigneeCode=…&from&to         # person view (admin)
+GET    /api/v1/me/assignments?from&to                     # My Tasks
 
-| Header | When | Purpose |
+# Comments / attachments / history
+GET|POST     /api/v1/{owner}/{code}/comments          # owner ∈ tasks|occurrences|assignments
+PATCH|DELETE /api/v1/comments/{commentCode}
+POST|GET     /api/v1/{owner}/{code}/attachments       # owner ∈ tasks|occurrences|assignments|comments
+PUT|DELETE   /api/v1/attachments/{attachmentCode}     # replace (new version) | soft delete
+GET          /api/v1/{owner}/{code}/history           # audit timeline
+```
+
+Representative payloads:
+
+```jsonc
+POST /api/v1/tasks
+{ "title":"Daily classroom temperature check",
+  "scope":"CLASSROOM", "classroomCode":"CLS_71731C8E",
+  "recurring": true,
+  "rrule": { "freq":"WEEKLY", "byDay":["MO","TU","WE","TH","FR"], "until":"2026-12-18" },
+  "seriesStartDate":"2026-06-24", "seriesStartTime":"09:00", "seriesEndTime":"09:15",
+  "holidayPolicy":"SKIP",
+  "targets":[ { "type":"CLASSROOM", "code":"CLS_71731C8E", "defaultPriority":"MEDIUM" } ] }
+// → 201 { success:true, data:{ code:"TSK-…", materializationStatus:"READY", occurrenceCount:22 } }
+
+PATCH /api/v1/assignments/{code}   { "status":"COMPLETED" }
+// → 200 { data:{ code:"TSA-…", status:"COMPLETED", completedAt:"…", version:1 } }
+//   (occurrence rollup + aggregate_status recompute in the same transaction)
+
+// errors: 409 VERSION_CONFLICT · 422 DUE_BEFORE_START / BACKDATED_SERIES / SUBTASK_DEPTH_EXCEEDED · …
+```
+
+---
+
+## Appendix B — Worked example with dummy data
+
+**Scenario:** "Daily classroom temperature check" — weekdays 09:00–09:15, classroom **1-Blue** (`CLS_71731C8E`). Tenant `ORG_DEMO`/`SCH_SUNNYVALE`, tz `America/Chicago`. Created 2026-06-23; window 30 days; July 4 is a school holiday.
+
+### B.1 Create
+
+```
+task:  id=900 code=TSK_TEMPCHK title='Daily classroom temperature check'
+       scope=CLASSROOM classroom_code=CLS_71731C8E
+       recurring_flag=true rrule_freq=WEEKLY rrule_by_day='MO,TU,WE,TH,FR' rrule_until=2026-12-18
+       holiday_policy=SKIP series_status=ACTIVE materialization_status=READY horizon_until=2026-07-23
+target: id=1 code=TGT_A1B2 task_id=900 CLASSROOM CLS_71731C8E MEDIUM
+outbox: NOTIFY_ASSIGNEES (PENDING)          audit_log: TASK CREATED actor=STF_9F811C44 corr=550e…
+```
+Members (Brian, Diego, Carla) were resolved via gRPC **before** the transaction; the 30-day window was generated inside it (small roster → `READY` immediately).
+
+### B.2 Generation
+
+22 weekday dates expand; **Jul-4 materializes as `SKIPPED (HOLIDAY)`** with no assignments. `ON CONFLICT (task_id, original_start_date) DO NOTHING` → re-runs are no-ops.
+
+```
+task_occurrence: 5001 TOC_0624 2026-06-24 SCHEDULED · 5002 TOC_0625 2026-06-25 SCHEDULED · … · 50xx TOC_0704 SKIPPED/HOLIDAY
+task_assignment (occ 5001): TSA_9001 Brian · TSA_9002 Diego · TSA_9003 Carla   (resolved_on=2026-06-23, src=TGT_A1B2)
+```
+
+### B.3 Activation & execution — Jun-24
+
+06:00 activation job: occurrence 5001 `SCHEDULED→ACTIVE`, `activated_at` stamped, due-today notifications sent. **Roster now frozen.**
+Brian completes at 09:07:
+```
+PATCH /assignments/TSA_9001 {status:COMPLETED}
+→ TSA_9001 status=COMPLETED completed_at=09:07 version=1  (assignee_name freezes)
+→ trigger: occ 5001 total=3 completed=1 → aggregate_status=IN_PROGRESS
+→ audit_log: ASSIGNMENT STATUS_CHANGED {"status":{"from":"TO_DO","to":"COMPLETED"}}
+```
+Diego comments on the day: `task_comment CMT_1 (task_occurrence_id=5001) 'Thermometer battery low'`.
+Jun-25 (occ 5002) is a separate row with its own roster and empty thread — untouched.
+
+### B.4 Staff change — Diego leaves, Fatima joins 1-Blue on Jun-26
+
+Nightly job (Jun-25 18:00) re-resolves **future `SCHEDULED`** occurrences of series 900:
+```
+occ 5003+ : + TSA Fatima (TO_DO, resolved_on=2026-06-25)   − Diego's open rows soft-deleted, counters recomputed
+occ 5001  : ACTIVE  → untouched (Diego's Jun-24 work is frozen history)
+occ 5002  : already ACTIVE by the time of the next roll → frozen
+```
+The rule never changed; only future rosters did.
+
+### B.5 Edit THIS_AND_FUTURE — from Jul-1, start 08:30 and add classroom 2-Green
+
+```
+PATCH /tasks/TSK_TEMPCHK?scope=FUTURE {seriesStartTime:'08:30', addTarget:{CLASSROOM CLS_E2618D09}}
+one txn: task 900 rrule_until=2026-06-30 · future SCHEDULED occs → CANCELLED(SERIES_SPLIT) + assignments soft-deleted
+         task 901 TSK_TEMPCHK_V2 (parent_series_id=900, 08:30, until=2026-12-18) + both targets
+then:    materializeWindow(901) → occurrences for both classrooms from Jul-1
+```
+
+### B.6 Pause / delete / restore (lifecycle drill)
+
+- **Pause 901** → future SCHEDULED → `CANCELLED(SERIES_PAUSED)`, assignments soft-deleted (My Tasks clears instantly — cascade invariant). **Resume** → those rows flip back to `SCHEDULED`, rosters re-resolved fresh.
+- **Delete 901** → series + future SCHEDULED occurrences + assignments soft-deleted in one txn; **all past history remains** queryable and calendar-visible.
+- **Restore 901** → `deleted_at` cleared, `materializeWindow` rebuilds the window idempotently.
+
+### B.7 Growth & archival cheat sheet
+
+| Table | Unbounded growth? | Plan |
 |---|---|---|
-| `Authorization: Bearer <jwt>` | every request | identity, role, `organizationCode`, `schoolCode` (tenant is **never** in the body) |
-| `Idempotency-Key: <uuid>` | every `POST` that creates | retried create cannot duplicate (de-duped 24h) |
-| `If-Match: <version>` | every `PATCH`/`PUT`/`DELETE` that mutates | optimistic lock; stale version → `409` |
+| `task`, `task_assignment_target` | no | — |
+| `task_occurrence`, `task_assignment` | **yes** | partition when a tenant crosses ~few M rows (§12); archive by detaching months |
+| `task_comment`, `attachment` | grows | partition later if needed; blobs live in object store |
+| `audit_log` | **yes** | month-partitioned from day one |
+| `outbox` / `idempotency_key` | churns | prune processed/expired rows |
 
-**Success envelope**
-```jsonc
-{ "success": true, "message": "Human-readable summary", "data": { /* payload */ } }
-```
-
-**Error envelope** (all non-2xx)
-```jsonc
-{ "success": false, "message": "Human-readable summary", "data": null,
-  "error": { "code": "MACHINE_CODE", "details": null } }
-```
-
-**Validation error** (`400` / `422`)
-```jsonc
-{ "success": false, "message": "Validation failed", "data": null,
-  "error": { "code": "VALIDATION_ERROR",
-    "fields": [ { "field": "title", "message": "must not be blank" } ] } }
-```
-
-**Status codes used**
-
-| Code | Meaning | Example `error.code` |
-|---|---|---|
-| `200` | OK (read / update) | — |
-| `201` | Created | — |
-| `400` | Malformed / validation | `VALIDATION_ERROR` |
-| `401` | Missing/invalid token | `UNAUTHENTICATED` |
-| `403` | Authenticated but not allowed (RBAC / wrong tenant) | `FORBIDDEN` |
-| `404` | Not found (or soft-deleted / other tenant) | `TASK_NOT_FOUND`, `ASSIGNMENT_NOT_FOUND`, `COMMENT_NOT_FOUND` |
-| `409` | Version conflict / idempotency replay / unique clash | `VERSION_CONFLICT`, `DUPLICATE_ASSIGNEE` |
-| `422` | Business-rule violation | `SUBTASK_DEPTH_EXCEEDED`, `DUE_BEFORE_START`, `CROSS_SCHOOL_PARENT` |
-| `429` | Rate limited | `RATE_LIMITED` |
-
-**List pagination (keyset):** list responses wrap items as
-```jsonc
-"data": { "items": [ /* … */ ], "nextCursor": "eyJkdWUiOiIyMDI2…" /* null at end */, "limit": 20 }
-```
-Pass `?cursor=<nextCursor>&limit=<n>` to page; no `OFFSET`.
-
-### A.1 Object shapes
-
-```jsonc
-// TaskBoardItem — thin row for the admin board (GET /tasks)
-{ "code":"TSK-1A2B3C4D", "title":"First-aid recertification",
-  "scope":"CLASSROOM", "classroomCode":"4-YELLOW",
-  "aggregateStatus":"IN_PROGRESS",
-  "rollup":{ "total":100, "toDo":18, "inProgress":50, "completed":32, "overdue":18, "progressPercent":32 },
-  "earliestDueDate":"2026-07-05",
-  "assigneePreview":[ {"code":"STF_A1","name":"Jane Doe"}, {"code":"STF_B2","name":"Raj Kumar"} ],
-  "commentCount":4, "parentTaskCode":null, "version":7, "createdAt":"2026-06-20T09:00:00Z" }
-
-// Assignment — the per-person instance
-{ "code":"TSA-9001", "taskCode":"TSK-1A2B3C4D", "title":"First-aid recertification",
-  "assigneeCode":"STF_A1", "assigneeName":"Jane Doe",
-  "status":"COMPLETED", "priority":"MEDIUM",
-  "startDate":"2026-07-01", "startTime":"09:00", "dueDate":"2026-07-15", "dueTime":"17:00",
-  "effort":2.5, "isOverdue":false, "completedAt":"2026-07-09T12:00:00Z",
-  "commentCount":1, "version":3, "createdAt":"2026-06-20T09:00:00Z", "updatedAt":"2026-07-09T12:00:00Z" }
-
-// Comment
-{ "code":"CMT-9F8E7D6C", "scope":"ASSIGNMENT", "taskCode":null, "assignmentCode":"TSA-9001",
-  "authorCode":"STF_A1", "authorName":"Jane Doe", "body":"Booked the bus for the 10th.",
-  "isEdited":false, "isDeleted":false, "version":0,
-  "createdAt":"2026-06-21T14:02:00Z", "updatedAt":"2026-06-21T14:02:00Z" }
-
-// Attachment
-{ "code":"ATT-77AA22BB", "ownerType":"TASK", "ownerCode":"TSK-1A2B3C4D",
-  "version":2, "isCurrent":true, "status":"ACTIVE",
-  "fileName":"first-aid-guide.pdf", "mimeType":"application/pdf", "sizeBytes":284911,
-  "checksum":"sha256:9b1c…", "uploadedByCode":"STF_ADMIN", "uploadedByName":"Admin User",
-  "uploadedAt":"2026-06-22T10:00:00Z",
-  "downloadUrl":"https://storage…/signed?exp=…" /* short-lived, present on reads only */ }
-
-// AuditEntry
-{ "action":"STATUS_CHANGED", "entityType":"ASSIGNMENT", "entityCode":"TSA-9001",
-  "actorCode":"STF_A1", "actorName":"Jane Doe",
-  "changes":{ "status":{"from":"IN_PROGRESS","to":"COMPLETED"} },
-  "createdAt":"2026-07-09T12:00:00Z" }
-```
-
----
-
-### A.2 Tasks
-
-#### GET /api/v1/tasks  — admin board (each task once + rollup)
-- **Auth:** admin.
-- **Query:** `status` (aggregate; repeatable), `priority`, `assigneeCode`, `classroomCode`, `scope`, `dueFrom`, `dueTo`, `overdue=true`, `q` (search title/desc), `sort` (`earliestDue|overdueCount|assignees|title|createdAt`, default `earliestDue`), `dir` (`asc|desc`), `cursor`, `limit` (≤100).
-- **Request body:** none.
-- **200**
-```jsonc
-{ "success":true, "message":"Tasks retrieved",
-  "data":{ "items":[ /* TaskBoardItem … */ ], "nextCursor":null, "limit":20, "timeZone":"America/New_York" } }
-```
-- **Errors:** `401 UNAUTHENTICATED`, `403 FORBIDDEN` (non-admin), `400 VALIDATION_ERROR` (bad sort/cursor).
-
-#### POST /api/v1/tasks  — create task + N assignments (one transaction)
-- **Auth:** admin or staff (creator). **Headers:** `Idempotency-Key`.
-- **Request**
-```jsonc
-{ "title":"First-aid recertification",
-  "description":"Complete the annual module.",
-  "scope":"CLASSROOM", "classroomCode":"4-YELLOW",          // classroomCode required iff scope=CLASSROOM
-  "parentTaskCode":null,
-  "recurring":false, "recurringPattern":null, "recurringEndDate":null,
-  "defaults":{ "priority":"MEDIUM", "startDate":"2026-07-01", "startTime":"09:00",
-               "dueDate":"2026-07-15", "dueTime":"17:00", "effort":0 },
-  "assignees":[                                              // 1..200; CODES ONLY (names resolved server-side)
-    { "code":"STF_A1" },
-    { "code":"STF_B2", "priority":"HIGH", "dueDate":"2026-07-05" }
-  ] }
-```
-- **201**
-```jsonc
-{ "success":true, "message":"2 tasks assignments created",
-  "data":{ "code":"TSK-1A2B3C4D", "aggregateStatus":"NOT_STARTED",
-           "rollup":{ "total":2, "toDo":2, "inProgress":0, "completed":0, "overdue":0, "progressPercent":0 },
-           "assignments":[ /* Assignment … */ ], "version":0, "createdAt":"2026-06-23T11:00:00Z" } }
-```
-- **Errors:** `400 VALIDATION_ERROR` (blank title, empty assignees, >200, classroom mismatch), `422 DUE_BEFORE_START`, `422 CROSS_SCHOOL_PARENT` / `SUBTASK_DEPTH_EXCEEDED` (bad `parentTaskCode`), `404` (unknown assignee/parent code), `409` (idempotency replay returns the original `201` body), `403 FORBIDDEN`.
-
-#### GET /api/v1/tasks/{taskCode}  — full detail (definition + breakdown + assignments)
-- **Auth:** admin (any) / staff (only if assigned or creator).
-- **200**
-```jsonc
-{ "success":true, "message":"Task retrieved",
-  "data":{ "code":"TSK-1A2B3C4D", "title":"First-aid recertification", "description":"…",
-           "scope":"CLASSROOM", "classroomCode":"4-YELLOW",
-           "parentTaskCode":null, "parentTaskTitle":null,
-           "recurring":false, "recurringPattern":null,
-           "aggregateStatus":"IN_PROGRESS",
-           "rollup":{ "total":100,"toDo":18,"inProgress":50,"completed":32,"overdue":18,"progressPercent":32 },
-           "assignments":[ /* Assignment … (paginate via /assignments if large) */ ],
-           "attachments":[ /* Attachment (current) … */ ],
-           "commentCount":4,
-           "createdByCode":"STF_ADMIN", "createdByName":"Admin User",
-           "version":7, "createdAt":"2026-06-20T09:00:00Z", "timeZone":"America/New_York" } }
-```
-- **Errors:** `404 TASK_NOT_FOUND`, `403 FORBIDDEN`, `401`.
-
-#### PATCH /api/v1/tasks/{taskCode}  — edit definition
-- **Auth:** admin or creator. **Headers:** `If-Match: <version>`.
-- **Request** (any subset)
-```jsonc
-{ "title":"First-aid recertification 2026", "description":"Updated module link.",
-  "scope":"SCHOOL_WIDE", "classroomCode":null,
-  "parentTaskCode":"TSK-PARENT01",
-  "recurring":true, "recurringPattern":"MONTHLY", "recurringEndDate":"2026-12-31" }
-```
-- **200** → `data`: updated TaskDetail (without `assignments` array; `version` incremented).
-- **Errors:** `409 VERSION_CONFLICT` (stale `If-Match`), `422 SUBTASK_DEPTH_EXCEEDED|CROSS_SCHOOL_PARENT|SELF_PARENT`, `400 VALIDATION_ERROR`, `404`, `403`.
-
-#### DELETE /api/v1/tasks/{taskCode}  — soft delete (cascade)
-- **Auth:** admin or creator. **Headers:** `If-Match`.
-- **200**
-```jsonc
-{ "success":true, "message":"Task deleted (3 assignments, 4 comments archived)",
-  "data":{ "code":"TSK-1A2B3C4D", "deletedAt":"2026-06-23T12:00:00Z" } }
-```
-- **Errors:** `404`, `403`, `409 VERSION_CONFLICT`.
-
----
-
-### A.3 Assignments
-
-#### GET /api/v1/tasks/{taskCode}/assignments  — per-person list (admin drill-in)
-- **Auth:** admin / creator. **Query:** `status`, `sort` (`dueDate|priority|status|createdAt`), `dir`, `cursor`, `limit`.
-- **200** → `data:{ items:[ Assignment… ], nextCursor, limit }`.
-- **Errors:** `404 TASK_NOT_FOUND`, `403`, `401`.
-
-#### POST /api/v1/tasks/{taskCode}/assignments  — add person(s)
-- **Auth:** admin / creator. **Headers:** `Idempotency-Key`.
-- **Request**
-```jsonc
-{ "assignees":[ { "code":"STF_C3" },
-                { "code":"STF_D4", "priority":"HIGH", "dueDate":"2026-07-10" } ] }
-```
-- **201** → `data:{ added:[ Assignment… ], rollup:{…} }`.
-- **Errors:** `409 DUPLICATE_ASSIGNEE` (already active on this task), `404` (unknown staff / task), `422 DUE_BEFORE_START`, `400`, `403`.
-
-#### PATCH /api/v1/assignments/{assignmentCode}  — update status/priority/dates/effort
-- **Auth:** the assignee (own) or admin. **Headers:** `If-Match`.
-- **Request** (any subset)
-```jsonc
-{ "status":"COMPLETED", "priority":"LOW", "dueDate":"2026-07-20", "dueTime":"16:00", "effort":3 }
-```
-- **200** → `data`: updated Assignment (`version` incremented; setting `COMPLETED` stamps `completedAt`; the parent task's `rollup`/`aggregateStatus` recompute server-side).
-- **Errors:** `409 VERSION_CONFLICT`, `422 DUE_BEFORE_START`, `404 ASSIGNMENT_NOT_FOUND`, `403 FORBIDDEN` (not your assignment), `400`.
-
-#### DELETE /api/v1/assignments/{assignmentCode}  — remove one person (soft)
-- **Auth:** admin / creator. **Headers:** `If-Match`.
-- **200** → `{ "success":true, "message":"Assignee removed", "data":{ "code":"TSA-9002", "deletedAt":"…" } }`.
-- **Errors:** `404`, `403`, `409`.
-
-#### GET /api/v1/assignments?assigneeCode=STF_A1  — all tasks assigned to a person (admin)
-- **Auth:** admin. **Query:** `assigneeCode` (required), `status`, `priority`, `classroomCode`, `dueFrom`, `dueTo`, `overdue`, `q`, `sort`, `dir`, `cursor`, `limit`.
-- **200** → `data:{ items:[ Assignment… ], nextCursor, limit, timeZone }`.
-- **Errors:** `400 VALIDATION_ERROR` (missing `assigneeCode`), `403`, `401`.
-
-#### GET /api/v1/me/assignments  — "My Tasks" (logged-in staff)
-- **Auth:** any staff/admin (scopes to caller). **Query:** same filter/sort set as above, **minus** `assigneeCode` (implicit = me).
-- **200** → `data:{ items:[ Assignment… ], nextCursor, limit, timeZone }`.
-- **Errors:** `401`.
-
----
-
-### A.4 Comments
-
-#### GET /api/v1/tasks/{taskCode}/comments  — task-level thread
-- **Auth:** admin / anyone assigned to the task. **Query:** `cursor`, `limit` (default 20, oldest→newest).
-- **200** → `data:{ items:[ Comment(scope=TASK)… ], nextCursor, limit }`.
-- **Errors:** `404 TASK_NOT_FOUND`, `403`.
-
-#### POST /api/v1/tasks/{taskCode}/comments  — add task-level comment
-- **Auth:** admin / assigned staff. **Headers:** `Idempotency-Key`.
-- **Request:** `{ "body":"Bus is booked, meet at 8am." }` (1..4000 chars).
-- **201** → `data`: created Comment (`scope:"TASK"`, `authorName` resolved server-side).
-- **Errors:** `400 VALIDATION_ERROR` (empty/too long), `404`, `403`.
-
-#### GET /api/v1/assignments/{assignmentCode}/comments  — assignment-level thread
-- **Auth:** the assignee or admin/creator. **Query:** `cursor`, `limit`.
-- **200** → `data:{ items:[ Comment(scope=ASSIGNMENT)… ], nextCursor, limit }`.
-- **Errors:** `404 ASSIGNMENT_NOT_FOUND`, `403`.
-
-#### POST /api/v1/assignments/{assignmentCode}/comments  — add assignment-level comment
-- **Auth:** the assignee or admin/creator. **Headers:** `Idempotency-Key`.
-- **Request:** `{ "body":"I'm out sick on the 10th — can we move my due date?" }`.
-- **201** → `data`: created Comment (`scope:"ASSIGNMENT"`).
-- **Errors:** `400`, `404`, `403`.
-
-#### PATCH /api/v1/comments/{commentCode}  — edit
-- **Auth:** author or admin. **Headers:** `If-Match`. *(Gated by open decision §15.8 — if comments are made immutable, this endpoint is removed.)*
-- **Request:** `{ "body":"Edited text." }`.
-- **200** → `data`: updated Comment (`isEdited:true`, `version` incremented).
-- **Errors:** `409 VERSION_CONFLICT`, `400`, `404 COMMENT_NOT_FOUND`, `403`.
-
-#### DELETE /api/v1/comments/{commentCode}  — soft delete
-- **Auth:** author or admin. **Headers:** `If-Match`.
-- **200** → `{ "success":true, "message":"Comment deleted", "data":{ "code":"CMT-9F8E7D6C", "deletedAt":"…" } }` (thread renders a "deleted" placeholder).
-- **Errors:** `404`, `403`, `409`.
-
----
-
-### A.5 Attachments
-
-The DB never stores bytes — uploads use a **pre-signed URL**. The `POST`/`PUT` returns a short-lived storage URL; the client uploads directly to object storage; the server flips the row to `ACTIVE` on the storage completion callback (no extra client call). `entity ∈ tasks | assignments | comments`.
-
-#### POST /api/v1/{entity}/{code}/attachments  — begin upload (add)
-- **Auth:** admin / owner of the entity. **Headers:** `Idempotency-Key`.
-- **Request** (metadata only — validated server-side against caps: ≤10 MB; JPEG/PNG/WebP/PDF)
-```jsonc
-{ "fileName":"first-aid-guide.pdf", "mimeType":"application/pdf",
-  "sizeBytes":284911, "checksum":"sha256:9b1c…" }
-```
-- **201**
-```jsonc
-{ "success":true, "message":"Upload authorized",
-  "data":{ "attachment":{ "code":"ATT-77AA22BB", "version":1, "status":"PENDING", "isCurrent":true },
-           "upload":{ "method":"PUT", "url":"https://storage…/signed?exp=…",
-                      "headers":{ "Content-Type":"application/pdf" }, "expiresAt":"2026-06-23T11:10:00Z" } } }
-```
-- **Errors:** `422 FILE_TOO_LARGE` / `UNSUPPORTED_MEDIA_TYPE`, `400 VALIDATION_ERROR`, `404` (entity), `403`.
-
-#### GET /api/v1/{entity}/{code}/attachments  — list current attachments
-- **Auth:** admin / entity viewer. **Query:** `includeVersions=true` (optional — return the full revision chain instead of just `isCurrent`).
-- **200** → `data:{ items:[ Attachment… (with short-lived downloadUrl) ] }`.
-- **Errors:** `404`, `403`.
-
-#### PUT /api/v1/attachments/{attachmentCode}  — replace (new version)
-- **Auth:** admin / uploader. **Headers:** `If-Match`, `Idempotency-Key`.
-- **Request:** same metadata body as `POST`.
-- **201** → same shape as `POST`, with the new `version` (`prev.version + 1`); the prior version flips `isCurrent:false` once the new upload completes (old blob retained).
-- **Errors:** `409 VERSION_CONFLICT`, `422`, `404 ATTACHMENT_NOT_FOUND`, `403`.
-
-#### DELETE /api/v1/attachments/{attachmentCode}  — soft delete
-- **Auth:** admin / uploader. **Headers:** `If-Match`.
-- **200** → `{ "success":true, "message":"Attachment deleted", "data":{ "code":"ATT-77AA22BB", "status":"DELETED", "deletedAt":"…" } }` (blob retained for restore, expired later by storage lifecycle).
-- **Errors:** `404`, `403`, `409`.
-
----
-
-### A.6 History
-
-#### GET /api/v1/{entity}/{code}/history  — audit timeline
-- **Auth:** admin (full) / staff (entries on their own assignment). **Query:** `cursor`, `limit`, `action` (optional filter), `from`, `to`. `entity ∈ tasks | assignments | comments | attachments`.
-- **200**
-```jsonc
-{ "success":true, "message":"History retrieved",
-  "data":{ "items":[ /* AuditEntry … newest first */ ], "nextCursor":null, "limit":20 } }
-```
-- **Errors:** `404`, `403`, `401`.
+*No local notification table — delivery is `communication-service` via Kafka, fed by the transactional outbox.*
