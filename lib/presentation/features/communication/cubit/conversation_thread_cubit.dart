@@ -139,6 +139,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    // Reset before re-subscribing so the Firestore error fallback
+    // (if (!_firestoreActive) → loadMessages()) is always armed on
+    // re-entry. Without this, a thread opened → closed → reopened keeps
+    // _firestoreActive = true from the prior session; a Firestore error
+    // on the new subscription is silently ignored and the thread stays
+    // on stale state with no recovery path.
+    _firestoreActive = false;
     _messagesSubscription?.cancel();
     // Use this conversation's own org/school rather than the session's
     // currently-active one — a stale/mismatched active school (multi-school
