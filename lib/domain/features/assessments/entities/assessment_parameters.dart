@@ -4,11 +4,11 @@ import 'package:equatable/equatable.dart';
 ///
 /// All three levels share the same shape: a name, a soft-delete [active] flag
 /// (deactivation never hard-deletes — PRD BR-DM-05), and a set of assigned
-/// classroom codes that scope visibility. Milestones additionally carry an
-/// age group and are the atomic unit of assessment scoring.
-///
-/// These mirror the PRD §17.1 data-model entities. `assignedClassrooms` holds
-/// classroom *codes* (the app's stable identifier for a classroom).
+/// **age-group ids** that scope visibility. Milestones are the atomic unit of
+/// assessment scoring; which milestones a student sees is resolved from their
+/// date of birth against the school's age bands, not from their classroom
+/// (supersedes the PRD's classroom assignment — classrooms rarely align with
+/// the bands standards frameworks use).
 
 /// Top-level developmental area (e.g. "Social & Emotional"). Scoped to a school.
 class AssessmentDomain extends Equatable {
@@ -16,7 +16,7 @@ class AssessmentDomain extends Equatable {
     required this.id,
     required this.name,
     this.description = '',
-    this.assignedClassrooms = const <String>[],
+    this.assignedAgeGroups = const <String>[],
     this.subdomains = const <AssessmentSubdomain>[],
     this.active = true,
     this.schoolId = '',
@@ -29,8 +29,8 @@ class AssessmentDomain extends Equatable {
   final String name;
   final String description;
 
-  /// Classroom codes this domain applies to. Empty means none assigned.
-  final List<String> assignedClassrooms;
+  /// Age-group ids this domain applies to. Empty means none assigned.
+  final List<String> assignedAgeGroups;
   final List<AssessmentSubdomain> subdomains;
 
   /// Soft-delete flag. Inactive domains drop out of active lists but their
@@ -55,7 +55,7 @@ class AssessmentDomain extends Equatable {
     String? id,
     String? name,
     String? description,
-    List<String>? assignedClassrooms,
+    List<String>? assignedAgeGroups,
     List<AssessmentSubdomain>? subdomains,
     bool? active,
     String? schoolId,
@@ -67,7 +67,7 @@ class AssessmentDomain extends Equatable {
       id: id ?? this.id,
       name: name ?? this.name,
       description: description ?? this.description,
-      assignedClassrooms: assignedClassrooms ?? this.assignedClassrooms,
+      assignedAgeGroups: assignedAgeGroups ?? this.assignedAgeGroups,
       subdomains: subdomains ?? this.subdomains,
       active: active ?? this.active,
       schoolId: schoolId ?? this.schoolId,
@@ -82,7 +82,7 @@ class AssessmentDomain extends Equatable {
         id,
         name,
         description,
-        assignedClassrooms,
+        assignedAgeGroups,
         subdomains,
         active,
         schoolId,
@@ -96,7 +96,7 @@ class AssessmentSubdomain extends Equatable {
     required this.id,
     required this.domainId,
     required this.name,
-    this.assignedClassrooms = const <String>[],
+    this.assignedAgeGroups = const <String>[],
     this.milestones = const <AssessmentMilestone>[],
     this.active = true,
     this.schoolId = '',
@@ -107,7 +107,7 @@ class AssessmentSubdomain extends Equatable {
   final String id;
   final String domainId;
   final String name;
-  final List<String> assignedClassrooms;
+  final List<String> assignedAgeGroups;
   final List<AssessmentMilestone> milestones;
   final bool active;
   final String schoolId;
@@ -121,7 +121,7 @@ class AssessmentSubdomain extends Equatable {
     String? id,
     String? domainId,
     String? name,
-    List<String>? assignedClassrooms,
+    List<String>? assignedAgeGroups,
     List<AssessmentMilestone>? milestones,
     bool? active,
     String? schoolId,
@@ -132,7 +132,7 @@ class AssessmentSubdomain extends Equatable {
       id: id ?? this.id,
       domainId: domainId ?? this.domainId,
       name: name ?? this.name,
-      assignedClassrooms: assignedClassrooms ?? this.assignedClassrooms,
+      assignedAgeGroups: assignedAgeGroups ?? this.assignedAgeGroups,
       milestones: milestones ?? this.milestones,
       active: active ?? this.active,
       schoolId: schoolId ?? this.schoolId,
@@ -146,7 +146,7 @@ class AssessmentSubdomain extends Equatable {
         id,
         domainId,
         name,
-        assignedClassrooms,
+        assignedAgeGroups,
         milestones,
         active,
         updatedAt,
@@ -154,7 +154,8 @@ class AssessmentSubdomain extends Equatable {
 }
 
 /// A specific, observable developmental indicator within a Subdomain. The
-/// atomic unit of assessment scoring; assigned to classrooms by age group.
+/// atomic unit of assessment scoring; assigned to one or more age bands
+/// (typically exactly one, matching how standards frameworks are written).
 class AssessmentMilestone extends Equatable {
   const AssessmentMilestone({
     required this.id,
@@ -162,8 +163,7 @@ class AssessmentMilestone extends Equatable {
     required this.domainId,
     required this.name,
     this.description = '',
-    this.ageGroup = '',
-    this.assignedClassrooms = const <String>[],
+    this.assignedAgeGroups = const <String>[],
     this.active = true,
     this.schoolId = '',
     required this.createdAt,
@@ -175,16 +175,20 @@ class AssessmentMilestone extends Equatable {
   final String domainId;
   final String name;
   final String description;
-  final String ageGroup;
-  final List<String> assignedClassrooms;
+  final List<String> assignedAgeGroups;
   final bool active;
   final String schoolId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  /// Whether this milestone is visible to [classroomCode] (PRD BR-PM-01).
-  bool isAssignedTo(String classroomCode) =>
-      assignedClassrooms.contains(classroomCode);
+  /// Whether this milestone is visible to age band [ageGroupId]
+  /// (adapts PRD BR-PM-01 from classrooms to age groups).
+  bool isAssignedToAgeGroup(String ageGroupId) =>
+      assignedAgeGroups.contains(ageGroupId);
+
+  /// Whether this milestone is visible to any band in [ageGroupIds].
+  bool isAssignedToAnyAgeGroup(Set<String> ageGroupIds) =>
+      assignedAgeGroups.any(ageGroupIds.contains);
 
   AssessmentMilestone copyWith({
     String? id,
@@ -192,8 +196,7 @@ class AssessmentMilestone extends Equatable {
     String? domainId,
     String? name,
     String? description,
-    String? ageGroup,
-    List<String>? assignedClassrooms,
+    List<String>? assignedAgeGroups,
     bool? active,
     String? schoolId,
     DateTime? createdAt,
@@ -205,8 +208,7 @@ class AssessmentMilestone extends Equatable {
       domainId: domainId ?? this.domainId,
       name: name ?? this.name,
       description: description ?? this.description,
-      ageGroup: ageGroup ?? this.ageGroup,
-      assignedClassrooms: assignedClassrooms ?? this.assignedClassrooms,
+      assignedAgeGroups: assignedAgeGroups ?? this.assignedAgeGroups,
       active: active ?? this.active,
       schoolId: schoolId ?? this.schoolId,
       createdAt: createdAt ?? this.createdAt,
@@ -221,8 +223,7 @@ class AssessmentMilestone extends Equatable {
         domainId,
         name,
         description,
-        ageGroup,
-        assignedClassrooms,
+        assignedAgeGroups,
         active,
         updatedAt,
       ];

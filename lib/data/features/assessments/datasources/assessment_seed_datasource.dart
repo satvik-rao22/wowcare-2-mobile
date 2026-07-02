@@ -15,6 +15,7 @@ abstract class AssessmentSeedDataSource {
   Future<List<AssessmentModel>> fetchAssessments();
   Future<List<AssessmentClassroomModel>> fetchClassrooms();
   Future<List<AssessmentStudentModel>> fetchStudents();
+  Future<List<AssessmentAgeGroupModel>> fetchAgeGroups();
 }
 
 class AssessmentSeedDataSourceImpl implements AssessmentSeedDataSource {
@@ -60,6 +61,17 @@ class AssessmentSeedDataSourceImpl implements AssessmentSeedDataSource {
         .map((m) => AssessmentStudentModel.fromJson(
             m.map((k, v) => MapEntry(k.toString(), v))))
         .where((s) => s.code.isNotEmpty && s.name.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  Future<List<AssessmentAgeGroupModel>> fetchAgeGroups() async {
+    final raw = await _loadSection('ageGroups');
+    return raw
+        .whereType<Map>()
+        .map((m) => AssessmentAgeGroupModel.fromJson(
+            m.map((k, v) => MapEntry(k.toString(), v))))
+        .where((g) => g.id.isNotEmpty && g.maxMonths > g.minMonths)
         .toList();
   }
 

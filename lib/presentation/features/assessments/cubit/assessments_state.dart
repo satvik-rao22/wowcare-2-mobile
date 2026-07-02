@@ -20,6 +20,7 @@ class AssessmentsState extends Equatable {
     required this.assessments,
     required this.classrooms,
     required this.students,
+    required this.ageGroups,
     required this.period,
     required this.isLoading,
     required this.isSaving,
@@ -30,6 +31,7 @@ class AssessmentsState extends Equatable {
     required this.schoolId,
     this.statusFilter = const {'ACTIVE'},
     this.tagFilter = const {},
+    this.themeV2 = false,
     this.errorMessage,
   });
 
@@ -38,6 +40,7 @@ class AssessmentsState extends Equatable {
         assessments: const [],
         classrooms: const [],
         students: const [],
+        ageGroups: const [],
         period: AssessmentPeriod.current(),
         isLoading: true,
         isSaving: false,
@@ -53,6 +56,9 @@ class AssessmentsState extends Equatable {
   final List<Assessment> assessments;
   final List<AssessmentClassroom> classrooms;
   final List<AssessmentStudent> students;
+
+  /// The school's age bands (sorted by sortOrder, then minMonths).
+  final List<AssessmentAgeGroup> ageGroups;
   final AssessmentPeriod period;
   final bool isLoading;
   final bool isSaving;
@@ -72,9 +78,53 @@ class AssessmentsState extends Equatable {
 
   /// Student-list tag filter (empty = no tag restriction).
   final Set<String> tagFilter;
+
+  /// Whether the module renders with the 2.0 colour theme. Mirrored into
+  /// [AssessmentUi.palette] by the cubit; kept on state so toggling rebuilds
+  /// every BlocBuilder in the shell.
+  final bool themeV2;
   final String? errorMessage;
 
   bool get isStaffPersona => roleKey == 'staff' || roleKey == 'teacher';
+
+  // -------------------------------------------------------------- age groups
+
+  /// Active bands, in display order.
+  List<AssessmentAgeGroup> get activeAgeGroups =>
+      ageGroups.where((g) => g.active).toList();
+
+  AssessmentAgeGroup? ageGroupById(String id) {
+    for (final g in ageGroups) {
+      if (g.id == id) return g;
+    }
+    return null;
+  }
+
+  /// The band [student] falls into for the active [period], resolved from
+  /// their date of birth **as of the period start** — a child crossing a band
+  /// boundary mid-month is assessed against one deterministic band for the
+  /// whole month. Null when the student has no DOB or no active band contains
+  /// their age.
+  AssessmentAgeGroup? resolveAgeGroup(AssessmentStudent student) {
+    final months = student.ageInMonthsAt(period.start);
+    if (months == null) return null;
+    for (final g in activeAgeGroups) {
+      if (g.contains(months)) return g;
+    }
+    return null;
+  }
+
+  /// The set of band ids represented by the active students of
+  /// [classroomCode] in the active period. Classrooms mix ages, so classroom
+  /// and school roll-ups aggregate over every band their children resolve to.
+  Set<String> ageGroupIdsForClassroom(String classroomCode) {
+    final ids = <String>{};
+    for (final s in studentsInClassroom(classroomCode)) {
+      final band = resolveAgeGroup(s);
+      if (band != null) ids.add(band.id);
+    }
+    return ids;
+  }
 
   // ----------------------------------------------------------- parameter tree
 
@@ -82,40 +132,53 @@ class AssessmentsState extends Equatable {
   List<AssessmentDomain> get activeDomains =>
       domains.where((d) => d.active).toList();
 
-  /// Active domains whose assignment includes [classroomCode] OR that have an
-  /// active milestone assigned to it — i.e. domains relevant when assessing a
-  /// student in that classroom (PRD FR-SA-08/11, BR-PM-01).
-  List<AssessmentDomain> domainsForClassroom(String classroomCode) {
+  /// Active domains with at least one active milestone assigned to any band
+  /// in [ageGroupIds] — i.e. domains relevant when assessing a student who
+  /// resolved to one of those bands (adapts PRD FR-SA-08/11, BR-PM-01).
+  List<AssessmentDomain> domainsForAgeGroups(Set<String> ageGroupIds) {
+    if (ageGroupIds.isEmpty) return const [];
     return activeDomains.where((d) {
-      return d.activeSubdomains.any((s) =>
-          s.activeMilestones.any((m) => m.isAssignedTo(classroomCode)));
+      return d.activeSubdomains.any((s) => s.activeMilestones
+          .any((m) => m.isAssignedToAnyAgeGroup(ageGroupIds)));
     }).toList();
   }
 
-  /// Active milestones in [domain] assigned to [classroomCode], grouped by
-  /// their parent subdomain (preserves subdomain order).
+  /// Domains relevant to [student]: resolved from their DOB band.
+  List<AssessmentDomain> domainsForStudent(AssessmentStudent student) {
+    final band = resolveAgeGroup(student);
+    return band == null ? const [] : domainsForAgeGroups({band.id});
+  }
+
+  /// Domains relevant to [classroomCode]: the union over the bands its
+  /// students resolve to (a classroom no longer gates visibility itself).
+  List<AssessmentDomain> domainsForClassroom(String classroomCode) =>
+      domainsForAgeGroups(ageGroupIdsForClassroom(classroomCode));
+
+  /// Active milestones in [domain] assigned to any band in [ageGroupIds],
+  /// grouped by their parent subdomain (preserves subdomain order).
   Map<AssessmentSubdomain, List<AssessmentMilestone>> milestonesBySubdomain(
     AssessmentDomain domain,
-    String classroomCode,
+    Set<String> ageGroupIds,
   ) {
     final result = <AssessmentSubdomain, List<AssessmentMilestone>>{};
     for (final subdomain in domain.activeSubdomains) {
       final milestones = subdomain.activeMilestones
-          .where((m) => m.isAssignedTo(classroomCode))
+          .where((m) => m.isAssignedToAnyAgeGroup(ageGroupIds))
           .toList();
       if (milestones.isNotEmpty) result[subdomain] = milestones;
     }
     return result;
   }
 
-  /// All active milestones in [domain] assigned to [classroomCode] (flat).
-  List<AssessmentMilestone> milestonesForClassroom(
+  /// All active milestones in [domain] assigned to any band in [ageGroupIds]
+  /// (flat).
+  List<AssessmentMilestone> milestonesForAgeGroups(
     AssessmentDomain domain,
-    String classroomCode,
+    Set<String> ageGroupIds,
   ) {
     return domain.activeSubdomains
         .expand((s) => s.activeMilestones)
-        .where((m) => m.isAssignedTo(classroomCode))
+        .where((m) => m.isAssignedToAnyAgeGroup(ageGroupIds))
         .toList();
   }
 
@@ -238,6 +301,7 @@ class AssessmentsState extends Equatable {
     List<Assessment>? assessments,
     List<AssessmentClassroom>? classrooms,
     List<AssessmentStudent>? students,
+    List<AssessmentAgeGroup>? ageGroups,
     AssessmentPeriod? period,
     bool? isLoading,
     bool? isSaving,
@@ -248,6 +312,7 @@ class AssessmentsState extends Equatable {
     String? schoolId,
     Set<String>? statusFilter,
     Set<String>? tagFilter,
+    bool? themeV2,
     String? Function()? errorMessage,
   }) {
     return AssessmentsState(
@@ -255,6 +320,7 @@ class AssessmentsState extends Equatable {
       assessments: assessments ?? this.assessments,
       classrooms: classrooms ?? this.classrooms,
       students: students ?? this.students,
+      ageGroups: ageGroups ?? this.ageGroups,
       period: period ?? this.period,
       isLoading: isLoading ?? this.isLoading,
       isSaving: isSaving ?? this.isSaving,
@@ -267,6 +333,7 @@ class AssessmentsState extends Equatable {
       schoolId: schoolId ?? this.schoolId,
       statusFilter: statusFilter ?? this.statusFilter,
       tagFilter: tagFilter ?? this.tagFilter,
+      themeV2: themeV2 ?? this.themeV2,
       errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
     );
   }
@@ -277,6 +344,7 @@ class AssessmentsState extends Equatable {
         assessments,
         classrooms,
         students,
+        ageGroups,
         period,
         isLoading,
         isSaving,
@@ -287,6 +355,7 @@ class AssessmentsState extends Equatable {
         schoolId,
         statusFilter,
         tagFilter,
+        themeV2,
         errorMessage,
       ];
 }

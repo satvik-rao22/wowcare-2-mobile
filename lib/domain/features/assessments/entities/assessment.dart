@@ -19,6 +19,7 @@ class Assessment extends Equatable {
     required this.assessedAt,
     required this.periodStart,
     required this.periodEnd,
+    this.ageGroupId = '',
     this.schoolId = '',
     this.impersonatorId,
     this.published = false,
@@ -29,6 +30,11 @@ class Assessment extends Equatable {
   final String milestoneId;
   final String subdomainId;
   final String domainId;
+
+  /// The age band the child was in when scored (resolved from their date of
+  /// birth at [periodStart] and stamped at save time). Freezes history: later
+  /// edits to the school's bands never reinterpret this record.
+  final String ageGroupId;
 
   /// Integer 1–5 (VR-AS-01/02).
   final int score;
@@ -64,6 +70,7 @@ class Assessment extends Equatable {
     DateTime? assessedAt,
     DateTime? periodStart,
     DateTime? periodEnd,
+    String? ageGroupId,
     String? schoolId,
     String? Function()? impersonatorId,
     bool? published,
@@ -80,6 +87,7 @@ class Assessment extends Equatable {
       assessedAt: assessedAt ?? this.assessedAt,
       periodStart: periodStart ?? this.periodStart,
       periodEnd: periodEnd ?? this.periodEnd,
+      ageGroupId: ageGroupId ?? this.ageGroupId,
       schoolId: schoolId ?? this.schoolId,
       impersonatorId:
           impersonatorId != null ? impersonatorId() : this.impersonatorId,
@@ -95,6 +103,7 @@ class Assessment extends Equatable {
         score,
         notes,
         periodStart,
+        ageGroupId,
         assessedAt,
         published,
       ];

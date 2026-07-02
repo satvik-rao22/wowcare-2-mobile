@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 
@@ -126,7 +125,7 @@ class _AssessmentFilterSheet extends StatelessWidget {
                         borderRadius: BorderRadius.circular(14),
                         child: Ink(
                           decoration: BoxDecoration(
-                            gradient: AssessmentUi.brandGradient,
+                            gradient: AssessmentUi.accentGradient,
                             borderRadius: BorderRadius.circular(14),
                           ),
                           child: const Center(
@@ -173,7 +172,7 @@ class _AssessmentFilterSheet extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: selected ? AppColors.themeColor : const Color(0xFFF1EFF8),
+      color: selected ? AssessmentUi.brand : const Color(0xFFF1EFF8),
       borderRadius: BorderRadius.circular(999),
       child: InkWell(
         onTap: onTap,

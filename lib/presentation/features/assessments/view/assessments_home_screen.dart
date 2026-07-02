@@ -117,7 +117,12 @@ class _AssessmentsHomeScreenState extends State<AssessmentsHomeScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (showBottomNav)
-          AssessmentTopHeader(title: _section.label, roleLabel: roleLabel)
+          AssessmentTopHeader(
+            title: _section.label,
+            roleLabel: roleLabel,
+            themeV2: state.themeV2,
+            onThemeSelect: context.read<AssessmentsCubit>().setThemeV2,
+          )
         else
           _buildBackBar(state, canManage),
         Expanded(child: _buildBody(state)),
@@ -240,11 +245,11 @@ class _AddDomainFab extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: Ink(
           decoration: BoxDecoration(
-            gradient: AssessmentUi.brandGradient,
+            gradient: AssessmentUi.accentGradient,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: AssessmentUi.brand.withValues(alpha: 0.4),
+                color: AssessmentUi.accent.withValues(alpha: 0.4),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),

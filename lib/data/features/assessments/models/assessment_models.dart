@@ -14,6 +14,7 @@ class AssessmentModel {
     required this.assessedAt,
     required this.periodStart,
     required this.periodEnd,
+    this.ageGroupId = '',
     this.schoolId = '',
     this.impersonatorId,
     this.published = false,
@@ -39,6 +40,7 @@ class AssessmentModel {
         json['periodEnd'],
         DateTime(start.year, start.month + 1, 0),
       ),
+      ageGroupId: (json['ageGroupId'] ?? '').toString().trim(),
       schoolId: (json['schoolId'] ?? '').toString(),
       impersonatorId: json['impersonatorId']?.toString(),
       published: json['published'] == true,
@@ -56,6 +58,7 @@ class AssessmentModel {
   final DateTime assessedAt;
   final DateTime periodStart;
   final DateTime periodEnd;
+  final String ageGroupId;
   final String schoolId;
   final String? impersonatorId;
   final bool published;
@@ -72,6 +75,7 @@ class AssessmentModel {
         assessedAt: assessedAt,
         periodStart: periodStart,
         periodEnd: periodEnd,
+        ageGroupId: ageGroupId,
         schoolId: schoolId,
         impersonatorId: impersonatorId,
         published: published,

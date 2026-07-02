@@ -21,6 +21,10 @@ abstract class AssessmentLocalDataSource {
 
   Future<List<AssessmentStudentCollection>> getStudents();
   Future<void> upsertStudents(List<AssessmentStudentCollection> students);
+
+  Future<List<AssessmentAgeGroupCollection>> getAgeGroups();
+  Future<void> upsertAgeGroup(AssessmentAgeGroupCollection ageGroup);
+  Future<void> upsertAgeGroups(List<AssessmentAgeGroupCollection> ageGroups);
 }
 
 class AssessmentLocalDataSourceImpl implements AssessmentLocalDataSource {
@@ -69,4 +73,16 @@ class AssessmentLocalDataSourceImpl implements AssessmentLocalDataSource {
   @override
   Future<void> upsertStudents(List<AssessmentStudentCollection> students) =>
       _cacheService.putAll<AssessmentStudentCollection>(students);
+
+  @override
+  Future<List<AssessmentAgeGroupCollection>> getAgeGroups() =>
+      _cacheService.getAll<AssessmentAgeGroupCollection>();
+
+  @override
+  Future<void> upsertAgeGroup(AssessmentAgeGroupCollection ageGroup) =>
+      _cacheService.put<AssessmentAgeGroupCollection>(ageGroup);
+
+  @override
+  Future<void> upsertAgeGroups(List<AssessmentAgeGroupCollection> ageGroups) =>
+      _cacheService.putAll<AssessmentAgeGroupCollection>(ageGroups);
 }

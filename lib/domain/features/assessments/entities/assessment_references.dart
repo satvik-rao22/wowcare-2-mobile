@@ -37,6 +37,7 @@ class AssessmentStudent extends Equatable {
     required this.code,
     required this.name,
     required this.classroomCode,
+    this.dateOfBirth,
     this.avatarUrl,
     this.status = 'ACTIVE',
     this.schoolId = '',
@@ -47,8 +48,14 @@ class AssessmentStudent extends Equatable {
   final String code;
   final String name;
 
-  /// Code of the classroom this student belongs to.
+  /// Code of the classroom this student belongs to. Classrooms scope *who a
+  /// teacher can see*; which milestones the child is assessed against is
+  /// resolved from [dateOfBirth] against the school's age bands.
   final String classroomCode;
+
+  /// Date of birth — the input to age-band resolution. Null when the source
+  /// record has no DOB; such students resolve to no band and can't be scored.
+  final DateTime? dateOfBirth;
   final String? avatarUrl;
   final String status;
   final String schoolId;
@@ -57,6 +64,17 @@ class AssessmentStudent extends Equatable {
   final List<String> tags;
 
   bool get isActive => status.toUpperCase() == 'ACTIVE';
+
+  /// Age in whole months as of [date] (calendar-aware: the month count only
+  /// ticks over once the day-of-month is reached). Null without a DOB or for
+  /// dates before birth.
+  int? ageInMonthsAt(DateTime date) {
+    final dob = dateOfBirth;
+    if (dob == null) return null;
+    var months = (date.year - dob.year) * 12 + (date.month - dob.month);
+    if (date.day < dob.day) months -= 1;
+    return months < 0 ? null : months;
+  }
 
   /// Up to two initials for the avatar fallback (FR-SA-04).
   String get initials {
@@ -72,5 +90,5 @@ class AssessmentStudent extends Equatable {
 
   @override
   List<Object?> get props =>
-      [code, name, classroomCode, status, schoolId, tags];
+      [code, name, classroomCode, dateOfBirth, status, schoolId, tags];
 }

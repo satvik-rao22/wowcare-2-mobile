@@ -25,6 +25,7 @@ class IsarCacheService implements CacheService {
       AssessmentCollectionSchema,
       AssessmentClassroomCollectionSchema,
       AssessmentStudentCollectionSchema,
+      AssessmentAgeGroupCollectionSchema,
     ], directory: dir.path);
   }
 

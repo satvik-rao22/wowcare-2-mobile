@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 
 /// Confirmation dialog for deactivation flows (PRD FR-DM-14, FR-SD-11,
 /// FR-MS-10). Accessible by default: Material's [AlertDialog] sets
@@ -51,7 +52,7 @@ class AssessmentConfirmDialog extends StatelessWidget {
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor:
-                destructive ? AppColors.errorColor : AppColors.themeColor,
+                destructive ? AppColors.errorColor : AssessmentUi.accent,
           ),
           onPressed: () => Navigator.pop(context, true),
           child: Text(confirmLabel),

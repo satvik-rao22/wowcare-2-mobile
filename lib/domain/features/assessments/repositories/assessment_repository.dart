@@ -1,4 +1,5 @@
 import 'package:wowcare/domain/features/assessments/entities/assessment.dart';
+import 'package:wowcare/domain/features/assessments/entities/assessment_age_group.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_parameters.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_references.dart';
 
@@ -33,13 +34,28 @@ abstract class AssessmentRepository {
 
   Future<void> deactivateMilestone(String milestoneId);
 
-  /// Updates only the classroom assignment for a milestone (PRD FR-MS-14..17).
-  /// Removing a classroom does not delete existing assessment records
-  /// (BR-PM-02).
-  Future<AssessmentMilestone> updateMilestoneClassrooms(
+  /// Updates only the age-group assignment for a milestone (adapts PRD
+  /// FR-MS-14..17 from classrooms to age groups). Removing a band does not
+  /// delete existing assessment records (adapts BR-PM-02).
+  Future<AssessmentMilestone> updateMilestoneAgeGroups(
     String milestoneId,
-    List<String> classroomCodes,
+    List<String> ageGroupIds,
   );
+
+  // --------------------------------------------------------------- age groups
+
+  /// The school's age bands, including deactivated ones (callers filter by
+  /// [AssessmentAgeGroup.active]). Seeded with the default preset on first
+  /// run; fully editable by the school afterwards.
+  Future<List<AssessmentAgeGroup>> getAgeGroups();
+
+  /// Creates (when [AssessmentAgeGroup.id] is empty) or updates a band.
+  /// Editing a band never rewrites history — saved assessments keep the
+  /// band id they were stamped with.
+  Future<AssessmentAgeGroup> saveAgeGroup(AssessmentAgeGroup ageGroup);
+
+  /// Soft-deletes a band. Historical assessments are preserved.
+  Future<void> deactivateAgeGroup(String ageGroupId);
 
   // ------------------------------------------------------------- assessments
 

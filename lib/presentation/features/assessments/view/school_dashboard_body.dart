@@ -28,11 +28,11 @@ class SchoolDashboardBody extends StatelessWidget {
           previousRecords: previous,
         );
 
+        final statAccents = AssessmentUi.palette.statAccents;
         final stats = <_Stat>[
-          _Stat('${state.classrooms.length}', 'Classrooms',
-              const Color(0xFF5978F7)),
-          _Stat('$activeStudents', 'Students', const Color(0xFF8B5CF6)),
-          _Stat('${domains.length}', 'Active domains', const Color(0xFF3B82F6)),
+          _Stat('${state.classrooms.length}', 'Classrooms', statAccents[0]),
+          _Stat('$activeStudents', 'Students', statAccents[1]),
+          _Stat('${domains.length}', 'Active domains', statAccents[2]),
           _Stat('${current.length}', 'Assessments this period',
               const Color(0xFF16A34A)),
         ];
@@ -45,7 +45,7 @@ class SchoolDashboardBody extends StatelessWidget {
               child: AssessmentPeriodChip(
                 period: state.period,
                 onChanged: cubit.setPeriodMonth,
-                iconColor: const Color(0xFF3B82F6),
+                iconColor: AssessmentUi.palette.statAccents[2],
               ),
             ),
             const SizedBox(height: 14),

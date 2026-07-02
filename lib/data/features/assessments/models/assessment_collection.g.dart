@@ -18,73 +18,78 @@ const AssessmentCollectionSchema = CollectionSchema(
   name: r'AssessmentCollection',
   id: -6522676297648678997,
   properties: {
-    r'assessedAt': PropertySchema(
+    r'ageGroupId': PropertySchema(
       id: 0,
+      name: r'ageGroupId',
+      type: IsarType.string,
+    ),
+    r'assessedAt': PropertySchema(
+      id: 1,
       name: r'assessedAt',
       type: IsarType.dateTime,
     ),
     r'assessedBy': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'assessedBy',
       type: IsarType.string,
     ),
     r'domainId': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'domainId',
       type: IsarType.string,
     ),
     r'id': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'id',
       type: IsarType.string,
     ),
     r'impersonatorId': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'impersonatorId',
       type: IsarType.string,
     ),
     r'milestoneId': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'milestoneId',
       type: IsarType.string,
     ),
     r'notes': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'notes',
       type: IsarType.string,
     ),
     r'periodEnd': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'periodEnd',
       type: IsarType.dateTime,
     ),
     r'periodStart': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'periodStart',
       type: IsarType.dateTime,
     ),
     r'published': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'published',
       type: IsarType.bool,
     ),
     r'schoolId': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'schoolId',
       type: IsarType.string,
     ),
     r'score': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'score',
       type: IsarType.long,
     ),
     r'studentId': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'studentId',
       type: IsarType.string,
     ),
     r'subdomainId': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'subdomainId',
       type: IsarType.string,
     )
@@ -175,6 +180,7 @@ int _assessmentCollectionEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.ageGroupId.length * 3;
   bytesCount += 3 + object.assessedBy.length * 3;
   bytesCount += 3 + object.domainId.length * 3;
   bytesCount += 3 + object.id.length * 3;
@@ -203,20 +209,21 @@ void _assessmentCollectionSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeDateTime(offsets[0], object.assessedAt);
-  writer.writeString(offsets[1], object.assessedBy);
-  writer.writeString(offsets[2], object.domainId);
-  writer.writeString(offsets[3], object.id);
-  writer.writeString(offsets[4], object.impersonatorId);
-  writer.writeString(offsets[5], object.milestoneId);
-  writer.writeString(offsets[6], object.notes);
-  writer.writeDateTime(offsets[7], object.periodEnd);
-  writer.writeDateTime(offsets[8], object.periodStart);
-  writer.writeBool(offsets[9], object.published);
-  writer.writeString(offsets[10], object.schoolId);
-  writer.writeLong(offsets[11], object.score);
-  writer.writeString(offsets[12], object.studentId);
-  writer.writeString(offsets[13], object.subdomainId);
+  writer.writeString(offsets[0], object.ageGroupId);
+  writer.writeDateTime(offsets[1], object.assessedAt);
+  writer.writeString(offsets[2], object.assessedBy);
+  writer.writeString(offsets[3], object.domainId);
+  writer.writeString(offsets[4], object.id);
+  writer.writeString(offsets[5], object.impersonatorId);
+  writer.writeString(offsets[6], object.milestoneId);
+  writer.writeString(offsets[7], object.notes);
+  writer.writeDateTime(offsets[8], object.periodEnd);
+  writer.writeDateTime(offsets[9], object.periodStart);
+  writer.writeBool(offsets[10], object.published);
+  writer.writeString(offsets[11], object.schoolId);
+  writer.writeLong(offsets[12], object.score);
+  writer.writeString(offsets[13], object.studentId);
+  writer.writeString(offsets[14], object.subdomainId);
 }
 
 AssessmentCollection _assessmentCollectionDeserialize(
@@ -226,20 +233,21 @@ AssessmentCollection _assessmentCollectionDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = AssessmentCollection();
-  object.assessedAt = reader.readDateTime(offsets[0]);
-  object.assessedBy = reader.readString(offsets[1]);
-  object.domainId = reader.readString(offsets[2]);
-  object.id = reader.readString(offsets[3]);
-  object.impersonatorId = reader.readStringOrNull(offsets[4]);
-  object.milestoneId = reader.readString(offsets[5]);
-  object.notes = reader.readStringOrNull(offsets[6]);
-  object.periodEnd = reader.readDateTime(offsets[7]);
-  object.periodStart = reader.readDateTime(offsets[8]);
-  object.published = reader.readBool(offsets[9]);
-  object.schoolId = reader.readString(offsets[10]);
-  object.score = reader.readLong(offsets[11]);
-  object.studentId = reader.readString(offsets[12]);
-  object.subdomainId = reader.readString(offsets[13]);
+  object.ageGroupId = reader.readString(offsets[0]);
+  object.assessedAt = reader.readDateTime(offsets[1]);
+  object.assessedBy = reader.readString(offsets[2]);
+  object.domainId = reader.readString(offsets[3]);
+  object.id = reader.readString(offsets[4]);
+  object.impersonatorId = reader.readStringOrNull(offsets[5]);
+  object.milestoneId = reader.readString(offsets[6]);
+  object.notes = reader.readStringOrNull(offsets[7]);
+  object.periodEnd = reader.readDateTime(offsets[8]);
+  object.periodStart = reader.readDateTime(offsets[9]);
+  object.published = reader.readBool(offsets[10]);
+  object.schoolId = reader.readString(offsets[11]);
+  object.score = reader.readLong(offsets[12]);
+  object.studentId = reader.readString(offsets[13]);
+  object.subdomainId = reader.readString(offsets[14]);
   return object;
 }
 
@@ -251,32 +259,34 @@ P _assessmentCollectionDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readDateTime(offset)) as P;
-    case 1:
       return (reader.readString(offset)) as P;
+    case 1:
+      return (reader.readDateTime(offset)) as P;
     case 2:
       return (reader.readString(offset)) as P;
     case 3:
       return (reader.readString(offset)) as P;
     case 4:
-      return (reader.readStringOrNull(offset)) as P;
-    case 5:
       return (reader.readString(offset)) as P;
-    case 6:
+    case 5:
       return (reader.readStringOrNull(offset)) as P;
+    case 6:
+      return (reader.readString(offset)) as P;
     case 7:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 8:
       return (reader.readDateTime(offset)) as P;
     case 9:
-      return (reader.readBool(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 10:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 11:
-      return (reader.readLong(offset)) as P;
-    case 12:
       return (reader.readString(offset)) as P;
+    case 12:
+      return (reader.readLong(offset)) as P;
     case 13:
+      return (reader.readString(offset)) as P;
+    case 14:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -660,6 +670,144 @@ extension AssessmentCollectionQueryWhere
 
 extension AssessmentCollectionQueryFilter on QueryBuilder<AssessmentCollection,
     AssessmentCollection, QFilterCondition> {
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+      QAfterFilterCondition> ageGroupIdEqualTo(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'ageGroupId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+      QAfterFilterCondition> ageGroupIdGreaterThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'ageGroupId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+      QAfterFilterCondition> ageGroupIdLessThan(
+    String value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'ageGroupId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+      QAfterFilterCondition> ageGroupIdBetween(
+    String lower,
+    String upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'ageGroupId',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+      QAfterFilterCondition> ageGroupIdStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'ageGroupId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+      QAfterFilterCondition> ageGroupIdEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'ageGroupId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+          QAfterFilterCondition>
+      ageGroupIdContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'ageGroupId',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+          QAfterFilterCondition>
+      ageGroupIdMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'ageGroupId',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+      QAfterFilterCondition> ageGroupIdIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'ageGroupId',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection,
+      QAfterFilterCondition> ageGroupIdIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'ageGroupId',
+        value: '',
+      ));
+    });
+  }
+
   QueryBuilder<AssessmentCollection, AssessmentCollection,
       QAfterFilterCondition> assessedAtEqualTo(DateTime value) {
     return QueryBuilder.apply(this, (query) {
@@ -2238,6 +2386,20 @@ extension AssessmentCollectionQueryLinks on QueryBuilder<AssessmentCollection,
 extension AssessmentCollectionQuerySortBy
     on QueryBuilder<AssessmentCollection, AssessmentCollection, QSortBy> {
   QueryBuilder<AssessmentCollection, AssessmentCollection, QAfterSortBy>
+      sortByAgeGroupId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ageGroupId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection, QAfterSortBy>
+      sortByAgeGroupIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ageGroupId', Sort.desc);
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection, QAfterSortBy>
       sortByAssessedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'assessedAt', Sort.asc);
@@ -2436,6 +2598,20 @@ extension AssessmentCollectionQuerySortBy
 
 extension AssessmentCollectionQuerySortThenBy
     on QueryBuilder<AssessmentCollection, AssessmentCollection, QSortThenBy> {
+  QueryBuilder<AssessmentCollection, AssessmentCollection, QAfterSortBy>
+      thenByAgeGroupId() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ageGroupId', Sort.asc);
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection, QAfterSortBy>
+      thenByAgeGroupIdDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'ageGroupId', Sort.desc);
+    });
+  }
+
   QueryBuilder<AssessmentCollection, AssessmentCollection, QAfterSortBy>
       thenByAssessedAt() {
     return QueryBuilder.apply(this, (query) {
@@ -2650,6 +2826,13 @@ extension AssessmentCollectionQuerySortThenBy
 extension AssessmentCollectionQueryWhereDistinct
     on QueryBuilder<AssessmentCollection, AssessmentCollection, QDistinct> {
   QueryBuilder<AssessmentCollection, AssessmentCollection, QDistinct>
+      distinctByAgeGroupId({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'ageGroupId', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, AssessmentCollection, QDistinct>
       distinctByAssessedAt() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'assessedAt');
@@ -2754,6 +2937,13 @@ extension AssessmentCollectionQueryProperty on QueryBuilder<
   QueryBuilder<AssessmentCollection, int, QQueryOperations> isarIdProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isarId');
+    });
+  }
+
+  QueryBuilder<AssessmentCollection, String, QQueryOperations>
+      ageGroupIdProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'ageGroupId');
     });
   }
 

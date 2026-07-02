@@ -23,9 +23,9 @@ const AssessmentDomainCollectionSchema = CollectionSchema(
       name: r'active',
       type: IsarType.bool,
     ),
-    r'assignedClassrooms': PropertySchema(
+    r'assignedAgeGroups': PropertySchema(
       id: 1,
-      name: r'assignedClassrooms',
+      name: r'assignedAgeGroups',
       type: IsarType.stringList,
     ),
     r'createdAt': PropertySchema(
@@ -120,10 +120,10 @@ int _assessmentDomainCollectionEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
-  bytesCount += 3 + object.assignedClassrooms.length * 3;
+  bytesCount += 3 + object.assignedAgeGroups.length * 3;
   {
-    for (var i = 0; i < object.assignedClassrooms.length; i++) {
-      final value = object.assignedClassrooms[i];
+    for (var i = 0; i < object.assignedAgeGroups.length; i++) {
+      final value = object.assignedAgeGroups[i];
       bytesCount += value.length * 3;
     }
   }
@@ -151,7 +151,7 @@ void _assessmentDomainCollectionSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeBool(offsets[0], object.active);
-  writer.writeStringList(offsets[1], object.assignedClassrooms);
+  writer.writeStringList(offsets[1], object.assignedAgeGroups);
   writer.writeDateTime(offsets[2], object.createdAt);
   writer.writeString(offsets[3], object.createdBy);
   writer.writeString(offsets[4], object.description);
@@ -175,7 +175,7 @@ AssessmentDomainCollection _assessmentDomainCollectionDeserialize(
 ) {
   final object = AssessmentDomainCollection();
   object.active = reader.readBool(offsets[0]);
-  object.assignedClassrooms = reader.readStringList(offsets[1]) ?? [];
+  object.assignedAgeGroups = reader.readStringList(offsets[1]) ?? [];
   object.createdAt = reader.readDateTime(offsets[2]);
   object.createdBy = reader.readString(offsets[3]);
   object.description = reader.readString(offsets[4]);
@@ -483,13 +483,13 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsElementEqualTo(
+      QAfterFilterCondition> assignedAgeGroupsElementEqualTo(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -497,7 +497,7 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsElementGreaterThan(
+      QAfterFilterCondition> assignedAgeGroupsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
@@ -505,7 +505,7 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -513,7 +513,7 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsElementLessThan(
+      QAfterFilterCondition> assignedAgeGroupsElementLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
@@ -521,7 +521,7 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -529,7 +529,7 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsElementBetween(
+      QAfterFilterCondition> assignedAgeGroupsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -538,7 +538,7 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -549,13 +549,13 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsElementStartsWith(
+      QAfterFilterCondition> assignedAgeGroupsElementStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -563,13 +563,13 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsElementEndsWith(
+      QAfterFilterCondition> assignedAgeGroupsElementEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -578,11 +578,11 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
           QAfterFilterCondition>
-      assignedClassroomsElementContains(String value,
+      assignedAgeGroupsElementContains(String value,
           {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.contains(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -591,11 +591,11 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
           QAfterFilterCondition>
-      assignedClassroomsElementMatches(String pattern,
+      assignedAgeGroupsElementMatches(String pattern,
           {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.matches(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         wildcard: pattern,
         caseSensitive: caseSensitive,
       ));
@@ -603,30 +603,30 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsElementIsEmpty() {
+      QAfterFilterCondition> assignedAgeGroupsElementIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: '',
       ));
     });
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsElementIsNotEmpty() {
+      QAfterFilterCondition> assignedAgeGroupsElementIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: '',
       ));
     });
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsLengthEqualTo(int length) {
+      QAfterFilterCondition> assignedAgeGroupsLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         length,
         true,
         length,
@@ -636,10 +636,10 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsIsEmpty() {
+      QAfterFilterCondition> assignedAgeGroupsIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         true,
         0,
@@ -649,10 +649,10 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsIsNotEmpty() {
+      QAfterFilterCondition> assignedAgeGroupsIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         false,
         999999,
@@ -662,13 +662,13 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsLengthLessThan(
+      QAfterFilterCondition> assignedAgeGroupsLengthLessThan(
     int length, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         true,
         length,
@@ -678,13 +678,13 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsLengthGreaterThan(
+      QAfterFilterCondition> assignedAgeGroupsLengthGreaterThan(
     int length, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         length,
         include,
         999999,
@@ -694,7 +694,7 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QAfterFilterCondition> assignedClassroomsLengthBetween(
+      QAfterFilterCondition> assignedAgeGroupsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -702,7 +702,7 @@ extension AssessmentDomainCollectionQueryFilter on QueryBuilder<
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         lower,
         includeLower,
         upper,
@@ -1927,9 +1927,9 @@ extension AssessmentDomainCollectionQueryWhereDistinct on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, AssessmentDomainCollection,
-      QDistinct> distinctByAssignedClassrooms() {
+      QDistinct> distinctByAssignedAgeGroups() {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'assignedClassrooms');
+      return query.addDistinctBy(r'assignedAgeGroups');
     });
   }
 
@@ -2000,9 +2000,9 @@ extension AssessmentDomainCollectionQueryProperty on QueryBuilder<
   }
 
   QueryBuilder<AssessmentDomainCollection, List<String>, QQueryOperations>
-      assignedClassroomsProperty() {
+      assignedAgeGroupsProperty() {
     return QueryBuilder.apply(this, (query) {
-      return query.addPropertyName(r'assignedClassrooms');
+      return query.addPropertyName(r'assignedAgeGroups');
     });
   }
 
@@ -2079,9 +2079,9 @@ const SubdomainEmbeddedSchema = Schema(
       name: r'active',
       type: IsarType.bool,
     ),
-    r'assignedClassrooms': PropertySchema(
+    r'assignedAgeGroups': PropertySchema(
       id: 1,
-      name: r'assignedClassrooms',
+      name: r'assignedAgeGroups',
       type: IsarType.stringList,
     ),
     r'createdAt': PropertySchema(
@@ -2123,10 +2123,10 @@ int _subdomainEmbeddedEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
-  bytesCount += 3 + object.assignedClassrooms.length * 3;
+  bytesCount += 3 + object.assignedAgeGroups.length * 3;
   {
-    for (var i = 0; i < object.assignedClassrooms.length; i++) {
-      final value = object.assignedClassrooms[i];
+    for (var i = 0; i < object.assignedAgeGroups.length; i++) {
+      final value = object.assignedAgeGroups[i];
       bytesCount += value.length * 3;
     }
   }
@@ -2151,7 +2151,7 @@ void _subdomainEmbeddedSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeBool(offsets[0], object.active);
-  writer.writeStringList(offsets[1], object.assignedClassrooms);
+  writer.writeStringList(offsets[1], object.assignedAgeGroups);
   writer.writeDateTime(offsets[2], object.createdAt);
   writer.writeString(offsets[3], object.id);
   writer.writeObjectList<MilestoneEmbedded>(
@@ -2172,7 +2172,7 @@ SubdomainEmbedded _subdomainEmbeddedDeserialize(
 ) {
   final object = SubdomainEmbedded();
   object.active = reader.readBool(offsets[0]);
-  object.assignedClassrooms = reader.readStringList(offsets[1]) ?? [];
+  object.assignedAgeGroups = reader.readStringList(offsets[1]) ?? [];
   object.createdAt = reader.readDateTimeOrNull(offsets[2]);
   object.id = reader.readString(offsets[3]);
   object.milestones = reader.readObjectList<MilestoneEmbedded>(
@@ -2232,13 +2232,13 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementEqualTo(
+      assignedAgeGroupsElementEqualTo(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -2246,7 +2246,7 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementGreaterThan(
+      assignedAgeGroupsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
@@ -2254,7 +2254,7 @@ extension SubdomainEmbeddedQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -2262,7 +2262,7 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementLessThan(
+      assignedAgeGroupsElementLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
@@ -2270,7 +2270,7 @@ extension SubdomainEmbeddedQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -2278,7 +2278,7 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementBetween(
+      assignedAgeGroupsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -2287,7 +2287,7 @@ extension SubdomainEmbeddedQueryFilter
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -2298,13 +2298,13 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementStartsWith(
+      assignedAgeGroupsElementStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -2312,13 +2312,13 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementEndsWith(
+      assignedAgeGroupsElementEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -2326,11 +2326,11 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementContains(String value,
+      assignedAgeGroupsElementContains(String value,
           {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.contains(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -2338,11 +2338,11 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementMatches(String pattern,
+      assignedAgeGroupsElementMatches(String pattern,
           {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.matches(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         wildcard: pattern,
         caseSensitive: caseSensitive,
       ));
@@ -2350,30 +2350,30 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementIsEmpty() {
+      assignedAgeGroupsElementIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: '',
       ));
     });
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementIsNotEmpty() {
+      assignedAgeGroupsElementIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assignedClassrooms',
+        property: r'assignedAgeGroups',
         value: '',
       ));
     });
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsLengthEqualTo(int length) {
+      assignedAgeGroupsLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         length,
         true,
         length,
@@ -2383,10 +2383,10 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsIsEmpty() {
+      assignedAgeGroupsIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         true,
         0,
@@ -2396,10 +2396,10 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsIsNotEmpty() {
+      assignedAgeGroupsIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         false,
         999999,
@@ -2409,13 +2409,13 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsLengthLessThan(
+      assignedAgeGroupsLengthLessThan(
     int length, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         true,
         length,
@@ -2425,13 +2425,13 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsLengthGreaterThan(
+      assignedAgeGroupsLengthGreaterThan(
     int length, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         length,
         include,
         999999,
@@ -2441,7 +2441,7 @@ extension SubdomainEmbeddedQueryFilter
   }
 
   QueryBuilder<SubdomainEmbedded, SubdomainEmbedded, QAfterFilterCondition>
-      assignedClassroomsLengthBetween(
+      assignedAgeGroupsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -2449,7 +2449,7 @@ extension SubdomainEmbeddedQueryFilter
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         lower,
         includeLower,
         upper,
@@ -2990,38 +2990,33 @@ const MilestoneEmbeddedSchema = Schema(
       name: r'active',
       type: IsarType.bool,
     ),
-    r'ageGroup': PropertySchema(
+    r'assignedAgeGroups': PropertySchema(
       id: 1,
-      name: r'ageGroup',
-      type: IsarType.string,
-    ),
-    r'assignedClassrooms': PropertySchema(
-      id: 2,
-      name: r'assignedClassrooms',
+      name: r'assignedAgeGroups',
       type: IsarType.stringList,
     ),
     r'createdAt': PropertySchema(
-      id: 3,
+      id: 2,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'description': PropertySchema(
-      id: 4,
+      id: 3,
       name: r'description',
       type: IsarType.string,
     ),
     r'id': PropertySchema(
-      id: 5,
+      id: 4,
       name: r'id',
       type: IsarType.string,
     ),
     r'name': PropertySchema(
-      id: 6,
+      id: 5,
       name: r'name',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 7,
+      id: 6,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -3038,11 +3033,10 @@ int _milestoneEmbeddedEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
-  bytesCount += 3 + object.ageGroup.length * 3;
-  bytesCount += 3 + object.assignedClassrooms.length * 3;
+  bytesCount += 3 + object.assignedAgeGroups.length * 3;
   {
-    for (var i = 0; i < object.assignedClassrooms.length; i++) {
-      final value = object.assignedClassrooms[i];
+    for (var i = 0; i < object.assignedAgeGroups.length; i++) {
+      final value = object.assignedAgeGroups[i];
       bytesCount += value.length * 3;
     }
   }
@@ -3059,13 +3053,12 @@ void _milestoneEmbeddedSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeBool(offsets[0], object.active);
-  writer.writeString(offsets[1], object.ageGroup);
-  writer.writeStringList(offsets[2], object.assignedClassrooms);
-  writer.writeDateTime(offsets[3], object.createdAt);
-  writer.writeString(offsets[4], object.description);
-  writer.writeString(offsets[5], object.id);
-  writer.writeString(offsets[6], object.name);
-  writer.writeDateTime(offsets[7], object.updatedAt);
+  writer.writeStringList(offsets[1], object.assignedAgeGroups);
+  writer.writeDateTime(offsets[2], object.createdAt);
+  writer.writeString(offsets[3], object.description);
+  writer.writeString(offsets[4], object.id);
+  writer.writeString(offsets[5], object.name);
+  writer.writeDateTime(offsets[6], object.updatedAt);
 }
 
 MilestoneEmbedded _milestoneEmbeddedDeserialize(
@@ -3076,13 +3069,12 @@ MilestoneEmbedded _milestoneEmbeddedDeserialize(
 ) {
   final object = MilestoneEmbedded();
   object.active = reader.readBool(offsets[0]);
-  object.ageGroup = reader.readString(offsets[1]);
-  object.assignedClassrooms = reader.readStringList(offsets[2]) ?? [];
-  object.createdAt = reader.readDateTimeOrNull(offsets[3]);
-  object.description = reader.readString(offsets[4]);
-  object.id = reader.readString(offsets[5]);
-  object.name = reader.readString(offsets[6]);
-  object.updatedAt = reader.readDateTimeOrNull(offsets[7]);
+  object.assignedAgeGroups = reader.readStringList(offsets[1]) ?? [];
+  object.createdAt = reader.readDateTimeOrNull(offsets[2]);
+  object.description = reader.readString(offsets[3]);
+  object.id = reader.readString(offsets[4]);
+  object.name = reader.readString(offsets[5]);
+  object.updatedAt = reader.readDateTimeOrNull(offsets[6]);
   return object;
 }
 
@@ -3096,18 +3088,16 @@ P _milestoneEmbeddedDeserializeProp<P>(
     case 0:
       return (reader.readBool(offset)) as P;
     case 1:
-      return (reader.readString(offset)) as P;
-    case 2:
       return (reader.readStringList(offset) ?? []) as P;
-    case 3:
+    case 2:
       return (reader.readDateTimeOrNull(offset)) as P;
+    case 3:
+      return (reader.readString(offset)) as P;
     case 4:
       return (reader.readString(offset)) as P;
     case 5:
       return (reader.readString(offset)) as P;
     case 6:
-      return (reader.readString(offset)) as P;
-    case 7:
       return (reader.readDateTimeOrNull(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -3127,13 +3117,13 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupEqualTo(
+      assignedAgeGroupsElementEqualTo(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -3141,7 +3131,7 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupGreaterThan(
+      assignedAgeGroupsElementGreaterThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
@@ -3149,7 +3139,7 @@ extension MilestoneEmbeddedQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -3157,7 +3147,7 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupLessThan(
+      assignedAgeGroupsElementLessThan(
     String value, {
     bool include = false,
     bool caseSensitive = true,
@@ -3165,7 +3155,7 @@ extension MilestoneEmbeddedQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -3173,7 +3163,7 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupBetween(
+      assignedAgeGroupsElementBetween(
     String lower,
     String upper, {
     bool includeLower = true,
@@ -3182,7 +3172,7 @@ extension MilestoneEmbeddedQueryFilter
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -3193,13 +3183,13 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupStartsWith(
+      assignedAgeGroupsElementStartsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -3207,13 +3197,13 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupEndsWith(
+      assignedAgeGroupsElementEndsWith(
     String value, {
     bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -3221,10 +3211,11 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupContains(String value, {bool caseSensitive = true}) {
+      assignedAgeGroupsElementContains(String value,
+          {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.contains(
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         value: value,
         caseSensitive: caseSensitive,
       ));
@@ -3232,10 +3223,11 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupMatches(String pattern, {bool caseSensitive = true}) {
+      assignedAgeGroupsElementMatches(String pattern,
+          {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.matches(
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         wildcard: pattern,
         caseSensitive: caseSensitive,
       ));
@@ -3243,168 +3235,30 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupIsEmpty() {
+      assignedAgeGroupsElementIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         value: '',
       ));
     });
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      ageGroupIsNotEmpty() {
+      assignedAgeGroupsElementIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'ageGroup',
+        property: r'assignedAgeGroups',
         value: '',
       ));
     });
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementEqualTo(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assignedClassrooms',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementGreaterThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        include: include,
-        property: r'assignedClassrooms',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementLessThan(
-    String value, {
-    bool include = false,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.lessThan(
-        include: include,
-        property: r'assignedClassrooms',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementBetween(
-    String lower,
-    String upper, {
-    bool includeLower = true,
-    bool includeUpper = true,
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.between(
-        property: r'assignedClassrooms',
-        lower: lower,
-        includeLower: includeLower,
-        upper: upper,
-        includeUpper: includeUpper,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementStartsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.startsWith(
-        property: r'assignedClassrooms',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementEndsWith(
-    String value, {
-    bool caseSensitive = true,
-  }) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.endsWith(
-        property: r'assignedClassrooms',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementContains(String value,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.contains(
-        property: r'assignedClassrooms',
-        value: value,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementMatches(String pattern,
-          {bool caseSensitive = true}) {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.matches(
-        property: r'assignedClassrooms',
-        wildcard: pattern,
-        caseSensitive: caseSensitive,
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementIsEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.equalTo(
-        property: r'assignedClassrooms',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsElementIsNotEmpty() {
-    return QueryBuilder.apply(this, (query) {
-      return query.addFilterCondition(FilterCondition.greaterThan(
-        property: r'assignedClassrooms',
-        value: '',
-      ));
-    });
-  }
-
-  QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsLengthEqualTo(int length) {
+      assignedAgeGroupsLengthEqualTo(int length) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         length,
         true,
         length,
@@ -3414,10 +3268,10 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsIsEmpty() {
+      assignedAgeGroupsIsEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         true,
         0,
@@ -3427,10 +3281,10 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsIsNotEmpty() {
+      assignedAgeGroupsIsNotEmpty() {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         false,
         999999,
@@ -3440,13 +3294,13 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsLengthLessThan(
+      assignedAgeGroupsLengthLessThan(
     int length, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         0,
         true,
         length,
@@ -3456,13 +3310,13 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsLengthGreaterThan(
+      assignedAgeGroupsLengthGreaterThan(
     int length, {
     bool include = false,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         length,
         include,
         999999,
@@ -3472,7 +3326,7 @@ extension MilestoneEmbeddedQueryFilter
   }
 
   QueryBuilder<MilestoneEmbedded, MilestoneEmbedded, QAfterFilterCondition>
-      assignedClassroomsLengthBetween(
+      assignedAgeGroupsLengthBetween(
     int lower,
     int upper, {
     bool includeLower = true,
@@ -3480,7 +3334,7 @@ extension MilestoneEmbeddedQueryFilter
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.listLength(
-        r'assignedClassrooms',
+        r'assignedAgeGroups',
         lower,
         includeLower,
         upper,

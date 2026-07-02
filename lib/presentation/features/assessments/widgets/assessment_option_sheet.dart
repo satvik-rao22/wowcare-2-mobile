@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 
 /// A single selectable row inside an [AssessmentOptionSheet].
@@ -122,8 +121,9 @@ class _OptionRow<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final o = option;
+    final palette = AssessmentUi.palette;
     final bg = o.selected
-        ? const Color(0xFFEEF1FF)
+        ? palette.brandSoft
         : (o.destructive ? const Color(0xFFFEF2F2) : const Color(0xFFF7F6FB));
     final titleColor =
         o.destructive ? const Color(0xFFB91C1C) : AssessmentUi.ink;
@@ -149,7 +149,7 @@ class _OptionRow<T> extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: o.destructive
                             ? const Color(0xFFFEE2E2)
-                            : const Color(0xFFEEF1FF),
+                            : palette.brandSoft,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
@@ -157,7 +157,7 @@ class _OptionRow<T> extends StatelessWidget {
                         size: 18,
                         color: o.destructive
                             ? const Color(0xFFB91C1C)
-                            : AppColors.themeColor,
+                            : palette.brand,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -189,8 +189,8 @@ class _OptionRow<T> extends StatelessWidget {
                     ),
                   ),
                   if (o.selected)
-                    const Icon(Icons.check_circle_rounded,
-                        size: 22, color: AppColors.themeColor),
+                    Icon(Icons.check_circle_rounded,
+                        size: 22, color: palette.brand),
                 ],
               ),
             ),

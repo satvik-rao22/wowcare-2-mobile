@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment.dart';
+import 'package:wowcare/domain/features/assessments/entities/assessment_age_group.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_parameters.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_references.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_scale.dart';
@@ -18,14 +18,17 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// In-place scoring stepper for one student in the active period (PRD §12.2).
 ///
+/// The milestones offered are resolved from the student's **age band** (date
+/// of birth matched against the school's age groups at the period start), not
+/// from their classroom — the hero names the band being assessed against.
 /// Starts on an Overview step (radar this-vs-last period + domain summary;
-/// empty until the student has any scores), then one step per
-/// classroom-relevant domain — each offering a "set whole domain" quick-pick
-/// with copy-to-all, and per-milestone 1–5 scoring with optional notes — and
-/// ends on a Review step (same summary as Overview). The footer drives
-/// Back/Next/Review/Save; saving upserts every scored milestone in a single
-/// transaction via the cubit, then exits. Once every milestone is scored, a
-/// Publish button (on Overview and Review) marks the assessment finalized.
+/// empty until the student has any scores), then one step per band-relevant
+/// domain — each offering a "set whole domain" quick-pick with copy-to-all,
+/// and per-milestone 1–5 scoring with optional notes — and ends on a Review
+/// step (same summary as Overview). The footer drives Back/Next/Review/Save;
+/// saving upserts every scored milestone in a single transaction via the
+/// cubit, then exits. Once every milestone is scored, a Publish button (on
+/// Overview and Review) marks the assessment finalized.
 class StudentStepperBody extends StatefulWidget {
   const StudentStepperBody({
     super.key,
@@ -65,13 +68,13 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
     return _scores.values.reduce((a, b) => a + b) / _scores.length;
   }
 
-  /// Whether every classroom-relevant milestone (across all domains) has a
-  /// draft score — the "all params completed and ranked" gate for Publish.
-  bool _isFullyScored(AssessmentsState state, String classroomCode) {
-    final domains = state.domainsForClassroom(classroomCode);
+  /// Whether every band-relevant milestone (across all domains) has a draft
+  /// score — the "all params completed and ranked" gate for Publish.
+  bool _isFullyScored(AssessmentsState state, Set<String> bandIds) {
+    final domains = state.domainsForAgeGroups(bandIds);
     if (domains.isEmpty) return false;
     for (final domain in domains) {
-      for (final m in state.milestonesForClassroom(domain, classroomCode)) {
+      for (final m in state.milestonesForAgeGroups(domain, bandIds)) {
         if (!_scores.containsKey(m.id)) return false;
       }
     }
@@ -79,20 +82,20 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
   }
 
   double? _domainAvg(AssessmentsState state, AssessmentDomain domain,
-      String classroomCode) {
+      Set<String> bandIds) {
     final ids = state
-        .milestonesForClassroom(domain, classroomCode)
+        .milestonesForAgeGroups(domain, bandIds)
         .map((m) => m.id);
     final vals = ids.map((id) => _scores[id]).whereType<int>().toList();
     if (vals.isEmpty) return null;
     return vals.reduce((a, b) => a + b) / vals.length;
   }
 
-  /// Scoring progress for one domain's classroom-relevant milestones — drives
+  /// Scoring progress for one domain's band-relevant milestones — drives
   /// the stepper's per-step state (none / partial / complete).
   ({bool any, bool all}) _domainProgress(
-      AssessmentsState state, AssessmentDomain domain, String classroomCode) {
-    final ms = state.milestonesForClassroom(domain, classroomCode);
+      AssessmentsState state, AssessmentDomain domain, Set<String> bandIds) {
+    final ms = state.milestonesForAgeGroups(domain, bandIds);
     if (ms.isEmpty) return (any: false, all: false);
     final scored = ms.where((m) => _scores.containsKey(m.id)).length;
     return (any: scored > 0, all: scored == ms.length);
@@ -107,14 +110,14 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
   }
 
   void _copyToAll(AssessmentsState state, AssessmentDomain domain,
-      String classroomCode) {
+      Set<String> bandIds) {
     final value = _domainDraft[domain.id];
     if (value == null) {
       _toast('Pick a domain score first');
       return;
     }
     setState(() {
-      for (final m in state.milestonesForClassroom(domain, classroomCode)) {
+      for (final m in state.milestonesForAgeGroups(domain, bandIds)) {
         _scores[m.id] = value;
       }
     });
@@ -201,7 +204,11 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
           return const Center(child: Text('Student not found.'));
         }
         _seed(state);
-        final domains = state.domainsForClassroom(student.classroomCode);
+        // The milestones offered follow the child's age band, not their
+        // classroom: resolved from DOB at the period start.
+        final ageGroup = state.resolveAgeGroup(student);
+        final bandIds = ageGroup == null ? <String>{} : {ageGroup.id};
+        final domains = state.domainsForAgeGroups(bandIds);
         final n = domains.length;
         final isOverview = _stepIndex == 0;
         final isReview = _stepIndex >= n + 1 && n > 0;
@@ -209,7 +216,7 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
         final isPublished = state.isPublished(widget.studentCode, state.period);
         final showPublish = canEnterAssessments &&
             !isPublished &&
-            _isFullyScored(state, student.classroomCode);
+            _isFullyScored(state, bandIds);
         final stepLabel = isOverview
             ? 'Overview'
             : isReview
@@ -228,6 +235,7 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                     child: _Hero(
                       student: student,
                       classroomName: classroom?.name ?? '',
+                      ageGroup: ageGroup,
                       period: state.period,
                       overall: _overall(),
                       stepLabel: stepLabel,
@@ -241,8 +249,7 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                     _DomainStepper(
                       domains: domains,
                       stepIndex: _stepIndex - 1,
-                      progressOf: (d) =>
-                          _domainProgress(state, d, student.classroomCode),
+                      progressOf: (d) => _domainProgress(state, d, bandIds),
                       onTap: (i) {
                         final target = i + 1;
                         if (target != _stepIndex) {
@@ -252,13 +259,22 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                     ),
                   ],
                   if (n == 0)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(20, 40, 20, 20),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 40, 20, 20),
                       child: Text(
-                        'No milestones are assigned for this classroom. '
-                        'Add them under Parameters first.',
+                        ageGroup == null
+                            ? (student.dateOfBirth == null
+                                ? 'This child has no date of birth on file, '
+                                    'so no age group could be matched. Add '
+                                    'their date of birth to assess them.'
+                                : 'No age group covers this child\'s age. '
+                                    'Adjust the age groups under Parameters '
+                                    'first.')
+                            : 'No milestones are assigned to the '
+                                '${ageGroup.name} age group. Assign them '
+                                'under Parameters first.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: AssessmentUi.inkMuted),
+                        style: const TextStyle(color: AssessmentUi.inkMuted),
                       ),
                     )
                   else if (isOverview)
@@ -266,8 +282,7 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                       state: state,
                       student: student,
                       domains: domains,
-                      draftDomainAvg: (d) =>
-                          _domainAvg(state, d, student.classroomCode),
+                      draftDomainAvg: (d) => _domainAvg(state, d, bandIds),
                       assessed: _scores.isNotEmpty,
                       showPublish: showPublish,
                       saving: state.isSaving,
@@ -278,8 +293,7 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                       state: state,
                       student: student,
                       domains: domains,
-                      draftDomainAvg: (d) =>
-                          _domainAvg(state, d, student.classroomCode),
+                      draftDomainAvg: (d) => _domainAvg(state, d, bandIds),
                       showPublish: showPublish,
                       saving: state.isSaving,
                       onPublish: () => unawaited(_publish(cubit)),
@@ -287,7 +301,7 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                   else
                     _DomainStep(
                       state: state,
-                      classroomCode: student.classroomCode,
+                      ageGroupIds: bandIds,
                       domain: domains[_stepIndex - 1],
                       scores: _scores,
                       notes: _notes,
@@ -296,8 +310,8 @@ class _StudentStepperBodyState extends State<StudentStepperBody> {
                       onPickScore: _pickScore,
                       onPickDomain: (v) =>
                           _pickDomain(domains[_stepIndex - 1].id, v),
-                      onCopyToAll: () => _copyToAll(
-                          state, domains[_stepIndex - 1], student.classroomCode),
+                      onCopyToAll: () =>
+                          _copyToAll(state, domains[_stepIndex - 1], bandIds),
                       onToggleNote: _toggleNote,
                       onNote: _setNote,
                     ),
@@ -342,6 +356,7 @@ class _Hero extends StatelessWidget {
   const _Hero({
     required this.student,
     required this.classroomName,
+    required this.ageGroup,
     required this.period,
     required this.overall,
     required this.stepLabel,
@@ -352,6 +367,9 @@ class _Hero extends StatelessWidget {
 
   final AssessmentStudent student;
   final String classroomName;
+
+  /// The band this child is being assessed against (null = unresolvable).
+  final AssessmentAgeGroup? ageGroup;
   final AssessmentPeriod period;
   final double? overall;
   final String stepLabel;
@@ -368,7 +386,7 @@ class _Hero extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: AppColors.themeColor.withValues(alpha: 0.32),
+            color: AssessmentUi.brand.withValues(alpha: 0.32),
             blurRadius: 26,
             offset: const Offset(0, 12),
           ),
@@ -427,6 +445,40 @@ class _Hero extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 12.5,
                         color: Colors.white.withValues(alpha: 0.82),
+                      ),
+                    ),
+                    const SizedBox(height: 5),
+                    // The band actually being assessed against — decoupled
+                    // from the classroom, resolved from date of birth.
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.22),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.child_care_rounded,
+                              size: 12, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              ageGroup == null
+                                  ? 'No age group matched'
+                                  : 'Assessing: ${ageGroup!.name} '
+                                      '(${ageGroup!.rangeLabel})',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -705,7 +757,7 @@ class _StepConnector extends StatelessWidget {
 class _DomainStep extends StatelessWidget {
   const _DomainStep({
     required this.state,
-    required this.classroomCode,
+    required this.ageGroupIds,
     required this.domain,
     required this.scores,
     required this.notes,
@@ -719,7 +771,7 @@ class _DomainStep extends StatelessWidget {
   });
 
   final AssessmentsState state;
-  final String classroomCode;
+  final Set<String> ageGroupIds;
   final AssessmentDomain domain;
   final Map<String, int> scores;
   final Map<String, String> notes;
@@ -734,8 +786,8 @@ class _DomainStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = AssessmentUi.domainColor(domain.id);
-    final bySubdomain = state.milestonesBySubdomain(domain, classroomCode);
-    final msCount = state.milestonesForClassroom(domain, classroomCode).length;
+    final bySubdomain = state.milestonesBySubdomain(domain, ageGroupIds);
+    final msCount = state.milestonesForAgeGroups(domain, ageGroupIds).length;
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
@@ -830,27 +882,28 @@ class _QuickSet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasValue = value != null;
+    final palette = AssessmentUi.palette;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF1FF),
+        color: palette.brandSoft,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDCE2FF)),
+        border: Border.all(color: palette.brandSoftBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: const [
+            children: [
               Icon(Icons.add_circle_outline_rounded,
-                  size: 15, color: AppColors.themeColor),
-              SizedBox(width: 6),
+                  size: 15, color: palette.brand),
+              const SizedBox(width: 6),
               Text(
                 'Set whole domain at once',
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF3F58C9),
+                  color: palette.brandDeep,
                 ),
               ),
             ],
@@ -859,7 +912,9 @@ class _QuickSet extends StatelessWidget {
           ScaleButtonRow(value: value, onPick: onPick),
           const SizedBox(height: 11),
           Material(
-            color: hasValue ? AppColors.themeColor : const Color(0xFFE3E8FF),
+            // A button (do this to all milestones), not a background/nav
+            // surface, so it reads with the theme's action colour.
+            color: hasValue ? palette.accent : palette.accentFaint,
             borderRadius: BorderRadius.circular(11),
             child: InkWell(
               onTap: onCopyToAll,
@@ -872,7 +927,8 @@ class _QuickSet extends StatelessWidget {
                   children: [
                     Icon(Icons.copy_all_rounded,
                         size: 15,
-                        color: hasValue ? Colors.white : const Color(0xFF9BA8E0)),
+                        color:
+                            hasValue ? Colors.white : palette.accentFaintFg),
                     const SizedBox(width: 6),
                     Text(
                       'Copy to all $milestoneCount milestones',
@@ -880,7 +936,7 @@ class _QuickSet extends StatelessWidget {
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
                         color:
-                            hasValue ? Colors.white : const Color(0xFF9BA8E0),
+                            hasValue ? Colors.white : palette.accentFaintFg,
                       ),
                     ),
                   ],
@@ -1060,7 +1116,7 @@ class _MilestoneCardState extends State<_MilestoneCard> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(11),
                   borderSide:
-                      const BorderSide(color: AppColors.themeColor, width: 1.5),
+                      BorderSide(color: AssessmentUi.accent, width: 1.5),
                 ),
               ),
             ),
@@ -1070,15 +1126,15 @@ class _MilestoneCardState extends State<_MilestoneCard> {
               onTap: widget.onToggleNote,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.add_rounded, size: 15, color: AppColors.themeColor),
-                  SizedBox(width: 5),
+                children: [
+                  Icon(Icons.add_rounded, size: 15, color: AssessmentUi.accent),
+                  const SizedBox(width: 5),
                   Text(
                     'Add note',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.themeColor,
+                      color: AssessmentUi.accent,
                     ),
                   ),
                 ],
@@ -1537,7 +1593,7 @@ class _Footer extends StatelessWidget {
                     gradient: isReview
                         ? const LinearGradient(
                             colors: [Color(0xFF16A34A), Color(0xFF15803D)])
-                        : AssessmentUi.brandGradient,
+                        : AssessmentUi.accentGradient,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Container(

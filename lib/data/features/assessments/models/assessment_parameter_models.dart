@@ -17,8 +17,7 @@ class MilestoneModel {
     required this.id,
     required this.name,
     this.description = '',
-    this.ageGroup = '',
-    this.assignedClassrooms = const <String>[],
+    this.assignedAgeGroups = const <String>[],
     this.active = true,
   });
 
@@ -26,16 +25,14 @@ class MilestoneModel {
         id: (json['id'] ?? '').toString().trim(),
         name: (json['name'] ?? '').toString(),
         description: (json['description'] ?? '').toString(),
-        ageGroup: (json['ageGroup'] ?? '').toString(),
-        assignedClassrooms: _stringList(json['assignedClassrooms']),
+        assignedAgeGroups: _stringList(json['assignedAgeGroups']),
         active: json['active'] != false,
       );
 
   final String id;
   final String name;
   final String description;
-  final String ageGroup;
-  final List<String> assignedClassrooms;
+  final List<String> assignedAgeGroups;
   final bool active;
 
   AssessmentMilestone toEntity({
@@ -51,8 +48,7 @@ class MilestoneModel {
         domainId: domainId,
         name: name,
         description: description,
-        ageGroup: ageGroup,
-        assignedClassrooms: assignedClassrooms,
+        assignedAgeGroups: assignedAgeGroups,
         active: active,
         schoolId: schoolId,
         createdAt: createdAt,
@@ -64,7 +60,7 @@ class SubdomainModel {
   const SubdomainModel({
     required this.id,
     required this.name,
-    this.assignedClassrooms = const <String>[],
+    this.assignedAgeGroups = const <String>[],
     this.milestones = const <MilestoneModel>[],
     this.active = true,
   });
@@ -72,7 +68,7 @@ class SubdomainModel {
   factory SubdomainModel.fromJson(Map<String, dynamic> json) => SubdomainModel(
         id: (json['id'] ?? '').toString().trim(),
         name: (json['name'] ?? '').toString(),
-        assignedClassrooms: _stringList(json['assignedClassrooms']),
+        assignedAgeGroups: _stringList(json['assignedAgeGroups']),
         milestones: (json['milestones'] is List)
             ? (json['milestones'] as List)
                 .whereType<Map>()
@@ -85,7 +81,7 @@ class SubdomainModel {
 
   final String id;
   final String name;
-  final List<String> assignedClassrooms;
+  final List<String> assignedAgeGroups;
   final List<MilestoneModel> milestones;
   final bool active;
 
@@ -99,7 +95,7 @@ class SubdomainModel {
         id: id,
         domainId: domainId,
         name: name,
-        assignedClassrooms: assignedClassrooms,
+        assignedAgeGroups: assignedAgeGroups,
         milestones: milestones
             .map((m) => m.toEntity(
                   subdomainId: id,
@@ -121,7 +117,7 @@ class DomainModel {
     required this.id,
     required this.name,
     this.description = '',
-    this.assignedClassrooms = const <String>[],
+    this.assignedAgeGroups = const <String>[],
     this.subdomains = const <SubdomainModel>[],
     this.active = true,
     this.schoolId = '',
@@ -131,7 +127,7 @@ class DomainModel {
         id: (json['id'] ?? '').toString().trim(),
         name: (json['name'] ?? '').toString(),
         description: (json['description'] ?? '').toString(),
-        assignedClassrooms: _stringList(json['assignedClassrooms']),
+        assignedAgeGroups: _stringList(json['assignedAgeGroups']),
         subdomains: (json['subdomains'] is List)
             ? (json['subdomains'] as List)
                 .whereType<Map>()
@@ -146,7 +142,7 @@ class DomainModel {
   final String id;
   final String name;
   final String description;
-  final List<String> assignedClassrooms;
+  final List<String> assignedAgeGroups;
   final List<SubdomainModel> subdomains;
   final bool active;
   final String schoolId;
@@ -157,7 +153,7 @@ class DomainModel {
       id: id,
       name: name,
       description: description,
-      assignedClassrooms: assignedClassrooms,
+      assignedAgeGroups: assignedAgeGroups,
       subdomains: subdomains
           .map((s) => s.toEntity(
                 domainId: id,

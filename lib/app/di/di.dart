@@ -67,7 +67,10 @@ import '../../domain/features/assessments/usecases/save_assessment_subdomain_use
 import '../../domain/features/assessments/usecases/deactivate_assessment_subdomain_usecase.dart';
 import '../../domain/features/assessments/usecases/save_assessment_milestone_usecase.dart';
 import '../../domain/features/assessments/usecases/deactivate_assessment_milestone_usecase.dart';
-import '../../domain/features/assessments/usecases/update_milestone_classrooms_usecase.dart';
+import '../../domain/features/assessments/usecases/update_milestone_age_groups_usecase.dart';
+import '../../domain/features/assessments/usecases/get_assessment_age_groups_usecase.dart';
+import '../../domain/features/assessments/usecases/save_assessment_age_group_usecase.dart';
+import '../../domain/features/assessments/usecases/deactivate_assessment_age_group_usecase.dart';
 import '../../domain/features/assessments/usecases/get_assessments_usecase.dart';
 import '../../domain/features/assessments/usecases/bulk_upsert_assessments_usecase.dart';
 import '../../domain/features/assessments/usecases/get_assessment_classrooms_usecase.dart';
@@ -536,8 +539,17 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeactivateAssessmentMilestoneUseCase>(
     () => DeactivateAssessmentMilestoneUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<UpdateMilestoneClassroomsUseCase>(
-    () => UpdateMilestoneClassroomsUseCase(serviceLocator()),
+  serviceLocator.registerFactory<UpdateMilestoneAgeGroupsUseCase>(
+    () => UpdateMilestoneAgeGroupsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetAssessmentAgeGroupsUseCase>(
+    () => GetAssessmentAgeGroupsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SaveAssessmentAgeGroupUseCase>(
+    () => SaveAssessmentAgeGroupUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeactivateAssessmentAgeGroupUseCase>(
+    () => DeactivateAssessmentAgeGroupUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetAssessmentsUseCase>(
     () => GetAssessmentsUseCase(serviceLocator()),
@@ -563,11 +575,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
       deactivateSubdomain: serviceLocator(),
       saveMilestone: serviceLocator(),
       deactivateMilestone: serviceLocator(),
-      updateMilestoneClassrooms: serviceLocator(),
+      updateMilestoneAgeGroups: serviceLocator(),
       getAssessments: serviceLocator(),
       bulkUpsertAssessments: serviceLocator(),
       getClassrooms: serviceLocator(),
       getStudents: serviceLocator(),
+      getAgeGroups: serviceLocator(),
+      saveAgeGroup: serviceLocator(),
+      deactivateAgeGroup: serviceLocator(),
       storageService: serviceLocator(),
     ),
   );

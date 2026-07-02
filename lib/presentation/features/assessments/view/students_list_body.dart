@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/assessments/entities/assessment_age_group.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_parameters.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_references.dart';
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
@@ -45,7 +45,6 @@ class StudentsListBody extends StatelessWidget {
 
         final classroom = state.classroomByCode(selectedCode);
         final students = state.visibleStudentsInClassroom(selectedCode);
-        final domains = state.domainsForClassroom(selectedCode);
         final assessedCount = students
             .where((s) => state.studentAssessments(s.code, state.period).isNotEmpty)
             .length;
@@ -98,13 +97,16 @@ class StudentsListBody extends StatelessWidget {
             if (students.isEmpty)
               const _Empty(message: 'No students match the current filters.')
             else
+              // Domain badges and the band chip are per-student now: each
+              // child's visible framework follows their own age band.
               ...students.asMap().entries.map((e) => Entrance(
                     index: e.key,
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: _StudentCard(
                         student: e.value,
-                        domains: domains,
+                        ageGroup: state.resolveAgeGroup(e.value),
+                        domains: state.domainsForStudent(e.value),
                         state: state,
                         onTap: () => onOpenStudent(e.value.code),
                       ),
@@ -175,8 +177,8 @@ class _FilterButton extends StatelessWidget {
                     width: 16,
                     height: 16,
                     alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      color: AppColors.themeColor,
+                    decoration: BoxDecoration(
+                      color: AssessmentUi.brand,
                       shape: BoxShape.circle,
                     ),
                     child: Text(
@@ -200,12 +202,17 @@ class _FilterButton extends StatelessWidget {
 class _StudentCard extends StatelessWidget {
   const _StudentCard({
     required this.student,
+    required this.ageGroup,
     required this.domains,
     required this.state,
     required this.onTap,
   });
 
   final AssessmentStudent student;
+
+  /// The band this child resolves to for the active period (null = no DOB or
+  /// no matching band — the card flags it).
+  final AssessmentAgeGroup? ageGroup;
   final List<AssessmentDomain> domains;
   final AssessmentsState state;
   final VoidCallback onTap;
@@ -258,6 +265,8 @@ class _StudentCard extends StatelessWidget {
                         Row(
                           children: [
                             _StatusPill(assessed: assessed),
+                            const SizedBox(width: 6),
+                            _AgeBandPill(ageGroup: ageGroup),
                             const SizedBox(width: 6),
                             Flexible(
                               child: Text(
@@ -340,6 +349,57 @@ class _DomainScoreBadge extends StatelessWidget {
                 height: 1.1,
                 fontWeight: FontWeight.w800,
                 color: style.foreground,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Compact pill naming the age band the child resolves to (from their DOB).
+/// Children without a resolvable band get a warning-toned "No age group" so
+/// unassessable students are visible at a glance.
+class _AgeBandPill extends StatelessWidget {
+  const _AgeBandPill({required this.ageGroup});
+
+  final AssessmentAgeGroup? ageGroup;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AssessmentUi.palette;
+    final unresolved = ageGroup == null;
+    return Tooltip(
+      message: unresolved
+          ? 'No age group matches this child\'s date of birth'
+          : ageGroup!.name,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: unresolved ? const Color(0xFFFEF2F2) : palette.chipBg,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: unresolved ? const Color(0xFFFECACA) : palette.chipBorder,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              unresolved
+                  ? Icons.warning_amber_rounded
+                  : Icons.child_care_rounded,
+              size: 11,
+              color: unresolved ? const Color(0xFFB91C1C) : palette.chipFg,
+            ),
+            const SizedBox(width: 3),
+            Text(
+              unresolved ? 'No age group' : ageGroup!.rangeLabel,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: unresolved ? const Color(0xFFB91C1C) : palette.chipFg,
               ),
             ),
           ],

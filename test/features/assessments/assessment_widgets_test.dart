@@ -120,7 +120,7 @@ void main() {
               subdomainId: 'soc.reg',
               domainId: 'soc',
               name: 'Manages transitions',
-              assignedClassrooms: const ['sun'],
+              assignedAgeGroups: const ['AGE-3-4Y'],
               createdAt: now,
               updatedAt: now,
             ),

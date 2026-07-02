@@ -6,6 +6,7 @@ import 'package:wowcare/data/features/assessments/models/assessment_collection.d
 import 'package:wowcare/data/features/assessments/models/assessment_domain_collection.dart';
 import 'package:wowcare/data/features/assessments/models/assessment_reference_collection.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment.dart';
+import 'package:wowcare/domain/features/assessments/entities/assessment_age_group.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_parameters.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_references.dart';
 import 'package:wowcare/domain/features/assessments/repositories/assessment_repository.dart';
@@ -28,7 +29,9 @@ class AssessmentRepositoryImpl implements AssessmentRepository {
   static const _uuid = Uuid();
 
   /// One-shot seed flag so user mutations aren't resurrected by reseeding.
-  static const String _seededFlagKey = 'assessments_mock_seeded_v2';
+  /// v3: the age-group data model — parameters are assigned to age bands, not
+  /// classrooms — so the seed refreshes the whole demo dataset in place.
+  static const String _seededFlagKey = 'assessments_mock_seeded_v3';
 
   // ----------------------------------------------------------------- domains
 
@@ -162,14 +165,14 @@ class AssessmentRepositoryImpl implements AssessmentRepository {
   }
 
   @override
-  Future<AssessmentMilestone> updateMilestoneClassrooms(
+  Future<AssessmentMilestone> updateMilestoneAgeGroups(
     String milestoneId,
-    List<String> classroomCodes,
+    List<String> ageGroupIds,
   ) async {
     final updated = await _mutateMilestone(
       milestoneId,
       (m) => m.copyWith(
-        assignedClassrooms: List<String>.from(classroomCodes),
+        assignedAgeGroups: List<String>.from(ageGroupIds),
         updatedAt: DateTime.now(),
       ),
     );
@@ -177,6 +180,46 @@ class AssessmentRepositoryImpl implements AssessmentRepository {
       throw StateError('Milestone $milestoneId not found');
     }
     return updated;
+  }
+
+  // --------------------------------------------------------------- age groups
+
+  @override
+  Future<List<AssessmentAgeGroup>> getAgeGroups() async {
+    await _seedIfNeeded();
+    final rows = await _localDataSource.getAgeGroups();
+    final groups = rows.map((r) => r.toEntity()).toList()
+      ..sort((a, b) {
+        final byOrder = a.sortOrder.compareTo(b.sortOrder);
+        return byOrder != 0 ? byOrder : a.minMonths.compareTo(b.minMonths);
+      });
+    return groups;
+  }
+
+  @override
+  Future<AssessmentAgeGroup> saveAgeGroup(AssessmentAgeGroup ageGroup) async {
+    final isNew = ageGroup.id.trim().isEmpty;
+    final toSave = ageGroup.copyWith(
+      id: isNew ? 'AGE-${_uuid.v4()}' : ageGroup.id,
+    );
+    await _localDataSource.upsertAgeGroup(
+      AssessmentAgeGroupCollection.fromEntity(toSave),
+    );
+    return toSave;
+  }
+
+  @override
+  Future<void> deactivateAgeGroup(String ageGroupId) async {
+    final rows = await _localDataSource.getAgeGroups();
+    for (final row in rows) {
+      if (row.id != ageGroupId) continue;
+      await _localDataSource.upsertAgeGroup(
+        AssessmentAgeGroupCollection.fromEntity(
+          row.toEntity().copyWith(active: false),
+        ),
+      );
+      return;
+    }
   }
 
   // ------------------------------------------------------------- assessments
@@ -282,36 +325,39 @@ class AssessmentRepositoryImpl implements AssessmentRepository {
         await _storageService.getBool(_seededFlagKey) ?? false;
     if (alreadySeeded) return;
 
-    final existingDomains = await _localDataSource.getDomains();
-    if (existingDomains.isEmpty) {
-      final domains = await _seedDataSource.fetchDomains();
-      if (domains.isNotEmpty) {
-        await _localDataSource.upsertDomains(
-          domains
-              .map((m) => AssessmentDomainCollection.fromEntity(m.toEntity()))
-              .toList(),
-        );
-      }
+    // Every section is re-upserted unconditionally when the seed-version flag
+    // bumps: the v3 model moved parameter assignment from classrooms to age
+    // groups, so rows seeded by earlier versions carry no assignment data and
+    // must be refreshed in place. Safe: all ids/codes are unique+replace
+    // indexes, so this overwrites without duplicating, and mock rows a user
+    // has since edited are simply reset to the demo baseline.
+    final ageGroups = await _seedDataSource.fetchAgeGroups();
+    if (ageGroups.isNotEmpty) {
+      await _localDataSource.upsertAgeGroups(
+        ageGroups
+            .map((m) => AssessmentAgeGroupCollection.fromEntity(m.toEntity()))
+            .toList(),
+      );
     }
 
-    final existingClassrooms = await _localDataSource.getClassrooms();
-    if (existingClassrooms.isEmpty) {
-      final classrooms = await _seedDataSource.fetchClassrooms();
-      if (classrooms.isNotEmpty) {
-        await _localDataSource.upsertClassrooms(
-          classrooms
-              .map((m) =>
-                  AssessmentClassroomCollection.fromEntity(m.toEntity()))
-              .toList(),
-        );
-      }
+    final domains = await _seedDataSource.fetchDomains();
+    if (domains.isNotEmpty) {
+      await _localDataSource.upsertDomains(
+        domains
+            .map((m) => AssessmentDomainCollection.fromEntity(m.toEntity()))
+            .toList(),
+      );
     }
 
-    // Unconditionally re-upserted (unlike the other sections) so bumping
-    // [_seededFlagKey] can backfill new mock fields (e.g. tags) onto students
-    // an earlier version already seeded. Safe: students are a read-only
-    // snapshot never mutated by this module, and the `code` index is
-    // unique+replace so this overwrites in place without duplicating rows.
+    final classrooms = await _seedDataSource.fetchClassrooms();
+    if (classrooms.isNotEmpty) {
+      await _localDataSource.upsertClassrooms(
+        classrooms
+            .map((m) => AssessmentClassroomCollection.fromEntity(m.toEntity()))
+            .toList(),
+      );
+    }
+
     final students = await _seedDataSource.fetchStudents();
     if (students.isNotEmpty) {
       await _localDataSource.upsertStudents(
@@ -321,16 +367,13 @@ class AssessmentRepositoryImpl implements AssessmentRepository {
       );
     }
 
-    final existingAssessments = await _localDataSource.getAssessments();
-    if (existingAssessments.isEmpty) {
-      final assessments = await _seedDataSource.fetchAssessments();
-      if (assessments.isNotEmpty) {
-        await _localDataSource.upsertAssessments(
-          assessments
-              .map((m) => AssessmentCollection.fromEntity(m.toEntity()))
-              .toList(),
-        );
-      }
+    final assessments = await _seedDataSource.fetchAssessments();
+    if (assessments.isNotEmpty) {
+      await _localDataSource.upsertAssessments(
+        assessments
+            .map((m) => AssessmentCollection.fromEntity(m.toEntity()))
+            .toList(),
+      );
     }
 
     await _storageService.saveBool(_seededFlagKey, true);

@@ -4,6 +4,7 @@ import 'package:wowcare/domain/features/assessments/entities/assessment_paramete
 import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubit.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_access.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
+import 'package:wowcare/presentation/features/assessments/widgets/age_group_manager_sheet.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_confirm_dialog.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/assessment_option_sheet.dart';
 import 'package:wowcare/presentation/features/assessments/widgets/entrance.dart';
@@ -12,7 +13,8 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// Parameters tab — browse/manage the Domain → Subdomain → Milestone hierarchy.
 /// Staff see it read-only (a banner explains why); admins get add/edit/
-/// deactivate and classroom assignment. The level shown is driven by the
+/// deactivate and age-group assignment, plus an Age Groups card for managing
+/// the school's bands. The level shown is driven by the
 /// [domainId]/[subdomainId] drill-state owned by the shell.
 class FrameworkBody extends StatelessWidget {
   const FrameworkBody({
@@ -77,6 +79,7 @@ class _DomainList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(18, 6, 18, 100),
       children: [
         if (!canManage) const _ReadOnlyBanner(),
+        _AgeGroupsCard(canManage: canManage),
         if (domains.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 48),
@@ -218,9 +221,9 @@ class _MilestoneList extends StatelessWidget {
                 child: _MilestoneCard(
                   milestone: e.value,
                   canManage: canManage,
-                  classroomName: (code) =>
-                      context.read<AssessmentsCubit>().state.classroomByCode(code)?.name ??
-                      code,
+                  ageGroupName: (id) =>
+                      context.read<AssessmentsCubit>().state.ageGroupById(id)?.name ??
+                      id,
                   onMenu: () => FrameworkActions.openMenu(context,
                       kind: 'milestone', milestone: e.value, domain: d),
                 ),
@@ -237,28 +240,110 @@ class _ReadOnlyBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = AssessmentUi.palette;
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF1FF),
+        color: palette.brandSoft,
         borderRadius: BorderRadius.circular(12),
       ),
-      child: const Row(
+      child: Row(
         children: [
-          Icon(Icons.info_outline_rounded, size: 16, color: Color(0xFF5978F7)),
-          SizedBox(width: 8),
+          Icon(Icons.info_outline_rounded, size: 16, color: palette.brand),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Read-only — you can view the parameters you assess against.',
               style: TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF3F58C9),
+                color: palette.brandDeep,
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Entry card for managing the school's age bands — the assignment scope for
+/// every parameter below it. Admins manage; staff view.
+class _AgeGroupsCard extends StatelessWidget {
+  const _AgeGroupsCard({required this.canManage});
+
+  final bool canManage;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = AssessmentUi.palette;
+    final groups = context
+        .watch<AssessmentsCubit>()
+        .state
+        .activeAgeGroups;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: AssessmentUi.softSurface(radius: 18),
+      clipBehavior: Clip.antiAlias,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => AgeGroupManagerSheet.show(context, canManage: canManage),
+          child: Padding(
+            padding: const EdgeInsets.all(15),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: palette.brandSoft,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.child_care_rounded,
+                      size: 22, color: palette.brand),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Age Groups',
+                        style: TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: AssessmentUi.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        groups.isEmpty
+                            ? 'No bands defined yet'
+                            : '${groups.length} bands · '
+                                '${groups.map((g) => g.rangeLabel).join(' · ')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w500,
+                          color: AssessmentUi.inkMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  canManage ? Icons.tune_rounded : Icons.chevron_right_rounded,
+                  size: 20,
+                  color: canManage ? palette.brand : const Color(0xFFC0BACD),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -340,15 +425,15 @@ class _EntityCard extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFEEF1FF),
+                                    color: AssessmentUi.palette.brandSoft,
                                     borderRadius: BorderRadius.circular(999),
                                   ),
                                   child: Text(
                                     b,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w700,
-                                      color: Color(0xFF5978F7),
+                                      color: AssessmentUi.palette.brand,
                                     ),
                                   ),
                                 ))
@@ -375,18 +460,19 @@ class _MilestoneCard extends StatelessWidget {
   const _MilestoneCard({
     required this.milestone,
     required this.canManage,
-    required this.classroomName,
+    required this.ageGroupName,
     required this.onMenu,
   });
 
   final AssessmentMilestone milestone;
   final bool canManage;
-  final String Function(String code) classroomName;
+  final String Function(String id) ageGroupName;
   final VoidCallback onMenu;
 
   @override
   Widget build(BuildContext context) {
-    final classrooms = milestone.assignedClassrooms;
+    final ageGroups = milestone.assignedAgeGroups;
+    final palette = AssessmentUi.palette;
     return Container(
       margin: const EdgeInsets.only(bottom: 11),
       padding: const EdgeInsets.all(14),
@@ -434,7 +520,7 @@ class _MilestoneCard extends StatelessWidget {
             spacing: 6,
             runSpacing: 6,
             children: [
-              if (classrooms.isEmpty)
+              if (ageGroups.isEmpty)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
@@ -450,7 +536,7 @@ class _MilestoneCard extends StatelessWidget {
                           size: 11, color: Color(0xFFB91C1C)),
                       SizedBox(width: 4),
                       Text(
-                        'No classrooms assigned',
+                        'No age groups assigned',
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
@@ -461,20 +547,20 @@ class _MilestoneCard extends StatelessWidget {
                   ),
                 )
               else
-                ...classrooms.map((code) => Container(
+                ...ageGroups.map((id) => Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 9, vertical: 3),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFEFF6FF),
+                        color: palette.chipBg,
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: const Color(0xFFBFDBFE)),
+                        border: Border.all(color: palette.chipBorder),
                       ),
                       child: Text(
-                        classroomName(code),
-                        style: const TextStyle(
+                        ageGroupName(id),
+                        style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1D4ED8),
+                          color: palette.chipFg,
                         ),
                       ),
                     )),
@@ -524,7 +610,7 @@ abstract final class FrameworkActions {
   static Future<void> addDomain(BuildContext context) async {
     final cubit = context.read<AssessmentsCubit>();
     final result = await DomainFormSheet.show(context,
-        classrooms: cubit.state.classrooms);
+        ageGroups: cubit.state.activeAgeGroups);
     if (result == null || !context.mounted) return;
     final ok = await cubit.saveDomain(result);
     if (context.mounted) _toast(context, ok ? 'Domain added' : 'Save failed');
@@ -534,7 +620,7 @@ abstract final class FrameworkActions {
       BuildContext context, AssessmentDomain domain) async {
     final cubit = context.read<AssessmentsCubit>();
     final result = await DomainFormSheet.show(context,
-        initial: domain, classrooms: cubit.state.classrooms);
+        initial: domain, ageGroups: cubit.state.activeAgeGroups);
     if (result == null || !context.mounted) return;
     final ok = await cubit.saveDomain(result);
     if (context.mounted) _toast(context, ok ? 'Changes saved' : 'Save failed');
@@ -544,7 +630,7 @@ abstract final class FrameworkActions {
       {required String domainId}) async {
     final cubit = context.read<AssessmentsCubit>();
     final result = await SubdomainFormSheet.show(context,
-        domainId: domainId, classrooms: cubit.state.classrooms);
+        domainId: domainId, ageGroups: cubit.state.activeAgeGroups);
     if (result == null || !context.mounted) return;
     final ok = await cubit.saveSubdomain(result);
     if (context.mounted) _toast(context, ok ? 'Subdomain added' : 'Save failed');
@@ -556,7 +642,7 @@ abstract final class FrameworkActions {
     final result = await SubdomainFormSheet.show(context,
         domainId: domainId,
         initial: subdomain,
-        classrooms: cubit.state.classrooms);
+        ageGroups: cubit.state.activeAgeGroups);
     if (result == null || !context.mounted) return;
     final ok = await cubit.saveSubdomain(result);
     if (context.mounted) _toast(context, ok ? 'Changes saved' : 'Save failed');
@@ -568,7 +654,7 @@ abstract final class FrameworkActions {
     final result = await MilestoneFormSheet.show(context,
         domainId: domainId,
         subdomainId: subdomainId,
-        classrooms: cubit.state.classrooms);
+        ageGroups: cubit.state.activeAgeGroups);
     if (result == null || !context.mounted) return;
     final ok = await cubit.saveMilestone(result);
     if (context.mounted) _toast(context, ok ? 'Milestone added' : 'Save failed');
@@ -581,19 +667,19 @@ abstract final class FrameworkActions {
         domainId: milestone.domainId,
         subdomainId: milestone.subdomainId,
         initial: milestone,
-        classrooms: cubit.state.classrooms);
+        ageGroups: cubit.state.activeAgeGroups);
     if (result == null || !context.mounted) return;
     final ok = await cubit.saveMilestone(result);
     if (context.mounted) _toast(context, ok ? 'Changes saved' : 'Save failed');
   }
 
-  static Future<void> assignClassrooms(
+  static Future<void> assignAgeGroups(
       BuildContext context, AssessmentMilestone milestone) async {
     final cubit = context.read<AssessmentsCubit>();
-    final result = await ClassroomAssignmentSheet.show(context,
-        milestone: milestone, classrooms: cubit.state.classrooms);
+    final result = await AgeGroupAssignmentSheet.show(context,
+        milestone: milestone, ageGroups: cubit.state.activeAgeGroups);
     if (result == null || !context.mounted) return;
-    final ok = await cubit.updateMilestoneClassrooms(milestone.id, result);
+    final ok = await cubit.updateMilestoneAgeGroups(milestone.id, result);
     if (context.mounted) {
       _toast(context, ok ? 'Assignment saved' : 'Save failed');
     }
@@ -614,8 +700,8 @@ abstract final class FrameworkActions {
         if (kind == 'milestone')
           const AssessmentOption(
             value: 'assign',
-            title: 'Assign classrooms',
-            icon: Icons.home_rounded,
+            title: 'Assign age groups',
+            icon: Icons.child_care_rounded,
           ),
         const AssessmentOption(
           value: 'edit',
@@ -633,7 +719,7 @@ abstract final class FrameworkActions {
     if (selection == null || !context.mounted) return;
     switch (selection) {
       case 'assign':
-        if (milestone != null) await assignClassrooms(context, milestone);
+        if (milestone != null) await assignAgeGroups(context, milestone);
         break;
       case 'edit':
         if (kind == 'domain' && domain != null) {

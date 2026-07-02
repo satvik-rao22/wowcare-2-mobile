@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 
 /// The four top-level destinations of the Assessments module, surfaced as a
@@ -19,17 +18,26 @@ enum AssessmentSection {
 }
 
 /// Top app bar shown on the list-level screens: brand mark, the section title,
-/// and a read-only chip showing the signed-in role. The chip is informational
-/// only — RBAC is driven entirely by [RoleCubit], not by tapping here.
+/// the 1.0/2.0 colour-theme switcher, and a read-only chip showing the
+/// signed-in role. The role chip is informational only — RBAC is driven
+/// entirely by [RoleCubit], not by tapping here.
 class AssessmentTopHeader extends StatelessWidget {
   const AssessmentTopHeader({
     super.key,
     required this.title,
     required this.roleLabel,
+    required this.themeV2,
+    required this.onThemeSelect,
   });
 
   final String title;
   final String roleLabel;
+
+  /// Whether the 2.0 colour theme is active.
+  final bool themeV2;
+
+  /// Called with `true` for 2.0 / `false` for 1.0 when a segment is tapped.
+  final ValueChanged<bool> onThemeSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +54,7 @@ class AssessmentTopHeader extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.themeColor.withValues(alpha: 0.34),
+                  color: AssessmentUi.brand.withValues(alpha: 0.34),
                   blurRadius: 14,
                   offset: const Offset(0, 6),
                 ),
@@ -83,8 +91,95 @@ class AssessmentTopHeader extends StatelessWidget {
               ],
             ),
           ),
+          _ThemeTogglePill(themeV2: themeV2, onSelect: onThemeSelect),
+          const SizedBox(width: 8),
           _RoleChip(label: roleLabel),
         ],
+      ),
+    );
+  }
+}
+
+/// Two-segment pill switching the module between its 1.0 (indigo) and 2.0
+/// (pink/cyan/orange) colour themes.
+class _ThemeTogglePill extends StatelessWidget {
+  const _ThemeTogglePill({required this.themeV2, required this.onSelect});
+
+  final bool themeV2;
+  final ValueChanged<bool> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Colour theme',
+      child: Container(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF1B2559).withValues(alpha: 0.07),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _ThemeSegment(
+              label: '1.0',
+              selected: !themeV2,
+              onTap: () => onSelect(false),
+            ),
+            _ThemeSegment(
+              label: '2.0',
+              selected: themeV2,
+              onTap: () => onSelect(true),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ThemeSegment extends StatelessWidget {
+  const _ThemeSegment({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: 'Theme $label',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+          decoration: BoxDecoration(
+            color: selected ? AssessmentUi.accent : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              color: selected ? Colors.white : AssessmentUi.inkMuted,
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -115,12 +210,12 @@ class _RoleChip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(
+            SizedBox(
               width: 7,
               height: 7,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: AppColors.themeColor,
+                  color: AssessmentUi.brand,
                   shape: BoxShape.circle,
                 ),
               ),
@@ -271,14 +366,14 @@ class _AddPill extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.add_rounded, size: 18, color: AppColors.themeColor),
+              Icon(Icons.add_rounded, size: 18, color: AssessmentUi.accent),
               const SizedBox(width: 4),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.themeColor,
+                  color: AssessmentUi.accent,
                 ),
               ),
             ],
@@ -348,7 +443,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.themeColor : const Color(0xFFA39DB1);
+    final color = active ? AssessmentUi.brand : const Color(0xFFA39DB1);
     return Semantics(
       button: true,
       selected: active,
@@ -366,7 +461,7 @@ class _NavItem extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
                 decoration: BoxDecoration(
                   color: active
-                      ? const Color(0xFFEEF1FF)
+                      ? AssessmentUi.palette.brandSoft
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(999),
                 ),

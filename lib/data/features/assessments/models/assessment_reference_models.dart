@@ -1,8 +1,51 @@
+import 'package:wowcare/domain/features/assessments/entities/assessment_age_group.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_references.dart';
 
-/// JSON DTOs for the classroom/student reference snapshots the Assessments
-/// module seeds while the backend is offline (see [AssessmentClassroom] /
-/// [AssessmentStudent] for the rationale).
+/// JSON DTOs for the classroom/student/age-group reference snapshots the
+/// Assessments module seeds while the backend is offline (see
+/// [AssessmentClassroom] / [AssessmentStudent] / [AssessmentAgeGroup] for the
+/// rationale).
+
+class AssessmentAgeGroupModel {
+  const AssessmentAgeGroupModel({
+    required this.id,
+    required this.name,
+    required this.minMonths,
+    required this.maxMonths,
+    this.sortOrder = 0,
+    this.active = true,
+    this.schoolId = '',
+  });
+
+  factory AssessmentAgeGroupModel.fromJson(Map<String, dynamic> json) =>
+      AssessmentAgeGroupModel(
+        id: (json['id'] ?? '').toString().trim(),
+        name: (json['name'] ?? '').toString(),
+        minMonths: int.tryParse((json['minMonths'] ?? '').toString()) ?? 0,
+        maxMonths: int.tryParse((json['maxMonths'] ?? '').toString()) ?? 0,
+        sortOrder: int.tryParse((json['sortOrder'] ?? '').toString()) ?? 0,
+        active: json['active'] != false,
+        schoolId: (json['schoolId'] ?? '').toString(),
+      );
+
+  final String id;
+  final String name;
+  final int minMonths;
+  final int maxMonths;
+  final int sortOrder;
+  final bool active;
+  final String schoolId;
+
+  AssessmentAgeGroup toEntity() => AssessmentAgeGroup(
+        id: id,
+        name: name,
+        minMonths: minMonths,
+        maxMonths: maxMonths,
+        sortOrder: sortOrder,
+        active: active,
+        schoolId: schoolId,
+      );
+}
 
 class AssessmentClassroomModel {
   const AssessmentClassroomModel({
@@ -38,6 +81,7 @@ class AssessmentStudentModel {
     required this.code,
     required this.name,
     required this.classroomCode,
+    this.dateOfBirth,
     this.avatarUrl,
     this.status = 'ACTIVE',
     this.schoolId = '',
@@ -50,6 +94,8 @@ class AssessmentStudentModel {
         name: (json['name'] ?? '').toString(),
         classroomCode:
             (json['classroomCode'] ?? json['classroomId'] ?? '').toString().trim(),
+        dateOfBirth: DateTime.tryParse(
+            (json['dateOfBirth'] ?? json['dob'] ?? '').toString()),
         avatarUrl: json['avatar']?.toString(),
         status: (json['status'] ?? 'ACTIVE').toString(),
         schoolId: (json['schoolId'] ?? '').toString(),
@@ -61,6 +107,7 @@ class AssessmentStudentModel {
   final String code;
   final String name;
   final String classroomCode;
+  final DateTime? dateOfBirth;
   final String? avatarUrl;
   final String status;
   final String schoolId;
@@ -70,6 +117,7 @@ class AssessmentStudentModel {
         code: code,
         name: name,
         classroomCode: classroomCode,
+        dateOfBirth: dateOfBirth,
         avatarUrl: avatarUrl,
         status: status,
         schoolId: schoolId,

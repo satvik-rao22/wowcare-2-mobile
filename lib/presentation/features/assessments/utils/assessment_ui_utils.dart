@@ -1,5 +1,99 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+
+/// One switchable colour theme for the Assessments module. Two are shipped:
+/// [AssessmentUi.theme1] (the original indigo "1.0" look) and
+/// [AssessmentUi.theme2] (the "2.0" look, where **teal `#18B5AF` is primary**
+/// — backgrounds, heroes, navigation, badges, selection states — and **pink
+/// `#E2528C` is reserved for buttons/CTAs and other actionable controls**;
+/// orange `#FCC33D` is used sparingly, confined to the domain colour-coding
+/// pool). Every themable colour the module uses lives here; neutrals (ink,
+/// hairlines) are shared.
+class AssessmentPalette {
+  const AssessmentPalette({
+    required this.name,
+    required this.pageBackground,
+    required this.brand,
+    required this.brandDeep,
+    required this.brandSoft,
+    required this.brandSoftBorder,
+    required this.brandFaint,
+    required this.brandFaintFg,
+    required this.secondary,
+    required this.accent,
+    required this.accentGradientColors,
+    required this.accentFaint,
+    required this.accentFaintFg,
+    required this.chipBg,
+    required this.chipBorder,
+    required this.chipFg,
+    required this.studentGradientColors,
+    required this.classroomGradientColors,
+    required this.schoolGradientColors,
+    required this.classroomCardGradients,
+    required this.domainPalette,
+    required this.statAccents,
+  });
+
+  /// Short version label shown in the theme switcher ("1.0" / "2.0").
+  final String name;
+
+  /// Module page background behind the cards.
+  final Color pageBackground;
+
+  /// Primary brand colour — the dominant colour: backgrounds, heroes,
+  /// navigation, badges, banners, selection/menu state. NOT for buttons —
+  /// see [accent].
+  final Color brand;
+
+  /// Darker brand tone used for text sitting on [brandSoft].
+  final Color brandDeep;
+
+  /// Soft brand-tinted fill (chips, selected rows, info banners).
+  final Color brandSoft;
+
+  /// Border that pairs with [brandSoft].
+  final Color brandSoftBorder;
+
+  /// Disabled/inactive brand fill and its foreground.
+  final Color brandFaint;
+  final Color brandFaintFg;
+
+  /// Secondary accent (classrooms tab affordances).
+  final Color secondary;
+
+  /// Action colour — filled buttons, FABs, "+Add" affordances, focused
+  /// inputs, the theme switcher's selected segment. Reserved for controls the
+  /// user presses to *do* something, kept distinct from [brand] so CTAs pop
+  /// against the primary colour rather than blending into it.
+  final Color accent;
+
+  /// Two-stop gradient for [accent] surfaces (flat/solid on 2.0 — see
+  /// [AssessmentUi.theme2] doc — a real gradient on 1.0).
+  final List<Color> accentGradientColors;
+
+  /// Disabled/inactive [accent] fill and its foreground.
+  final Color accentFaint;
+  final Color accentFaintFg;
+
+  /// Assignment-chip family (age-group chips on parameter cards).
+  final Color chipBg;
+  final Color chipBorder;
+  final Color chipFg;
+
+  /// Per-entity avatar/hero gradients.
+  final List<Color> studentGradientColors;
+  final List<Color> classroomGradientColors;
+  final List<Color> schoolGradientColors;
+
+  /// Rotating gradients for classroom list cards.
+  final List<List<Color>> classroomCardGradients;
+
+  /// Deterministic per-domain accent pool.
+  final List<Color> domainPalette;
+
+  /// School-dashboard stat-tile accents (classrooms / students / domains).
+  final List<Color> statAccents;
+}
 
 /// Presentation helpers for the Assessments module: responsive breakpoints,
 /// score-badge colour logic, the fixed scale-point palette, accent colours
@@ -7,14 +101,122 @@ import 'package:wowcare/app/theme/colors.dart';
 abstract final class AssessmentUi {
   const AssessmentUi._();
 
+  // ------------------------------------------------------- switchable theme
+  //
+  // The module ships two colour themes, toggled from the top header. All
+  // themable colours below read from [palette]; the cubit flips it (and
+  // re-emits state so the whole shell rebuilds). Neutral ink/hairline tones
+  // are shared by both themes.
+
+  /// The original "1.0" look: brand indigo on a soft lilac page.
+  static const AssessmentPalette theme1 = AssessmentPalette(
+    name: '1.0',
+    pageBackground: Color(0xFFF5F4FB),
+    brand: Color(0xFF5978F7),
+    brandDeep: Color(0xFF3F58C9),
+    brandSoft: Color(0xFFEEF1FF),
+    brandSoftBorder: Color(0xFFDCE2FF),
+    brandFaint: Color(0xFFE3E8FF),
+    brandFaintFg: Color(0xFF9BA8E0),
+    secondary: Color(0xFF8B5CF6),
+    // 1.0 never distinguished a separate action colour — accent mirrors
+    // brand so every existing 1.0 surface renders pixel-identical.
+    accent: Color(0xFF5978F7),
+    accentGradientColors: [Color(0xFF5978F7), Color(0xFF9C6BF7)],
+    accentFaint: Color(0xFFE3E8FF),
+    accentFaintFg: Color(0xFF9BA8E0),
+    chipBg: Color(0xFFEFF6FF),
+    chipBorder: Color(0xFFBFDBFE),
+    chipFg: Color(0xFF1D4ED8),
+    studentGradientColors: [Color(0xFF5978F7), Color(0xFF9C6BF7)],
+    classroomGradientColors: [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+    schoolGradientColors: [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+    classroomCardGradients: [
+      [Color(0xFF8B5CF6), Color(0xFF6366F1)],
+      [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
+      [Color(0xFF34B3A0), Color(0xFF3B82F6)],
+      [Color(0xFF9C6BF7), Color(0xFF5978F7)],
+    ],
+    domainPalette: [
+      Color(0xFF6366F1), // indigo
+      Color(0xFF8B5CF6), // violet
+      Color(0xFF3B82F6), // blue
+      Color(0xFF0EA5E9), // sky
+      Color(0xFF14B8A6), // teal
+      Color(0xFFF59E0B), // amber
+      Color(0xFFEC4899), // pink
+      Color(0xFF10B981), // green
+    ],
+    statAccents: [Color(0xFF5978F7), Color(0xFF8B5CF6), Color(0xFF3B82F6)],
+  );
+
+  /// The "2.0" look: **teal `#18B5AF` is primary** (backgrounds, heroes, nav,
+  /// badges, banners, selection state), **pink `#E2528C` is the action colour**
+  /// (buttons, FABs, "+Add" affordances, focused inputs — kept off the
+  /// primary surfaces so CTAs pop), and **orange `#FCC33D` is used sparingly**
+  /// — confined to a single slot in [domainPalette] and nowhere else.
+  ///
+  /// 2.0 uses **flat fills, not gradients**: every gradient slot lists the
+  /// same colour twice (a two-identical-stop LinearGradient paints solid), so
+  /// heroes/CTAs render in the exact palette colours with no blended tones.
+  static const AssessmentPalette theme2 = AssessmentPalette(
+    name: '2.0',
+    pageBackground: Color(0xFFF2FBFA),
+    brand: Color(0xFF18B5AF),
+    brandDeep: Color(0xFF0E7A75),
+    brandSoft: Color(0xFFE1F5F4),
+    brandSoftBorder: Color(0xFFBFE9E6),
+    brandFaint: Color(0xFFD7F1EF),
+    brandFaintFg: Color(0xFF7FBFBB),
+    secondary: Color(0xFFE2528C),
+    accent: Color(0xFFE2528C),
+    accentGradientColors: [Color(0xFFE2528C), Color(0xFFE2528C)],
+    accentFaint: Color(0xFFF9DCE7),
+    accentFaintFg: Color(0xFFD998B4),
+    chipBg: Color(0xFFE1F5F4),
+    chipBorder: Color(0xFFBFE9E6),
+    chipFg: Color(0xFF0E7A75),
+    studentGradientColors: [Color(0xFF18B5AF), Color(0xFF18B5AF)],
+    classroomGradientColors: [Color(0xFF18B5AF), Color(0xFF18B5AF)],
+    schoolGradientColors: [Color(0xFF18B5AF), Color(0xFF18B5AF)],
+    classroomCardGradients: [
+      [Color(0xFF18B5AF), Color(0xFF18B5AF)],
+      [Color(0xFFE2528C), Color(0xFFE2528C)],
+      [Color(0xFF18B5AF), Color(0xFF18B5AF)],
+      [Color(0xFF18B5AF), Color(0xFF18B5AF)],
+    ],
+    domainPalette: [
+      Color(0xFF18B5AF), // teal (primary)
+      Color(0xFFE2528C), // pink (accent)
+      Color(0xFF18B5AF),
+      Color(0xFFE2528C),
+      Color(0xFF18B5AF),
+      Color(0xFFE2528C),
+      Color(0xFF18B5AF),
+      Color(0xFFFCC33D), // orange — the one deliberately sparing use
+    ],
+    statAccents: [Color(0xFF18B5AF), Color(0xFFE2528C), Color(0xFF18B5AF)],
+  );
+
+  /// The active theme. Flipped by `AssessmentsCubit.setThemeV2`, which then
+  /// re-emits state so every widget in the module shell rebuilds with the
+  /// new colours.
+  static AssessmentPalette palette = theme1;
+
+  static bool get isThemeV2 => identical(palette, theme2);
+
+  static void setTheme({required bool v2}) {
+    palette = v2 ? theme2 : theme1;
+  }
+
   // ------------------------------------------------------- neutral palette
   //
-  // The redesign's surface/ink palette (from the standalone mock): a soft
-  // lilac page, white cards, deep-plum ink and a muted lavender for secondary
-  // text. The brand indigo (#5978F7) is `AppColors.themeColor`.
+  // The redesign's surface/ink palette (from the standalone mock): white
+  // cards, deep-plum ink and a muted lavender for secondary text. Shared by
+  // both themes; the page tint and brand colours come from [palette].
 
-  /// Module page background — soft lilac behind the cards.
-  static const Color pageBackground = Color(0xFFF5F4FB);
+  /// Module page background — soft tint behind the cards (themed).
+  static Color get pageBackground => palette.pageBackground;
 
   /// Primary text colour (deep plum).
   static const Color ink = Color(0xFF2E2740);
@@ -25,8 +227,12 @@ abstract final class AssessmentUi {
   /// Hairline / divider colour used between rows in trees and lists.
   static const Color hairline = Color(0xFFEDEBF4);
 
-  /// Brand indigo, aliased for readability in this module.
-  static const Color brand = Color(0xFF5978F7);
+  /// Primary brand colour of the active theme.
+  static Color get brand => palette.brand;
+
+  /// Action colour of the active theme — use for buttons/CTAs, not for
+  /// backgrounds or navigation (see [AssessmentPalette.accent]).
+  static Color get accent => palette.accent;
 
   // ----------------------------------------------------------- breakpoints
 
@@ -159,12 +365,12 @@ abstract final class AssessmentUi {
   /// scores and computed averages.
   static ScoreBadgeStyle badgeStyle(double? score) {
     if (score == null) {
-      // "Not yet assessed" reads as a calm, on-brand indigo rather than dead
+      // "Not yet assessed" reads as a calm, on-brand tint rather than dead
       // grey — sparsely-assessed students no longer look washed-out.
-      return const ScoreBadgeStyle(
-        background: Color(0xFFEEF1FF),
-        foreground: AppColors.themeColor,
-        border: Color(0xFFD7DEFF),
+      return ScoreBadgeStyle(
+        background: palette.brandSoft,
+        foreground: palette.brand,
+        border: palette.brandSoftBorder,
       );
     }
     if (score >= 4) {
@@ -208,10 +414,10 @@ abstract final class AssessmentUi {
 
   /// A *solid*, saturated accent for a score or average — used to tint card
   /// shadows, left accent strips, score rings and progress fills (PRD
-  /// BR-AS-03 thresholds). Unscored falls back to the brand indigo so cards
+  /// BR-AS-03 thresholds). Unscored falls back to the brand colour so cards
   /// stay colourful and on-brand instead of grey.
   static Color scoreAccent(double? score) {
-    if (score == null) return AppColors.themeColor;
+    if (score == null) return palette.brand;
     if (score >= 4) return const Color(0xFF16A34A); // green-600
     if (score >= 2) return const Color(0xFFF59E0B); // amber-500
     return const Color(0xFFEF4444); // red-500
@@ -228,23 +434,16 @@ abstract final class AssessmentUi {
 
   // ----------------------------------------------------- per-entity gradients
 
-  /// Brand blue→violet — student avatars and primary CTAs.
-  static const List<Color> studentGradientColors = <Color>[
-    Color(0xFF5978F7),
-    Color(0xFF9C6BF7),
-  ];
+  /// Student avatars and primary CTAs (themed).
+  static List<Color> get studentGradientColors =>
+      palette.studentGradientColors;
 
-  /// Violet→indigo — classroom avatars.
-  static const List<Color> classroomGradientColors = <Color>[
-    Color(0xFF8B5CF6),
-    Color(0xFF6366F1),
-  ];
+  /// Classroom avatars (themed).
+  static List<Color> get classroomGradientColors =>
+      palette.classroomGradientColors;
 
-  /// Blue→violet (deeper) — school avatar.
-  static const List<Color> schoolGradientColors = <Color>[
-    Color(0xFF3B82F6),
-    Color(0xFF8B5CF6),
-  ];
+  /// School avatar (themed).
+  static List<Color> get schoolGradientColors => palette.schoolGradientColors;
 
   static LinearGradient _diagonal(List<Color> colors) => LinearGradient(
         colors: colors,
@@ -257,25 +456,20 @@ abstract final class AssessmentUi {
       _diagonal(classroomGradientColors);
   static LinearGradient get schoolGradient => _diagonal(schoolGradientColors);
 
+  /// Rotating gradients for classroom list cards (themed).
+  static List<LinearGradient> get classroomCardGradients => palette
+      .classroomCardGradients
+      .map(_diagonal)
+      .toList(growable: false);
+
   /// Distinct accent colours for parameter-management domain cards so each
   /// domain reads as its own colour (deterministic by id), the way Events
-  /// colour-codes by type.
-  static const List<Color> domainPalette = <Color>[
-    Color(0xFF6366F1), // indigo
-    Color(0xFF8B5CF6), // violet
-    Color(0xFF3B82F6), // blue
-    Color(0xFF0EA5E9), // sky
-    Color(0xFF14B8A6), // teal
-    Color(0xFFF59E0B), // amber
-    Color(0xFFEC4899), // pink
-    Color(0xFF10B981), // green
-  ];
-
+  /// colour-codes by type. Pool is themed.
   static Color domainColor(String seed) {
-    if (seed.isEmpty) return domainPalette.first;
-    final i = seed.codeUnits.fold<int>(0, (s, c) => s + c) %
-        domainPalette.length;
-    return domainPalette[i];
+    final pool = palette.domainPalette;
+    if (seed.isEmpty) return pool.first;
+    final i = seed.codeUnits.fold<int>(0, (s, c) => s + c) % pool.length;
+    return pool[i];
   }
 
   /// Fixed emoji for the 5 seeded domains; any admin-created domain falls
@@ -306,12 +500,20 @@ abstract final class AssessmentUi {
     return _domainEmojiFallbackPool[i];
   }
 
-  /// Horizontal brand gradient for primary buttons / header banners.
-  static const LinearGradient brandGradient = LinearGradient(
-    colors: studentGradientColors,
-    begin: Alignment.centerLeft,
-    end: Alignment.centerRight,
-  );
+  /// Horizontal brand gradient for decorative brand marks (themed). For
+  /// buttons/CTAs use [accentGradient] instead.
+  static LinearGradient get brandGradient => LinearGradient(
+        colors: studentGradientColors,
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+      );
+
+  /// Horizontal action gradient for primary buttons/CTAs (themed).
+  static LinearGradient get accentGradient => LinearGradient(
+        colors: palette.accentGradientColors,
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+      );
 
   // ------------------------------------------------------------- month label
 

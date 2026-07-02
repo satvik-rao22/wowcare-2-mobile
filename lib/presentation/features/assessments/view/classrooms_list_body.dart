@@ -17,16 +17,10 @@ class ClassroomsListBody extends StatelessWidget {
 
   final ValueChanged<String> onOpenClassroom;
 
-  static const List<List<Color>> _gradients = [
-    [Color(0xFF8B5CF6), Color(0xFF6366F1)],
-    [Color(0xFF3B82F6), Color(0xFF8B5CF6)],
-    [Color(0xFF34B3A0), Color(0xFF3B82F6)],
-    [Color(0xFF9C6BF7), Color(0xFF5978F7)],
-  ];
-
   @override
   Widget build(BuildContext context) {
     final cubit = context.read<AssessmentsCubit>();
+    final gradients = AssessmentUi.classroomCardGradients;
     return BlocBuilder<AssessmentsCubit, AssessmentsState>(
       builder: (context, state) {
         return ListView(
@@ -37,7 +31,7 @@ class ClassroomsListBody extends StatelessWidget {
               child: AssessmentPeriodChip(
                 period: state.period,
                 onChanged: cubit.setPeriodMonth,
-                iconColor: const Color(0xFF8B5CF6),
+                iconColor: AssessmentUi.palette.secondary,
               ),
             ),
             const SizedBox(height: 15),
@@ -57,11 +51,7 @@ class ClassroomsListBody extends StatelessWidget {
                       child: _ClassroomCard(
                         classroom: e.value,
                         state: state,
-                        gradient: LinearGradient(
-                          colors: _gradients[e.key % _gradients.length],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        gradient: gradients[e.key % gradients.length],
                         onTap: () => onOpenClassroom(e.value.code),
                       ),
                     ),

@@ -42,6 +42,9 @@ class AssessmentCollection {
   @Index()
   late DateTime periodStart;
   late DateTime periodEnd;
+
+  /// Age band the child was in when scored (stamped at save time).
+  String ageGroupId = '';
   String? impersonatorId;
   bool published = false;
 
@@ -61,6 +64,7 @@ class AssessmentCollection {
       ..assessedAt = assessment.assessedAt
       ..periodStart = assessment.periodStart
       ..periodEnd = assessment.periodEnd
+      ..ageGroupId = assessment.ageGroupId
       ..impersonatorId = assessment.impersonatorId
       ..published = assessment.published;
   }
@@ -78,6 +82,7 @@ class AssessmentCollection {
       assessedAt: assessedAt,
       periodStart: periodStart,
       periodEnd: periodEnd,
+      ageGroupId: ageGroupId,
       schoolId: schoolId,
       impersonatorId: impersonatorId,
       published: published,

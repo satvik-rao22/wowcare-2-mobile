@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Scope** | The Assessments module: a per-school developmental framework (Domain → Subdomain → Milestone), classroom-scoped parameter assignment, per-student milestone scoring on a fixed 1–5 scale with an upsert-per-period model, and read-only roll-ups at student / classroom / school level with period-over-period radar comparison. Plus audit trail, notifications, and CWW Super-Admin impersonation. |
+| **Scope** | The Assessments module: a per-school developmental framework (Domain → Subdomain → Milestone), **age-group-scoped** parameter assignment over school-defined age groups (seedable from a framework preset — the NH Early Learning Standards ship as preset #1), per-student milestone scoring on a fixed 1–5 scale with an upsert-per-period model, and read-only roll-ups at student / classroom / school level with period-over-period radar comparison. Plus audit trail, notifications, and CWW Super-Admin impersonation. |
 | **Stack** | PostgreSQL → Spring Boot (Java) REST API → two clients: React (web, primary) + Flutter (mobile). |
 | **Status** | Greenfield backend. The frontend prototype (`ParameterManagement.tsx`, `StudentAssessmentProfile.tsx`, etc.) runs on mock data; no production data exists, so this can be built correctly with no migration risk. |
 | **Audience** | Engineering (backend, web, mobile) + technical review. Data Model (§4) and API (§6) are the canonical contract; the PRD §17–18 marked these "reference only / to be finalised by Tech Leads" — this document finalises them. |
@@ -45,7 +45,9 @@ The module serves three layers of need:
 - **School Admins** see read-only **classroom** and **school** roll-ups: domain/subdomain/milestone averages with a radar chart comparing this month to last.
 - **Org Admins** see the same roll-ups across **every school** in the organisation.
 
-Two cross-cutting concerns shape every table: **classroom assignment** (a parameter is only visible/scoreable where it's assigned) and **CWW Super-Admin impersonation** (cross-org support, every action stamped with `impersonator_id`). **Guardians/Parents have no access** in this release.
+Two cross-cutting concerns shape every table: **age-group assignment** (a parameter is only visible/scoreable for students whose age falls in a band it's assigned to) and **CWW Super-Admin impersonation** (cross-org support, every action stamped with `impersonator_id`). **Guardians/Parents have no access** in this release.
+
+> **Δ from PRD — age groups replace classroom assignment.** The PRD scopes parameters to *classrooms* and assumes each classroom maps to one developmental band. Real classrooms mix ages and rarely align with the bands standards frameworks use (the NH Early Learning Standards use seven: Birth–9 m, 9–18 m, 18–24 m, 24–30 m, 30 m–3 y, 3 y, 4–5 y). This design therefore assigns parameters to **school-defined age groups** (§4.4); a student's visible milestones are resolved from their **date of birth**, not their classroom. Classrooms remain the RBAC scope (staff see their classrooms' students) and a roll-up dimension — they no longer gate which milestones a child is assessed against. A school can adopt the NH bands + framework wholesale via a **framework preset** (§4.7) or define fully custom bands and mappings.
 
 ---
 
@@ -61,7 +63,7 @@ Built on clean architecture (`presentation → domain → data`), consistent wit
 |---|---|---|
 | 1 | `school_id` (tenant) on **every** table, leading every composite index; `org_id` resolvable for Org-Admin cross-school reads. | Row-level security now; shard-by-tenant later with no model change. |
 | 2 | **Soft-delete / deactivate** parameters (`status`, `deleted_at`); historical assessments are **never** deleted when a parameter is deactivated. | PRD BR-DM-05 / FR-DM-16: deactivating a Domain/Subdomain/Milestone MUST preserve all historical records. |
-| 3 | **No EAV.** Scores are typed columns. Classroom assignment is a **join table**, not a `text[]` column. | The frontend models `assignedClassrooms[]` as an array; a join table makes "which milestones does classroom X see" an indexed query instead of an array scan. |
+| 3 | **No EAV.** Scores are typed columns. Age-group assignment is a **join table**, not a `text[]` column. | The frontend models the assignment set as an array; a join table makes "which milestones does age group X see" an indexed query instead of an array scan. |
 | 4 | **Aggregate in SQL** (averages, statistics), never by shipping all rows to the client. | Roll-ups (classroom/school) are `AVG`/`GROUP BY` over an indexed period window — exactly what Postgres is for. |
 | 5 | **Keyset (cursor) pagination** for list endpoints, not `OFFSET`. | `OFFSET` degrades on deep pages; student/assessment lists can grow. |
 | 6 | **Append-only history** (`audit_log`) is its own time-partitioned table, written in the **same transaction** as the mutation. | Compliance: PRD §19 requires reconstructing what/who/when for every mutation, incl. `impersonator_id`. |
@@ -91,7 +93,7 @@ The central decision mirrors the Tasks split (definition vs per-person instance)
                                  ▼
         ┌─────────────────────────────────────────────┐
         │                 MILESTONE                     │  (MST-…)
-        │  name, age_group, status, subdomain_id, …     │  ← atomic scoring unit
+        │  name, status, subdomain_id, …                │  ← atomic scoring unit
         └───────────────────────┬──────────────────────┘
                                  │ 1 : N  (one row per student per period)
                                  ▼
@@ -101,17 +103,19 @@ The central decision mirrors the Tasks split (definition vs per-person instance)
         │  notes, period_start, assessed_by             │  (student, milestone, period_start)
         └─────────────────────────────────────────────┘
 
-   Classroom assignment (many-to-many) attaches to ANY parameter level:
-        DOMAIN / SUBDOMAIN / MILESTONE  ──<  parameter_classrooms  >──  CLASSROOM
+   Age-group assignment (many-to-many) attaches to ANY parameter level:
+        DOMAIN / SUBDOMAIN / MILESTONE  ──<  parameter_age_groups  >──  AGE GROUP
+                                                          (school-defined band, e.g.
+                                                           "Birth to Nine Months" = [0, 9) months)
 ```
 
-This is what lets a milestone be scored for 30 children as 30 independent rows, lets an admin aggregate a classroom or whole school as a single `GROUP BY`, and makes "every milestone visible to classroom X" a single indexed join.
+This is what lets a milestone be scored for 30 children as 30 independent rows, lets an admin aggregate a classroom or whole school as a single `GROUP BY`, and makes "every milestone visible to age group X" a single indexed join. A student's band is resolved from `date_of_birth` at the assessment period (§4.4), so the framework follows the child — not the room they happen to sit in.
 
 ---
 
 ## 4. Data model (PostgreSQL)
 
-> Conventions: internal PK is `BIGINT GENERATED ALWAYS AS IDENTITY` (never exposed); the API exposes only the public `code` (and/or UUID for reference entities). Every table carries `school_id` (tenant), `created_at`/`updated_at` (UTC `timestamptz`), `created_by`/`updated_by`, `version` (optimistic lock / `If-Match` ETag), and where applicable `status` + `deleted_at`/`deleted_by`. **`schools`, `classrooms`, `students`, `users`, `organisations` are reference entities owned by other modules** — shown only as FKs.
+> Conventions: internal PK is `BIGINT GENERATED ALWAYS AS IDENTITY` (never exposed); the API exposes only the public `code` (and/or UUID for reference entities). Every table carries `school_id` (tenant), `created_at`/`updated_at` (UTC `timestamptz`), `created_by`/`updated_by`, `version` (optimistic lock / `If-Match` ETag), and where applicable `status` + `deleted_at`/`deleted_by`. **`schools`, `classrooms`, `students`, `users`, `organisations` are reference entities owned by other modules** — shown only as FKs. Age-group resolution additionally requires **`students.date_of_birth`**, which this module reads but never writes.
 
 ### 4.1 `domains` — top-level developmental area
 
@@ -176,7 +180,6 @@ CREATE TABLE milestones (
   domain_id    BIGINT       NOT NULL REFERENCES domains(id),     -- denormalized: roll-ups group by domain
   name         VARCHAR(200) NOT NULL,
   description  VARCHAR(1000) NOT NULL DEFAULT '',
-  age_group    VARCHAR(24),                                  -- 0-12m | 12-24m | 24-36m | 3-4y | 4-5y
 
   status       VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
   created_by   VARCHAR(40)  NOT NULL,
@@ -196,13 +199,54 @@ CREATE INDEX idx_milestone_by_domain   ON milestones (domain_id)
 ```
 
 > `domain_id` on `milestones` is a deliberate denormalization. Classroom and school roll-ups group milestone scores **by domain**; carrying `domain_id` on the scored leaf avoids a two-hop join (`milestone → subdomain → domain`) on the hottest aggregate query. It's set on create and is immutable (parameters never re-parent), so it cannot drift.
+>
+> There is **no `age_group` column on `milestones`** — the age linkage lives in `parameter_age_groups` (§4.5). In the NH preset every milestone maps to exactly one band (that's how the source standards are written), but the join table lets a custom milestone span adjacent bands without a schema change.
 
-### 4.4 `parameter_classrooms` — classroom assignment (polymorphic, many-to-many)
+### 4.4 `age_groups` — school-defined developmental bands
 
-A parameter at **any** level is assigned to zero-or-more classrooms. One table, exactly one owner column set (same pattern as polymorphic owners elsewhere in the codebase).
+Each school owns its set of age bands. The set is **seeded from a framework preset** (§4.7) — the NH Early Learning Standards preset ships the seven NH bands — or the school defines fully custom bands. A band is a half-open month range `[min_age_months, max_age_months)`, so any age maps to at most one band.
 
 ```sql
-CREATE TABLE parameter_classrooms (
+CREATE TABLE age_groups (
+  id             BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code           VARCHAR(40)  NOT NULL UNIQUE,              -- AGE-XXXXXXXX (API id)
+  school_id      BIGINT       NOT NULL,
+  name           VARCHAR(100) NOT NULL,                     -- "Birth to Nine Months"
+  min_age_months SMALLINT     NOT NULL CHECK (min_age_months >= 0),
+  max_age_months SMALLINT     NOT NULL,                     -- EXCLUSIVE upper bound
+  sort_order     SMALLINT     NOT NULL DEFAULT 0,
+  preset_code    VARCHAR(40),                               -- provenance when seeded from a preset (§4.7)
+
+  status         VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
+  created_by     VARCHAR(40)  NOT NULL,
+  updated_by     VARCHAR(40),
+  version        INT          NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  deleted_at     TIMESTAMPTZ,
+  deleted_by     VARCHAR(40),
+
+  CONSTRAINT chk_age_band CHECK (max_age_months > min_age_months)
+);
+CREATE UNIQUE INDEX uq_age_group_name ON age_groups (school_id, lower(name))
+  WHERE status = 'ACTIVE' AND deleted_at IS NULL;
+-- active bands must not overlap within a school (resolution would be ambiguous); needs btree_gist
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+ALTER TABLE age_groups ADD CONSTRAINT excl_age_band_overlap EXCLUDE USING gist (
+  school_id WITH =,
+  int4range(min_age_months, max_age_months) WITH &&
+) WHERE (status = 'ACTIVE' AND deleted_at IS NULL);
+```
+
+- **Resolution rule:** a student's age group for a period is the active band containing `age_in_months(date_of_birth, period_start)`, computed **as of `period_start`** — a child who crosses a band boundary mid-month is assessed against one deterministic band for that whole month. Gaps between bands are legal (a school may simply not assess 5-year-olds); a student whose age falls in no active band has no milestones to score and the UI says so (OQ-N1, §15).
+- **Editing a band never rewrites history:** assessments carry the `age_group_id` they were scored under (§4.6); changing `min/max_age_months` affects future resolution only. Deactivation follows the same soft-delete rules as parameters.
+
+### 4.5 `parameter_age_groups` — age-group assignment (polymorphic, many-to-many)
+
+A parameter at **any** level is assigned to zero-or-more age groups — this **replaces the PRD's classroom assignment**. One table, exactly one owner column set (same pattern as polymorphic owners elsewhere in the codebase). In the NH preset every milestone is assigned to exactly one band; the many-to-many exists so a custom milestone can span adjacent bands, and so a whole domain/subdomain can be pinned to a band in one row.
+
+```sql
+CREATE TABLE parameter_age_groups (
   id           BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   school_id    BIGINT  NOT NULL,
 
@@ -210,7 +254,7 @@ CREATE TABLE parameter_classrooms (
   subdomain_id BIGINT  REFERENCES subdomains(id) ON DELETE CASCADE,
   milestone_id BIGINT  REFERENCES milestones(id) ON DELETE CASCADE,
 
-  classroom_id BIGINT  NOT NULL,                            -- FK → classrooms (reference module)
+  age_group_id BIGINT  NOT NULL REFERENCES age_groups(id),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
   created_by   VARCHAR(40) NOT NULL,
 
@@ -218,17 +262,17 @@ CREATE TABLE parameter_classrooms (
     (domain_id IS NOT NULL)::int + (subdomain_id IS NOT NULL)::int
     + (milestone_id IS NOT NULL)::int = 1)
 );
--- one assignment row per (parameter, classroom); re-assigning is idempotent
-CREATE UNIQUE INDEX uq_pc_domain    ON parameter_classrooms (domain_id, classroom_id)    WHERE domain_id    IS NOT NULL;
-CREATE UNIQUE INDEX uq_pc_subdomain ON parameter_classrooms (subdomain_id, classroom_id) WHERE subdomain_id IS NOT NULL;
-CREATE UNIQUE INDEX uq_pc_milestone ON parameter_classrooms (milestone_id, classroom_id) WHERE milestone_id IS NOT NULL;
--- "which milestones does classroom X see" — the visibility filter for the student profile
-CREATE INDEX idx_pc_by_classroom ON parameter_classrooms (classroom_id, school_id);
+-- one assignment row per (parameter, age group); re-assigning is idempotent
+CREATE UNIQUE INDEX uq_pag_domain    ON parameter_age_groups (domain_id, age_group_id)    WHERE domain_id    IS NOT NULL;
+CREATE UNIQUE INDEX uq_pag_subdomain ON parameter_age_groups (subdomain_id, age_group_id) WHERE subdomain_id IS NOT NULL;
+CREATE UNIQUE INDEX uq_pag_milestone ON parameter_age_groups (milestone_id, age_group_id) WHERE milestone_id IS NOT NULL;
+-- "which milestones does age group X see" — the visibility filter for the student profile
+CREATE INDEX idx_pag_by_age_group ON parameter_age_groups (age_group_id, school_id);
 ```
 
-Lifecycle (PRD FR-MS-18 / BR-PM-02): **un-assigning a classroom deletes only the assignment row — never the assessment records.** It changes future visibility, not history. "Applies to all classrooms" (FR-DM-18) is a UI rendering when the assignment set equals the school's full classroom set; it is **not** a stored flag.
+Lifecycle (adapts PRD FR-MS-18 / BR-PM-02): **un-assigning an age group deletes only the assignment row — never the assessment records.** It changes future visibility, not history. "Applies to all age groups" (adapts FR-DM-18) is a UI rendering when the assignment set equals the school's full active-band set; it is **not** a stored flag.
 
-### 4.5 `assessments` — the scored instance
+### 4.6 `assessments` — the scored instance
 
 ```sql
 CREATE TABLE assessments (
@@ -237,7 +281,8 @@ CREATE TABLE assessments (
   school_id      BIGINT       NOT NULL,
 
   student_id     BIGINT       NOT NULL,                      -- FK → students (reference module)
-  classroom_id   BIGINT       NOT NULL,                      -- denormalized: scope + roll-up filter
+  classroom_id   BIGINT       NOT NULL,                      -- denormalized: staff scope + classroom roll-up
+  age_group_id   BIGINT       NOT NULL REFERENCES age_groups(id),  -- band the child was in when scored (server-resolved, §4.4)
   milestone_id   BIGINT       NOT NULL REFERENCES milestones(id),
 
   score          SMALLINT     NOT NULL CHECK (score BETWEEN 1 AND 5),   -- VR-AS-01/02
@@ -261,25 +306,78 @@ CREATE UNIQUE INDEX uq_assessment_upsert ON assessments (student_id, milestone_i
 -- student profile: all of one student's scores in a period (one screen load)
 CREATE INDEX idx_asm_student_period ON assessments (student_id, period_start)
   WHERE deleted_at IS NULL;
--- classroom roll-up: AVG over a classroom + period, grouped by milestone
+-- classroom roll-up: AVG over a classroom + period, grouped by milestone (age_group_id covers the optional band filter)
 CREATE INDEX idx_asm_classroom_rollup ON assessments (classroom_id, period_start)
-  INCLUDE (milestone_id, score) WHERE deleted_at IS NULL;
+  INCLUDE (milestone_id, score, age_group_id) WHERE deleted_at IS NULL;
 -- school roll-up: AVG over a school + period
 CREATE INDEX idx_asm_school_rollup ON assessments (school_id, period_start)
-  INCLUDE (milestone_id, score) WHERE deleted_at IS NULL;
+  INCLUDE (milestone_id, score, age_group_id) WHERE deleted_at IS NULL;
 ```
+
+> `age_group_id` is stamped by the **server** at save time from the resolution rule in §4.4 — the client never sends it. It freezes the band the child was actually in when scored, so later edits to a school's bands (or a switch to different bands entirely) never reinterpret history, and it gives roll-ups an indexed band filter for free.
 
 > Why `period_start` (a `DATE`) rather than a free `period` string: it makes the upsert key precise, lets the previous-period radar comparison be a plain `period_start = current - interval '1 month'`, and indexes cleanly for range scans. `period_end` is carried for display and for the "valid calendar month" check (VR-AS-06). The pair is the canonical assessment period.
 
-### 4.6 `audit_log` — compliance history (time-partitioned)
+### 4.7 `framework_presets` — importable framework templates
+
+A preset is a **read-only template of a complete framework**: an age-group set, the Domain → Subdomain → Milestone tree, and the milestone→age-group mapping. Preset #1 is the **NH Early Learning Standards** (10 domains, 73 subdomains, 477 milestones across the 7 NH bands — inside the PRD's ≤20 / ≤100 / ≤500 caps). CWW ships `SYSTEM` presets; an org can save its own custom framework as an `ORG` preset and reuse it across its schools — this is how "the school defines their age groups and their own mapping" becomes repeatable.
+
+```sql
+CREATE TABLE framework_presets (
+  id             BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code           VARCHAR(40)  NOT NULL UNIQUE,              -- PRS-XXXXXXXX (e.g. PRS-NH-ELS)
+  scope          VARCHAR(16)  NOT NULL,                     -- SYSTEM | ORG
+  org_id         BIGINT,                                    -- non-null iff scope = ORG
+  name           VARCHAR(200) NOT NULL,
+  description    VARCHAR(1000) NOT NULL DEFAULT '',
+  source         VARCHAR(200),                              -- attribution, e.g. "NH Early Learning Standards"
+  content        JSONB        NOT NULL,                     -- full template tree (schema below)
+  preset_version INT          NOT NULL DEFAULT 1,
+
+  status         VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
+  created_by     VARCHAR(40)  NOT NULL,
+  version        INT          NOT NULL DEFAULT 0,
+  created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+CREATE INDEX idx_preset_pick ON framework_presets (scope, org_id) WHERE status = 'ACTIVE';
+```
+
+`content` schema (validated server-side on create):
+
+```jsonc
+{
+  "ageGroups": [
+    { "key": "birth-9m", "name": "Birth to Nine Months", "minAgeMonths": 0, "maxAgeMonths": 9 }
+    // …
+  ],
+  "domains": [{
+    "name": "Social & Emotional Development",
+    "description": "…",
+    "subdomains": [{
+      "name": "Attachment — Relationships with primary caregivers",
+      "milestones": [
+        { "name": "Demonstrate interest in familiar adults…", "description": "…", "ageGroups": ["birth-9m"] }
+      ]
+    }]
+  }]
+}
+```
+
+- **JSONB is acceptable here and nowhere else.** Presets are immutable, read-only templates that are only ever read whole — the no-EAV rule (§2) governs live, queryable data.
+- **Applying a preset is a copy, not a link.** `POST /framework/apply-preset` transactionally inserts rows into `age_groups`, `domains`, `subdomains`, `milestones`, and `parameter_age_groups`, stamping `preset_code` provenance on the age groups. After the copy the school **owns** its framework outright — edits are local, and a later revision of the preset never mutates schools that already imported it (re-import semantics: OQ-N3, §15).
+- **v1 guard:** apply is permitted only into a school with **no active parameters and no active age groups** (`422` otherwise). Merge-into-existing is deliberately deferred (§14).
+- **NH mapping note:** the source spreadsheet is four-level (Domain → Strand → Construct → Milestone). The preset folds Strand + Construct into the subdomain name (e.g. "Attachment — Relationships with primary caregivers") to fit the strict three-level hierarchy (BR-DM-01/02); the resulting 73 subdomains stay under the ≤100 cap.
+
+### 4.8 `audit_log` — compliance history (time-partitioned)
 
 ```sql
 CREATE TABLE audit_log (
   id              BIGINT       GENERATED ALWAYS AS IDENTITY,
   school_id       BIGINT       NOT NULL,
-  entity_type     VARCHAR(24)  NOT NULL,                     -- DOMAIN|SUBDOMAIN|MILESTONE|ASSESSMENT
+  entity_type     VARCHAR(24)  NOT NULL,                     -- DOMAIN|SUBDOMAIN|MILESTONE|AGE_GROUP|PRESET|ASSESSMENT
   entity_code     VARCHAR(40)  NOT NULL,
-  action          VARCHAR(40)  NOT NULL,                     -- CREATED|UPDATED|DEACTIVATED|CLASSROOMS_UPDATED|BULK_SAVED|SCORE_UPDATED
+  action          VARCHAR(40)  NOT NULL,                     -- CREATED|UPDATED|DEACTIVATED|AGE_GROUPS_UPDATED|PRESET_APPLIED|BULK_SAVED|SCORE_UPDATED
   actor_code      VARCHAR(40)  NOT NULL,
   actor_name      VARCHAR(160) NOT NULL,
   impersonator_id VARCHAR(40),                               -- non-null only for CWW Super-Admin (PRD §19 NOTE)
@@ -291,9 +389,9 @@ CREATE INDEX idx_audit_entity ON audit_log (school_id, entity_type, entity_code,
 -- monthly partitions created ahead (pg_partman/cron); old months detached & archived
 ```
 
-Maps directly to PRD §19's event list (`domain.created`, `milestone.classrooms_updated`, `assessment.bulk_saved`, `assessment.updated`, …). Written **in the same transaction** as the mutation so history can never disagree with state.
+Maps to PRD §19's event list with the assignment events renamed for the age-group model (`domain.created`, `milestone.age_groups_updated` — adapted from `milestone.classrooms_updated` — `assessment.bulk_saved`, `assessment.updated`, …) plus two new events: `age_group.created/updated/deactivated` and `preset.applied`. Written **in the same transaction** as the mutation so history can never disagree with state.
 
-### 4.7 `notifications` — minimal model (reliable delivery)
+### 4.9 `notifications` — minimal model (reliable delivery)
 
 ```sql
 CREATE TABLE notifications (
@@ -326,6 +424,7 @@ Producers write via a **transactional outbox** (same DB transaction as the trigg
 - **Radar comparison (BR-CA-02):** always *selected period* vs *immediately preceding calendar month* — `period_start - interval '1 month'`. No custom comparison period. If no prior data exists, the "previous" series is omitted or shown flat (FR-SA-18).
 - **Period model:** an assessment period is a calendar month — `period_start` = 1st. `period_end` is dynamically computed (last day of the month) to avoid database redundancy. **Future periods cannot be assessed** (VR-MP-01); the API rejects a future `period_start` with `400`. Stored as `DATE` in UTC ISO-8601 (PRD §22); the MonthPicker formats via browser locale.
 - **Aggregate scale is fixed (BR-AS-05):** 1=Beginner, 2=Developing, 3=Intermediate, 4=Advanced, 5=Proficient — not customisable per school or domain.
+- **Age group is a filter, not a grouping change:** classroom/school roll-ups still group by domain/subdomain/milestone; an optional `ageGroupId` query filter narrows the aggregate via the denormalized `assessments.age_group_id`, letting admins compare (say) their 18–24 m children against last month without mixing bands.
 
 ---
 
@@ -343,10 +442,21 @@ Producers write via a **transactional outbox** (same DB transaction as the trigg
 ### 6.2 Endpoints
 
 ```
+# Age groups (admin write; staff read-only)
+GET    /api/v1/schools/{schoolId}/age-groups                    # active bands, ordered by sort_order
+POST   /api/v1/schools/{schoolId}/age-groups
+PUT    /api/v1/schools/{schoolId}/age-groups/{ageGroupCode}
+DELETE /api/v1/schools/{schoolId}/age-groups/{ageGroupCode}     # deactivate (soft); history preserved
+
+# Framework presets
+GET    /api/v1/framework-presets                                # SYSTEM presets + caller's ORG presets
+POST   /api/v1/schools/{schoolId}/framework/apply-preset        # {presetCode} — transactional copy (§4.7); 422 if framework non-empty
+POST   /api/v1/orgs/{orgId}/framework-presets                   # save an ORG-scope preset (snapshot a school's framework or upload content)
+
 # Parameters — Domains (admin write; staff read-only)
 GET    /api/v1/schools/{schoolId}/domains                       # active hierarchy: domains+subdomains+milestones (nested)
-POST   /api/v1/schools/{schoolId}/domains                       # create domain (+ classroom assignment)
-PUT    /api/v1/schools/{schoolId}/domains/{domainCode}          # edit name/description/classrooms
+POST   /api/v1/schools/{schoolId}/domains                       # create domain (+ age-group assignment)
+PUT    /api/v1/schools/{schoolId}/domains/{domainCode}          # edit name/description/age-groups
 DELETE /api/v1/schools/{schoolId}/domains/{domainCode}          # deactivate (soft); history preserved
 
 # Subdomains & Milestones
@@ -358,14 +468,14 @@ GET    /api/v1/schools/{schoolId}/subdomains/{subdomainCode}/milestones
 POST   /api/v1/schools/{schoolId}/subdomains/{subdomainCode}/milestones
 PUT    /api/v1/schools/{schoolId}/milestones/{milestoneCode}
 DELETE /api/v1/schools/{schoolId}/milestones/{milestoneCode}
-PATCH  /api/v1/schools/{schoolId}/milestones/{milestoneCode}/classrooms   # assignment only (FR-MS-14)
+PATCH  /api/v1/schools/{schoolId}/milestones/{milestoneCode}/age-groups   # assignment only (adapts FR-MS-14)
 
 # Assessments — the data-entry + roll-up surface
 GET    /api/v1/schools/{schoolId}/assessments?classroomId=&periodStart=&periodEnd=   # list/filter (student-list view)
 POST   /api/v1/schools/{schoolId}/assessments/bulk                                   # "Save All" — bulk UPSERT, one txn
 GET    /api/v1/schools/{schoolId}/assessments/student/{studentId}?periodStart=        # one student, all milestones (profile)
-GET    /api/v1/schools/{schoolId}/assessments/classroom/{classroomId}?periodStart=    # classroom roll-up (avg + radar)
-GET    /api/v1/schools/{schoolId}/assessments/school?periodStart=                     # school roll-up (stats + avg + radar)
+GET    /api/v1/schools/{schoolId}/assessments/classroom/{classroomId}?periodStart=&ageGroupId=   # classroom roll-up (avg + radar; band filter optional)
+GET    /api/v1/schools/{schoolId}/assessments/school?periodStart=&ageGroupId=                    # school roll-up (stats + avg + radar; band filter optional)
 
 # History
 GET    /api/v1/schools/{schoolId}/{entity}/{code}/history       # audit timeline (entity ∈ domains|…|assessments)
@@ -373,8 +483,8 @@ GET    /api/v1/schools/{schoolId}/{entity}/{code}/history       # audit timeline
 
 ### 6.3 Lean GETs vs the two fat reads
 
-- **Parameter hierarchy** (`GET /domains`) returns the nested tree with per-node subdomain/milestone counts and classroom-assignment chips, served from the covering indexes in §4.1–4.4. No assessment data.
-- **Student profile** (`/assessments/student/{id}`) is the data-entry read: the student's milestones (filtered to their classroom via `idx_pc_by_classroom`) pre-populated with any existing `(student, milestone, period)` score. Bounded by one student → cheap.
+- **Parameter hierarchy** (`GET /domains`) returns the nested tree with per-node subdomain/milestone counts and age-group-assignment chips, served from the covering indexes in §4.1–4.5. No assessment data.
+- **Student profile** (`/assessments/student/{id}`) is the data-entry read: the server resolves the student's band from `date_of_birth` + `periodStart` (§4.4), pulls that band's milestones via `idx_pag_by_age_group`, and pre-populates any existing `(student, milestone, period)` score. The response names the resolved band so the UI can show "assessing against: 18–24 months". Bounded by one student → cheap.
 - **Classroom / school roll-ups** are pure aggregates computed server-side (`AVG ... GROUP BY domain_id, subdomain_id, milestone_id`) plus the previous-period series for the radar. The client never receives raw scores for a roll-up — only the rounded averages and statistics card.
 
 ### 6.4 Bulk upsert payload (the "Save All" operation)
@@ -394,7 +504,7 @@ POST /api/v1/schools/{schoolId}/assessments/bulk
 }
 ```
 
-Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all rows upsert or none do (rollback on partial failure). Each `(studentId, milestoneCode, periodStart)` resolves against `uq_assessment_upsert`: existing → `UPDATE` (logged `assessment.updated` with old/new score); absent → `INSERT`. `assessed_by` = caller; `impersonator_id` = session impersonator if any. A milestone not assigned to the student's classroom → `422` (VR-AS-05); a deactivated milestone → `400` (defensive, PRD §24).
+Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all rows upsert or none do (rollback on partial failure). Each `(studentId, milestoneCode, periodStart)` resolves against `uq_assessment_upsert`: existing → `UPDATE` (logged `assessment.updated` with old/new score); absent → `INSERT`. `assessed_by` = caller; `impersonator_id` = session impersonator if any. The server resolves the student's band from DOB + `periodStart` and stamps `age_group_id` itself — the client never sends it. A milestone not assigned to the student's resolved age group → `422` (adapts VR-AS-05); a student with no resolvable band (missing DOB / out-of-band age) → `422`; a deactivated milestone → `400` (defensive, PRD §24).
 
 ### 6.5 Common headers
 
@@ -409,8 +519,8 @@ Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all ro
 
 ## 7. The four assessment views
 
-1. **Parameter Management** (`GET /domains`) — accordion: Domain → Subdomain → Milestone with subdomain/milestone count badges, classroom chips, and Add/Edit/Deactivate/Assign-Classrooms controls. **Write controls hidden for Staff** (read-only hierarchy, FR-DM-03 / US-PM-07).
-2. **Student Assessment** (`/assessments?classroomId=`, then `/assessments/student/{id}`) — classroom + MonthPicker filter → student card grid with domain score badges → profile with per-domain accordion, 1–5 `AssessmentScale` per milestone, notes, **Copy to All Milestones**, and **Save All** (bulk upsert). The only write surface.
+1. **Parameter Management** (`GET /domains`) — accordion: Domain → Subdomain → Milestone with subdomain/milestone count badges, age-group chips, and Add/Edit/Deactivate/Assign-Age-Groups controls. Includes the **Age Groups** settings surface (list/create/edit bands) and the **apply-preset** entry point, shown only while the framework is empty. **Write controls hidden for Staff** (read-only hierarchy, FR-DM-03 / US-PM-07).
+2. **Student Assessment** (`/assessments?classroomId=`, then `/assessments/student/{id}`) — classroom + MonthPicker filter → student card grid with domain score badges → profile with per-domain accordion showing the milestones for the student's **resolved age band** (banner: "assessing against: 18–24 months"), 1–5 `AssessmentScale` per milestone, notes, **Copy to All Milestones**, and **Save All** (bulk upsert). The only write surface.
 3. **Classroom Assessment** (`/assessments/classroom/{id}`) — read-only roll-up: domain/subdomain/milestone averages table + current-vs-previous radar + assessment-guide card.
 4. **School Assessment** (`/assessments/school`) — read-only school-wide roll-up: statistics card (classrooms, students, active domains, assessments in period) + averages table + radar. Org Admin may select any school in the org (FR-SC-08).
 
@@ -430,13 +540,17 @@ Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all ro
 
 ## 9. Business rules & RBAC
 
-**Rules:** hierarchy is strict three-level and never re-parented (BR-DM-01/02); deactivation **should cascade** at the service layer — deactivating a Domain automatically deactivates its Subdomains and Milestones to prevent orphaned active records (resolves OQ-01); deactivating any parameter preserves all historical assessments (BR-DM-05); scoring is upsert-per-`(student, milestone, period)` (BR-AS-01); the 1–5 scale is fixed (BR-AS-05); "Copy to All Milestones" overwrites every milestone score in that domain for the current student+period (BR-AS-04); un-assigning a classroom preserves its existing records (BR-PM-02); roll-up profiles are strictly read-only (BR-CA-03); future periods can't be assessed (VR-MP-01).
+**Rules:** hierarchy is strict three-level and never re-parented (BR-DM-01/02); deactivation **should cascade** at the service layer — deactivating a Domain automatically deactivates its Subdomains and Milestones to prevent orphaned active records (resolves OQ-01); deactivating any parameter preserves all historical assessments (BR-DM-05); scoring is upsert-per-`(student, milestone, period)` (BR-AS-01); the 1–5 scale is fixed (BR-AS-05); "Copy to All Milestones" overwrites every milestone score in that domain for the current student+period (BR-AS-04); un-assigning an age group preserves its existing records (adapts BR-PM-02); roll-up profiles are strictly read-only (BR-CA-03); future periods can't be assessed (VR-MP-01).
+
+**Age-group rules (new, supersede the PRD's classroom-assignment rules):** active bands never overlap within a school (DB-enforced, §4.4); a student's band is resolved from `date_of_birth` **as of `period_start`** and stamped onto every assessment row; editing or deactivating a band changes future resolution only — stamped history stands; a preset can be applied only into an empty framework (§4.7); scoring a milestone not assigned to the student's resolved band is rejected (`422`).
 
 | Action | Org Admin | School Admin | Staff/Teacher | CWW Super Admin | Guardian |
 |---|:--:|:--:|:--:|:--:|:--:|
 | View parameter hierarchy | ✅ all schools | ✅ own school | ✅ read-only, own school | ✅ impersonated | ❌ |
 | Create/Edit/Deactivate Domain/Subdomain/Milestone | ✅ | ✅ own school | ❌ | ✅ (impersonated) | ❌ |
-| Assign classrooms to a parameter | ✅ | ✅ own school | ❌ | ✅ (impersonated) | ❌ |
+| Define/edit age groups | ✅ | ✅ own school | ❌ | ✅ (impersonated) | ❌ |
+| Apply framework preset / save ORG preset | ✅ both | ✅ apply, own school | ❌ | ✅ (impersonated) | ❌ |
+| Assign age groups to a parameter | ✅ | ✅ own school | ❌ | ✅ (impersonated) | ❌ |
 | View student assessment list/profile | ✅ all | ✅ own school | ✅ own classrooms | ✅ (impersonated) | ❌ (future) |
 | Enter/update student score (Save All, Copy to All) | ✅ | ✅ own school | ✅ own classroom students | ✅ (impersonated) | ❌ |
 | View classroom roll-up | ✅ all | ✅ own school | ✅ own classroom | ✅ (impersonated) | ❌ |
@@ -449,13 +563,13 @@ Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all ro
 Both clients consume the identical JSON contract; they differ only in local persistence and the offline path (mobile only).
 
 **React (web, primary)** — matches the existing prototype components:
-- API client + React Query hooks: `useParameterHierarchy`, `useStudentAssessment` (profile + existing scores), `useSaveAllAssessments` (optimistic bulk upsert), `useClassroomRollup`, `useSchoolRollup`.
-- Components: `ParameterManagement` (accordion + `ParameterForm`/`SubdomainForm`/`MilestoneForm`/`ClassroomAssignmentDialog` + `ConfirmDialog`), `StudentAssessmentList` (card grid + `MonthPicker`), `StudentAssessmentProfile` (`AssessmentScale`, Copy-to-All, Save-All, Recharts radar), `ClassroomAssessmentProfile`, `SchoolAssessment`.
+- API client + React Query hooks: `useParameterHierarchy`, `useAgeGroups`, `useApplyPreset`, `useStudentAssessment` (profile + existing scores + resolved band), `useSaveAllAssessments` (optimistic bulk upsert), `useClassroomRollup`, `useSchoolRollup`.
+- Components: `ParameterManagement` (accordion + `ParameterForm`/`SubdomainForm`/`MilestoneForm`/`AgeGroupAssignmentDialog` + `ConfirmDialog`), `AgeGroupSettings` (band list/editor + apply-preset), `StudentAssessmentList` (card grid + `MonthPicker`), `StudentAssessmentProfile` (`AssessmentScale`, Copy-to-All, Save-All, Recharts radar), `ClassroomAssessmentProfile`, `SchoolAssessment`.
 - Libraries (PRD §25.2): Recharts (radar), shadcn/ui (Accordion/Dialog/Checkbox/Badge), Lucide icons, date-fns (MonthPicker `startOfMonth`/`endOfMonth`/`addMonths`/`subMonths`).
 
 **Flutter (mobile)** — mirrors the existing assessments prototype already in this repo:
-- Domain: `Domain`, `Subdomain`, `Milestone`, `Assessment` + roll-up DTOs (`ClassroomRollup`, `SchoolRollup`).
-- State: `ParameterCubit` (hierarchy + write), `StudentAssessmentCubit` (profile + save-all), `ClassroomRollupCubit`, `SchoolRollupCubit`. The role gate decides whether write affordances mount (param writes gate on `role == 'admin'`, consistent with the events/tasks modules).
+- Domain: `Domain`, `Subdomain`, `Milestone`, `AgeGroup`, `Assessment` + roll-up DTOs (`ClassroomRollup`, `SchoolRollup`).
+- State: `ParameterCubit` (hierarchy + write), `AgeGroupCubit` (bands + apply-preset), `StudentAssessmentCubit` (profile + save-all), `ClassroomRollupCubit`, `SchoolRollupCubit`. The role gate decides whether write affordances mount (param writes gate on `role == 'admin'`, consistent with the events/tasks modules).
 - Data: Isar collections per entity + Dio datasources mapped to §6.2.
 
 ---
@@ -463,7 +577,8 @@ Both clients consume the identical JSON contract; they differ only in local pers
 ## 11. Offline & sync (mobile)
 
 - **Score entry** writes optimistically to Isar with a `pending` flag and queues in an **outbox**; the whole **Save-All** payload for a student+period is one outbox item so it replays atomically (matching the server's transactional bulk upsert). Last-write-wins on `assessed_at`; the `(student, milestone, period)` upsert key means a replayed save reconciles cleanly rather than duplicating.
-- **Parameter edits** (admin) replay the same way; classroom-assignment changes are last-write-wins on the assignment set.
+- **Parameter edits** (admin) replay the same way; age-group-assignment changes are last-write-wins on the assignment set. Band edits and apply-preset are **online-only** (rare, admin-driven, and the overlap constraint makes offline conflict resolution not worth building).
+- The client caches the school's bands but **never resolves a band itself for a save** — the server stamps `age_group_id` on replay, so an outbox item that replays after a band edit still lands on the then-current rule deterministically.
 - **Roll-ups are server-authoritative** — cached averages render offline and reconcile on refresh (server wins).
 - The PRD marks offline sync **out of scope for the web release** (§1.3); this section applies to the Flutter client only.
 
@@ -471,7 +586,7 @@ Both clients consume the identical JSON contract; they differ only in local pers
 
 ## 12. Operations
 
-- **Migrations:** Flyway, forward-only, additive; greenfield tables need no backfill.
+- **Migrations:** Flyway, forward-only, additive; greenfield tables need no backfill. The NH Early Learning Standards `SYSTEM` preset is seeded by a Flyway **data** migration generated from the source spreadsheet (477 milestones, 7 bands); preset revisions ship as new migrations bumping `preset_version`.
 - **Backups & restore:** automated PITR; periodic restore drills. Soft-delete/deactivate provides an application-level undo path — note PRD FR-DM (NOTE) flags that **no "Restore Domain" UI exists yet**; reactivation today is a DB/admin-utility operation, a candidate for a future screen.
 - **Retention/archival:** `audit_log` partitions detached and archived after the compliance window; soft-deleted parameter rows purged only after the retention window and only when no assessments reference them.
 - **Observability — the dials that trigger deferred upgrades:** per-school row counts (assessments/month), roll-up query latency (school dashboard target < 5 s, PRD §23), bulk-save latency (< 3 s for ≤ 50 scores), audit-write lag, outbox lag, impersonation-log latency (< 100 ms). These signal when (if ever) to add a roll-up cache or partition the assessments table.
@@ -484,8 +599,8 @@ Mirrors PRD §26.2, with the backend phased underneath it.
 
 | Phase | Backend | Web | Mobile |
 |---|---|---|---|
-| **1 — Framework setup** | `domains`/`subdomains`/`milestones` + `parameter_classrooms` + CRUD/deactivate + hierarchy read | ParameterManagement (accordion, forms, ClassroomAssignmentDialog) | parameter hierarchy (read) + admin write |
-| **2 — First assessment cycle** | `assessments` + bulk upsert + student-list/profile reads + classroom scope enforcement | StudentAssessmentList + Profile + AssessmentScale + Copy-to-All + Save-All | student profile + save-all + outbox |
+| **1 — Framework setup** | `age_groups` + `framework_presets` (NH ELS seed) + `domains`/`subdomains`/`milestones` + `parameter_age_groups` + CRUD/deactivate + apply-preset + hierarchy read | ParameterManagement (accordion, forms, AgeGroupAssignmentDialog) + AgeGroupSettings + apply-preset flow | parameter hierarchy (read) + admin write + age-group settings |
+| **2 — First assessment cycle** | `assessments` + bulk upsert (server band resolution) + student-list/profile reads + classroom scope enforcement | StudentAssessmentList + Profile + AssessmentScale + Copy-to-All + Save-All | student profile + save-all + outbox |
 | **3 — Trend analysis** | classroom + school roll-up aggregates + previous-period series + statistics card | ClassroomAssessmentProfile + SchoolAssessment + Recharts radar | roll-up views (read) |
 | **4 — Ongoing** | `audit_log` + `notifications` outbox (created/deactivated/assigned/complete/overdue) + telemetry events | in-app + bell-icon panel; notification settings | in-app + push |
 
@@ -506,6 +621,8 @@ These were considered and **intentionally** scoped out — not overlooked. Each 
 | **Recurrence / auto-generated periods** | Periods are derived from the calendar; staff pick the month. | Product wants auto-rollover of an assessment cycle. |
 | **AI recommendations / progress narratives** | PRD §3.2: explicit non-goal. | A separate AI module is greenlit. |
 | **QRIS / state-reporting / PDF export** | PRD §1.3 / §3.2: separate features. | Those modules are scoped. |
+| **Preset merge / re-import into a non-empty framework** | v1 applies a preset only into an empty framework (§4.7); merge semantics (rename detection, dedupe, orphan handling) are genuinely hard and not needed to launch. | A school asks to adopt a revised standards edition without abandoning its customised framework (OQ-N3). |
+| **Per-student milestone overrides** (assessing a child against an out-of-band milestone) | DOB-based band resolution covers the standard case; per-child overrides complicate visibility, the 422 guard, and roll-ups. | Product asks for IEP-style individualised frameworks. |
 | **Deactivation cascade** | Resolved in design: service layer will cascade deactivations to maintain data integrity (OQ-01). | N/A |
 | **Web offline sync** | PRD §1.3: out of scope for web; mobile only (§11). | Low-connectivity becomes a web requirement. |
 
@@ -521,3 +638,6 @@ Carried from PRD §27.6 (OQ-01…08), framed as decisions this design is ready t
 4. **Copy-to-All undo (OQ-07)** — should "Copy to All Milestones" be reversible in-session? Today it overwrites (BR-AS-04); an undo would need a client-side pre-image snapshot.
 5. **Save-All payload size (OQ-05, Risk)** — a student with 100+ milestones may approach API timeout on bulk upsert; validate payload size + DB write time against the < 3 s / 50-score target.
 6. **Mid-cycle milestone deactivation (OQ-06, Risk)** — a save payload may carry a now-inactive `milestoneId`; the API must reject it gracefully (`400`, §6.4) rather than write a score against a dead parameter.
+7. **Missing or out-of-band DOB (OQ-N1)** — a student with no `date_of_birth`, or older/younger than every active band, resolves to no band: the profile shows an empty state and saves are rejected (`422`). Should admins also get a dashboard warning listing unresolvable students, so the gap is noticed before assessment week?
+8. **Band edits mid-period (OQ-N2)** — editing a band mid-month changes resolution for saves made *after* the edit within the same period (already-saved rows keep their stamped band, §4.6). Acceptable, or should bands be frozen for any period that already has data?
+9. **Preset re-import / versioning (OQ-N3)** — when the NH standards are revised, how does a school move to v2: full framework reset (losing custom edits) or the deferred merge path (§14)? Related: should applying a preset later show a "framework differs from preset vN" indicator?

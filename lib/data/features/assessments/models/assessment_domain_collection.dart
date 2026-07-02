@@ -21,7 +21,7 @@ class AssessmentDomainCollection {
   late String name;
   late String description;
   late bool active;
-  late List<String> assignedClassrooms;
+  late List<String> assignedAgeGroups;
   late String createdBy;
   late DateTime createdAt;
   late DateTime updatedAt;
@@ -37,7 +37,7 @@ class AssessmentDomainCollection {
       ..name = domain.name
       ..description = domain.description
       ..active = domain.active
-      ..assignedClassrooms = List<String>.from(domain.assignedClassrooms)
+      ..assignedAgeGroups = List<String>.from(domain.assignedAgeGroups)
       ..createdBy = domain.createdBy
       ..createdAt = domain.createdAt
       ..updatedAt = domain.updatedAt
@@ -50,7 +50,7 @@ class AssessmentDomainCollection {
       id: id,
       name: name,
       description: description,
-      assignedClassrooms: List<String>.from(assignedClassrooms),
+      assignedAgeGroups: List<String>.from(assignedAgeGroups),
       subdomains: subdomains.map((s) => s.toEntity(id, schoolId)).toList(),
       active: active,
       schoolId: schoolId,
@@ -66,7 +66,7 @@ class SubdomainEmbedded {
   late String id;
   late String name;
   late bool active;
-  List<String> assignedClassrooms = <String>[];
+  List<String> assignedAgeGroups = <String>[];
   List<MilestoneEmbedded> milestones = <MilestoneEmbedded>[];
   DateTime? createdAt;
   DateTime? updatedAt;
@@ -78,7 +78,7 @@ class SubdomainEmbedded {
       ..id = subdomain.id
       ..name = subdomain.name
       ..active = subdomain.active
-      ..assignedClassrooms = List<String>.from(subdomain.assignedClassrooms)
+      ..assignedAgeGroups = List<String>.from(subdomain.assignedAgeGroups)
       ..milestones =
           subdomain.milestones.map(MilestoneEmbedded.fromEntity).toList()
       ..createdAt = subdomain.createdAt
@@ -91,7 +91,7 @@ class SubdomainEmbedded {
       id: id,
       domainId: domainId,
       name: name,
-      assignedClassrooms: List<String>.from(assignedClassrooms),
+      assignedAgeGroups: List<String>.from(assignedAgeGroups),
       milestones:
           milestones.map((m) => m.toEntity(id, domainId, schoolId)).toList(),
       active: active,
@@ -107,9 +107,8 @@ class MilestoneEmbedded {
   late String id;
   late String name;
   late String description;
-  late String ageGroup;
   late bool active;
-  List<String> assignedClassrooms = <String>[];
+  List<String> assignedAgeGroups = <String>[];
   DateTime? createdAt;
   DateTime? updatedAt;
 
@@ -120,9 +119,8 @@ class MilestoneEmbedded {
       ..id = milestone.id
       ..name = milestone.name
       ..description = milestone.description
-      ..ageGroup = milestone.ageGroup
       ..active = milestone.active
-      ..assignedClassrooms = List<String>.from(milestone.assignedClassrooms)
+      ..assignedAgeGroups = List<String>.from(milestone.assignedAgeGroups)
       ..createdAt = milestone.createdAt
       ..updatedAt = milestone.updatedAt;
   }
@@ -139,8 +137,7 @@ class MilestoneEmbedded {
       domainId: domainId,
       name: name,
       description: description,
-      ageGroup: ageGroup,
-      assignedClassrooms: List<String>.from(assignedClassrooms),
+      assignedAgeGroups: List<String>.from(assignedAgeGroups),
       active: active,
       schoolId: schoolId,
       createdAt: createdAt ?? now,

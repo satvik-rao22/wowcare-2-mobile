@@ -44,8 +44,12 @@ class AssessmentRadarChart extends StatefulWidget {
 
 class _AssessmentRadarChartState extends State<AssessmentRadarChart>
     with SingleTickerProviderStateMixin {
-  static const Color _current = Color(0xFF5978F7);
-  static const Color _previous = Color(0xFFC4B5FD);
+  // Themed: current period draws in the active brand colour; previous is a
+  // muted companion tone per theme.
+  static Color get _current => AssessmentUi.brand;
+  static Color get _previous => AssessmentUi.isThemeV2
+      ? const Color(0xFF8AD6D3) // muted cyan (2.0)
+      : const Color(0xFFC4B5FD); // muted violet (1.0)
 
   late final AnimationController _controller;
   late final Animation<double> _t;
@@ -192,7 +196,7 @@ class _AssessmentRadarChartState extends State<AssessmentRadarChart>
                       color: _current.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.radar_rounded, size: 19,
+                    child: Icon(Icons.radar_rounded, size: 19,
                         color: _current),
                   ),
                   const SizedBox(width: 10),

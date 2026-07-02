@@ -1,23 +1,30 @@
+import 'dart:async';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment.dart';
+import 'package:wowcare/domain/features/assessments/entities/assessment_age_group.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_parameters.dart';
 import 'package:wowcare/domain/features/assessments/entities/assessment_references.dart';
 import 'package:wowcare/domain/features/assessments/usecases/bulk_upsert_assessments_usecase.dart';
+import 'package:wowcare/domain/features/assessments/usecases/deactivate_assessment_age_group_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/deactivate_assessment_domain_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/deactivate_assessment_milestone_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/deactivate_assessment_subdomain_usecase.dart';
+import 'package:wowcare/domain/features/assessments/usecases/get_assessment_age_groups_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/get_assessment_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/get_assessment_domains_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/get_assessment_students_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/get_assessments_usecase.dart';
+import 'package:wowcare/domain/features/assessments/usecases/save_assessment_age_group_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/save_assessment_domain_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/save_assessment_milestone_usecase.dart';
 import 'package:wowcare/domain/features/assessments/usecases/save_assessment_subdomain_usecase.dart';
-import 'package:wowcare/domain/features/assessments/usecases/update_milestone_classrooms_usecase.dart';
+import 'package:wowcare/domain/features/assessments/usecases/update_milestone_age_groups_usecase.dart';
+import 'package:wowcare/presentation/features/assessments/utils/assessment_ui_utils.dart';
 
 part 'assessments_state.dart';
 
@@ -37,11 +44,14 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
     required DeactivateAssessmentSubdomainUseCase deactivateSubdomain,
     required SaveAssessmentMilestoneUseCase saveMilestone,
     required DeactivateAssessmentMilestoneUseCase deactivateMilestone,
-    required UpdateMilestoneClassroomsUseCase updateMilestoneClassrooms,
+    required UpdateMilestoneAgeGroupsUseCase updateMilestoneAgeGroups,
     required GetAssessmentsUseCase getAssessments,
     required BulkUpsertAssessmentsUseCase bulkUpsertAssessments,
     required GetAssessmentClassroomsUseCase getClassrooms,
     required GetAssessmentStudentsUseCase getStudents,
+    required GetAssessmentAgeGroupsUseCase getAgeGroups,
+    required SaveAssessmentAgeGroupUseCase saveAgeGroup,
+    required DeactivateAssessmentAgeGroupUseCase deactivateAgeGroup,
     required StorageService storageService,
   })  : _getDomains = getDomains,
         _saveDomain = saveDomain,
@@ -50,11 +60,14 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
         _deactivateSubdomain = deactivateSubdomain,
         _saveMilestone = saveMilestone,
         _deactivateMilestone = deactivateMilestone,
-        _updateMilestoneClassrooms = updateMilestoneClassrooms,
+        _updateMilestoneAgeGroups = updateMilestoneAgeGroups,
         _getAssessments = getAssessments,
         _bulkUpsertAssessments = bulkUpsertAssessments,
         _getClassrooms = getClassrooms,
         _getStudents = getStudents,
+        _getAgeGroups = getAgeGroups,
+        _saveAgeGroup = saveAgeGroup,
+        _deactivateAgeGroup = deactivateAgeGroup,
         _storageService = storageService,
         super(AssessmentsState.initial());
 
@@ -65,14 +78,20 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
   final DeactivateAssessmentSubdomainUseCase _deactivateSubdomain;
   final SaveAssessmentMilestoneUseCase _saveMilestone;
   final DeactivateAssessmentMilestoneUseCase _deactivateMilestone;
-  final UpdateMilestoneClassroomsUseCase _updateMilestoneClassrooms;
+  final UpdateMilestoneAgeGroupsUseCase _updateMilestoneAgeGroups;
   final GetAssessmentsUseCase _getAssessments;
   final BulkUpsertAssessmentsUseCase _bulkUpsertAssessments;
   final GetAssessmentClassroomsUseCase _getClassrooms;
   final GetAssessmentStudentsUseCase _getStudents;
+  final GetAssessmentAgeGroupsUseCase _getAgeGroups;
+  final SaveAssessmentAgeGroupUseCase _saveAgeGroup;
+  final DeactivateAssessmentAgeGroupUseCase _deactivateAgeGroup;
   final StorageService _storageService;
 
   static const _uuid = Uuid();
+
+  /// Persisted flag for the module's colour theme (1.0 vs 2.0).
+  static const String _themeV2Key = 'assessments_theme_v2';
 
   void _safeEmit(AssessmentsState next) {
     if (!isClosed) emit(next);
@@ -89,6 +108,10 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
       final assessments = await _getAssessments();
       final classrooms = await _getClassrooms();
       final students = await _getStudents();
+      final ageGroups = await _getAgeGroups();
+
+      final themeV2 = await _storageService.getBool(_themeV2Key) ?? false;
+      AssessmentUi.setTheme(v2: themeV2);
 
       final userCode =
           (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
@@ -106,10 +129,12 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
         assessments: assessments,
         classrooms: classrooms,
         students: students,
+        ageGroups: ageGroups,
         currentUserCode: userCode,
         currentUserName: userName,
         roleKey: role,
         schoolId: schoolId.isEmpty ? state.schoolId : schoolId,
+        themeV2: themeV2,
         isLoading: false,
         errorMessage: () => null,
       ));
@@ -129,6 +154,16 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
 
   void setSelectedClassroom(String? classroomCode) {
     _safeEmit(state.copyWith(selectedClassroomCode: () => classroomCode));
+  }
+
+  /// Switches the module between the 1.0 and 2.0 colour themes. Flips the
+  /// static palette (what widgets read) and re-emits state so the whole shell
+  /// rebuilds; the choice is persisted across launches.
+  void setThemeV2(bool v2) {
+    if (state.themeV2 == v2) return;
+    AssessmentUi.setTheme(v2: v2);
+    _safeEmit(state.copyWith(themeV2: v2));
+    unawaited(_storageService.saveBool(_themeV2Key, v2));
   }
 
   // ------------------------------------------------------- student filters
@@ -196,13 +231,40 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
     });
   }
 
-  Future<bool> updateMilestoneClassrooms(
+  Future<bool> updateMilestoneAgeGroups(
     String milestoneId,
-    List<String> classroomCodes,
+    List<String> ageGroupIds,
   ) async {
     return _guardSave(() async {
-      await _updateMilestoneClassrooms(milestoneId, classroomCodes);
+      await _updateMilestoneAgeGroups(milestoneId, ageGroupIds);
       await _reloadDomains();
+    });
+  }
+
+  // ------------------------------------------------------------- age groups
+
+  /// Creates or updates a band. Rejects a range that overlaps another active
+  /// band — bands must partition ages so a child resolves to at most one.
+  Future<bool> saveAgeGroup(AssessmentAgeGroup ageGroup) async {
+    final overlapping = state.activeAgeGroups.any(
+      (g) => g.id != ageGroup.id && g.overlaps(ageGroup),
+    );
+    if (overlapping) {
+      _safeEmit(state.copyWith(
+        errorMessage: () => 'Age groups cannot overlap an existing band.',
+      ));
+      return false;
+    }
+    return _guardSave(() async {
+      await _saveAgeGroup(ageGroup);
+      await _reloadAgeGroups();
+    });
+  }
+
+  Future<bool> deactivateAgeGroup(String ageGroupId) async {
+    return _guardSave(() async {
+      await _deactivateAgeGroup(ageGroupId);
+      await _reloadAgeGroups();
     });
   }
 
@@ -220,6 +282,12 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
     return _guardSave(() async {
       final period = state.period;
       final now = DateTime.now();
+      // Stamp the band the child is in for this period (resolved from DOB at
+      // period start) onto every record, so later edits to the school's bands
+      // never reinterpret saved history.
+      final student = state.studentByCode(studentId);
+      final ageGroupId =
+          (student == null ? null : state.resolveAgeGroup(student))?.id ?? '';
       final records = <Assessment>[];
       for (final entry in drafts.entries) {
         final milestoneId = entry.key;
@@ -243,6 +311,7 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
           assessedAt: now,
           periodStart: period.start,
           periodEnd: period.end,
+          ageGroupId: ageGroupId,
           schoolId: state.schoolId,
         ));
       }
@@ -288,6 +357,11 @@ class AssessmentsCubit extends Cubit<AssessmentsState> {
   Future<void> _reloadDomains() async {
     final domains = await _getDomains();
     _safeEmit(state.copyWith(domains: domains));
+  }
+
+  Future<void> _reloadAgeGroups() async {
+    final ageGroups = await _getAgeGroups();
+    _safeEmit(state.copyWith(ageGroups: ageGroups));
   }
 
   /// Replaces the student's records for the saved milestones in this period,

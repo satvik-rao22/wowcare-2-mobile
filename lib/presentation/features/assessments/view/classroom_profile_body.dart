@@ -24,7 +24,10 @@ class ClassroomProfileBody extends StatelessWidget {
         if (classroom == null) {
           return const Center(child: Text('Classroom not found.'));
         }
-        final domains = state.domainsForClassroom(classroomCode);
+        // A classroom mixes ages, so its relevant framework is the union of
+        // the bands its students resolve to (from their dates of birth).
+        final bandIds = state.ageGroupIdsForClassroom(classroomCode);
+        final domains = state.domainsForAgeGroups(bandIds);
         final studentCodes = state
             .studentsInClassroom(classroomCode)
             .map((s) => s.code)
@@ -86,7 +89,7 @@ class ClassroomProfileBody extends StatelessWidget {
                     domains: domains,
                     records: current,
                     showMilestones: true,
-                    milestoneFilter: (m) => m.isAssignedTo(classroomCode),
+                    milestoneFilter: (m) => m.isAssignedToAnyAgeGroup(bandIds),
                   ),
                 ],
               ),
