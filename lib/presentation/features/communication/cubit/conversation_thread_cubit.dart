@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
@@ -94,6 +93,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   StreamSubscription<List<MessageEntity>>? _messagesSubscription;
   bool _firestoreActive = false;
 
+  /// Guards optimistic mutations (edit, delete, reaction, attachment delete)
+  /// from being overwritten by a Firestore snapshot that arrives before the
+  /// backend has written the confirmed state. Keyed by messageCode; value is
+  /// the optimistic entity and the wall-clock time it was registered (for the
+  /// 8-second expiry). Cleared on API success or failure.
+  final Map<String, (MessageEntity, DateTime)> _inFlightMutations = {};
+
   int _refreshRequestId = 0;
   static const int _pageSize = 50;
 
@@ -161,9 +167,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           (fresh) {
             if (isClosed) return;
             _firestoreActive = true;
-            final latest = fresh.isNotEmpty ? fresh.last : null;
-            final merged = _mergePendingMessages(_sortedOldestFirst(fresh));
-            final int debugPrevCount = state.messages.length;
+            final merged = _mergeLocal(_sortedOldestFirst(fresh));
             emit(
               ConversationThreadState.loaded(
                 conversationCode: state.conversationCode,
@@ -180,6 +184,16 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             if (!_firestoreActive) unawaited(loadMessages());
           },
         );
+  }
+
+  /// Binds the full [ConversationEntity] to state so [startWatchingMessages]
+  /// can use the conversation's own organizationCode/schoolCode when building
+  /// the Firestore path — preventing the silent fallback to session-storage
+  /// codes that produces the wrong path for multi-school users.
+  ///
+  /// Must be called before [startWatchingMessages] for non-draft threads.
+  void setConversation(ConversationEntity conversation) {
+    emit(state.copyWith(conversation: conversation));
   }
 
   /// Emits a loaded-but-empty state for a draft thread so the UI shows the
@@ -463,6 +477,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       text: text,
       attachmentIds: attachmentIds,
       isPrivate: isPrivate,
+      privateParentUserCode: isPrivate ? senderCode : null,
       threadParentCode: threadParentCode,
     );
 
@@ -530,12 +545,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
-    // Optimistic update
-    final optimistic = state.messages.map((m) {
-      if (m.code != messageCode) return m;
-      return m.copyWithText(newText);
-    }).toList();
-    emit(state.copyWith(messages: optimistic));
+    // Optimistic update — guard against Firestore snapshot reverting the
+    // change before the backend writes the confirmed edit.
+    final optimisticMessage = target.copyWithText(newText);
+    _inFlightMutations[messageCode] = (optimisticMessage, DateTime.now());
+    emit(state.copyWith(
+      messages: _replaceMessage(state.messages, messageCode, optimisticMessage),
+    ));
 
     final result = await _editMessageUseCase(
       messageCode: messageCode,
@@ -543,6 +559,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     );
 
     if (isClosed) return;
+    _inFlightMutations.remove(messageCode);
 
     result.fold(
       (failure) {
@@ -579,16 +596,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
-    // Optimistic: mark deleted locally
-    final optimistic = state.messages.map((m) {
-      if (m.code != messageCode) return m;
-      return m.copyWithDeleted();
-    }).toList();
-    emit(state.copyWith(messages: optimistic));
+    // Optimistic: mark deleted locally, guard against Firestore revert.
+    final optimisticMessage = target.copyWithDeleted();
+    _inFlightMutations[messageCode] = (optimisticMessage, DateTime.now());
+    emit(state.copyWith(
+      messages: _replaceMessage(state.messages, messageCode, optimisticMessage),
+    ));
 
     final result = await _deleteMessageUseCase(messageCode);
 
     if (isClosed) return;
+    _inFlightMutations.remove(messageCode);
 
     result.fold((failure) {
       emit(
@@ -611,17 +629,19 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required String messageCode,
     required int attachmentId,
   }) async {
-    final originalMessages = state.messages;
+    final target = state.messages.firstWhere(
+      (m) => m.code == messageCode,
+      orElse: () => throw StateError('Message not found'),
+    );
 
-    final optimistic = state.messages.map((m) {
-      if (m.code != messageCode) return m;
-      return m.copyWith(
-        attachments: m.attachments
-            .where((a) => a.attachmentId != attachmentId)
-            .toList(),
-      );
-    }).toList();
-    emit(state.copyWith(messages: optimistic));
+    final optimisticMessage = target.copyWith(
+      attachments:
+          target.attachments.where((a) => a.attachmentId != attachmentId).toList(),
+    );
+    _inFlightMutations[messageCode] = (optimisticMessage, DateTime.now());
+    emit(state.copyWith(
+      messages: _replaceMessage(state.messages, messageCode, optimisticMessage),
+    ));
 
     final result = await _deleteAttachmentUseCase(
       messageCode: messageCode,
@@ -629,11 +649,12 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     );
 
     if (isClosed) return;
+    _inFlightMutations.remove(messageCode);
 
     result.fold((failure) {
       emit(
         state.copyWith(
-          messages: originalMessages,
+          messages: _replaceMessage(state.messages, messageCode, target),
           errorMessage: failure.message ?? 'Failed to delete attachment.',
         ),
       );
@@ -647,13 +668,18 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required String emoji,
     required String currentUserCode,
   }) async {
-    final optimistic = _applyReaction(
+    final optimisticMessages = _applyReaction(
       state.messages,
       messageCode,
       currentUserCode,
       emoji,
     );
-    emit(state.copyWith(messages: optimistic));
+    // Guard: keep the optimistic reaction visible if Firestore fires before
+    // the backend writes the confirmed state.
+    final optimisticMsg =
+        optimisticMessages.firstWhere((m) => m.code == messageCode);
+    _inFlightMutations[messageCode] = (optimisticMsg, DateTime.now());
+    emit(state.copyWith(messages: optimisticMessages));
 
     final result = await _addReactionUseCase(
       messageCode: messageCode,
@@ -661,6 +687,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     );
 
     if (isClosed) return;
+    _inFlightMutations.remove(messageCode);
 
     result.fold((failure) {
       emit(
@@ -695,12 +722,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
-    final optimistic = _removeReactionLocally(
+    final optimisticMessages = _removeReactionLocally(
       state.messages,
       messageCode,
       currentUserCode,
     );
-    emit(state.copyWith(messages: optimistic));
+    // Guard: keep the optimistic reaction removal visible if Firestore fires
+    // before the backend writes the confirmed state.
+    final optimisticMsg =
+        optimisticMessages.firstWhere((m) => m.code == messageCode);
+    _inFlightMutations[messageCode] = (optimisticMsg, DateTime.now());
+    emit(state.copyWith(messages: optimisticMessages));
 
     final result = await _removeReactionUseCase(
       messageCode: messageCode,
@@ -708,6 +740,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     );
 
     if (isClosed) return;
+    _inFlightMutations.remove(messageCode);
 
     result.fold((failure) {
       emit(
@@ -763,6 +796,39 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     _markReadDebounce = Timer(_markReadDebounceDuration, () {
       if (!isClosed) unawaited(_markRead());
     });
+  }
+
+  /// Merges a fresh Firestore snapshot with local state:
+  ///
+  /// 1. For messages that have a registered in-flight mutation (edit, delete,
+  ///    reaction, attachment delete), the LOCAL optimistic version is kept
+  ///    instead of the Firestore version — which may be stale if the backend
+  ///    hasn't yet written the confirmed state.  Mutations expire after 8 s so
+  ///    a hung API call can't permanently block the Firestore truth.
+  ///
+  /// 2. Pending/failed optimistic sends that aren't yet in Firestore are
+  ///    appended at the end.
+  List<MessageEntity> _mergeLocal(List<MessageEntity> fresh) {
+    final now = DateTime.now();
+    _inFlightMutations.removeWhere(
+      (_, record) => now.difference(record.$2) > const Duration(seconds: 8),
+    );
+
+    final protected = _inFlightMutations.isEmpty
+        ? fresh
+        : fresh.map((m) {
+            final local = _inFlightMutations[m.code];
+            return local != null ? local.$1 : m;
+          }).toList();
+
+    final pending = state.messages
+        .where((m) => m.localTempCode != null && (m.isPending || m.isFailed))
+        .toList();
+    if (pending.isEmpty) return protected;
+
+    final codes = protected.map((m) => m.code).toSet();
+    final unconfirmed = pending.where((m) => !codes.contains(m.code)).toList();
+    return [...protected, ...unconfirmed];
   }
 
   List<MessageEntity> _sortedOldestFirst(List<MessageEntity> messages) {

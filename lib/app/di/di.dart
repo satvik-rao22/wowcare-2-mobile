@@ -301,6 +301,7 @@ import '../../domain/features/communication/usecases/delete_attachment_entity_us
 import '../../domain/features/communication/usecases/search_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import '../../domain/features/communication/usecases/remove_reaction_usecase.dart';
+import '../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import '../../domain/features/communication/usecases/sync_pending_operations_usecase.dart';
 import '../../domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import '../../domain/features/communication/repositories/reaction_repository.dart';
@@ -1300,6 +1301,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<AddReactionEntityUseCase>(
     () => AddReactionEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetMessageReceiptsUseCase>(
+    () => GetMessageReceiptsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<RemoveReactionUseCase>(
     () => RemoveReactionUseCase(serviceLocator()),

@@ -2,6 +2,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/data/features/communication/models/message_entity_dto.dart';
+import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 
 abstract class MessageEntityRemoteDataSource {
   Future<List<MessageEntityDto>> getMessages({
@@ -42,6 +43,11 @@ abstract class MessageEntityRemoteDataSource {
   /// from its message without deleting the whole message. Same endpoint
   /// legacy's `CommunicationRemoteDataSource.deleteAttachment` calls.
   Future<void> deleteAttachment(int attachmentId);
+
+  /// Fetch the full read/delivered receipt list for [messageCode], including
+  /// display names. Supplements Firestore's `readBy`/`deliveredTo` maps which
+  /// contain only timestamps (no names).
+  Future<List<ReadReceiptEntity>> getMessageReceipts(String messageCode);
 }
 
 class MessageEntityRemoteDataSourceImpl
@@ -162,6 +168,24 @@ class MessageEntityRemoteDataSourceImpl
   Future<void> deleteAttachment(int attachmentId) async {
     final endpoint = _url(ApiPaths.messagingAttachmentPath(attachmentId));
     await apiClient.client.delete(endpoint);
+  }
+
+  @override
+  Future<List<ReadReceiptEntity>> getMessageReceipts(
+    String messageCode,
+  ) async {
+    final endpoint = _url(ApiPaths.messagingMessageReceipts(messageCode));
+    final response = await apiClient.client.get(endpoint);
+    _assertSuccess(response.data, 'Failed to load message receipts');
+
+    final list =
+        response.data['data'] as List<dynamic>? ??
+        response.data['data']['receipts'] as List<dynamic>? ??
+        [];
+    return list
+        .map((e) => ReadReceiptEntityDto.fromJson(e as Map<String, dynamic>)
+            .toEntity())
+        .toList();
   }
 
   void _assertSuccess(dynamic data, String fallback) {

@@ -1,12 +1,10 @@
 import 'dart:async';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
-import '../../../../domain/features/communication/entities/enums.dart';
 import '../../../../domain/features/communication/entities/message.dart';
 import '../../../../domain/features/communication/usecases/get_conversations_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_messages_usecase.dart';
@@ -24,7 +22,7 @@ import '../../../../domain/features/communication/usecases/mark_conversation_rea
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {
@@ -66,7 +64,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.markConversationDeliveredUseCase,
     required this.markConversationReadUseCase,
     required this.storageService,
-  }) : super(CommunicationInitial());
+  }) : super(CommunicationInitial()) {
+    _markedReadSubscription = MessagingEventService
+        .instance
+        .onConversationMarkedRead
+        .listen(_zeroBadgeLocally);
+  }
 
   /// Marks a conversation as read via the API so the unread badge and count
   /// clear immediately for the current user. Called by screens when they open
@@ -84,6 +87,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
   StreamSubscription<List<Message>>? _messagesSubscription;
   StreamSubscription<List<Conversation>>? _conversationsSubscription;
+  StreamSubscription<String>? _markedReadSubscription;
   String? _watchedThreadId;
   String? _watchedConversationsType;
 
@@ -132,74 +136,80 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     String? organizationCode,
     String? schoolCode,
   }) {
-
     if (_watchedThreadId == threadId && _messagesSubscription != null) return;
     _messagesSubscription?.cancel();
     _watchedThreadId = threadId;
-    _messagesSubscription = watchMessagesUseCase(
-      threadId,
-      organizationCode: organizationCode,
-      schoolCode: schoolCode,
-    ).listen(
-      (messages) {
-        if (isClosed || messages.isEmpty) {
-            return;
-        }
-        final priorState = state is CommunicationLoaded
-            ? state as CommunicationLoaded
-            : null;
-        final latestThreads = priorState?.threads ?? <String, List<Message>>{};
-        final newThreads = Map<String, List<Message>>.from(latestThreads);
-        // Merge rather than replace: this stream is backed by the Isar
-        // cache (see CommunicationRepository.watchMessages), which only
-        // knows about a message once it's been persisted there — an
-        // in-flight optimistic send (sendMessage's tempMessage) hasn't been
-        // cached yet and would otherwise flicker out of the list the
-        // instant an unrelated realtime update (e.g. someone else's
-        // reaction) arrives while it's still pending.
-        final currentMessages = latestThreads[threadId] ?? const <Message>[];
-        final currentByCode = {for (final m in currentMessages) m.code: m};
-        final incomingCodes = messages.map((m) => m.code).toSet();
-        final stillPending = currentMessages.where(
-          (m) => !incomingCodes.contains(m.code),
-        );
+    _messagesSubscription =
+        watchMessagesUseCase(
+          threadId,
+          organizationCode: organizationCode,
+          schoolCode: schoolCode,
+        ).listen(
+          (messages) {
+            if (isClosed || messages.isEmpty) {
+              return;
+            }
+            final priorState = state is CommunicationLoaded
+                ? state as CommunicationLoaded
+                : null;
+            final latestThreads =
+                priorState?.threads ?? <String, List<Message>>{};
+            final newThreads = Map<String, List<Message>>.from(latestThreads);
+            // Merge rather than replace: this stream is backed by the Isar
+            // cache (see CommunicationRepository.watchMessages), which only
+            // knows about a message once it's been persisted there — an
+            // in-flight optimistic send (sendMessage's tempMessage) hasn't been
+            // cached yet and would otherwise flicker out of the list the
+            // instant an unrelated realtime update (e.g. someone else's
+            // reaction) arrives while it's still pending.
+            final currentMessages =
+                latestThreads[threadId] ?? const <Message>[];
+            final currentByCode = {for (final m in currentMessages) m.code: m};
+            final incomingCodes = messages.map((m) => m.code).toSet();
+            final stillPending = currentMessages.where(
+              (m) => !incomingCodes.contains(m.code),
+            );
 
-        final cutoff = DateTime.now().subtract(_localMutationGuardWindow);
-        _recentLocalMutations.removeWhere((_, t) => t.isBefore(cutoff));
+            final cutoff = DateTime.now().subtract(_localMutationGuardWindow);
+            _recentLocalMutations.removeWhere((_, t) => t.isBefore(cutoff));
 
-        // For a message that's mid-settling from a local reaction/attachment/
-        // edit/delete mutation, keep our in-memory version rather than the
-        // realtime/Isar one, which doesn't know about it yet.
-        final reconciled = messages.map((incoming) {
-          if (!_recentLocalMutations.containsKey(incoming.code))
-            return incoming;
-          return currentByCode[incoming.code] ?? incoming;
-        });
-        final mergedMessages = _sortByTime([...reconciled, ...stillPending]);
-        newThreads[threadId] = mergedMessages;
-        final int debugPrevCount = currentMessages.length;
-        emit(
-          priorState?.copyWith(threads: newThreads, activeThreadId: threadId) ??
-              CommunicationLoaded(
-                threads: newThreads,
-                activeThreadId: threadId,
-              ),
+            // For a message that's mid-settling from a local reaction/attachment/
+            // edit/delete mutation, keep our in-memory version rather than the
+            // realtime/Isar one, which doesn't know about it yet.
+            final reconciled = messages.map((incoming) {
+              if (!_recentLocalMutations.containsKey(incoming.code))
+                return incoming;
+              return currentByCode[incoming.code] ?? incoming;
+            });
+            final mergedMessages = _sortByTime([
+              ...reconciled,
+              ...stillPending,
+            ]);
+            newThreads[threadId] = mergedMessages;
+            emit(
+              priorState?.copyWith(
+                    threads: newThreads,
+                    activeThreadId: threadId,
+                  ) ??
+                  CommunicationLoaded(
+                    threads: newThreads,
+                    activeThreadId: threadId,
+                  ),
+            );
+          },
+          // Firestore is a notification layer on top of API/Isar — if the
+          // realtime stream errors (missing index, permissions, offline, etc.)
+          // we must not crash; the screen keeps working off the last loaded data.
+          onError: (Object error, StackTrace stackTrace) {
+            AppLogger.e('[Realtime] watchMessages($threadId) failed: $error');
+          },
         );
-      },
-      // Firestore is a notification layer on top of API/Isar — if the
-      // realtime stream errors (missing index, permissions, offline, etc.)
-      // we must not crash; the screen keeps working off the last loaded data.
-      onError: (Object error, StackTrace stackTrace) {
-        AppLogger.e('[Realtime] watchMessages($threadId) failed: $error');
-      },
-    );
   }
 
   /// Starts the Firestore delta listener for the conversation list of [type]
   /// (or all types when null). Mirrors [startWatchingThread] — only deltas
   /// flow through; [loadConversations] remains the source of history.
   void startWatchingConversations({String? type}) {
-
     if (_watchedConversationsType == type &&
         _conversationsSubscription != null) {
       return;
@@ -209,7 +219,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     _conversationsSubscription = watchConversationsUseCase(type: type).listen(
       (conversations) {
         if (isClosed || conversations.isEmpty) {
-            return;
+          return;
         }
         final prior = state is CommunicationConversationsLoaded
             ? state as CommunicationConversationsLoaded
@@ -227,7 +237,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // Preserve pagination bookkeeping — this is a realtime delta, not a
         // fresh paged fetch, so it must not reset `hasMore`/`currentPage`
         // and silently cut off "load more" for the rest of the session.
-        final int debugPrevCount = currentMap[type]?.length ?? 0;
         emit(
           CommunicationConversationsLoaded(
             updatedMap,
@@ -271,8 +280,48 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     }
   }
 
+  void _zeroBadgeLocally(String conversationCode) {
+    if (isClosed) return;
+    final current = state;
+    if (current is! CommunicationConversationsLoaded) return;
+    final updatedMap = current.conversationsByType.map((type, conversations) {
+      return MapEntry(
+        type,
+        conversations.map((c) {
+          if (c.code != conversationCode || c.unreadCount == 0) return c;
+          return Conversation(
+            id: c.id,
+            code: c.code,
+            title: c.title,
+            type: c.type,
+            organizationCode: c.organizationCode,
+            schoolCode: c.schoolCode,
+            status: c.status,
+            description: c.description,
+            avatarUrl: c.avatarUrl,
+            createdAt: c.createdAt,
+            createdBy: c.createdBy,
+            updatedAt: c.updatedAt,
+            updatedBy: c.updatedBy,
+            lastMessageAt: c.lastMessageAt,
+            lastMessageBy: c.lastMessageBy,
+            privateModeActive: c.privateModeActive,
+            privateModeActivatedBy: c.privateModeActivatedBy,
+            privateModeActivatedAt: c.privateModeActivatedAt,
+            participantCount: c.participantCount,
+            unreadCount: 0,
+            lastMessagePreview: c.lastMessagePreview,
+            participants: c.participants,
+          );
+        }).toList(),
+      );
+    });
+    emit(current.copyWith(conversationsByType: updatedMap));
+  }
+
   @override
   Future<void> close() {
+    _markedReadSubscription?.cancel();
     _messagesSubscription?.cancel();
     _conversationsSubscription?.cancel();
     return super.close();

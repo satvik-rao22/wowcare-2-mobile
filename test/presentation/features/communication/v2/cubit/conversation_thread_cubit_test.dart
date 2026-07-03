@@ -161,6 +161,11 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
     String conversationCode,
   ) async => const Right(null);
 
+  @override
+  Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
+    String messageCode,
+  ) async => const Right([]);
+
   void emit(List<MessageEntity> messages) => _messagesController.add(messages);
 
   Future<void> dispose() => _messagesController.close();

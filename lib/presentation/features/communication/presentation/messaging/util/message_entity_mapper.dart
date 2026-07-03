@@ -12,16 +12,30 @@ Message mapMessageEntityToMessage(
   MessageEntity entity,
   String currentUserCode,
 ) {
+  // Derive delivery/read timestamps from readReceipts so the bubble shows
+  // correct single/double/coloured ticks rather than always showing "sending".
+  final firstDeliveredAt = entity.readReceipts
+      .where((r) => r.deliveredAt != null)
+      .map((r) => r.deliveredAt!)
+      .firstOrNull;
+  final firstReadAt = entity.readReceipts
+      .where((r) => r.isRead && r.readAt != null)
+      .map((r) => r.readAt!)
+      .firstOrNull;
+
   return Message(
     id: entity.id,
     code: entity.code,
     text: entity.text,
     isSentByMe: entity.senderCode == currentUserCode,
     time: entity.sentAt,
+    deliveredAt: firstDeliveredAt,
+    readAt: firstReadAt,
     editedAt: entity.editedAt,
     reactions: entity.reactions,
     senderName: entity.senderName,
     senderUserCode: entity.senderCode,
+    senderAvatarUrl: entity.senderAvatarUrl,
     quotedMessageId: entity.threadParentCode,
     isPrivate: entity.isPrivate,
     privateParentUserCode: entity.privateParentUserCode,

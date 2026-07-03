@@ -110,7 +110,11 @@ class ConversationParticipantModel extends ConversationParticipant {
     required super.createdAt,
     required super.updatedAt,
     super.privateModeEnabled = false,
+    super.avatarUrl,
+    this.staffCode,
   });
+
+  final String? staffCode;
 
   factory ConversationParticipantModel.fromJson(Map<String, dynamic> json) {
     return ConversationParticipantModel(
@@ -139,6 +143,8 @@ class ConversationParticipantModel extends ConversationParticipant {
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
           : DateTime.now(),
+      avatarUrl: json['avatarUrl'] as String?,
+      staffCode: json['staffCode'] as String?,
     );
   }
 

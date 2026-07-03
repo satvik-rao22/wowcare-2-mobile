@@ -126,6 +126,12 @@ abstract class MessageEntityRepository {
   /// (not critical enough to queue).
   Future<Either<Failure, void>> markMessageRead(String messageCode);
 
+  /// Fetch the full receipt list for [messageCode] with display names.
+  /// Supplements Firestore receipts which contain timestamps but no names.
+  Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
+    String messageCode,
+  );
+
   // ─── Search ─────────────────────────────────────────────────────────────────
 
   /// Full-text prefix search within a conversation using the Isar [textPlain] index.

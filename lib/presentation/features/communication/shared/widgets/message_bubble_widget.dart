@@ -447,8 +447,9 @@ class _MessageBubbleState extends State<MessageBubble>
                         ? CrossAxisAlignment.end
                         : CrossAxisAlignment.start,
                     children: [
-                      // Avatar row (above bubble) — hidden when grouped
-                      if (widget.isParentMessaging && !widget.isGrouped) ...[
+                      // Avatar row (above bubble) — hidden when grouped or
+                      // for my own messages in parent/group messaging.
+                      if (!widget.isGrouped && !widget.message.isSentByMe) ...[
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           mainAxisAlignment: alignRight
@@ -456,7 +457,13 @@ class _MessageBubbleState extends State<MessageBubble>
                               : MainAxisAlignment.start,
                           children: [
                             DocumentImageWidget(
-                              fileUuid: widget.message.senderName ?? '',
+                              fileUuid: '',
+                              imageUrl: (widget.message.senderAvatarUrl ?? '').startsWith('http')
+                                  ? widget.message.senderAvatarUrl
+                                  : null,
+                              mediaAssetCode: (widget.message.senderAvatarUrl ?? '').startsWith('http')
+                                  ? null
+                                  : widget.message.senderAvatarUrl,
                               name: widget.message.senderName ?? '',
                               size: 20,
                               fontSize: 10,

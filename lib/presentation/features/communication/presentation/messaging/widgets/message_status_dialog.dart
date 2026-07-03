@@ -10,30 +10,81 @@ import 'package:wowcare/presentation/features/communication/shared/utils/message
 /// Shows the original message content, a "Delivered To" list, and a
 /// "Read By" list derived from [MessageEntity.readReceipts].
 ///
+/// Optionally accepts [onFetchReceipts] — when provided the dialog fires it
+/// on open to load display names from REST (Firestore maps carry only
+/// timestamps, never names).
+///
 /// Usage:
 /// ```dart
-/// MessageStatusDialog.show(context, message: msg);
+/// MessageStatusDialog.show(context, message: msg, onFetchReceipts: cb);
 /// ```
-class MessageStatusDialog extends StatelessWidget {
-  const MessageStatusDialog({super.key, required this.message});
+class MessageStatusDialog extends StatefulWidget {
+  const MessageStatusDialog({
+    super.key,
+    required this.message,
+    this.onFetchReceipts,
+  });
 
   final MessageEntity message;
+
+  /// Optional async callback that returns an enriched receipt list with
+  /// display names. When null the dialog falls back to showing [userCode].
+  final Future<List<ReadReceiptEntity>> Function(String messageCode)?
+      onFetchReceipts;
 
   static Future<void> show(
     BuildContext context, {
     required MessageEntity message,
+    Future<List<ReadReceiptEntity>> Function(String messageCode)?
+        onFetchReceipts,
   }) {
     return showDialog(
       context: context,
       barrierColor: Colors.black45,
-      builder: (_) => MessageStatusDialog(message: message),
+      builder: (_) => MessageStatusDialog(
+        message: message,
+        onFetchReceipts: onFetchReceipts,
+      ),
     );
   }
 
   @override
+  State<MessageStatusDialog> createState() => _MessageStatusDialogState();
+}
+
+class _MessageStatusDialogState extends State<MessageStatusDialog> {
+  late List<ReadReceiptEntity> _receipts;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _receipts = widget.message.readReceipts;
+    if (widget.onFetchReceipts != null) {
+      _loadReceipts();
+    }
+  }
+
+  Future<void> _loadReceipts() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    try {
+      final fetched =
+          await widget.onFetchReceipts!(widget.message.code);
+      if (mounted) {
+        setState(() {
+          _receipts = fetched;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final delivered = message.readReceipts;
-    final readBy = delivered.where((r) => r.isRead).toList();
+    final readBy = _receipts.where((r) => r.isRead).toList();
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -76,6 +127,12 @@ class MessageStatusDialog extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (_isLoading)
+                  const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded, size: 20),
                   color: AppColors.primaryColor,
@@ -107,9 +164,9 @@ class MessageStatusDialog extends StatelessWidget {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                     ),
                     child: Text(
-                      message.text.isEmpty
+                      widget.message.text.isEmpty
                           ? '(attachment)'
-                          : _plainText(message.text),
+                          : _plainText(widget.message.text),
                       maxLines: 5,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -123,12 +180,12 @@ class MessageStatusDialog extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   // Delivered To
-                  _SectionLabel(label: 'Delivered To (${delivered.length})'),
+                  _SectionLabel(label: 'Delivered To (${_receipts.length})'),
                   const SizedBox(height: 8),
-                  if (delivered.isEmpty)
+                  if (_receipts.isEmpty)
                     const _EmptyNote(text: 'No delivery receipts yet.')
                   else
-                    ...delivered.map(
+                    ..._receipts.map(
                       (r) => _ReceiptTile(
                         name: r.userName.isNotEmpty ? r.userName : r.userCode,
                         timestamp: r.deliveredAt,

@@ -20,6 +20,7 @@ class Message extends Equatable {
   final String? senderUserCode;
   final bool isPrivate;
   final String? privateParentUserCode;
+  final String? senderAvatarUrl;
 
   const Message({
     required this.id,
@@ -41,6 +42,7 @@ class Message extends Equatable {
     this.senderUserCode,
     this.isPrivate = false,
     this.privateParentUserCode,
+    this.senderAvatarUrl,
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
@@ -84,6 +86,7 @@ class Message extends Equatable {
       senderUserCode: senderUserCode,
       isPrivate: isPrivate,
       privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
+      senderAvatarUrl: senderAvatarUrl,
     );
   }
 
@@ -108,6 +111,7 @@ class Message extends Equatable {
         senderUserCode,
         isPrivate,
         privateParentUserCode,
+        senderAvatarUrl,
       ];
 }
 

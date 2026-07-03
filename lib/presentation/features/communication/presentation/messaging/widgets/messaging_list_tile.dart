@@ -75,19 +75,30 @@ class MessagingListTile extends StatelessWidget {
                 ),
               ],
             ),
-            child: DocumentImageWidget(
-              fileUuid: '',
-              // `avatarUrl` is either a resolved URL or a raw media-asset
-              // code depending on which screen started the conversation.
-              imageUrl: conversation.avatarUrl.startsWith('http')
+            child: Builder(builder: (_) {
+              // Prefer conversation-level avatar; fall back to first active
+              // participant that has an avatarUrl set.
+              final rawAvatar = conversation.avatarUrl.isNotEmpty
                   ? conversation.avatarUrl
-                  : null,
-              mediaAssetCode: conversation.avatarUrl.startsWith('http')
-                  ? null
-                  : conversation.avatarUrl,
-              name: conversation.title,
-              size: 52,
-            ),
+                  : (conversation.participants
+                          .where(
+                            (p) =>
+                                p.isActive && (p.avatarUrl ?? '').isNotEmpty,
+                          )
+                          .firstOrNull
+                          ?.avatarUrl ??
+                      '');
+              return DocumentImageWidget(
+                fileUuid: '',
+                imageUrl:
+                    rawAvatar.startsWith('http') ? rawAvatar : null,
+                mediaAssetCode: rawAvatar.startsWith('http')
+                    ? null
+                    : (rawAvatar.isNotEmpty ? rawAvatar : null),
+                name: conversation.title,
+                size: 52,
+              );
+            }),
           ),
           title: Padding(
             padding: const EdgeInsets.only(bottom: 4),

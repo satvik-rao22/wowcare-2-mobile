@@ -128,6 +128,13 @@ class ApiLogger {
   }
 
   /// Prints long strings in multiple chunks so that logcat does not truncate them.
+  ///
+  /// Chunks at [chunkSize] UTF-16 code-unit boundaries while being careful
+  /// never to split a surrogate pair (Dart strings are UTF-16; 4-byte emoji
+  /// like 👍 occupy two code units: a high surrogate 0xD800–0xDBFF followed
+  /// by a low surrogate 0xDC00–0xDFFF). Splitting between them produces an
+  /// orphaned high surrogate which the Dart VM serialises as U+FFFD,
+  /// triggering the "Bad UTF-8 encoding (REPLACEMENT CHARACTER)" warning.
   static void _printInChunks(String text, {int chunkSize = 800}) {
     if (text.length <= chunkSize) {
       AppLogger.d(text);
@@ -136,9 +143,18 @@ class ApiLogger {
 
     var start = 0;
     while (start < text.length) {
-      final end = (start + chunkSize < text.length)
+      var end = (start + chunkSize < text.length)
           ? start + chunkSize
           : text.length;
+      // Step back one code unit if the split position falls on a high
+      // surrogate so the surrogate pair is kept whole in the next chunk.
+      if (end < text.length) {
+        final unitAtSplit = text.codeUnitAt(end - 1);
+        if (unitAtSplit >= 0xD800 && unitAtSplit <= 0xDBFF) {
+          end -= 1;
+        }
+      }
+      if (end <= start) break; // guard: avoid infinite loop on malformed input
       AppLogger.d(text.substring(start, end));
       start = end;
     }

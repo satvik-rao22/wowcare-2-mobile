@@ -106,7 +106,10 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   }
 
   void _onScroll() {
-    // Firestore stream auto-loads; no manual pagination needed.
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 300) {
+      _cubit.loadMoreConversations();
+    }
   }
 
   void _onSearchChanged() {
@@ -376,6 +379,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) => ConversationListTile(
+          key: ValueKey('conversation_${filtered[index].code}'),
           conversationCode: filtered[index].code,
           contentBuilder: (context, conversation) => _ConversationTileContent(
             conversation: conversation,
@@ -608,6 +612,29 @@ class _ConversationTileContent extends StatelessWidget {
   final ConversationEntity conversation;
   final VoidCallback onTap;
 
+  /// Resolved avatar: conversation-level URL/code first; falls back to the
+  /// first active participant that has an avatar set.
+  String get _resolvedAvatar {
+    if (conversation.avatarUrl.isNotEmpty) return conversation.avatarUrl;
+    final first = conversation.participants
+        .where((p) => p.isActive && (p.avatarUrl ?? '').isNotEmpty)
+        .firstOrNull;
+    return first?.avatarUrl ?? '';
+  }
+
+  bool get _isAdminChat => conversation.type == ConversationType.adminChat;
+
+  /// For admin chat tiles: comma-joined names of active non-guardian participants.
+  String get _adminParticipantNames {
+    final active = conversation.participants
+        .where((p) => p.isActive)
+        .map((p) => p.userName)
+        .where((n) => n.isNotEmpty)
+        .toList();
+    if (active.isEmpty) return '';
+    return active.take(3).join(', ') + (active.length > 3 ? '…' : '');
+  }
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -630,17 +657,12 @@ class _ConversationTileContent extends StatelessWidget {
             children: [
               DocumentImageWidget(
                 fileUuid: '',
-                // `conversation.avatarUrl` is either a resolved URL or a raw
-                // media-asset code depending on which screen started the
-                // conversation — `fileUuid` is never actually used to
-                // resolve an image (only `imageUrl`/`mediaAssetCode` are),
-                // so route to whichever matches the value's shape.
-                imageUrl: conversation.avatarUrl.startsWith('http')
-                    ? conversation.avatarUrl
+                imageUrl: _resolvedAvatar.startsWith('http')
+                    ? _resolvedAvatar
                     : null,
-                mediaAssetCode: conversation.avatarUrl.startsWith('http')
+                mediaAssetCode: _resolvedAvatar.startsWith('http')
                     ? null
-                    : conversation.avatarUrl,
+                    : (_resolvedAvatar.isNotEmpty ? _resolvedAvatar : null),
                 name: conversation.title,
                 size: 52,
               ),
@@ -716,11 +738,17 @@ class _ConversationTileContent extends StatelessWidget {
                           color: Color(0xFFB2BEC3),
                         ),
                         const SizedBox(width: 3),
-                        Text(
-                          '${conversation.participantCount}',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFFB2BEC3),
+                        Flexible(
+                          child: Text(
+                            _isAdminChat && _adminParticipantNames.isNotEmpty
+                                ? _adminParticipantNames
+                                : '${conversation.participantCount}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFFB2BEC3),
+                            ),
                           ),
                         ),
                       ],

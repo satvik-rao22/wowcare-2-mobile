@@ -217,6 +217,12 @@ class _ParentDirectMessagingScreenState
           );
         },
         child: BlocConsumer<ConversationListCubit, ConversationListState>(
+          // The builder only uses isLoading and errorMessage — everything
+          // else is local setState. Skip rebuilds from Firestore badge/preview
+          // updates which don't affect this screen's rendered output.
+          buildWhen: (prev, curr) =>
+              prev.isLoading != curr.isLoading ||
+              prev.errorMessage != curr.errorMessage,
           listener: (context, state) {
             if (_selectedConversation == null &&
                 state.conversations.isNotEmpty) {
@@ -235,6 +241,10 @@ class _ParentDirectMessagingScreenState
           builder: (context, state) {
             return RefreshIndicator(
               onRefresh: _listCubit.refresh,
+              // Only respond to the outermost scroll — prevents the message
+              // thread's inner ListView from triggering a conversation-list
+              // refresh when the user scrolls through messages.
+              notificationPredicate: (n) => n.depth == 0,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -283,42 +293,53 @@ class _ParentDirectMessagingScreenState
     );
   }
 
+  // Wraps a non-scrollable widget in a CustomScrollView so that the parent
+  // RefreshIndicator can detect overscroll even when the thread isn't shown.
+  Widget _wrapScrollable(Widget child) {
+    return CustomScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      slivers: [SliverFillRemaining(hasScrollBody: false, child: child)],
+    );
+  }
+
   Widget _buildThreadArea(ConversationListState state) {
     final selected = _selectedConversation;
 
     if (selected == null) {
       if (state.isLoading) {
-        return const ChatThreadShimmer();
+        return _wrapScrollable(const ChatThreadShimmer());
       }
       if (state.errorMessage != null) {
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.wifi_off_rounded,
-                size: 56,
-                color: Colors.grey.withValues(alpha: 0.35),
-              ),
-              const SizedBox(height: 12),
-              const CustomTextWidget(
-                text: 'Could not load conversations',
-                fontSize: 15,
-                fontColor: Colors.grey,
-              ),
-              const SizedBox(height: 8),
-              const CustomTextWidget(
-                text: 'Pull down to try again',
-                fontSize: 13,
-                fontColor: Colors.grey,
-              ),
-            ],
+        return _wrapScrollable(
+          Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.wifi_off_rounded,
+                  size: 56,
+                  color: Colors.grey.withValues(alpha: 0.35),
+                ),
+                const SizedBox(height: 12),
+                const CustomTextWidget(
+                  text: 'Could not load conversations',
+                  fontSize: 15,
+                  fontColor: Colors.grey,
+                ),
+                const SizedBox(height: 8),
+                const CustomTextWidget(
+                  text: 'Pull down to try again',
+                  fontSize: 13,
+                  fontColor: Colors.grey,
+                ),
+              ],
+            ),
           ),
         );
       }
       // No conversation yet for this child — show the same card layout as the
       // active thread but with a "no conversation" placeholder instead of bubbles.
-      return _buildNoConversationThread(context);
+      return _wrapScrollable(_buildNoConversationThread(context));
     }
 
     // Provide a dedicated CommunicationCubit for the thread so its state

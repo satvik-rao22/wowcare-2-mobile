@@ -1,0 +1,55 @@
+test
+├── data
+│   └── features
+│       ├── communication
+│       │   ├── datasources
+│       │   │   └── message_entity_local_data_source_test.dart
+│       │   ├── models
+│       │   │   ├── message_entity_collection_test.dart
+│       │   │   └── message_entity_dto_test.dart
+│       │   └── repositories
+│       │       └── message_entity_repository_delete_attachment_test.dart
+│       └── reports
+│           ├── datasources
+│           │   └── reports_remote_datasource_impl_test.dart
+│           └── repositories
+│               └── reports_repository_impl_test.dart
+├── domain
+│   └── features
+│       ├── communication
+│       │   └── usecases
+│       │       └── toggle_private_mode_usecase_test.dart
+│       └── reports
+│           └── usecases
+│               ├── school_immunization_report_params_test.dart
+│               ├── staff_details_report_params_test.dart
+│               └── students_and_family_report_params_test.dart
+├── integration
+│   └── private_mode_flow_test.dart
+├── login_persona_util_test.dart
+├── presentation
+│   └── features
+│       ├── communication
+│       │   ├── shared
+│       │   │   ├── room_chat_privacy_helper_test.dart
+│       │   │   ├── utils
+│       │   │   │   └── message_content_processor_test.dart
+│       │   │   └── widgets
+│       │   │       └── message_bubble_alignment_test.dart
+│       │   └── v2
+│       │       ├── cubit
+│       │       │   └── conversation_thread_cubit_test.dart
+│       │       └── util
+│       │           └── message_entity_mapper_test.dart
+│       ├── messaging
+│       │   ├── cubit
+│       │   │   ├── feature_flag_cubit_test.dart
+│       │   │   └── private_mode_toggle_cubit_test.dart
+│       │   └── widgets
+│       │       ├── chat_input_bar_test.dart
+│       │       └── private_mode_toggle_test.dart
+│       └── reports
+│           └── view
+└── widget_test.dart
+
+31 directories, 22 files

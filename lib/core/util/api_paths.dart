@@ -896,6 +896,9 @@ class ApiPaths {
   // Per new contract: POST /api/v1/messages/{code}/receipts/read
   static String messagingMessageRead(String code) =>
       '$messages/$code/receipts/read';
+  // GET /api/v1/messages/{code}/receipts — full delivery/read receipt list with display names
+  static String messagingMessageReceipts(String code) =>
+      '$messages/$code/receipts';
   // GET messages for a conversation
   static String messagesForConversation(String conversationCode) =>
       '$messages/conversation/$conversationCode';

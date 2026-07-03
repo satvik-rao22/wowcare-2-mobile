@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -44,6 +43,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
   StreamSubscription<List<ConversationEntity>>? _firestoreSubscription;
   StreamSubscription<String>? _markedReadSubscription;
+  StreamSubscription<String>? _listChangedSubscription;
   bool _firestoreActive = false;
 
   /// Dedup guard so a conversation's last message only triggers one
@@ -59,6 +59,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   Future<void> close() {
     _firestoreSubscription?.cancel();
     _markedReadSubscription?.cancel();
+    _listChangedSubscription?.cancel();
     return super.close();
   }
 
@@ -71,22 +72,16 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   /// badge immediately when the user opens that thread — before Firestore
   /// confirms the read receipt (~1-3 s later).
   Future<void> startWatching() async {
-    final String debugUserCode =
-        (await _storageService.getString(StorageKeys.userCode)) ?? '';
-    final String debugOrgCode =
-        (await _storageService.getString(StorageKeys.organizationCode)) ?? '';
-    final String debugSchoolCode =
-        (await _storageService.getString(StorageKeys.schoolCode)) ?? '';
-
     // 1. Emit Isar cache immediately for a fast first frame.
     final cacheResult = await _getCachedConversationsUseCase(
       type: _conversationType,
     );
+    var isarEmpty = true;
     cacheResult.fold(
       (_) {},
       (cached) {
         if (cached.isNotEmpty && !isClosed) {
-          final int debugPrevCount = state.conversations.length;
+          isarEmpty = false;
           emit(ConversationListState.loaded(
             conversationType: _conversationType,
             conversations: _sortedByLatest(cached),
@@ -96,6 +91,32 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       },
     );
 
+    // 1.5 If Isar is empty (first launch or after cache clear), fetch from the
+    //     REST API to populate it before Firestore fires. Without this step,
+    //     Firestore items come back via toMinimalEntity() which has no
+    //     studentCode, title, or participants — so guardian's _syncToChild
+    //     never finds a child match and the thread is never shown.
+    if (!isClosed && isarEmpty) {
+      if (!isClosed) emit(state.copyWith(isLoading: true));
+      final apiResult = await _getConversationsUseCase(
+        type: _conversationType,
+        status: 'ACTIVE',
+        page: 0,
+        size: _pageSize,
+      );
+      if (!isClosed) {
+        apiResult.fold(
+          (_) => emit(state.copyWith(isLoading: false)),
+          (conversations) => emit(state.copyWith(
+            conversations: _sortedByLatest(conversations),
+            isLoading: false,
+            isFromCache: false,
+            clearError: true,
+          )),
+        );
+      }
+    }
+
     // 2. Subscribe to Firestore.
     _firestoreSubscription?.cancel();
     _firestoreSubscription = _watchConversationsUseCase(
@@ -104,13 +125,17 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       (conversations) {
         if (isClosed) return;
         _firestoreActive = true;
-        final int debugPrevCount = state.conversations.length;
-        emit(ConversationListState.loaded(
-          conversationType: _conversationType,
+        // Use copyWith so active filters (designation, staffStatus, classroom)
+        // set by the user are not wiped when a realtime event arrives.
+        emit(state.copyWith(
           conversations: _sortedByLatest(conversations),
           isFromCache: false,
+          isLoading: false,
+          isRefreshing: false,
+          clearError: true,
         ));
         unawaited(_markDeliveredForIncomingMessages(conversations));
+        unawaited(_fetchMissingMetadata(conversations));
       },
       onError: (error) {
         if (!_firestoreActive) unawaited(_fallbackToApi());
@@ -122,6 +147,16 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     _markedReadSubscription = MessagingEventService
         .instance.onConversationMarkedRead
         .listen((code) => _zeroBadgeLocally(code));
+
+    // 4. Refresh list when a bulk-send or conversation creation fires the event.
+    _listChangedSubscription?.cancel();
+    _listChangedSubscription = MessagingEventService
+        .instance.onConversationListChanged
+        .listen((typeString) {
+      if (typeString == _conversationType.toApiString()) {
+        unawaited(refresh());
+      }
+    });
   }
 
   /// Whenever a conversation's last message was sent by someone else, mark
@@ -325,12 +360,15 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         isLoading: false,
         errorMessage: failure.message ?? 'Failed to apply filters.',
       )),
-      (conversations) => emit(ConversationListState.loaded(
-        conversationType: _conversationType,
+      // Use copyWith so the filter fields set above are preserved in the
+      // resulting state (ConversationListState.loaded would zero them).
+      (conversations) => emit(state.copyWith(
         conversations: _sortedByLatest(conversations),
+        isLoading: false,
         isFromCache: false,
         page: 0,
         hasMore: conversations.length >= _pageSize,
+        clearError: true,
       )),
     );
   }
@@ -396,13 +434,57 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         isRefreshing: false,
         errorMessage: failure.message ?? 'Failed to refresh conversations.',
       )),
-      (conversations) => emit(ConversationListState.loaded(
-        conversationType: _conversationType,
+      // Use copyWith to preserve active filters across a pull-to-refresh.
+      (conversations) => emit(state.copyWith(
         conversations: _sortedByLatest(conversations),
+        isRefreshing: false,
         isFromCache: false,
         page: 0,
         hasMore: conversations.length >= _pageSize,
+        clearError: true,
       )),
+    );
+  }
+
+  /// Append the next page of conversations from REST.
+  /// No-op when already loading, refreshing, or the server says no more pages.
+  Future<void> loadMoreConversations() async {
+    if (isClosed) return;
+    if (state.isLoading || state.isRefreshing || !state.hasMore) return;
+
+    final nextPage = state.page + 1;
+    emit(state.copyWith(isLoading: true, clearError: true));
+
+    final result = await _getConversationsUseCase(
+      type: _conversationType,
+      status: 'ACTIVE',
+      page: nextPage,
+      size: _pageSize,
+      designation: state.activeDesignation,
+      staffStatus: state.activeStaffStatus,
+      classroom: state.activeClassroom,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) => emit(state.copyWith(
+        isLoading: false,
+        errorMessage: failure.message ?? 'Failed to load more conversations.',
+      )),
+      (incoming) {
+        final existing = {for (final c in state.conversations) c.code: c};
+        for (final c in incoming) {
+          existing[c.code] = c;
+        }
+        emit(state.copyWith(
+          conversations: _sortedByLatest(existing.values.toList()),
+          isLoading: false,
+          page: nextPage,
+          hasMore: incoming.length >= _pageSize,
+          clearError: true,
+        ));
+      },
     );
   }
 
@@ -449,6 +531,29 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     );
   }
 
+  /// For any conversation Firestore delivered without a title (new broadcast
+  /// not yet in Isar), fetch the full entity from REST in the background and
+  /// immediately update the in-memory state so the list shows the real name
+  /// without waiting for another Firestore event.
+  Future<void> _fetchMissingMetadata(
+    List<ConversationEntity> conversations,
+  ) async {
+    for (final conv in conversations) {
+      if (conv.title.isNotEmpty) continue;
+      unawaited(
+        _conversationRepo.getConversation(conv.code).then((result) {
+          result.fold((_) {}, (fetched) {
+            if (isClosed) return;
+            final updated = state.conversations.map((c) {
+              return c.code == fetched.code ? fetched : c;
+            }).toList();
+            emit(state.copyWith(conversations: updated));
+          });
+        }),
+      );
+    }
+  }
+
   Future<void> _fallbackToApi() async {
     emit(state.copyWith(isLoading: true, clearError: true));
 
@@ -469,12 +574,15 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         isLoading: false,
         errorMessage: failure.message ?? 'Failed to load conversations.',
       )),
-      (conversations) => emit(ConversationListState.loaded(
-        conversationType: _conversationType,
+      // Use copyWith to preserve active filters set before the Firestore
+      // error triggered this fallback path.
+      (conversations) => emit(state.copyWith(
         conversations: _sortedByLatest(conversations),
+        isLoading: false,
         isFromCache: false,
         page: 0,
         hasMore: conversations.length >= _pageSize,
+        clearError: true,
       )),
     );
   }

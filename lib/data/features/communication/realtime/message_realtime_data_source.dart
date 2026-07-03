@@ -265,7 +265,7 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
               .map((item) => item.toEntity())
               .where((entity) => VisibilityHelper.canViewMessage(
                     entity,
-                    currentUserCode,
+                    {currentUserCode},
                     isStaff,
                     isAdmin,
                   ))

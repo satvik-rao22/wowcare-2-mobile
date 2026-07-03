@@ -881,7 +881,22 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         ? <String>['Group Chat', ..._guardianEntries.take(2).map((e) => e.value)]
         : [_generateSummaryText()];
 
+    final threadId = widget.parentInfo['code'] as String;
     return BlocConsumer<CommunicationCubit, CommunicationState>(
+      // Rebuild only when structurally necessary — state type changes,
+      // thread length changes (new message / older-history load), or
+      // older-message loading state changes. Reactions/edits/deletes are
+      // handled by ThreadMessageTile's BlocSelector independently.
+      buildWhen: (prev, curr) {
+        if (prev.runtimeType != curr.runtimeType) return true;
+        if (curr is CommunicationLoaded && prev is CommunicationLoaded) {
+          final prevLen = (prev.threads[threadId] ?? const []).length;
+          final currLen = (curr.threads[threadId] ?? const []).length;
+          return prevLen != currLen ||
+              curr.isLoadingOlderMessages != prev.isLoadingOlderMessages;
+        }
+        return false;
+      },
       listener: (context, state) {
         if (state is CommunicationLoaded) {
           _onMessagesChanged(_activeMessages);

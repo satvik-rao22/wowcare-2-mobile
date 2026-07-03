@@ -282,9 +282,17 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         if (!mounted) return;
         // Realtime listener starts only after the API/Isar history has
         // loaded — Firestore only ever applies deltas on top of it.
-        context.read<CommunicationCubit>().startWatchingConversations(
-          type: _conversationType,
-        );
+        //
+        // ROOM_CHAT is skipped: the Firestore user_inbox security rules deny
+        // staff/admin access when filtering by conversationType == ROOM_CHAT,
+        // causing a permission-denied error on every mount. REST API data from
+        // loadConversations above is sufficient; pull-to-refresh covers
+        // manual updates.
+        if (_conversationType != 'ROOM_CHAT') {
+          context.read<CommunicationCubit>().startWatchingConversations(
+            type: _conversationType,
+          );
+        }
       }
     });
 
@@ -336,13 +344,26 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     return RefreshIndicator(
       onRefresh: () async {
         if (!mounted) return;
-        await context.read<CommunicationCubit>().loadConversations(
+        // Clear cache and reload conversations fresh.
+        await context.read<CommunicationCubit>().refreshConversations(
           type: _conversationType,
           size: _conversationPageSize,
         );
+        if (!mounted) return;
+        // Also refresh the contacts list (staff or students depending on tab).
+        if (widget.isStaffMessaging) {
+          unawaited(
+            context.read<StaffCubit>().refresh(ignoreRefreshingGuard: true),
+          );
+        } else {
+          unawaited(context.read<StudentCubit>().refreshWithCacheReset());
+        }
       },
       child: CustomScrollView(
         controller: _conversationScrollController,
+        // AlwaysScrollableScrollPhysics allows the RefreshIndicator to trigger
+        // even when the list is short and doesn't fill the screen.
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(child: const SizedBox(height: 15)),
           // search bar and filter icon as well as clear all button and unread messages toggle
@@ -592,6 +613,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
               return BlocBuilder<StudentCubit, StudentState>(
                 builder: (context, studentState) {
                   return BlocBuilder<CommunicationCubit, CommunicationState>(
+                    buildWhen: (prev, curr) =>
+                        curr is CommunicationConversationsLoaded ||
+                        curr is CommunicationConversationsLoading ||
+                        curr is CommunicationError,
                     builder: (context, communicationState) {
                       if (communicationState
                           is CommunicationConversationsLoading) {
@@ -880,7 +905,26 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         create: (context) => serviceLocator<CommunicationCubit>(),
         child: widget.isStaffMessaging
             ? StaffMessagingThread(
-                staffInfo: {'name': name, 'avatar': avatar, 'code': code},
+                staffInfo: {
+                  'name': name,
+                  'avatar': avatar,
+                  'code': code,
+                  // staffCode (STF-xxx) from the first active non-guardian
+                  // participant — used as DocumentImageWidget fallback when
+                  // the conversation-level avatar is absent. Cast to
+                  // ConversationParticipantModel at runtime since the legacy
+                  // list always populates ConversationParticipantModel
+                  // instances (avatarUrl/staffCode parsed since our fix).
+                  'staffCode': () {
+                    for (final p in participants) {
+                      if (!p.isActive) continue;
+                      if (p.role == 'GUARDIAN' || p.role == 'PARENT') continue;
+                      final sc = (p as dynamic).staffCode as String?;
+                      if ((sc ?? '').isNotEmpty) return sc;
+                    }
+                    return null;
+                  }(),
+                },
               )
             : ParentMessagingThread(
                 parentInfo: {

@@ -72,7 +72,15 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   String? get _staffAvatarAsImageUrl =>
       _rawStaffAvatar.startsWith('http') ? _rawStaffAvatar : null;
   String? get _staffAvatarAsMediaAssetCode =>
-      _rawStaffAvatar.startsWith('http') ? null : _rawStaffAvatar;
+      _rawStaffAvatar.startsWith('http') ? null : (_rawStaffAvatar.isNotEmpty ? _rawStaffAvatar : null);
+
+  /// Fallback for avatar resolution when the conversation-level avatar is
+  /// absent — uses the role-specific STF-xxx code so DocumentImageWidget
+  /// can hit the staff profile endpoint.
+  String? get _staffCode =>
+      (widget.staffInfo['staffCode'] as String?)?.trim().isNotEmpty == true
+          ? widget.staffInfo['staffCode'] as String
+          : null;
 
   String? _currentUserCode;
 
@@ -510,7 +518,24 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
   @override
   Widget build(BuildContext context) {
+    final threadId = widget.staffInfo['code'] as String;
     return BlocConsumer<CommunicationCubit, CommunicationState>(
+      // Only rebuild the widget tree when structurally necessary:
+      // state type changes (Loading ↔ Loaded ↔ Error ↔ Sending), new
+      // messages arrive (thread length changes), or older-message loading
+      // state changes. Reactions/edits/deletes on existing messages are
+      // handled by ThreadMessageTile's BlocSelector which fires independently
+      // and rebuilds only the affected bubble.
+      buildWhen: (prev, curr) {
+        if (prev.runtimeType != curr.runtimeType) return true;
+        if (curr is CommunicationLoaded && prev is CommunicationLoaded) {
+          final prevLen = (prev.threads[threadId] ?? const []).length;
+          final currLen = (curr.threads[threadId] ?? const []).length;
+          return prevLen != currLen ||
+              curr.isLoadingOlderMessages != prev.isLoadingOlderMessages;
+        }
+        return false;
+      },
       listener: (context, state) {
         if (state is CommunicationLoaded) {
           _onMessagesChanged(state.messages);
@@ -901,6 +926,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                           _staffAvatarAsImageUrl,
                                                       mediaAssetCode:
                                                           _staffAvatarAsMediaAssetCode,
+                                                      staffCode: _staffCode,
                                                       name: widget
                                                           .staffInfo['name'],
                                                       size: 45,

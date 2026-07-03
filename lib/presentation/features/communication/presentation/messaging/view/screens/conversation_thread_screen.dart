@@ -21,6 +21,7 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/usecases/search_messages_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
@@ -142,6 +143,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   String _senderCode = '';
   String _senderName = '';
   ParticipantRole _senderRole = ParticipantRole.staff;
+  bool _senderRoleLoaded = false;
   String? _conversationPrivateModeActivatedBy;
   String _organizationCode = '';
   String _schoolCode = '';
@@ -174,6 +176,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   // ── In-thread search ──────────────────────────────────────────────────────
 
   late final SearchMessagesUseCase _searchUseCase;
+  late final GetMessageReceiptsUseCase _getMessageReceiptsUseCase;
   bool _showSearch = false;
   final TextEditingController _searchController = TextEditingController();
   List<MessageEntity> _searchResults = [];
@@ -212,7 +215,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       onResolveConversation: widget.onResolveConversation,
     );
     _searchUseCase = SearchMessagesUseCase(serviceLocator());
+    _getMessageReceiptsUseCase = serviceLocator<GetMessageReceiptsUseCase>();
 
+    // Bind the full ConversationEntity before starting the Firestore listener.
+    // startWatchingMessages() reads state.conversation?.organizationCode and
+    // state.conversation?.schoolCode to build the Firestore path; without this
+    // call those values are null and the repository falls back to session
+    // storage, which points to the wrong school for multi-school users.
+    _cubit.setConversation(widget.conversation);
     _cubit.startWatchingMessages();
     unawaited(_loadSenderInfo());
     unawaited(_loadDraft());
@@ -259,6 +269,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       _organizationCode = orgCode;
       _schoolCode = school;
       _senderRole = ParticipantRole.fromApiString(rolesRaw);
+      _senderRoleLoaded = true;
     });
   }
 
@@ -455,7 +466,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   // ── Participants ──────────────────────────────────────────────────────────
 
   List<ParticipantDisplayData> get _participantData =>
-      _conversation.participants.map((p) {
+      _conversation.participants.where((p) => p.isActive).map((p) {
         final roleStr = p.role.toApiString().toUpperCase();
         final normalised = roleStr == 'PARENT' ? 'GUARDIAN' : roleStr;
         return ParticipantDisplayData(
@@ -643,7 +654,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   // ── Participant header ────────────────────────────────────────────────────
 
   Widget _buildParticipantHeader() {
-    final participants = _conversation.participants;
+    final participants =
+        _conversation.participants.where((p) => p.isActive).toList();
     final title = _conversation.title.isNotEmpty
         ? _conversation.title
         : 'Conversation';
@@ -661,20 +673,35 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         children: [
           Row(
             children: [
-              DocumentImageWidget(
-                fileUuid: '',
-                // `avatarUrl` is either a resolved URL or a raw media-asset
-                // code depending on which screen started the conversation.
-                imageUrl: _conversation.avatarUrl.startsWith('http')
+              Builder(builder: (_) {
+                // Prefer conversation-level avatar; fall back to first active
+                // participant that has an avatar or staffCode set.
+                final rawAvatar = _conversation.avatarUrl.isNotEmpty
                     ? _conversation.avatarUrl
-                    : null,
-                mediaAssetCode: _conversation.avatarUrl.startsWith('http')
-                    ? null
-                    : _conversation.avatarUrl,
-                name: title,
-                size: 36,
-                fontSize: 15,
-              ),
+                    : (participants
+                            .where((p) => (p.avatarUrl ?? '').isNotEmpty)
+                            .firstOrNull
+                            ?.avatarUrl ??
+                        '');
+                final fallbackStaffCode = rawAvatar.isEmpty
+                    ? participants
+                        .where((p) => (p.staffCode ?? '').isNotEmpty)
+                        .firstOrNull
+                        ?.staffCode
+                    : null;
+                return DocumentImageWidget(
+                  fileUuid: '',
+                  imageUrl:
+                      rawAvatar.startsWith('http') ? rawAvatar : null,
+                  mediaAssetCode: rawAvatar.startsWith('http')
+                      ? null
+                      : (rawAvatar.isNotEmpty ? rawAvatar : null),
+                  staffCode: fallbackStaffCode,
+                  name: title,
+                  size: 36,
+                  fontSize: 15,
+                );
+              }),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -748,7 +775,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         const SizedBox(width: 4),
                         Switch.adaptive(
                           value: pmState.isEnabled,
-                          onChanged: pmState.isLoading
+                          onChanged: (pmState.isLoading || !_senderRoleLoaded)
                               ? null
                               : (_conversationPrivateModeActivatedBy != null &&
                                     _conversationPrivateModeActivatedBy !=
@@ -807,10 +834,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     ConversationType.adminChat.toApiString();
                 final visibleParticipants = isAdminChat
                     ? participants
-                          .where(
-                            (p) =>
-                                p.role.toApiString().toUpperCase() == 'ADMIN',
-                          )
+                          .where((p) {
+                            final role = p.role.toApiString().toUpperCase();
+                            return role == 'ADMIN' || role == 'DIRECTOR';
+                          })
                           .toList()
                     : participants;
                 if (visibleParticipants.isEmpty) return const SizedBox.shrink();
@@ -1163,7 +1190,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                       },
                 onInfo: msg.isDeleted
                     ? null
-                    : () => MessageStatusDialog.show(context, message: msg),
+                    : () => MessageStatusDialog.show(
+                          context,
+                          message: msg,
+                          onFetchReceipts: (code) async {
+                            final result = await _getMessageReceiptsUseCase(code);
+                            return result.fold((_) => msg.readReceipts, (r) => r);
+                          },
+                        ),
                 onDeleteAttachment: (attachment) {
                   if (attachment.attachmentId != null) {
                     _cubit.deleteAttachment(
@@ -1235,6 +1269,17 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   Widget _buildThreadBody() {
     return BlocConsumer<ConversationThreadCubit, ConversationThreadState>(
+      // Rebuild the widget tree only when structural or loading state changes.
+      // Reactions, edits, and deletions on existing messages do NOT change
+      // messages.length, isLoading, isSending, or errorMessage — those are
+      // handled by EntityMessageTile's BlocSelector which fires independently
+      // and rebuilds only the affected bubble, avoiding an O(n) ListView
+      // rebuild for every such event.
+      buildWhen: (prev, curr) =>
+          prev.messages.length != curr.messages.length ||
+          prev.isLoading != curr.isLoading ||
+          prev.isSending != curr.isSending ||
+          prev.errorMessage != curr.errorMessage,
       listener: (context, state) {
         _syncResolvedConversation(state);
         _onMessagesChanged(state.messages);

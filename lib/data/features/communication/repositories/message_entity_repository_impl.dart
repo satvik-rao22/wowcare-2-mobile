@@ -362,6 +362,18 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
+    String messageCode,
+  ) async {
+    try {
+      final receipts = await _remote.getMessageReceipts(messageCode);
+      return Right(receipts);
+    } catch (e) {
+      return Left(ServerFailure(e.toString()));
+    }
+  }
+
   // ─── Search ──────────────────────────────────────────────────────────────────
 
   @override
