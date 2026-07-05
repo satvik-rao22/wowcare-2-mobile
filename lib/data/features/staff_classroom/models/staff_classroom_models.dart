@@ -2,6 +2,7 @@ class StaffClassroomItemModel {
   StaffClassroomItemModel({
     required this.classroomCode,
     required this.staffCode,
+    this.userCode = '',
     required this.firstName,
     required this.lastName,
     this.profilePictureUrl,
@@ -15,6 +16,8 @@ class StaffClassroomItemModel {
 
   final String classroomCode;
   final String staffCode;
+  /// User account code (USR_*) — the participant identifier for messaging.
+  final String userCode;
   final String firstName;
   final String lastName;
   final String? profilePictureUrl;
@@ -29,6 +32,7 @@ class StaffClassroomItemModel {
     return StaffClassroomItemModel(
       classroomCode: json['classroomCode'] as String? ?? '',
       staffCode: json['staffCode'] as String? ?? '',
+      userCode: json['userCode'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
       profilePictureUrl: json['profilePictureUrl'] as String?,
@@ -49,6 +53,7 @@ class StaffClassroomItemModel {
     return {
       'classroomCode': classroomCode,
       'staffCode': staffCode,
+      'userCode': userCode,
       'firstName': firstName,
       'lastName': lastName,
       'profilePictureUrl': profilePictureUrl,

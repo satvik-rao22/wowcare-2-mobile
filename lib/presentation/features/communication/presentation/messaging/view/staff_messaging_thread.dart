@@ -145,7 +145,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         );
         // Realtime listener starts only after the API/Isar history has
         // loaded — Firestore only ever applies deltas on top of it.
-        context.read<CommunicationCubit>().startWatchingThread(threadId);
+        context.read<CommunicationCubit>().startWatchingThread(
+          threadId,
+          organizationCode: widget.staffInfo['organizationCode'] as String?,
+          schoolCode: widget.staffInfo['schoolCode'] as String?,
+        );
         final initialMessages = _messages;
         _lastMessageId = initialMessages.isNotEmpty
             ? initialMessages.last.id

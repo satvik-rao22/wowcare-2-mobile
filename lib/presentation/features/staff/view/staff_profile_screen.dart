@@ -34,6 +34,7 @@ class StaffProfileScreen extends StatefulWidget {
     required this.classroom,
     required this.designation,
     required this.phoneNumber,
+    this.userCode = '',
     this.employmentStatus,
     this.classroomNames,
     this.classroomNameByCode,
@@ -51,6 +52,11 @@ class StaffProfileScreen extends StatefulWidget {
 
   final String staffCode;
   final String name;
+
+  /// USR_* user code pre-supplied by the caller. Avoids sending STF_* as a
+  /// participant code when the Message button is tapped before the async
+  /// profile fetch completes.
+  final String userCode;
 
   /// API employment status (e.g. ACTIVE, UPCOMING) for avatar status dot.
   final String? employmentStatus;
@@ -76,6 +82,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   late String _displayDesignation;
   late String _displayClassroom;
   String? _profilePhotoUrl;
+  String _profileUserCode = '';
   String? _schoolCode;
   String? _organizationCode;
   bool _isUploadingProfilePhoto = false;
@@ -118,6 +125,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     _displayName = widget.name;
     _displayDesignation = _formatEnumLabel(widget.designation);
     _displayClassroom = widget.classroom;
+    _profileUserCode = widget.userCode.trim();
     _loadUploadContext();
     // Deep-link case: opened by code straight to a non-Profile tab. The summary
     // (name/designation/classroom) is normally pushed up by the Profile tab,
@@ -153,6 +161,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         }
         final photo = profile.profilePhotoUrl.trim();
         if (photo.isNotEmpty) _profilePhotoUrl = photo;
+        final uc = profile.userCode.trim();
+        if (uc.isNotEmpty) _profileUserCode = uc;
       });
       // Prefer the human-readable name the API already returns; fall back to the
       // code (which _applyHeaderClassroomFromProfile then resolves to a name).
@@ -386,6 +396,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         _profilePhotoUrl = (refreshed.profilePhotoUrl).trim().isNotEmpty
             ? refreshed.profilePhotoUrl.trim()
             : finalizedUrl;
+        final uc = refreshed.userCode.trim();
+        if (uc.isNotEmpty) _profileUserCode = uc;
       });
     } catch (e) {
       CoreUtils.showTopSnackBar(
@@ -742,6 +754,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                     code: code,
                     name: widget.name,
                     isStaff: true,
+                    userCode: _profileUserCode,
                     designation: widget.designation,
                   ),
                 ],

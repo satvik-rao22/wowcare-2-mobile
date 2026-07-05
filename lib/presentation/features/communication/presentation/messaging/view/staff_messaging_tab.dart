@@ -623,7 +623,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                         final filteredStaffCodes =
                             (widget.isStaffMessaging &&
                                 _hasActiveContactFilters)
-                            ? staffState.items.map((s) => s.code).toSet()
+                            ? staffState.items
+                                  .map((s) => s.userCode)
+                                  .where((c) => c.isNotEmpty)
+                                  .toSet()
                             : null;
 
                         // Room-chat (Parent Messaging) conversations carry no
@@ -880,7 +883,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         create: (context) => serviceLocator<CommunicationCubit>(),
         child: widget.isStaffMessaging
             ? StaffMessagingThread(
-                staffInfo: {'name': name, 'avatar': avatar, 'code': code},
+                staffInfo: {
+                  'name': name,
+                  'avatar': avatar,
+                  'code': code,
+                  // Passed explicitly so the Firestore watch path matches the
+                  // conversation's own org/school, not the viewer's stored
+                  // active org/school (which may differ after a school switch).
+                  'organizationCode': organizationCode,
+                  'schoolCode': schoolCode,
+                },
               )
             : ParentMessagingThread(
                 parentInfo: {
@@ -1003,13 +1015,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   }) {
     return staffState.items
         .where((s) => s.code != _currentUserCode)
-        .where((s) => !excludeCodes.contains(s.code))
+        .where((s) => !excludeCodes.contains(s.userCode))
         .where(
           (s) => query.isEmpty || s.name.toLowerCase().contains(query),
         )
         .map(
           (s) => _FilteredContact(
             code: s.code,
+            userCode: s.userCode,
             name: s.name,
             // `profileImage` is never populated by the data layer for
             // StaffMember (always null) — `profilePhotoAssetCode` is the
@@ -1055,7 +1068,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   Widget _buildContactRow(_FilteredContact contact, {Key? key}) {
     return InkWell(
       key: key,
-      onTap: () => _startConversationWith(contact.code, contact.name),
+      onTap: () => _startConversationWith(
+        contact.userCode,
+        contact.name,
+      ),
       splashColor: const Color(0x1A6C5CE7),
       highlightColor: Colors.transparent,
       child: Container(
@@ -1118,12 +1134,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
 class _FilteredContact {
   const _FilteredContact({
     required this.code,
+    this.userCode = '',
     required this.name,
     required this.avatarUrl,
     required this.subtitle,
   });
 
+  /// Profile / navigation code (STF_* for staff, student code for parents).
+  /// Used for self-exclusion and profile screen navigation.
   final String code;
+
+  /// Messaging participant identifier (USR_* for staff, empty for students).
+  /// When non-empty, this is sent as participantUserCode instead of [code].
+  final String userCode;
   final String name;
   final String? avatarUrl;
   final String subtitle;
