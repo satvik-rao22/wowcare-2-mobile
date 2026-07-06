@@ -19,6 +19,7 @@ import 'package:wowcare/domain/features/communication/entities/conversation_enti
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/search_messages_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
@@ -222,10 +223,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     unawaited(_loadSenderInfo());
     unawaited(_loadDraft());
 
+    if (widget.conversation.participants.isEmpty && !widget.isDraft) {
+      unawaited(_fetchConversationDetails());
+    }
+
     // Private mode toggle only available in room chats
     final canShowPrivateToggle =
         widget.showPrivateModeToggle &&
-        _conversation.type == ConversationType.roomChat.toApiString();
+        _conversation.type == ConversationType.roomChat;
 
     if (canShowPrivateToggle) {
       _privateModeToggleCubit = PrivateModeToggleCubit(
@@ -241,6 +246,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       _conversationPrivateModeActivatedBy =
           widget.conversation.privateModeActivatedBy;
     }
+  }
+
+  Future<void> _fetchConversationDetails() async {
+    final result = await serviceLocator<ConversationEntityRepository>()
+        .getConversation(widget.conversation.code);
+    if (!mounted) return;
+    result.fold(
+      (_) {},
+      (conversation) {
+        if (conversation.participants.isNotEmpty) {
+          setState(() => _resolvedConversation = conversation);
+        }
+      },
+    );
   }
 
   Future<void> _loadSenderInfo() async {
@@ -704,7 +723,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               // Private Mode toggle — room chats only
               if (widget.showPrivateModeToggle &&
                   _privateModeToggleCubit != null &&
-                  _conversation.type == ConversationType.roomChat.toApiString())
+                  _conversation.type == ConversationType.roomChat)
                 BlocConsumer<PrivateModeToggleCubit, PrivateModeToggleState>(
                   bloc: _privateModeToggleCubit,
                   listener: (context, pmState) {
@@ -807,22 +826,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             Builder(
               builder: (context) {
                 final isAdminChat =
-                    _conversation.type ==
-                    ConversationType.adminChat.toApiString();
+                    _conversation.type == ConversationType.adminChat;
                 final isRoomChat =
-                    _conversation.type ==
-                    ConversationType.roomChat.toApiString();
-                // Admin chat → admin chips only.
-                // Room chat (staff/admin viewer) → guardian chips only (Task 2).
+                    _conversation.type == ConversationType.roomChat;
+                // Admin chat and Room chat → guardian/parent chips only.
                 // All other types → show everyone.
-                final visibleParticipants = isAdminChat
-                    ? participants
-                          .where(
-                            (p) =>
-                                p.role.toApiString().toUpperCase() == 'ADMIN',
-                          )
-                          .toList()
-                    : isRoomChat
+                final visibleParticipants = (isAdminChat || isRoomChat)
                     ? participants.where((p) {
                         final role = p.role.toApiString().toUpperCase();
                         return role == 'PARENT' || role == 'GUARDIAN';
@@ -917,9 +926,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             ),
           ],
           if (_senderRole == ParticipantRole.parent &&
-              (_conversation.type == ConversationType.adminChat.toApiString() ||
-                  _conversation.type ==
-                      ConversationType.roomChat.toApiString())) ...[
+              (_conversation.type == ConversationType.adminChat ||
+                  _conversation.type == ConversationType.roomChat)) ...[
             const SizedBox(height: 8),
             _buildPrivateModeHeader(),
           ],
@@ -1363,6 +1371,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           onSend: () => unawaited(_sendMessage()),
                           onAttachmentTap: _showAttachmentSheet,
                           pendingAttachments: _pendingAttachments,
+                          showCharCounter: true,
                           onRemoveAttachment: (i) =>
                               setState(() => _pendingAttachments.removeAt(i)),
                           quotedMessage: _quotedMessage != null

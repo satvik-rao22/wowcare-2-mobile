@@ -1914,6 +1914,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               onSend: _sendMessage,
                               onAttachmentTap: _showAttachmentSheet,
                               isSending: state is CommunicationSending,
+                              showCharCounter: true,
                               pendingAttachments: _pendingAttachments,
                               quotedMessage: _quotedMessage,
                               onCancelQuote: () => setState(() {
@@ -2971,6 +2972,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             focusNode: _inputFocusNode,
                             onSend: _sendMessage,
                             onAttachmentTap: _showAttachmentSheet,
+                            showCharCounter: true,
                             pendingAttachments: _pendingAttachments,
                             quotedMessage: _quotedMessage,
                             onCancelQuote: () => setState(() {
@@ -3068,6 +3070,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   focusNode: _inputFocusNode,
                   onSend: _sendMessage,
                   onAttachmentTap: _showAttachmentSheet,
+                  showCharCounter: true,
                   pendingAttachments: _pendingAttachments,
                   quotedMessage: _quotedMessage,
                   onCancelQuote: () => setState(() {

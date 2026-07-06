@@ -25,6 +25,7 @@ import '../../../../domain/features/communication/usecases/watch_messages_legacy
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'communication_state.dart';
@@ -74,7 +75,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// clear immediately for the current user. Called by screens when they open
   /// a thread or receive new messages while the thread is in the foreground.
   Future<void> markConversationRead(String conversationCode) async {
-    await markConversationReadUseCase(conversationCode);
+    final result = await markConversationReadUseCase(conversationCode);
+    result.fold(
+      (_) {},
+      (_) => MessagingEventService.instance.notifyMarkedRead(conversationCode),
+    );
   }
 
   static const _uuid = Uuid();
@@ -173,9 +178,18 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // edit/delete mutation, keep our in-memory version rather than the
         // realtime/Isar one, which doesn't know about it yet.
         final reconciled = messages.map((incoming) {
-          if (!_recentLocalMutations.containsKey(incoming.code))
-            return incoming;
-          return currentByCode[incoming.code] ?? incoming;
+          final local = currentByCode[incoming.code];
+          if (_recentLocalMutations.containsKey(incoming.code)) {
+            return local ?? incoming;
+          }
+          // Preserve deleted state when Firestore/Isar hasn't caught up yet.
+          // Without this, a realtime event for an unrelated change (e.g. a
+          // reaction on another message) can overwrite the optimistic delete
+          // and make "This message has been deleted." disappear.
+          if (local != null && local.isDeleted && !incoming.isDeleted) {
+            return local;
+          }
+          return incoming;
         });
         final mergedMessages = _sortByTime([...reconciled, ...stillPending]);
         newThreads[threadId] = mergedMessages;

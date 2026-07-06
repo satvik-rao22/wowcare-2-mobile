@@ -4,6 +4,8 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../datasources/communication_remote_data_source.dart';
 import '../models/message_collection.dart';
@@ -59,6 +61,17 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           .map((m) => MessageCollection.fromEntity(m, threadId))
           .toList();
 
+      // Codes returned by the API — used to avoid double-counting below.
+      final apiCodes = collections.map((c) => c.code).toSet();
+
+      // Deleted messages that should be preserved across page-0 refreshes.
+      // The backend omits truly-deleted messages from the list endpoint, so a
+      // plain wipe-and-replace would make the "This message has been deleted."
+      // placeholder disappear every time the thread is reopened or refreshed.
+      // We hold on to any Isar-cached row that has a deletedAt timestamp and
+      // isn't already present in the new API window.
+      List<MessageCollection> preservedDeleted = const [];
+
       if (page == 0) {
         // Page 0 is the latest-window refresh: API response is the source
         // of truth for that window, so old rows for the thread are cleared
@@ -66,7 +79,14 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         // would wipe out the newer messages already cached locally.
         final oldCachedCollections = await cacheService
             .getByField<MessageCollection>('threadId', threadId);
+        preservedDeleted = oldCachedCollections
+            .where((c) => c.deletedAt != null && !apiCodes.contains(c.code))
+            .toList();
         for (final collection in oldCachedCollections) {
+          // Skip entries we are intentionally keeping.
+          if (preservedDeleted.any((d) => d.isarId == collection.isarId)) {
+            continue;
+          }
           await cacheService.delete<MessageCollection>(collection.isarId);
         }
       }
@@ -75,7 +95,11 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         await cacheService.putAll(collections);
       }
 
-      return Right(remoteMessages);
+      // Build the final message list: API messages + preserved deleted ones.
+      final deletedMessages = preservedDeleted
+          .map((c) => c.toEntity(currentUserId: currentUserId))
+          .toList();
+      return Right([...remoteMessages, ...deletedMessages]);
     } catch (e) {
       // Fallback to cache if network fails
       final cachedCollections = await cacheService
@@ -345,9 +369,16 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       messageCode,
     );
     MessageCollection? originalCollection;
+    DateTime? originalDeletedAt;
     if (results.isNotEmpty) {
       originalCollection = results.first;
-      await cacheService.delete<MessageCollection>(originalCollection.isarId);
+      originalDeletedAt = originalCollection.deletedAt;
+      // Soft-delete in Isar so the page-0 wipe preservation logic can find it
+      // on thread reopen, even if Firestore hasn't yet fired the realtime update.
+      originalCollection.deletedAt = SchoolZoneDateTime.utcNowInSchool(
+        SchoolTimezoneResolver.lastKnownTimeZone,
+      );
+      await cacheService.put(originalCollection);
     }
 
     try {
@@ -355,6 +386,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       return const Right(null);
     } catch (e) {
       if (originalCollection != null) {
+        originalCollection.deletedAt = originalDeletedAt;
         await cacheService.put(originalCollection);
       }
       return Left(ServerFailure(e.toString()));

@@ -786,12 +786,29 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           existingMessagesById[m.id] ??
           existingMessagesByCode[m.id] ??
           existingMessagesById[m.code];
-      if (old != null &&
-          m.senderRole == ParticipantRole.parent &&
+      if (old == null) return m;
+
+      MessageEntity result = m;
+
+      // Preserve senderRole if Firestore wrongly defaulted it to parent.
+      if (m.senderRole == ParticipantRole.parent &&
           old.senderRole != ParticipantRole.parent) {
-        return m.copyWith(senderRole: old.senderRole);
+        result = result.copyWith(senderRole: old.senderRole);
       }
-      return m;
+
+      // Preserve deleted state when Firestore hasn't yet propagated the delete.
+      // Without this guard, a realtime batch triggered by an unrelated event
+      // (e.g. another message's reaction) overwrites the optimistic deleted
+      // state and makes "This message has been deleted." disappear.
+      if (old.isDeleted && !result.isDeleted) {
+        result = result.copyWith(
+          isDeleted: true,
+          deletedAt: old.deletedAt,
+          deletedPlaceholder: old.deletedPlaceholder,
+        );
+      }
+
+      return result;
     }).toList();
 
     final pending = state.messages

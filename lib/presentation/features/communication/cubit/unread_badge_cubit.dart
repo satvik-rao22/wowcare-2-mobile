@@ -38,7 +38,11 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   // ─── Public API ──────────────────────────────────────────────────────────────
 
   /// Start one lightweight Firestore stream per conversation type.
+  ///
+  /// Also fetches counts from REST immediately so badges are visible before
+  /// the Firestore connection is established — matching the web bootstrap.
   void startWatching() {
+    unawaited(_fetchFromApi());
     for (final type in ConversationType.values) {
       _subscribeToType(type);
     }

@@ -699,7 +699,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                         : () {
                                                             setState(() {
                                                               _quotedMessageCode =
-                                                                  message.code;
+                                                                  message.id;
                                                               _quotedMessage =
                                                                   message;
                                                             });
@@ -710,7 +710,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                         : () {
                                                             setState(() {
                                                               _quotedMessageCode =
-                                                                  message.code;
+                                                                  message.id;
                                                               _quotedMessage =
                                                                   message;
                                                             });
@@ -1231,19 +1231,22 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               : () {
                                                                   setState(() {
                                                                     _quotedMessageCode =
-                                                                        message.code;
+                                                                        message.id;
                                                                     _quotedMessage =
                                                                         message;
                                                                   });
                                                                 },
-                                                          onReplyFromMenu: () {
-                                                            setState(() {
-                                                              _quotedMessageCode =
-                                                                  message.code;
-                                                              _quotedMessage =
-                                                                  message;
-                                                            });
-                                                          },
+                                                          onReplyFromMenu:
+                                                              message.isDeleted
+                                                              ? null
+                                                              : () {
+                                                                  setState(() {
+                                                                    _quotedMessageCode =
+                                                                        message.id;
+                                                                    _quotedMessage =
+                                                                        message;
+                                                                  });
+                                                                },
                                                           onCopy: () {
                                                             Clipboard.setData(
                                                               ClipboardData(

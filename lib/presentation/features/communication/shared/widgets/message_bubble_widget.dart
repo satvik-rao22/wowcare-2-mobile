@@ -611,37 +611,34 @@ class _MessageBubbleState extends State<MessageBubble>
                         ? CrossAxisAlignment.end
                         : CrossAxisAlignment.start,
                     children: [
-                      // Avatar row (above bubble) — hidden when grouped
-                      if (widget.isParentMessaging && !widget.isGrouped) ...[
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: alignRight
-                              ? MainAxisAlignment.end
-                              : MainAxisAlignment.start,
-                          children: [
-                            DocumentImageWidget(
-                              fileUuid: widget.message.senderName ?? '',
-                              name: widget.message.senderName ?? '',
-                              size: 20,
-                              fontSize: 10,
-                            ),
-                            const SizedBox(width: 8.0),
-                          ],
-                        ),
-                        const SizedBox(height: 8.0),
-                      ],
-
-                      // Sender Name header — hidden when grouped
+                      // Sender header row (avatar + name) — hidden when grouped.
+                      // Parent Messaging shows avatar + name side-by-side;
+                      // Staff Direct shows name only (no avatar on the message).
                       if (!widget.isGrouped)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
-                          child: Text(
-                            senderLabel,
-                            style: const TextStyle(
-                              color: Color.fromRGBO(87, 51, 83, 0.7),
-                              fontWeight: FontWeight.w500,
-                              fontSize: 14,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (widget.isParentMessaging) ...[
+                                DocumentImageWidget(
+                                  fileUuid: widget.message.senderName ?? '',
+                                  name: widget.message.senderName ?? '',
+                                  size: 20,
+                                  fontSize: 10,
+                                ),
+                                const SizedBox(width: 6.0),
+                              ],
+                              Text(
+                                senderLabel,
+                                style: const TextStyle(
+                                  color: Color.fromRGBO(87, 51, 83, 0.7),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
