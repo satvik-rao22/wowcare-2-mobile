@@ -823,13 +823,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           )
                           .toList()
                     : isRoomChat
-                        ? participants
-                              .where((p) {
-                                final role = p.role.toApiString().toUpperCase();
-                                return role == 'PARENT' || role == 'GUARDIAN';
-                              })
-                              .toList()
-                        : participants;
+                    ? participants.where((p) {
+                        final role = p.role.toApiString().toUpperCase();
+                        return role == 'PARENT' || role == 'GUARDIAN';
+                      }).toList()
+                    : participants;
                 if (visibleParticipants.isEmpty) return const SizedBox.shrink();
                 return SizedBox(
                   height: 28,
@@ -987,13 +985,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   /// True if [senderCode]'s participant is staff/admin/teacher/director,
   /// false if guardian/parent — see [MessageBubble.senderIsOrgSide] /
-  /// docs/messaging/06-ui-standards.md. Defaults to guardian (false) when
-  /// the sender can't be matched against this conversation's participant
-  /// list, same fallback rationale as ParentMessagingThread's equivalent.
-  bool _isOrgSideSender(String senderCode) {
+  bool _isOrgSideSender(MessageEntity msg) {
+    if (msg.senderRole != ParticipantRole.parent) {
+      return true;
+    }
+    // Fallback: Firestore realtime updates (reactions) might omit senderRole,
+    // forcing it to ParticipantRole.parent. Check the participant list.
     final role =
         _conversation.participants
-            .where((p) => p.userCode == senderCode)
+            .where((p) => p.userCode == msg.senderCode)
             .firstOrNull
             ?.role ??
         ParticipantRole.parent;
@@ -1246,7 +1246,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   });
                 },
                 isParentMessaging: _senderRole == ParticipantRole.parent,
-                senderIsOrgSide: _isOrgSideSender(msg.senderCode),
+                senderIsOrgSide: _isOrgSideSender(msg),
               ),
             ],
           );
@@ -1653,5 +1653,4 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final d = SchoolZoneDateTime.dateTimeFromInstantInSchool(dt, tz);
     return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
-
 }

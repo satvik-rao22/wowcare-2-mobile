@@ -213,12 +213,15 @@ class _MessageBubbleState extends State<MessageBubble>
       (widget.currentUserCode != null &&
           widget.currentUserCode == widget.message.senderUserCode);
 
-  /// Which side this bubble renders on. Always identity-based — a message
-  /// is right-aligned if and only if the current viewer sent it. Role
-  /// ([MessageBubble.senderIsOrgSide]) only ever decides bubble *color* for
-  /// messages that aren't mine (see [_buildBubble]), never which side they
-  /// render on.
-  bool get _alignRight => _isMe;
+  /// Which side this bubble renders on. Role ([MessageBubble.senderIsOrgSide])
+  /// dictates alignment for Room Chat (org side on right, parent on left).
+  /// Falls back to identity (_isMe) for Staff Direct.
+  bool get _alignRight {
+    if (widget.senderIsOrgSide != null) {
+      return widget.senderIsOrgSide!;
+    }
+    return _isMe;
+  }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info regardless of who
@@ -1796,13 +1799,17 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
     // Remove animation (ctrl reversed): same tween runs backward → shrink + fade.
     final scaleAnim = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween(begin: 0.6, end: 1.15)
-            .chain(CurveTween(curve: Curves.easeOut)),
+        tween: Tween(
+          begin: 0.6,
+          end: 1.15,
+        ).chain(CurveTween(curve: Curves.easeOut)),
         weight: 70,
       ),
       TweenSequenceItem(
-        tween: Tween(begin: 1.15, end: 1.0)
-            .chain(CurveTween(curve: Curves.easeIn)),
+        tween: Tween(
+          begin: 1.15,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
         weight: 30,
       ),
     ]).animate(ctrl);

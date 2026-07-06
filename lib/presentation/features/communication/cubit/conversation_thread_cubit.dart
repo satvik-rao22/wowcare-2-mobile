@@ -655,21 +655,21 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     if (isClosed) return;
 
-    result.fold((failure) {
-      emit(
-        state.copyWith(
-          errorMessage: failure.message ?? 'Failed to add reaction.',
-        ),
-      );
-      unawaited(refreshMessages());
-    }, (_) {
-      emit(
-        state.copyWith(
-          successMessage: 'Reaction added',
-          clearSuccess: false,
-        ),
-      );
-    });
+    result.fold(
+      (failure) {
+        emit(
+          state.copyWith(
+            errorMessage: failure.message ?? 'Failed to add reaction.',
+          ),
+        );
+        unawaited(refreshMessages());
+      },
+      (_) {
+        emit(
+          state.copyWith(successMessage: 'Reaction added', clearSuccess: false),
+        );
+      },
+    );
   }
 
   Future<void> removeReaction({
@@ -702,21 +702,24 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     if (isClosed) return;
 
-    result.fold((failure) {
-      emit(
-        state.copyWith(
-          errorMessage: failure.message ?? 'Failed to remove reaction.',
-        ),
-      );
-      unawaited(refreshMessages());
-    }, (_) {
-      emit(
-        state.copyWith(
-          successMessage: 'Reaction removed',
-          clearSuccess: false,
-        ),
-      );
-    });
+    result.fold(
+      (failure) {
+        emit(
+          state.copyWith(
+            errorMessage: failure.message ?? 'Failed to remove reaction.',
+          ),
+        );
+        unawaited(refreshMessages());
+      },
+      (_) {
+        emit(
+          state.copyWith(
+            successMessage: 'Reaction removed',
+            clearSuccess: false,
+          ),
+        );
+      },
+    );
   }
 
   // ─── Mark read ───────────────────────────────────────────────────────────────
@@ -766,15 +769,40 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
   /// Retain any pending/failed optimistic messages not yet confirmed by the API.
   List<MessageEntity> _mergePendingMessages(List<MessageEntity> fresh) {
+    // Preserve `senderRole` if Firestore's realtime stream omitted it (forcing it to parent).
+    // The local UI state knows the true role from the initial REST API load.
+    final existingMessagesByCode = {
+      for (final m in state.messages)
+        if (m.code.isNotEmpty) m.code: m,
+    };
+    final existingMessagesById = {
+      for (final m in state.messages)
+        if (m.id.isNotEmpty) m.id: m,
+    };
+
+    final preservedFresh = fresh.map((m) {
+      final old =
+          existingMessagesByCode[m.code] ??
+          existingMessagesById[m.id] ??
+          existingMessagesByCode[m.id] ??
+          existingMessagesById[m.code];
+      if (old != null &&
+          m.senderRole == ParticipantRole.parent &&
+          old.senderRole != ParticipantRole.parent) {
+        return m.copyWith(senderRole: old.senderRole);
+      }
+      return m;
+    }).toList();
+
     final pending = state.messages
         .where((m) => m.localTempCode != null && (m.isPending || m.isFailed))
         .toList();
-    if (pending.isEmpty) return fresh;
-    final freshCodes = fresh.map((m) => m.code).toSet();
+    if (pending.isEmpty) return preservedFresh;
+    final freshCodes = preservedFresh.map((m) => m.code).toSet();
     final unconfirmed = pending
         .where((m) => !freshCodes.contains(m.code))
         .toList();
-    return [...fresh, ...unconfirmed];
+    return [...preservedFresh, ...unconfirmed];
   }
 
   List<MessageEntity> _replaceMessage(
