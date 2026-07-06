@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
@@ -196,6 +199,12 @@ class FirebaseConversationRealtimeDataSource
 
   final FirebaseFirestore firestore;
 
+  // Retry delays in seconds — same progression used by
+  // FirebaseMessageRealtimeDataSource. The inbox listener races the Firebase
+  // custom-token sign-in (signInWithCustomToken is async). Four retries cover
+  // the typical auth propagation window without blocking the UI.
+  static const _retryDelays = [2, 4, 8, 16];
+
   CollectionReference<Map<String, dynamic>> _inboxRef({
     required String organizationCode,
     required String schoolCode,
@@ -219,34 +228,88 @@ class FirebaseConversationRealtimeDataSource
   }) {
     // Bug fix: do NOT use orderBy('lastMessageAt') + where('conversationType')
     // together — that requires a Firestore composite index which may not exist
-    // and causes a silent error that falls back to the REST API (losing live
-    // unread counts). Sort on the client instead.
+    // and causes a silent error. Sort on the client instead.
     Query<Map<String, dynamic>> query = _inboxRef(
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       userCode: userCode,
     );
-
     if (filterType != null) {
       query = query.where('conversationType', isEqualTo: filterType);
     }
 
-    return query.snapshots().map((snapshot) {
-      final items = snapshot.docs
-          .map(ConversationInboxItem.fromFirestore)
-          .where((item) => item.isActive)
-          .toList();
+    final controller = StreamController<List<ConversationInboxItem>>();
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? inner;
+    StreamSubscription<User?>? authWaitSub;
+    late void Function(int attempt) attach;
 
-      // Client-side sort: newest lastMessageAt first; nulls go to the end.
-      items.sort((a, b) {
-        if (a.lastMessageAt == null && b.lastMessageAt == null) return 0;
-        if (a.lastMessageAt == null) return 1;
-        if (b.lastMessageAt == null) return -1;
-        return b.lastMessageAt!.compareTo(a.lastMessageAt!);
-      });
+    void retryOrForward(Object error, int attempt) {
+      if (controller.isClosed) return;
+      if (error is FirebaseException && error.code == 'permission-denied') {
+        if (attempt < _retryDelays.length) {
+          Future.delayed(
+            Duration(seconds: _retryDelays[attempt]),
+            () {
+              if (!controller.isClosed) attach(attempt + 1);
+            },
+          );
+        } else {
+          authWaitSub?.cancel();
+          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (user != null) {
+              authWaitSub?.cancel();
+              authWaitSub = null;
+              attach(0);
+            }
+          });
+        }
+      } else {
+        controller.addError(error);
+        controller.close();
+      }
+    }
 
-      return items;
-    });
+    attach = (int attempt) {
+      inner?.cancel();
+      runZonedGuarded(
+        () {
+          inner = query.snapshots().listen(
+            (snapshot) {
+              if (controller.isClosed) return;
+              final items = snapshot.docs
+                  .map(ConversationInboxItem.fromFirestore)
+                  .where((item) => item.isActive)
+                  .toList()
+                ..sort((a, b) {
+                  if (a.lastMessageAt == null && b.lastMessageAt == null) {
+                    return 0;
+                  }
+                  if (a.lastMessageAt == null) return 1;
+                  if (b.lastMessageAt == null) return -1;
+                  return b.lastMessageAt!.compareTo(a.lastMessageAt!);
+                });
+              controller.add(items);
+            },
+            onError: (Object error) => retryOrForward(error, attempt),
+            onDone: () {
+              if (!controller.isClosed) controller.close();
+            },
+            cancelOnError: true,
+          );
+        },
+        (Object error, StackTrace _) => retryOrForward(error, attempt),
+      );
+    };
+
+    controller.onListen = () => attach(0);
+    controller.onCancel = () {
+      inner?.cancel();
+      inner = null;
+      authWaitSub?.cancel();
+      authWaitSub = null;
+    };
+    return controller.stream;
   }
 
   @override
@@ -255,17 +318,79 @@ class FirebaseConversationRealtimeDataSource
     required String schoolCode,
     required String userCode,
   }) {
-    return _inboxRef(
+    final ref = _inboxRef(
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       userCode: userCode,
-    ).snapshots().map(
-          (snapshot) => snapshot.docs.fold<int>(
-            0,
-            (sum, doc) =>
-                sum + ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
-          ),
-        );
+    );
+
+    final controller = StreamController<int>();
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? inner;
+    StreamSubscription<User?>? authWaitSub;
+    late void Function(int attempt) attach;
+
+    void retryOrForward(Object error, int attempt) {
+      if (controller.isClosed) return;
+      if (error is FirebaseException && error.code == 'permission-denied') {
+        if (attempt < _retryDelays.length) {
+          Future.delayed(
+            Duration(seconds: _retryDelays[attempt]),
+            () {
+              if (!controller.isClosed) attach(attempt + 1);
+            },
+          );
+        } else {
+          authWaitSub?.cancel();
+          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (user != null) {
+              authWaitSub?.cancel();
+              authWaitSub = null;
+              attach(0);
+            }
+          });
+        }
+      } else {
+        controller.addError(error);
+        controller.close();
+      }
+    }
+
+    attach = (int attempt) {
+      inner?.cancel();
+      runZonedGuarded(
+        () {
+          inner = ref.snapshots().listen(
+            (snapshot) {
+              if (controller.isClosed) return;
+              controller.add(
+                snapshot.docs.fold<int>(
+                  0,
+                  (sum, doc) =>
+                      sum +
+                      ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
+                ),
+              );
+            },
+            onError: (Object error) => retryOrForward(error, attempt),
+            onDone: () {
+              if (!controller.isClosed) controller.close();
+            },
+            cancelOnError: true,
+          );
+        },
+        (Object error, StackTrace _) => retryOrForward(error, attempt),
+      );
+    };
+
+    controller.onListen = () => attach(0);
+    controller.onCancel = () {
+      inner?.cancel();
+      inner = null;
+      authWaitSub?.cancel();
+      authWaitSub = null;
+    };
+    return controller.stream;
   }
 
   @override
@@ -275,20 +400,78 @@ class FirebaseConversationRealtimeDataSource
     required String userCode,
     required String conversationType,
   }) {
-    // Lightweight stream — only reads unreadCount, no Isar involved.
-    return _inboxRef(
+    final query = _inboxRef(
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       userCode: userCode,
-    )
-        .where('conversationType', isEqualTo: conversationType)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs.fold<int>(
-            0,
-            (sum, doc) =>
-                sum + ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
-          ),
-        );
+    ).where('conversationType', isEqualTo: conversationType);
+
+    final controller = StreamController<int>();
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? inner;
+    StreamSubscription<User?>? authWaitSub;
+    late void Function(int attempt) attach;
+
+    void retryOrForward(Object error, int attempt) {
+      if (controller.isClosed) return;
+      if (error is FirebaseException && error.code == 'permission-denied') {
+        if (attempt < _retryDelays.length) {
+          Future.delayed(
+            Duration(seconds: _retryDelays[attempt]),
+            () {
+              if (!controller.isClosed) attach(attempt + 1);
+            },
+          );
+        } else {
+          authWaitSub?.cancel();
+          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (user != null) {
+              authWaitSub?.cancel();
+              authWaitSub = null;
+              attach(0);
+            }
+          });
+        }
+      } else {
+        controller.addError(error);
+        controller.close();
+      }
+    }
+
+    attach = (int attempt) {
+      inner?.cancel();
+      runZonedGuarded(
+        () {
+          inner = query.snapshots().listen(
+            (snapshot) {
+              if (controller.isClosed) return;
+              controller.add(
+                snapshot.docs.fold<int>(
+                  0,
+                  (sum, doc) =>
+                      sum +
+                      ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
+                ),
+              );
+            },
+            onError: (Object error) => retryOrForward(error, attempt),
+            onDone: () {
+              if (!controller.isClosed) controller.close();
+            },
+            cancelOnError: true,
+          );
+        },
+        (Object error, StackTrace _) => retryOrForward(error, attempt),
+      );
+    };
+
+    controller.onListen = () => attach(0);
+    controller.onCancel = () {
+      inner?.cancel();
+      inner = null;
+      authWaitSub?.cancel();
+      authWaitSub = null;
+    };
+    return controller.stream;
   }
 }

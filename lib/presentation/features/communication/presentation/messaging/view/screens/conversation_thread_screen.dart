@@ -21,6 +21,7 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/usecases/search_messages_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
@@ -1400,9 +1401,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
-    final body = BlocProvider<ConversationThreadCubit>.value(
-      value: _cubit,
-      child: _buildThreadBody(),
+    final body = BlocListener<PushNotificationCubit, PushNotificationState>(
+      listenWhen: (prev, curr) =>
+          curr.newMessageEventSeq != prev.newMessageEventSeq &&
+          curr.incomingConversationCode == widget.conversation.code,
+      listener: (_, __) => _cubit.refreshMessages(),
+      child: BlocProvider<ConversationThreadCubit>.value(
+        value: _cubit,
+        child: _buildThreadBody(),
+      ),
     );
 
     if (!widget.showOwnScaffold) return body;

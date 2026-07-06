@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
@@ -279,17 +280,37 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
     // Declared late so _retryOrForward can capture it before the body is assigned.
     late void Function(int attempt) subscribe;
 
+    StreamSubscription<User?>? authWaitSub;
+
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
-      if (error is FirebaseException &&
-          error.code == 'permission-denied' &&
-          attempt < retryDelays.length) {
-        Future.delayed(
-          Duration(seconds: retryDelays[attempt]),
-          () {
-            if (!controller.isClosed) subscribe(attempt + 1);
-          },
-        );
+      if (error is FirebaseException && error.code == 'permission-denied') {
+        if (attempt < retryDelays.length) {
+          // Standard exponential backoff while Firebase auth is in progress.
+          Future.delayed(
+            Duration(seconds: retryDelays[attempt]),
+            () {
+              if (!controller.isClosed) subscribe(attempt + 1);
+            },
+          );
+        } else {
+          // Backoff exhausted — Firebase auth hasn't completed yet. Wait for
+          // an authStateChanges event with a signed-in user, then restart.
+          // This covers the race where the app opens the Firestore listener
+          // before signInWithCustomToken finishes.
+          authWaitSub?.cancel();
+          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+            if (controller.isClosed) {
+              authWaitSub?.cancel();
+              return;
+            }
+            if (user != null) {
+              authWaitSub?.cancel();
+              authWaitSub = null;
+              subscribe(0);
+            }
+          });
+        }
       } else {
         controller.addError(error);
         controller.close();
@@ -361,6 +382,8 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
     controller.onCancel = () {
       inner?.cancel();
       inner = null;
+      authWaitSub?.cancel();
+      authWaitSub = null;
     };
 
     return controller.stream;
