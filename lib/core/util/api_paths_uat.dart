@@ -236,6 +236,17 @@ class ApiPathsUat {
     // Special-case: document-ms endpoints are already namespaced differently.
     if (p.startsWith('/document-ms/')) return p;
 
+    // Firebase custom-token endpoint is owned by the messaging-service. In UAT
+    // it is reached under the /messaging/ gateway segment — mirrors the web
+    // frontend which calls /api/v1/messaging/firebase/token. Without this the
+    // 'firebase' segment falls through to the default (user) host, hitting
+    // /api/v1/user/firebase/token → 500 "No static resource", so Firebase
+    // sign-in never succeeds and every Firestore listener gets permission-denied
+    // (no live sync). See firebase_auth_service.dart.
+    if (p == '/api/v1/firebase/token') {
+      return '/api/v1/messaging/firebase/token';
+    }
+
     // Communication/messaging endpoints in UAT are routed under /messaging/ prefix.
     if (microserviceKeyFromPath(p) == ApiMicroservices.communication) {
       if (p.startsWith('/api/v1/messaging/')) return p; // already prefixed
