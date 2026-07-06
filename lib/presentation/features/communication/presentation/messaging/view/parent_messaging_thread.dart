@@ -3259,6 +3259,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           displayName: displayName,
           role: normalised,
           avatarUrl: p.avatarUrl,
+          staffCode: p.staffCode,
         );
       }).toList();
 

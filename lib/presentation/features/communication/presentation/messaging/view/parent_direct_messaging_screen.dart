@@ -143,6 +143,8 @@ class _ParentDirectMessagingScreenState
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
         privateModeEnabled: conv.isPrivateModeEnabledFor(p.userCode),
+        avatarUrl: p.avatarUrl,
+        staffCode: p.staffCode,
       );
     }).toList();
 

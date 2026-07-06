@@ -25,6 +25,8 @@ import '../../../../domain/features/communication/usecases/watch_messages_legacy
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {
@@ -684,7 +686,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       text: text,
       isSentByMe: true,
       senderUserCode: senderUserCode,
-      time: DateTime.now(),
+      time: SchoolZoneDateTime.utcNowInSchool(SchoolTimezoneResolver.lastKnownTimeZone),
       attachments: attachments,
       quotedMessageId: quotedMessageId,
       senderName: senderName,
@@ -805,6 +807,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           quotedMessageId: m.quotedMessageId,
           attachments: m.attachments,
           senderName: m.senderName,
+          senderUserCode: m.senderUserCode,
           receivers: m.receivers,
           // Preserve private-mode metadata across optimistic rebuilds —
           // dropping these made a private message lose isPrivate on
@@ -853,13 +856,14 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           time: m.time,
           deliveredAt: m.deliveredAt,
           readAt: m.readAt,
-          editedAt: DateTime.now(),
+          editedAt: SchoolZoneDateTime.utcNowInSchool(SchoolTimezoneResolver.lastKnownTimeZone),
           deliveredTo: m.deliveredTo,
           readBy: m.readBy,
           reactions: m.reactions,
           quotedMessageId: m.quotedMessageId,
           attachments: m.attachments,
           senderName: m.senderName,
+          senderUserCode: m.senderUserCode,
           receivers: m.receivers,
           // Preserve private-mode metadata across optimistic rebuilds —
           // dropping these made a private message lose isPrivate on
@@ -899,7 +903,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     );
     final threadMessages = List<Message>.from(updatedThreads[threadId] ?? []);
 
-    final deletedAt = DateTime.now();
+    final deletedAt = SchoolZoneDateTime.utcNowInSchool(SchoolTimezoneResolver.lastKnownTimeZone);
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
         return m.copyWith(deletedAt: deletedAt);
@@ -994,6 +998,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           quotedMessageId: m.quotedMessageId,
           attachments: m.attachments,
           senderName: m.senderName,
+          senderUserCode: m.senderUserCode,
           receivers: m.receivers,
           // Preserve private-mode metadata across optimistic rebuilds —
           // dropping these made a private message lose isPrivate on

@@ -364,7 +364,7 @@ class BulkMessagingCompositionCubit
                       : ConversationType.roomChat,
                   studentCode: recipientCode,
                   participantCodes: [
-                    if (actualSenderCode.isNotEmpty) actualSenderCode,
+                    if (senderUserCode.isNotEmpty) senderUserCode,
                   ],
                   title: recipientName,
                   description: messageText,
