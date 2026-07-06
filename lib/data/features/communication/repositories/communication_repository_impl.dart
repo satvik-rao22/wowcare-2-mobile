@@ -515,11 +515,13 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   // straight from Firestore, and a Firestore emission never replaces or
   // deletes Isar history outright.
 
-  /// Tracks conversation types for which we've already triggered a
-  /// best-effort REST refresh after spotting an inbox entry with no local
-  /// Isar match (i.e. a brand new conversation) — avoids refresh storms when
-  /// several unknown codes arrive in the same snapshot/session.
-  final Set<String> _refreshedConversationTypes = {};
+  /// Tracks conversation CODES for which we've already triggered a best-effort
+  /// REST refresh after spotting an inbox entry with no local Isar match (i.e.
+  /// a brand new conversation). Keyed per-code (not per-type) so each new
+  /// conversation is pulled in exactly once — a second new conversation later
+  /// in the session still gets refreshed — while avoiding refresh storms when
+  /// the same unknown code re-arrives on every snapshot.
+  final Set<String> _refreshedConversationCodes = {};
 
   @override
   Stream<List<Conversation>> watchConversations({String? type}) async* {
@@ -536,7 +538,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           filterType: type,
         )
         .asyncMap((items) async {
-          var sawUnknownConversation = false;
+          final unknownCodes = <String>[];
           final merged = <Conversation>[];
 
           for (final item in items) {
@@ -546,8 +548,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                   item.conversationCode,
                 );
             if (cached.isEmpty) {
-              // Never seen via the API — Firestore must not fabricate it.
-              sawUnknownConversation = true;
+              // Not in the local Isar cache yet (e.g. a brand-new conversation
+              // created after the initial REST load). Don't fabricate it from
+              // the denormalized inbox doc (it lacks participants/avatar);
+              // instead trigger a one-time REST backfill (below) so the next
+              // snapshot renders it with full metadata.
+              unknownCodes.add(item.conversationCode);
               continue;
             }
             final existing = cached.first;
@@ -563,14 +569,17 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
             merged.add(existing.toEntity());
           }
 
-          if (sawUnknownConversation) {
-            final refreshKey = type ?? '__all__';
-            if (!_refreshedConversationTypes.contains(refreshKey)) {
-              _refreshedConversationTypes.add(refreshKey);
-              // Best-effort — pull the new conversation in via the API (source
-              // of truth) and persist it through the normal getConversations path.
-              unawaited(getConversations(type: type));
-            }
+          // Backfill any conversation codes we've never seen via REST — but
+          // only codes not already refreshed this session, so a repeating
+          // unknown code doesn't trigger a refresh storm on every snapshot.
+          final newUnknown =
+              unknownCodes.where((c) => !_refreshedConversationCodes.contains(c));
+          if (newUnknown.isNotEmpty) {
+            _refreshedConversationCodes.addAll(newUnknown);
+            // Best-effort — pull the new conversation(s) in via the API (source
+            // of truth) and persist through the normal getConversations path;
+            // the subsequent inbox snapshot then merges them with full metadata.
+            unawaited(getConversations(type: type));
           }
 
           return merged;
