@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -60,6 +61,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// contact pickers and block self-conversations.
   String? _currentUserCode;
 
+  /// The logged-in user's canonical **userCode** (`USR-…`). Distinct from
+  /// [_currentUserCode], which is the **staff** code (`STF_…`) used for staff
+  /// picker / self-conversation checks. Conversation participants are keyed by
+  /// userCode, so the "other participant" resolution MUST compare against this
+  /// — comparing against the staff code never matches self and would make a 1:1
+  /// row fall back to the first participant (often the viewer themselves).
+  String? _currentAccountCode;
+
   Future<void> _loadCurrentUserCode() async {
     final storageService = serviceLocator<StorageService>();
     final staffCode =
@@ -67,8 +76,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     final userCode =
         (await storageService.getString(StorageKeys.userCode) ?? '').trim();
     final code = staffCode.isNotEmpty ? staffCode : userCode;
-    if (!mounted || code.isEmpty) return;
-    setState(() => _currentUserCode = code);
+    if (!mounted || (code.isEmpty && userCode.isEmpty)) return;
+    setState(() {
+      if (code.isNotEmpty) _currentUserCode = code;
+      if (userCode.isNotEmpty) _currentAccountCode = userCode;
+    });
   }
 
   /// Backend designation codes (matches staff_filter_screen.dart) used to turn
@@ -216,7 +228,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       SnackBar(content: Text('Chat with $name created successfully')),
     );
     _openThread(
-      name: conversation.title.isNotEmpty ? conversation.title : name,
+      // [name] is the counterpart the creator explicitly picked, so it is the
+      // correct 1:1 label from this side — use it rather than the stored title.
+      name: name,
       avatar: conversation.avatarUrl,
       code: conversation.code,
       participants: legacyParticipantsFromEntities(conversation.participants),
@@ -702,11 +716,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 return false;
                               }
                               // Hide a conversation a user somehow has with only
-                              // themselves (no other participant).
-                              if (_currentUserCode != null &&
+                              // themselves (no other participant). Participants
+                              // are keyed by userCode, so this MUST compare
+                              // against the account code — never the staff code.
+                              if (_currentAccountCode != null &&
+                                  _currentAccountCode!.isNotEmpty &&
                                   conv.participants.isNotEmpty &&
                                   conv.participants.every(
-                                    (p) => p.userCode == _currentUserCode,
+                                    (p) => p.userCode == _currentAccountCode,
                                   )) {
                                 return false;
                               }
@@ -766,9 +783,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                     'conversation_${conversation.code}',
                                   ),
                                   conversation: conversation,
+                                  currentUserCode: _currentAccountCode,
                                   onTap: () => _openThread(
-                                    name: conversation.title,
-                                    avatar: conversation.avatarUrl,
+                                    name: ConversationDisplay.name(
+                                      conversation,
+                                      _currentAccountCode,
+                                    ),
+                                    avatar: ConversationDisplay.avatar(
+                                      conversation,
+                                      _currentAccountCode,
+                                    ),
                                     code: conversation.code,
                                     participants: conversation.participants,
                                     organizationCode:
