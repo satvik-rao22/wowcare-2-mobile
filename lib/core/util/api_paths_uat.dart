@@ -37,6 +37,7 @@ class ApiPathsUat {
     ApiMicroservices.organization: {'schools', 'organizations', 'school'},
     ApiMicroservices.staff: {
       'staff',
+      'my-profile',
       'staff-classrooms',
       'staff-documents',
       'staff-dates',

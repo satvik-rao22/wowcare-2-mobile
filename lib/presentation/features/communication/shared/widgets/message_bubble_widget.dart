@@ -84,12 +84,21 @@ class MessageBubble extends StatefulWidget {
 }
 
 class _MessageBubbleState extends State<MessageBubble>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // ── Swipe-to-reply ────────────────────────────────────────────────────────
   double _dragOffset = 0;
   double _snapStartOffset = 0;
   bool _replyTriggered = false;
   late final AnimationController _snapController;
+
+  // One-shot scale+fade entrance played when an emoji-only message first mounts.
+  late final AnimationController _emojiEntranceController;
+  // Curved version of the entrance animation — created once, not per-frame.
+  late final CurvedAnimation _emojiScaleCurve;
+
+  // Tracks message IDs that have already played their entrance animation so
+  // the animation does not replay when the conversation is reopened.
+  static final Set<String> _animatedMessageIds = {};
 
   static const double _swipeThreshold = 65.0;
 
@@ -107,6 +116,33 @@ class _MessageBubbleState extends State<MessageBubble>
         });
       }
     });
+
+    _emojiEntranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _emojiScaleCurve = CurvedAnimation(
+      parent: _emojiEntranceController,
+      curve: Curves.elasticOut,
+    );
+    // Only animate for emoji-only messages. For all others set value = 1 so
+    // the AnimatedBuilder renders at full scale immediately with zero overhead.
+    final msg = widget.message;
+    final isEmojiMsg =
+        !widget.isDeleted &&
+        !msg.hasAttachments &&
+        msg.quotedMessageId == null &&
+        _analyzeEmojiText(msg.text).isOnly;
+    final messageId = msg.code.isNotEmpty ? msg.code : widget.message.id;
+    if (isEmojiMsg && !_animatedMessageIds.contains(messageId)) {
+      _animatedMessageIds.add(messageId);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _emojiEntranceController.forward();
+      });
+    } else {
+      _emojiEntranceController.value = 1.0;
+    }
+
     _syncReactionsToController();
   }
 
@@ -123,6 +159,8 @@ class _MessageBubbleState extends State<MessageBubble>
   @override
   void dispose() {
     _snapController.dispose();
+    _emojiScaleCurve.dispose();
+    _emojiEntranceController.dispose();
     super.dispose();
   }
 
@@ -192,7 +230,7 @@ class _MessageBubbleState extends State<MessageBubble>
         menuItems: [],
         enableLongPress: true,
         enableDoubleTap: true,
-        showAddReactionButton: true,
+        showAddReactionButton: false,
         showContextMenu: true,
         enableHapticFeedback: true,
         reactionSize: 24,
@@ -210,7 +248,7 @@ class _MessageBubbleState extends State<MessageBubble>
         ],
         enableLongPress: true,
         enableDoubleTap: true,
-        showAddReactionButton: true,
+        showAddReactionButton: false,
         showContextMenu: true,
         enableHapticFeedback: true,
         reactionSize: 24,
@@ -233,7 +271,7 @@ class _MessageBubbleState extends State<MessageBubble>
       ],
       enableLongPress: true,
       enableDoubleTap: true,
-      showAddReactionButton: true,
+      showAddReactionButton: false,
       showContextMenu: true,
       enableHapticFeedback: true,
       reactionSize: 24,
@@ -263,7 +301,7 @@ class _MessageBubbleState extends State<MessageBubble>
   void _handleDoubleTapReaction() {
     if (widget.isDeleted) return;
 
-    final emoji = '❤️';
+    const emoji = '❤️';
     final userCode = widget.currentUserCode ?? 'me';
     final myReaction = widget.message.reactions[userCode];
 
@@ -271,9 +309,46 @@ class _MessageBubbleState extends State<MessageBubble>
       widget.onRemoveReaction?.call(emoji);
     } else {
       widget.onReactionAdded?.call(emoji);
+      _showHeartOverlay();
     }
 
     HapticFeedback.mediumImpact();
+  }
+
+  // ── Heart floating-overlay animation ─────────────────────────────────────
+
+  void _showHeartOverlay() {
+    if (!mounted) return;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    final center = Offset(
+      offset.dx + size.width / 2,
+      offset.dy + size.height / 2,
+    );
+
+    final ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+
+    OverlayEntry? entry;
+    ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        entry?.remove();
+        entry = null;
+        ctrl.dispose();
+      }
+    });
+
+    entry = OverlayEntry(
+      builder: (_) => _HeartFloatOverlay(center: center, controller: ctrl),
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(entry!);
+    ctrl.forward();
   }
 
   void _showPrivateMessageToast() {
@@ -366,6 +441,92 @@ class _MessageBubbleState extends State<MessageBubble>
         );
       },
     );
+  }
+
+  // ── Emoji analysis ────────────────────────────────────────────────────────
+
+  /// Returns `(isOnly: true, count: N)` when [text] contains 1–3 emoji and
+  /// nothing else (whitespace, ZWJ, variation-selectors, and skin-tone
+  /// modifiers are ignored). Returns `(isOnly: false, count: 0)` otherwise.
+  ///
+  /// Uses code-point ranges rather than the `characters` package so no extra
+  /// dependency is needed. The check deliberately covers the most common emoji
+  /// blocks; obscure symbols that look like emoji but live outside those blocks
+  /// fall back to the normal bubble renderer, which is acceptable.
+  static ({bool isOnly, int count}) _analyzeEmojiText(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return (isOnly: false, count: 0);
+
+    final runes = trimmed.runes.toList();
+    int baseCount = 0;
+
+    for (final r in runes) {
+      // ── Skip non-visible modifiers ─────────────────────────────────────
+      if (r == 0x20 || r == 0x09 || r == 0x0A || r == 0x0D) continue; // WS
+      if (r == 0x200D) continue; // ZWJ (Zero Width Joiner)
+      if (r == 0xFE0E || r == 0xFE0F) continue; // Variation selectors 15 & 16
+      if (r >= 0x1F3FB && r <= 0x1F3FF) continue; // Fitzpatrick skin-tone
+      if (r == 0x20E3) continue; // Combining Enclosing Keycap
+      if (r >= 0xE0020 && r <= 0xE007F) continue; // Tags (subdivision flags)
+
+      if (_isBaseEmojiCodePoint(r)) {
+        baseCount++;
+      } else {
+        return (isOnly: false, count: 0);
+      }
+    }
+
+    final valid = baseCount > 0 && baseCount <= 3;
+    return (isOnly: valid, count: valid ? baseCount : 0);
+  }
+
+  static bool _isBaseEmojiCodePoint(int r) {
+    // Primary emoji range: emoticons, misc symbols & pictographs (😀 … 🧿)
+    if (r >= 0x1F300 && r <= 0x1F9FF) return true;
+    // Extended symbols & pictographs (🤀 … 🫿)
+    if (r >= 0x1FA00 && r <= 0x1FAFF) return true;
+    // Regional indicators – used as two-letter flag pairs
+    if (r >= 0x1F1E0 && r <= 0x1F1FF) return true;
+    // Mahjong tiles / playing cards
+    if (r >= 0x1F000 && r <= 0x1F0FF) return true;
+    // Enclosed alphanumeric supplement (Ⓜ️ etc.)
+    if (r >= 0x1F100 && r <= 0x1F2FF) return true;
+    // Misc symbols & dingbats (☀ … ✿) — the block containing ❤️, ☎, ✈ etc.
+    if (r >= 0x2600 && r <= 0x27BF) return true;
+    // Common 2-byte BMP emoji that appear outside the above blocks
+    if (r >= 0x231A && r <= 0x231B) return true; // ⌚⌛
+    if (r >= 0x23E9 && r <= 0x23F3) return true; // ⏩–⏳
+    if (r >= 0x23F8 && r <= 0x23FA) return true; // ⏸⏹⏺
+    if (r == 0x24C2) return true; // Ⓜ
+    if (r >= 0x25AA && r <= 0x25AB) return true; // ▪▫
+    if (r == 0x25B6 || r == 0x25C0) return true; // ▶◀
+    if (r >= 0x25FB && r <= 0x25FE) return true; // ◻◼◽◾
+    if (r >= 0x2614 && r <= 0x2615) return true; // ☔☕
+    if (r >= 0x2648 && r <= 0x2653) return true; // ♈–♓
+    if (r == 0x267F || r == 0x2693) return true; // ♿⚓
+    if (r == 0x26A1) return true; // ⚡
+    if (r >= 0x26AA && r <= 0x26AB) return true; // ⚪⚫
+    if (r == 0x26BD || r == 0x26BE) return true; // ⚽⚾
+    if (r >= 0x26C4 && r <= 0x26C5) return true; // ⛄⛅
+    if (r == 0x2702) return true; // ✂
+    if (r == 0x2705) return true; // ✅
+    if (r >= 0x2708 && r <= 0x270D) return true; // ✈–✍
+    if (r == 0x270F || r == 0x2712) return true; // ✏✒
+    if (r == 0x2714 || r == 0x2716) return true; // ✔✖
+    if (r == 0x2728) return true; // ✨
+    if (r == 0x274C || r == 0x274E) return true; // ❌❎
+    if (r >= 0x2753 && r <= 0x2757) return true; // ❓❔❕❗
+    if (r >= 0x2763 && r <= 0x2764) return true; // ❣❤
+    if (r >= 0x2795 && r <= 0x2797) return true; // ➕➖➗
+    if (r == 0x27A1) return true; // ➡
+    if (r == 0x27B0 || r == 0x27BF) return true; // ➰➿
+    if (r >= 0x2934 && r <= 0x2935) return true; // ⤴⤵
+    if (r >= 0x2B05 && r <= 0x2B07) return true; // ⬅⬆⬇
+    if (r >= 0x2B1B && r <= 0x2B1C) return true; // ⬛⬜
+    if (r == 0x2B50 || r == 0x2B55) return true; // ⭐⭕
+    if (r == 0x3030 || r == 0x303D) return true; // 〰〽
+    if (r == 0x3297 || r == 0x3299) return true; // ㊗㊙
+    return false;
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -502,6 +663,13 @@ class _MessageBubbleState extends State<MessageBubble>
                                 ? Alignment.centerRight
                                 : Alignment.centerLeft,
                             onReactionAdded: (emoji) {
+                              // ➕ focuses the chat input (Task 4) rather than
+                              // adding a literal ➕ emoji reaction or opening
+                              // a third-party emoji picker.
+                              if (emoji == '➕') {
+                                widget.onReactionTap?.call();
+                                return;
+                              }
                               final userCode = widget.currentUserCode ?? 'me';
                               final myReaction =
                                   widget.message.reactions[userCode];
@@ -520,7 +688,8 @@ class _MessageBubbleState extends State<MessageBubble>
                         ),
                       ),
 
-                      // Stacked reactions badge below the bubble
+                      // WhatsApp-style compact reaction badge — overlaps the
+                      // bubble's bottom edge by 6 px via Transform.translate.
                       AnimatedBuilder(
                         animation: widget.reactionsController,
                         builder: (context, _) {
@@ -531,23 +700,11 @@ class _MessageBubbleState extends State<MessageBubble>
                               .getReactionCounts(messageId);
                           if (counts.isEmpty) return const SizedBox.shrink();
 
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
+                          return Transform.translate(
+                            offset: const Offset(0, -6),
                             child: GestureDetector(
                               onTap: widget.onReactionTap,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: StackedReactions(
-                                  messageId: messageId,
-                                  controller: widget.reactionsController,
-                                  size: 24,
-                                  stackedValue: 3,
-                                  direction: alignRight
-                                      ? TextDirection.rtl
-                                      : TextDirection.ltr,
-                                  reactionBackgroundColor: Colors.white,
-                                ),
-                              ),
+                              child: _buildReactionBadge(counts),
                             ),
                           );
                         },
@@ -579,14 +736,23 @@ class _MessageBubbleState extends State<MessageBubble>
     // the viewer's own messages, flat light background (dark text) for the
     // other party's.
     final useLightText = orgSide == null ? isMe : !(orgSide && !isMe);
-    final hasOnlyEmoji =
-        message.text.trim().length <= 3 &&
-        message.text.trim().runes.every(
-          (r) =>
-              (r >= 0x1F300 && r <= 0x1F9FF) || // Emojis
-              (r >= 0x2600 && r <= 0x27BF) || // Emoji variations
-              (r == 0x20),
-        ); // Space
+
+    // Emoji-only analysis — skip for deleted / attached / quoted messages so
+    // those always render through the normal bubble with full metadata.
+    final emojiAnalysis =
+        !isDeleted && !message.hasAttachments && message.quotedMessageId == null
+        ? _analyzeEmojiText(message.text)
+        : (isOnly: false, count: 0);
+    final hasOnlyEmoji = emojiAnalysis.isOnly;
+    final emojiCount = emojiAnalysis.count;
+
+    // ── WhatsApp-style large emoji rendering ───────────────────────────────
+    // Emoji-only messages (1–3 emoji, no attachments, no quoted reply, not
+    // deleted) bypass the normal bubble container entirely: they render at a
+    // larger font size on a transparent background, exactly like WhatsApp.
+    if (hasOnlyEmoji && emojiCount > 0) {
+      return _buildEmojiOnlyBubble(alignRight, isMe, emojiCount);
+    }
 
     Color? bubbleColor;
     LinearGradient? bubbleGradient;
@@ -655,33 +821,13 @@ class _MessageBubbleState extends State<MessageBubble>
                         const SizedBox(height: 8),
                     ],
 
-                    // Message text — enriched HTML with auto-linked URLs/emails.
+                    // Message text — plain text uses the native Text widget so
+                    // the bubble shrinks tightly around its content (WhatsApp-
+                    // style). HTML-formatted or link-containing text falls back
+                    // to the full HTML renderer which fills available width —
+                    // acceptable because such messages tend to be longer.
                     if (message.text.trim().isNotEmpty)
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: _StableHtml(
-                          data: MessageContentProcessor.enrich(message.text),
-                          linkColor: useLightText
-                              ? const Color(0xFF64B5F6)
-                              : Colors.blue,
-                          onLinkTap: MessageContentProcessor.launchLink,
-                          style: {
-                            'body': html.Style(
-                              margin: html.Margins.zero,
-                              padding: html.HtmlPaddings.zero,
-                              fontSize: html.FontSize(15.5),
-                              fontFamily: 'Manrope',
-                              color: useLightText
-                                  ? Colors.white
-                                  : AppColors.primaryColor,
-                            ),
-                            'p': html.Style(
-                              margin: html.Margins.zero,
-                              padding: html.HtmlPaddings.zero,
-                            ),
-                          },
-                        ),
-                      ),
+                      _buildMessageText(message.text, useLightText),
 
                     // Link preview card — shown for the first URL found in the
                     // message text. Only rendered for non-deleted messages that
@@ -776,6 +922,222 @@ class _MessageBubbleState extends State<MessageBubble>
                 ),
         ),
       ),
+    );
+  }
+
+  // ── WhatsApp-style emoji-only bubble ─────────────────────────────────────
+
+  /// Renders 1–3 emoji at WhatsApp-scale on a transparent background (no
+  /// bubble chrome). Font size: 52 px (1 emoji) → 42 px (2) → 34 px (3).
+  /// Wrapped in the one-shot [_emojiEntranceController] spring animation.
+  Widget _buildEmojiOnlyBubble(bool alignRight, bool isMe, int emojiCount) {
+    final message = widget.message;
+    final fontSize = emojiCount == 1 ? 52.0 : emojiCount == 2 ? 42.0 : 34.0;
+
+    final emojiWidget = AnimatedBuilder(
+      animation: _emojiEntranceController,
+      builder: (context, child) {
+        // ElasticOut gives a soft spring overshoot — identical to WhatsApp's
+        // single-emoji bounce. _emojiScaleCurve is created once in initState
+        // so no allocation happens per frame. The controller's raw value
+        // drives opacity to fade in alongside the scale.
+        final scale = (0.25 + 0.75 * _emojiScaleCurve.value).clamp(0.0, 1.3);
+        final opacity = _emojiEntranceController.value.clamp(0.0, 1.0);
+        return Opacity(
+          opacity: opacity,
+          child: Transform.scale(scale: scale, child: child),
+        );
+      },
+      child: Text(
+        message.text.trim(),
+        style: TextStyle(
+          fontSize: fontSize,
+          height: 1.15,
+          // Explicit colour + decoration prevent DefaultTextStyle leakage
+          // from dialog or Overlay contexts (same issue _StableHtml solves).
+          color: Colors.black,
+          decoration: TextDecoration.none,
+        ),
+        textAlign: alignRight ? TextAlign.right : TextAlign.left,
+      ),
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        // Mirror the normal bubble's left/right offset so alignment is identical.
+        margin: EdgeInsets.only(
+          left: alignRight ? 60 : 0,
+          right: alignRight ? 0 : 60,
+        ),
+        child: Column(
+          crossAxisAlignment: alignRight
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            emojiWidget,
+            const SizedBox(height: 2),
+            // Timestamp + ticks row — same semantics as the normal bubble.
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatTime(widget.message.time),
+                  style: TextStyle(
+                    color: Colors.grey[600],
+                    fontSize: 11.0,
+                    fontWeight: FontWeight.w400,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+                if (message.isPrivate &&
+                    widget.senderIsOrgSide != null) ...[
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: _showPrivateMessageToast,
+                    child: const Icon(
+                      Icons.lock_outline_rounded,
+                      size: 11,
+                      color: Color(0xFFD63031),
+                    ),
+                  ),
+                ],
+                if (isMe) ...[
+                  const SizedBox(width: 4),
+                  Icon(
+                    widget.message.isRead
+                        ? Icons.done_all
+                        : widget.message.isDelivered
+                        ? Icons.done_all
+                        : Icons.done,
+                    size: 13,
+                    color: widget.message.isRead
+                        ? AppColors.primaryColor
+                        : Colors.grey.withValues(alpha: 0.6),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── WhatsApp-style compact reaction badge ────────────────────────────────
+
+  /// Renders emoji reactions as a compact pill: each unique emoji is shown
+  /// side-by-side; a count is appended next to each emoji when > 1.
+  /// e.g.  ❤️3  👍  😂2
+  Widget _buildReactionBadge(Map<String, int> counts) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 5,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final entry in counts.entries.take(3)) ...[
+            Text(
+              entry.key,
+              style: const TextStyle(
+                fontSize: 14,
+                decoration: TextDecoration.none,
+                height: 1.2,
+              ),
+            ),
+            if (entry.value > 1) ...[
+              const SizedBox(width: 2),
+              Text(
+                '${entry.value}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF4A5568),
+                  decoration: TextDecoration.none,
+                  height: 1.2,
+                ),
+              ),
+            ],
+            const SizedBox(width: 3),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── Adaptive message-text renderer ───────────────────────────────────────
+
+  /// Renders [rawText] in a way that lets the bubble shrink to content width.
+  ///
+  /// **Plain text** (no `<` characters, no detectable URL/email/phone) is
+  /// rendered with Flutter's native [Text] widget.  Because [Text] measures
+  /// only the glyphs it actually contains, the parent [Column] and the bubble
+  /// [Container] naturally shrink-wrap around it — exactly what WhatsApp does.
+  ///
+  /// **Formatted or link-containing text** falls back to [_StableHtml].
+  /// HTML block elements (`<p>`, `<div>`) always fill available width (that
+  /// is the HTML spec), so these bubbles use the full `maxWidth` constraint.
+  /// This is acceptable: rich / link messages are typically long enough that
+  /// a wide bubble looks natural.
+  Widget _buildMessageText(String rawText, bool useLightText) {
+    final plain = rawText.trim();
+    final textColor =
+        useLightText ? Colors.white : AppColors.primaryColor;
+
+    // Only use the native renderer when the raw text genuinely has no markup
+    // and contains no auto-linkable tokens (URLs, emails, phone numbers).
+    // The detectFirstPreview call is cheap — it just runs two or three regexes
+    // over the plain text once per build, which is negligible.
+    final isHtml = plain.contains('<');
+    final hasLinks = !isHtml &&
+        MessageContentProcessor.detectFirstPreview(plain) != null;
+
+    if (!isHtml && !hasLinks) {
+      // ── Native Text path ─────────────────────────────────────────────────
+      // Renders at exactly the width its glyphs need (up to the ConstrainedBox
+      // maxWidth). The bubble Container sizes itself to the Column, which sizes
+      // to this widget — so short messages get narrow bubbles, long ones wrap.
+      return Text(
+        plain,
+        style: TextStyle(
+          fontSize: 15.5,
+          fontFamily: 'Manrope',
+          height: 1.35,
+          color: textColor,
+          decoration: TextDecoration.none,
+        ),
+      );
+    }
+
+    // ── HTML renderer path ────────────────────────────────────────────────
+    return _StableHtml(
+      data: MessageContentProcessor.enrich(rawText),
+      linkColor: useLightText ? const Color(0xFF64B5F6) : Colors.blue,
+      onLinkTap: MessageContentProcessor.launchLink,
+      style: {
+        'body': html.Style(
+          margin: html.Margins.zero,
+          padding: html.HtmlPaddings.zero,
+          fontSize: html.FontSize(15.5),
+          fontFamily: 'Manrope',
+          color: textColor,
+        ),
+        'p': html.Style(
+          margin: html.Margins.zero,
+          padding: html.HtmlPaddings.zero,
+        ),
+      },
     );
   }
 
@@ -1280,6 +1642,81 @@ class _StableHtmlState extends State<_StableHtml> {
         onLinkTap: widget.onLinkTap != null
             ? (url, _, __) => widget.onLinkTap!(url)
             : null,
+      ),
+    );
+  }
+}
+
+// ── Double-tap heart floating overlay ────────────────────────────────────────
+
+/// A ❤️ that floats at [center], springs to full size via [Curves.elasticOut],
+/// holds briefly, then fades out. Lives in the root [Overlay] so it appears
+/// on top of everything — no build-tree impact on [MessageBubble].
+///
+/// Lifecycle: the parent creates a fresh [AnimationController] per double-tap,
+/// forwards it, and disposes it (plus removes the [OverlayEntry]) in the
+/// controller's [AnimationStatus.completed] listener — zero leaks.
+class _HeartFloatOverlay extends StatelessWidget {
+  const _HeartFloatOverlay({
+    required this.center,
+    required this.controller,
+  });
+
+  final Offset center;
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    // Phase 1 (0–65 %): spring scale 0.2 → 1.4 with elastic overshoot.
+    // Phase 2 (65–75 %): settle back to 1.0.
+    // Phase 3 (75–100 %): hold at 1.0 while fading out.
+    final scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.2, end: 1.4)
+            .chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 65,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.4, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 10,
+      ),
+      TweenSequenceItem(
+        tween: ConstantTween(1.0),
+        weight: 25,
+      ),
+    ]).animate(controller);
+
+    final opacityAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 65),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 35,
+      ),
+    ]).animate(controller);
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, __) => Positioned(
+        // Centre the 60×60 emoji on the bubble's midpoint.
+        left: center.dx - 30,
+        top: center.dy - 30,
+        child: IgnorePointer(
+          child: Opacity(
+            opacity: opacityAnim.value.clamp(0.0, 1.0),
+            child: Transform.scale(
+              scale: scaleAnim.value,
+              child: const Text(
+                '❤️',
+                style: TextStyle(
+                  fontSize: 50,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

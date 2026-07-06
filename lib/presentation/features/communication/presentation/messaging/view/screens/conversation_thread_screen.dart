@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -212,6 +211,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       onResolveConversation: widget.onResolveConversation,
     );
     _searchUseCase = SearchMessagesUseCase(serviceLocator());
+
+    // Pre-set _senderCode synchronously so it matches the cubit's _currentUserCode
+    // from the moment the screen is built. _loadSenderInfo will confirm/update it
+    // from storage (same value) along with the other sender fields.
+    _senderCode = userCodeFromAuth;
 
     _cubit.startWatchingMessages();
     unawaited(_loadSenderInfo());
@@ -797,14 +801,19 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               ),
             ],
           ),
-          if (participants.isNotEmpty &&
-              _senderRole != ParticipantRole.parent) ...[
+          if (participants.isNotEmpty) ...[
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
                 final isAdminChat =
                     _conversation.type ==
                     ConversationType.adminChat.toApiString();
+                final isRoomChat =
+                    _conversation.type ==
+                    ConversationType.roomChat.toApiString();
+                // Admin chat → admin chips only.
+                // Room chat (staff/admin viewer) → guardian chips only (Task 2).
+                // All other types → show everyone.
                 final visibleParticipants = isAdminChat
                     ? participants
                           .where(
@@ -812,7 +821,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                                 p.role.toApiString().toUpperCase() == 'ADMIN',
                           )
                           .toList()
-                    : participants;
+                    : isRoomChat
+                        ? participants
+                              .where((p) {
+                                final role = p.role.toApiString().toUpperCase();
+                                return role == 'PARENT' || role == 'GUARDIAN';
+                              })
+                              .toList()
+                        : participants;
                 if (visibleParticipants.isEmpty) return const SizedBox.shrink();
                 return SizedBox(
                   height: 28,
@@ -1089,11 +1105,21 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 10),
                   child: Center(
-                    child: CustomTextWidget(
-                      text: _dateSeparatorLabel(msg.sentAt),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      applyLetterSpacing: false,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0x1A573353),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: CustomTextWidget(
+                        text: _dateSeparatorLabel(msg.sentAt),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        applyLetterSpacing: false,
+                      ),
                     ),
                   ),
                 ),
@@ -1210,7 +1236,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     isSuccess: true,
                   );
                 },
-                onReactionTap: () => _showEmojiPicker(context, msg),
+                onReactionTap: () {
+                  // Dismiss any open overlay then focus the chat input so
+                  // the user can compose an emoji reply or pick a reaction
+                  // via the app's own emoji keyboard — no third-party picker.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _inputFocusNode.requestFocus();
+                  });
+                },
                 isParentMessaging: _senderRole == ParticipantRole.parent,
                 senderIsOrgSide: _isOrgSideSender(msg.senderCode),
               ),
@@ -1614,68 +1647,4 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
   }
 
-  void _showEmojiPicker(BuildContext context, MessageEntity message) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        final sheetHeight =
-            (MediaQuery.of(context).size.height * 0.55).clamp(240.0, 400.0) +
-            MediaQuery.of(context).padding.bottom;
-        return Container(
-          height: sheetHeight,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: EmojiPicker(
-            onEmojiSelected: (category, emoji) {
-              Navigator.pop(context); // close picker
-              final myReaction = message.reactions[_senderCode];
-              if (myReaction == emoji.emoji) {
-                _cubit.removeReaction(
-                  messageCode: message.code,
-                  emoji: emoji.emoji,
-                  currentUserCode: _senderCode,
-                );
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Reaction removed',
-                  isSuccess: true,
-                );
-              } else {
-                _cubit.addReaction(
-                  messageCode: message.code,
-                  emoji: emoji.emoji,
-                  currentUserCode: _senderCode,
-                );
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Reaction added',
-                  isSuccess: true,
-                );
-              }
-            },
-            config: const Config(
-              checkPlatformCompatibility: true,
-              emojiSet: null,
-              locale: Locale('en'),
-              emojiTextStyle: null,
-              customBackspaceIcon: null,
-              customSearchIcon: null,
-              viewOrderConfig: ViewOrderConfig(),
-              emojiViewConfig: EmojiViewConfig(),
-              skinToneConfig: SkinToneConfig(enabled: true),
-              categoryViewConfig: CategoryViewConfig(
-                recentTabBehavior: RecentTabBehavior.RECENT,
-              ),
-              bottomActionBarConfig: BottomActionBarConfig(enabled: false),
-              searchViewConfig: SearchViewConfig(),
-            ),
-          ),
-        );
-      },
-    );
-  }
 }

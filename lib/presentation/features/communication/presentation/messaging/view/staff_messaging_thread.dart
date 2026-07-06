@@ -771,6 +771,20 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                           message,
                                                           emoji,
                                                         ),
+                                                    onRemoveReaction: (emoji) {
+                                                      context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .removeReaction(
+                                                            widget.staffInfo['code']
+                                                                as String,
+                                                            message.code,
+                                                            emoji,
+                                                            currentUserCode:
+                                                                _currentUserCode,
+                                                          );
+                                                    },
                                                     onReactionTap: () =>
                                                         _showEmojiPicker(
                                                           context,
@@ -1277,6 +1291,20 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                     message,
                                                                     emoji,
                                                                   ),
+                                                          onRemoveReaction: (emoji) {
+                                                            context
+                                                                .read<
+                                                                  CommunicationCubit
+                                                                >()
+                                                                .removeReaction(
+                                                                  widget.staffInfo['code']
+                                                                      as String,
+                                                                  message.code,
+                                                                  emoji,
+                                                                  currentUserCode:
+                                                                      _currentUserCode,
+                                                                );
+                                                          },
                                                           onReactionTap: () =>
                                                               _showEmojiPicker(
                                                                 context,
@@ -1610,11 +1638,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     }
 
-    return CustomTextWidget(
-      text: label,
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
-      applyLetterSpacing: false,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0x1A573353),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: CustomTextWidget(
+        text: label,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        applyLetterSpacing: false,
+      ),
     );
   }
 
