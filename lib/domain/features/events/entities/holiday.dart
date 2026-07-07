@@ -59,6 +59,18 @@ enum HolidayStatus {
   }
 }
 
+/// Action sent to `PATCH /api/v1/holidays/{code}/status` for federal holidays.
+/// `approve`: PENDING→CONSIDERED or REJECTED→CONSIDERED (re-approve).
+/// `reject`: PENDING→REJECTED.
+enum HolidayStatusAction {
+  approve('APPROVE'),
+  reject('REJECT');
+
+  const HolidayStatusAction(this.value);
+
+  final String value;
+}
+
 class Holiday extends Equatable {
   const Holiday({
     required this.code,
@@ -68,6 +80,7 @@ class Holiday extends Equatable {
     this.description = '',
     required this.type,
     this.status,
+    this.version = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -81,6 +94,10 @@ class Holiday extends Equatable {
 
   /// Only meaningful for [HolidayType.federal]; null for school holidays.
   final HolidayStatus? status;
+
+  /// Optimistic-locking version echoed back as the `If-Match` header on
+  /// `PATCH` requests (update / status change).
+  final int version;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -103,6 +120,7 @@ class Holiday extends Equatable {
     String? description,
     HolidayType? type,
     HolidayStatus? Function()? status,
+    int? version,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -114,6 +132,7 @@ class Holiday extends Equatable {
       description: description ?? this.description,
       type: type ?? this.type,
       status: status != null ? status() : this.status,
+      version: version ?? this.version,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -128,6 +147,7 @@ class Holiday extends Equatable {
         description,
         type,
         status,
+        version,
         createdAt,
         updatedAt,
       ];

@@ -12,6 +12,7 @@ class HolidayModel extends Equatable {
     this.description = '',
     required this.type,
     this.status,
+    this.version = 0,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -28,6 +29,9 @@ class HolidayModel extends Equatable {
       description: (json['description'] ?? '').toString(),
       type: (json['type'] ?? '').toString(),
       status: json['status']?.toString(),
+      version: (json['version'] as num?)?.toInt() ??
+          int.tryParse(json['version']?.toString() ?? '') ??
+          0,
       createdAt: parse(json['createdAt']) ?? DateTime.now(),
       updatedAt: parse(json['updatedAt']) ?? DateTime.now(),
     );
@@ -42,6 +46,7 @@ class HolidayModel extends Equatable {
       description: holiday.description,
       type: holiday.type.value,
       status: holiday.status?.value,
+      version: holiday.version,
       createdAt: holiday.createdAt,
       updatedAt: holiday.updatedAt,
     );
@@ -54,19 +59,28 @@ class HolidayModel extends Equatable {
   final String description;
   final String type;
   final String? status;
+  final int version;
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  Map<String, dynamic> toJson() => <String, dynamic>{
-        'code': code,
+  /// `YYYY-MM-DD` — the wire format the holidays API expects for dates.
+  static String formatDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  /// Body for `POST /api/v1/holidays` (create school holiday). The server
+  /// assigns `code`, `type`, `status` and `version`.
+  static Map<String, dynamic> createBody({
+    required String name,
+    required DateTime startDate,
+    required DateTime endDate,
+    String description = '',
+  }) => <String, dynamic>{
         'name': name,
-        'startDate': startDate.toIso8601String(),
-        'endDate': endDate.toIso8601String(),
+        'startDate': formatDate(startDate),
+        'endDate': formatDate(endDate),
         'description': description,
-        'type': type,
-        'status': status,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
       };
 
   Holiday toEntity() => Holiday(
@@ -77,10 +91,12 @@ class HolidayModel extends Equatable {
         description: description,
         type: HolidayType.fromValue(type),
         status: HolidayStatus.fromValue(status),
+        version: version,
         createdAt: createdAt,
         updatedAt: updatedAt,
       );
 
   @override
-  List<Object?> get props => [code, name, startDate, endDate, type, status];
+  List<Object?> get props =>
+      [code, name, startDate, endDate, type, status, version];
 }

@@ -8,6 +8,7 @@ class EventsState extends Equatable {
     required this.isSaving,
     required this.typeFilter,
     required this.classroomFilter,
+    required this.selectedYear,
     this.showMineOnly = false,
     this.dateFrom,
     this.dateTo,
@@ -18,13 +19,14 @@ class EventsState extends Equatable {
     this.errorMessage,
   });
 
-  const EventsState.initial()
+  EventsState.initial()
       : events = const [],
         holidays = const [],
         isLoading = true,
         isSaving = false,
         typeFilter = const <EventType>{},
         classroomFilter = const <String>{},
+        selectedYear = DateTime.now().year,
         showMineOnly = false,
         dateFrom = null,
         dateTo = null,
@@ -36,6 +38,10 @@ class EventsState extends Equatable {
 
   final List<Event> events;
   final List<Holiday> holidays;
+
+  /// Year selected on the Holiday List (FR-HL-07). Holidays are fetched and
+  /// filtered against this year.
+  final int selectedYear;
   final bool isLoading;
   final bool isSaving;
 
@@ -159,6 +165,45 @@ class EventsState extends Equatable {
   bool isHoliday(DateTime day) =>
       holidays.any((h) => h.isObserved && h.coversDay(day));
 
+  // ------------------------------------------------------ holiday grouping
+
+  /// Holidays whose start date falls in [selectedYear] (FR-HL-08). Applied as
+  /// a client-side safety net on top of the API's `year` filter.
+  List<Holiday> get _holidaysForYear => holidays
+      .where((h) => h.startDate.year == selectedYear)
+      .toList();
+
+  /// School-defined holidays, sorted ascending by start date (FR-HL-01).
+  List<Holiday> get schoolHolidays => (_holidaysForYear
+          .where((h) => h.type == HolidayType.school)
+          .toList())
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+  /// Considered federal holidays + all school holidays, sorted ascending by
+  /// start date (FR-HL-09).
+  List<Holiday> get activeHolidays => (_holidaysForYear
+          .where((h) =>
+              h.type == HolidayType.school ||
+              h.status == HolidayStatus.considered)
+          .toList())
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+  /// Pending federal holidays awaiting admin review (FR-HL-02).
+  List<Holiday> get pendingFederalHolidays => (_holidaysForYear
+          .where((h) =>
+              h.type == HolidayType.federal &&
+              h.status == HolidayStatus.pending)
+          .toList())
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
+  /// Rejected federal holidays (FR-HL-04).
+  List<Holiday> get rejectedFederalHolidays => (_holidaysForYear
+          .where((h) =>
+              h.type == HolidayType.federal &&
+              h.status == HolidayStatus.rejected)
+          .toList())
+      ..sort((a, b) => a.startDate.compareTo(b.startDate));
+
   /// Distinct classrooms referenced by any event — offline-safe options
   /// for the classroom filter.
   List<EventAttendee> get classroomOptions {
@@ -194,6 +239,7 @@ class EventsState extends Equatable {
     bool? isSaving,
     Set<EventType>? typeFilter,
     Set<String>? classroomFilter,
+    int? selectedYear,
     bool? showMineOnly,
     DateTime? Function()? dateFrom,
     DateTime? Function()? dateTo,
@@ -210,6 +256,7 @@ class EventsState extends Equatable {
       isSaving: isSaving ?? this.isSaving,
       typeFilter: typeFilter ?? this.typeFilter,
       classroomFilter: classroomFilter ?? this.classroomFilter,
+      selectedYear: selectedYear ?? this.selectedYear,
       showMineOnly: showMineOnly ?? this.showMineOnly,
       dateFrom: dateFrom != null ? dateFrom() : this.dateFrom,
       dateTo: dateTo != null ? dateTo() : this.dateTo,
@@ -230,6 +277,7 @@ class EventsState extends Equatable {
         isSaving,
         typeFilter,
         classroomFilter,
+        selectedYear,
         showMineOnly,
         dateFrom,
         dateTo,

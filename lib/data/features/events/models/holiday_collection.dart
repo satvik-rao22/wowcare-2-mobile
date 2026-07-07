@@ -1,49 +1,8 @@
-import 'package:isar/isar.dart';
-import 'package:wowcare/core/util/isar_utils.dart';
-import 'package:wowcare/domain/features/events/entities/holiday.dart';
-
-part 'holiday_collection.g.dart';
-
-@collection
-class HolidayCollection {
-  Id get isarId => fastHash(code);
-
-  @Index(unique: true, replace: true)
-  late String code;
-  late String name;
-  @Index()
-  late DateTime startDate;
-  late DateTime endDate;
-  late String description;
-  late String type;
-  String? status;
-  late DateTime createdAt;
-  late DateTime updatedAt;
-
-  HolidayCollection();
-
-  factory HolidayCollection.fromEntity(Holiday holiday) {
-    return HolidayCollection()
-      ..code = holiday.code
-      ..name = holiday.name
-      ..startDate = holiday.startDate
-      ..endDate = holiday.endDate
-      ..description = holiday.description
-      ..type = holiday.type.value
-      ..status = holiday.status?.value
-      ..createdAt = holiday.createdAt
-      ..updatedAt = holiday.updatedAt;
-  }
-
-  Holiday toEntity() => Holiday(
-        code: code,
-        name: name,
-        startDate: startDate,
-        endDate: endDate,
-        description: description,
-        type: HolidayType.fromValue(type),
-        status: HolidayStatus.fromValue(status),
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-      );
-}
+// DEPRECATED — holidays are served live from the scheduler API
+// (`/api/v1/holidays`) and are no longer persisted in Isar.
+//
+// This file (and its generated `holiday_collection.g.dart`) are intentionally
+// empty and can be deleted from the repo. They are kept only because this
+// environment cannot remove files; delete both with:
+//   git rm lib/data/features/events/models/holiday_collection.dart \
+//          lib/data/features/events/models/holiday_collection.g.dart

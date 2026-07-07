@@ -137,8 +137,13 @@ class HolidayCard extends StatelessWidget {
         DateUtils.isSameDay(holiday.startDate, holiday.endDate)) {
       return start;
     }
-    return '$start – ${DateFormat('EEE, MMM d, yyyy').format(holiday.endDate)}';
+    final end = DateFormat('EEE, MMM d, yyyy').format(holiday.endDate);
+    return '$start – $end  •  $_dayCount days';
   }
+
+  /// Inclusive number of days the holiday spans (FR-HL-10).
+  int get _dayCount =>
+      holiday.endDate.difference(holiday.startDate).inDays + 1;
 
   Widget _dateBadge(Color accent) {
     return Container(
@@ -215,15 +220,18 @@ class HolidayCard extends StatelessWidget {
     );
   }
 
+  /// Actions depend on the current federal status (FR-HL-03/04/05):
+  ///   pending    → Approve / Reject
+  ///   considered → Reject
+  ///   rejected   → Re-Approve
   Widget _federalActions() {
-    Widget action(HolidayStatus status, String label, Color color) {
-      final isActive = holiday.status == status;
+    Widget action(HolidayStatus target, String label, Color color) {
       return Expanded(
         child: Material(
-          color: isActive ? color : color.withValues(alpha: 0.08),
+          color: color.withValues(alpha: 0.10),
           borderRadius: BorderRadius.circular(8),
           child: InkWell(
-            onTap: () => onStatusChanged!(status),
+            onTap: () => onStatusChanged!(target),
             borderRadius: BorderRadius.circular(8),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
@@ -233,7 +241,7 @@ class HolidayCard extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: isActive ? Colors.white : color,
+                  color: color,
                 ),
               ),
             ),
@@ -242,13 +250,32 @@ class HolidayCard extends StatelessWidget {
       );
     }
 
-    return Row(
-      children: [
-        action(
-            HolidayStatus.considered, 'Observe', const Color(0xFF388E3C)),
-        const SizedBox(width: 6),
-        action(HolidayStatus.rejected, "Don't Observe", Colors.grey),
-      ],
-    );
+    const approveColor = Color(0xFF388E3C);
+    const rejectColor = Color(0xFFD32F2F);
+
+    switch (holiday.status) {
+      case HolidayStatus.pending:
+        return Row(
+          children: [
+            action(HolidayStatus.considered, 'Approve', approveColor),
+            const SizedBox(width: 6),
+            action(HolidayStatus.rejected, 'Reject', rejectColor),
+          ],
+        );
+      case HolidayStatus.considered:
+        return Row(
+          children: [
+            action(HolidayStatus.rejected, 'Reject', rejectColor),
+          ],
+        );
+      case HolidayStatus.rejected:
+        return Row(
+          children: [
+            action(HolidayStatus.considered, 'Re-Approve', approveColor),
+          ],
+        );
+      case null:
+        return const SizedBox.shrink();
+    }
   }
 }

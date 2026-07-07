@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
@@ -18,7 +19,6 @@ import 'package:wowcare/presentation/features/events/widgets/holiday_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_form_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/expandable_section.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -62,25 +62,41 @@ class _EventsScreenState extends State<EventsScreen> {
     return GlobalScaffold(
       hasBackButton: false,
       showCustomNavigationBar: true,
-      body: BlocBuilder<EventsCubit, EventsState>(
-        builder: (context, state) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _header(context, roles),
-                const SizedBox(height: 10),
-                _tabSwitcher(),
-                const SizedBox(height: 10),
-                if (_tabIndex == 0)
-                  Expanded(child: _eventsTab(context, state, roles))
-                else
-                  Expanded(child: _holidaysTab(context, state, roles)),
-              ],
-            ),
+      body: BlocListener<EventsCubit, EventsState>(
+        // Background fetches (initial load, Holidays tab refresh, year
+        // switch) have no call site to await and show a toast directly —
+        // this is their only feedback path. Save/delete/status-change
+        // actions show their own toast at the call site instead.
+        listenWhen: (previous, current) =>
+            current.errorMessage != null &&
+            current.errorMessage != previous.errorMessage,
+        listener: (context, state) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.errorMessage!,
+            isError: true,
           );
         },
+        child: BlocBuilder<EventsCubit, EventsState>(
+          builder: (context, state) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _header(context, roles),
+                  const SizedBox(height: 10),
+                  _tabSwitcher(),
+                  const SizedBox(height: 10),
+                  if (_tabIndex == 0)
+                    Expanded(child: _eventsTab(context, state, roles))
+                  else
+                    Expanded(child: _holidaysTab(context, state, roles)),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -143,13 +159,19 @@ class _EventsScreenState extends State<EventsScreen> {
       final selected = _tabIndex == index;
       return Expanded(
         child: GestureDetector(
-          onTap: () => setState(() => _tabIndex = index),
+          onTap: () {
+            setState(() => _tabIndex = index);
+            // Holidays are the scheduler API's source of truth — fetch fresh
+            // whenever the tab is opened so the list can't go stale.
+            if (index == 1) {
+              context.read<EventsCubit>().refreshHolidays();
+            }
+          },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(vertical: 8),
             decoration: BoxDecoration(
-              gradient:
-                  selected ? AppColors.buildPrimaryGradient() : null,
+              gradient: selected ? AppColors.buildPrimaryGradient() : null,
               borderRadius: BorderRadius.circular(9),
             ),
             child: Row(
@@ -166,8 +188,7 @@ class _EventsScreenState extends State<EventsScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color:
-                        selected ? Colors.white : AppColors.primaryColor,
+                    color: selected ? Colors.white : AppColors.primaryColor,
                   ),
                 ),
               ],
@@ -317,12 +338,18 @@ class _EventsScreenState extends State<EventsScreen> {
               decoration: InputDecoration(
                 hintText: 'Search events…',
                 hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                prefixIcon:
-                    const Icon(Icons.search, size: 18, color: Colors.grey),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  size: 18,
+                  color: Colors.grey,
+                ),
                 suffixIcon: state.searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close,
-                            size: 16, color: Colors.grey),
+                        icon: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
                         onPressed: () {
                           _searchController.clear();
                           cubit.setSearchQuery('');
@@ -343,8 +370,7 @@ class _EventsScreenState extends State<EventsScreen> {
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide:
-                      const BorderSide(color: AppColors.themeColor),
+                  borderSide: const BorderSide(color: AppColors.themeColor),
                 ),
               ),
             ),
@@ -432,8 +458,7 @@ class _EventsScreenState extends State<EventsScreen> {
             width: 30,
             height: 30,
             decoration: BoxDecoration(
-              gradient:
-                  selected ? AppColors.buildPrimaryGradient() : null,
+              gradient: selected ? AppColors.buildPrimaryGradient() : null,
               borderRadius: BorderRadius.circular(7),
             ),
             child: Icon(
@@ -455,8 +480,11 @@ class _EventsScreenState extends State<EventsScreen> {
       ),
       child: Row(
         children: [
-          option(_EventsViewMode.calendar, Icons.calendar_month_outlined,
-              'Calendar'),
+          option(
+            _EventsViewMode.calendar,
+            Icons.calendar_month_outlined,
+            'Calendar',
+          ),
           option(_EventsViewMode.grid, Icons.grid_view_outlined, 'Grid'),
           option(_EventsViewMode.list, Icons.view_agenda_outlined, 'List'),
         ],
@@ -501,9 +529,11 @@ class _EventsScreenState extends State<EventsScreen> {
             _focusedDay = focusedDay;
           });
         },
-        onFormatChanged: (format) =>
-            setState(() => _calendarFormat = format),
-        onPageChanged: (focusedDay) => _focusedDay = focusedDay,
+        onFormatChanged: (format) => setState(() => _calendarFormat = format),
+        onPageChanged: (focusedDay) {
+          _focusedDay = focusedDay;
+          context.read<EventsCubit>().ensureHolidaysForYear(focusedDay.year);
+        },
         headerStyle: HeaderStyle(
           titleCentered: true,
           titleTextStyle: const TextStyle(
@@ -617,8 +647,7 @@ class _EventsScreenState extends State<EventsScreen> {
                       for (final event in dayEvents) ...[
                         EventCard(
                           event: event,
-                          showRsvpCounts:
-                              EventAccess.canSeeRsvpSummary(roles),
+                          showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
                           onTap: () => _openDetail(context, event),
                         ),
                         const SizedBox(height: 8),
@@ -641,8 +670,7 @@ class _EventsScreenState extends State<EventsScreen> {
       ),
       child: Row(
         children: [
-          const Icon(Icons.beach_access_outlined,
-              size: 18, color: _holidayRed),
+          const Icon(Icons.beach_access_outlined, size: 18, color: _holidayRed),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -710,8 +738,7 @@ class _EventsScreenState extends State<EventsScreen> {
             showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
             onTap: () => _openDetail(context, event),
             onRsvp: canRsvp
-                ? (status) =>
-                    _respond(context, event, status, roles.isParent)
+                ? (status) => _respond(context, event, status, roles.isParent)
                 : null,
           );
         },
@@ -738,15 +765,14 @@ class _EventsScreenState extends State<EventsScreen> {
         itemCount: events.length,
         itemBuilder: (context, index) {
           final event = events[index];
-          final showHeader = index == 0 ||
-              !_sameMonth(events[index - 1].date, event.date);
+          final showHeader =
+              index == 0 || !_sameMonth(events[index - 1].date, event.date);
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (showHeader)
                 Padding(
-                  padding: EdgeInsets.only(
-                      top: index == 0 ? 0 : 10, bottom: 8),
+                  padding: EdgeInsets.only(top: index == 0 ? 0 : 10, bottom: 8),
                   child: Text(
                     DateFormat('MMMM yyyy').format(event.date),
                     style: const TextStyle(
@@ -817,18 +843,14 @@ class _EventsScreenState extends State<EventsScreen> {
     if (state.isLoading) {
       return const Center(child: PrimaryCircularLoader());
     }
-    if (state.holidays.isEmpty) {
-      return _emptyState('No holidays added yet');
-    }
     // Staff and parents see the holiday list read-only (PRD FR-HL-12).
     final canManage = EventAccess.canManageHolidays(roles);
     final cubit = context.read<EventsCubit>();
-    final school = state.holidays
-        .where((h) => h.type == HolidayType.school)
-        .toList();
-    final federal = state.holidays
-        .where((h) => h.type == HolidayType.federal)
-        .toList();
+
+    final pending = state.pendingFederalHolidays;
+    final active = state.activeHolidays;
+    final rejected = state.rejectedFederalHolidays;
+
     return RefreshIndicator(
       color: AppColors.themeColor,
       onRefresh: () => cubit.load(silent: true),
@@ -836,56 +858,131 @@ class _EventsScreenState extends State<EventsScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 90),
         children: [
-          if (school.isNotEmpty) ...[
-            ExpandableSection(
-              title: 'School Holidays',
-              count: school.length,
-              icon: Icons.beach_access_outlined,
-              initiallyExpanded: true,
-              child: Column(
-                children: [
-                  for (final holiday in school)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: HolidayCard(
-                        holiday: holiday,
-                        onEdit: canManage
-                            ? () => showHolidayFormSheet(context,
-                                holiday: holiday)
-                            : null,
-                        onDelete: canManage
-                            ? () => _confirmDeleteHoliday(context, holiday)
-                            : null,
-                      ),
-                    ),
-                ],
-              ),
+          _yearSelector(context, state),
+          const SizedBox(height: 4),
+          if (pending.isEmpty && active.isEmpty && rejected.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 60),
+              child: _emptyState('No holidays for ${state.selectedYear}'),
             ),
-            const SizedBox(height: 10),
+
+          // Pending Federal Holidays — admin-only accordion (FR-HL-02).
+          if (canManage && pending.isNotEmpty) ...[
+            _holidaySectionHeader('Pending Federal Holidays'),
+            for (final holiday in pending)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: HolidayCard(
+                  holiday: holiday,
+                  onStatusChanged: (status) => _changeHolidayStatus(
+                    context,
+                    cubit,
+                    holiday.code,
+                    status,
+                  ),
+                ),
+              ),
           ],
-          if (federal.isNotEmpty)
-            ExpandableSection(
-              title: 'Federal Holidays',
-              count: federal.length,
-              icon: Icons.flag_outlined,
-              initiallyExpanded: true,
-              child: Column(
-                children: [
-                  for (final holiday in federal)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: HolidayCard(
-                        holiday: holiday,
-                        onStatusChanged: canManage
-                            ? (status) =>
-                                cubit.setHolidayStatus(holiday.code, status)
-                            : null,
-                      ),
-                    ),
-                ],
+
+          // Active Holidays — considered federal + all school (FR-HL-09).
+          if (active.isNotEmpty) ...[
+            _holidaySectionHeader('Active Holidays'),
+            for (final holiday in active)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: HolidayCard(
+                  holiday: holiday,
+                  onEdit: canManage && holiday.type == HolidayType.school
+                      ? () => showHolidayFormSheet(context, holiday: holiday)
+                      : null,
+                  onDelete: canManage && holiday.type == HolidayType.school
+                      ? () => _confirmDeleteHoliday(context, holiday)
+                      : null,
+                  onStatusChanged:
+                      canManage && holiday.type == HolidayType.federal
+                      ? (status) => _changeHolidayStatus(
+                          context,
+                          cubit,
+                          holiday.code,
+                          status,
+                        )
+                      : null,
+                ),
               ),
-            ),
+          ],
+
+          // Rejected Federal Holidays — admin-only, re-approvable (FR-HL-04/05).
+          if (canManage && rejected.isNotEmpty) ...[
+            _holidaySectionHeader('Rejected Federal Holidays'),
+            for (final holiday in rejected)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: HolidayCard(
+                  holiday: holiday,
+                  onStatusChanged: (status) => _changeHolidayStatus(
+                    context,
+                    cubit,
+                    holiday.code,
+                    status,
+                  ),
+                ),
+              ),
+          ],
         ],
+      ),
+    );
+  }
+
+  /// Year dropdown — current year ±2 (5 years total), default current year
+  /// (FR-HL-07/08).
+  Widget _yearSelector(BuildContext context, EventsState state) {
+    final currentYear = DateTime.now().year;
+    final years = [for (var y = currentYear - 2; y <= currentYear + 2; y++) y];
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.grey[100],
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<int>(
+            value: years.contains(state.selectedYear)
+                ? state.selectedYear
+                : currentYear,
+            isDense: true,
+            icon: const Icon(Icons.arrow_drop_down, size: 20),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColor,
+            ),
+            items: [
+              for (final year in years)
+                DropdownMenuItem<int>(value: year, child: Text('$year')),
+            ],
+            onChanged: (year) {
+              if (year != null) {
+                context.read<EventsCubit>().setSelectedYear(year);
+              }
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _holidaySectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8, top: 2),
+      child: Text(
+        title,
+        style: const TextStyle(
+          color: AppColors.primaryColor,
+          fontSize: 13.5,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -906,17 +1003,39 @@ class _EventsScreenState extends State<EventsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.errorColor,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
             child: const Text('Delete'),
           ),
         ],
       ),
     );
-    if (confirmed == true && context.mounted) {
-      await context.read<EventsCubit>().deleteHoliday(holiday.code);
-    }
+    if (confirmed != true) return;
+    final (ok, message) = await context.read<EventsCubit>().deleteHoliday(
+      holiday.code,
+    );
+    if (!context.mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isSuccess: ok,
+      isError: !ok,
+    );
+  }
+
+  Future<void> _changeHolidayStatus(
+    BuildContext context,
+    EventsCubit cubit,
+    String code,
+    HolidayStatus status,
+  ) async {
+    final (ok, message) = await cubit.setHolidayStatus(code, status);
+    if (!context.mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isSuccess: ok,
+      isError: !ok,
+    );
   }
 
   // ------------------------------------------------------------ shared
@@ -926,8 +1045,11 @@ class _EventsScreenState extends State<EventsScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.event_available_outlined,
-              size: 44, color: Colors.grey[400]),
+          Icon(
+            Icons.event_available_outlined,
+            size: 44,
+            color: Colors.grey[400],
+          ),
           const SizedBox(height: 8),
           Text(
             message,
@@ -938,17 +1060,24 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  void _respond(
+  Future<void> _respond(
     BuildContext context,
     Event event,
     EventRsvpStatus status,
     bool isParent,
-  ) {
-    context.read<EventsCubit>().respond(
-          eventCode: event.code,
-          status: status,
-          userType: isParent ? 'PARENT' : 'STAFF',
-        );
+  ) async {
+    final (ok, message) = await context.read<EventsCubit>().respond(
+      eventCode: event.code,
+      status: status,
+      userType: isParent ? 'PARENT' : 'STAFF',
+    );
+    if (!context.mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isSuccess: ok,
+      isError: !ok,
+    );
   }
 
   void _openDetail(BuildContext context, Event event) {
@@ -961,9 +1090,7 @@ class _EventsScreenState extends State<EventsScreen> {
   void _openForm(BuildContext context) {
     context.push(
       EventFormScreen.routeName,
-      extra: <String, dynamic>{
-        'initialDate': _selectedDay.toIso8601String(),
-      },
+      extra: <String, dynamic>{'initialDate': _selectedDay.toIso8601String()},
     );
   }
 

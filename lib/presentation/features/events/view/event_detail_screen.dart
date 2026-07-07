@@ -129,8 +129,11 @@ class EventDetailScreen extends StatelessWidget {
         if (canManage) ...[
           IconButton(
             tooltip: 'Edit event',
-            icon: const Icon(Icons.edit_outlined,
-                color: AppColors.themeColor, size: 22),
+            icon: const Icon(
+              Icons.edit_outlined,
+              color: AppColors.themeColor,
+              size: 22,
+            ),
             onPressed: () => context.push(
               EventFormScreen.routeName,
               extra: <String, dynamic>{'eventCode': event.code},
@@ -138,8 +141,11 @@ class EventDetailScreen extends StatelessWidget {
           ),
           IconButton(
             tooltip: 'Delete event',
-            icon: const Icon(Icons.delete_outline,
-                color: AppColors.errorColor, size: 22),
+            icon: const Icon(
+              Icons.delete_outline,
+              color: AppColors.errorColor,
+              size: 22,
+            ),
             onPressed: () => _confirmDelete(context, event),
           ),
         ],
@@ -165,7 +171,7 @@ class EventDetailScreen extends StatelessWidget {
               Icons.repeat,
               event.recurringEndDate != null
                   ? '${event.recurringPattern!.label} until '
-                      '${DateFormat('MMM d, yyyy').format(event.recurringEndDate!)}'
+                        '${DateFormat('MMM d, yyyy').format(event.recurringEndDate!)}'
                   : event.recurringPattern!.label,
             ),
           ],
@@ -185,14 +191,23 @@ class EventDetailScreen extends StatelessWidget {
             style: TextStyle(fontSize: 12.5, color: Colors.grey[700]),
           ),
           if (event.classrooms.isNotEmpty)
-            _attendeeChips('Classrooms', event.classrooms,
-                EventUiUtils.typeColor(EventType.classroom)),
+            _attendeeChips(
+              'Classrooms',
+              event.classrooms,
+              EventUiUtils.typeColor(EventType.classroom),
+            ),
           if (event.students.isNotEmpty)
-            _attendeeChips('Students', event.students,
-                EventUiUtils.typeColor(EventType.student)),
+            _attendeeChips(
+              'Students',
+              event.students,
+              EventUiUtils.typeColor(EventType.student),
+            ),
           if (event.staff.isNotEmpty)
-            _attendeeChips('Staff', event.staff,
-                EventUiUtils.typeColor(EventType.staff)),
+            _attendeeChips(
+              'Staff',
+              event.staff,
+              EventUiUtils.typeColor(EventType.staff),
+            ),
         ],
       ),
     );
@@ -224,12 +239,13 @@ class EventDetailScreen extends StatelessWidget {
               for (final attendee in attendees)
                 Container(
                   padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 4),
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(14),
-                    border:
-                        Border.all(color: color.withValues(alpha: 0.3)),
+                    border: Border.all(color: color.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     attendee.name.isNotEmpty ? attendee.name : attendee.code,
@@ -288,12 +304,19 @@ class EventDetailScreen extends StatelessWidget {
           if (canRsvp)
             EventRsvpBar(
               selected: myRsvp?.status,
-              onChanged: (status) {
-                context.read<EventsCubit>().respond(
-                      eventCode: event.code,
-                      status: status,
-                      userType: isParent ? 'PARENT' : 'STAFF',
-                    );
+              onChanged: (status) async {
+                final (ok, message) = await context.read<EventsCubit>().respond(
+                  eventCode: event.code,
+                  status: status,
+                  userType: isParent ? 'PARENT' : 'STAFF',
+                );
+                if (!context.mounted) return;
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: message,
+                  isSuccess: ok,
+                  isError: !ok,
+                );
               },
             ),
           if (canSeeSummary) ...[
@@ -405,9 +428,7 @@ class EventDetailScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(
-              foregroundColor: AppColors.errorColor,
-            ),
+            style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
             child: const Text('Delete'),
           ),
         ],

@@ -3,8 +3,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/cache/cache_service.dart';
 import 'package:wowcare/data/features/communication/models/conversation_collection.dart';
 import 'package:wowcare/data/features/communication/models/message_collection.dart';
-import 'package:wowcare/data/features/events/models/event_collection.dart';
-import 'package:wowcare/data/features/events/models/holiday_collection.dart';
 import 'package:wowcare/data/features/tasks/models/task_collection.dart';
 import 'package:wowcare/data/features/assessments/models/assessment_domain_collection.dart';
 import 'package:wowcare/data/features/assessments/models/assessment_collection.dart';
@@ -18,8 +16,6 @@ class IsarCacheService implements CacheService {
     _isar = await Isar.open([
       MessageCollectionSchema,
       ConversationCollectionSchema,
-      EventCollectionSchema,
-      HolidayCollectionSchema,
       TaskCollectionSchema,
       AssessmentDomainCollectionSchema,
       AssessmentCollectionSchema,

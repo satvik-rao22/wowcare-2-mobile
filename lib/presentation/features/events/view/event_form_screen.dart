@@ -53,6 +53,13 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   bool get _isEditing => _editing != null;
 
+  /// Name plus the type-specific audience/time rules must all be satisfied
+  /// before the Save button is enabled — mirrors [_validateAudienceAndTime],
+  /// which still runs on submit as a safety net.
+  bool get _isFormValid =>
+      _nameController.text.trim().isNotEmpty &&
+      _validateAudienceAndTime() == null;
+
   @override
   void initState() {
     super.initState();
@@ -66,7 +73,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
       final event = context.read<EventsCubit>().state.eventByCode(code);
       if (event != null) _prefill(event);
     }
+    _nameController.addListener(_onFieldChanged);
   }
+
+  void _onFieldChanged() => setState(() {});
 
   void _prefill(Event event) {
     _editing = event;
@@ -88,6 +98,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   @override
   void dispose() {
+    _nameController.removeListener(_onFieldChanged);
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -142,8 +153,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                       child: _timeTile(
                         label: 'Starts',
                         time: _startTime,
-                        onPicked: (time) =>
-                            setState(() => _startTime = time),
+                        onPicked: (time) => setState(() => _startTime = time),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -179,8 +189,9 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 controller: _descriptionController,
                 maxLines: 3,
                 textCapitalization: TextCapitalization.sentences,
-                decoration:
-                    _inputDecoration('e.g. What to bring, where to meet…'),
+                decoration: _inputDecoration(
+                  'e.g. What to bring, where to meet…',
+                ),
               ),
               const SizedBox(height: 14),
               _label('Attendees', required: _type != EventType.school),
@@ -190,8 +201,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 _switchTile(
                   title: 'Invite parents',
                   value: _includeParents,
-                  onChanged: (value) =>
-                      setState(() => _includeParents = value),
+                  onChanged: (value) => setState(() => _includeParents = value),
                 ),
               ],
               const SizedBox(height: 20),
@@ -233,8 +243,9 @@ class _EventFormScreenState extends State<EventFormScreen> {
             ),
             selected: _type == type,
             selectedColor: EventUiUtils.typeColor(type),
-            backgroundColor:
-                EventUiUtils.typeColor(type).withValues(alpha: 0.08),
+            backgroundColor: EventUiUtils.typeColor(
+              type,
+            ).withValues(alpha: 0.08),
             showCheckmark: false,
             side: BorderSide(
               color: EventUiUtils.typeColor(type).withValues(alpha: 0.3),
@@ -259,8 +270,11 @@ class _EventFormScreenState extends State<EventFormScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.school_outlined,
-                    size: 18, color: EventUiUtils.typeColor(EventType.school)),
+                Icon(
+                  Icons.school_outlined,
+                  size: 18,
+                  color: EventUiUtils.typeColor(EventType.school),
+                ),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -306,8 +320,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
           selected: _classrooms,
           options: options,
           isLoading: state.isLoading,
-          onChanged: (selection) =>
-              setState(() => _classrooms = selection),
+          onChanged: (selection) => setState(() => _classrooms = selection),
         );
       },
     );
@@ -317,10 +330,12 @@ class _EventFormScreenState extends State<EventFormScreen> {
     return BlocBuilder<StudentCubit, StudentState>(
       builder: (context, state) {
         final options = state.items
-            .map((s) => EventAttendee(
-                  code: s.code,
-                  name: '${s.firstName} ${s.lastName}'.trim(),
-                ))
+            .map(
+              (s) => EventAttendee(
+                code: s.code,
+                name: '${s.firstName} ${s.lastName}'.trim(),
+              ),
+            )
             .toList();
         return _pickerTile(
           icon: EventUiUtils.typeIcon(EventType.student),
@@ -407,8 +422,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style:
-                          TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
                   ],
                 ),
@@ -479,8 +493,10 @@ class _EventFormScreenState extends State<EventFormScreen> {
       icon: Icons.access_time,
       text: '$label  ${time.format(context)}',
       onTap: () async {
-        final picked =
-            await showTimePicker(context: context, initialTime: time);
+        final picked = await showTimePicker(
+          context: context,
+          initialTime: time,
+        );
         if (picked != null) onPicked(picked);
       },
     );
@@ -534,15 +550,17 @@ class _EventFormScreenState extends State<EventFormScreen> {
   Widget _saveButton() {
     return BlocBuilder<EventsCubit, EventsState>(
       builder: (context, state) {
+        final canSave = _isFormValid && !state.isSaving;
         return SizedBox(
           height: 46,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
+              gradient: canSave ? AppColors.buildPrimaryGradient() : null,
+              color: canSave ? null : Colors.grey[300],
               borderRadius: BorderRadius.circular(10),
             ),
             child: ElevatedButton(
-              onPressed: state.isSaving ? null : _save,
+              onPressed: canSave ? _save : null,
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.transparent,
                 shadowColor: Colors.transparent,
@@ -598,8 +616,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
     // The school is closed on observed holidays — confirm before
     // scheduling there.
-    final holidays =
-        context.read<EventsCubit>().state.holidaysOn(_date);
+    final holidays = context.read<EventsCubit>().state.holidaysOn(_date);
     if (holidays.isNotEmpty) {
       final proceed = await _confirmHolidayDate(holidays.first.name);
       if (proceed != true || !mounted) return;
@@ -617,7 +634,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
     }
 
     final cubit = context.read<EventsCubit>();
-    final base = _editing ??
+    final base =
+        _editing ??
         Event(
           code: '',
           type: _type,
@@ -635,11 +653,11 @@ class _EventFormScreenState extends State<EventFormScreen> {
       startTime: _allDay ? '' : _formatTime(_startTime),
       endTime: _allDay ? '' : _formatTime(_endTime),
       description: _descriptionController.text.trim(),
-      classrooms:
-          (_type == EventType.staff || _type == EventType.individual)
-              ? const []
-              : classrooms,
-      students: (_type == EventType.student ||
+      classrooms: (_type == EventType.staff || _type == EventType.individual)
+          ? const []
+          : classrooms,
+      students:
+          (_type == EventType.student ||
               _type == EventType.custom ||
               _type == EventType.individual)
           ? _students
@@ -651,8 +669,9 @@ class _EventFormScreenState extends State<EventFormScreen> {
       recurringEndDate: () => _recurring ? _recurringEndDate : null,
     );
 
-    final ok =
-        _isEditing ? await cubit.update(event) : await cubit.create(event);
+    final ok = _isEditing
+        ? await cubit.update(event)
+        : await cubit.create(event);
     if (!mounted) return;
     if (ok) {
       CoreUtils.showTopSnackBar(
@@ -758,8 +777,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
       filled: true,
       fillColor: Colors.white,
       isDense: true,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: Colors.grey.shade300),
@@ -809,8 +827,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   text,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(fontSize: 13, color: Colors.black87),
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
                 ),
               ),
             ],
@@ -887,13 +904,17 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final filtered = widget.options
-        .where((a) =>
-            _query.isEmpty ||
-            a.name.toLowerCase().contains(_query.toLowerCase()))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
-    final allSelected = filtered.isNotEmpty &&
+    final filtered =
+        widget.options
+            .where(
+              (a) =>
+                  _query.isEmpty ||
+                  a.name.toLowerCase().contains(_query.toLowerCase()),
+            )
+            .toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+    final allSelected =
+        filtered.isNotEmpty &&
         filtered.every((a) => _selection.contains(a.code));
 
     return SafeArea(
@@ -956,8 +977,7 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                   onChanged: (value) => setState(() => _query = value),
                   decoration: InputDecoration(
                     hintText: 'Search…',
-                    hintStyle:
-                        TextStyle(fontSize: 13, color: Colors.grey[500]),
+                    hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
                     prefixIcon: const Icon(Icons.search, size: 19),
                     isDense: true,
                     filled: true,
@@ -974,42 +994,40 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                 child: widget.isLoading && widget.options.isEmpty
                     ? const Center(child: CircularProgressIndicator())
                     : filtered.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No matches',
-                              style: TextStyle(color: Colors.grey[600]),
+                    ? Center(
+                        child: Text(
+                          'No matches',
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: filtered.length,
+                        itemBuilder: (context, index) {
+                          final attendee = filtered[index];
+                          final checked = _selection.contains(attendee.code);
+                          return CheckboxListTile(
+                            dense: true,
+                            value: checked,
+                            activeColor: AppColors.themeColor,
+                            controlAffinity: ListTileControlAffinity.trailing,
+                            title: Text(
+                              attendee.name.isNotEmpty
+                                  ? attendee.name
+                                  : attendee.code,
+                              style: const TextStyle(fontSize: 13.5),
                             ),
-                          )
-                        : ListView.builder(
-                            itemCount: filtered.length,
-                            itemBuilder: (context, index) {
-                              final attendee = filtered[index];
-                              final checked =
-                                  _selection.contains(attendee.code);
-                              return CheckboxListTile(
-                                dense: true,
-                                value: checked,
-                                activeColor: AppColors.themeColor,
-                                controlAffinity:
-                                    ListTileControlAffinity.trailing,
-                                title: Text(
-                                  attendee.name.isNotEmpty
-                                      ? attendee.name
-                                      : attendee.code,
-                                  style: const TextStyle(fontSize: 13.5),
-                                ),
-                                onChanged: (_) {
-                                  setState(() {
-                                    if (checked) {
-                                      _selection.remove(attendee.code);
-                                    } else {
-                                      _selection.add(attendee.code);
-                                    }
-                                  });
-                                },
-                              );
+                            onChanged: (_) {
+                              setState(() {
+                                if (checked) {
+                                  _selection.remove(attendee.code);
+                                } else {
+                                  _selection.add(attendee.code);
+                                }
+                              });
                             },
-                          ),
+                          );
+                        },
+                      ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
@@ -1034,13 +1052,10 @@ class _AttendeeSheetState extends State<_AttendeeSheet> {
                           for (final option in widget.options)
                             option.code: option,
                         };
-                        Navigator.pop(
-                          context,
-                          [
-                            for (final code in _selection)
-                              if (byCode[code] != null) byCode[code]!,
-                          ],
-                        );
+                        Navigator.pop(context, [
+                          for (final code in _selection)
+                            if (byCode[code] != null) byCode[code]!,
+                        ]);
                       },
                       child: Text(
                         'Done (${_selection.length})',

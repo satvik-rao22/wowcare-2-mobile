@@ -5,7 +5,7 @@ class DeleteHolidayUseCase {
 
   final EventRepository _repository;
 
-  Future<void> call(String code) {
+  Future<String> call(String code) {
     return _repository.deleteHoliday(code);
   }
 }
