@@ -1079,38 +1079,36 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        // Tasks — admin/staff only. This sits in the
-                        // non-parent branch so guardians never see the
-                        // module, its navigation, or any task data
-                        // (PRD §5.2).
-                        _CustomExpansionTile(
-                          title: 'Tasks',
-                          icon: MediaRes.tasksIcon,
-                          isCurrentRoute:
-                              _currentRoute == TasksScreen.routeName,
-                          onTap: () {
-                            Navigator.pop(context);
-                            if (_currentRoute != TasksScreen.routeName) {
-                              context.go(TasksScreen.routeName);
-                            }
-                          },
-                        ),
-                        // Assessments — admin/staff only. Sits in the
-                        // non-parent branch so guardians never see the module,
-                        // its navigation, or any assessment data (PRD §3.2).
-                        _CustomExpansionTile(
-                          title: 'Assessments',
-                          icon: MediaRes.documents_drawer_Icon,
-                          isCurrentRoute:
-                              _currentRoute == AssessmentsHomeScreen.routeName,
-                          onTap: () {
-                            Navigator.pop(context);
-                            if (_currentRoute !=
-                                AssessmentsHomeScreen.routeName) {
-                              context.go(AssessmentsHomeScreen.routeName);
-                            }
-                          },
-                        ),
+                        // Tasks — temporarily hidden from the drawer while
+                        // kept in the codebase; re-enable by uncommenting.
+                        // _CustomExpansionTile(
+                        //   title: 'Tasks',
+                        //   icon: MediaRes.tasksIcon,
+                        //   isCurrentRoute:
+                        //       _currentRoute == TasksScreen.routeName,
+                        //   onTap: () {
+                        //     Navigator.pop(context);
+                        //     if (_currentRoute != TasksScreen.routeName) {
+                        //       context.go(TasksScreen.routeName);
+                        //     }
+                        //   },
+                        // ),
+                        // Assessments — temporarily hidden from the drawer
+                        // while kept in the codebase; re-enable by
+                        // uncommenting.
+                        // _CustomExpansionTile(
+                        //   title: 'Assessments',
+                        //   icon: MediaRes.documents_drawer_Icon,
+                        //   isCurrentRoute:
+                        //       _currentRoute == AssessmentsHomeScreen.routeName,
+                        //   onTap: () {
+                        //     Navigator.pop(context);
+                        //     if (_currentRoute !=
+                        //         AssessmentsHomeScreen.routeName) {
+                        //       context.go(AssessmentsHomeScreen.routeName);
+                        //     }
+                        //   },
+                        // ),
                         if (showStaffMessagingDrawer ||
                             showParentMessagingDrawer ||
                             showParentNewsletterDrawer)
