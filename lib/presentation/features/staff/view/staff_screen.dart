@@ -1657,6 +1657,7 @@ class _StaffScreenState extends State<StaffScreen> {
                             code: staff.code,
                             name: staff.name,
                             isStaff: true,
+                            userCode: staff.userCode,
                             avatar:
                                 staff.profilePhotoAssetCode ??
                                 staff.profileImage ??
@@ -1693,6 +1694,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                 MaterialPageRoute(
                                   builder: (_) => StaffProfileScreen(
                                     staffCode: staff.code,
+                                    userCode: staff.userCode,
                                     name: staff.name,
                                     classroom: classroomName,
                                     designation: staff.designation,

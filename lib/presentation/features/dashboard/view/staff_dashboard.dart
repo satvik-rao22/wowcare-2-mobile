@@ -112,13 +112,15 @@ class _StaffDashboardState extends State<StaffDashboard> {
                 'Unable to load dashboard data. Please try again.',
             isError: true,
           );
-        } else if (state.isPartialError) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Some sections could not be loaded. Pull down to retry.',
-            isWarning: true,
-          );
-        } else if (state.isReady) {
+        }
+        // else if (state.isPartialError) {
+        //   CoreUtils.showTopSnackBar(
+        //     context: context,
+        //     message: 'Some sections could not be loaded. Pull down to retry.',
+        //     isWarning: true,
+        //   );
+        // }
+        else if (state.isReady) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Dashboard refreshed successfully.',

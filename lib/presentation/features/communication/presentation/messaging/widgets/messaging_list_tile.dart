@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -10,10 +11,16 @@ class MessagingListTile extends StatelessWidget {
   final Conversation conversation;
   final VoidCallback onTap;
 
+  /// The logged-in user's code — used to resolve the OTHER participant's name
+  /// for 1:1 (STAFF_DIRECT) chats instead of the frozen stored title. See
+  /// [ConversationDisplay].
+  final String? currentUserCode;
+
   const MessagingListTile({
     super.key,
     required this.conversation,
     required this.onTap,
+    this.currentUserCode,
   });
 
   /// The backend's conversation-list summary only carries a plain-text
@@ -40,6 +47,11 @@ class MessagingListTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // For 1:1 chats show the OTHER participant relative to the viewer, not the
+    // frozen stored title (which is the creator's counterpart name).
+    final displayName = ConversationDisplay.name(conversation, currentUserCode);
+    final displayAvatar =
+        ConversationDisplay.avatar(conversation, currentUserCode);
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A6C5CE7), // Subtle theme splash
@@ -79,13 +91,10 @@ class MessagingListTile extends StatelessWidget {
               fileUuid: '',
               // `avatarUrl` is either a resolved URL or a raw media-asset
               // code depending on which screen started the conversation.
-              imageUrl: conversation.avatarUrl.startsWith('http')
-                  ? conversation.avatarUrl
-                  : null,
-              mediaAssetCode: conversation.avatarUrl.startsWith('http')
-                  ? null
-                  : conversation.avatarUrl,
-              name: conversation.title,
+              imageUrl: displayAvatar.startsWith('http') ? displayAvatar : null,
+              mediaAssetCode:
+                  displayAvatar.startsWith('http') ? null : displayAvatar,
+              name: displayName,
               size: 52,
             ),
           ),
@@ -96,9 +105,7 @@ class MessagingListTile extends StatelessWidget {
               children: [
                 Expanded(
                   child: CustomTextWidget(
-                    text: conversation.title.isNotEmpty
-                        ? conversation.title
-                        : 'Unnamed Conversation',
+                    text: displayName,
                     fontWeight: FontWeight.w700,
                     fontSize: 17,
                     fontColor: AppColors.primaryColor,

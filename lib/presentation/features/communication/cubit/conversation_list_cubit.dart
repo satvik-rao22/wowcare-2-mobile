@@ -245,6 +245,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       final result = await _conversationRepo.createConversation(
         type: ConversationType.staffDirect,
         studentCode: '', // Not used for STAFF_DIRECT
+        participantCodes: [staffUserCode],
         title: staffName,
         avatarUrl: staffAvatarCode ?? '',
       );

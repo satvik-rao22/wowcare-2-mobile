@@ -4,6 +4,8 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/school_timezone_resolver.dart';
+import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../datasources/communication_remote_data_source.dart';
 import '../models/message_collection.dart';
@@ -59,6 +61,17 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           .map((m) => MessageCollection.fromEntity(m, threadId))
           .toList();
 
+      // Codes returned by the API — used to avoid double-counting below.
+      final apiCodes = collections.map((c) => c.code).toSet();
+
+      // Deleted messages that should be preserved across page-0 refreshes.
+      // The backend omits truly-deleted messages from the list endpoint, so a
+      // plain wipe-and-replace would make the "This message has been deleted."
+      // placeholder disappear every time the thread is reopened or refreshed.
+      // We hold on to any Isar-cached row that has a deletedAt timestamp and
+      // isn't already present in the new API window.
+      List<MessageCollection> preservedDeleted = const [];
+
       if (page == 0) {
         // Page 0 is the latest-window refresh: API response is the source
         // of truth for that window, so old rows for the thread are cleared
@@ -66,7 +79,14 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         // would wipe out the newer messages already cached locally.
         final oldCachedCollections = await cacheService
             .getByField<MessageCollection>('threadId', threadId);
+        preservedDeleted = oldCachedCollections
+            .where((c) => c.deletedAt != null && !apiCodes.contains(c.code))
+            .toList();
         for (final collection in oldCachedCollections) {
+          // Skip entries we are intentionally keeping.
+          if (preservedDeleted.any((d) => d.isarId == collection.isarId)) {
+            continue;
+          }
           await cacheService.delete<MessageCollection>(collection.isarId);
         }
       }
@@ -75,7 +95,11 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         await cacheService.putAll(collections);
       }
 
-      return Right(remoteMessages);
+      // Build the final message list: API messages + preserved deleted ones.
+      final deletedMessages = preservedDeleted
+          .map((c) => c.toEntity(currentUserId: currentUserId))
+          .toList();
+      return Right([...remoteMessages, ...deletedMessages]);
     } catch (e) {
       // Fallback to cache if network fails
       final cachedCollections = await cacheService
@@ -345,9 +369,16 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       messageCode,
     );
     MessageCollection? originalCollection;
+    DateTime? originalDeletedAt;
     if (results.isNotEmpty) {
       originalCollection = results.first;
-      await cacheService.delete<MessageCollection>(originalCollection.isarId);
+      originalDeletedAt = originalCollection.deletedAt;
+      // Soft-delete in Isar so the page-0 wipe preservation logic can find it
+      // on thread reopen, even if Firestore hasn't yet fired the realtime update.
+      originalCollection.deletedAt = SchoolZoneDateTime.utcNowInSchool(
+        SchoolTimezoneResolver.lastKnownTimeZone,
+      );
+      await cacheService.put(originalCollection);
     }
 
     try {
@@ -355,6 +386,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       return const Right(null);
     } catch (e) {
       if (originalCollection != null) {
+        originalCollection.deletedAt = originalDeletedAt;
         await cacheService.put(originalCollection);
       }
       return Left(ServerFailure(e.toString()));
@@ -515,11 +547,13 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   // straight from Firestore, and a Firestore emission never replaces or
   // deletes Isar history outright.
 
-  /// Tracks conversation types for which we've already triggered a
-  /// best-effort REST refresh after spotting an inbox entry with no local
-  /// Isar match (i.e. a brand new conversation) — avoids refresh storms when
-  /// several unknown codes arrive in the same snapshot/session.
-  final Set<String> _refreshedConversationTypes = {};
+  /// Tracks conversation CODES for which we've already triggered a best-effort
+  /// REST refresh after spotting an inbox entry with no local Isar match (i.e.
+  /// a brand new conversation). Keyed per-code (not per-type) so each new
+  /// conversation is pulled in exactly once — a second new conversation later
+  /// in the session still gets refreshed — while avoiding refresh storms when
+  /// the same unknown code re-arrives on every snapshot.
+  final Set<String> _refreshedConversationCodes = {};
 
   @override
   Stream<List<Conversation>> watchConversations({String? type}) async* {
@@ -536,7 +570,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           filterType: type,
         )
         .asyncMap((items) async {
-          var sawUnknownConversation = false;
+          final unknownCodes = <String>[];
           final merged = <Conversation>[];
 
           for (final item in items) {
@@ -546,8 +580,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                   item.conversationCode,
                 );
             if (cached.isEmpty) {
-              // Never seen via the API — Firestore must not fabricate it.
-              sawUnknownConversation = true;
+              // Not in the local Isar cache yet (e.g. a brand-new conversation
+              // created after the initial REST load). Don't fabricate it from
+              // the denormalized inbox doc (it lacks participants/avatar);
+              // instead trigger a one-time REST backfill (below) so the next
+              // snapshot renders it with full metadata.
+              unknownCodes.add(item.conversationCode);
               continue;
             }
             final existing = cached.first;
@@ -563,14 +601,17 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
             merged.add(existing.toEntity());
           }
 
-          if (sawUnknownConversation) {
-            final refreshKey = type ?? '__all__';
-            if (!_refreshedConversationTypes.contains(refreshKey)) {
-              _refreshedConversationTypes.add(refreshKey);
-              // Best-effort — pull the new conversation in via the API (source
-              // of truth) and persist it through the normal getConversations path.
-              unawaited(getConversations(type: type));
-            }
+          // Backfill any conversation codes we've never seen via REST — but
+          // only codes not already refreshed this session, so a repeating
+          // unknown code doesn't trigger a refresh storm on every snapshot.
+          final newUnknown =
+              unknownCodes.where((c) => !_refreshedConversationCodes.contains(c));
+          if (newUnknown.isNotEmpty) {
+            _refreshedConversationCodes.addAll(newUnknown);
+            // Best-effort — pull the new conversation(s) in via the API (source
+            // of truth) and persist through the normal getConversations path;
+            // the subsequent inbox snapshot then merges them with full metadata.
+            unawaited(getConversations(type: type));
           }
 
           return merged;

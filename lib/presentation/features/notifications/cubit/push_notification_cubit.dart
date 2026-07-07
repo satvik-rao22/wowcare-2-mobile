@@ -86,7 +86,9 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
         AppLogger.d('[FCM] title : ${message.title}');
         AppLogger.d('[FCM] body  : ${message.body}');
         AppLogger.d('[FCM] data  : ${message.data}');
-        AppLogger.d('[FCM] ═══════════════════════════════════════════════════');
+        AppLogger.d(
+          '[FCM] ═══════════════════════════════════════════════════',
+        );
         final destination = NotificationRouteResolver.resolve(message);
         // Encode the target org/school into the payload so a tap on this local
         // notification (now, or after a kill/relaunch) can switch school before
@@ -103,6 +105,21 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
           body: message.body ?? 'You have a new notification',
           payload: payload,
         );
+
+        // Signal any open conversation thread to refresh when a new message
+        // arrives for it. The seq counter ensures consecutive events on the
+        // same conversation still trigger Equatable-based BlocListeners.
+        final convCode = message.data['conversationCode'];
+        if (message.data['type'] == 'NEW_MESSAGE' &&
+            convCode != null &&
+            convCode.isNotEmpty) {
+          emit(
+            state.copyWith(
+              newMessageEventSeq: state.newMessageEventSeq + 1,
+              incomingConversationCode: convCode,
+            ),
+          );
+        }
       });
 
       // Tap while app was in the background.

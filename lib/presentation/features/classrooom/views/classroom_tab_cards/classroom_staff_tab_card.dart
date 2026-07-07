@@ -58,6 +58,7 @@ class _StaffAttendanceCacheEntry {
 class Staff {
   const Staff({
     required this.staffCode,
+    this.userCode = '',
     required this.name,
     required this.designation,
     required this.email,
@@ -69,6 +70,7 @@ class Staff {
   });
 
   final String staffCode;
+  final String userCode;
   final String name;
   final String designation;
   final String email;
@@ -235,6 +237,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     final profileStatus = statusUpper == 'UPCOMING' ? 'Upcoming' : 'A';
     return Staff(
       staffCode: item.staffCode,
+      userCode: item.userCode,
       name: item.fullName,
       designation: item.designation,
       email: '',
@@ -752,6 +755,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       MaterialPageRoute(
         builder: (_) => StaffProfileScreen(
           staffCode: staff.staffCode.trim(),
+          userCode: staff.userCode,
           name: staff.name,
           classroom: widget.selectedRoom?.name ?? '',
           designation: staff.designation,
@@ -1081,6 +1085,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                           code: staff.staffCode,
                           name: staff.name,
                           isStaff: true,
+                          userCode: staff.userCode,
                           avatar: staff.photoUuid,
                           designation: staff.designation,
                         ),

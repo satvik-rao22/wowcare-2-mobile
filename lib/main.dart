@@ -371,6 +371,29 @@ Future<void> main() async {
   runApp(const MyApp());
 }
 
+/// Initialises the sizer [Device] globals (width, height, screenType, etc.)
+/// during the BUILD phase — before screens call `.h` / `.w` / `.sp` —
+/// by reading from the ambient [MediaQuery] instead of a [LayoutBuilder].
+/// Rebuilds automatically when [MediaQuery] changes (e.g. device rotation),
+/// keeping [Device] in sync without nesting [MaterialApp.router] inside a
+/// [LayoutBuilder] buildScope.
+class _SizerInit extends StatelessWidget {
+  const _SizerInit({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    Device.setScreenSize(
+      context,
+      BoxConstraints(maxWidth: mq.size.width, maxHeight: mq.size.height),
+      mq.orientation,
+      599,
+    );
+    return child;
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -415,38 +438,64 @@ class MyApp extends StatelessWidget {
             data: MediaQuery.of(
               context,
             ).copyWith(textScaler: TextScaler.linear(customScaler)),
-            child: Sizer(
-              builder: (context, orientation, screenType) {
-                return MultiBlocProvider(
-                  providers: [
-                    BlocProvider<AuthCubit>(
-                      create: (_) => serviceLocator<AuthCubit>()..initialize(),
-                    ),
-                    BlocProvider<PushNotificationCubit>(
-                      create: (_) => serviceLocator<PushNotificationCubit>(),
-                    ),
-                    BlocProvider<GeofenceCubit>(
-                      create: (_) => serviceLocator<GeofenceCubit>(),
-                    ),
-                    // Kiosk cubits provided at app root so all routes have access
-                    // This fixes ProviderNotFoundException in GoRouter nested routes
-                    BlocProvider<KioskDashboardCubit>(
-                      create: (_) => serviceLocator<KioskDashboardCubit>(),
-                    ),
-                    BlocProvider<KioskAttendanceCubitV2>(
-                      create: (_) => serviceLocator<KioskAttendanceCubitV2>(),
-                    ),
-                  ],
-                  child: NotificationNavigator(
-                    child: MaterialApp.router(
-                      debugShowCheckedModeBanner: false,
-                      title: 'WowCare',
-                      theme: currentTheme,
-                      routerConfig: appRouter,
+            // _SizerInit initialises Device (sizer package globals) during the
+            // BUILD phase so .h / .w / .sp extensions work on the first screen
+            // build. Replacing the outer Sizer(LayoutBuilder) wrapper here
+            // prevents MaterialApp.router from being inflated inside a nested
+            // LayoutBuilder buildScope, which caused a GlobalKey conflict:
+            // go_router's navigator elements were created twice (once in each
+            // nested buildScope), triggering the "GlobalKey used multiple times"
+            // assertion at go_router/src/builder.dart:457.
+            child: _SizerInit(
+              child: MultiBlocProvider(
+                providers: [
+                  BlocProvider<AuthCubit>(
+                    create: (_) => serviceLocator<AuthCubit>()..initialize(),
+                  ),
+                  BlocProvider<PushNotificationCubit>(
+                    create: (_) => serviceLocator<PushNotificationCubit>(),
+                  ),
+                  BlocProvider<GeofenceCubit>(
+                    create: (_) => serviceLocator<GeofenceCubit>(),
+                  ),
+                  // Kiosk cubits provided at app root so all routes have access
+                  // This fixes ProviderNotFoundException in GoRouter nested routes
+                  BlocProvider<KioskDashboardCubit>(
+                    create: (_) => serviceLocator<KioskDashboardCubit>(),
+                  ),
+                  BlocProvider<KioskAttendanceCubitV2>(
+                    create: (_) => serviceLocator<KioskAttendanceCubitV2>(),
+                  ),
+                ],
+                child: NotificationNavigator(
+                  child: MaterialApp.router(
+                    debugShowCheckedModeBanner: false,
+                    title: 'WowCare',
+                    theme: currentTheme,
+                    routerConfig: appRouter,
+                    // A single OrientationBuilder here keeps Device updated on
+                    // rotation. child (Router) has a stable GlobalObjectKey so
+                    // Flutter always updates the existing element — no navigator
+                    // key conflict — unlike the old Sizer that nested Router
+                    // inside two stacked LayoutBuilder buildScopes.
+                    builder: (context, child) => OrientationBuilder(
+                      builder: (context, orientation) {
+                        final mq = MediaQuery.of(context);
+                        Device.setScreenSize(
+                          context,
+                          BoxConstraints(
+                            maxWidth: mq.size.width,
+                            maxHeight: mq.size.height,
+                          ),
+                          orientation,
+                          599,
+                        );
+                        return child ?? const SizedBox.shrink();
+                      },
                     ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           );
         },

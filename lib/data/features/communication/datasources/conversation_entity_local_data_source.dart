@@ -37,6 +37,7 @@ abstract class ConversationEntityLocalDataSource {
   Future<void> clearConversations({
     required String organizationCode,
     required String schoolCode,
+    ConversationType? type,
   });
 
   // Unread
@@ -167,13 +168,15 @@ class ConversationEntityLocalDataSourceImpl
   Future<void> clearConversations({
     required String organizationCode,
     required String schoolCode,
+    ConversationType? type,
   }) async {
     final all =
         await cacheService.getAll<ConversationEntityCollection>();
     final toDelete = all.where(
       (c) =>
           c.organizationCode == organizationCode &&
-          c.schoolCode == schoolCode,
+          c.schoolCode == schoolCode &&
+          (type == null || c.type == type.toApiString()),
     );
     for (final c in toDelete) {
       await cacheService.delete<ConversationEntityCollection>(c.isarId);

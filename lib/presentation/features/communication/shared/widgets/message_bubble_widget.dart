@@ -84,12 +84,21 @@ class MessageBubble extends StatefulWidget {
 }
 
 class _MessageBubbleState extends State<MessageBubble>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // ── Swipe-to-reply ────────────────────────────────────────────────────────
   double _dragOffset = 0;
   double _snapStartOffset = 0;
   bool _replyTriggered = false;
   late final AnimationController _snapController;
+
+  // One-shot scale+fade entrance played when an emoji-only message first mounts.
+  late final AnimationController _emojiEntranceController;
+  // Curved version of the entrance animation — created once, not per-frame.
+  late final CurvedAnimation _emojiScaleCurve;
+
+  // Tracks message IDs that have already played their entrance animation so
+  // the animation does not replay when the conversation is reopened.
+  static final Set<String> _animatedMessageIds = {};
 
   static const double _swipeThreshold = 65.0;
 
@@ -107,6 +116,33 @@ class _MessageBubbleState extends State<MessageBubble>
         });
       }
     });
+
+    _emojiEntranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _emojiScaleCurve = CurvedAnimation(
+      parent: _emojiEntranceController,
+      curve: Curves.elasticOut,
+    );
+    // Only animate for emoji-only messages. For all others set value = 1 so
+    // the AnimatedBuilder renders at full scale immediately with zero overhead.
+    final msg = widget.message;
+    final isEmojiMsg =
+        !widget.isDeleted &&
+        !msg.hasAttachments &&
+        msg.quotedMessageId == null &&
+        _analyzeEmojiText(msg.text).isOnly;
+    final messageId = msg.code.isNotEmpty ? msg.code : widget.message.id;
+    if (isEmojiMsg && !_animatedMessageIds.contains(messageId)) {
+      _animatedMessageIds.add(messageId);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _emojiEntranceController.forward();
+      });
+    } else {
+      _emojiEntranceController.value = 1.0;
+    }
+
     _syncReactionsToController();
   }
 
@@ -123,6 +159,8 @@ class _MessageBubbleState extends State<MessageBubble>
   @override
   void dispose() {
     _snapController.dispose();
+    _emojiScaleCurve.dispose();
+    _emojiEntranceController.dispose();
     super.dispose();
   }
 
@@ -175,12 +213,15 @@ class _MessageBubbleState extends State<MessageBubble>
       (widget.currentUserCode != null &&
           widget.currentUserCode == widget.message.senderUserCode);
 
-  /// Which side this bubble renders on. Always identity-based — a message
-  /// is right-aligned if and only if the current viewer sent it. Role
-  /// ([MessageBubble.senderIsOrgSide]) only ever decides bubble *color* for
-  /// messages that aren't mine (see [_buildBubble]), never which side they
-  /// render on.
-  bool get _alignRight => _isMe;
+  /// Which side this bubble renders on. Role ([MessageBubble.senderIsOrgSide])
+  /// dictates alignment for Room Chat (org side on right, parent on left).
+  /// Falls back to identity (_isMe) for Staff Direct.
+  bool get _alignRight {
+    if (widget.senderIsOrgSide != null) {
+      return widget.senderIsOrgSide!;
+    }
+    return _isMe;
+  }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info regardless of who
@@ -192,7 +233,7 @@ class _MessageBubbleState extends State<MessageBubble>
         menuItems: [],
         enableLongPress: true,
         enableDoubleTap: true,
-        showAddReactionButton: true,
+        showAddReactionButton: false,
         showContextMenu: true,
         enableHapticFeedback: true,
         reactionSize: 24,
@@ -210,7 +251,7 @@ class _MessageBubbleState extends State<MessageBubble>
         ],
         enableLongPress: true,
         enableDoubleTap: true,
-        showAddReactionButton: true,
+        showAddReactionButton: false,
         showContextMenu: true,
         enableHapticFeedback: true,
         reactionSize: 24,
@@ -233,7 +274,7 @@ class _MessageBubbleState extends State<MessageBubble>
       ],
       enableLongPress: true,
       enableDoubleTap: true,
-      showAddReactionButton: true,
+      showAddReactionButton: false,
       showContextMenu: true,
       enableHapticFeedback: true,
       reactionSize: 24,
@@ -263,7 +304,7 @@ class _MessageBubbleState extends State<MessageBubble>
   void _handleDoubleTapReaction() {
     if (widget.isDeleted) return;
 
-    final emoji = '❤️';
+    const emoji = '❤️';
     final userCode = widget.currentUserCode ?? 'me';
     final myReaction = widget.message.reactions[userCode];
 
@@ -271,9 +312,46 @@ class _MessageBubbleState extends State<MessageBubble>
       widget.onRemoveReaction?.call(emoji);
     } else {
       widget.onReactionAdded?.call(emoji);
+      _showHeartOverlay();
     }
 
     HapticFeedback.mediumImpact();
+  }
+
+  // ── Heart floating-overlay animation ─────────────────────────────────────
+
+  void _showHeartOverlay() {
+    if (!mounted) return;
+    final renderBox = context.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+
+    final offset = renderBox.localToGlobal(Offset.zero);
+    final size = renderBox.size;
+    final center = Offset(
+      offset.dx + size.width / 2,
+      offset.dy + size.height / 2,
+    );
+
+    final ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 650),
+    );
+
+    OverlayEntry? entry;
+    ctrl.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        entry?.remove();
+        entry = null;
+        ctrl.dispose();
+      }
+    });
+
+    entry = OverlayEntry(
+      builder: (_) => _HeartFloatOverlay(center: center, controller: ctrl),
+    );
+
+    Overlay.of(context, rootOverlay: true).insert(entry!);
+    ctrl.forward();
   }
 
   void _showPrivateMessageToast() {
@@ -368,6 +446,92 @@ class _MessageBubbleState extends State<MessageBubble>
     );
   }
 
+  // ── Emoji analysis ────────────────────────────────────────────────────────
+
+  /// Returns `(isOnly: true, count: N)` when [text] contains 1–3 emoji and
+  /// nothing else (whitespace, ZWJ, variation-selectors, and skin-tone
+  /// modifiers are ignored). Returns `(isOnly: false, count: 0)` otherwise.
+  ///
+  /// Uses code-point ranges rather than the `characters` package so no extra
+  /// dependency is needed. The check deliberately covers the most common emoji
+  /// blocks; obscure symbols that look like emoji but live outside those blocks
+  /// fall back to the normal bubble renderer, which is acceptable.
+  static ({bool isOnly, int count}) _analyzeEmojiText(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return (isOnly: false, count: 0);
+
+    final runes = trimmed.runes.toList();
+    int baseCount = 0;
+
+    for (final r in runes) {
+      // ── Skip non-visible modifiers ─────────────────────────────────────
+      if (r == 0x20 || r == 0x09 || r == 0x0A || r == 0x0D) continue; // WS
+      if (r == 0x200D) continue; // ZWJ (Zero Width Joiner)
+      if (r == 0xFE0E || r == 0xFE0F) continue; // Variation selectors 15 & 16
+      if (r >= 0x1F3FB && r <= 0x1F3FF) continue; // Fitzpatrick skin-tone
+      if (r == 0x20E3) continue; // Combining Enclosing Keycap
+      if (r >= 0xE0020 && r <= 0xE007F) continue; // Tags (subdivision flags)
+
+      if (_isBaseEmojiCodePoint(r)) {
+        baseCount++;
+      } else {
+        return (isOnly: false, count: 0);
+      }
+    }
+
+    final valid = baseCount > 0 && baseCount <= 3;
+    return (isOnly: valid, count: valid ? baseCount : 0);
+  }
+
+  static bool _isBaseEmojiCodePoint(int r) {
+    // Primary emoji range: emoticons, misc symbols & pictographs (😀 … 🧿)
+    if (r >= 0x1F300 && r <= 0x1F9FF) return true;
+    // Extended symbols & pictographs (🤀 … 🫿)
+    if (r >= 0x1FA00 && r <= 0x1FAFF) return true;
+    // Regional indicators – used as two-letter flag pairs
+    if (r >= 0x1F1E0 && r <= 0x1F1FF) return true;
+    // Mahjong tiles / playing cards
+    if (r >= 0x1F000 && r <= 0x1F0FF) return true;
+    // Enclosed alphanumeric supplement (Ⓜ️ etc.)
+    if (r >= 0x1F100 && r <= 0x1F2FF) return true;
+    // Misc symbols & dingbats (☀ … ✿) — the block containing ❤️, ☎, ✈ etc.
+    if (r >= 0x2600 && r <= 0x27BF) return true;
+    // Common 2-byte BMP emoji that appear outside the above blocks
+    if (r >= 0x231A && r <= 0x231B) return true; // ⌚⌛
+    if (r >= 0x23E9 && r <= 0x23F3) return true; // ⏩–⏳
+    if (r >= 0x23F8 && r <= 0x23FA) return true; // ⏸⏹⏺
+    if (r == 0x24C2) return true; // Ⓜ
+    if (r >= 0x25AA && r <= 0x25AB) return true; // ▪▫
+    if (r == 0x25B6 || r == 0x25C0) return true; // ▶◀
+    if (r >= 0x25FB && r <= 0x25FE) return true; // ◻◼◽◾
+    if (r >= 0x2614 && r <= 0x2615) return true; // ☔☕
+    if (r >= 0x2648 && r <= 0x2653) return true; // ♈–♓
+    if (r == 0x267F || r == 0x2693) return true; // ♿⚓
+    if (r == 0x26A1) return true; // ⚡
+    if (r >= 0x26AA && r <= 0x26AB) return true; // ⚪⚫
+    if (r == 0x26BD || r == 0x26BE) return true; // ⚽⚾
+    if (r >= 0x26C4 && r <= 0x26C5) return true; // ⛄⛅
+    if (r == 0x2702) return true; // ✂
+    if (r == 0x2705) return true; // ✅
+    if (r >= 0x2708 && r <= 0x270D) return true; // ✈–✍
+    if (r == 0x270F || r == 0x2712) return true; // ✏✒
+    if (r == 0x2714 || r == 0x2716) return true; // ✔✖
+    if (r == 0x2728) return true; // ✨
+    if (r == 0x274C || r == 0x274E) return true; // ❌❎
+    if (r >= 0x2753 && r <= 0x2757) return true; // ❓❔❕❗
+    if (r >= 0x2763 && r <= 0x2764) return true; // ❣❤
+    if (r >= 0x2795 && r <= 0x2797) return true; // ➕➖➗
+    if (r == 0x27A1) return true; // ➡
+    if (r == 0x27B0 || r == 0x27BF) return true; // ➰➿
+    if (r >= 0x2934 && r <= 0x2935) return true; // ⤴⤵
+    if (r >= 0x2B05 && r <= 0x2B07) return true; // ⬅⬆⬇
+    if (r >= 0x2B1B && r <= 0x2B1C) return true; // ⬛⬜
+    if (r == 0x2B50 || r == 0x2B55) return true; // ⭐⭕
+    if (r == 0x3030 || r == 0x303D) return true; // 〰〽
+    if (r == 0x3297 || r == 0x3299) return true; // ㊗㊙
+    return false;
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -447,37 +611,34 @@ class _MessageBubbleState extends State<MessageBubble>
                         ? CrossAxisAlignment.end
                         : CrossAxisAlignment.start,
                     children: [
-                      // Avatar row (above bubble) — hidden when grouped
-                      if (widget.isParentMessaging && !widget.isGrouped) ...[
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          mainAxisAlignment: alignRight
-                              ? MainAxisAlignment.end
-                              : MainAxisAlignment.start,
-                          children: [
-                            DocumentImageWidget(
-                              fileUuid: widget.message.senderName ?? '',
-                              name: widget.message.senderName ?? '',
-                              size: 20,
-                              fontSize: 10,
-                            ),
-                            const SizedBox(width: 8.0),
-                          ],
-                        ),
-                        const SizedBox(height: 8.0),
-                      ],
-
-                      // Sender Name header — hidden when grouped
+                      // Sender header row (avatar + name) — hidden when grouped.
+                      // Parent Messaging shows avatar + name side-by-side;
+                      // Staff Direct shows name only (no avatar on the message).
                       if (!widget.isGrouped)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
-                          child: Text(
-                            senderLabel,
-                            style: const TextStyle(
-                              color: Color.fromRGBO(87, 51, 83, 0.7),
-                              fontWeight: FontWeight.w500,
-                              fontSize: 14,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (widget.isParentMessaging) ...[
+                                DocumentImageWidget(
+                                  fileUuid: widget.message.senderName ?? '',
+                                  name: widget.message.senderName ?? '',
+                                  size: 20,
+                                  fontSize: 10,
+                                ),
+                                const SizedBox(width: 6.0),
+                              ],
+                              Text(
+                                senderLabel,
+                                style: const TextStyle(
+                                  color: Color.fromRGBO(87, 51, 83, 0.7),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
 
@@ -502,6 +663,13 @@ class _MessageBubbleState extends State<MessageBubble>
                                 ? Alignment.centerRight
                                 : Alignment.centerLeft,
                             onReactionAdded: (emoji) {
+                              // ➕ focuses the chat input (Task 4) rather than
+                              // adding a literal ➕ emoji reaction or opening
+                              // a third-party emoji picker.
+                              if (emoji == '➕') {
+                                widget.onReactionTap?.call();
+                                return;
+                              }
                               final userCode = widget.currentUserCode ?? 'me';
                               final myReaction =
                                   widget.message.reactions[userCode];
@@ -520,7 +688,11 @@ class _MessageBubbleState extends State<MessageBubble>
                         ),
                       ),
 
-                      // Stacked reactions badge below the bubble
+                      // Telegram-style animated reaction badge — overlaps the
+                      // bubble's bottom edge by 6 px via Transform.translate.
+                      // _AnimatedReactionBadge preserves its own state across
+                      // AnimatedBuilder rebuilds so per-emoji spring animations
+                      // fire only for newly added/removed reactions.
                       AnimatedBuilder(
                         animation: widget.reactionsController,
                         builder: (context, _) {
@@ -529,25 +701,11 @@ class _MessageBubbleState extends State<MessageBubble>
                               : widget.message.id;
                           final counts = widget.reactionsController
                               .getReactionCounts(messageId);
-                          if (counts.isEmpty) return const SizedBox.shrink();
-
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 6),
-                            child: GestureDetector(
+                          return Transform.translate(
+                            offset: const Offset(0, -6),
+                            child: _AnimatedReactionBadge(
+                              counts: counts,
                               onTap: widget.onReactionTap,
-                              child: SingleChildScrollView(
-                                scrollDirection: Axis.horizontal,
-                                child: StackedReactions(
-                                  messageId: messageId,
-                                  controller: widget.reactionsController,
-                                  size: 24,
-                                  stackedValue: 3,
-                                  direction: alignRight
-                                      ? TextDirection.rtl
-                                      : TextDirection.ltr,
-                                  reactionBackgroundColor: Colors.white,
-                                ),
-                              ),
                             ),
                           );
                         },
@@ -579,14 +737,23 @@ class _MessageBubbleState extends State<MessageBubble>
     // the viewer's own messages, flat light background (dark text) for the
     // other party's.
     final useLightText = orgSide == null ? isMe : !(orgSide && !isMe);
-    final hasOnlyEmoji =
-        message.text.trim().length <= 3 &&
-        message.text.trim().runes.every(
-          (r) =>
-              (r >= 0x1F300 && r <= 0x1F9FF) || // Emojis
-              (r >= 0x2600 && r <= 0x27BF) || // Emoji variations
-              (r == 0x20),
-        ); // Space
+
+    // Emoji-only analysis — skip for deleted / attached / quoted messages so
+    // those always render through the normal bubble with full metadata.
+    final emojiAnalysis =
+        !isDeleted && !message.hasAttachments && message.quotedMessageId == null
+        ? _analyzeEmojiText(message.text)
+        : (isOnly: false, count: 0);
+    final hasOnlyEmoji = emojiAnalysis.isOnly;
+    final emojiCount = emojiAnalysis.count;
+
+    // ── WhatsApp-style large emoji rendering ───────────────────────────────
+    // Emoji-only messages (1–3 emoji, no attachments, no quoted reply, not
+    // deleted) bypass the normal bubble container entirely: they render at a
+    // larger font size on a transparent background, exactly like WhatsApp.
+    if (hasOnlyEmoji && emojiCount > 0) {
+      return _buildEmojiOnlyBubble(alignRight, isMe, emojiCount);
+    }
 
     Color? bubbleColor;
     LinearGradient? bubbleGradient;
@@ -604,178 +771,308 @@ class _MessageBubbleState extends State<MessageBubble>
 
     return Material(
       color: Colors.transparent,
-      child: Container(
-        margin: EdgeInsets.only(
-          left: alignRight ? 60 : 0,
-          right: alignRight ? 0 : 60,
-        ),
-        decoration: BoxDecoration(
-          color: bubbleColor,
-          gradient: bubbleGradient,
-          borderRadius: _buildBubbleBorderRadius(alignRight),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 4,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Padding(
-          padding: hasOnlyEmoji
-              ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
-              : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: isDeleted
-              ? Text(
-                  'This message has been deleted.',
-                  style: TextStyle(
-                    color: useLightText
-                        ? Colors.white.withValues(alpha: 0.75)
-                        : const Color.fromRGBO(87, 51, 83, 0.6),
-                    fontSize: 14,
-                    fontStyle: FontStyle.italic,
-                  ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Quoted preview
-                    if (message.quotedMessageId != null &&
-                        widget.quotedMessage != null)
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: _buildQuotePreview(useLightText),
-                      ),
+      child: IntrinsicWidth(
+        child: Container(
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            gradient: bubbleGradient,
+            borderRadius: _buildBubbleBorderRadius(alignRight),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.08),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: hasOnlyEmoji
+                ? const EdgeInsets.symmetric(horizontal: 8, vertical: 4)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: isDeleted
+                ? Text(
+                    'This message has been deleted.',
+                    style: TextStyle(
+                      color: useLightText
+                          ? Colors.white.withValues(alpha: 0.75)
+                          : const Color.fromRGBO(87, 51, 83, 0.6),
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Quoted preview
+                      if (message.quotedMessageId != null &&
+                          widget.quotedMessage != null)
+                        Flexible(
+                          fit: FlexFit.loose,
+                          child: _buildQuotePreview(useLightText),
+                        ),
 
-                    // Attachments
-                    if (message.hasAttachments) ...[
-                      _buildAttachmentsPreview(),
+                      // Attachments
+                      if (message.hasAttachments) ...[
+                        _buildAttachmentsPreview(),
+                        if (message.text.trim().isNotEmpty)
+                          const SizedBox(height: 8),
+                      ],
+
+                      // Message text — plain text uses the native Text widget so
+                      // the bubble shrinks tightly around its content (WhatsApp-
+                      // style). HTML-formatted or link-containing text falls back
+                      // to the full HTML renderer which fills available width —
+                      // acceptable because such messages tend to be longer.
                       if (message.text.trim().isNotEmpty)
-                        const SizedBox(height: 8),
-                    ],
+                        _buildMessageText(message.text, useLightText),
 
-                    // Message text — enriched HTML with auto-linked URLs/emails.
-                    if (message.text.trim().isNotEmpty)
-                      Flexible(
-                        fit: FlexFit.loose,
-                        child: _StableHtml(
-                          data: MessageContentProcessor.enrich(message.text),
-                          linkColor: useLightText
-                              ? const Color(0xFF64B5F6)
-                              : Colors.blue,
-                          onLinkTap: MessageContentProcessor.launchLink,
-                          style: {
-                            'body': html.Style(
-                              margin: html.Margins.zero,
-                              padding: html.HtmlPaddings.zero,
-                              fontSize: html.FontSize(15.5),
-                              fontFamily: 'Manrope',
-                              color: useLightText
-                                  ? Colors.white
-                                  : AppColors.primaryColor,
-                            ),
-                            'p': html.Style(
-                              margin: html.Margins.zero,
-                              padding: html.HtmlPaddings.zero,
-                            ),
+                      // Link preview card — shown for the first URL found in the
+                      // message text. Only rendered for non-deleted messages that
+                      // actually contain an http/https URL.
+                      if (!isDeleted) ...[
+                        Builder(
+                          builder: (_) {
+                            final preview =
+                                MessageContentProcessor.detectFirstPreview(
+                                  message.text,
+                                );
+                            if (preview == null) return const SizedBox.shrink();
+                            return Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: PreviewCard(
+                                preview: preview,
+                                isMe: useLightText,
+                              ),
+                            );
                           },
                         ),
-                      ),
+                      ],
 
-                    // Link preview card — shown for the first URL found in the
-                    // message text. Only rendered for non-deleted messages that
-                    // actually contain an http/https URL.
-                    if (!isDeleted) ...[
-                      Builder(
-                        builder: (_) {
-                          final preview =
-                              MessageContentProcessor.detectFirstPreview(
-                                message.text,
-                              );
-                          if (preview == null) return const SizedBox.shrink();
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
-                            child: PreviewCard(
-                              preview: preview,
-                              isMe: useLightText,
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-
-                    // Edited status check
-                    if (message.editedAt != null) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        'Edited',
-                        style: TextStyle(
-                          color: useLightText
-                              ? Colors.white.withValues(alpha: 0.7)
-                              : Colors.grey,
-                          fontSize: 12,
-                          decoration: TextDecoration.none,
-                        ),
-                      ),
-                    ],
-
-                    // Time and delivery status at bottom of bubble
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      mainAxisAlignment: alignRight
-                          ? MainAxisAlignment.end
-                          : MainAxisAlignment.start,
-                      children: [
+                      // Edited status check
+                      if (message.editedAt != null) ...[
+                        const SizedBox(height: 6),
                         Text(
-                          _formatTime(widget.message.time),
+                          'Edited',
                           style: TextStyle(
                             color: useLightText
                                 ? Colors.white.withValues(alpha: 0.7)
-                                : Colors.grey[600],
-                            fontSize: 12.0,
-                            fontWeight: FontWeight.w400,
+                                : Colors.grey,
+                            fontSize: 12,
+                            decoration: TextDecoration.none,
                           ),
                         ),
-                        if (message.isPrivate &&
-                            widget.senderIsOrgSide != null) ...[
-                          const SizedBox(width: 4),
-                          GestureDetector(
-                            onTap: _showPrivateMessageToast,
-                            child: Icon(
-                              Icons.lock_outline_rounded,
-                              size: 12,
+                      ],
+
+                      // Time and delivery status at bottom of bubble
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: alignRight
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                        children: [
+                          Text(
+                            _formatTime(widget.message.time),
+                            style: TextStyle(
                               color: useLightText
-                                  ? Colors.white.withValues(alpha: 0.85)
-                                  : const Color(0xFFD63031),
+                                  ? Colors.white.withValues(alpha: 0.7)
+                                  : Colors.grey[600],
+                              fontSize: 12.0,
+                              fontWeight: FontWeight.w400,
                             ),
                           ),
+                          if (message.isPrivate &&
+                              widget.senderIsOrgSide != null) ...[
+                            const SizedBox(width: 4),
+                            GestureDetector(
+                              onTap: _showPrivateMessageToast,
+                              child: Icon(
+                                Icons.lock_outline_rounded,
+                                size: 12,
+                                color: useLightText
+                                    ? Colors.white.withValues(alpha: 0.85)
+                                    : const Color(0xFFD63031),
+                              ),
+                            ),
+                          ],
+                          // Read/delivery ticks are identity-only — only the
+                          // literal sender (isMe) sees their own message's
+                          // delivery status, regardless of which side it
+                          // renders on.
+                          if (isMe) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              widget.message.isRead
+                                  ? Icons.done_all
+                                  : widget.message.isDelivered
+                                  ? Icons.done_all
+                                  : Icons.done,
+                              size: 14,
+                              color: widget.message.isRead
+                                  ? AppColors.primaryColor
+                                  : Colors.white.withValues(alpha: 0.7),
+                            ),
+                          ],
                         ],
-                        // Read/delivery ticks are identity-only — only the
-                        // literal sender (isMe) sees their own message's
-                        // delivery status, regardless of which side it
-                        // renders on.
-                        if (isMe) ...[
-                          const SizedBox(width: 4),
-                          Icon(
-                            widget.message.isRead
-                                ? Icons.done_all
-                                : widget.message.isDelivered
-                                ? Icons.done_all
-                                : Icons.done,
-                            size: 14,
-                            color: widget.message.isRead
-                                ? AppColors.primaryColor
-                                : Colors.white.withValues(alpha: 0.7),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
+    );
+  }
+
+  // ── WhatsApp-style emoji-only bubble ─────────────────────────────────────
+
+  /// Renders 1–3 emoji at WhatsApp-scale on a transparent background (no
+  /// bubble chrome). Font size: 52 px (1 emoji) → 42 px (2) → 34 px (3).
+  /// Wrapped in the one-shot [_emojiEntranceController] spring animation.
+  Widget _buildEmojiOnlyBubble(bool alignRight, bool isMe, int emojiCount) {
+    final message = widget.message;
+    final fontSize = emojiCount == 1
+        ? 52.0
+        : emojiCount == 2
+        ? 42.0
+        : 34.0;
+
+    final emojiWidget = AnimatedBuilder(
+      animation: _emojiEntranceController,
+      builder: (context, child) {
+        // ElasticOut gives a soft spring overshoot — identical to WhatsApp's
+        // single-emoji bounce. _emojiScaleCurve is created once in initState
+        // so no allocation happens per frame. The controller's raw value
+        // drives opacity to fade in alongside the scale.
+        final scale = (0.25 + 0.75 * _emojiScaleCurve.value).clamp(0.0, 1.3);
+        final opacity = _emojiEntranceController.value.clamp(0.0, 1.0);
+        return Opacity(
+          opacity: opacity,
+          child: Transform.scale(scale: scale, child: child),
+        );
+      },
+      child: Text(
+        message.text.trim(),
+        style: TextStyle(
+          fontSize: fontSize,
+          height: 1.15,
+          // Explicit colour + decoration prevent DefaultTextStyle leakage
+          // from dialog or Overlay contexts (same issue _StableHtml solves).
+          color: Colors.black,
+          decoration: TextDecoration.none,
+        ),
+        textAlign: alignRight ? TextAlign.right : TextAlign.left,
+      ),
+    );
+
+    return Material(
+      color: Colors.transparent,
+      child: Column(
+        crossAxisAlignment: alignRight
+            ? CrossAxisAlignment.end
+            : CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          emojiWidget,
+          const SizedBox(height: 2),
+          // Timestamp + ticks row — same semantics as the normal bubble.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _formatTime(widget.message.time),
+                style: TextStyle(
+                  color: Colors.grey[600],
+                  fontSize: 11.0,
+                  fontWeight: FontWeight.w400,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+              if (message.isPrivate && widget.senderIsOrgSide != null) ...[
+                const SizedBox(width: 4),
+                GestureDetector(
+                  onTap: _showPrivateMessageToast,
+                  child: const Icon(
+                    Icons.lock_outline_rounded,
+                    size: 11,
+                    color: Color(0xFFD63031),
+                  ),
+                ),
+              ],
+              if (isMe) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  widget.message.isRead
+                      ? Icons.done_all
+                      : widget.message.isDelivered
+                      ? Icons.done_all
+                      : Icons.done,
+                  size: 13,
+                  color: widget.message.isRead
+                      ? AppColors.primaryColor
+                      : Colors.grey.withValues(alpha: 0.6),
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Adaptive message-text renderer ───────────────────────────────────────
+
+  Widget _buildMessageText(String rawText, bool useLightText) {
+    final plain = rawText.trim();
+    final textColor = useLightText ? Colors.white : AppColors.primaryColor;
+
+    final isHtml = plain.contains('<');
+
+    // Only use the HTML renderer for pre-formatted HTML or messages with actual
+    // clickable URL links. Phone numbers and email addresses are intentionally
+    // excluded: the phone-number regex (`_phonePattern`) matches dates, room
+    // numbers, and other digit sequences, causing messages like "See you at 3"
+    // to route through html.Html — a block element that always fills available
+    // width regardless of content length, making every short bubble wide.
+    // Phone/email remain tappable via PreviewCard below the bubble.
+    final hasUrl =
+        !isHtml &&
+        MessageContentProcessor.detectFirstPreview(plain)?.kind ==
+            PreviewKind.url;
+
+    if (!isHtml && !hasUrl) {
+      // Native Text: measures only its glyphs so the bubble Container shrinks
+      // to exactly the text width (plus padding). Short messages get small
+      // bubbles; long messages wrap and fill up to the 72% maxWidth constraint.
+      return Text(
+        plain,
+        style: TextStyle(
+          fontSize: 15.5,
+          fontFamily: 'Manrope',
+          height: 1.35,
+          color: textColor,
+          decoration: TextDecoration.none,
+        ),
+      );
+    }
+
+    return _StableHtml(
+      data: MessageContentProcessor.enrich(rawText),
+      linkColor: useLightText ? const Color(0xFF64B5F6) : Colors.blue,
+      onLinkTap: MessageContentProcessor.launchLink,
+      style: {
+        'body': html.Style(
+          margin: html.Margins.zero,
+          padding: html.HtmlPaddings.zero,
+          fontSize: html.FontSize(15.5),
+          fontFamily: 'Manrope',
+          color: textColor,
+        ),
+        'p': html.Style(
+          margin: html.Margins.zero,
+          padding: html.HtmlPaddings.zero,
+        ),
+      },
     );
   }
 
@@ -1281,6 +1578,283 @@ class _StableHtmlState extends State<_StableHtml> {
             ? (url, _, __) => widget.onLinkTap!(url)
             : null,
       ),
+    );
+  }
+}
+
+// ── Double-tap heart floating overlay ────────────────────────────────────────
+
+/// A ❤️ that floats at [center], springs to full size via [Curves.elasticOut],
+/// holds briefly, then fades out. Lives in the root [Overlay] so it appears
+/// on top of everything — no build-tree impact on [MessageBubble].
+///
+/// Lifecycle: the parent creates a fresh [AnimationController] per double-tap,
+/// forwards it, and disposes it (plus removes the [OverlayEntry]) in the
+/// controller's [AnimationStatus.completed] listener — zero leaks.
+class _HeartFloatOverlay extends StatelessWidget {
+  const _HeartFloatOverlay({required this.center, required this.controller});
+
+  final Offset center;
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    // Phase 1 (0–65 %): spring scale 0.2 → 1.4 with elastic overshoot.
+    // Phase 2 (65–75 %): settle back to 1.0.
+    // Phase 3 (75–100 %): hold at 1.0 while fading out.
+    final scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 0.2,
+          end: 1.4,
+        ).chain(CurveTween(curve: Curves.elasticOut)),
+        weight: 65,
+      ),
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 1.4,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 10,
+      ),
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 25),
+    ]).animate(controller);
+
+    final opacityAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 65),
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 1.0,
+          end: 0.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 35,
+      ),
+    ]).animate(controller);
+
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, __) => Positioned(
+        // Centre the 60×60 emoji on the bubble's midpoint.
+        left: center.dx - 30,
+        top: center.dy - 30,
+        child: IgnorePointer(
+          child: Opacity(
+            opacity: opacityAnim.value.clamp(0.0, 1.0),
+            child: Transform.scale(
+              scale: scaleAnim.value,
+              child: const Text(
+                '❤️',
+                style: TextStyle(fontSize: 50, decoration: TextDecoration.none),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Telegram-style animated reaction badge ────────────────────────────────────
+
+/// Compact emoji-reaction pill that animates each emoji independently:
+///  • Added emoji  → spring scale 0.6 → 1.15 → 1.0  +  fade-in  (~300 ms)
+///  • Removed emoji → shrink to 0.8  +  fade-out               (~200 ms)
+///  • Existing emojis stay stable — no unnecessary rebuilds.
+///
+/// Flutter preserves widget State across [AnimatedBuilder] rebuilds (same
+/// runtimeType + position in tree), so [didUpdateWidget] fires whenever the
+/// parent passes new [counts], allowing per-emoji diff and targeted animation.
+class _AnimatedReactionBadge extends StatefulWidget {
+  const _AnimatedReactionBadge({required this.counts, this.onTap});
+
+  final Map<String, int> counts;
+  final VoidCallback? onTap;
+
+  @override
+  State<_AnimatedReactionBadge> createState() => _AnimatedReactionBadgeState();
+}
+
+class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
+    with TickerProviderStateMixin {
+  // Per-emoji animation controllers (scale + opacity share the same timeline).
+  final Map<String, AnimationController> _controllers = {};
+
+  // The counts currently rendered, which may include emojis still fading out.
+  late Map<String, int> _displayed;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayed = Map.from(widget.counts);
+    for (final emoji in widget.counts.keys) {
+      _ensureController(emoji, animate: false);
+    }
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedReactionBadge old) {
+    super.didUpdateWidget(old);
+    final prev = old.counts.keys.toSet();
+    final next = widget.counts.keys.toSet();
+
+    // Newly added emojis — spring in.
+    for (final emoji in next.difference(prev)) {
+      _ensureController(emoji, animate: true);
+      setState(() => _displayed[emoji] = widget.counts[emoji]!);
+    }
+
+    // Removed emojis — shrink + fade out, then remove from display.
+    for (final emoji in prev.difference(next)) {
+      _animateOut(emoji);
+    }
+
+    // Count changes on existing emojis — update display immediately.
+    for (final emoji in next.intersection(prev)) {
+      if (old.counts[emoji] != widget.counts[emoji]) {
+        setState(() => _displayed[emoji] = widget.counts[emoji]!);
+      }
+    }
+  }
+
+  void _ensureController(String emoji, {required bool animate}) {
+    _controllers[emoji]?.dispose();
+    final ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _controllers[emoji] = ctrl;
+    if (animate) {
+      ctrl.forward();
+    } else {
+      ctrl.value = 1.0;
+    }
+  }
+
+  void _animateOut(String emoji) {
+    final ctrl = _controllers[emoji];
+    if (ctrl == null) {
+      if (mounted) setState(() => _displayed.remove(emoji));
+      return;
+    }
+    ctrl.duration = const Duration(milliseconds: 200);
+    ctrl.reverse().then((_) {
+      if (mounted) {
+        setState(() {
+          _displayed.remove(emoji);
+          _controllers.remove(emoji)?.dispose();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    for (final c in _controllers.values) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_displayed.isEmpty) return const SizedBox.shrink();
+
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 5,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final entry in _displayed.entries.take(3)) ...[
+              _buildAnimatedEmoji(entry.key, entry.value),
+              const SizedBox(width: 3),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedEmoji(String emoji, int count) {
+    final ctrl = _controllers[emoji];
+    final chip = _EmojiChip(emoji: emoji, count: count);
+    if (ctrl == null) return chip;
+
+    // Add animation: spring 0.6 → 1.15 → 1.0 + fade-in.
+    // Remove animation (ctrl reversed): same tween runs backward → shrink + fade.
+    final scaleAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 0.6,
+          end: 1.15,
+        ).chain(CurveTween(curve: Curves.easeOut)),
+        weight: 70,
+      ),
+      TweenSequenceItem(
+        tween: Tween(
+          begin: 1.15,
+          end: 1.0,
+        ).chain(CurveTween(curve: Curves.easeIn)),
+        weight: 30,
+      ),
+    ]).animate(ctrl);
+
+    return AnimatedBuilder(
+      animation: ctrl,
+      builder: (_, child) => Opacity(
+        opacity: ctrl.value.clamp(0.0, 1.0),
+        child: Transform.scale(scale: scaleAnim.value, child: child),
+      ),
+      child: chip,
+    );
+  }
+}
+
+class _EmojiChip extends StatelessWidget {
+  const _EmojiChip({required this.emoji, required this.count});
+
+  final String emoji;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          emoji,
+          style: const TextStyle(
+            fontSize: 14,
+            decoration: TextDecoration.none,
+            height: 1.2,
+          ),
+        ),
+        if (count > 1) ...[
+          const SizedBox(width: 2),
+          Text(
+            '$count',
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF4A5568),
+              decoration: TextDecoration.none,
+              height: 1.2,
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

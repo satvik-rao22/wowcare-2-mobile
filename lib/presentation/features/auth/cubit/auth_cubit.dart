@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +14,7 @@ import 'package:wowcare/data/static/static_school_catalog.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -32,11 +32,13 @@ class AuthCubit extends Cubit<AuthState> {
     required AuthRemoteDataSource remoteDataSource,
     required RegisterDeviceFcmTokenUseCase registerDeviceFcmToken,
     required UnregisterDeviceFcmTokenUseCase unregisterDeviceFcmToken,
+    required FirebaseAuthService firebaseAuthService,
   }) : _loginUseCase = loginUseCase,
        _localDataSource = localDataSource,
        _remoteDataSource = remoteDataSource,
        _registerDeviceFcmToken = registerDeviceFcmToken,
        _unregisterDeviceFcmToken = unregisterDeviceFcmToken,
+       _firebaseAuthService = firebaseAuthService,
        super(const AuthInitial());
 
   final LoginUseCase _loginUseCase;
@@ -44,6 +46,7 @@ class AuthCubit extends Cubit<AuthState> {
   final AuthRemoteDataSource _remoteDataSource;
   final RegisterDeviceFcmTokenUseCase _registerDeviceFcmToken;
   final UnregisterDeviceFcmTokenUseCase _unregisterDeviceFcmToken;
+  final FirebaseAuthService _firebaseAuthService;
 
   /// Mark login as completed only after org + school selection is done.
   /// FCM registration is non-blocking and errors don't interrupt login completion.
@@ -52,9 +55,11 @@ class AuthCubit extends Cubit<AuthState> {
     required String selectedSchoolName,
     String? selectedSchoolCode,
   }) async {
+    LoginResponseModel? loginResponse;
     if (state is AuthLoaded) {
       final loaded = state as AuthLoaded;
-      await _localDataSource.cacheLoginResponse(loaded.loginResponse);
+      loginResponse = loaded.loginResponse;
+      await _localDataSource.cacheLoginResponse(loginResponse);
     }
     await _localDataSource.saveOrgAndSchoolSelection(
       orgCode: selectedOrgCode,
@@ -62,13 +67,27 @@ class AuthCubit extends Cubit<AuthState> {
       schoolCode: selectedSchoolCode,
     );
 
+    // Sign Flutter into Firebase Auth using a custom token from the backend.
+    // Required for Firestore realtime listeners (inbox + message threads).
+    // Non-fatal: failures only affect realtime; REST APIs continue to work.
+    try {
+      AppLogger.d('[AUTH] completeLogin — signing into Firebase');
+      _firebaseAuthService.signIn();
+    } catch (e) {
+      AppLogger.w(
+        '[AUTH] Firebase sign-in failed during completeLogin (non-fatal): $e',
+      );
+    }
+
     // FCM registration is non-blocking when login is completed
     try {
       AppLogger.d('[AUTH] Login completed — registering FCM token');
       await _registerDeviceFcmTokenIfSessionReady();
     } catch (e) {
       // Non-fatal: FCM failures should not block login completion
-      AppLogger.w('[AUTH] FCM registration failed during completeLogin (non-fatal): $e');
+      AppLogger.w(
+        '[AUTH] FCM registration failed during completeLogin (non-fatal): $e',
+      );
     }
   }
 
@@ -80,7 +99,9 @@ class AuthCubit extends Cubit<AuthState> {
           ) ??
           false;
       if (!loginCompleted) {
-        AppLogger.d('[AUTH-FCM] Session not ready (loginCompleted=false) — skipping registration');
+        AppLogger.d(
+          '[AUTH-FCM] Session not ready (loginCompleted=false) — skipping registration',
+        );
         return;
       }
 
@@ -88,7 +109,9 @@ class AuthCubit extends Cubit<AuthState> {
       await _registerDeviceFcmToken();
     } catch (e) {
       // Non-fatal: FCM registration errors should not interrupt auth flow
-      AppLogger.w('[AUTH-FCM] FCM registration encountered error (non-fatal): $e');
+      AppLogger.w(
+        '[AUTH-FCM] FCM registration encountered error (non-fatal): $e',
+      );
     }
   }
 
@@ -104,6 +127,33 @@ class AuthCubit extends Cubit<AuthState> {
       schoolCode: schoolCode,
       schoolName: schoolName,
     );
+
+    // Re-sign in to Firebase with the new school context so Firestore
+    // listeners (inbox + message threads) immediately use the correct
+    // org/school path. Mirrors the web's AppTopbar useEffect which calls
+    // signInToFirebase() whenever the school code changes.
+    // Non-fatal: Firestore listeners retry on permission-denied with backoff.
+    try {
+      String? accessToken;
+      if (state is AuthLoaded) {
+        accessToken = (state as AuthLoaded).loginResponse.accessToken;
+      } else {
+        final cached = await _localDataSource.getCachedLoginResponse();
+        accessToken = cached?.accessToken;
+      }
+      if (accessToken != null && accessToken.isNotEmpty) {
+        AppLogger.d('[AUTH] Org/school changed — re-signing into Firebase');
+        _firebaseAuthService.signIn(
+          // accessToken: accessToken,
+          // organizationCode: organizationCode,
+          // schoolCode: schoolCode,
+        );
+      }
+    } catch (e) {
+      AppLogger.w(
+        '[AUTH] Firebase re-sign-in on school change failed (non-fatal): $e',
+      );
+    }
 
     // FCM registration is non-blocking when org/school changes
     try {
@@ -160,20 +210,40 @@ class AuthCubit extends Cubit<AuthState> {
             redirectUrl: null,
           ),
         );
+        // Restore Firebase Auth session so Firestore listeners work without
+        // requiring the user to log in again. AuthInterceptor on the shared
+        // Dio instance provides the current token and org/school codes.
+        try {
+          AppLogger.d(
+            '[AUTH] App initialized — restoring Firebase Auth session',
+          );
+          _firebaseAuthService.signIn();
+        } catch (e) {
+          AppLogger.w(
+            '[AUTH] Firebase sign-in during init failed (non-fatal): $e',
+          );
+        }
+
         // FCM init may have run before splash restored org/school — register now (non-blocking).
         try {
-          AppLogger.d('[AUTH] App initialized with cached session — registering FCM token');
+          AppLogger.d(
+            '[AUTH] App initialized with cached session — registering FCM token',
+          );
           await _registerDeviceFcmTokenIfSessionReady();
         } catch (e) {
           // Non-fatal: FCM failures should not prevent app initialization
-          AppLogger.w('[AUTH] FCM registration during init failed (non-fatal): $e');
+          AppLogger.w(
+            '[AUTH] FCM registration during init failed (non-fatal): $e',
+          );
         }
       } else {
         emit(const AuthInitial());
       }
     } catch (e) {
       // Silently fall back to initial state if anything goes wrong.
-      AppLogger.w('[AUTH] Initialize failed, falling back to initial state: $e');
+      AppLogger.w(
+        '[AUTH] Initialize failed, falling back to initial state: $e',
+      );
       emit(const AuthInitial());
     }
   }
@@ -202,9 +272,11 @@ class AuthCubit extends Cubit<AuthState> {
         // SUPERADMIN SHORT-CIRCUIT: this role is web-portal only. Block before
         // anything is cached or persisted so no mobile session is established.
         if (loginResponseIsSuperAdmin(response.roles)) {
-          emit(const AuthError(
-            'Super Admin accounts can only be accessed through the web portal.',
-          ));
+          emit(
+            const AuthError(
+              'Super Admin accounts can only be accessed through the web portal.',
+            ),
+          );
           return;
         }
 
@@ -233,7 +305,9 @@ class AuthCubit extends Cubit<AuthState> {
               int permissionCount = 0;
 
               try {
-                AppLogger.d('[Kiosk] Fetching user details from /api/v1/users/details with token');
+                AppLogger.d(
+                  '[Kiosk] Fetching user details from /api/v1/users/details with token',
+                );
 
                 // Call the API directly
                 final userDetailsList = await _remoteDataSource.getUserDetails(
@@ -245,32 +319,40 @@ class AuthCubit extends Cubit<AuthState> {
 
                   // Extract organization name
                   if (userDetailData['organizationName'] != null) {
-                    final extractedOrgName = (userDetailData['organizationName'] as String?)?.trim() ?? '';
+                    final extractedOrgName =
+                        (userDetailData['organizationName'] as String?)
+                            ?.trim() ??
+                        '';
                     if (extractedOrgName.isNotEmpty) {
                       orgName = extractedOrgName;
                     }
                   }
 
                   // Find matching school in user's schools list
-                  final schools = userDetailData['schools'] as List<dynamic>? ?? [];
+                  final schools =
+                      userDetailData['schools'] as List<dynamic>? ?? [];
                   for (final schoolData in schools) {
                     if (schoolData is Map<String, dynamic>) {
-                      final code = (schoolData['schoolCode'] as String?)?.trim() ?? '';
+                      final code =
+                          (schoolData['schoolCode'] as String?)?.trim() ?? '';
                       if (code == schoolCode) {
                         // Extract school name
-                        final name = (schoolData['schoolName'] as String?)?.trim() ?? '';
+                        final name =
+                            (schoolData['schoolName'] as String?)?.trim() ?? '';
                         if (name.isNotEmpty) {
                           schoolName = name;
                         }
 
                         // Extract role
-                        final role = (schoolData['role'] as String?)?.trim() ?? '';
+                        final role =
+                            (schoolData['role'] as String?)?.trim() ?? '';
                         if (role.isNotEmpty) {
                           roleFromApi = role.toUpperCase();
                         }
 
                         // Extract permissions
-                        final perms = schoolData['permissions'] as List<dynamic>? ?? [];
+                        final perms =
+                            schoolData['permissions'] as List<dynamic>? ?? [];
                         permissionCount = perms.length;
 
                         break;
@@ -288,7 +370,9 @@ class AuthCubit extends Cubit<AuthState> {
                   );
                 }
               } catch (e) {
-                AppLogger.w('[Kiosk] Error fetching user details: $e. Using fallback values.');
+                AppLogger.w(
+                  '[Kiosk] Error fetching user details: $e. Using fallback values.',
+                );
               }
 
               // Store proper school name and org name
@@ -576,7 +660,9 @@ class AuthCubit extends Cubit<AuthState> {
         try {
           await _registerDeviceFcmTokenIfSessionReady();
         } catch (e) {
-          AppLogger.w('[AUTH] FCM registration failed after login (non-fatal): $e');
+          AppLogger.w(
+            '[AUTH] FCM registration failed after login (non-fatal): $e',
+          );
         }
       },
     );
@@ -825,23 +911,31 @@ class AuthCubit extends Cubit<AuthState> {
       }
     } catch (_) {
       // Even if API logout fails, we still clear local session (session end UX).
-    } finally {
-      // NOTE: clearCache() now preserves the "Remember me" username + flag so the
-      // sign-in form can pre-fill after logout. The password itself stays in the
-      // biometric-gated secure store. We intentionally do NOT call
-      // clearCredentials() here — that would defeat the pre-fill requirement.
-      await _localDataSource.clearCache();
-      final navCtx = CoreUtils.rootNavigatorKey.currentContext;
-      if (navCtx != null && navCtx.mounted) {
-        try {
-          navCtx.read<ParentChildCubit>().invalidate();
-        } catch (_) {}
-        try {
-          navCtx.read<RoleCubit>().resetSessionForLogout();
-        } catch (_) {}
-      }
-      emit(const AuthInitial());
     }
+
+    // Sign out of Firebase so Firestore listeners lose read permission
+    // immediately. Non-fatal: logout must succeed even if Firebase sign-out fails.
+    try {
+      await _firebaseAuthService.signOut();
+    } catch (e) {
+      AppLogger.w('[AUTH] Firebase sign-out failed (non-fatal): $e');
+    }
+
+    // NOTE: clearCache() now preserves the "Remember me" username + flag so the
+    // sign-in form can pre-fill after logout. The password itself stays in the
+    // biometric-gated secure store. We intentionally do NOT call
+    // clearCredentials() here — that would defeat the pre-fill requirement.
+    await _localDataSource.clearCache();
+    final navCtx = CoreUtils.rootNavigatorKey.currentContext;
+    if (navCtx != null && navCtx.mounted) {
+      try {
+        navCtx.read<ParentChildCubit>().invalidate();
+      } catch (_) {}
+      try {
+        navCtx.read<RoleCubit>().resetSessionForLogout();
+      } catch (_) {}
+    }
+    emit(const AuthInitial());
   }
 
   Future<void> clearCache() async {
