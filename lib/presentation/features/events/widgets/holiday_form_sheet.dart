@@ -34,19 +34,39 @@ class _HolidayFormSheet extends StatefulWidget {
 }
 
 class _HolidayFormSheetState extends State<_HolidayFormSheet> {
-  late final TextEditingController _nameController =
-      TextEditingController(text: widget.holiday?.name ?? '');
+  late final TextEditingController _nameController = TextEditingController(
+    text: widget.holiday?.name ?? '',
+  );
   late final TextEditingController _descriptionController =
       TextEditingController(text: widget.holiday?.description ?? '');
   late DateTime _startDate =
       widget.holiday?.startDate ?? _dateOnly(DateTime.now());
-  late DateTime _endDate =
-      widget.holiday?.endDate ?? _dateOnly(DateTime.now());
+  late DateTime _endDate = widget.holiday?.endDate ?? _dateOnly(DateTime.now());
+
+  /// Single Date vs Date Range (FR §7/8). Defaults to Single Date; when
+  /// editing a multi-day holiday it opens in Range mode.
+  late bool _isRange =
+      widget.holiday != null &&
+      !_isSameDay(widget.holiday!.startDate, widget.holiday!.endDate);
 
   bool get _isEditing => widget.holiday != null;
 
+  /// Name is mandatory; a range can never end before it starts (FR §7/8).
+  bool get _isFormValid =>
+      _nameController.text.trim().isNotEmpty &&
+      !(_isRange && _endDate.isBefore(_startDate));
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_onFieldChanged);
+  }
+
+  void _onFieldChanged() => setState(() {});
+
   @override
   void dispose() {
+    _nameController.removeListener(_onFieldChanged);
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -92,30 +112,43 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
               decoration: _decoration('Holiday name'),
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _dateTile(
-                    label: 'Starts',
-                    value: _startDate,
-                    onPicked: (date) => setState(() {
-                      _startDate = date;
-                      if (_endDate.isBefore(_startDate)) {
-                        _endDate = _startDate;
-                      }
-                    }),
+            _dateTypeSelector(),
+            const SizedBox(height: 10),
+            if (_isRange)
+              Row(
+                children: [
+                  Expanded(
+                    child: _dateTile(
+                      label: 'Starts',
+                      value: _startDate,
+                      onPicked: (date) => setState(() {
+                        _startDate = date;
+                        if (_endDate.isBefore(_startDate)) {
+                          _endDate = _startDate;
+                        }
+                      }),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _dateTile(
-                    label: 'Ends',
-                    value: _endDate,
-                    onPicked: (date) => setState(() => _endDate = date),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _dateTile(
+                      label: 'Ends',
+                      value: _endDate,
+                      minDate: _startDate,
+                      onPicked: (date) => setState(() => _endDate = date),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              )
+            else
+              _dateTile(
+                label: 'Date',
+                value: _startDate,
+                onPicked: (date) => setState(() {
+                  _startDate = date;
+                  _endDate = date;
+                }),
+              ),
             const SizedBox(height: 10),
             TextField(
               controller: _descriptionController,
@@ -124,33 +157,50 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
               decoration: _decoration('Description (optional)'),
             ),
             const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              height: 44,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildPrimaryGradient(),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    shadowColor: Colors.transparent,
-                    shape: RoundedRectangleBorder(
+            BlocBuilder<EventsCubit, EventsState>(
+              builder: (context, state) {
+                final canSave = _isFormValid && !state.isSaving;
+                return SizedBox(
+                  width: double.infinity,
+                  height: 44,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: canSave
+                          ? AppColors.buildPrimaryGradient()
+                          : null,
+                      color: canSave ? null : Colors.grey[300],
                       borderRadius: BorderRadius.circular(10),
                     ),
-                  ),
-                  onPressed: _save,
-                  child: Text(
-                    _isEditing ? 'Save Changes' : 'Add Holiday',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      onPressed: canSave ? _save : null,
+                      child: state.isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(
+                              _isEditing ? 'Save Changes' : 'Add Holiday',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                     ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
@@ -159,25 +209,11 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   }
 
   Future<void> _save() async {
+    if (!_isFormValid) return;
     final name = _nameController.text.trim();
-    if (name.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Holiday name is required',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_endDate.isBefore(_startDate)) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'End date must be on or after the start date',
-        isWarning: true,
-      );
-      return;
-    }
     final now = DateTime.now();
-    final base = widget.holiday ??
+    final base =
+        widget.holiday ??
         Holiday(
           code: '',
           name: '',
@@ -187,26 +223,84 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
           createdAt: now,
           updatedAt: now,
         );
-    final ok = await context.read<EventsCubit>().saveHoliday(
-          base.copyWith(
-            name: name,
-            startDate: _startDate,
-            endDate: _endDate,
-            description: _descriptionController.text.trim(),
-            updatedAt: now,
-          ),
-        );
+    final (ok, message) = await context.read<EventsCubit>().saveHoliday(
+      base.copyWith(
+        name: name,
+        startDate: _startDate,
+        endDate: _endDate,
+        description: _descriptionController.text.trim(),
+        updatedAt: now,
+      ),
+    );
     if (!mounted) return;
-    if (ok) {
-      Navigator.pop(context);
-    } else {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Could not save the holiday. Please try again.',
-        isError: true,
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isSuccess: ok,
+      isError: !ok,
+    );
+    if (ok) Navigator.pop(context);
+  }
+
+  /// Single Date / Date Range radio group (FR §7/8).
+  Widget _dateTypeSelector() {
+    Widget option(String label, bool rangeValue) {
+      final selected = _isRange == rangeValue;
+      return Expanded(
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () => setState(() {
+            _isRange = rangeValue;
+            if (!_isRange) _endDate = _startDate;
+          }),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 9),
+            decoration: BoxDecoration(
+              color: selected
+                  ? AppColors.primaryColor.withValues(alpha: 0.10)
+                  : Colors.grey[100],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: selected ? AppColors.primaryColor : Colors.transparent,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  selected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  size: 15,
+                  color: selected ? AppColors.primaryColor : Colors.grey,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: selected ? AppColors.primaryColor : Colors.grey[700],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       );
     }
+
+    return Row(
+      children: [
+        option('Single Date', false),
+        const SizedBox(width: 8),
+        option('Date Range', true),
+      ],
+    );
   }
+
+  static bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   InputDecoration _decoration(String hint) {
     return InputDecoration(
@@ -215,8 +309,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
       filled: true,
       fillColor: Colors.grey[100],
       isDense: true,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide.none,
@@ -228,6 +321,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
     required String label,
     required DateTime value,
     required ValueChanged<DateTime> onPicked,
+    DateTime? minDate,
   }) {
     return Material(
       color: Colors.grey[100],
@@ -235,10 +329,11 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () async {
+          final firstDate = minDate ?? DateTime(DateTime.now().year - 1);
           final picked = await showDatePicker(
             context: context,
-            initialDate: value,
-            firstDate: DateTime(DateTime.now().year - 1),
+            initialDate: value.isBefore(firstDate) ? firstDate : value,
+            firstDate: firstDate,
             lastDate: DateTime(DateTime.now().year + 3),
           );
           if (picked != null) onPicked(_dateOnly(picked));
@@ -247,16 +342,18 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
           child: Row(
             children: [
-              Icon(Icons.calendar_today_outlined,
-                  size: 15, color: Colors.grey[600]),
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 15,
+                color: Colors.grey[600],
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   '$label  ${DateFormat('MMM d').format(value)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      const TextStyle(fontSize: 12.5, color: Colors.black87),
+                  style: const TextStyle(fontSize: 12.5, color: Colors.black87),
                 ),
               ),
             ],

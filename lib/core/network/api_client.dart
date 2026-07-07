@@ -6,12 +6,11 @@ class ApiClient {
   ApiClient({
     required String baseUrl,
     List<Interceptor>? interceptors,
-    // Fail fast — a 60s wait makes the UI feel "stuck" forever when the
-    // backend or dev tunnel is unreachable. 10s is long enough for slow
-    // mobile networks but short enough that the user sees the error
-    // promptly instead of a frozen loading spinner.
-    Duration connectTimeout = const Duration(seconds: 10),
-    Duration receiveTimeout = const Duration(seconds: 15),
+    // Long enough to tolerate slow dev tunnels / cold-started local
+    // backends, but still bounded so the UI shows an error instead of a
+    // frozen spinner forever when the server is genuinely unreachable.
+    Duration connectTimeout = const Duration(seconds: 20),
+    Duration receiveTimeout = const Duration(seconds: 30),
   }) {
     _dio = Dio(
       BaseOptions(

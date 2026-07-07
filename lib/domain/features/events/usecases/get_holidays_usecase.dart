@@ -6,7 +6,7 @@ class GetHolidaysUseCase {
 
   final EventRepository _repository;
 
-  Future<List<Holiday>> call() {
-    return _repository.getHolidays();
+  Future<List<Holiday>> call({int? year}) {
+    return _repository.getHolidays(year: year);
   }
 }

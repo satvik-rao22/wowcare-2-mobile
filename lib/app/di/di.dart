@@ -34,8 +34,8 @@ import '../../data/features/staff/datasources/staff_remote_datasource.dart';
 import '../../data/features/staff/repositories/staff_repository_impl.dart';
 import '../../data/features/student/datasources/student_remote_datasource.dart';
 import '../../data/features/student/repositories/student_repository_impl.dart';
-import '../../data/features/events/datasources/event_local_datasource.dart';
-import '../../data/features/events/datasources/event_seed_datasource.dart';
+import '../../data/features/events/datasources/event_remote_datasource.dart';
+import '../../data/features/events/datasources/holiday_remote_datasource.dart';
 import '../../data/features/events/repositories/event_repository_impl.dart';
 import '../../domain/features/events/repositories/event_repository.dart';
 import '../../domain/features/events/usecases/create_event_usecase.dart';
@@ -44,6 +44,7 @@ import '../../domain/features/events/usecases/delete_holiday_usecase.dart';
 import '../../domain/features/events/usecases/get_events_usecase.dart';
 import '../../domain/features/events/usecases/get_holidays_usecase.dart';
 import '../../domain/features/events/usecases/save_holiday_usecase.dart';
+import '../../domain/features/events/usecases/set_holiday_status_usecase.dart';
 import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
 import '../../domain/features/events/usecases/update_event_usecase.dart';
 import '../../presentation/features/events/cubit/events_cubit.dart';
@@ -380,19 +381,18 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Events (local-first: Isar persistence seeded from bundled mock JSON
-  // until the events backend is available).
-  serviceLocator.registerLazySingleton<EventLocalDataSource>(
-    () => EventLocalDataSourceImpl(serviceLocator<CacheService>()),
+  // Events & holidays are remote-only (no Isar/mock). Holidays are live on the
+  // scheduler MS; events use a stub datasource until their backend ships.
+  serviceLocator.registerLazySingleton<EventRemoteDataSource>(
+    () => EventRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
-  serviceLocator.registerLazySingleton<EventSeedDataSource>(
-    () => EventSeedDataSourceImpl(),
+  serviceLocator.registerLazySingleton<HolidayRemoteDataSource>(
+    () => HolidayRemoteDataSourceImpl(serviceLocator<ApiClient>().client),
   );
   serviceLocator.registerLazySingleton<EventRepository>(
     () => EventRepositoryImpl(
-      serviceLocator<EventLocalDataSource>(),
-      serviceLocator<EventSeedDataSource>(),
-      serviceLocator<StorageService>(),
+      serviceLocator<EventRemoteDataSource>(),
+      serviceLocator<HolidayRemoteDataSource>(),
     ),
   );
   serviceLocator.registerFactory<GetEventsUseCase>(
@@ -413,8 +413,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetHolidaysUseCase>(
     () => GetHolidaysUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<SaveHolidayUseCase>(
-    () => SaveHolidayUseCase(serviceLocator()),
+  serviceLocator.registerFactory<CreateHolidayUseCase>(
+    () => CreateHolidayUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateHolidayUseCase>(
+    () => UpdateHolidayUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<SetHolidayStatusUseCase>(
+    () => SetHolidayStatusUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<DeleteHolidayUseCase>(
     () => DeleteHolidayUseCase(serviceLocator()),
@@ -429,7 +435,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<DeleteEventUseCase>(),
       serviceLocator<RespondToEventUseCase>(),
       serviceLocator<GetHolidaysUseCase>(),
-      serviceLocator<SaveHolidayUseCase>(),
+      serviceLocator<CreateHolidayUseCase>(),
+      serviceLocator<UpdateHolidayUseCase>(),
+      serviceLocator<SetHolidayStatusUseCase>(),
       serviceLocator<DeleteHolidayUseCase>(),
       serviceLocator<StorageService>(),
     ),

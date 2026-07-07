@@ -1,67 +1,56 @@
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/data/features/events/datasources/event_local_datasource.dart';
-import 'package:wowcare/data/features/events/datasources/event_seed_datasource.dart';
-import 'package:wowcare/data/features/events/models/event_collection.dart';
-import 'package:wowcare/data/features/events/models/holiday_collection.dart';
+import 'package:wowcare/data/features/events/datasources/event_remote_datasource.dart';
+import 'package:wowcare/data/features/events/datasources/holiday_remote_datasource.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/domain/features/events/repositories/event_repository.dart';
 
+/// Remote-only implementation. Holidays are live from the scheduler API;
+/// events are served by [EventRemoteDataSource] (currently a stub until the
+/// events backend is available). No Isar persistence or mock seeding.
 class EventRepositoryImpl implements EventRepository {
   EventRepositoryImpl(
-    this._localDataSource,
-    this._seedDataSource,
-    this._storageService,
+    this._eventRemoteDataSource,
+    this._holidayRemoteDataSource,
   );
 
-  final EventLocalDataSource _localDataSource;
-  final EventSeedDataSource _seedDataSource;
-  final StorageService _storageService;
+  final EventRemoteDataSource _eventRemoteDataSource;
+  final HolidayRemoteDataSource _holidayRemoteDataSource;
 
-  /// One-shot flags so user deletions aren't resurrected by reseeding.
-  static const String _seededFlagKey = 'events_mock_seeded_v1';
-  static const String _holidaysSeededFlagKey = 'holidays_mock_seeded_v1';
+  // --------------------------------------------------------------- events
 
   @override
   Future<List<Event>> getEvents() async {
-    await _seedIfNeeded();
-    final rows = await _localDataSource.getAll();
-    final events = rows.map((r) => r.toEntity()).toList()
-      ..sort((a, b) {
-        final byDate = a.date.compareTo(b.date);
-        if (byDate != 0) return byDate;
-        return a.startTime.compareTo(b.startTime);
-      });
-    return events;
+    final models = await _eventRemoteDataSource.getEvents();
+    return models.map((m) => m.toEntity()).toList()..sort((a, b) {
+      final byDate = a.date.compareTo(b.date);
+      if (byDate != 0) return byDate;
+      return a.startTime.compareTo(b.startTime);
+    });
   }
 
   @override
   Future<Event?> getEventByCode(String code) async {
     final trimmed = code.trim();
     if (trimmed.isEmpty) return null;
-    final rows = await _localDataSource.getAll();
-    for (final row in rows) {
-      if (row.code == trimmed) return row.toEntity();
-    }
-    return null;
+    final model = await _eventRemoteDataSource.getEventByCode(trimmed);
+    return model?.toEntity();
   }
 
   @override
   Future<Event> createEvent(Event event) async {
-    await _localDataSource.upsert(EventCollection.fromEntity(event));
-    return event;
+    final model = await _eventRemoteDataSource.createEvent(event);
+    return model.toEntity();
   }
 
   @override
   Future<Event> updateEvent(Event event) async {
-    final updated = event.copyWith(updatedAt: DateTime.now());
-    await _localDataSource.upsert(EventCollection.fromEntity(updated));
-    return updated;
+    final model = await _eventRemoteDataSource.updateEvent(event);
+    return model.toEntity();
   }
 
   @override
   Future<void> deleteEvent(String code) {
-    return _localDataSource.deleteByCode(code.trim());
+    return _eventRemoteDataSource.deleteEvent(code.trim());
   }
 
   @override
@@ -69,75 +58,74 @@ class EventRepositoryImpl implements EventRepository {
     required String eventCode,
     required EventRsvp rsvp,
   }) async {
-    final event = await getEventByCode(eventCode);
-    if (event == null) {
-      throw StateError('Event $eventCode not found');
-    }
-    final others =
-        event.rsvps.where((r) => r.userCode != rsvp.userCode).toList();
-    final updated = event.copyWith(
-      rsvps: [...others, rsvp],
-      updatedAt: DateTime.now(),
+    final model = await _eventRemoteDataSource.respondToEvent(
+      eventCode: eventCode,
+      rsvp: rsvp,
     );
-    await _localDataSource.upsert(EventCollection.fromEntity(updated));
-    return updated;
+    return model.toEntity();
   }
 
+  // ------------------------------------------------------------- holidays
+
   @override
-  Future<List<Holiday>> getHolidays() async {
-    await _seedHolidaysIfNeeded();
-    final rows = await _localDataSource.getAllHolidays();
-    return rows.map((r) => r.toEntity()).toList()
+  Future<List<Holiday>> getHolidays({int? year}) async {
+    final models = await _holidayRemoteDataSource.getHolidays(year: year);
+    return models.map((m) => m.toEntity()).toList()
       ..sort((a, b) => a.startDate.compareTo(b.startDate));
   }
 
   @override
-  Future<Holiday> saveHoliday(Holiday holiday) async {
-    final updated = holiday.copyWith(updatedAt: DateTime.now());
-    await _localDataSource.upsertHoliday(
-      HolidayCollection.fromEntity(updated),
+  Future<(Holiday, String)> createHoliday({
+    required String name,
+    required DateTime startDate,
+    required DateTime endDate,
+    String description = '',
+  }) async {
+    final (model, message) = await _holidayRemoteDataSource.createHoliday(
+      name: name,
+      startDate: startDate,
+      endDate: endDate,
+      description: description,
     );
-    return updated;
+    return (model.toEntity(), message);
   }
 
   @override
-  Future<void> deleteHoliday(String code) {
-    return _localDataSource.deleteHolidayByCode(code.trim());
+  Future<(Holiday, String)> updateHoliday({
+    required String code,
+    required int version,
+    String? name,
+    DateTime? startDate,
+    DateTime? endDate,
+    String? description,
+  }) async {
+    final (model, message) = await _holidayRemoteDataSource.updateHoliday(
+      code: code,
+      version: version,
+      name: name,
+      startDate: startDate,
+      endDate: endDate,
+      description: description,
+    );
+    return (model.toEntity(), message);
   }
 
-  Future<void> _seedHolidaysIfNeeded() async {
-    final alreadySeeded =
-        await _storageService.getBool(_holidaysSeededFlagKey) ?? false;
-    if (alreadySeeded) return;
-    final existing = await _localDataSource.getAllHolidays();
-    if (existing.isEmpty) {
-      final seeds = await _seedDataSource.fetchHolidays();
-      if (seeds.isNotEmpty) {
-        await _localDataSource.upsertAllHolidays(
-          seeds
-              .map((m) => HolidayCollection.fromEntity(m.toEntity()))
-              .toList(),
-        );
-      }
-    }
-    await _storageService.saveBool(_holidaysSeededFlagKey, true);
+  @override
+  Future<(Holiday, String)> setHolidayStatus({
+    required String code,
+    required int version,
+    required HolidayStatusAction action,
+  }) async {
+    final (model, message) = await _holidayRemoteDataSource.updateStatus(
+      code: code,
+      version: version,
+      action: action,
+    );
+    return (model.toEntity(), message);
   }
 
-  Future<void> _seedIfNeeded() async {
-    final alreadySeeded =
-        await _storageService.getBool(_seededFlagKey) ?? false;
-    if (alreadySeeded) return;
-    final existing = await _localDataSource.getAll();
-    if (existing.isEmpty) {
-      final seeds = await _seedDataSource.fetchEvents();
-      if (seeds.isNotEmpty) {
-        await _localDataSource.upsertAll(
-          seeds
-              .map((m) => EventCollection.fromEntity(m.toEntity()))
-              .toList(),
-        );
-      }
-    }
-    await _storageService.saveBool(_seededFlagKey, true);
+  @override
+  Future<String> deleteHoliday(String code) {
+    return _holidayRemoteDataSource.deleteHoliday(code.trim());
   }
 }
