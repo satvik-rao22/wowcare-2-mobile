@@ -15,7 +15,6 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/presentation/features/assessments/view/assessments_home_screen.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
@@ -27,14 +26,6 @@ import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
 // `unused_import` lint — they're referenced by route-path constants below
 // (`DashboardScreen.routeName`, `SignInScreen.routeName`).
 // ignore_for_file: unused_import
-
-/// TEMPORARY DEMO FLAG. While the login/auth API is under maintenance, launch
-/// the app directly into the Assessments module instead of the normal
-/// auth-based startup routing. This is the ONLY startup-flow override — module
-/// boundaries, routes, RBAC, and drawer navigation are untouched, so restoring
-/// the standard flow is a one-line revert: set this back to `false` (or remove
-/// the guarded block in [_SplashScreenWrapperState._navigateToHome]).
-const bool kDemoBootToAssessments = true;
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -92,16 +83,6 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
   Future<void> _navigateToHome() async {
     await Future.delayed(const Duration(seconds: 1));
     if (!mounted) return;
-
-    // ── TEMPORARY DEMO OVERRIDE (see [kDemoBootToAssessments]) ────────────
-    // Bypass auth-based routing and open the Assessments module directly. The
-    // module still resolves role/permissions normally and is reachable via the
-    // side drawer exactly as it would be after login is restored.
-    if (kDemoBootToAssessments) {
-      context.go(AssessmentsHomeScreen.routeName);
-      return;
-    }
-    // ──────────────────────────────────────────────────────────────────────
 
     final storage = serviceLocator<StorageService>();
 
