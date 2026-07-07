@@ -59,19 +59,30 @@ class _ExpandableSectionState extends State<ExpandableSection>
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
-          color: accent.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(10),
+          color: accent.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
           child: InkWell(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
             onTap: () => setState(() => _expanded = !_expanded),
-            child: Padding(
+            child: Container(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: accent.withValues(alpha: 0.18)),
+              ),
               child: Row(
                 children: [
                   if (widget.icon != null) ...[
-                    Icon(widget.icon, size: 16, color: accent),
-                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(widget.icon, size: 15, color: accent),
+                    ),
+                    const SizedBox(width: 10),
                   ],
                   Flexible(
                     child: Text(
@@ -79,20 +90,20 @@ class _ExpandableSectionState extends State<ExpandableSection>
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 13.5,
                         fontWeight: FontWeight.w600,
                         color: accent,
                       ),
                     ),
                   ),
                   if (widget.count != null) ...[
-                    const SizedBox(width: 6),
+                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 1),
+                          horizontal: 8, vertical: 2),
                       decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(10),
+                        color: accent.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
                         '${widget.count}',
@@ -108,7 +119,7 @@ class _ExpandableSectionState extends State<ExpandableSection>
                   AnimatedRotation(
                     duration: const Duration(milliseconds: 180),
                     turns: _expanded ? 0.5 : 0,
-                    child: Icon(Icons.expand_more, size: 20, color: accent),
+                    child: Icon(Icons.expand_more, size: 22, color: accent),
                   ),
                 ],
               ),

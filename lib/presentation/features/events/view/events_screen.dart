@@ -16,10 +16,11 @@ import 'package:wowcare/presentation/features/events/widgets/event_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_filter_sheet.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_grid_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_card.dart';
+import 'package:wowcare/presentation/features/events/widgets/holiday_dialogs.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_form_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
+import 'package:wowcare/shared/common/widgets/expandable_section.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// How the Events tab lays out its content, mirroring the web design's
@@ -62,6 +63,7 @@ class _EventsScreenState extends State<EventsScreen> {
     return GlobalScaffold(
       hasBackButton: false,
       showCustomNavigationBar: true,
+      floatingActionButton: _addFab(context, roles),
       body: BlocListener<EventsCubit, EventsState>(
         // Background fetches (initial load, Holidays tab refresh, year
         // switch) have no call site to await and show a toast directly —
@@ -104,10 +106,9 @@ class _EventsScreenState extends State<EventsScreen> {
   // ------------------------------------------------------------ header
 
   Widget _header(BuildContext context, RoleCubit roles) {
-    // Staff may add events but not holidays; parents may add neither.
-    final canAdd = _tabIndex == 0
-        ? EventAccess.canCreateEvents(roles)
-        : EventAccess.canManageHolidays(roles);
+    // Both add actions now live in the bottom-right floating action button
+    // (see [_addFab]), so the header only carries the title and the "Today"
+    // shortcut for the calendar view.
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -119,38 +120,62 @@ class _EventsScreenState extends State<EventsScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        Row(
-          children: [
-            if (_tabIndex == 0 && _viewMode == _EventsViewMode.calendar)
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _focusedDay = DateTime.now();
-                    _selectedDay = DateTime.now();
-                  });
-                },
-                style: TextButton.styleFrom(
-                  foregroundColor: AppColors.themeColor,
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  visualDensity: VisualDensity.compact,
-                ),
-                child: const Text('Today'),
-              ),
-            if (canAdd) ...[
-              const SizedBox(width: 4),
-              GradientAddButton(
-                onTap: () {
-                  if (_tabIndex == 0) {
-                    _openForm(context);
-                  } else {
-                    showHolidayFormSheet(context);
-                  }
-                },
-              ),
-            ],
-          ],
-        ),
+        if (_tabIndex == 0 && _viewMode == _EventsViewMode.calendar)
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _focusedDay = DateTime.now();
+                _selectedDay = DateTime.now();
+              });
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.themeColor,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              visualDensity: VisualDensity.compact,
+            ),
+            child: const Text('Today'),
+          ),
       ],
+    );
+  }
+
+  /// Bottom-right FAB for creating an event (Events tab) or a school holiday
+  /// (Holidays tab). Returns null when the current tab/role can't add, so no
+  /// button renders. Staff may add events but not holidays; parents neither.
+  Widget? _addFab(BuildContext context, RoleCubit roles) {
+    final VoidCallback? onTap = _tabIndex == 0
+        ? (EventAccess.canCreateEvents(roles) ? () => _openForm(context) : null)
+        : (EventAccess.canManageHolidays(roles)
+              ? () => showHolidayFormSheet(context)
+              : null);
+    if (onTap == null) return null;
+
+    return Container(
+      width: 64,
+      height: 64,
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: AppColors.buildPrimaryGradient(),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryColor.withValues(alpha: 0.30),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: const Center(
+            child: Icon(Icons.add, color: Colors.white, size: 32),
+          ),
+        ),
+      ),
     );
   }
 
@@ -257,9 +282,12 @@ class _EventsScreenState extends State<EventsScreen> {
         ],
       );
     }
-    final events = _showCompleted ? state.completedEvents : state.upcomingEvents;
-    final emptyMessage =
-        _showCompleted ? 'No completed events' : 'No upcoming events';
+    final events = _showCompleted
+        ? state.completedEvents
+        : state.upcomingEvents;
+    final emptyMessage = _showCompleted
+        ? 'No completed events'
+        : 'No upcoming events';
     return _viewMode == _EventsViewMode.grid
         ? _gridView(context, state, roles, events, emptyMessage: emptyMessage)
         : _listView(context, state, roles, events, emptyMessage: emptyMessage);
@@ -285,8 +313,7 @@ class _EventsScreenState extends State<EventsScreen> {
             }
           }),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
@@ -613,8 +640,9 @@ class _EventsScreenState extends State<EventsScreen> {
     final dayEvents = _calendarEventsOn(state, _selectedDay);
     // Holidays are only relevant to the upcoming/schedule view, not the
     // completed-events view.
-    final dayHolidays =
-        _showCompleted ? const <Holiday>[] : state.holidaysOn(_selectedDay);
+    final dayHolidays = _showCompleted
+        ? const <Holiday>[]
+        : state.holidaysOn(_selectedDay);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -629,9 +657,11 @@ class _EventsScreenState extends State<EventsScreen> {
         const SizedBox(height: 8),
         Expanded(
           child: dayEvents.isEmpty && dayHolidays.isEmpty
-              ? _emptyState(_showCompleted
-                  ? 'No completed events on this day'
-                  : 'Nothing scheduled for this day')
+              ? _emptyState(
+                  _showCompleted
+                      ? 'No completed events on this day'
+                      : 'Nothing scheduled for this day',
+                )
               : RefreshIndicator(
                   color: AppColors.themeColor,
                   onRefresh: () =>
@@ -660,6 +690,9 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
+  /// Red banner in the calendar's day list — matches the red holiday date
+  /// styling on the calendar itself. The Holidays tab uses plain white
+  /// [HolidayCard]s instead.
   Widget _holidayBanner(Holiday holiday) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -866,68 +899,104 @@ class _EventsScreenState extends State<EventsScreen> {
               child: _emptyState('No holidays for ${state.selectedYear}'),
             ),
 
-          // Pending Federal Holidays — admin-only accordion (FR-HL-02).
+          // Pending Federal Holidays — admin-only, expanded by default since
+          // they need a decision (FR-HL-02).
           if (canManage && pending.isNotEmpty) ...[
-            _holidaySectionHeader('Pending Federal Holidays'),
-            for (final holiday in pending)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: HolidayCard(
-                  holiday: holiday,
-                  onStatusChanged: (status) => _changeHolidayStatus(
-                    context,
-                    cubit,
-                    holiday.code,
-                    status,
-                  ),
-                ),
-              ),
-          ],
-
-          // Active Holidays — considered federal + all school (FR-HL-09).
-          if (active.isNotEmpty) ...[
-            _holidaySectionHeader('Active Holidays'),
-            for (final holiday in active)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: HolidayCard(
-                  holiday: holiday,
-                  onEdit: canManage && holiday.type == HolidayType.school
-                      ? () => showHolidayFormSheet(context, holiday: holiday)
-                      : null,
-                  onDelete: canManage && holiday.type == HolidayType.school
-                      ? () => _confirmDeleteHoliday(context, holiday)
-                      : null,
-                  onStatusChanged:
-                      canManage && holiday.type == HolidayType.federal
-                      ? (status) => _changeHolidayStatus(
+            ExpandableSection(
+              title: 'Pending Federal Holidays',
+              count: pending.length,
+              icon: Icons.hourglass_bottom,
+              accentColor: const Color(0xFFF9A825),
+              initiallyExpanded: true,
+              child: Column(
+                children: [
+                  for (final holiday in pending)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: HolidayCard(
+                        holiday: holiday,
+                        onStatusChanged: (status) => _changeHolidayStatus(
                           context,
                           cubit,
                           holiday.code,
                           status,
-                        )
-                      : null,
-                ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
+            ),
+            const SizedBox(height: 10),
           ],
 
-          // Rejected Federal Holidays — admin-only, re-approvable (FR-HL-04/05).
-          if (canManage && rejected.isNotEmpty) ...[
-            _holidaySectionHeader('Rejected Federal Holidays'),
-            for (final holiday in rejected)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: HolidayCard(
-                  holiday: holiday,
-                  onStatusChanged: (status) => _changeHolidayStatus(
-                    context,
-                    cubit,
-                    holiday.code,
-                    status,
-                  ),
-                ),
+          // Active Holidays — considered federal + all school (FR-HL-09).
+          if (active.isNotEmpty) ...[
+            ExpandableSection(
+              title: 'Active Holidays',
+              count: active.length,
+              icon: Icons.event_available_outlined,
+              accentColor: AppColors.themeColor,
+              initiallyExpanded: true,
+              child: Column(
+                children: [
+                  for (final holiday in active)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: HolidayCard(
+                        holiday: holiday,
+                        onEdit: canManage && holiday.type == HolidayType.school
+                            ? () => showHolidayFormSheet(
+                                context,
+                                holiday: holiday,
+                              )
+                            : null,
+                        onDelete:
+                            canManage && holiday.type == HolidayType.school
+                            ? () => _confirmDeleteHoliday(context, holiday)
+                            : null,
+                        onStatusChanged:
+                            canManage && holiday.type == HolidayType.federal
+                            ? (status) => _changeHolidayStatus(
+                                context,
+                                cubit,
+                                holiday.code,
+                                status,
+                              )
+                            : null,
+                      ),
+                    ),
+                ],
               ),
+            ),
+            const SizedBox(height: 10),
           ],
+
+          // Rejected Federal Holidays — admin-only, re-approvable, collapsed
+          // by default as they're less frequently revisited (FR-HL-04/05).
+          if (canManage && rejected.isNotEmpty)
+            ExpandableSection(
+              title: 'Rejected Federal Holidays',
+              count: rejected.length,
+              icon: Icons.cancel_outlined,
+              accentColor: Colors.grey,
+              child: Column(
+                children: [
+                  for (final holiday in rejected)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: HolidayCard(
+                        holiday: holiday,
+                        onStatusChanged: (status) => _changeHolidayStatus(
+                          context,
+                          cubit,
+                          holiday.code,
+                          status,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -973,43 +1042,12 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  Widget _holidaySectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8, top: 2),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: AppColors.primaryColor,
-          fontSize: 13.5,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-
   Future<void> _confirmDeleteHoliday(
     BuildContext context,
     Holiday holiday,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Delete holiday?'),
-        content: Text('"${holiday.name}" will be removed.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
-            child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
+    final confirmed = await showDeleteHolidayConfirmation(context, holiday);
+    if (!confirmed || !context.mounted) return;
     final (ok, message) = await context.read<EventsCubit>().deleteHoliday(
       holiday.code,
     );

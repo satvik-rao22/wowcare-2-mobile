@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -34,6 +35,12 @@ class _HolidayFormSheet extends StatefulWidget {
 }
 
 class _HolidayFormSheetState extends State<_HolidayFormSheet> {
+  /// Hard caps on free-text fields. Enforced at the keyboard (users can't
+  /// type past them) and re-checked in [_isFormValid] so a holiday carrying
+  /// over-long text from bad server data can't be saved as-is.
+  static const int _kNameMaxLength = 80;
+  static const int _kDescriptionMaxLength = 500;
+
   late final TextEditingController _nameController = TextEditingController(
     text: widget.holiday?.name ?? '',
   );
@@ -51,15 +58,19 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
 
   bool get _isEditing => widget.holiday != null;
 
-  /// Name is mandatory; a range can never end before it starts (FR §7/8).
+  /// Name is mandatory and within the length cap; description (optional) must
+  /// also fit the cap; a range can never end before it starts (FR §7/8).
   bool get _isFormValid =>
       _nameController.text.trim().isNotEmpty &&
+      _nameController.text.characters.length <= _kNameMaxLength &&
+      _descriptionController.text.characters.length <= _kDescriptionMaxLength &&
       !(_isRange && _endDate.isBefore(_startDate));
 
   @override
   void initState() {
     super.initState();
     _nameController.addListener(_onFieldChanged);
+    _descriptionController.addListener(_onFieldChanged);
   }
 
   void _onFieldChanged() => setState(() {});
@@ -67,6 +78,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   @override
   void dispose() {
     _nameController.removeListener(_onFieldChanged);
+    _descriptionController.removeListener(_onFieldChanged);
     _nameController.dispose();
     _descriptionController.dispose();
     super.dispose();
@@ -128,6 +140,8 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
+              maxLength: _kNameMaxLength,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               decoration: _decoration('Holiday name'),
             ),
             const SizedBox(height: 10),
@@ -172,6 +186,8 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
             TextField(
               controller: _descriptionController,
               maxLines: 2,
+              maxLength: _kDescriptionMaxLength,
+              maxLengthEnforcement: MaxLengthEnforcement.enforced,
               textCapitalization: TextCapitalization.sentences,
               decoration: _decoration('Description (optional)'),
             ),

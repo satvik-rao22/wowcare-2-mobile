@@ -20,6 +20,13 @@ class HolidayModel extends Equatable {
   factory HolidayModel.fromJson(Map<String, dynamic> json) {
     DateTime? parse(dynamic raw) =>
         raw == null ? null : DateTime.tryParse(raw.toString());
+    // Accept version as a number or a numeric string without throwing on
+    // unexpected shapes — a malformed value must not blow up the whole parse.
+    int parseVersion(dynamic raw) {
+      if (raw is num) return raw.toInt();
+      return int.tryParse(raw?.toString() ?? '') ?? 0;
+    }
+
     final start = parse(json['startDate']) ?? DateTime.now();
     return HolidayModel(
       code: (json['code'] ?? '').toString().trim(),
@@ -29,9 +36,7 @@ class HolidayModel extends Equatable {
       description: (json['description'] ?? '').toString(),
       type: (json['type'] ?? '').toString(),
       status: json['status']?.toString(),
-      version: (json['version'] as num?)?.toInt() ??
-          int.tryParse(json['version']?.toString() ?? '') ??
-          0,
+      version: parseVersion(json['version']),
       createdAt: parse(json['createdAt']) ?? DateTime.now(),
       updatedAt: parse(json['updatedAt']) ?? DateTime.now(),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 
 /// List card for the Holidays tab. Federal holidays expose the school's
@@ -21,22 +22,26 @@ class HolidayCard extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
-  static const Color _holidayRed = Color(0xFFD32F2F);
+  /// Reserved strictly for the destructive delete action.
+  static const Color _deleteRed = Color(0xFFD32F2F);
 
   @override
   Widget build(BuildContext context) {
     final isFederal = holiday.type == HolidayType.federal;
-    final accent = holiday.isObserved ? _holidayRed : Colors.grey;
+    // Plain white card with a neutral outline; observance state is conveyed by
+    // the status chip rather than tinting the whole card.
+    final badgeColor =
+        holiday.isObserved ? AppColors.themeColor : Colors.grey.shade500;
     return Container(
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accent.withValues(alpha: 0.2)),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 6,
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -47,7 +52,7 @@ class HolidayCard extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _dateBadge(accent),
+              _dateBadge(badgeColor),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -55,6 +60,8 @@ class HolidayCard extends StatelessWidget {
                   children: [
                     Text(
                       holiday.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -119,7 +126,7 @@ class HolidayCard extends StatelessWidget {
                     label: const Text('Delete',
                         style: TextStyle(fontSize: 12)),
                     style: TextButton.styleFrom(
-                      foregroundColor: _holidayRed,
+                      foregroundColor: _deleteRed,
                       visualDensity: VisualDensity.compact,
                     ),
                   ),
@@ -145,12 +152,12 @@ class HolidayCard extends StatelessWidget {
   int get _dayCount =>
       holiday.endDate.difference(holiday.startDate).inDays + 1;
 
-  Widget _dateBadge(Color accent) {
+  Widget _dateBadge(Color badgeColor) {
     return Container(
-      width: 46,
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      width: 48,
+      padding: const EdgeInsets.symmetric(vertical: 7),
       decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.10),
+        color: badgeColor.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -160,7 +167,7 @@ class HolidayCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,
-              color: accent,
+              color: badgeColor,
               letterSpacing: 0.6,
             ),
           ),
@@ -169,7 +176,7 @@ class HolidayCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: accent,
+              color: badgeColor,
             ),
           ),
         ],
@@ -178,7 +185,7 @@ class HolidayCard extends StatelessWidget {
   }
 
   Widget _typeChip(bool isFederal) {
-    final color = isFederal ? const Color(0xFF4A90D9) : _holidayRed;
+    final color = isFederal ? const Color(0xFF4A90D9) : AppColors.primaryColor;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
