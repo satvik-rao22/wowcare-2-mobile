@@ -158,6 +158,7 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     return StaffClassroomItem(
       classroomCode: m.classroomCode,
       staffCode: m.staffCode,
+      userCode: m.userCode,
       firstName: m.firstName,
       lastName: m.lastName,
       profilePictureUrl: m.profilePictureUrl,

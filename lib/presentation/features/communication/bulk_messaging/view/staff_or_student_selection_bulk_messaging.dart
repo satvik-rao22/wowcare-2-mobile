@@ -149,6 +149,7 @@ class _StaffOrStudentSelectionBulkMessagingState
         .map(
           (s) => {
             'code': s.code,
+            'userCode': s.userCode,
             'name': '${s.name}',
             // `profileImage` is never populated by the data layer for
             // StaffMember (always null) — `profilePhotoAssetCode` is the

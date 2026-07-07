@@ -1090,14 +1090,6 @@ final GoRouter appRouter = GoRouter(
                 );
               },
             ),
-            GoRoute(
-              path: AppRoutes.adminChat,
-              builder: (context, state) => const AdminChatHostScreen(),
-            ),
-            GoRoute(
-              path: AppRoutes.messagingEntry,
-              builder: (context, state) => const MessagingEntryScreen(),
-            ),
           ],
         ),
 
@@ -1115,6 +1107,19 @@ final GoRouter appRouter = GoRouter(
           ],
         ),
       ],
+    ),
+
+    // Overlay screens pushed over the shell via context.push. Placing them
+    // outside StatefulShellRoute means the root navigator owns the page —
+    // no bottom nav bar is shown, and there is no duplicate-GlobalKey risk
+    // from having multiple sibling roots inside the same ShellBranch.
+    GoRoute(
+      path: AppRoutes.adminChat,
+      builder: (context, state) => const AdminChatHostScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.messagingEntry,
+      builder: (context, state) => const MessagingEntryScreen(),
     ),
   ],
 );

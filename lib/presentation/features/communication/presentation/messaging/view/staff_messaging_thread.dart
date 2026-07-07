@@ -145,7 +145,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         );
         // Realtime listener starts only after the API/Isar history has
         // loaded — Firestore only ever applies deltas on top of it.
-        context.read<CommunicationCubit>().startWatchingThread(threadId);
+        context.read<CommunicationCubit>().startWatchingThread(
+          threadId,
+          organizationCode: widget.staffInfo['organizationCode'] as String?,
+          schoolCode: widget.staffInfo['schoolCode'] as String?,
+        );
         final initialMessages = _messages;
         _lastMessageId = initialMessages.isNotEmpty
             ? initialMessages.last.id
@@ -695,7 +699,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                         : () {
                                                             setState(() {
                                                               _quotedMessageCode =
-                                                                  message.code;
+                                                                  message.id;
                                                               _quotedMessage =
                                                                   message;
                                                             });
@@ -706,7 +710,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                         : () {
                                                             setState(() {
                                                               _quotedMessageCode =
-                                                                  message.code;
+                                                                  message.id;
                                                               _quotedMessage =
                                                                   message;
                                                             });
@@ -767,6 +771,20 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                           message,
                                                           emoji,
                                                         ),
+                                                    onRemoveReaction: (emoji) {
+                                                      context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .removeReaction(
+                                                            widget.staffInfo['code']
+                                                                as String,
+                                                            message.code,
+                                                            emoji,
+                                                            currentUserCode:
+                                                                _currentUserCode,
+                                                          );
+                                                    },
                                                     onReactionTap: () =>
                                                         _showEmojiPicker(
                                                           context,
@@ -1213,19 +1231,22 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               : () {
                                                                   setState(() {
                                                                     _quotedMessageCode =
-                                                                        message.code;
+                                                                        message.id;
                                                                     _quotedMessage =
                                                                         message;
                                                                   });
                                                                 },
-                                                          onReplyFromMenu: () {
-                                                            setState(() {
-                                                              _quotedMessageCode =
-                                                                  message.code;
-                                                              _quotedMessage =
-                                                                  message;
-                                                            });
-                                                          },
+                                                          onReplyFromMenu:
+                                                              message.isDeleted
+                                                              ? null
+                                                              : () {
+                                                                  setState(() {
+                                                                    _quotedMessageCode =
+                                                                        message.id;
+                                                                    _quotedMessage =
+                                                                        message;
+                                                                  });
+                                                                },
                                                           onCopy: () {
                                                             Clipboard.setData(
                                                               ClipboardData(
@@ -1273,6 +1294,20 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                                     message,
                                                                     emoji,
                                                                   ),
+                                                          onRemoveReaction: (emoji) {
+                                                            context
+                                                                .read<
+                                                                  CommunicationCubit
+                                                                >()
+                                                                .removeReaction(
+                                                                  widget.staffInfo['code']
+                                                                      as String,
+                                                                  message.code,
+                                                                  emoji,
+                                                                  currentUserCode:
+                                                                      _currentUserCode,
+                                                                );
+                                                          },
                                                           onReactionTap: () =>
                                                               _showEmojiPicker(
                                                                 context,
@@ -1606,11 +1641,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
     }
 
-    return CustomTextWidget(
-      text: label,
-      fontSize: 12,
-      fontWeight: FontWeight.w500,
-      applyLetterSpacing: false,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0x1A573353),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: CustomTextWidget(
+        text: label,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        applyLetterSpacing: false,
+      ),
     );
   }
 

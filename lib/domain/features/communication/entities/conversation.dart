@@ -99,6 +99,10 @@ class ConversationParticipant extends Equatable {
   /// media-asset code, mirroring [ParticipantEntity.avatarUrl].
   final String? avatarUrl;
 
+  /// Role-specific staff code (STF_*) used for fetching the staff profile
+  /// photo via DocumentImageWidget. Null for non-staff participants.
+  final String? staffCode;
+
   const ConversationParticipant({
     required this.id,
     required this.conversationId,
@@ -114,6 +118,7 @@ class ConversationParticipant extends Equatable {
     required this.updatedAt,
     this.privateModeEnabled = false,
     this.avatarUrl,
+    this.staffCode,
   });
 
   /// Mirrors [ParticipantEntity.isActive] — `leftAt == null` means still an
@@ -137,6 +142,7 @@ class ConversationParticipant extends Equatable {
         updatedAt,
         privateModeEnabled,
         avatarUrl,
+        staffCode,
       ];
 }
 

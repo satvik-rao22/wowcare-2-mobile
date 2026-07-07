@@ -3,7 +3,7 @@ description: "WowCare 2.O"
 
 publish_to: 'none' 
 
-version: 1.1.2
+version: 1.1.4
 
 
 environment:
@@ -28,6 +28,7 @@ dependencies:
   emoji_picker_flutter: ^4.4.0
   equatable: ^2.0.5
   file_picker: ^11.0.2
+  firebase_auth: ^6.5.1
   firebase_core: ^4.1.0
   firebase_analytics: ^12.0.1
   firebase_messaging: ^16.0.1

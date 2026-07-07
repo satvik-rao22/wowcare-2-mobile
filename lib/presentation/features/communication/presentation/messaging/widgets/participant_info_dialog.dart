@@ -12,12 +12,15 @@ class ParticipantDisplayData {
     required this.displayName,
     required this.role, // ADMIN | STAFF | GUARDIAN
     this.avatarUrl,
+    this.staffCode,
   });
 
   final String userCode;
   final String displayName;
   final String role;
   final String? avatarUrl;
+  /// Role-specific staff code (STF_*) for loading staff profile photos.
+  final String? staffCode;
 }
 
 /// Shows a modal dialog with grouped conversation participants.
@@ -343,7 +346,8 @@ class _ParticipantTile extends StatelessWidget {
     final badgeBg = ParticipantInfoDialog._badgeBg(role);
     final badgeFg = ParticipantInfoDialog._badgeFg(role);
     final badgeLabel = ParticipantInfoDialog._badgeLabel(role);
-    final isStaffPersona = role == 'STAFF' || role == 'ADMIN';
+    const staffRoles = {'STAFF', 'TEACHER', 'ADMIN', 'DIRECTOR', 'PRINCIPAL', 'ASSISTANT_DIRECTOR', 'LEAD_TEACHER'};
+    final isStaffPersona = staffRoles.contains(role);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -360,7 +364,7 @@ class _ParticipantTile extends StatelessWidget {
                     !(data.avatarUrl ?? '').startsWith('http')
                 ? data.avatarUrl
                 : null,
-            staffCode: isStaffPersona ? data.userCode : null,
+            staffCode: isStaffPersona ? data.staffCode : null,
             name: data.displayName,
             size: 42,
             fontSize: 14,

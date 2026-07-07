@@ -277,6 +277,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       MaterialPageRoute(
         builder: (_) => StaffProfileScreen(
           staffCode: profile.staffCode,
+          userCode: profile.userCode,
           name: profile.fullName.trim().isNotEmpty ? profile.fullName.trim() : '-',
           classroom: classroom,
           designation: profile.designation,

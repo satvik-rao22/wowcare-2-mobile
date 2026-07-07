@@ -316,6 +316,7 @@ import '../../domain/features/communication/repositories/message_entity_reposito
 import '../../data/features/communication/realtime/conversation_realtime_data_source.dart';
 import '../../data/features/communication/realtime/message_realtime_data_source.dart';
 import '../../data/features/communication/realtime/firebase_token_data_source.dart';
+import '../../core/firebase/firebase_auth_service.dart';
 import '../../domain/features/communication/usecases/watch_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/watch_total_unread_count_usecase.dart';
 import '../../domain/features/communication/usecases/watch_messages_usecase.dart';
@@ -655,6 +656,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
       messaging: FirebaseMessaging.instance,
       prefs: serviceLocator(),
     ),
+  );
+
+  serviceLocator.registerLazySingleton<FirebaseAuthService>(
+    () => FirebaseAuthService(dio: serviceLocator<ApiClient>().client),
   );
 
   // ===== COMMUNICATION V2.1 — DATA SOURCES (Phase 1B) =====
@@ -1468,6 +1473,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       remoteDataSource: serviceLocator(),
       registerDeviceFcmToken: serviceLocator(),
       unregisterDeviceFcmToken: serviceLocator(),
+      firebaseAuthService: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<StaffCubit>(

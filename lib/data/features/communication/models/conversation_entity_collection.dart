@@ -185,6 +185,7 @@ class ParticipantEntityCollection {
   /// Raw string; convert via [ParticipantRole.fromApiString].
   late String role;
   String? avatarUrl;
+  String? staffCode;
   late DateTime joinedAt;
   DateTime? leftAt;
   DateTime? lastReadAt;
@@ -203,6 +204,7 @@ class ParticipantEntityCollection {
       ..userName = entity.userName
       ..role = entity.role.toApiString()
       ..avatarUrl = entity.avatarUrl
+      ..staffCode = entity.staffCode
       ..joinedAt = entity.joinedAt
       ..leftAt = entity.leftAt
       ..lastReadAt = entity.lastReadAt
@@ -220,6 +222,7 @@ class ParticipantEntityCollection {
       userName: userName,
       role: ParticipantRole.fromApiString(role),
       avatarUrl: avatarUrl,
+      staffCode: staffCode,
       joinedAt: joinedAt,
       leftAt: leftAt,
       lastReadAt: lastReadAt,

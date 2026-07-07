@@ -193,6 +193,20 @@ class IsarCacheService implements CacheService {
             as List<T>;
       }
     }
+    if (T == ConversationCollection) {
+      // Without this, getByField<ConversationCollection>('code', …) always
+      // returned [] — so the Firestore inbox live-sync merge treated EVERY
+      // conversation as "unknown", dropped them all (merged=0), and the
+      // conversation list never updated live. Only the message thread synced
+      // (MessageCollection was implemented above; ConversationCollection was not).
+      if (fieldName == 'code') {
+        return await _isar.conversationCollections
+                .filter()
+                .codeEqualTo(value as String)
+                .findAll()
+            as List<T>;
+      }
+    }
     return [];
   }
 

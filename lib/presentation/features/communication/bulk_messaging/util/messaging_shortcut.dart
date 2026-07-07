@@ -18,13 +18,21 @@ class SelectedRecipient {
     required this.code,
     required this.name,
     required this.isStaff,
+    this.userCode = '',
     this.avatar = '',
     this.designation = '',
   });
 
+  /// The primary identity code.
+  /// For staff this is the staff code (STF_*) used for display and navigation.
+  /// For students this is the student code used as the API studentCode param.
   final String code;
   final String name;
   final bool isStaff;
+
+  /// The user account code (USR_*) used as the messaging API participant code.
+  /// Must be populated for staff recipients; unused for student recipients.
+  final String userCode;
   final String avatar;
   final String designation;
 }
@@ -94,10 +102,17 @@ Future<void> _openSingleRecipientConversation(
       ? ConversationType.staffDirect
       : ConversationType.roomChat;
 
+  // Staff conversations must use the USR_* user code, never the STF_* staff
+  // code. Callers populate `userCode` for staff recipients; fall back to `code`
+  // only for backward-compatibility with any path that predates this field.
+  final staffParticipantCode = recipient.userCode.isNotEmpty
+      ? recipient.userCode
+      : recipient.code;
+
   final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
     type: type,
     studentCode: recipient.isStaff ? '' : recipient.code,
-    participantCodes: recipient.isStaff ? [recipient.code] : const [],
+    participantCodes: recipient.isStaff ? [staffParticipantCode] : const [],
     title: recipient.name,
     avatarUrl: recipient.avatar,
   );

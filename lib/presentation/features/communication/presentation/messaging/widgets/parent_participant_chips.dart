@@ -78,7 +78,7 @@ class ParentParticipantChips extends StatelessWidget {
                           !(p.avatarUrl ?? '').startsWith('http')
                       ? p.avatarUrl
                       : null,
-                  staffCode: isStaffPersona ? p.userCode : null,
+                  staffCode: isStaffPersona ? p.staffCode : null,
                   name: name,
                   size: 16,
                   fontSize: 9,

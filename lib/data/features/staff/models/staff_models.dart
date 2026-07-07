@@ -5,6 +5,7 @@ class StaffListItemModel extends Equatable {
   const StaffListItemModel({
     required this.code,
     required this.name,
+    this.userCode = '',
     required this.primaryClassroomCode,
     /// Display name from list API when `primaryClassroom` is an object (e.g. admin location).
     this.primaryClassroomName = '',
@@ -22,6 +23,8 @@ class StaffListItemModel extends Equatable {
 
   final String code;
   final String name;
+  /// User account code (USR_*) — the participant identifier for messaging.
+  final String userCode;
   /// Classroom code (from API field `primaryClassroom`).
   final String primaryClassroomCode;
   final String primaryClassroomName;
@@ -102,6 +105,7 @@ class StaffListItemModel extends Equatable {
     return StaffListItemModel(
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      userCode: json['userCode'] as String? ?? '',
       primaryClassroomCode: primaryClassroomCode.isNotEmpty
           ? primaryClassroomCode
           : (json['primaryClassroomCode'] as String?) ?? '',
@@ -128,6 +132,7 @@ class StaffListItemModel extends Equatable {
     return {
       'code': code,
       'name': name,
+      'userCode': userCode,
       'primaryClassroom': primaryClassroomCode,
       'allowedClassrooms': allowedClassroomCodes,
       'designation': designation,
@@ -146,6 +151,7 @@ class StaffListItemModel extends Equatable {
       [
         code,
         name,
+        userCode,
         primaryClassroomCode,
         primaryClassroomName,
         allowedClassroomCodes,

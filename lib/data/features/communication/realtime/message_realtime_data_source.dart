@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
@@ -90,7 +93,8 @@ class MessageFirestoreItem {
       // ppc-presence is authoritative (backend invariant isPrivate = ppc != null)
       // and takes precedence over the `isPrivate`/`private` booleans, which can
       // be false even when ppc is set — see message_model.dart.
-      isPrivate: ((d['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
+      isPrivate:
+          ((d['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
               false) ||
           (d['isPrivate'] as bool? ?? false) ||
           (d['private'] as bool? ?? false),
@@ -231,45 +235,157 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
     required String currentUserCode,
     required bool isStaff,
     required bool isAdmin,
-    int limit = 100,
+    int limit = 10000,
   }) {
-    return firestore
-        .collection('orgs')
-        .doc(organizationCode)
-        .collection('schools')
-        .doc(schoolCode)
-        .collection('conversations')
-        .doc(conversationCode)
-        .collection('messages')
-        // Deliberately no `where('isDeleted', ...)` here — combining it with
-        // orderBy('sentAt') requires a Firestore composite index, and the
-        // web app's equivalent query (firestore-messaging.service.ts) doesn't
-        // filter either. Deleted messages still flow through so the UI can
-        // render the deleted-placeholder treatment instead of the row simply
-        // never updating on other participants' devices.
-        .orderBy('sentAt', descending: false)
-        .limitToLast(limit)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              // Using `docs` (the full current window) rather than
-              // `docChanges` (delta only). With `docChanges`, subsequent
-              // Firestore events after the initial snapshot only carry the
-              // 1–2 changed documents, so the cubit would replace its
-              // entire message list with just the delta — losing all
-              // previous messages. `docs` always delivers the complete set
-              // of documents currently matching the query (last `limit`
-              // messages), which is what the cubit expects to replace
-              // state.messages with.
-              .map((doc) => MessageFirestoreItem.fromFirestore(doc))
-              .map((item) => item.toEntity())
-              .where((entity) => VisibilityHelper.canViewMessage(
-                    entity,
-                    currentUserCode,
-                    isStaff,
-                    isAdmin,
-                  ))
-              .toList(),
-        );
+    return _watchWithRetry(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      conversationCode: conversationCode,
+      currentUserCode: currentUserCode,
+      isStaff: isStaff,
+      isAdmin: isAdmin,
+      limit: limit,
+    );
+  }
+
+  /// Subscribes to the Firestore messages collection and silently retries on
+  /// `permission-denied` with exponential backoff.
+  ///
+  /// Why StreamController instead of async*:
+  /// FlutterFire's `receiveGuardedBroadcastStream` delivers the
+  /// `permission-denied` error through the platform-channel zone — it arrives
+  /// on the stream's `onError` callback, NOT as a rethrown exception at
+  /// `await for`. A try-catch around `await for` therefore never intercepts it.
+  /// Attaching `onError` directly to `.listen()` is the only reliable
+  /// interception point for Firestore stream errors.
+  Stream<List<MessageEntity>> _watchWithRetry({
+    required String organizationCode,
+    required String schoolCode,
+    required String conversationCode,
+    required String currentUserCode,
+    required bool isStaff,
+    required bool isAdmin,
+    required int limit,
+  }) {
+    // Backoff seconds per retry attempt.
+    // A new STAFF_DIRECT conversation is written to Firestore asynchronously
+    // by the backend after the REST API returns — Flutter can race ahead and
+    // subscribe before the conversation document (and its security-rule anchor)
+    // exists. Four retries cover the typical propagation window.
+    const retryDelays = [2, 4, 8, 16];
+
+    final controller = StreamController<List<MessageEntity>>();
+    StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? inner;
+
+    // Declared late so _retryOrForward can capture it before the body is assigned.
+    late void Function(int attempt) subscribe;
+
+    StreamSubscription<User?>? authWaitSub;
+
+    void retryOrForward(Object error, int attempt) {
+      if (controller.isClosed) return;
+      if (error is FirebaseException && error.code == 'permission-denied') {
+        if (attempt < retryDelays.length) {
+          // Standard exponential backoff while Firebase auth is in progress.
+          Future.delayed(
+            Duration(seconds: retryDelays[attempt]),
+            () {
+              if (!controller.isClosed) subscribe(attempt + 1);
+            },
+          );
+        } else {
+          // Backoff exhausted — Firebase auth hasn't completed yet. Wait for
+          // an authStateChanges event with a signed-in user, then restart.
+          // This covers the race where the app opens the Firestore listener
+          // before signInWithCustomToken finishes.
+          authWaitSub?.cancel();
+          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+            if (controller.isClosed) {
+              authWaitSub?.cancel();
+              return;
+            }
+            if (user != null) {
+              authWaitSub?.cancel();
+              authWaitSub = null;
+              subscribe(0);
+            }
+          });
+        }
+      } else {
+        controller.addError(error);
+        controller.close();
+      }
+    }
+
+    subscribe = (int attempt) {
+      inner?.cancel();
+      // runZonedGuarded wraps the subscription so that permission-denied errors
+      // thrown into the Dart zone by FlutterFire's receiveGuardedBroadcastStream
+      // are caught here instead of escaping to the root isolate zone and being
+      // logged as "Unhandled Exception" at dart_vm_initializer.cc.
+      runZonedGuarded(
+        () {
+          inner = firestore
+              .collection('orgs')
+              .doc(organizationCode)
+              .collection('schools')
+              .doc(schoolCode)
+              .collection('conversations')
+              .doc(conversationCode)
+              .collection('messages')
+              // Deliberately no `where('isDeleted', ...)` here — combining it with
+              // orderBy('sentAt') requires a Firestore composite index, and the
+              // web app's equivalent query (firestore-messaging.service.ts) doesn't
+              // filter either. Deleted messages still flow through so the UI can
+              // render the deleted-placeholder treatment instead of the row simply
+              // never updating on other participants' devices.
+              .orderBy('sentAt', descending: false)
+              .limitToLast(limit)
+              .snapshots()
+              .listen(
+                (snapshot) {
+                  if (controller.isClosed) return;
+                  // Using `docs` (the full current window) rather than
+                  // `docChanges` (delta only). With `docChanges`, subsequent
+                  // Firestore events after the initial snapshot only carry the
+                  // 1–2 changed documents, so the cubit would replace its entire
+                  // message list with just the delta — losing all previous
+                  // messages. `docs` always delivers the complete set currently
+                  // matching the query, which is what the cubit expects.
+                  controller.add(
+                    snapshot.docs
+                        .map((doc) => MessageFirestoreItem.fromFirestore(doc))
+                        .map((item) => item.toEntity())
+                        .where(
+                          (entity) => VisibilityHelper.canViewMessage(
+                            entity,
+                            currentUserCode,
+                            isStaff,
+                            isAdmin,
+                          ),
+                        )
+                        .toList(),
+                  );
+                },
+                onError: (Object error) => retryOrForward(error, attempt),
+                onDone: () {
+                  if (!controller.isClosed) controller.close();
+                },
+                cancelOnError: true,
+              );
+        },
+        (Object error, StackTrace _) => retryOrForward(error, attempt),
+      );
+    };
+
+    controller.onListen = () => subscribe(0);
+    controller.onCancel = () {
+      inner?.cancel();
+      inner = null;
+      authWaitSub?.cancel();
+      authWaitSub = null;
+    };
+
+    return controller.stream;
   }
 }
