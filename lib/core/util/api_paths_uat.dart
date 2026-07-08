@@ -37,12 +37,6 @@ class ApiPathsUat {
     ApiMicroservices.organization: {'schools', 'organizations', 'school'},
     ApiMicroservices.staff: {
       'staff',
-      // NOTE: do NOT list 'my-profile' here. The app always calls it nested as
-      // `/api/v1/staff/my-profile/{code}`, and listing it as a root made the UAT
-      // rewriter treat that path as already ms-prefixed — so it skipped adding
-      // the `staff` segment and the gateway 500'd ("No static resource
-      // api/v1/my-profile/..."). Removing it lets my-profile get the ms prefix
-      // like every other staff endpoint → `/api/v1/staff/staff/my-profile/...`.
       'staff-classrooms',
       'staff-documents',
       'staff-dates',

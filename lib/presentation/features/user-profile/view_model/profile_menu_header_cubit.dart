@@ -41,7 +41,11 @@ class ProfileMenuHeaderCubit extends Cubit<ProfileMenuHeaderState> {
 
   final StorageService _storage;
 
-  Future<void> loadSummary() async {
+  /// [isGuardian] is the current active persona. In the guardian persona the
+  /// header must show the **guardian's** own name + "Guardian" (and the guardian
+  /// avatar) — not the staff/admin identity, which is a different name/role for
+  /// dual-persona users.
+  Future<void> loadSummary({bool isGuardian = false}) async {
     try {
       final name =
           (await _storage.getString(StorageKeys.displayName) ?? '').trim();
@@ -53,6 +57,31 @@ class ProfileMenuHeaderCubit extends Cubit<ProfileMenuHeaderState> {
       final guardianPhotoUrl =
           (await _storage.getString(StorageKeys.guardianProfilePhotoUrl) ?? '')
               .trim();
+
+      if (isGuardian) {
+        final first =
+            (await _storage.getString(StorageKeys.guardianProfileFirstName) ??
+                    '')
+                .trim();
+        final last =
+            (await _storage.getString(StorageKeys.guardianProfileLastName) ??
+                    '')
+                .trim();
+        final guardianName = '$first $last'.trim();
+        emit(ProfileMenuHeaderState(
+          // Fall back to the login name only if the guardian name isn't cached
+          // yet (profile still loading).
+          displayName: guardianName.isNotEmpty
+              ? guardianName
+              : (name.isNotEmpty ? name : 'User'),
+          persona: 'Guardian',
+          // Guardian avatar only — never the staff photo.
+          staffCode: '',
+          guardianAssetCode: guardianAssetCode,
+          guardianPhotoUrl: guardianPhotoUrl,
+        ));
+        return;
+      }
 
       // Prefer staffType from storage (from staff profile API); fallback to roles.
       var persona = '';

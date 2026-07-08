@@ -1,31 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/di/di.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // ---------------------------------------------------------------------------
 // StudentBillingCard (parent dashboard)
 //
 // Renders the guardian's family billing ledger — children, current balance and
-// the most-recent invoices / payments / refunds — from the family-ledger API
-// via [ParentBillingCubit].
+// the most-recent invoices / payments / refunds. The [ParentBillingCubit] is
+// provided (and kept alive) by the parent dashboard coordinator, so the card
+// loads once and doesn't re-fetch on every rebuild.
 // ---------------------------------------------------------------------------
 
 class StudentBillingCard extends StatelessWidget {
   const StudentBillingCard({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return BlocProvider<ParentBillingCubit>(
-      create: (_) => serviceLocator<ParentBillingCubit>()..load(),
-      child: const _StudentBillingCardBody(),
-    );
-  }
+  Widget build(BuildContext context) => const _StudentBillingCardBody();
+}
+
+/// Opens the full parent billing screen (bottom-nav branch) where invoice
+/// details live.
+void _openBillingScreen(BuildContext context) {
+  context.go(ParentBillingScreen.routeName);
+}
+
+/// Opens the Pay Now flow directly (same screen the billing page uses) and
+/// refreshes the card's ledger if a payment was made.
+Future<void> _openPayNow(BuildContext context) async {
+  final cubit = context.read<ParentBillingCubit>();
+  final paid = await Navigator.of(context).push<bool>(
+    MaterialPageRoute(builder: (_) => const PayNowAmountScreen()),
+  );
+  if (paid == true) cubit.refresh();
 }
 
 class _StudentBillingCardBody extends StatefulWidget {
@@ -65,17 +80,6 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 
-  String _titleCase(String value) {
-    final v = value.trim();
-    if (v.isEmpty) return '';
-    return v
-        .split(RegExp(r'\s+'))
-        .map((w) => w.isEmpty
-            ? w
-            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
-        .join(' ');
-  }
-
   bool _isRefund(FamilyLedgerTransactionEntity t) =>
       t.transactionType.toLowerCase().contains('refund');
 
@@ -86,7 +90,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
   // Student avatar row item
   // ---------------------------------------------------------------------------
 
-  Widget _buildStudentChip({required String name, String? subtitle}) {
+  Widget _buildStudentChip({required String name}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -100,31 +104,15 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
         ),
         const SizedBox(width: 10),
         Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              if (subtitle != null && subtitle.isNotEmpty) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-              ],
-            ],
+          child: Text(
+            name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.primaryColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -205,28 +193,11 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
           '\$${transaction.balance.toStringAsFixed(2)}',
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.billingBorderMedium),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'View Receipt',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-              ),
-            ),
-          ],
+        CustomButtonLayout(
+          isForm: false,
+          showCancelButton: false,
+          confirmButtonLabel: 'View Receipt',
+          onPressedConfirm: () => _openBillingScreen(context),
         ),
       ],
     );
@@ -323,28 +294,11 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
           '\$${invoice.balance.toStringAsFixed(2)}',
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.billingBorderMedium),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'View Invoice',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-              ),
-            ),
-          ],
+        CustomButtonLayout(
+          isForm: false,
+          showCancelButton: false,
+          confirmButtonLabel: 'View Invoice',
+          onPressedConfirm: () => _openBillingScreen(context),
         ),
       ],
     );
@@ -532,14 +486,8 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                 builder: (context, state) {
                   if (state.isLoading && state.ledger == null) {
                     return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Center(
-                        child: SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      ),
+                      padding: EdgeInsets.only(top: 16),
+                      child: BillingTransactionShimmer(),
                     );
                   }
 
@@ -592,10 +540,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                             final student = students[index];
                             return Align(
                               alignment: Alignment.centerLeft,
-                              child: _buildStudentChip(
-                                name: student.fullName,
-                                subtitle: _titleCase(student.role),
-                              ),
+                              child: _buildStudentChip(name: student.fullName),
                             );
                           },
                         ),
@@ -643,7 +588,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                                 isForm: false,
                                 showCancelButton: false,
                                 confirmButtonLabel: 'Pay Now',
-                                onPressedConfirm: () {},
+                                onPressedConfirm: () => _openPayNow(context),
                               ),
                             ),
                           ),

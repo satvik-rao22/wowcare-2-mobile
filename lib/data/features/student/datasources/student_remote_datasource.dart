@@ -274,6 +274,13 @@ abstract class StudentRemoteDataSource {
     required Map<String, dynamic> body,
   });
 
+  /// Updates the logged-in guardian's own profile via
+  /// `PATCH /api/v1/guardian/my-profile`. The guardian is identified by the
+  /// `code` field inside [body].
+  Future<String> updateGuardianMyProfile({
+    required Map<String, dynamic> body,
+  });
+
   /// Deletes a guardian via `DELETE /api/v1/guardian/{code}`.
   Future<String> deleteGuardian({
     required String code,
@@ -1421,6 +1428,25 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Guardian updated successfully';
+  }
+
+  @override
+  Future<String> updateGuardianMyProfile({
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianMyProfile,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(endpoint, data: body);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian my-profile update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Profile updated successfully';
   }
 
   @override

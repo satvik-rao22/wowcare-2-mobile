@@ -28,6 +28,7 @@ import '../../domain/features/notifications/usecases/mark_all_notifications_read
 import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
 import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
+import '../../presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
 import '../../presentation/features/user-profile/view_model/notification_settings_cubit.dart';
@@ -811,6 +812,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => EditUserProfileCubit(
       storageService: serviceLocator(),
       staffRepository: serviceLocator(),
+      studentRemoteDataSource: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<UserProfileCubit>(
@@ -1841,6 +1843,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
       markAllNotificationsReadUseCase: serviceLocator(),
       getUnreadCountsUseCase: serviceLocator(),
     ),
+  );
+  // Shared app-session singleton powering the app-bar bell badge (mirrors
+  // UnreadBadgeCubit). Provided at the app root; reloaded on GlobalScaffold mount.
+  serviceLocator.registerLazySingleton<NotificationBadgeCubit>(
+    () => NotificationBadgeCubit(getUnreadCounts: serviceLocator()),
   );
 
   // Notification preferences (settings screen) — GET/PATCH /preferences.

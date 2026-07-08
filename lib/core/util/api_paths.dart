@@ -500,6 +500,10 @@ class ApiPaths {
   static const String guardian = '/api/v1/guardian';
   static const String guardianChildren = '/api/v1/guardian/children';
   static const String guardianProfile = '/api/v1/guardian/profile';
+  /// PATCH the logged-in guardian's own profile (resolves to
+  /// `/api/v1/student/guardian/my-profile`). Identified by schoolCode+userCode
+  /// query params, like [guardianProfile].
+  static const String guardianMyProfile = '/api/v1/guardian/my-profile';
   static const String guardianExisting = '/api/v1/guardian/existing';
   static String guardianProfilePhotoUploadSessionPath(String guardianCode) =>
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
