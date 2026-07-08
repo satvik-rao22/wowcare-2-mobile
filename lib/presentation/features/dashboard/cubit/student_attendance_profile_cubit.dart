@@ -33,6 +33,7 @@ class StudentAttendanceProfileCubit
     required DateTime fromDate,
     required DateTime toDate,
     bool forceRefresh = false,
+    bool background = false,
   }) async {
     final code = studentCode.trim();
     if (code.isEmpty) {
@@ -55,14 +56,18 @@ class StudentAttendanceProfileCubit
       return;
     }
 
+    // During a background refresh keep the loaded data visible (no shimmer).
+    final hasData = state.status == _Status.loaded && state.studentCode == code;
     _isFetching = true;
-    emit(
-      state.copyWith(
-        status: _Status.loading,
-        studentCode: code,
-        errorMessage: null,
-      ),
-    );
+    if (!(background && hasData)) {
+      emit(
+        state.copyWith(
+          status: _Status.loading,
+          studentCode: code,
+          errorMessage: null,
+        ),
+      );
+    }
 
     try {
       final fromDateString = _formatDate(fromDate);
@@ -127,7 +132,8 @@ class StudentAttendanceProfileCubit
         );
       }
     } catch (e) {
-      if (!isClosed) {
+      // Keep the stale-but-valid data on a failed background refresh.
+      if (!isClosed && !(background && hasData)) {
         emit(
           state.copyWith(
             status: _Status.error,

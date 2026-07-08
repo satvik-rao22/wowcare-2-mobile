@@ -1,9 +1,10 @@
 import 'dart:async' show unawaited;
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -126,7 +127,6 @@ class _StudentAttendanceDailyViewScreenState
   bool _isLoadingTagMap = false;
   bool _isClassroomDataReady = false;
   String? _loggedInUserName;
-  bool _isTeacherStaffPersona = false;
 
   // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
   int enrolled = 0;
@@ -192,7 +192,6 @@ class _StudentAttendanceDailyViewScreenState
     _loadClassroomData();
     _loadTagNameCodeMap();
     _loadLoggedInUserName();
-    _loadStaffPersonaFlags();
     _searchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onExternalRefresh);
 
@@ -263,6 +262,9 @@ class _StudentAttendanceDailyViewScreenState
     // Reload this Daily tab's list and counts...
     _loadAttendanceData(reset: true);
     unawaited(_loadStudentCounts());
+    // ...and every visible avatar status dot, which fetches independently of
+    // this list and would otherwise keep showing the pre-edit status.
+    DocumentImageWidget.refreshAttendanceStatusDots();
     // ...and, when hosted in the tabbed shell, the sibling tabs (Custom,
     // Absent) so the whole page reflects the action.
     widget.onAttendanceMutated?.call();
@@ -385,45 +387,6 @@ class _StudentAttendanceDailyViewScreenState
     } catch (_) {}
   }
 
-  Future<void> _loadStaffPersonaFlags() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
-          .trim();
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      bool isStaffAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-      if (!isStaffAdmin) {
-        final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-            .trim();
-        if (rolesJson.isNotEmpty) {
-          final roles = jsonDecode(rolesJson);
-          if (roles is List) {
-            isStaffAdmin = roles.any((r) {
-              if (r is! Map) return false;
-              final roleCode = (r['role'] ?? '')
-                  .toString()
-                  .trim()
-                  .toUpperCase();
-              return roleCode == 'SCHOOL_ADMIN' ||
-                  roleCode == 'ORGANIZATION_ADMIN';
-            });
-          }
-        }
-      }
-      if (!mounted) return;
-      setState(() {
-        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isTeacherStaffPersona = false;
-      });
-    }
-  }
 
   @override
   void dispose() {
@@ -945,6 +908,8 @@ class _StudentAttendanceDailyViewScreenState
   Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
+    
+    final bool hideSummaryCards = context.watch<RoleCubit>().isStaff;
 
     return BlocListener<
       StudentAttendanceAbsentToggleCubit,
@@ -1013,7 +978,7 @@ class _StudentAttendanceDailyViewScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: responsive.verticalSpacing / 4),
-                        if (!_isTeacherStaffPersona) ...[
+                        if (!hideSummaryCards) ...[
                           StudentAttendanceSummary(
                             enrolled: enrolled,
                             active: active,

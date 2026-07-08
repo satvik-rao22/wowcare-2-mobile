@@ -20,8 +20,11 @@ class AnalyticsCubit extends Cubit<AnalyticsState> {
   final GetInvoiceAnalyticsUseCase _getAnalytics;
   final StorageService _storage;
 
-  Future<void> load({int? year}) async {
-    emit(state.copyWith(isLoading: true, errorMessage: () => null));
+  Future<void> load({int? year, bool background = false}) async {
+    // A background refresh (pull-to-refresh) keeps the current chart on screen
+    // instead of flashing a shimmer, and refetches silently.
+    final keepVisible = background && state.analytics != null;
+    emit(state.copyWith(isLoading: !keepVisible, errorMessage: () => null));
     try {
       final org =
           (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
@@ -43,6 +46,11 @@ class AnalyticsCubit extends Cubit<AnalyticsState> {
       ));
     } catch (e) {
       if (isClosed) return;
+      // Keep the existing chart on a failed background refresh.
+      if (keepVisible) {
+        emit(state.copyWith(isLoading: false));
+        return;
+      }
       emit(state.copyWith(
         isLoading: false,
         errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
