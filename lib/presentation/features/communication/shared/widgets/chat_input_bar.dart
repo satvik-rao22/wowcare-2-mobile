@@ -567,7 +567,6 @@ class _InputRow extends StatelessWidget {
                     controller as HtmlAwareTextController,
                   )
             : null,
-        onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
         onSubmitted: (_) {},
         keyboardType: TextInputType.multiline,
         textInputAction: TextInputAction.newline,

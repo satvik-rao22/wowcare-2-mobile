@@ -18,7 +18,6 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-
 import '../../../../../../../core/storage/storage_service.dart';
 import '../../../../../../../core/util/storage_keys.dart';
 
@@ -741,7 +740,9 @@ class _ConversationTileContent extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF00B894).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFF00B894,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

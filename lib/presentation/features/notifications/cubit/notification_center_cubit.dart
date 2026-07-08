@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 
 import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/notifications/entities/app_notification.dart';
-import '../../../../domain/features/notifications/entities/notification_category.dart';
+import '../../../../domain/features/notifications/usecases/get_notification_unread_counts_usecase.dart';
 import '../../../../domain/features/notifications/usecases/get_notifications_usecase.dart';
 import '../../../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
 import '../../../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
@@ -20,14 +20,17 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     required GetNotificationsUseCase getNotificationsUseCase,
     required MarkNotificationReadUseCase markNotificationReadUseCase,
     required MarkAllNotificationsReadUseCase markAllNotificationsReadUseCase,
+    required GetNotificationUnreadCountsUseCase getUnreadCountsUseCase,
   })  : _getNotifications = getNotificationsUseCase,
         _markRead = markNotificationReadUseCase,
         _markAllRead = markAllNotificationsReadUseCase,
+        _getUnreadCounts = getUnreadCountsUseCase,
         super(const NotificationCenterState.initial());
 
   final GetNotificationsUseCase _getNotifications;
   final MarkNotificationReadUseCase _markRead;
   final MarkAllNotificationsReadUseCase _markAllRead;
+  final GetNotificationUnreadCountsUseCase _getUnreadCounts;
 
   /// Items per page (infinite scroll).
   static const int _pageSize = 10;
@@ -45,7 +48,12 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
 
   Future<void> _fetchFirstPage() async {
     try {
-      final result = await _getNotifications(page: 0, size: _pageSize);
+      final result = await _getNotifications(
+        page: 0,
+        size: _pageSize,
+        module: state.moduleFilter,
+        onlyUnread: state.onlyUnread,
+      );
       if (isClosed) return;
       emit(state.copyWith(
         items: result.items,
@@ -55,6 +63,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         isRefreshing: false,
         isLoadingMore: false,
       ));
+      await _refreshUnreadCount();
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
@@ -64,6 +73,19 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         isLoadingMore: false,
         errorMessage: e.toString(),
       ));
+    }
+  }
+
+  /// Best-effort refresh of the authoritative unread total (bell badge +
+  /// mark-all gate). Failures are swallowed — the loaded-item count is the
+  /// fallback, so a count hiccup never blocks the list.
+  Future<void> _refreshUnreadCount() async {
+    try {
+      final counts = await _getUnreadCounts();
+      if (isClosed) return;
+      emit(state.copyWith(serverUnreadCount: counts.unread));
+    } catch (_) {
+      // Non-fatal: keep the loaded-item fallback.
     }
   }
 
@@ -79,8 +101,12 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
     final nextPage = state.page + 1;
     try {
-      final result =
-          await _getNotifications(page: nextPage, size: _pageSize);
+      final result = await _getNotifications(
+        page: nextPage,
+        size: _pageSize,
+        module: state.moduleFilter,
+        onlyUnread: state.onlyUnread,
+      );
       if (isClosed) return;
       // De-dupe defensively in case a page boundary overlaps.
       final existingIds = state.items.map((n) => n.id).toSet();
@@ -101,17 +127,25 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     }
   }
 
-  /// `null` selects the "All" pseudo-category.
-  void setCategoryFilter(NotificationCategory? category) {
-    if (category == null) {
-      emit(state.copyWith(clearCategoryFilter: true));
-    } else {
-      emit(state.copyWith(categoryFilter: category));
-    }
+  /// Sets the module (category) filter and refetches from the server.
+  /// `null`/empty selects "All". No-op when unchanged.
+  Future<void> setModuleFilter(String? module) async {
+    final next = (module == null || module.trim().isEmpty) ? null : module.trim();
+    if (next == state.moduleFilter) return;
+    emit(state.copyWith(
+      moduleFilter: next,
+      clearModuleFilter: next == null,
+      isLoading: true,
+      errorMessage: null,
+    ));
+    await _fetchFirstPage();
   }
 
-  void setOnlyUnread(bool value) {
-    emit(state.copyWith(onlyUnread: value));
+  /// Toggles the unread-only filter and refetches from the server.
+  Future<void> setOnlyUnread(bool value) async {
+    if (value == state.onlyUnread) return;
+    emit(state.copyWith(onlyUnread: value, isLoading: true, errorMessage: null));
+    await _fetchFirstPage();
   }
 
   Future<void> markAsRead(String id) async {
@@ -129,7 +163,12 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     try {
       await _markRead(id);
       if (isClosed) return;
-      emit(state.copyWith(isMutating: false));
+      // Keep the authoritative unread total in step with the item we just read.
+      final c = state.serverUnreadCount;
+      emit(state.copyWith(
+        isMutating: false,
+        serverUnreadCount: c == null ? null : (c > 0 ? c - 1 : 0),
+      ));
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
@@ -150,7 +189,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     try {
       await _markAllRead();
       if (isClosed) return;
-      emit(state.copyWith(isMutating: false));
+      emit(state.copyWith(isMutating: false, serverUnreadCount: 0));
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());

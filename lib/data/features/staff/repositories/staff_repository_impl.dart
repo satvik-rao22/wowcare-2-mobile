@@ -404,6 +404,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     return StaffMember(
       code: m.code,
       name: m.name,
+      userCode: m.userCode,
       primaryClassroomCode: m.primaryClassroomCode,
       primaryClassroomName: m.primaryClassroomName,
       allowedClassroomCodes: m.allowedClassroomCodes,

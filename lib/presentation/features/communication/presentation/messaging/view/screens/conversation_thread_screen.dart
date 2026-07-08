@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
-import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -20,8 +19,10 @@ import 'package:wowcare/domain/features/communication/entities/conversation_enti
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/search_messages_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
@@ -213,14 +214,23 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     );
     _searchUseCase = SearchMessagesUseCase(serviceLocator());
 
+    // Pre-set _senderCode synchronously so it matches the cubit's _currentUserCode
+    // from the moment the screen is built. _loadSenderInfo will confirm/update it
+    // from storage (same value) along with the other sender fields.
+    _senderCode = userCodeFromAuth;
+
     _cubit.startWatchingMessages();
     unawaited(_loadSenderInfo());
     unawaited(_loadDraft());
 
+    if (widget.conversation.participants.isEmpty && !widget.isDraft) {
+      unawaited(_fetchConversationDetails());
+    }
+
     // Private mode toggle only available in room chats
     final canShowPrivateToggle =
         widget.showPrivateModeToggle &&
-        _conversation.type == ConversationType.roomChat.toApiString();
+        _conversation.type == ConversationType.roomChat;
 
     if (canShowPrivateToggle) {
       _privateModeToggleCubit = PrivateModeToggleCubit(
@@ -236,6 +246,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       _conversationPrivateModeActivatedBy =
           widget.conversation.privateModeActivatedBy;
     }
+  }
+
+  Future<void> _fetchConversationDetails() async {
+    final result = await serviceLocator<ConversationEntityRepository>()
+        .getConversation(widget.conversation.code);
+    if (!mounted) return;
+    result.fold(
+      (_) {},
+      (conversation) {
+        if (conversation.participants.isNotEmpty) {
+          setState(() => _resolvedConversation = conversation);
+        }
+      },
+    );
   }
 
   Future<void> _loadSenderInfo() async {
@@ -699,7 +723,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               // Private Mode toggle — room chats only
               if (widget.showPrivateModeToggle &&
                   _privateModeToggleCubit != null &&
-                  _conversation.type == ConversationType.roomChat.toApiString())
+                  _conversation.type == ConversationType.roomChat)
                 BlocConsumer<PrivateModeToggleCubit, PrivateModeToggleState>(
                   bloc: _privateModeToggleCubit,
                   listener: (context, pmState) {
@@ -797,21 +821,21 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               ),
             ],
           ),
-          if (participants.isNotEmpty &&
-              _senderRole != ParticipantRole.parent) ...[
+          if (participants.isNotEmpty) ...[
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
                 final isAdminChat =
-                    _conversation.type ==
-                    ConversationType.adminChat.toApiString();
-                final visibleParticipants = isAdminChat
-                    ? participants
-                          .where(
-                            (p) =>
-                                p.role.toApiString().toUpperCase() == 'ADMIN',
-                          )
-                          .toList()
+                    _conversation.type == ConversationType.adminChat;
+                final isRoomChat =
+                    _conversation.type == ConversationType.roomChat;
+                // Admin chat and Room chat → guardian/parent chips only.
+                // All other types → show everyone.
+                final visibleParticipants = (isAdminChat || isRoomChat)
+                    ? participants.where((p) {
+                        final role = p.role.toApiString().toUpperCase();
+                        return role == 'PARENT' || role == 'GUARDIAN';
+                      }).toList()
                     : participants;
                 if (visibleParticipants.isEmpty) return const SizedBox.shrink();
                 return SizedBox(
@@ -902,9 +926,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             ),
           ],
           if (_senderRole == ParticipantRole.parent &&
-              (_conversation.type == ConversationType.adminChat.toApiString() ||
-                  _conversation.type ==
-                      ConversationType.roomChat.toApiString())) ...[
+              (_conversation.type == ConversationType.adminChat ||
+                  _conversation.type == ConversationType.roomChat)) ...[
             const SizedBox(height: 8),
             _buildPrivateModeHeader(),
           ],
@@ -970,13 +993,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   /// True if [senderCode]'s participant is staff/admin/teacher/director,
   /// false if guardian/parent — see [MessageBubble.senderIsOrgSide] /
-  /// docs/messaging/06-ui-standards.md. Defaults to guardian (false) when
-  /// the sender can't be matched against this conversation's participant
-  /// list, same fallback rationale as ParentMessagingThread's equivalent.
-  bool _isOrgSideSender(String senderCode) {
+  bool _isOrgSideSender(MessageEntity msg) {
+    if (msg.senderRole != ParticipantRole.parent) {
+      return true;
+    }
+    // Fallback: Firestore realtime updates (reactions) might omit senderRole,
+    // forcing it to ParticipantRole.parent. Check the participant list.
     final role =
         _conversation.participants
-            .where((p) => p.userCode == senderCode)
+            .where((p) => p.userCode == msg.senderCode)
             .firstOrNull
             ?.role ??
         ParticipantRole.parent;
@@ -1089,11 +1114,21 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 Padding(
                   padding: const EdgeInsets.only(top: 8, bottom: 10),
                   child: Center(
-                    child: CustomTextWidget(
-                      text: _dateSeparatorLabel(msg.sentAt),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      applyLetterSpacing: false,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0x1A573353),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: CustomTextWidget(
+                        text: _dateSeparatorLabel(msg.sentAt),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        applyLetterSpacing: false,
+                      ),
                     ),
                   ),
                 ),
@@ -1210,9 +1245,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     isSuccess: true,
                   );
                 },
-                onReactionTap: () => _showEmojiPicker(context, msg),
+                onReactionTap: () {
+                  // Dismiss any open overlay then focus the chat input so
+                  // the user can compose an emoji reply or pick a reaction
+                  // via the app's own emoji keyboard — no third-party picker.
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _inputFocusNode.requestFocus();
+                  });
+                },
                 isParentMessaging: _senderRole == ParticipantRole.parent,
-                senderIsOrgSide: _isOrgSideSender(msg.senderCode),
+                senderIsOrgSide: _isOrgSideSender(msg),
               ),
             ],
           );
@@ -1329,6 +1371,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           onSend: () => unawaited(_sendMessage()),
                           onAttachmentTap: _showAttachmentSheet,
                           pendingAttachments: _pendingAttachments,
+                          showCharCounter: true,
                           onRemoveAttachment: (i) =>
                               setState(() => _pendingAttachments.removeAt(i)),
                           quotedMessage: _quotedMessage != null
@@ -1367,9 +1410,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
 
-    final body = BlocProvider<ConversationThreadCubit>.value(
-      value: _cubit,
-      child: _buildThreadBody(),
+    final body = BlocListener<PushNotificationCubit, PushNotificationState>(
+      listenWhen: (prev, curr) =>
+          curr.newMessageEventSeq != prev.newMessageEventSeq &&
+          curr.incomingConversationCode == widget.conversation.code,
+      listener: (_, __) => _cubit.refreshMessages(),
+      child: BlocProvider<ConversationThreadCubit>.value(
+        value: _cubit,
+        child: _buildThreadBody(),
+      ),
     );
 
     if (!widget.showOwnScaffold) return body;
@@ -1612,70 +1661,5 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final tz = SchoolTimezoneResolver.lastKnownTimeZone;
     final d = SchoolZoneDateTime.dateTimeFromInstantInSchool(dt, tz);
     return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-  }
-
-  void _showEmojiPicker(BuildContext context, MessageEntity message) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        final sheetHeight =
-            (MediaQuery.of(context).size.height * 0.55).clamp(240.0, 400.0) +
-            MediaQuery.of(context).padding.bottom;
-        return Container(
-          height: sheetHeight,
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: EmojiPicker(
-            onEmojiSelected: (category, emoji) {
-              Navigator.pop(context); // close picker
-              final myReaction = message.reactions[_senderCode];
-              if (myReaction == emoji.emoji) {
-                _cubit.removeReaction(
-                  messageCode: message.code,
-                  emoji: emoji.emoji,
-                  currentUserCode: _senderCode,
-                );
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Reaction removed',
-                  isSuccess: true,
-                );
-              } else {
-                _cubit.addReaction(
-                  messageCode: message.code,
-                  emoji: emoji.emoji,
-                  currentUserCode: _senderCode,
-                );
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'Reaction added',
-                  isSuccess: true,
-                );
-              }
-            },
-            config: const Config(
-              checkPlatformCompatibility: true,
-              emojiSet: null,
-              locale: Locale('en'),
-              emojiTextStyle: null,
-              customBackspaceIcon: null,
-              customSearchIcon: null,
-              viewOrderConfig: ViewOrderConfig(),
-              emojiViewConfig: EmojiViewConfig(),
-              skinToneConfig: SkinToneConfig(enabled: true),
-              categoryViewConfig: CategoryViewConfig(
-                recentTabBehavior: RecentTabBehavior.RECENT,
-              ),
-              bottomActionBarConfig: BottomActionBarConfig(enabled: false),
-              searchViewConfig: SearchViewConfig(),
-            ),
-          ),
-        );
-      },
-    );
   }
 }

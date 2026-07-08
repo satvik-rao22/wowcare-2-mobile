@@ -151,12 +151,15 @@ class _ToolbarBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // onTapDown fires on pointer-down, before the text field loses focus.
+    // InkWell.onTap fires on pointer-up — too late when focus loss removes
+    // the toolbar from the tree first (empty field, _hasFocus → false).
     return Tooltip(
       message: label,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Padding(
+      child: GestureDetector(
+        onTapDown: (_) => onTap(),
+        behavior: HitTestBehavior.opaque,
+        child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           child: Icon(
             icon,

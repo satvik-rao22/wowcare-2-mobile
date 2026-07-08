@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -60,6 +61,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// contact pickers and block self-conversations.
   String? _currentUserCode;
 
+  /// The logged-in user's canonical **userCode** (`USR-…`). Distinct from
+  /// [_currentUserCode], which is the **staff** code (`STF_…`) used for staff
+  /// picker / self-conversation checks. Conversation participants are keyed by
+  /// userCode, so the "other participant" resolution MUST compare against this
+  /// — comparing against the staff code never matches self and would make a 1:1
+  /// row fall back to the first participant (often the viewer themselves).
+  String? _currentAccountCode;
+
   Future<void> _loadCurrentUserCode() async {
     final storageService = serviceLocator<StorageService>();
     final staffCode =
@@ -67,8 +76,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     final userCode =
         (await storageService.getString(StorageKeys.userCode) ?? '').trim();
     final code = staffCode.isNotEmpty ? staffCode : userCode;
-    if (!mounted || code.isEmpty) return;
-    setState(() => _currentUserCode = code);
+    if (!mounted || (code.isEmpty && userCode.isEmpty)) return;
+    setState(() {
+      if (code.isNotEmpty) _currentUserCode = code;
+      if (userCode.isNotEmpty) _currentAccountCode = userCode;
+    });
   }
 
   /// Backend designation codes (matches staff_filter_screen.dart) used to turn
@@ -216,7 +228,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       SnackBar(content: Text('Chat with $name created successfully')),
     );
     _openThread(
-      name: conversation.title.isNotEmpty ? conversation.title : name,
+      // [name] is the counterpart the creator explicitly picked, so it is the
+      // correct 1:1 label from this side — use it rather than the stored title.
+      name: name,
       avatar: conversation.avatarUrl,
       code: conversation.code,
       participants: legacyParticipantsFromEntities(conversation.participants),
@@ -623,7 +637,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                         final filteredStaffCodes =
                             (widget.isStaffMessaging &&
                                 _hasActiveContactFilters)
-                            ? staffState.items.map((s) => s.code).toSet()
+                            ? staffState.items
+                                  .map((s) => s.userCode)
+                                  .where((c) => c.isNotEmpty)
+                                  .toSet()
                             : null;
 
                         // Room-chat (Parent Messaging) conversations carry no
@@ -699,11 +716,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 return false;
                               }
                               // Hide a conversation a user somehow has with only
-                              // themselves (no other participant).
-                              if (_currentUserCode != null &&
+                              // themselves (no other participant). Participants
+                              // are keyed by userCode, so this MUST compare
+                              // against the account code — never the staff code.
+                              if (_currentAccountCode != null &&
+                                  _currentAccountCode!.isNotEmpty &&
                                   conv.participants.isNotEmpty &&
                                   conv.participants.every(
-                                    (p) => p.userCode == _currentUserCode,
+                                    (p) => p.userCode == _currentAccountCode,
                                   )) {
                                 return false;
                               }
@@ -763,9 +783,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                     'conversation_${conversation.code}',
                                   ),
                                   conversation: conversation,
+                                  currentUserCode: _currentAccountCode,
                                   onTap: () => _openThread(
-                                    name: conversation.title,
-                                    avatar: conversation.avatarUrl,
+                                    name: ConversationDisplay.name(
+                                      conversation,
+                                      _currentAccountCode,
+                                    ),
+                                    avatar: ConversationDisplay.avatar(
+                                      conversation,
+                                      _currentAccountCode,
+                                    ),
                                     code: conversation.code,
                                     participants: conversation.participants,
                                     organizationCode:
@@ -880,7 +907,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         create: (context) => serviceLocator<CommunicationCubit>(),
         child: widget.isStaffMessaging
             ? StaffMessagingThread(
-                staffInfo: {'name': name, 'avatar': avatar, 'code': code},
+                staffInfo: {
+                  'name': name,
+                  'avatar': avatar,
+                  'code': code,
+                  // Passed explicitly so the Firestore watch path matches the
+                  // conversation's own org/school, not the viewer's stored
+                  // active org/school (which may differ after a school switch).
+                  'organizationCode': organizationCode,
+                  'schoolCode': schoolCode,
+                },
               )
             : ParentMessagingThread(
                 parentInfo: {
@@ -1003,13 +1039,14 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   }) {
     return staffState.items
         .where((s) => s.code != _currentUserCode)
-        .where((s) => !excludeCodes.contains(s.code))
+        .where((s) => !excludeCodes.contains(s.userCode))
         .where(
           (s) => query.isEmpty || s.name.toLowerCase().contains(query),
         )
         .map(
           (s) => _FilteredContact(
             code: s.code,
+            userCode: s.userCode,
             name: s.name,
             // `profileImage` is never populated by the data layer for
             // StaffMember (always null) — `profilePhotoAssetCode` is the
@@ -1055,7 +1092,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   Widget _buildContactRow(_FilteredContact contact, {Key? key}) {
     return InkWell(
       key: key,
-      onTap: () => _startConversationWith(contact.code, contact.name),
+      onTap: () => _startConversationWith(
+        contact.userCode,
+        contact.name,
+      ),
       splashColor: const Color(0x1A6C5CE7),
       highlightColor: Colors.transparent,
       child: Container(
@@ -1118,12 +1158,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
 class _FilteredContact {
   const _FilteredContact({
     required this.code,
+    this.userCode = '',
     required this.name,
     required this.avatarUrl,
     required this.subtitle,
   });
 
+  /// Profile / navigation code (STF_* for staff, student code for parents).
+  /// Used for self-exclusion and profile screen navigation.
   final String code;
+
+  /// Messaging participant identifier (USR_* for staff, empty for students).
+  /// When non-empty, this is sent as participantUserCode instead of [code].
+  final String userCode;
   final String name;
   final String? avatarUrl;
   final String subtitle;

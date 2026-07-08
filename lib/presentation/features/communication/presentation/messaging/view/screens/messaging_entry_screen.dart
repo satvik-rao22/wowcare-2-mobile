@@ -62,7 +62,7 @@ class MessagingEntryScreen extends StatelessWidget {
                                 iconSize: responsive.isTablet ? 30 : 26,
                                 fontSize: responsive.buttonFontSize,
                                 verticalPadding: responsive.isTablet ? 26 : 22,
-                                onTap: () => context.push(AppRoutes.messaging),
+                                onTap: () => context.go(AppRoutes.messaging),
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                             ],
@@ -104,7 +104,7 @@ class MessagingEntryScreen extends StatelessWidget {
                                     // sub-tab inside MessagingScreen — the
                                     // same Room Chat surface the drawer's
                                     // "Parent Messaging" item already opens.
-                                    onTap: () => context.push(
+                                    onTap: () => context.go(
                                       MessagingScreen.parentMessagingRoute,
                                     ),
                                   ),

@@ -74,6 +74,7 @@ class ConversationEntityRepositoryImpl
         await _local.clearConversations(
           organizationCode: org,
           schoolCode: school,
+          type: type,
         );
       }
       await _local.saveConversations(entities);

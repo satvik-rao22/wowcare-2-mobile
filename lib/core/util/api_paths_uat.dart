@@ -37,6 +37,12 @@ class ApiPathsUat {
     ApiMicroservices.organization: {'schools', 'organizations', 'school'},
     ApiMicroservices.staff: {
       'staff',
+      // NOTE: do NOT list 'my-profile' here. The app always calls it nested as
+      // `/api/v1/staff/my-profile/{code}`, and listing it as a root made the UAT
+      // rewriter treat that path as already ms-prefixed — so it skipped adding
+      // the `staff` segment and the gateway 500'd ("No static resource
+      // api/v1/my-profile/..."). Removing it lets my-profile get the ms prefix
+      // like every other staff endpoint → `/api/v1/staff/staff/my-profile/...`.
       'staff-classrooms',
       'staff-documents',
       'staff-dates',
@@ -234,6 +240,17 @@ class ApiPathsUat {
 
     // Special-case: document-ms endpoints are already namespaced differently.
     if (p.startsWith('/document-ms/')) return p;
+
+    // Firebase custom-token endpoint is owned by the messaging-service. In UAT
+    // it is reached under the /messaging/ gateway segment — mirrors the web
+    // frontend which calls /api/v1/messaging/firebase/token. Without this the
+    // 'firebase' segment falls through to the default (user) host, hitting
+    // /api/v1/user/firebase/token → 500 "No static resource", so Firebase
+    // sign-in never succeeds and every Firestore listener gets permission-denied
+    // (no live sync). See firebase_auth_service.dart.
+    if (p == '/api/v1/firebase/token') {
+      return '/api/v1/messaging/firebase/token';
+    }
 
     // Communication/messaging endpoints in UAT are routed under /messaging/ prefix.
     if (microserviceKeyFromPath(p) == ApiMicroservices.communication) {
