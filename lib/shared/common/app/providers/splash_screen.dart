@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,6 +9,7 @@ import 'package:provider/provider.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/auth/session_expired_coordinator.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -125,6 +127,7 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
     String? redirectUrl;
     bool hasCachedLogin = false;
+    bool sessionExpired = false;
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();
       final cachedLogin = await authLocal.getCachedLoginResponse();
@@ -163,11 +166,30 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
           }
         }
       }
+    } on DioException catch (e) {
+      // A 401 here means the cached access token is no longer valid — the
+      // session has expired. Route to sign-in with the "session expired"
+      // message instead of opening a stale, still-logged-in dashboard.
+      // Any other DioException (offline, timeout, 5xx) is transient: fall
+      // through and let the app open with cached data so it still works offline.
+      if (e.response?.statusCode == 401) {
+        sessionExpired = true;
+      }
     } catch (_) {
       // Non-fatal: still decide navigation below.
     }
 
     if (!mounted) return;
+
+    if (sessionExpired) {
+      // Full logout cascade: best-effort backend logout, clear cached session
+      // (profile name, roles, tokens), reset auth cubits, show the "session
+      // expired" snackbar, and navigate to sign-in. Return so we never fall
+      // through to the dashboard with a dead session.
+      await SessionExpiredCoordinator.instance
+          .performLogoutDueToExpiredSession();
+      return;
+    }
 
     if (hasCachedLogin) {
       // Fast kiosk check from stored roles — no API needed.

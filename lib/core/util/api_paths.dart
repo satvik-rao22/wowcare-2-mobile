@@ -927,13 +927,17 @@ class ApiPaths {
       '/api/v1/notification/fcm/token/${Uri.encodeComponent(fcmToken.trim())}';
   static String notificationFcmUser(String userCode) =>
       '/api/v1/notification/fcm/user/${Uri.encodeComponent(userCode.trim())}';
-  static const String notificationLogs = '/api/v1/notification/logs';
-  static String notificationLogRead(String code) =>
-      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/read';
-  static String notificationLogClick(String code) =>
-      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/click';
-  static const String notificationLogsReadAll =
-      '/api/v1/notification/logs/read-all';
+  // In-app notification inbox (the app-bar bell list). Replaces the old
+  // `/notification/logs` endpoints. Notification MS.
+  static const String notificationInbox = '/api/v1/notification/inbox';
+  static String notificationInboxRead(String code) =>
+      '/api/v1/notification/inbox/${Uri.encodeComponent(code.trim())}/read';
+  static String notificationInboxClick(String code) =>
+      '/api/v1/notification/inbox/${Uri.encodeComponent(code.trim())}/click';
+  static const String notificationInboxReadAll =
+      '/api/v1/notification/inbox/read-all';
+  static const String notificationInboxUnreadCounts =
+      '/api/v1/notification/inbox/unread-counts';
 
   /// GET/PATCH user notification preferences (in-app / push / email per
   /// notification definition). Notification MS.
