@@ -871,13 +871,15 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return BlocListener<GeofenceCubit, GeofenceState>(
       listenWhen: (prev, curr) {
-        // Reset popup guard whenever the user exits the geofence so it shows
-        // again on the next entry (e.g. after signing out and re-entering).
+        // Reset popup guard whenever we leave withinRange — covers both
+        // actual zone exit (→ outsideRange) and a dashboard refresh cycle
+        // (→ fetchingSchoolLocation → withinRange). Without this, the guard
+        // would stay true across a refresh and block the sheet from re-showing.
         if (prev.status == GeofenceCubitStatus.withinRange &&
-            curr.status == GeofenceCubitStatus.outsideRange) {
+            curr.status != GeofenceCubitStatus.withinRange) {
           _geofencePopupShownThisEntry = false;
         }
-        // Fire only on the first transition INTO withinRange per entry.
+        // Fire only on the transition INTO withinRange.
         return prev.status != GeofenceCubitStatus.withinRange &&
             curr.status == GeofenceCubitStatus.withinRange;
       },

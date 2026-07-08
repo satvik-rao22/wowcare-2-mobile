@@ -162,7 +162,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     AppLogger.d('[GeofenceCubit] refreshSettings called');
     stopMonitoring();
     emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
-    await _checkAndStartMonitoring(schoolCode: schoolCode);
+    await _checkAndStartMonitoring(schoolCode: schoolCode, isRefresh: true);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
@@ -188,7 +188,10 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     } catch (_) {}
   }
 
-  Future<void> _checkAndStartMonitoring({required String schoolCode}) async {
+  Future<void> _checkAndStartMonitoring({
+    required String schoolCode,
+    bool isRefresh = false,
+  }) async {
     try {
       debugPrint('[GeofenceCubit] ▶ _checkAndStartMonitoring start — schoolCode="$schoolCode"');
 
@@ -354,7 +357,10 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         ),
       );
       if (immediateGeofenceStatus != null) {
-        _triggerNotificationIfNeeded(immediateGeofenceStatus);
+        _triggerNotificationIfNeeded(
+          immediateGeofenceStatus,
+          fireFlutterNotification: isRefresh,
+        );
       }
 
       _startNativeEvents();
@@ -496,16 +502,23 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     );
   }
 
-  void _triggerNotificationIfNeeded(GeofenceStatus newStatus) {
+  void _triggerNotificationIfNeeded(
+    GeofenceStatus newStatus, {
+    bool fireFlutterNotification = false,
+  }) {
     if (_lastNotifiedStatus == newStatus) return;
     _lastNotifiedStatus = newStatus;
 
-    if (newStatus == GeofenceStatus.within) {
-      unawaited(
-        _notifications.showEnteredZoneNotification().catchError((_) {}),
-      );
-    } else if (newStatus == GeofenceStatus.outside) {
-      unawaited(_notifications.showExitedZoneNotification().catchError((_) {}));
+    // On an actual zone crossing the native layer fires the notification
+    // (Android → GeofenceBroadcastReceiver, iOS → GeofencePlugin). On a
+    // dashboard refresh there is no boundary crossing so native is silent —
+    // fire the Flutter-side notification instead to inform the user.
+    if (fireFlutterNotification) {
+      if (newStatus == GeofenceStatus.within) {
+        unawaited(_notifications.showEnteredZoneNotification());
+      } else {
+        unawaited(_notifications.showExitedZoneNotification());
+      }
     }
 
     unawaited(
