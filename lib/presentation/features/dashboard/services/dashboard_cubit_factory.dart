@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_co
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -82,6 +83,7 @@ class DashboardCubitFactory {
           _resolveSafe<StudentAttendanceProfileCubit>(),
       communicationCubit: _resolveSafe<CommunicationCubit>(),
       studentNewslettersCubit: _resolveSafe<StudentNewslettersCubit>(),
+      parentBillingCubit: _resolveSafe<ParentBillingCubit>(),
       geofenceCubit: _resolveSafe<GeofenceCubit>(),
       parentChildCubit: _resolveSafe<ParentChildCubit>(),
     );

@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
 // ---------------------------------------------------------------------------
 // BillingCard widget (admin dashboard)
@@ -197,14 +198,8 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                       final overview = state.overview;
                       if (overview == null) {
                         return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 24),
-                          child: Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: ShimmerLoader(height: 96),
                         );
                       }
                       return _buildMonthlySection(overview);
@@ -267,14 +262,8 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                     builder: (context, state) {
                       if (state.isLoading && state.analytics == null) {
                         return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 40),
-                          child: Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            ),
-                          ),
+                          padding: EdgeInsets.symmetric(vertical: 8),
+                          child: ShimmerLoader(height: 220),
                         );
                       }
                       final revenue =

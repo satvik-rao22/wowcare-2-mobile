@@ -3,6 +3,9 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/view_invoice_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 
@@ -121,6 +124,28 @@ class ParentTransactionCard extends StatelessWidget {
     }
   }
 
+  /// Adapts the family-ledger row into the [TransactionItem] the shared
+  /// View Receipt / View Invoice screens expect. `id` is display-only (those
+  /// screens address invoices by [TransactionItem.invoiceCode]), so a numeric
+  /// id isn't required — we derive one from the ledger id's digits.
+  TransactionItem _toTransactionItem() {
+    return TransactionItem(
+      id: int.tryParse(transaction.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0,
+      transactionType: transaction.transactionType,
+      date: transaction.date ?? DateTime.now(),
+      amount: transaction.amount,
+      status: transaction.status,
+      description: transaction.description,
+      studentName: transaction.studentName,
+      classroom: '',
+      paidAmount: transaction.paidAmount,
+      refundedAmount: transaction.refundedAmount,
+      invoiceCode: transaction.invoiceCode,
+      balance: transaction.balance,
+      paymentMode: transaction.method,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isTablet = MediaQuery.of(context).size.width > 600;
@@ -163,14 +188,27 @@ class ParentTransactionCard extends StatelessWidget {
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
           primaryLabel: 'View Receipt',
-          onPrimary: () {/* TODO: receipt */},
+          onPrimary: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ViewReceiptScreen(
+                transaction: _toTransactionItem(),
+                viewType: 'receipt',
+              ),
+            ),
+          ),
         ));
     } else if (_type == 'invoice') {
       expanded
         ..add(const SizedBox(height: 16))
         ..add(StaffCardActions(
           primaryLabel: 'View Invoice',
-          onPrimary: () {/* TODO: invoice */},
+          onPrimary: () => Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => ViewInvoiceScreen(
+                transaction: _toTransactionItem(),
+              ),
+            ),
+          ),
         ));
     }
 

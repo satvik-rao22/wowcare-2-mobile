@@ -68,6 +68,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   // Dedupes the one-time "failed to load profile" snackbar.
   bool _shownLoadError = false;
 
+  /// Guards the "View Profile" button against multiple taps: it stays true from
+  /// the first tap until the pushed profile screen is popped, so rapid taps
+  /// can't open several instances.
+  bool _openingProfile = false;
+
   // Read-only proxies onto the cubit's state so the (large) build + helper
   // methods below keep reading the same names while the cubit owns the data.
   StaffProfile? get _profile => _cubit.state.profile;
@@ -272,7 +277,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     final classroom = await _cubit.resolveClassroomNameForStaff(profile);
     if (!mounted) return;
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => StaffProfileScreen(
@@ -310,7 +315,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         await _cubit.resolveClassroomNameForStudent(selected.classroom);
     if (!mounted) return;
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute<void>(
         builder: (_) => StudentProfileScreen(
@@ -692,32 +697,63 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     AppColors.buildPrimaryGradient(),
                                   ),
                                   child: TextButton(
-                                    onPressed: () async {
-                                      if (isParentPersona) {
-                                        await _viewStudentProfileForParent();
-                                        return;
-                                      }
-                                      // Staff and Admin both open the Staff
-                                      // Profile screen.
-                                      await _openStaffProfile();
-                                    },
+                                    onPressed: _openingProfile
+                                        ? null
+                                        : () async {
+                                            // Block re-entry until the pushed
+                                            // profile screen is popped, so
+                                            // rapid taps open only one instance.
+                                            setState(
+                                              () => _openingProfile = true,
+                                            );
+                                            try {
+                                              if (isParentPersona) {
+                                                await _viewStudentProfileForParent();
+                                              } else {
+                                                // Staff and Admin both open the
+                                                // Staff Profile screen.
+                                                await _openStaffProfile();
+                                              }
+                                            } finally {
+                                              if (mounted) {
+                                                setState(
+                                                  () => _openingProfile = false,
+                                                );
+                                              }
+                                            }
+                                          },
                                     style: TextButton.styleFrom(
                                         padding: EdgeInsets.symmetric(horizontal: 8),
                                       alignment: Alignment.center
                                     ),
-                                    child: CustomTextWidget(
-                                      text: isParentPersona
-                                          ? 'View Student Profile'
-                                          : 'View Staff Profile',
-                                      textStyle: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                        height: 16 / 16,
-                                      ),
-                                      maxLines: 1,
-                                    ),
+                                    child: _openingProfile
+                                        // Loading feedback while the profile
+                                        // resolves/opens (mirrors
+                                        // CustomButtonLayout's white loader).
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                            ),
+                                          )
+                                        : CustomTextWidget(
+                                            text: isParentPersona
+                                                ? 'View Student Profile'
+                                                : 'View Staff Profile',
+                                            textStyle: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              height: 16 / 16,
+                                            ),
+                                            maxLines: 1,
+                                          ),
                                     // child: Text(
                                     //   widget.userPersona == 'Admin' ?'View Admin Profile' :  widget.userPersona == 'Parent' ? "View Child's Profile" : 'View Staff Profile', // or view staff profile depending on persona
                                     //   style: const TextStyle(
@@ -816,6 +852,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   final initialZip =
                                       (address?.zipCode ?? '').trim();
                                   final role = displayPersona;
+                                  final isParent =
+                                      context.read<RoleCubit>().isParent;
 
                                   final updated = await Navigator.push<bool>(
                                     context,
@@ -832,6 +870,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         initialState: initialState,
                                         initialCountry: initialCountry,
                                         initialZipCode: initialZip,
+                                        isParent: isParent,
                                       ),
                                     ),
                                   );

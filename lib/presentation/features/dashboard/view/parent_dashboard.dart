@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_c
 import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_billing_card.dart';
@@ -79,6 +80,9 @@ class _ParentDashboardState extends State<ParentDashboard> {
               ),
               BlocProvider<StudentNewslettersCubit>.value(
                 value: coordinator.studentNewslettersCubit,
+              ),
+              BlocProvider<ParentBillingCubit>.value(
+                value: coordinator.parentBillingCubit,
               ),
               BlocProvider<GeofenceCubit>.value(
                 value: coordinator.geofenceCubit,
