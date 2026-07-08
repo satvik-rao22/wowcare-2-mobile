@@ -36,6 +36,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   ConversationThreadCubit({
     required String conversationCode,
     required String currentUserCode,
+    ConversationEntity? conversation,
     required WatchMessagesUseCase watchMessagesUseCase,
     required GetMessagesEntityUseCase getMessagesUseCase,
     required SendMessageEntityUseCase sendMessageUseCase,
@@ -64,7 +65,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        _attachmentUploader = attachmentUploader,
        _markReadDebounceDuration = markReadDebounceDuration,
        super(
-         ConversationThreadState.initial(conversationCode: conversationCode),
+         ConversationThreadState.initial(
+           conversationCode: conversationCode,
+           // Seed the conversation so the realtime listener uses THIS conversation's
+           // own org/school for the Firestore path (see startWatchingMessages) instead
+           // of the session's active school — which for a classroom in a different
+           // school built the wrong path → permission-denied → no live messages
+           // (Classroom Notes). Mirrors staff/parent messaging.
+           conversation: conversation,
+         ),
        );
 
   final String _currentUserCode;

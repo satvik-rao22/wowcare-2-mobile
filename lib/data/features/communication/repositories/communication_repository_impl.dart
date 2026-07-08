@@ -601,17 +601,33 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
             merged.add(existing.toEntity());
           }
 
-          // Backfill any conversation codes we've never seen via REST — but
-          // only codes not already refreshed this session, so a repeating
-          // unknown code doesn't trigger a refresh storm on every snapshot.
-          final newUnknown =
-              unknownCodes.where((c) => !_refreshedConversationCodes.contains(c));
-          if (newUnknown.isNotEmpty) {
-            _refreshedConversationCodes.addAll(newUnknown);
-            // Best-effort — pull the new conversation(s) in via the API (source
-            // of truth) and persist through the normal getConversations path;
-            // the subsequent inbox snapshot then merges them with full metadata.
-            unawaited(getConversations(type: type));
+          // Backfill any conversation codes not in the local cache (e.g. a
+          // brand-new conversation someone else started). AWAIT the REST fetch
+          // (guarded to once per code so a repeating unknown can't storm) and
+          // then INCLUDE the now-cached conversations in THIS emission. A
+          // fire-and-forget refresh would leave them dropped until the next
+          // Firestore snapshot re-runs the merge — which may never fire — so the
+          // new conversation would stay invisible even though the API has it.
+          final toBackfill = unknownCodes
+              .where((c) => !_refreshedConversationCodes.contains(c))
+              .toList();
+          if (toBackfill.isNotEmpty) {
+            _refreshedConversationCodes.addAll(toBackfill);
+            try {
+              await getConversations(type: type); // source of truth → persists to Isar
+            } catch (_) {
+              // best-effort; a later snapshot / pull-to-refresh will retry
+            }
+          }
+          // Re-include any unknown conversation now present in the cache (from
+          // this or a prior backfill) so it shows without waiting for the next
+          // realtime event.
+          for (final code in unknownCodes) {
+            final backfilled = await cacheService
+                .getByField<ConversationCollection>('code', code);
+            if (backfilled.isNotEmpty) {
+              merged.add(backfilled.first.toEntity());
+            }
           }
 
           return merged;

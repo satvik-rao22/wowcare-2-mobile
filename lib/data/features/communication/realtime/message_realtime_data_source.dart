@@ -179,13 +179,31 @@ class MessageFirestoreItem {
     return null;
   }
 
+  /// The backend writes `reactions` as an ARRAY of `{userCode, emoji, timestamp}`
+  /// objects (a message can carry many reactions), matching the REST payload and
+  /// the web client. Collapse it to the model's `{userCode: emoji}` map (one emoji
+  /// per user, last wins — same as the REST parsers). A legacy `{userCode: emoji}`
+  /// map shape is still tolerated. Returning `{}` for the array was the bug: every
+  /// Firestore snapshot wiped reactions ~2-3s after they were added.
   static Map<String, String> _parseReactions(dynamic value) {
-    if (value is! Map) return const {};
-    return Map<String, String>.fromEntries(
-      value.entries
-          .where((e) => e.key is String && e.value is String)
-          .map((e) => MapEntry(e.key as String, e.value as String)),
-    );
+    final result = <String, String>{};
+    if (value is List) {
+      for (final r in value) {
+        if (r is Map) {
+          final userCode = r['userCode']?.toString();
+          final emoji = r['emoji']?.toString();
+          if (userCode != null && userCode.isNotEmpty &&
+              emoji != null && emoji.isNotEmpty) {
+            result[userCode] = emoji;
+          }
+        }
+      }
+    } else if (value is Map) {
+      value.forEach((k, v) {
+        if (k is String && v is String) result[k] = v;
+      });
+    }
+    return result;
   }
 
   static Map<String, DateTime> _parseReceiptMap(dynamic value) {

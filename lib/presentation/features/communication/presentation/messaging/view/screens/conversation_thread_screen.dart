@@ -199,6 +199,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     _cubit = ConversationThreadCubit(
       conversationCode: widget.conversation.code,
       currentUserCode: userCodeFromAuth,
+      // Pass the full conversation so the Firestore message listener uses this
+      // conversation's own org/school (not the session's active school) — fixes
+      // no-live-messages for Classroom Notes and any cross-school thread.
+      conversation: widget.conversation,
       watchMessagesUseCase: serviceLocator(),
       getMessagesUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
