@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attentio
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/billing_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_shifts_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/enrollment_card.dart';
@@ -36,6 +37,8 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   late final AdminDashboardCoordinatorCubit _coordinator;
+  final GlobalKey _ratioCardKey = GlobalKey();
+  final GlobalKey _shiftsCardKey = GlobalKey();
 
   // static const double _maxContentWidth = 640;
 
@@ -43,6 +46,26 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     _coordinator = serviceLocator<AdminDashboardCoordinatorCubit>();
+  }
+
+  void _scrollToRatioCard() {
+    _scrollToKey(_ratioCardKey);
+  }
+
+  void _scrollToShiftsCard() {
+    _scrollToKey(_shiftsCardKey);
+  }
+
+  void _scrollToKey(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+      alignment: 0.0,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
+    );
   }
 
   @override
@@ -64,10 +87,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case AdminDashboardCard.ratioMonitoring:
         return BlocProvider<RatioMonitoringCubit>.value(
           value: _coordinator.ratioMonitoringCubit,
-          child: const RatioMonitoringCard(),
+          child: RatioMonitoringCard(key: _ratioCardKey),
         );
       case AdminDashboardCard.classroomShifts:
-        return const ClassroomShiftsCard();
+        return ClassroomShiftsCard(key: _shiftsCardKey);
       case AdminDashboardCard.availability:
         return BlocProvider<FutureAvailabilityCubit>.value(
           value: _coordinator.availabilityCubit,
@@ -78,6 +101,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           value: _coordinator.movementsCubit,
           child: const MovementsCard(),
         );
+      case AdminDashboardCard.billing:
+        return const BillingCard();
     }
   }
 
@@ -89,7 +114,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
         children: [
           DashboardWelcomeHeader(userName: userName, showSectionLabel: false),
           const SizedBox(height: 16),
-          const AttentionGrid(),
+          AttentionGrid(
+            onRatioCardTap: _scrollToRatioCard,
+            onShiftsCardTap: _scrollToShiftsCard,
+          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -156,13 +184,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 'Unable to load dashboard data. Please try again.',
             isError: true,
           );
-        } else if (state.isPartialError) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Some sections could not be loaded. Pull down to retry.',
-            isWarning: true,
-          );
-        } else if (state.isReady) {
+        }
+        // else if (state.isPartialError) {
+        //   CoreUtils.showTopSnackBar(
+        //     context: context,
+        //     message: 'Some sections could not be loaded. Pull down to retry.',
+        //     isWarning: true,
+        //   );
+        // }
+        else if (state.isReady) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Dashboard refreshed successfully.',
@@ -215,6 +245,9 @@ class _DashboardCardList extends StatelessWidget {
                 constraints: const BoxConstraints(maxWidth: _maxContentWidth),
                 child: CustomScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
+                  // Pre-build all cards so GlobalKey scroll targets are always
+                  // resolvable regardless of initial scroll position.
+                  cacheExtent: 5000,
                   slivers: [
                     SliverPadding(
                       padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),

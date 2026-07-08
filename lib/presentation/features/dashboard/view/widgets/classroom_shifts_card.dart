@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_toggle.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
@@ -16,6 +18,9 @@ import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_
 
 import '../../../../../app/theme/media_res.dart';
 import '../../../scheduling/view/scheduling_screen.dart';
+
+// date formatter used for the scheduling deep-link
+final _ymd = DateFormat('yyyy-MM-dd');
 
 /// Dashboard card that mirrors the visual structure of [_ClassroomListCard]
 /// from the scheduling screen.
@@ -55,6 +60,14 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   /// on first open and on pull-to-refresh; this is only a fallback for the
   /// case where the cubit hasn't been loaded yet by the time this card mounts.
   bool _hasRequestedLoad = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = SchoolZoneDateTime.schoolCalendarTodayOnly(
+      SchoolTimezoneResolver.lastKnownTimeZone,
+    );
+  }
 
   @override
   void didChangeDependencies() {
@@ -308,6 +321,13 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                           isLast:
                                               i == displayEntries.length - 1 &&
                                               !hasMoreToShow,
+                                          onClassroomNameTap: () =>
+                                              context.go(
+                                            '${SchedulingScreen.routeName}'
+                                            '?view=day'
+                                            '&highlightCode=${displayEntries[i].classroomCode}'
+                                            '&date=${_ymd.format(SchoolZoneDateTime.schoolCalendarTodayOnly(SchoolTimezoneResolver.lastKnownTimeZone))}',
+                                          ),
                                         ),
                                   ],
                                 ),
@@ -396,12 +416,14 @@ class _ClassroomSection extends StatelessWidget {
     required this.isExpanded,
     required this.onTap,
     required this.isLast,
+    this.onClassroomNameTap,
   });
 
   final ClassroomShiftEntry entry;
   final bool isExpanded;
   final VoidCallback onTap;
   final bool isLast;
+  final VoidCallback? onClassroomNameTap;
 
   @override
   Widget build(BuildContext context) {
@@ -419,9 +441,13 @@ class _ClassroomSection extends StatelessWidget {
             children: [
               Expanded(
                 child: Center(
-                  child: ClassroomRowLeft(
-                    classroomCode: entry.classroomCode,
-                    classroomName: entry.name,
+                  child: GestureDetector(
+                    onTap: onClassroomNameTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: ClassroomRowLeft(
+                      classroomCode: entry.classroomCode,
+                      classroomName: entry.name,
+                    ),
                   ),
                 ),
               ),

@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_childs_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_attendance_card.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/student_billing_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/student_newsletters_card.dart';
 import 'package:wowcare/presentation/features/dashboard/viewmodels/parent_dashboard_viewmodel.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
@@ -48,6 +49,8 @@ class _ParentDashboardState extends State<ParentDashboard> {
         return const MyChildsDayCard();
       case ParentDashboardCard.studentAttendance:
         return const StudentAttendanceCard();
+      case ParentDashboardCard.studentBilling:
+        return const StudentBillingCard();
       case ParentDashboardCard.studentNewsletters:
         return const StudentNewslettersCard();
     }
@@ -106,13 +109,15 @@ class _ParentDashboardState extends State<ParentDashboard> {
                 'Unable to load dashboard data. Please try again.',
             isError: true,
           );
-        } else if (state.isPartialError) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Some sections could not be loaded. Pull down to retry.',
-            isWarning: true,
-          );
-        } else if (state.isReady) {
+        }
+        // else if (state.isPartialError) {
+        //   CoreUtils.showTopSnackBar(
+        //     context: context,
+        //     message: 'Some sections could not be loaded. Pull down to retry.',
+        //     isWarning: true,
+        //   );
+        // }
+        else if (state.isReady) {
           CoreUtils.showTopSnackBar(
             context: context,
             message: 'Dashboard refreshed successfully.',

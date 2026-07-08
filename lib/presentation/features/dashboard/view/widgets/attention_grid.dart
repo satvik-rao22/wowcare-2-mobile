@@ -98,8 +98,17 @@ class AttentionCardModel {
 ///   and [DashboardAttentionCubit].
 /// - Hides cards whose count is 0; hides the entire section when all counts are 0.
 /// - Shows first 4 cards; "Show More / Show Less" expands/collapses the rest.
+/// - [onRatioCardTap] / [onShiftsCardTap]: when provided, the card scrolls to the
+///   target widget instead of navigating to a separate screen.
 class AttentionGrid extends StatefulWidget {
-  const AttentionGrid({super.key});
+  const AttentionGrid({
+    super.key,
+    this.onRatioCardTap,
+    this.onShiftsCardTap,
+  });
+
+  final VoidCallback? onRatioCardTap;
+  final VoidCallback? onShiftsCardTap;
 
   @override
   State<AttentionGrid> createState() => _AttentionGridState();
@@ -176,10 +185,18 @@ class _AttentionGridState extends State<AttentionGrid> {
         context.go('/activityFeed');
 
       case _AttentionCardRoute.classroomRatio:
-        context.go(ClassroomOverviewScreen.routeName);
+        if (widget.onRatioCardTap != null) {
+          widget.onRatioCardTap!();
+        } else {
+          context.go(ClassroomOverviewScreen.routeName);
+        }
 
       case _AttentionCardRoute.classroomShifts:
-        context.go('/dashboard/scheduling');
+        if (widget.onShiftsCardTap != null) {
+          widget.onShiftsCardTap!();
+        } else {
+          context.go('/dashboard/scheduling');
+        }
 
       case _AttentionCardRoute.pendingMovements:
       case _AttentionCardRoute.overdueMovements:

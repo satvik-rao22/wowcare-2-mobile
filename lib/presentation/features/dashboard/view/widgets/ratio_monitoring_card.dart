@@ -9,12 +9,15 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_classroom.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -71,6 +74,9 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   @override
   void initState() {
     super.initState();
+    _selectedDate = SchoolZoneDateTime.schoolCalendarTodayOnly(
+      SchoolTimezoneResolver.lastKnownTimeZone,
+    );
     WidgetsBinding.instance.addObserver(this);
     // Trigger initial load. The cubit's _isFetching guard prevents duplication
     // if AdminDashboard also calls loadRatioMonitoring.
@@ -320,7 +326,9 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
       children: [
         // ── Classroom name ──────────────────────────────────────────────────
         GestureDetector(
-          onTap: () {},
+          onTap: () => context.go(
+            '${ClassroomScreen.routeName}?classroomCode=${room.code}',
+          ),
           child: Container(
             height: _cellH,
             color: Colors.white,
