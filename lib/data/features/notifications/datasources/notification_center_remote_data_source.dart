@@ -1,5 +1,6 @@
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/user_details_school_roles.dart';
 import 'notification_center_data_source.dart';
 import 'notification_inbox_remote_data_source.dart';
 
@@ -75,9 +76,7 @@ class NotificationCenterRemoteDataSource implements NotificationCenterDataSource
     }
     final schoolCode =
         (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    final role = _normalizeRole(
-      (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').trim(),
-    );
+    final role = await _resolveRole(schoolCode);
     return (
       userCode: userCode,
       schoolCode: schoolCode.isEmpty ? null : schoolCode,
@@ -85,15 +84,36 @@ class NotificationCenterRemoteDataSource implements NotificationCenterDataSource
     );
   }
 
-  /// Collapses backend role codes (SCHOOL_ADMIN, ORGANIZATION_ADMIN, TEACHER…)
-  /// into the ADMIN | STAFF | GUARDIAN enum the notification service expects
-  /// (same mapping used by FCM registration and preferences). Empty stays empty
-  /// so the param is simply omitted when no role is stored.
-  String _normalizeRole(String raw) {
-    final r = raw.trim().toUpperCase();
-    if (r.isEmpty) return '';
-    if (r.contains('GUARDIAN') || r.contains('PARENT')) return 'GUARDIAN';
-    if (r.contains('ADMIN')) return 'ADMIN';
-    return 'STAFF';
+  /// Exact backend role (e.g. `ORGANIZATION_ADMIN`, `SCHOOL_ADMIN`, `TEACHER`,
+  /// `GUARDIAN`) for the active org+school, sourced from the cached
+  /// `GET /users/details` snapshot (the same data [RoleCubit] resolves at
+  /// login/refresh). Sends the user's actual role as-is rather than collapsing
+  /// it into a generic ADMIN/STAFF/GUARDIAN bucket, so the inbox reflects the
+  /// role currently logged in. Falls back to the raw `activeSchoolRole` string
+  /// when there's no cached user-details snapshot yet.
+  Future<String> _resolveRole(String schoolCode) async {
+    final activeStored =
+        (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+    final organizationCode =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+
+    if (organizationCode.isNotEmpty && schoolCode.isNotEmpty) {
+      final users = await readCachedUserAccessDetailsUsers(_storage);
+      final distinctRoles = distinctActiveRolesForCurrentSchoolFromUserDetails(
+        users,
+        organizationCode,
+        schoolCode,
+      );
+      if (distinctRoles.isNotEmpty) {
+        final activeUpper = activeStored.toUpperCase();
+        final backendRole = distinctRoles.firstWhere(
+          (r) => r.trim().toUpperCase() == activeUpper,
+          orElse: () => distinctRoles.first,
+        );
+        return backendRole.trim();
+      }
+    }
+
+    return activeStored;
   }
 }
