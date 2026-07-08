@@ -9,7 +9,7 @@ import '../../data/features/notifications/datasources/fcm_registration_remote_da
 import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_remote_data_source.dart';
-import '../../data/features/notifications/datasources/notification_logs_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_inbox_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_preferences_remote_data_source.dart';
 import '../../data/features/notifications/repositories/fcm_registration_repository_impl.dart';
 import '../../data/features/notifications/repositories/notification_preferences_repository_impl.dart';
@@ -21,6 +21,7 @@ import '../../domain/features/notifications/repositories/notification_center_rep
 import '../../domain/features/notifications/repositories/notification_preferences_repository.dart';
 import '../../domain/features/notifications/repositories/push_notification_repository.dart';
 import '../../domain/features/notifications/usecases/get_notification_preferences_usecase.dart';
+import '../../domain/features/notifications/usecases/get_notification_unread_counts_usecase.dart';
 import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
 import '../../domain/features/notifications/usecases/update_notification_preferences_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
@@ -1808,13 +1809,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Notification center (bell-icon inbox) — delivery logs API.
-  serviceLocator.registerLazySingleton<NotificationLogsRemoteDataSource>(
-    () => NotificationLogsRemoteDataSourceImpl(apiClient: serviceLocator()),
+  // Notification center (bell-icon inbox) — /notification/inbox API.
+  serviceLocator.registerLazySingleton<NotificationInboxRemoteDataSource>(
+    () => NotificationInboxRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
   serviceLocator.registerLazySingleton<NotificationCenterDataSource>(
     () => NotificationCenterRemoteDataSource(
-      logsRemote: serviceLocator(),
+      inboxRemote: serviceLocator(),
       storage: serviceLocator(),
     ),
   );
@@ -1830,11 +1831,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<MarkAllNotificationsReadUseCase>(
     () => MarkAllNotificationsReadUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetNotificationUnreadCountsUseCase>(
+    () => GetNotificationUnreadCountsUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<NotificationCenterCubit>(
     () => NotificationCenterCubit(
       getNotificationsUseCase: serviceLocator(),
       markNotificationReadUseCase: serviceLocator(),
       markAllNotificationsReadUseCase: serviceLocator(),
+      getUnreadCountsUseCase: serviceLocator(),
     ),
   );
 

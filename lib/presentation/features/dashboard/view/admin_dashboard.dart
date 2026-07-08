@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attentio
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/attention_grid.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/availability_card.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/billing_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/classroom_shifts_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/enrollment_card.dart';
@@ -78,6 +79,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
           value: _coordinator.movementsCubit,
           child: const MovementsCard(),
         );
+      case AdminDashboardCard.billing:
+        return const BillingCard();
     }
   }
 

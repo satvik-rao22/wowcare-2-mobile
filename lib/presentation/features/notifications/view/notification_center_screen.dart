@@ -15,7 +15,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/src/app_router.dart';
 
 import '../../../../domain/features/notifications/entities/app_notification.dart';
-import '../../../../domain/features/notifications/entities/notification_category.dart';
+import '../widgets/notification_category_style.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../cubit/notification_center_cubit.dart';
 import '../routing/notification_route_resolver.dart';
@@ -33,6 +33,22 @@ class NotificationCenterScreen extends StatelessWidget {
 
   /// Category labels for the filter dropdown ("All" is the cleared/hint state).
   static const String _allLabel = 'All';
+
+  /// Interim module options for the filter dropdown. The selected value is sent
+  /// as the `module` query param (server-side filter). Replace with the modules
+  /// list from the backend once that endpoint is available.
+  static const List<String> _filterModules = <String>[
+    'ATTENDANCE',
+    'CLASSROOM',
+    'STUDENT',
+    'STAFF',
+    'BILLING',
+    'SCHEDULING',
+    'AVAILABILITY',
+    'ACTIVITIES',
+    'MESSAGING',
+    'NEWSLETTER',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -112,24 +128,30 @@ class _Header extends StatelessWidget {
         SizedBox(
           width: 150,
           child: BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-            buildWhen: (p, c) => p.categoryFilter != c.categoryFilter,
+            buildWhen: (p, c) => p.moduleFilter != c.moduleFilter,
             builder: (context, state) {
+              // Raw module string → display label. Selecting a label maps back
+              // to the raw module sent as the `module` query param.
+              // TODO(notifications): source this list from the modules API
+              // instead of the interim constant below.
+              final modules = NotificationCenterScreen._filterModules;
+              final labelToModule = <String, String>{
+                for (final m in modules)
+                  NotificationCategoryStyle.moduleLabel(m): m,
+              };
               return CustomDropdown(
                 hintText: NotificationCenterScreen._allLabel,
                 showAsterisk: false,
-                items: NotificationCategory.values
-                    .map((c) => c.label)
-                    .toList(),
-                selectedItem: state.categoryFilter?.label,
+                items: labelToModule.keys.toList(),
+                selectedItem: state.moduleFilter == null
+                    ? null
+                    : NotificationCategoryStyle.moduleLabel(state.moduleFilter!),
                 onSelect: (label) {
-                  // Hint ("All") => null clears the filter.
-                  final category = (label == null)
-                      ? null
-                      : NotificationCategory.values
-                          .firstWhere((c) => c.label == label);
+                  // Hint ("All") => null clears the filter (server returns all).
+                  final module = (label == null) ? null : labelToModule[label];
                   context
                       .read<NotificationCenterCubit>()
-                      .setCategoryFilter(category);
+                      .setModuleFilter(module);
                 },
               );
             },
@@ -282,11 +304,8 @@ class _NotificationsListState extends State<_NotificationsList> {
         }
 
         final items = state.visibleItems;
-        // Show the next-page loader only when paging the full (unfiltered) list:
-        // category/unread filters are client-side over already-loaded items.
-        final bool showFooterLoader = state.isLoadingMore &&
-            state.categoryFilter == null &&
-            !state.onlyUnread;
+        // Filters are applied server-side now, so paging works with any filter.
+        final bool showFooterLoader = state.isLoadingMore;
         return CustomRefreshIndicator(
           onRefresh: () => context.read<NotificationCenterCubit>().refresh(),
           child: items.isEmpty

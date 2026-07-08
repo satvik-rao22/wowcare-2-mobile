@@ -15,14 +15,25 @@ typedef NotificationCenterPage = ({
 });
 
 abstract class NotificationCenterDataSource {
-  /// Fetches one page (newest first). [page] is zero-based.
-  Future<NotificationCenterPage> fetchNotifications({int page, int size});
+  /// Fetches one page (newest first). [page] is zero-based. [module] filters by
+  /// the notification's top-level module (null = all); [onlyUnread] restricts to
+  /// unread. Both are applied server-side.
+  Future<NotificationCenterPage> fetchNotifications({
+    int page,
+    int size,
+    String? module,
+    bool onlyUnread,
+  });
 
   /// Marks a single notification read on the backend.
   Future<void> markAsRead(String id);
 
   /// Marks every notification read on the backend.
   Future<void> markAllAsRead();
+
+  /// Authoritative unread / unclicked totals across all pages (bell badge +
+  /// mark-all gating), independent of what's currently loaded.
+  Future<({int unread, int unclicked})> getUnreadCounts();
 }
 
 /// In-memory mock data source with realistic seed data, mirroring the design.
@@ -43,9 +54,20 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
   Future<NotificationCenterPage> fetchNotifications({
     int page = 0,
     int size = 10,
+    String? module,
+    bool onlyUnread = false,
   }) async {
     await Future<void>.delayed(_latency);
-    final sorted = _sortedCopy();
+    var sorted = _sortedCopy();
+    if (module != null && module.trim().isNotEmpty) {
+      final m = module.trim().toUpperCase();
+      sorted = sorted
+          .where((n) => (n.data['module'] ?? '').toUpperCase() == m)
+          .toList();
+    }
+    if (onlyUnread) {
+      sorted = sorted.where((n) => !n.isRead).toList();
+    }
     final start = page * size;
     if (start >= sorted.length) {
       return (items: const <AppNotificationModel>[], hasMore: false);
@@ -65,6 +87,13 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
   Future<void> markAllAsRead() async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     _items = _items.map((n) => _copyRead(n, true)).toList();
+  }
+
+  @override
+  Future<({int unread, int unclicked})> getUnreadCounts() async {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    final unread = _items.where((n) => !n.isRead).length;
+    return (unread: unread, unclicked: unread);
   }
 
   List<AppNotificationModel> _sortedCopy() {
