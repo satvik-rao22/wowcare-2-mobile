@@ -193,9 +193,20 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       // kept alive, the incoming one shows instantly (no transition animation).
       shell.goBranch(branchIndex);
     } else {
-      // Outside the shell (e.g. on an auth screen that still shows the bar):
-      // route-level go so we enter the shell at the tab root.
-      context.go(branchRootPaths[branchIndex]);
+      // Outside the shell — either an auth screen that still shows the bar, or a
+      // screen pushed ABOVE the shell on the ROOT navigator (e.g. the Staff /
+      // Student Attendance profile opened from the Attendance popup). In that
+      // case the shell is hidden underneath, so a bare `go` changes the location
+      // but the pushed screen still covers it — the tap looks dead. Pop the
+      // pushed route(s) back into the shell first, then route to the tab root.
+      final router = GoRouter.of(context);
+      final rootNavigator = Navigator.of(context, rootNavigator: true);
+      // Pop the pushed screen (not `while` — that could over-pop the shell if a
+      // login route sits beneath it); one pop returns to the shell.
+      if (rootNavigator.canPop()) {
+        rootNavigator.pop();
+      }
+      router.go(branchRootPaths[branchIndex]);
     }
   }
 

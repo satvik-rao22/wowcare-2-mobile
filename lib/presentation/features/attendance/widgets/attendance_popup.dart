@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
@@ -288,25 +287,21 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
       if (staffCode.isEmpty) {
         staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       }
+
+      // "My Attendance" (self) vs "Staff Attendance" (manage all) is decided by
+      // the staff DESIGNATION from the staff profile — a teacher / associate /
+      // floater / etc. sees their own attendance; only a SCHOOL_ADMIN /
+      // ORGANIZATION_ADMIN designation manages all staff.
+      //
+      // Deliberately NOT the account's user-details/login admin role or the
+      // active persona: a person can be an admin *by access* yet a teacher *by
+      // job*, and must still get "My Attendance". (An earlier scan of the
+      // org-level login roles broke exactly this — it flagged such users admin.)
       final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
           .trim()
           .toUpperCase();
-
-      bool isStaffAdmin =
+      final isStaffAdmin =
           staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-
-      if (!isStaffAdmin) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-          isStaffAdmin = roles.any((r) {
-            if (r is! Map<String, dynamic>) return false;
-            final roleCode = (r['role'] ?? '').toString().toUpperCase();
-            return roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN';
-          });
-        }
-      }
 
       if (!mounted) return;
       setState(() {
@@ -1232,26 +1227,25 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         navigator.pop();
         if (isStaffTab) {
           if (_isTeacherStaffPersona == true) {
-            // Staff persona: only allow viewing own attendance profile.
+            // Staff persona: only allow viewing own attendance profile. Open it
+            // IN-PLACE inside the app shell via the router (the same way the
+            // admin case below does) so the bottom nav stays functional and
+            // tapping again while already on the page doesn't stack a duplicate
+            // detached page — `router.go` to the same location replaces rather
+            // than pushes.
             final display = await resolveLoggedInStaffDisplay();
-            if (display.staffCode.trim().isEmpty) {
+            final staffCode = display.staffCode.trim();
+            if (staffCode.isEmpty) {
               return;
             }
-            navigator.push(
-              MaterialPageRoute(
-                builder: (_) => StaffAttendanceProfile(
-                  staffCode: display.staffCode,
-                  staffId: 0,
-                  staffName: display.fullName.isNotEmpty
-                      ? display.fullName
-                      : '-',
-                  staffPhotoUuid: display.profilePhotoUrl.isNotEmpty
-                      ? display.profilePhotoUrl
-                      : null,
-                  roomName: '',
-                ),
-              ),
+            final uri = Uri(
+              path: '${StaffAttendanceProfile.routeName}-by-code',
+              queryParameters: {
+                'code': staffCode,
+                'name': display.fullName.isNotEmpty ? display.fullName : '-',
+              },
             );
+            router.go(uri.toString());
           } else {
             // Admin: open the staff attendance tabbed view inside the app
             // shell (via the router) so the bottom navigation bar stays

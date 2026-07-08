@@ -555,9 +555,22 @@ final GoRouter appRouter = GoRouter(
         // LayoutBuilder inside the shell subtree triggers a layout-phase
         // rebuild and both go_router and _ShellScope try to operate on the
         // same StatefulNavigationShell element in the same frame.
-        return _ShellScope(
-          shell: navigationShell,
-          child: _ShellScopeContent(navigationShell: navigationShell),
+        // System back (Android gesture/button) should behave like the in-app
+        // back button, never abruptly close the app from a non-home tab.
+        // go_router pops any nested route within the active branch first; only a
+        // branch *root* reaches this PopScope. From the dashboard (branch 0)
+        // root we let the app exit as usual; from any other tab's root we return
+        // to the dashboard instead of closing the app.
+        return PopScope(
+          canPop: navigationShell.currentIndex == 0,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            navigationShell.goBranch(0);
+          },
+          child: _ShellScope(
+            shell: navigationShell,
+            child: _ShellScopeContent(navigationShell: navigationShell),
+          ),
         );
       },
       branches: [
@@ -1219,8 +1232,20 @@ Widget _staffAttendanceProfileScreen(Object? extra) {
 /// transition is ~300 ms which feels sluggish on back; we use a 180 ms slide
 /// so push *and* pop animations stay smooth and tight.
 Page<dynamic> _fastPage(GoRouterState state, Widget child) {
+  // Notification deep-links carry their target in the query string
+  // (e.g. `?code=…&highlightCode=…`). go_router's default `state.pageKey` is
+  // derived from the route PATH only, so navigating to the same route with a
+  // DIFFERENT query reuses the cached screen's State (Navigator calls
+  // `didUpdateWidget`, not `initState`) — and screens that load their data in
+  // `initState` silently keep showing the first target, ignoring the new
+  // deep-link. Key query-carrying pages by their full location so a different
+  // query builds a fresh page and re-inits with the notified record. Query-less
+  // routes keep the stable per-path key so tab/scroll state survives re-entry.
+  final key = state.uri.hasQuery
+      ? ValueKey<String>('${state.matchedLocation}?${state.uri.query}')
+      : state.pageKey;
   return CustomTransitionPage<dynamic>(
-    key: state.pageKey,
+    key: key,
     name: state.matchedLocation,
     transitionDuration: const Duration(milliseconds: 180),
     reverseTransitionDuration: const Duration(milliseconds: 180),
