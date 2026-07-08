@@ -86,6 +86,18 @@ class DocumentImageWidget extends StatefulWidget {
     this.disableAttendanceStatusLookup = false,
   }) : super(key: key);
 
+  /// Bumped whenever an attendance mutation (sign-in/out, edit, delete,
+  /// transfer, mark absent) succeeds, so every currently-mounted status dot
+  /// re-fetches instead of showing what it fetched before the mutation.
+  static final ValueNotifier<int> _attendanceStatusRefreshTick =
+      ValueNotifier<int>(0);
+
+  /// Call after any attendance-mutating action succeeds to refresh every
+  /// visible status dot (avoids each list screen needing its own plumbing).
+  static void refreshAttendanceStatusDots() {
+    _attendanceStatusRefreshTick.value++;
+  }
+
   static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
     final student = (studentCode ?? '').trim();
     final staff = (staffCode ?? '').trim();
@@ -136,6 +148,20 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     );
     _resolvedImageUrl = _seedImageUrl();
     _resolveProfilePhotoIfNeeded();
+    _loadAttendanceStatusIfNeeded();
+    DocumentImageWidget._attendanceStatusRefreshTick
+        .addListener(_onAttendanceStatusRefreshTick);
+  }
+
+  @override
+  void dispose() {
+    DocumentImageWidget._attendanceStatusRefreshTick
+        .removeListener(_onAttendanceStatusRefreshTick);
+    super.dispose();
+  }
+
+  void _onAttendanceStatusRefreshTick() {
+    if (!mounted) return;
     _loadAttendanceStatusIfNeeded();
   }
 

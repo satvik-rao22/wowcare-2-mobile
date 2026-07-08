@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -261,6 +262,9 @@ class _StudentAttendanceDailyViewScreenState
     // Reload this Daily tab's list and counts...
     _loadAttendanceData(reset: true);
     unawaited(_loadStudentCounts());
+    // ...and every visible avatar status dot, which fetches independently of
+    // this list and would otherwise keep showing the pre-edit status.
+    DocumentImageWidget.refreshAttendanceStatusDots();
     // ...and, when hosted in the tabbed shell, the sibling tabs (Custom,
     // Absent) so the whole page reflects the action.
     widget.onAttendanceMutated?.call();
