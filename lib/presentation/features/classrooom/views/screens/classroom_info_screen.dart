@@ -866,11 +866,14 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                                       ),
                                     )
                                   : ClassroomDropdown(
+                                      // Not loading here (isInitialLoading
+                                      // handles that above), so an empty list
+                                      // means the load finished with no rooms.
                                       items: dropdownItems.isEmpty
-                                          ? const ['Loading...']
+                                          ? const ['No classrooms available']
                                           : dropdownItems,
                                       value: dropdownItems.isEmpty
-                                          ? 'Loading...'
+                                          ? 'No classrooms available'
                                           : (_selectedRoom?.name ??
                                               dropdownItems.first),
                                       onChanged: (value) {

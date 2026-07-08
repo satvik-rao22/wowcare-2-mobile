@@ -7,9 +7,18 @@ class NotificationCenterRepositoryImpl implements NotificationCenterRepository {
   final NotificationCenterDataSource _dataSource;
 
   @override
-  Future<NotificationPage> getNotifications({int page = 0, int size = 10}) async {
-    final result =
-        await _dataSource.fetchNotifications(page: page, size: size);
+  Future<NotificationPage> getNotifications({
+    int page = 0,
+    int size = 10,
+    String? module,
+    bool onlyUnread = false,
+  }) async {
+    final result = await _dataSource.fetchNotifications(
+      page: page,
+      size: size,
+      module: module,
+      onlyUnread: onlyUnread,
+    );
     return (items: result.items, hasMore: result.hasMore);
   }
 
@@ -18,4 +27,8 @@ class NotificationCenterRepositoryImpl implements NotificationCenterRepository {
 
   @override
   Future<void> markAllAsRead() => _dataSource.markAllAsRead();
+
+  @override
+  Future<({int unread, int unclicked})> getUnreadCounts() =>
+      _dataSource.getUnreadCounts();
 }

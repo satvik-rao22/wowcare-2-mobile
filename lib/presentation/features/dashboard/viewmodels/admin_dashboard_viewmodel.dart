@@ -7,8 +7,8 @@ enum AdminDashboardCard {
   // events,
   // todo,
   availability,
-  movements;
-  // billing,
+  movements,
+  billing;
   // classroomProgress,
 
   String get title {
@@ -25,6 +25,8 @@ enum AdminDashboardCard {
         return 'Future Availability';
       case AdminDashboardCard.movements:
         return 'Individual Movements';
+      case AdminDashboardCard.billing:
+        return 'Billing';
     }
   }
 }
