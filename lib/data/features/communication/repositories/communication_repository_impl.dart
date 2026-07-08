@@ -335,11 +335,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions ?? [],
       );
 
+      // A user may hold multiple distinct emojis; only append this (me, emoji)
+      // pair if it isn't already present — do NOT replace their other emojis.
       final list = List<MessageReactionCollection>.from(originalReactions);
-      final idx = list.indexWhere((r) => r.userId == 'me');
-      if (idx != -1) {
-        list[idx].emoji = emoji;
-      } else {
+      final alreadyPresent =
+          list.any((r) => r.userId == 'me' && r.emoji == emoji);
+      if (!alreadyPresent) {
         list.add(
           MessageReactionCollection()
             ..userId = 'me'
@@ -411,8 +412,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions ?? [],
       );
 
+      // Remove only the matching (me, emoji) pair, leaving any other emojis
+      // this user placed on the message intact.
       final list = List<MessageReactionCollection>.from(originalReactions)
-        ..removeWhere((r) => r.userId == 'me');
+        ..removeWhere((r) => r.userId == 'me' && r.emoji == emoji);
       originalCollection.reactions = list;
       await cacheService.put(originalCollection);
     }
@@ -758,11 +761,11 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // a reaction doesn't visually vanish the moment any other message
       // arrives via the realtime stream.
       ..reactions = entity.reactions.isNotEmpty
-          ? entity.reactions.entries
+          ? entity.reactions
                 .map(
                   (r) => MessageReactionCollection()
-                    ..userId = r.key
-                    ..emoji = r.value,
+                    ..userId = r.userCode
+                    ..emoji = r.emoji,
                 )
                 .toList()
           : existing?.reactions;

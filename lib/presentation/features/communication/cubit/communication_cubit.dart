@@ -8,6 +8,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../domain/features/communication/entities/enums.dart';
 import '../../../../domain/features/communication/entities/message.dart';
+import '../../../../domain/features/communication/entities/reaction_entry.dart';
 import '../../../../domain/features/communication/usecases/get_conversations_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
@@ -804,8 +805,14 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
-        final newReactions = Map<String, String>.from(m.reactions);
-        newReactions[reactionKey] = emoji;
+        // Append this (user, emoji) only if not already present — a user may
+        // hold multiple distinct emojis; adding one must not drop the others.
+        final newReactions = m.userHasReaction(reactionKey, emoji)
+            ? m.reactions
+            : [
+                ...m.reactions,
+                ReactionEntry(userCode: reactionKey, emoji: emoji),
+              ];
         return Message(
           id: m.id,
           code: m.code,
@@ -995,8 +1002,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
-        final newReactions = Map<String, String>.from(m.reactions)
-          ..remove(reactionKey);
+        // Drop only the matching (user, emoji) entry — the user's other
+        // emojis on this message stay put.
+        final newReactions = m.reactions
+            .where((r) => !(r.matchesUser(reactionKey) && r.emoji == emoji))
+            .toList();
         return Message(
           id: m.id,
           code: m.code,

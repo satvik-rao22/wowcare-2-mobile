@@ -618,8 +618,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           child: EmojiPicker(
             onEmojiSelected: (category, emoji) {
               Navigator.pop(sheetContext); // close picker
-              final myReaction = message.reactions[_currentUserCode ?? 'me'];
-              if (myReaction == emoji.emoji) {
+              if (message.userHasReaction(
+                  _currentUserCode ?? '', emoji.emoji)) {
                 cubit.removeReaction(
                   convCode,
                   message.code,
@@ -802,9 +802,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                       _scrollToMessage(quoteId);
                     },
                     onReactionAdded: (emoji) {
-                      final myReaction =
-                          message.reactions[_currentUserCode ?? 'me'];
-                      if (myReaction == emoji) {
+                      if (message.userHasReaction(
+                          _currentUserCode ?? '', emoji)) {
                         context.read<CommunicationCubit>().removeReaction(
                           widget.parentInfo['code'] as String,
                           message.code,
@@ -1162,12 +1161,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          final myReaction =
-                                                              message
-                                                                  .reactions[_currentUserCode ??
-                                                                  'me'];
-                                                          if (myReaction ==
-                                                              emoji) {
+                                                          if (message.userHasReaction(
+                                                              _currentUserCode ?? '',
+                                                              emoji)) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -1475,12 +1471,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          final myReaction =
-                                                              message
-                                                                  .reactions[_currentUserCode ??
-                                                                  'me'];
-                                                          if (myReaction ==
-                                                              emoji) {
+                                                          if (message.userHasReaction(
+                                                              _currentUserCode ?? '',
+                                                              emoji)) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -1793,12 +1786,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          final myReaction =
-                                                              message
-                                                                  .reactions[_currentUserCode ??
-                                                                  'me'];
-                                                          if (myReaction ==
-                                                              emoji) {
+                                                          if (message.userHasReaction(
+                                                              _currentUserCode ?? '',
+                                                              emoji)) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -2207,12 +2197,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              final myReaction =
-                                                                  message
-                                                                      .reactions[_currentUserCode ??
-                                                                      'me'];
-                                                              if (myReaction ==
-                                                                  emoji) {
+                                                              if (message.userHasReaction(
+                                                                  _currentUserCode ?? '',
+                                                                  emoji)) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit
@@ -2524,12 +2511,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              final myReaction =
-                                                                  message
-                                                                      .reactions[_currentUserCode ??
-                                                                      'me'];
-                                                              if (myReaction ==
-                                                                  emoji) {
+                                                              if (message.userHasReaction(
+                                                                  _currentUserCode ?? '',
+                                                                  emoji)) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit
@@ -2851,12 +2835,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              final myReaction =
-                                                                  message
-                                                                      .reactions[_currentUserCode ??
-                                                                      'me'];
-                                                              if (myReaction ==
-                                                                  emoji) {
+                                                              if (message.userHasReaction(
+                                                                  _currentUserCode ?? '',
+                                                                  emoji)) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit

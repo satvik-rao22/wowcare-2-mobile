@@ -173,10 +173,10 @@ class _MessageBubbleState extends State<MessageBubble>
       final messageId = widget.message.code.isNotEmpty
           ? widget.message.code
           : widget.message.id;
-      final reactions = widget.message.reactions.entries.map((e) {
+      final reactions = widget.message.reactions.map((r) {
         return Reaction(
-          emoji: e.value,
-          userId: e.key,
+          emoji: r.emoji,
+          userId: r.userCode,
           timestamp: DateTime.now(),
         );
       }).toList();
@@ -301,14 +301,39 @@ class _MessageBubbleState extends State<MessageBubble>
     }
   }
 
+  /// The emoji the current user has already reacted with on this message, or
+  /// null. Reactions are keyed by the backend `userCode`; match it against the
+  /// current user's code case-insensitively so a casing/format difference never
+  /// makes the toggle miss and re-add instead of removing.
+  String? _myReactionEmoji() {
+    final mine = widget.message.reactionsOf(widget.currentUserCode ?? '');
+    return mine.isEmpty ? null : mine.first;
+  }
+
+  /// Whether the current user has already reacted with [emoji] on this message.
+  bool _iHaveReaction(String emoji) =>
+      widget.message.userHasReaction(widget.currentUserCode ?? '', emoji);
+
+  /// Tapping a specific reaction chip toggles just THAT emoji for the current
+  /// user: remove it if I already reacted with it, otherwise join with it.
+  /// This satisfies "click on an existing reaction should get it deleted"
+  /// without disturbing the user's other emojis.
+  void _handleEmojiChipTap(String emoji) {
+    if (_iHaveReaction(emoji)) {
+      widget.onRemoveReaction?.call(emoji);
+    } else {
+      widget.onReactionAdded?.call(emoji);
+    }
+    HapticFeedback.selectionClick();
+  }
+
   void _handleDoubleTapReaction() {
     if (widget.isDeleted) return;
 
     const emoji = '❤️';
-    final userCode = widget.currentUserCode ?? 'me';
-    final myReaction = widget.message.reactions[userCode];
-
-    if (myReaction == emoji) {
+    // Double-tap toggles ONLY the heart for the current user, independent of
+    // any other emojis they may have placed.
+    if (_iHaveReaction(emoji)) {
       widget.onRemoveReaction?.call(emoji);
     } else {
       widget.onReactionAdded?.call(emoji);
@@ -316,6 +341,18 @@ class _MessageBubbleState extends State<MessageBubble>
     }
 
     HapticFeedback.mediumImpact();
+  }
+
+  /// Tapping the existing reaction badge removes YOUR reaction (toggle off). If
+  /// you haven't reacted, fall back to the old behaviour (focus the input).
+  void _handleExistingReactionTap() {
+    final mine = _myReactionEmoji();
+    if (mine != null) {
+      widget.onRemoveReaction?.call(mine);
+      HapticFeedback.selectionClick();
+    } else {
+      widget.onReactionTap?.call();
+    }
   }
 
   // ── Heart floating-overlay animation ─────────────────────────────────────
@@ -670,10 +707,11 @@ class _MessageBubbleState extends State<MessageBubble>
                                 widget.onReactionTap?.call();
                                 return;
                               }
-                              final userCode = widget.currentUserCode ?? 'me';
-                              final myReaction =
-                                  widget.message.reactions[userCode];
-                              if (myReaction != null && myReaction == emoji) {
+                              // Picking an emoji you already applied toggles it
+                              // off; picking a NEW one joins it (Slack-style) —
+                              // a user may hold multiple distinct emojis, so
+                              // adding one must not remove the others.
+                              if (_iHaveReaction(emoji)) {
                                 widget.onRemoveReaction?.call(emoji);
                               } else {
                                 widget.onReactionAdded?.call(emoji);
@@ -705,7 +743,11 @@ class _MessageBubbleState extends State<MessageBubble>
                             offset: const Offset(0, -6),
                             child: _AnimatedReactionBadge(
                               counts: counts,
-                              onTap: widget.onReactionTap,
+                              // Per-chip toggle: tapping a specific emoji
+                              // adds/removes just that emoji for the current
+                              // user. Whole-badge onTap kept as a fallback.
+                              onEmojiTap: _handleEmojiChipTap,
+                              onTap: _handleExistingReactionTap,
                             ),
                           );
                         },
@@ -1665,10 +1707,20 @@ class _HeartFloatOverlay extends StatelessWidget {
 /// runtimeType + position in tree), so [didUpdateWidget] fires whenever the
 /// parent passes new [counts], allowing per-emoji diff and targeted animation.
 class _AnimatedReactionBadge extends StatefulWidget {
-  const _AnimatedReactionBadge({required this.counts, this.onTap});
+  const _AnimatedReactionBadge({
+    required this.counts,
+    this.onTap,
+    this.onEmojiTap,
+  });
 
   final Map<String, int> counts;
+
+  /// Fallback tap on the whole badge (used only when [onEmojiTap] is null).
   final VoidCallback? onTap;
+
+  /// Per-chip tap — called with the specific emoji whose chip was tapped so the
+  /// bubble can toggle just that emoji for the current user.
+  final ValueChanged<String>? onEmojiTap;
 
   @override
   State<_AnimatedReactionBadge> createState() => _AnimatedReactionBadgeState();
@@ -1759,31 +1811,45 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
   Widget build(BuildContext context) {
     if (_displayed.isEmpty) return const SizedBox.shrink();
 
+    // Prefer per-chip taps; fall back to the whole-badge tap only when no
+    // per-emoji handler is wired.
+    final perChip = widget.onEmojiTap != null;
+
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 5,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final entry in _displayed.entries.take(3)) ...[
+            perChip
+                ? GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => widget.onEmojiTap!(entry.key),
+                    child: _buildAnimatedEmoji(entry.key, entry.value),
+                  )
+                : _buildAnimatedEmoji(entry.key, entry.value),
+            const SizedBox(width: 3),
+          ],
+        ],
+      ),
+    );
+
+    if (perChip) return badge;
+
     return GestureDetector(
       onTap: widget.onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.12),
-              blurRadius: 5,
-              offset: const Offset(0, 1),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final entry in _displayed.entries.take(3)) ...[
-              _buildAnimatedEmoji(entry.key, entry.value),
-              const SizedBox(width: 3),
-            ],
-          ],
-        ),
-      ),
+      child: badge,
     );
   }
 

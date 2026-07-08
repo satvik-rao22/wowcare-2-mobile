@@ -1212,8 +1212,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   }
                 },
                 onReactionAdded: (emoji) {
-                  final myReaction = msg.reactions[_senderCode];
-                  if (myReaction == emoji) {
+                  if (msg.userHasReaction(_senderCode, emoji)) {
                     _cubit.removeReaction(
                       messageCode: msg.code,
                       emoji: emoji,

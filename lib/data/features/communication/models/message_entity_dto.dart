@@ -1,5 +1,6 @@
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
 /// API response DTO for a message.
 class MessageEntityDto {
@@ -186,7 +187,9 @@ class MessageEntityDto {
       editedAt: editedAt,
       deletedAt: deletedAt,
       attachments: attachments.map((e) => e.toEntity()).toList(),
-      reactions: {for (final r in reactions) r.userCode: r.emoji},
+      reactions: reactions
+          .map((r) => ReactionEntry(userCode: r.userCode, emoji: r.emoji))
+          .toList(),
       readReceipts: readReceipts.map((e) => e.toEntity()).toList(),
       threadParentCode: threadParentCode,
       threadParentSenderCode: threadParentSenderCode,

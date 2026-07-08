@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
 // ─── Lightweight DTO for Firestore message data ──────────────────────────────
 
@@ -56,7 +57,7 @@ class MessageFirestoreItem {
   final bool isDeleted;
   final bool isEdited;
   final bool isPrivate;
-  final Map<String, String> reactions;
+  final List<ReactionEntry> reactions;
   final DateTime? editedAt;
   final DateTime? deletedAt;
   final String? deletedPlaceholder;
@@ -180,13 +181,13 @@ class MessageFirestoreItem {
   }
 
   /// The backend writes `reactions` as an ARRAY of `{userCode, emoji, timestamp}`
-  /// objects (a message can carry many reactions), matching the REST payload and
-  /// the web client. Collapse it to the model's `{userCode: emoji}` map (one emoji
-  /// per user, last wins — same as the REST parsers). A legacy `{userCode: emoji}`
-  /// map shape is still tolerated. Returning `{}` for the array was the bug: every
-  /// Firestore snapshot wiped reactions ~2-3s after they were added.
-  static Map<String, String> _parseReactions(dynamic value) {
-    final result = <String, String>{};
+  /// objects (a message can carry many reactions per user), matching the REST
+  /// payload and the web client. Map it to a flat `List<ReactionEntry>`
+  /// preserving EVERY {userCode, emoji} pair — a user may hold multiple distinct
+  /// emojis. A legacy `{userCode: emoji}` map shape is still tolerated by
+  /// expanding each entry to a [ReactionEntry].
+  static List<ReactionEntry> _parseReactions(dynamic value) {
+    final result = <ReactionEntry>[];
     if (value is List) {
       for (final r in value) {
         if (r is Map) {
@@ -194,13 +195,15 @@ class MessageFirestoreItem {
           final emoji = r['emoji']?.toString();
           if (userCode != null && userCode.isNotEmpty &&
               emoji != null && emoji.isNotEmpty) {
-            result[userCode] = emoji;
+            result.add(ReactionEntry(userCode: userCode, emoji: emoji));
           }
         }
       }
     } else if (value is Map) {
       value.forEach((k, v) {
-        if (k is String && v is String) result[k] = v;
+        if (k is String && v is String && k.isNotEmpty && v.isNotEmpty) {
+          result.add(ReactionEntry(userCode: k, emoji: v));
+        }
       });
     }
     return result;
