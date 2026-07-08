@@ -103,10 +103,18 @@ class MessageFirestoreItem {
       editedAt: _parseTimestamp(d['editedAt']),
       deletedAt: _parseTimestamp(d['deletedAt']),
       deletedPlaceholder: d['deletedPlaceholder'] as String?,
-      threadParentCode: d['threadParentCode'] as String?,
-      threadParentSenderCode: d['threadParentSenderCode'] as String?,
-      threadParentSenderName: d['threadParentSenderName'] as String?,
-      threadParentText: d['threadParentText'] as String?,
+      // The backend writes the quoted-message context under `parent*` keys
+      // (parentMessageCode/parentSenderCode/parentSenderName/parentText). Reading
+      // the old `threadParent*` names left these null, so a reply arriving live
+      // showed no quote bubble until a REST refresh. Read `parent*` first, keep
+      // `threadParent*` as a fallback for any legacy docs.
+      threadParentCode:
+          (d['parentMessageCode'] ?? d['threadParentCode']) as String?,
+      threadParentSenderCode:
+          (d['parentSenderCode'] ?? d['threadParentSenderCode']) as String?,
+      threadParentSenderName:
+          (d['parentSenderName'] ?? d['threadParentSenderName']) as String?,
+      threadParentText: (d['parentText'] ?? d['threadParentText']) as String?,
       privateParentUserCode: d['privateParentUserCode'] as String?,
       deliveredTo: _parseReceiptMap(d['deliveredTo']),
       readBy: _parseReceiptMap(d['readBy']),

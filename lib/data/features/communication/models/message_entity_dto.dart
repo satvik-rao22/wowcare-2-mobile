@@ -124,13 +124,22 @@ class MessageEntityDto {
                   ReadReceiptEntityDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      // Backend field is 'replyToMessageId', not 'threadParentCode'
-      threadParentCode: json['replyToMessageId']?.toString().isNotEmpty == true
-          ? json['replyToMessageId'].toString()
-          : json['threadParentCode'] as String?,
-      threadParentSenderCode: json['threadParentSenderCode'] as String?,
-      threadParentSenderName: json['threadParentSenderName'] as String?,
-      threadParentText: json['threadParentText'] as String?,
+      // The REST DTO carries the quoted-message context under `parent*` keys
+      // (parentMessageCode is the quoted message's CODE, which matches how the
+      // Firestore doc and the loaded message list identify it). Fall back to the
+      // numeric `replyToMessageId` / legacy `threadParent*` for older payloads.
+      threadParentCode: (json['parentMessageCode'] as String?) ??
+          (json['replyToMessageId']?.toString().isNotEmpty == true
+              ? json['replyToMessageId'].toString()
+              : json['threadParentCode'] as String?),
+      threadParentSenderCode:
+          (json['parentSenderCode'] ?? json['threadParentSenderCode'])
+              as String?,
+      threadParentSenderName:
+          (json['parentSenderName'] ?? json['threadParentSenderName'])
+              as String?,
+      threadParentText:
+          (json['parentText'] ?? json['threadParentText']) as String?,
       privateParentUserCode: json['privateParentUserCode'] as String?,
       organizationCode: json['organizationCode'] as String? ?? '',
       schoolCode: json['schoolCode'] as String? ?? '',
