@@ -21,11 +21,12 @@ void main() {
     required HolidayType type,
     HolidayStatus? status,
     int version = 0,
+    DateTime? start,
   }) => Holiday(
     code: code,
     name: code,
-    startDate: DateTime(year, 6, 1),
-    endDate: DateTime(year, 6, 1),
+    startDate: start ?? DateTime(year, 6, 1),
+    endDate: start ?? DateTime(year, 6, 1),
     type: type,
     status: status,
     version: version,
@@ -248,6 +249,129 @@ void main() {
     test('is a no-op when the year is unchanged', () async {
       await cubit.setSelectedYear(cubit.state.selectedYear);
       expect(repo.getHolidaysCalls, 0);
+    });
+
+    test('failure surfaces an error and stops loading', () async {
+      repo.error = Exception('offline');
+      await cubit.setSelectedYear(year + 1);
+      expect(cubit.state.selectedYear, year + 1);
+      expect(cubit.state.isLoading, isFalse);
+      expect(cubit.state.errorMessage, contains('Failed to load holidays'));
+    });
+  });
+
+  group('holiday year caching', () {
+    test('load marks the selected year as fetched', () async {
+      repo.nextHolidays = [holiday(code: 'SCH-1', type: HolidayType.school)];
+      await cubit.load();
+      expect(cubit.state.holidays.map((h) => h.code), ['SCH-1']);
+
+      final calls = repo.getHolidaysCalls;
+      await cubit.ensureHolidaysForYear(year);
+      expect(
+        repo.getHolidaysCalls,
+        calls,
+        reason: 'an already-loaded year must not refetch',
+      );
+    });
+
+    test('ensureHolidaysForYear fetches a new year once, keeping loaded '
+        'years', () async {
+      repo.nextHolidays = [holiday(code: 'CUR', type: HolidayType.school)];
+      await cubit.refreshHolidays();
+
+      repo.nextHolidays = [
+        holiday(
+          code: 'NEXT',
+          type: HolidayType.school,
+          start: DateTime(year + 1, 1, 5),
+        ),
+      ];
+      await cubit.ensureHolidaysForYear(year + 1);
+
+      expect(
+        cubit.state.holidays.map((h) => h.code),
+        containsAll(['CUR', 'NEXT']),
+      );
+
+      final calls = repo.getHolidaysCalls;
+      await cubit.ensureHolidaysForYear(year + 1);
+      expect(repo.getHolidaysCalls, calls);
+    });
+
+    test('ensureHolidaysForYear fails silently and retries on the next call',
+        () async {
+      repo.error = Exception('offline');
+      await cubit.ensureHolidaysForYear(year + 2);
+      // Background pre-fetch: no error banner.
+      expect(cubit.state.errorMessage, isNull);
+
+      // The failed year was not marked loaded, so the next call refetches.
+      repo.error = null;
+      repo.nextHolidays = [
+        holiday(
+          code: 'LATER',
+          type: HolidayType.school,
+          start: DateTime(year + 2, 1, 5),
+        ),
+      ];
+      await cubit.ensureHolidaysForYear(year + 2);
+      expect(cubit.state.holidays.map((h) => h.code), contains('LATER'));
+    });
+
+    test('refreshHolidays replaces only the selected year', () async {
+      repo.nextHolidays = [
+        holiday(
+          code: 'NEXT',
+          type: HolidayType.school,
+          start: DateTime(year + 1, 1, 5),
+        ),
+      ];
+      await cubit.ensureHolidaysForYear(year + 1);
+
+      repo.nextHolidays = [holiday(code: 'CUR', type: HolidayType.school)];
+      await cubit.refreshHolidays();
+      expect(
+        cubit.state.holidays.map((h) => h.code),
+        containsAll(['NEXT', 'CUR']),
+      );
+
+      // An empty refetch clears the selected year but keeps other years.
+      repo.nextHolidays = const [];
+      await cubit.refreshHolidays();
+      expect(cubit.state.holidays.map((h) => h.code).toList(), ['NEXT']);
+    });
+
+    test('saveHoliday keeps the list sorted by start date (FR-HL-09)',
+        () async {
+      repo.nextHolidays = [
+        holiday(
+          code: 'DEC',
+          type: HolidayType.school,
+          start: DateTime(year, 12, 10),
+        ),
+        holiday(
+          code: 'JAN',
+          type: HolidayType.school,
+          start: DateTime(year, 1, 10),
+        ),
+      ];
+      await cubit.refreshHolidays();
+
+      repo.nextCreate = (
+        holiday(
+          code: 'JUN',
+          type: HolidayType.school,
+          start: DateTime(year, 6, 10),
+        ),
+        'created',
+      );
+      await cubit.saveHoliday(holiday(code: '', type: HolidayType.school));
+
+      expect(
+        cubit.state.holidays.map((h) => h.code).toList(),
+        ['JAN', 'JUN', 'DEC'],
+      );
     });
   });
 }

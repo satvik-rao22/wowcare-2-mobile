@@ -192,4 +192,46 @@ void main() {
 
     await tester.pump(const Duration(seconds: 3));
   });
+
+  Holiday multiDayHoliday() => Holiday(
+    code: 'SCH-8',
+    name: 'Spring Break',
+    startDate: DateTime(2026, 5, 1),
+    endDate: DateTime(2026, 5, 3),
+    type: HolidayType.school,
+    version: 2,
+    createdAt: DateTime(2026),
+    updatedAt: DateTime(2026),
+  );
+
+  testWidgets('editing a multi-day holiday opens in Date Range mode', (
+    tester,
+  ) async {
+    await openSheet(tester, holiday: multiDayHoliday());
+    // Range mode is pre-selected, so the Starts/Ends tiles are visible.
+    expect(find.textContaining('Starts'), findsOneWidget);
+    expect(find.textContaining('Ends'), findsOneWidget);
+  });
+
+  testWidgets('switching back to Single Date collapses the end date on save', (
+    tester,
+  ) async {
+    final existing = multiDayHoliday();
+    repo.nextUpdate = (
+      existing.copyWith(endDate: existing.startDate),
+      'updated',
+    );
+
+    await openSheet(tester, holiday: existing);
+    await tester.tap(find.text('Single Date'));
+    await tester.pump();
+
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Save Changes'));
+    await tester.pumpAndSettle();
+
+    expect(repo.lastUpdateArgs!['startDate'], DateTime(2026, 5, 1));
+    expect(repo.lastUpdateArgs!['endDate'], DateTime(2026, 5, 1));
+
+    await tester.pump(const Duration(seconds: 3));
+  });
 }
