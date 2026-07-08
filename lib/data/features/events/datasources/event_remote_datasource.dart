@@ -1,16 +1,18 @@
 import 'package:dio/dio.dart';
+import 'package:uuid/uuid.dart';
 
+import '../../../../core/util/api_constants.dart';
+import '../../../../core/util/api_paths.dart';
 import '../../../../domain/features/events/entities/event.dart';
 import '../models/event_models.dart';
 
-/// STUB — the events backend is not yet available.
+/// Talks to the Events API on the scheduler microservice (`/api/v1/events`).
+/// Org/school scoping headers and the bearer token are attached globally by
+/// [AuthInterceptor]; per-request headers set here are `Idempotency-Key` on
+/// create and `If-Match` (optimistic locking) on writes.
 ///
-/// Reads return empty so the Events tab renders without crashing; writes throw
-/// [UnimplementedError] until the API is wired. When the events endpoints ship
-/// (expected on the scheduler microservice, alongside holidays), replace each
-/// `TODO(events-api)` with the real call — mirror [HolidayRemoteDataSource]
-/// (build the URL with `ApiPaths` + `ApiConstants.schedulerBaseUrl`, parse the
-/// `{success, message, data, timestamp}` envelope).
+/// Endpoints not yet wired keep their stub behaviour (reads return empty,
+/// writes throw) and are being replaced step by step.
 abstract class EventRemoteDataSource {
   Future<List<EventModel>> getEvents();
 
@@ -31,8 +33,6 @@ abstract class EventRemoteDataSource {
 class EventRemoteDataSourceImpl implements EventRemoteDataSource {
   EventRemoteDataSourceImpl(this._client);
 
-  // Kept for when the events API is wired; unused by the stub.
-  // ignore: unused_field
   final Dio _client;
 
   static const String _notWired =
@@ -53,8 +53,35 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
 
   @override
   Future<EventModel> createEvent(Event event) async {
-    // TODO(events-api): POST /api/v1/events.
-    throw UnimplementedError(_notWired);
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.events,
+      ApiConstants.schedulerBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(
+      endpoint,
+      data: EventModel.createBody(event),
+      // One UUID per attempt: a network timeout retried by the caller
+      // reuses a NEW key (new call), while the server dedupes an identical
+      // replayed request (same key + body) instead of double-creating.
+      options: Options(
+        headers: <String, dynamic>{'Idempotency-Key': const Uuid().v4()},
+      ),
+    );
+
+    return _parseSingle(response.data, action: 'create');
+  }
+
+  /// Unwraps the `{success, message, data}` envelope around one event.
+  static EventModel _parseSingle(dynamic raw, {required String action}) {
+    if (raw is! Map<String, dynamic>) {
+      throw Exception('Unexpected event $action API response format');
+    }
+    final data = raw['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Missing data payload in event $action response');
+    }
+    return EventModel.fromApi(data);
   }
 
   @override

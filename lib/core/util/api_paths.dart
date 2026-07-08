@@ -912,6 +912,15 @@ class ApiPaths {
   static String newsletterByCode(String code) =>
       '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
 
+  // —— Scheduler MS — Events (Events, Tasks & School Calendar) ——
+  /// `GET`/`POST` `/api/v1/events`. List supports
+  /// `?type=&fromDate=&toDate=&name=&recurringFlag=&createdBy=&page=&size=`.
+  static const String events = '/api/v1/events';
+
+  /// `GET`/`PATCH`/`DELETE` `/api/v1/events/{code}`.
+  static String eventByCode(String code) =>
+      '$events/${Uri.encodeComponent(code.trim())}';
+
   // —— Scheduler MS — Holidays (Events, Tasks & School Calendar) ——
   /// `GET`/`POST` `/api/v1/holidays`. List supports `?year=&type=&status=`.
   static const String holidays = '/api/v1/holidays';

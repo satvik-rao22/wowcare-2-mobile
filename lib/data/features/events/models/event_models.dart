@@ -24,11 +24,68 @@ class EventModel extends Equatable {
     this.recurringEndDate,
     this.attachmentName,
     this.attachmentUrl,
+    this.version = 0,
     this.createdBy = '',
     this.createdByName = '',
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// Parses the scheduler API event payload (§4.3 of the frontend contract):
+  /// `seriesStartDate`/`seriesStartTime`/`allDayFlag`/`recurringFlag`/`rrule`
+  /// plus `audiences` selectors. Distinct from [EventModel.fromJson], which
+  /// keeps understanding the legacy seed-file shape.
+  ///
+  /// The API returns audiences as bare selectors (kind + code, no display
+  /// name), so attendee names come back empty — callers that already know
+  /// the names (create/update flows) merge them back in.
+  factory EventModel.fromApi(Map<String, dynamic> json) {
+    final classrooms = <EventAttendeeModel>[];
+    final students = <EventAttendeeModel>[];
+    final staff = <EventAttendeeModel>[];
+    final audiences = json['audiences'];
+    if (audiences is List) {
+      for (final entry in audiences.whereType<Map>()) {
+        final kind = (entry['selectorKind'] ?? '').toString().toUpperCase();
+        final code = (entry['selectorCode'] ?? '').toString().trim();
+        if (code.isEmpty) continue; // SCHOOL_WIDE / ALL_* carry no code.
+        final attendee = EventAttendeeModel(code: code, name: '');
+        switch (kind) {
+          case 'CLASSROOM':
+            classrooms.add(attendee);
+          case 'STUDENT':
+            students.add(attendee);
+          case 'STAFF':
+            staff.add(attendee);
+        }
+      }
+    }
+
+    final rrule = (json['rrule'] ?? '').toString();
+    return EventModel(
+      code: (json['code'] ?? '').toString().trim(),
+      type: (json['type'] ?? '').toString(),
+      name: (json['name'] ?? '').toString(),
+      date: _parseDate(json['seriesStartDate']) ?? DateTime.now(),
+      allDay: json['allDayFlag'] == true,
+      startTime: _hhmm(json['seriesStartTime']),
+      endTime: _hhmm(json['seriesEndTime']),
+      description: (json['description'] ?? '').toString(),
+      classrooms: classrooms,
+      students: students,
+      staff: staff,
+      includeParents: json['includeParentsFlag'] == true,
+      recurring: json['recurringFlag'] == true,
+      recurringPattern: _rruleFreq(rrule),
+      recurringEndDate:
+          _parseDate(json['rruleUntil']) ?? _rruleUntil(rrule),
+      version: (json['version'] as num?)?.toInt() ?? 0,
+      createdBy: (json['createdBy'] ?? '').toString(),
+      createdByName: (json['createdByName'] ?? '').toString(),
+      createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now(),
+    );
+  }
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
     List<EventAttendeeModel> attendees(String key) {
@@ -97,6 +154,7 @@ class EventModel extends Equatable {
       recurringEndDate: event.recurringEndDate,
       attachmentName: event.attachmentName,
       attachmentUrl: event.attachmentUrl,
+      version: event.version,
       createdBy: event.createdBy,
       createdByName: event.createdByName,
       createdAt: event.createdAt,
@@ -122,10 +180,144 @@ class EventModel extends Equatable {
   final DateTime? recurringEndDate;
   final String? attachmentName;
   final String? attachmentUrl;
+  final int version;
   final String createdBy;
   final String createdByName;
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  /// Builds the `POST /api/v1/events` body (§4.1 of the frontend contract)
+  /// from a form draft. Times go as `HH:mm:ss` and are omitted for all-day
+  /// events; the recurrence is encoded as an RFC 5545 `rrule`.
+  static Map<String, dynamic> createBody(Event event) {
+    return <String, dynamic>{
+      'type': event.type.value,
+      'name': event.name,
+      if (event.description.isNotEmpty) 'description': event.description,
+      'seriesStartDate': formatDate(event.date),
+      if (!event.allDay && event.startTime.isNotEmpty)
+        'seriesStartTime': _apiTime(event.startTime),
+      if (!event.allDay && event.endTime.isNotEmpty)
+        'seriesEndTime': _apiTime(event.endTime),
+      'allDayFlag': event.allDay,
+      'audienceScope': _audienceScope(event.type),
+      'includeParentsFlag': event.includeParents,
+      'recurringFlag': event.recurring,
+      if (event.recurring && event.recurringPattern != null)
+        'rrule': buildRrule(event),
+      'audiences': _audiences(event),
+    };
+  }
+
+  /// `AudienceScope` derived from the UI's event type (§4.2). CUSTOM and
+  /// INDIVIDUAL both map to the CUSTOM scope with mixed selectors —
+  /// pending confirmation from the backend, which only documents the
+  /// School/Classroom/Student/Staff modes.
+  static String _audienceScope(EventType type) {
+    switch (type) {
+      case EventType.school:
+        return 'SCHOOL';
+      case EventType.classroom:
+        return 'CLASSROOM_SET';
+      case EventType.student:
+        return 'STUDENT_SET';
+      case EventType.staff:
+        return 'STAFF_SET';
+      case EventType.custom:
+      case EventType.individual:
+        return 'CUSTOM';
+    }
+  }
+
+  /// Audience selectors per mode (§4.2). School events send the single
+  /// SCHOOL_WIDE selector — the server expands classrooms/staff/admins
+  /// itself, so the locally-snapshotted classroom list is ignored.
+  static List<Map<String, String>> _audiences(Event event) {
+    Map<String, String> selector(String kind, [String? code]) => {
+          'selectorKind': kind,
+          if (code != null) 'selectorCode': code,
+        };
+
+    switch (event.type) {
+      case EventType.school:
+        return [selector('SCHOOL_WIDE')];
+      case EventType.classroom:
+        return [
+          for (final c in event.classrooms) selector('CLASSROOM', c.code),
+        ];
+      case EventType.student:
+        return [
+          for (final s in event.students) selector('STUDENT', s.code),
+        ];
+      case EventType.staff:
+        return [for (final s in event.staff) selector('STAFF', s.code)];
+      case EventType.custom:
+      case EventType.individual:
+        return [
+          for (final c in event.classrooms) selector('CLASSROOM', c.code),
+          for (final s in event.students) selector('STUDENT', s.code),
+          for (final s in event.staff) selector('STAFF', s.code),
+        ];
+    }
+  }
+
+  /// RRULE per the contract's §5.1 mapping. Weekly recurs on the start
+  /// date's weekday (no BYDAY needed); monthly pins BYMONTHDAY to the
+  /// start date's day.
+  static String buildRrule(Event event) {
+    final until = event.recurringEndDate;
+    final untilPart = until != null ? ';UNTIL=${_compactDate(until)}' : '';
+    switch (event.recurringPattern!) {
+      case EventRecurrence.daily:
+        return 'FREQ=DAILY$untilPart';
+      case EventRecurrence.weekly:
+        return 'FREQ=WEEKLY$untilPart';
+      case EventRecurrence.monthly:
+        return 'FREQ=MONTHLY;BYMONTHDAY=${event.date.day}$untilPart';
+    }
+  }
+
+  /// FREQ token of an RRULE → [EventRecurrence] code, null when absent
+  /// or unsupported by the UI (e.g. YEARLY).
+  static String? _rruleFreq(String rrule) {
+    final match = RegExp('FREQ=([A-Z]+)').firstMatch(rrule.toUpperCase());
+    final freq = match?.group(1);
+    return (freq == 'DAILY' || freq == 'WEEKLY' || freq == 'MONTHLY')
+        ? freq
+        : null;
+  }
+
+  /// UNTIL token of an RRULE (compact `yyyyMMdd` or full
+  /// `yyyyMMdd'T'HHmmss[Z]`) → date, null when absent.
+  static DateTime? _rruleUntil(String rrule) {
+    final match =
+        RegExp('UNTIL=([0-9]{8})').firstMatch(rrule.toUpperCase());
+    final raw = match?.group(1);
+    if (raw == null) return null;
+    return DateTime.tryParse(
+      '${raw.substring(0, 4)}-${raw.substring(4, 6)}-${raw.substring(6)}',
+    );
+  }
+
+  /// `yyyy-MM-dd` for API date fields.
+  static String formatDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-'
+      '${date.month.toString().padLeft(2, '0')}-'
+      '${date.day.toString().padLeft(2, '0')}';
+
+  static String _compactDate(DateTime date) =>
+      formatDate(date).replaceAll('-', '');
+
+  /// API `HH:mm:ss` → UI `HH:mm` (the form's time parser only accepts
+  /// two segments, so seconds must be stripped here).
+  static String _hhmm(dynamic raw) {
+    final value = (raw ?? '').toString().trim();
+    return value.length >= 5 ? value.substring(0, 5) : value;
+  }
+
+  /// UI `HH:mm` → API `HH:mm:ss`.
+  static String _apiTime(String hhmm) =>
+      hhmm.length == 5 ? '$hhmm:00' : hhmm;
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -174,6 +366,7 @@ class EventModel extends Equatable {
       recurringEndDate: recurringEndDate,
       attachmentName: attachmentName,
       attachmentUrl: attachmentUrl,
+      version: version,
       createdBy: createdBy,
       createdByName: createdByName,
       createdAt: createdAt,

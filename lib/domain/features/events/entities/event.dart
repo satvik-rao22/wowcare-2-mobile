@@ -152,6 +152,7 @@ class Event extends Equatable {
     this.recurringEndDate,
     this.attachmentName,
     this.attachmentUrl,
+    this.version = 0,
     this.createdBy = '',
     this.createdByName = '',
     required this.createdAt,
@@ -179,6 +180,10 @@ class Event extends Equatable {
   final DateTime? recurringEndDate;
   final String? attachmentName;
   final String? attachmentUrl;
+
+  /// Optimistic-locking version echoed back as the `If-Match` header on
+  /// `PATCH`/`DELETE` requests, mirroring [Holiday.version].
+  final int version;
   final String createdBy;
   final String createdByName;
   final DateTime createdAt;
@@ -255,6 +260,7 @@ class Event extends Equatable {
     DateTime? Function()? recurringEndDate,
     String? Function()? attachmentName,
     String? Function()? attachmentUrl,
+    int? version,
     String? createdBy,
     String? createdByName,
     DateTime? createdAt,
@@ -285,6 +291,7 @@ class Event extends Equatable {
           attachmentName != null ? attachmentName() : this.attachmentName,
       attachmentUrl:
           attachmentUrl != null ? attachmentUrl() : this.attachmentUrl,
+      version: version ?? this.version,
       createdBy: createdBy ?? this.createdBy,
       createdByName: createdByName ?? this.createdByName,
       createdAt: createdAt ?? this.createdAt,
@@ -312,6 +319,7 @@ class Event extends Equatable {
         recurringEndDate,
         attachmentName,
         attachmentUrl,
+        version,
         createdBy,
         createdByName,
         createdAt,

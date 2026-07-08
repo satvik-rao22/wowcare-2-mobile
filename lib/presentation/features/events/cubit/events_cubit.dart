@@ -1,6 +1,5 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
@@ -147,25 +146,31 @@ class EventsCubit extends Cubit<EventsState> {
 
   // --------------------------------------------------------------- events
 
-  /// Persists a new event built by the form. Assigns the code and
-  /// audit fields here so the form only deals with user input.
-  /// Returns [bool] success only — the caller shows its own toast (fixed
-  /// copy, since the events API is a stub with no server-provided message).
+  /// Persists a new event built by the form. Identity (code, version) and
+  /// audit fields are assigned by the events API.
+  /// Returns [bool] success only — the caller shows its own toast.
   /// [errorMessage] is left untouched here: it's reserved for background
   /// fetches ([load], [refreshHolidays], [setSelectedYear]) that have no
   /// call site to show a toast directly.
   Future<bool> create(Event draft) async {
     emit(state.copyWith(isSaving: true));
     try {
-      final now = DateTime.now();
+      final created = await _createEvent(draft);
+      // The API echoes audiences as bare selector codes (no display
+      // names), so keep the locally picked attendees and take only the
+      // server-assigned identity + audit fields.
       final event = draft.copyWith(
-        code: 'EVT-${const Uuid().v4().substring(0, 8).toUpperCase()}',
-        createdBy: state.currentUserCode,
-        createdByName: state.currentUserName,
-        createdAt: now,
-        updatedAt: now,
+        code: created.code,
+        version: created.version,
+        createdBy: created.createdBy.isNotEmpty
+            ? created.createdBy
+            : state.currentUserCode,
+        createdByName: created.createdByName.isNotEmpty
+            ? created.createdByName
+            : state.currentUserName,
+        createdAt: created.createdAt,
+        updatedAt: created.updatedAt,
       );
-      await _createEvent(event);
       emit(
         state.copyWith(
           events: _sorted([...state.events, event]),
