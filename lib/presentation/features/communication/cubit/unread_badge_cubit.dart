@@ -25,6 +25,14 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   final Map<String, StreamSubscription<int>> _subscriptions = {};
   final Map<String, int> _counts = {};
 
+  /// Conversation-type keys whose live Firestore stream has delivered at least
+  /// once. Firestore's per-user inbox `unreadCount` is the source of truth (it
+  /// reflects reactions too), whereas the REST unread-summary counts only unread
+  /// MESSAGES. Once Firestore is live for a type we must not let a REST refetch
+  /// clobber that type's count back down — otherwise reaction-driven unread
+  /// disappears. This matches the web AppTopbar, which is Firestore-authoritative.
+  final Set<String> _firestoreDelivered = {};
+
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
 
   @override
@@ -64,6 +72,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     _subscriptions[key] = _watchUnreadCountForTypeUseCase(type).listen(
       (count) {
         if (isClosed) return;
+        _firestoreDelivered.add(key); // Firestore is now authoritative for this type
         _counts[key] = count;
         _emit();
       },
@@ -91,7 +100,16 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
         errorMessage: failure.message ?? 'Failed to load unread counts.',
       )),
       (counts) {
-        _counts.addAll(counts);
+        // Seed only real conversation-type keys that Firestore hasn't delivered
+        // yet. Skipping Firestore-delivered types keeps the reaction-inclusive
+        // live count; filtering to known types drops the REST "TOTAL" aggregate
+        // so it can't double-count in totalUnread.
+        for (final type in ConversationType.values) {
+          final key = type.toApiString();
+          if (_firestoreDelivered.contains(key)) continue;
+          final value = counts[key];
+          if (value != null) _counts[key] = value;
+        }
         _emit();
       },
     );
