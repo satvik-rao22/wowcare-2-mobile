@@ -944,6 +944,11 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
+      // This is an Attendance screen opened from the Attendance nav popup and is
+      // pushed on the root navigator (no shell in context), so the nav bar would
+      // otherwise default to highlighting Dashboard. Pin the highlight to the
+      // Attendance slot (index 1) — mirrors StudentAttendanceProfile.
+      activeTabIndexOverride: 1,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(

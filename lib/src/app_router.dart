@@ -555,9 +555,22 @@ final GoRouter appRouter = GoRouter(
         // LayoutBuilder inside the shell subtree triggers a layout-phase
         // rebuild and both go_router and _ShellScope try to operate on the
         // same StatefulNavigationShell element in the same frame.
-        return _ShellScope(
-          shell: navigationShell,
-          child: _ShellScopeContent(navigationShell: navigationShell),
+        // System back (Android gesture/button) should behave like the in-app
+        // back button, never abruptly close the app from a non-home tab.
+        // go_router pops any nested route within the active branch first; only a
+        // branch *root* reaches this PopScope. From the dashboard (branch 0)
+        // root we let the app exit as usual; from any other tab's root we return
+        // to the dashboard instead of closing the app.
+        return PopScope(
+          canPop: navigationShell.currentIndex == 0,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            navigationShell.goBranch(0);
+          },
+          child: _ShellScope(
+            shell: navigationShell,
+            child: _ShellScopeContent(navigationShell: navigationShell),
+          ),
         );
       },
       branches: [
