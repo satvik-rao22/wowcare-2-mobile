@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'dart:convert' show jsonDecode;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -105,6 +106,10 @@ class _StaffAttendanceDailyViewScreenState
       serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _absentToggleClassroomNameByCode = {};
   final Set<String> _absentToggleClassroomFetchInFlight = {};
+  // The backend only allows SCHOOL_ADMIN/ORGANIZATION_ADMIN to edit/backdate
+  // attendance times; regular staff can only self sign in/out. Default to
+  // false (more restrictive) until resolved.
+  bool _isStaffAdminPersona = false;
 
   @override
   void initState() {
@@ -137,6 +142,7 @@ class _StaffAttendanceDailyViewScreenState
     _classroomCubit = serviceLocator<ClassroomCubit>();
     _loadClassroomData();
     _loadLoggedInUserName();
+    unawaited(_loadStaffAdminPersona());
 
     // Load initial data from API
     _loadAttendanceData(context, reset: true);
@@ -242,6 +248,46 @@ class _StaffAttendanceDailyViewScreenState
         _loggedInUserName = fallback;
       });
     } catch (_) {}
+  }
+
+  Future<void> _loadStaffAdminPersona() async {
+    final isAdmin = await _resolveIsStaffAdminPersona();
+    if (!mounted) return;
+    setState(() {
+      _isStaffAdminPersona = isAdmin;
+    });
+  }
+
+  /// Mirrors the check in staff_sign_in_form.dart/staff_sign_out_form.dart:
+  /// only SCHOOL_ADMIN/ORGANIZATION_ADMIN personas may edit attendance times.
+  Future<bool> _resolveIsStaffAdminPersona() async {
+    final storage = serviceLocator<StorageService>();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
+
+    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
+      return true;
+    }
+
+    // Fallback: parse roles JSON if staffType isn't cached yet.
+    final rolesJson = await storage.getString(StorageKeys.roles);
+    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
+
+    try {
+      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
+      for (final r in roles) {
+        final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
+            .toString()
+            .toUpperCase();
+        if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+          return true;
+        }
+      }
+    } catch (_) {
+      // More restrictive default: treat unknown as non-admin.
+    }
+    return false;
   }
 
   @override
@@ -1008,11 +1054,15 @@ class _StaffAttendanceDailyViewScreenState
       );
     }
 
-    // Editing/deleting attendance records is a STAFF_ATTENDANCE write — hide
-    // both actions for view-only personas (the card omits a null callback).
+    // Editing/deleting attendance records requires a STAFF_ATTENDANCE write.
+    // Editing specifically (as opposed to self sign-in/out) is further
+    // restricted server-side to SCHOOL_ADMIN/ORGANIZATION_ADMIN personas, so
+    // hide the Edit action unless both checks pass (the card omits a null
+    // callback); Delete keeps the original module-only gate.
     final canWriteStaffAttendance = context
         .read<RoleCubit>()
         .canWriteModule(AppAccessModules.staffAttendance);
+    final canEditAttendance = canWriteStaffAttendance && _isStaffAdminPersona;
     return Column(
       children: filtered.asMap().entries.map((entry) {
         final index = entry.key;
@@ -1026,7 +1076,7 @@ class _StaffAttendanceDailyViewScreenState
               _expandedStaffIndex = _expandedStaffIndex == index ? null : index;
             });
           },
-          onEdit: !canWriteStaffAttendance
+          onEdit: !canEditAttendance
               ? null
               : () async {
             await Navigator.push<bool>(

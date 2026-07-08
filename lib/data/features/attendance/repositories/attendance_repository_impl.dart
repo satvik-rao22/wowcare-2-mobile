@@ -1365,10 +1365,14 @@ class AttendanceRepositoryImpl
       if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
     };
 
+    // The backend validates the editing teacher's classroom assignment
+    // against this list (mirrors markStudentsAbsent/markStaffAbsent).
+    final allowed = await _attendanceAllowedClassroomCodes();
+
     return _remoteDataSource.updateStudentAttendanceRecord(
       attendanceRecordCode: attendanceRecordCode,
       payload: payload,
-      allowedClassroomCodes: const <String>[],
+      allowedClassroomCodes: allowed,
     );
   }
 
