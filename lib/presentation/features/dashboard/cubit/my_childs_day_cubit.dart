@@ -42,7 +42,10 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
     }
   }
 
-  Future<void> loadForChild({required String studentCode}) async {
+  Future<void> loadForChild({
+    required String studentCode,
+    bool background = false,
+  }) async {
     final code = studentCode.trim();
     if (code.isEmpty) {
       _stopClock();
@@ -50,18 +53,28 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
       return;
     }
 
-    if (state.studentCode == code && state.status == MyChildsDayStatus.loaded) {
+    // A normal call skips the refetch when the same child is already loaded; a
+    // background refresh (pull-to-refresh) always refetches.
+    if (!background &&
+        state.studentCode == code &&
+        state.status == MyChildsDayStatus.loaded) {
       return;
     }
 
+    // Keep the current data on screen during a background refresh (no shimmer);
+    // only show the loading placeholder for a normal first load.
+    final hasData =
+        state.studentCode == code && state.status == MyChildsDayStatus.loaded;
     _stopClock();
-    _safeEmit(
-      state.copyWith(
-        status: MyChildsDayStatus.loading,
-        studentCode: code,
-        guardianClockPin: '',
-      ),
-    );
+    if (!(background && hasData)) {
+      _safeEmit(
+        state.copyWith(
+          status: MyChildsDayStatus.loading,
+          studentCode: code,
+          guardianClockPin: '',
+        ),
+      );
+    }
 
     try {
       final tz = await SchoolTimezoneResolver.resolveForCurrentSchool(
@@ -169,6 +182,12 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
       _startClock(tz);
     } catch (e) {
+      // A failed background refresh keeps the stale-but-valid data on screen
+      // rather than replacing the card with an error state.
+      if (background && hasData) {
+        _startClock(state.schoolTimeZone);
+        return;
+      }
       _safeEmit(
         state.copyWith(
           status: MyChildsDayStatus.error,

@@ -22,9 +22,12 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
 
   static const int _pageSize = 10;
 
-  Future<void> load() async {
+  Future<void> load({bool background = false}) async {
+    // A background refresh (pull-to-refresh) keeps the current ledger on screen
+    // instead of showing the loading state, and refetches silently.
+    final keepVisible = background && state.ledger != null;
     emit(state.copyWith(
-      isLoading: true,
+      isLoading: !keepVisible,
       errorMessage: () => null,
       displayCount: _pageSize,
     ));
@@ -48,6 +51,11 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
       emit(state.copyWith(isLoading: false, ledger: () => ledger));
     } catch (e) {
       if (isClosed) return;
+      // On a failed background refresh keep the existing ledger visible.
+      if (keepVisible) {
+        emit(state.copyWith(isLoading: false));
+        return;
+      }
       emit(state.copyWith(
         isLoading: false,
         errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
@@ -55,7 +63,7 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
     }
   }
 
-  Future<void> refresh() => load();
+  Future<void> refresh() => load(background: true);
 
   /// Shows the next page of transactions (client-side pagination).
   void loadNextPage() {

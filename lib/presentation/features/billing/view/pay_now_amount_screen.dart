@@ -171,9 +171,18 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             child: _amountField(
               controller: _currentController,
               onChanged: _cubit.setCurrentAmount,
+              hasError: selected && state.currentExceedsUnpaid,
             ),
           ),
         ),
+        if (selected && state.currentExceedsUnpaid)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 2),
+            child: Text(
+              '*Amount exceeds unpaid balance (\$${_money(state.unpaid)}).',
+              style: const TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ),
       ],
     );
   }
@@ -220,7 +229,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             child: Column(
               children: [
                 for (final s in state.students) ...[
-                  _customRow(s),
+                  _customRow(state, s),
                   const SizedBox(height: 12),
                 ],
                 const Divider(height: 8),
@@ -256,13 +265,16 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     );
   }
 
-  Widget _customRow(FamilyLedgerPersonEntity student) {
+  Widget _customRow(PayNowState state, FamilyLedgerPersonEntity student) {
+    final over = state.customExceedsOutstandingFor(student);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(
+          color: over ? AppColors.errorColor : Colors.grey.shade200,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,7 +307,16 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           _amountField(
             controller: _controllerFor(student.code),
             onChanged: (v) => _cubit.setCustomAmount(student.code, v),
+            hasError: over,
           ),
+          if (over)
+            const Padding(
+              padding: EdgeInsets.only(top: 6, left: 2),
+              child: Text(
+                '*Amount exceeds outstanding.',
+                style: TextStyle(color: Colors.red, fontSize: 12),
+              ),
+            ),
         ],
       ),
     );
@@ -304,6 +325,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
   Widget _amountField({
     required TextEditingController controller,
     required ValueChanged<String> onChanged,
+    bool hasError = false,
   }) {
     final responsive = ResponsiveHelper(context);
     // Match the input styling used across the staff forms (add_staff_screen):
@@ -320,7 +342,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(
+          color: hasError ? AppColors.errorColor : const Color(0x66573353),
+        ),
         borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
       ),
       child: TextField(

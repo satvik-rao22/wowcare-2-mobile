@@ -1,5 +1,4 @@
 import 'package:wowcare/core/util/logger_service.dart';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -10,7 +9,6 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
@@ -108,7 +106,6 @@ class _StudentScreenState extends State<StudentScreen> {
   final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
-  bool _hideSummaryCardsForScopedStaff = false;
 
   final GetClassroomByCodeUseCase _getClassroomByCode =
       serviceLocator<GetClassroomByCodeUseCase>();
@@ -168,62 +165,6 @@ class _StudentScreenState extends State<StudentScreen> {
     _loadGuardianNameCodeMap();
     _loadStudentCounts();
     _loadExpectedStudentsSummary();
-    _resolveSummaryVisibilityForPersona();
-  }
-
-  Future<void> _resolveSummaryVisibilityForPersona() async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    final staffTypeRaw = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim()
-        .toUpperCase();
-
-    bool hasGuardianRole = false;
-    bool hasAdminRole = false;
-    bool hasStaffRole = false;
-
-    if (rolesRaw.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(rolesRaw);
-        if (decoded is List) {
-          for (final roleEntry in decoded) {
-            if (roleEntry is! Map) continue;
-            final role = (roleEntry['role'] ?? '').toString().trim();
-            final roleUpper = role.toUpperCase();
-            if (roleUpper.isEmpty) continue;
-            if (roleStringIsGuardianPersona(role)) {
-              hasGuardianRole = true;
-              continue;
-            }
-            if (roleUpper.contains('ADMIN')) {
-              hasAdminRole = true;
-            } else {
-              hasStaffRole = true;
-            }
-          }
-        }
-      } catch (_) {
-        final u = rolesRaw.toUpperCase();
-        hasGuardianRole = u.contains('GUARDIAN') || u.contains('PARENT');
-        hasAdminRole = u.contains('ADMIN');
-        hasStaffRole = !hasGuardianRole && !hasAdminRole && u.isNotEmpty;
-      }
-    }
-
-    final bool isAdminByStaffType =
-        staffTypeRaw == 'SCHOOL_ADMIN' || staffTypeRaw == 'ORGANIZATION_ADMIN';
-    final bool isNonAdminStaffByStaffType =
-        staffTypeRaw.isNotEmpty && !isAdminByStaffType;
-
-    // Hide only for non-admin staff personas.
-    final shouldHide =
-        !hasGuardianRole &&
-        !hasAdminRole &&
-        (isNonAdminStaffByStaffType || hasStaffRole);
-    if (!mounted) return;
-    setState(() {
-      _hideSummaryCardsForScopedStaff = shouldHide;
-    });
   }
 
   void _applyIncomingStatusFilter() {
@@ -1226,6 +1167,12 @@ class _StudentScreenState extends State<StudentScreen> {
     final classroomNameByCode = <String, String>{
       for (final c in classroomState.classrooms) c.code.trim(): c.name.trim(),
     };
+    // Persona-based gate for the two summary cards, read reactively so the very
+    // first frame is already correct — a post-frame flag flip would briefly
+    // expose the cards to a staff (teacher) persona before hiding them, a data
+    // breach. RoleCubit resolves the ACTIVE school's role (roles are per-school,
+    // so a global staffType/roles scan is wrong); hide for staff, keep for admin.
+    final bool hideSummaryCards = context.watch<RoleCubit>().isStaff;
 
     return BlocBuilder<StudentCubit, StudentState>(
       builder: (context, state) {
@@ -1579,7 +1526,7 @@ class _StudentScreenState extends State<StudentScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      if (!_hideSummaryCardsForScopedStaff) ...[
+                      if (!hideSummaryCards) ...[
                         // Total Students stat card
                         LayoutBuilder(
                           builder: (context, constraints) {

@@ -281,6 +281,18 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
   Future<void> _loadStaffPersonaFlags() async {
     try {
+      // "My Attendance" (self) vs "Staff Attendance" (manage all) follows the
+      // ACTIVE persona: only the staff (teacher) persona sees "My Attendance";
+      // the admin persona manages all staff and reaches its own record from the
+      // bottom-nav Staff Attendance instead.
+      //
+      // staffType was unreliable here — it is only written after a later
+      // profile/attendance refresh, so an admin whose staffType had not loaded
+      // yet fell through to `!isStaffAdmin == true` and was wrongly shown
+      // "My Attendance". RoleCubit's active persona ('staff' vs 'admin') is the
+      // canonical, persona-switch-aware signal, so key off it directly.
+      final isStaffPersona = context.read<RoleCubit>().isStaff;
+
       final storage = serviceLocator<StorageService>();
       var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
           .trim();
@@ -288,25 +300,10 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       }
 
-      // "My Attendance" (self) vs "Staff Attendance" (manage all) is decided by
-      // the staff DESIGNATION from the staff profile — a teacher / associate /
-      // floater / etc. sees their own attendance; only a SCHOOL_ADMIN /
-      // ORGANIZATION_ADMIN designation manages all staff.
-      //
-      // Deliberately NOT the account's user-details/login admin role or the
-      // active persona: a person can be an admin *by access* yet a teacher *by
-      // job*, and must still get "My Attendance". (An earlier scan of the
-      // org-level login roles broke exactly this — it flagged such users admin.)
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      final isStaffAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-
       if (!mounted) return;
       setState(() {
         _loggedInStaffCode = staffCode;
-        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+        _isTeacherStaffPersona = isStaffPersona && staffCode.isNotEmpty;
       });
     } catch (_) {
       if (!mounted) return;
