@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
 import 'package:wowcare/data/features/newsletter/util/newsletter_content_parser.dart';
+import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbnail_resolver.dart';
 
 /// Maps student-newsletter API entities to the shared preview/list [Newsletter] model.
 Newsletter mapNewsletterEntityToNewsletter(NewsletterEntity entity) {
@@ -116,14 +118,58 @@ String _attachmentMediaCode(String attachmentCode, String? entityAssetCode) {
   return (entityAssetCode ?? '').trim();
 }
 
-/// Prefer first image-like attachment for list thumbnails.
-NewsletterAttachment? pickPrimaryListAttachment(Newsletter newsletter) {
-  if (newsletter.attachments.isEmpty) return null;
+/// Resolves the thumbnail image for a sent-newsletter list card: an actual
+/// image attachment, then an image embedded in the newsletter body, then a
+/// legacy asset-code pattern in the text — never a non-image document, and
+/// only empty (triggering the default thumbnail) when the newsletter truly
+/// contains no image anywhere.
+NewsletterThumbnailInfo resolveSentNewsletterThumbnail(Newsletter newsletter) {
   for (final attachment in newsletter.attachments) {
-    final mime = attachment.mimeType.toLowerCase();
-    if (mime.startsWith('image/') || mime.isEmpty) return attachment;
+    final String code = attachment.mediaCode.trim();
+    final String url = attachment.resolvedUrl;
+    if (code.isEmpty && url.isEmpty) continue;
+    final String mimeType = resolveThumbnailMimeType(
+      mimeType: attachment.mimeType,
+      url: url,
+      fileName: attachment.fileName,
+      assetCode: code,
+    );
+    if (!mimeType.startsWith('image/')) continue;
+    return NewsletterThumbnailInfo(
+      assetCode: code,
+      directUrl: url,
+      mimeType: mimeType,
+    );
   }
-  return newsletter.attachments.first;
+
+  for (final component in newsletter.components) {
+    for (final part in component.parts) {
+      if (part.type != NewsletterPartType.image || !part.hasImage) continue;
+      final String url = part.imageUrl.trim();
+      final String code = part.assetCode.trim();
+      return NewsletterThumbnailInfo(
+        assetCode: code,
+        directUrl: url,
+        mimeType: resolveThumbnailMimeType(
+          url: url,
+          fileName: part.alt,
+          assetCode: code,
+        ),
+      );
+    }
+  }
+
+  final RegExp codePattern = RegExp(r'AST_[A-Z0-9-]+', caseSensitive: false);
+  final String text = '${newsletter.subtitle}\n${newsletter.bodyHtml}';
+  final RegExpMatch? match = codePattern.firstMatch(text);
+  if (match != null) {
+    final String code = (match.group(0) ?? '').trim();
+    if (code.isNotEmpty) {
+      return NewsletterThumbnailInfo(assetCode: code, mimeType: 'image/*');
+    }
+  }
+
+  return const NewsletterThumbnailInfo();
 }
 
 List<String> extractAssetCodesFromNewsletterEntity(NewsletterEntity entity) {

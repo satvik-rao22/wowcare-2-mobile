@@ -1388,17 +1388,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
   Widget _buildStats() {
     final report = attendanceReport;
+    final isParentPersona = context.read<RoleCubit>().isParent;
 
     if (report == null) {
       return Column(
         children: [
           InkWell(
-            onTap: () {
-              context.push(
-                StudentAttendanceTabbedView.routeName,
-                extra: {'filter': 'Present'},
-              );
-            },
+            onTap: isParentPersona
+                ? null
+                : () {
+                    context.push(
+                      StudentAttendanceTabbedView.routeName,
+                      extra: {'filter': 'Present'},
+                    );
+                  },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
               iconColor: const Color(0xFF4285F4),
@@ -1411,12 +1414,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           _buildAttendedHoursStat(report: null),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () {
-              context.push(
-                StudentAttendanceTabbedView.routeName,
-                extra: {'filter': 'Absent'},
-              );
-            },
+            onTap: isParentPersona
+                ? null
+                : () {
+                    context.push(
+                      StudentAttendanceTabbedView.routeName,
+                      extra: {'filter': 'Absent'},
+                    );
+                  },
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
               iconColor: const Color(0xFF4285F4),
@@ -1432,12 +1437,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return Column(
       children: [
         InkWell(
-          onTap: () {
-            context.push(
-              StudentAttendanceTabbedView.routeName,
-              extra: {'filter': 'Present'},
-            );
-          },
+          onTap: isParentPersona
+              ? null
+              : () {
+                  context.push(
+                    StudentAttendanceTabbedView.routeName,
+                    extra: {'filter': 'Present'},
+                  );
+                },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: const Color(0xFF4285F4),
@@ -1450,12 +1457,14 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
         _buildAttendedHoursStat(report: report),
         const SizedBox(height: 16),
         InkWell(
-          onTap: () {
-            context.push(
-              StudentAttendanceTabbedView.routeName,
-              extra: {'filter': 'Absent'},
-            );
-          },
+          onTap: isParentPersona
+              ? null
+              : () {
+                  context.push(
+                    StudentAttendanceTabbedView.routeName,
+                    extra: {'filter': 'Absent'},
+                  );
+                },
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: const Color(0xFF4285F4),

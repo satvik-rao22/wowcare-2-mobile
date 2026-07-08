@@ -38,16 +38,29 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 
 class AttendancePopupManager {
+  // Guards against the bottom-nav Attendance tab being tapped multiple times
+  // in quick succession: without this, each tap re-enters this method before
+  // the previous popup/profile push has finished, stacking duplicates.
+  // Cleared once the in-flight popup/navigation settles.
+  static bool _isOpening = false;
+
   static void showAttendancePopup(
     BuildContext context, {
     int initialTabIndex = 0,
   }) {
+    if (_isOpening) return;
+    _isOpening = true;
+
     // Parent / guardian: skip the bottom-sheet popup entirely and open the
     // child's attendance profile directly. The popup is only needed for
     // staff/admin who have both Student and Staff attendance tabs.
     final isParent = context.read<RoleCubit>().isParent;
     if (isParent) {
-      unawaited(openParentChildAttendance(context));
+      unawaited(
+        openParentChildAttendance(
+          context,
+        ).whenComplete(() => _isOpening = false),
+      );
       return;
     }
 
@@ -64,7 +77,7 @@ class AttendancePopupManager {
         ],
         child: AttendancePopupOverlay(initialTabIndex: initialTabIndex),
       ),
-    );
+    ).whenComplete(() => _isOpening = false);
   }
 
   /// Opens the selected child's attendance profile directly.

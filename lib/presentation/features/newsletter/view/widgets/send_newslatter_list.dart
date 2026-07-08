@@ -596,6 +596,11 @@ class _CardThumbnailState extends State<_CardThumbnail> {
 
   bool get _isImage {
     final String mime = (widget.mimeType ?? '').trim().toLowerCase();
+    final String code = (widget.assetCode ?? '').trim();
+    final String direct = (widget.directUrl ?? '').trim();
+    // No attachment/asset at all: treat as an image so we fall through to
+    // the default newsletter thumbnail instead of a generic file icon.
+    if (mime.isEmpty && code.isEmpty && direct.isEmpty) return true;
     if (mime.startsWith('image/')) return true;
     if (mime.contains('pdf') ||
         mime.contains('word') ||
@@ -621,7 +626,6 @@ class _CardThumbnailState extends State<_CardThumbnail> {
       }
     }
 
-    final String code = (widget.assetCode ?? '').trim();
     if (code.isNotEmpty && mime.isEmpty) return true;
     return false;
   }

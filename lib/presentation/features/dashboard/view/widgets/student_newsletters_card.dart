@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
 import 'package:go_router/go_router.dart';
@@ -10,6 +11,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletter
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
+import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -26,15 +28,6 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
     with AutomaticKeepAliveClientMixin {
   bool _minimized = false;
   String _selectedChildCode = '';
-
-  static const List<Color> _newsletterAccentColors = <Color>[
-    Color(0xFFFFD54F),
-    Color(0xFF80CBC4),
-    Color(0xFFEF9A9A),
-    Color(0xFF90CAF9),
-    Color(0xFFA5D6A7),
-    Color(0xFFCE93D8),
-  ];
 
   @override
   void didChangeDependencies() {
@@ -130,9 +123,6 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
                         color: AppColors.primaryColor.withValues(alpha: 0.08),
                       ),
                       itemBuilder: (context, index) {
-                        final accentColor =
-                            _newsletterAccentColors[index %
-                                _newsletterAccentColors.length];
                         final selectedChild = Provider.of<ParentChildCubit>(
                           context,
                         ).selectedChild;
@@ -144,7 +134,6 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
                                 .trim();
                         return _NewsletterRow(
                           item: visible[index],
-                          accentColor: accentColor,
                           classroomName: classroomName.isEmpty
                               ? '-'
                               : classroomName,
@@ -165,12 +154,10 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
 class _NewsletterRow extends StatelessWidget {
   const _NewsletterRow({
     required this.item,
-    required this.accentColor,
     required this.classroomName,
   });
 
   final NewsletterEntity item;
-  final Color accentColor;
   final String classroomName;
 
   String _formatCreatedAt(DateTime? createdAt) {
@@ -204,10 +191,7 @@ class _NewsletterRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _NewsletterThumbnail(
-              assetCode: item.assetCode,
-              accentColor: accentColor,
-            ),
+            _NewsletterThumbnail(newsletter: item),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -276,40 +260,40 @@ class _NewsletterRow extends StatelessWidget {
 }
 
 class _NewsletterThumbnail extends StatelessWidget {
-  const _NewsletterThumbnail({
-    required this.assetCode,
-    required this.accentColor,
-  });
+  const _NewsletterThumbnail({required this.newsletter});
 
-  final String? assetCode;
-  final Color accentColor;
+  final NewsletterEntity newsletter;
 
   @override
   Widget build(BuildContext context) {
-    final hasImage = assetCode != null && assetCode!.trim().isNotEmpty;
+    // Use whatever image actually lives inside the newsletter — an explicit
+    // cover asset, an image attachment, or an image embedded in the body —
+    // and only fall back to the bundled default thumbnail when none exists.
+    final thumbnail = resolveNewsletterThumbnail(newsletter);
+    final String? assetCode = thumbnail.assetCode.isNotEmpty
+        ? thumbnail.assetCode
+        : null;
+    final String? directUrl = thumbnail.directUrl.isNotEmpty
+        ? thumbnail.directUrl
+        : null;
     return ClipRRect(
       borderRadius: BorderRadius.circular(8),
       child: SizedBox(
         width: 75,
         height: 75,
-        child: hasImage
-            ? DocumentImageWidget(
-                fileUuid: '',
-                mediaAssetCode: assetCode,
-                name: '',
-                size: 75,
-                fontSize: 0,
-                disableProfileLookupFallback: true,
-                disableAttendanceStatusLookup: true,
-              )
-            : Container(
-                color: accentColor.withValues(alpha: 0.18),
-                child: Icon(
-                  Icons.article_outlined,
-                  color: accentColor,
-                  size: 32,
-                ),
-              ),
+        child: DocumentImageWidget(
+          fileUuid: '',
+          imageUrl: directUrl,
+          mediaAssetCode: assetCode,
+          name: '',
+          size: 75,
+          fontSize: 0,
+          fit: BoxFit.cover,
+          shape: BoxShape.rectangle,
+          placeholderAsset: MediaRes.deafultNewsletterImage,
+          disableProfileLookupFallback: true,
+          disableAttendanceStatusLookup: true,
+        ),
       ),
     );
   }

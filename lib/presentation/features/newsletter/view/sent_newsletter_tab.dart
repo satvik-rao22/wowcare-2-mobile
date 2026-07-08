@@ -372,26 +372,22 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                           letter.createdByName.trim().isNotEmpty
                                           ? letter.createdByName
                                           : 'Demo Test';
-                                      final primaryAttachment =
-                                          pickPrimaryListAttachment(letter);
+                                      final thumbnail =
+                                          resolveSentNewsletterThumbnail(
+                                            letter,
+                                          );
                                       final List<String> derivedAssetCodes =
                                           _extractAssetCodesFromNewsletter(
                                             letter,
                                           );
                                       final Set<String> allCodes = <String>{
+                                        if (thumbnail.assetCode.isNotEmpty)
+                                          thumbnail.assetCode,
                                         ...letter.attachments
                                             .map((a) => a.mediaCode.trim())
                                             .where((c) => c.isNotEmpty),
                                         ...derivedAssetCodes,
                                       };
-                                      final String primaryAssetCode =
-                                          (primaryAttachment?.mediaCode ?? '')
-                                              .trim()
-                                              .isNotEmpty
-                                          ? primaryAttachment!.mediaCode
-                                          : (derivedAssetCodes.isNotEmpty
-                                                ? derivedAssetCodes.first
-                                                : '');
                                       final int additionalAttachmentCount =
                                           allCodes.length > 1
                                           ? allCodes.length - 1
@@ -422,19 +418,17 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
                                                 letter.recipientNames,
                                             recipients: letter.recipients,
                                             primaryAttachmentAssetCode:
-                                                primaryAssetCode,
-                                            primaryAttachmentMimeType: () {
-                                              final mime =
-                                                  (primaryAttachment
-                                                              ?.mimeType ??
-                                                          '')
-                                                      .trim();
-                                              if (mime.isNotEmpty) return mime;
-                                              if (primaryAssetCode.isNotEmpty) {
-                                                return 'image/*';
-                                              }
-                                              return null;
-                                            }(),
+                                                thumbnail.assetCode.isNotEmpty
+                                                ? thumbnail.assetCode
+                                                : null,
+                                            primaryAttachmentDirectUrl:
+                                                thumbnail.directUrl.isNotEmpty
+                                                ? thumbnail.directUrl
+                                                : null,
+                                            primaryAttachmentMimeType:
+                                                thumbnail.mimeType.isNotEmpty
+                                                ? thumbnail.mimeType
+                                                : null,
                                             additionalAttachmentCount:
                                                 additionalAttachmentCount,
                                           ),
