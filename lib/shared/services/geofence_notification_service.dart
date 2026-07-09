@@ -35,7 +35,9 @@ class GeofenceNotificationService {
     if (_initialized) return;
     _initialized = true;
     try {
-      const androidInit = AndroidInitializationSettings('ic_launcher_foreground');
+      const androidInit = AndroidInitializationSettings(
+        'ic_launcher_foreground',
+      );
       // Request iOS alert/sound permission at init so the system prompt appears
       // as soon as GPS monitoring starts, not silently after the first event.
       const iosInit = DarwinInitializationSettings(
@@ -85,8 +87,8 @@ class GeofenceNotificationService {
 
   Future<void> showEnteredZoneNotification() => _show(
     id: _enteredId,
-    title: 'Attendance Available',
-    body: 'You are within the school premises. You can now Sign In or Sign Out.',
+    title: 'Sign In/Out',
+    body: 'You can now Sign In or Sign Out.',
     isCritical: true,
   );
 
