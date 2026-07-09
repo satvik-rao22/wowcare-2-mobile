@@ -408,8 +408,8 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
       _filtered = query.isEmpty
           ? widget.items
           : widget.items
-              .where((item) => item.toLowerCase().contains(query))
-              .toList();
+                .where((item) => item.toLowerCase().contains(query))
+                .toList();
     });
   }
 
@@ -505,10 +505,12 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                             ),
                             child: Text(
                               item,
-                              style: widget.itemTextStyle ??
+                              style:
+                                  widget.itemTextStyle ??
                                   TextStyle(
-                                    color: AppColors.primaryColor
-                                        .withValues(alpha: 0.9),
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.9,
+                                    ),
                                     fontSize: widget.isField ? 17 : 15,
                                     fontWeight: FontWeight.w400,
                                   ),

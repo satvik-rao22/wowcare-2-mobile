@@ -50,8 +50,10 @@ class MessagingListTile extends StatelessWidget {
     // For 1:1 chats show the OTHER participant relative to the viewer, not the
     // frozen stored title (which is the creator's counterpart name).
     final displayName = ConversationDisplay.name(conversation, currentUserCode);
-    final displayAvatar =
-        ConversationDisplay.avatar(conversation, currentUserCode);
+    final displayAvatar = ConversationDisplay.avatar(
+      conversation,
+      currentUserCode,
+    );
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A6C5CE7), // Subtle theme splash
@@ -92,8 +94,9 @@ class MessagingListTile extends StatelessWidget {
               // `avatarUrl` is either a resolved URL or a raw media-asset
               // code depending on which screen started the conversation.
               imageUrl: displayAvatar.startsWith('http') ? displayAvatar : null,
-              mediaAssetCode:
-                  displayAvatar.startsWith('http') ? null : displayAvatar,
+              mediaAssetCode: displayAvatar.startsWith('http')
+                  ? null
+                  : displayAvatar,
               name: displayName,
               size: 52,
             ),
@@ -150,7 +153,9 @@ class MessagingListTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF00B894).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFF00B894,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

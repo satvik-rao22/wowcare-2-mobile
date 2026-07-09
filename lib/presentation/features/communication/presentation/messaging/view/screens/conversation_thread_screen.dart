@@ -256,14 +256,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final result = await serviceLocator<ConversationEntityRepository>()
         .getConversation(widget.conversation.code);
     if (!mounted) return;
-    result.fold(
-      (_) {},
-      (conversation) {
-        if (conversation.participants.isNotEmpty) {
-          setState(() => _resolvedConversation = conversation);
-        }
-      },
-    );
+    result.fold((_) {}, (conversation) {
+      if (conversation.participants.isNotEmpty) {
+        setState(() => _resolvedConversation = conversation);
+      }
+    });
   }
 
   Future<void> _loadSenderInfo() async {

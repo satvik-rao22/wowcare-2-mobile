@@ -132,7 +132,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           ? storedUserCode
           : null;
 
-
       if (mounted) {
         final threadId = widget.staffInfo['code'] as String;
         await context.read<CommunicationCubit>().loadMessages(
@@ -693,8 +692,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                             quoteId,
                                                           );
                                                         },
-                                                    onReply:
-                                                        message.isDeleted
+                                                    onReply: message.isDeleted
                                                         ? null
                                                         : () {
                                                             setState(() {
@@ -1231,7 +1229,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               : () {
                                                                   setState(() {
                                                                     _quotedMessageCode =
-                                                                        message.id;
+                                                                        message
+                                                                            .id;
                                                                     _quotedMessage =
                                                                         message;
                                                                   });
@@ -1242,7 +1241,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               : () {
                                                                   setState(() {
                                                                     _quotedMessageCode =
-                                                                        message.id;
+                                                                        message
+                                                                            .id;
                                                                     _quotedMessage =
                                                                         message;
                                                                   });
@@ -1913,9 +1913,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     );
   }
 
-  String _formatTimeShort(DateTime dt) =>
-      MessagingTimeFormatter.bubbleTime(dt);
+  String _formatTimeShort(DateTime dt) => MessagingTimeFormatter.bubbleTime(dt);
 
-  String _formatFullTime(DateTime dt) =>
-      MessagingTimeFormatter.infoTime(dt);
+  String _formatFullTime(DateTime dt) => MessagingTimeFormatter.infoTime(dt);
 }
