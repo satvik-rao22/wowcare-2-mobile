@@ -26,6 +26,7 @@
 13. [Rollout plan](#13-rollout-plan)
 14. [Deliberately deferred (with rationale)](#14-deliberately-deferred-with-rationale)
 15. [Open product decisions](#15-open-product-decisions)
+16. [Mock data responses](#16-mock-data-responses)
 
 ---
 
@@ -45,7 +46,7 @@ The module serves three layers of need:
 - **School Admins** see read-only **classroom** and **school** roll-ups: domain/subdomain/milestone averages with a radar chart comparing this month to last.
 - **Org Admins** see the same roll-ups across **every school** in the organisation.
 
-Two cross-cutting concerns shape every table: **age-group assignment** (a parameter is only visible/scoreable for students whose age falls in a band it's assigned to) and **CWW Super-Admin impersonation** (cross-org support, every action stamped with `impersonator_id`). **Guardians/Parents have no access** in this release.
+Two cross-cutting concerns shape every table: **age-group assignment** (a parameter is only visible/scoreable for students whose age falls in a band it's assigned to) and **CWW Super-Admin impersonation** (cross-org support, every action stamped with `impersonator_code`). **Guardians/Parents have no access** in this release.
 
 > **Δ from PRD — age groups replace classroom assignment.** The PRD scopes parameters to *classrooms* and assumes each classroom maps to one developmental band. Real classrooms mix ages and rarely align with the bands standards frameworks use (the NH Early Learning Standards use seven: Birth–9 m, 9–18 m, 18–24 m, 24–30 m, 30 m–3 y, 3 y, 4–5 y). This design therefore assigns parameters to **school-defined age groups** (§4.4); a student's visible milestones are resolved from their **date of birth**, not their classroom. Classrooms remain the RBAC scope (staff see their classrooms' students) and a roll-up dimension — they no longer gate which milestones a child is assessed against. A school can adopt the NH bands + framework wholesale via a **framework preset** (§4.7) or define fully custom bands and mappings.
 
@@ -61,13 +62,13 @@ Built on clean architecture (`presentation → domain → data`), consistent wit
 
 | # | Rule | Rationale |
 |---|---|---|
-| 1 | `school_id` (tenant) on **every** table, leading every composite index; `org_id` resolvable for Org-Admin cross-school reads. | Row-level security now; shard-by-tenant later with no model change. |
-| 2 | **Soft-delete / deactivate** parameters (`status`, `deleted_at`); historical assessments are **never** deleted when a parameter is deactivated. | PRD BR-DM-05 / FR-DM-16: deactivating a Domain/Subdomain/Milestone MUST preserve all historical records. |
+| 1 | `school_code` (tenant) on **every** table, leading every composite index; `org_code` on **every** table for Org-Admin cross-school reads. | Row-level security now; shard-by-tenant later with no model change. |
+| 2 | **Soft-delete / deactivate** parameters (`is_deleted`, `deleted_at`); historical assessments are **never** deleted when a parameter is deactivated. | PRD BR-DM-05 / FR-DM-16: deactivating a Domain/Subdomain/Milestone MUST preserve all historical records. |
 | 3 | **No EAV.** Scores are typed columns. Age-group assignment is a **join table**, not a `text[]` column. | The frontend models the assignment set as an array; a join table makes "which milestones does age group X see" an indexed query instead of an array scan. |
 | 4 | **Aggregate in SQL** (averages, statistics), never by shipping all rows to the client. | Roll-ups (classroom/school) are `AVG`/`GROUP BY` over an indexed period window — exactly what Postgres is for. |
 | 5 | **Keyset (cursor) pagination** for list endpoints, not `OFFSET`. | `OFFSET` degrades on deep pages; student/assessment lists can grow. |
-| 6 | **Append-only history** (`audit_log`) is its own time-partitioned table, written in the **same transaction** as the mutation. | Compliance: PRD §19 requires reconstructing what/who/when for every mutation, incl. `impersonator_id`. |
-| 7 | **Upsert is a DB constraint, not application logic.** One unique key `(student_id, milestone_id, period_start)` enforces "re-assessing replaces". | PRD BR-AS-01 / FR-SA-13: re-scoring a milestone in the same period updates, never duplicates. |
+| 6 | **Append-only history** (`audit_log`) is its own time-partitioned table, written in the **same transaction** as the mutation. | Compliance: PRD §19 requires reconstructing what/who/when for every mutation, incl. `impersonator_code`. |
+| 7 | **Upsert is a DB constraint, not application logic.** One unique key `(student_code, milestone_id, period_start)` enforces "re-assessing replaces". | PRD BR-AS-01 / FR-SA-13: re-scoring a milestone in the same period updates, never duplicates. |
 
 ---
 
@@ -81,26 +82,29 @@ The central decision mirrors the Tasks split (definition vs per-person instance)
 ```
         ┌─────────────────────────────────────────────┐
         │                  DOMAIN                       │  authored ONCE
-        │  name, description, status, school_id         │  (DMN-…)
+        │  name, description, is_deleted,               │  (DMN-…)
+        │  school_code, org_code                        │
         └───────────────────────┬──────────────────────┘
                                  │ 1 : N
                                  ▼
         ┌─────────────────────────────────────────────┐
         │                 SUBDOMAIN                     │  (SBD-…)
-        │  name, status, domain_id, school_id           │
+        │  name, is_deleted, domain_id,                 │
+        │  school_code, org_code                        │
         └───────────────────────┬──────────────────────┘
                                  │ 1 : N
                                  ▼
         ┌─────────────────────────────────────────────┐
         │                 MILESTONE                     │  (MST-…)
-        │  name, status, subdomain_id, …                │  ← atomic scoring unit
+        │  name, is_deleted, subdomain_id, …            │  ← atomic scoring unit
         └───────────────────────┬──────────────────────┘
                                  │ 1 : N  (one row per student per period)
                                  ▼
         ┌─────────────────────────────────────────────┐
         │                ASSESSMENT                     │  (ASM-…)
-        │  student_id, milestone_id, score(1–5),        │  UNIQUE
-        │  notes, period_start, assessed_by             │  (student, milestone, period_start)
+        │  student_code, milestone_id, score(1–5),      │  UNIQUE
+        │  is_published, notes, period_start,           │  (student, milestone, period_start)
+        │  assessed_by                                  │
         └─────────────────────────────────────────────┘
 
    Age-group assignment (many-to-many) attaches to ANY parameter level:
@@ -115,7 +119,7 @@ This is what lets a milestone be scored for 30 children as 30 independent rows, 
 
 ## 4. Data model (PostgreSQL)
 
-> Conventions: internal PK is `BIGINT GENERATED ALWAYS AS IDENTITY` (never exposed); the API exposes only the public `code` (and/or UUID for reference entities). Every table carries `school_id` (tenant), `created_at`/`updated_at` (UTC `timestamptz`), `created_by`/`updated_by`, `version` (optimistic lock / `If-Match` ETag), and where applicable `status` + `deleted_at`/`deleted_by`. **`schools`, `classrooms`, `students`, `users`, `organisations` are reference entities owned by other modules** — shown only as FKs. Age-group resolution additionally requires **`students.date_of_birth`**, which this module reads but never writes.
+> Conventions: internal PK is `BIGINT GENERATED ALWAYS AS IDENTITY` (never exposed); the API exposes only the public `code` (and/or UUID for reference entities). Every table carries `school_code` (tenant) and `org_code`, `created_at`/`updated_at` (UTC `timestamptz`), `created_by`/`updated_by`, `version` (optimistic lock / `If-Match` ETag), and where applicable `is_deleted` + `deleted_at`/`deleted_by`. **`schools`, `classrooms`, `students`, `users`, `organisations` are reference entities owned by other modules** — referenced by their public `code`, never their internal id. Age-group resolution additionally requires **`students.date_of_birth`**, which this module reads but never writes.
 
 ### 4.1 `domains` — top-level developmental area
 
@@ -123,10 +127,11 @@ This is what lets a milestone be scored for 30 children as 30 independent rows, 
 CREATE TABLE domains (
   id           BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   code         VARCHAR(40)  NOT NULL UNIQUE,                 -- DMN-XXXXXXXX (API id)
-  school_id    BIGINT       NOT NULL,
+  school_code  VARCHAR(40)  NOT NULL,
+  org_code     VARCHAR(40)  NOT NULL,
   name         VARCHAR(200) NOT NULL,
   description  VARCHAR(1000) NOT NULL DEFAULT '',
-  status       VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',       -- ACTIVE|INACTIVE (deactivate = soft delete)
+  is_deleted   BOOLEAN      NOT NULL DEFAULT FALSE,       -- TRUE = soft-deleted / deactivated
 
   created_by   VARCHAR(40)  NOT NULL,
   updated_by   VARCHAR(40),
@@ -137,51 +142,24 @@ CREATE TABLE domains (
   deleted_by   VARCHAR(40)
 );
 -- name unique per school, case-insensitive, among ACTIVE rows (PRD VR-DM-02)
-CREATE UNIQUE INDEX uq_domain_name ON domains (school_id, lower(name))
-  WHERE status = 'ACTIVE' AND deleted_at IS NULL;
-CREATE INDEX idx_domain_list ON domains (school_id, name)
-  WHERE status = 'ACTIVE' AND deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_domain_name ON domains (school_code, lower(name))
+  WHERE is_deleted = FALSE;
+CREATE INDEX idx_domain_list ON domains (school_code, name)
+  WHERE is_deleted = FALSE;
 ```
 
 ### 4.2 `subdomains` — category within a domain
 
 ```sql
 CREATE TABLE subdomains (
-  id          BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code        VARCHAR(40)  NOT NULL UNIQUE,                  -- SBD-XXXXXXXX
-  school_id   BIGINT       NOT NULL,
-  domain_id   BIGINT       NOT NULL REFERENCES domains(id),  -- never re-parented (BR-DM-01)
-  name        VARCHAR(200) NOT NULL,
-  status      VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
-
-  created_by  VARCHAR(40)  NOT NULL,
-  updated_by  VARCHAR(40),
-  version     INT          NOT NULL DEFAULT 0,
-  created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_at  TIMESTAMPTZ,
-  deleted_by  VARCHAR(40)
-);
--- name unique within parent domain (VR-SD-02)
-CREATE UNIQUE INDEX uq_subdomain_name ON subdomains (domain_id, lower(name))
-  WHERE status = 'ACTIVE' AND deleted_at IS NULL;
-CREATE INDEX idx_subdomain_by_domain ON subdomains (domain_id)
-  WHERE status = 'ACTIVE' AND deleted_at IS NULL;
-```
-
-### 4.3 `milestones` — atomic scoring unit
-
-```sql
-CREATE TABLE milestones (
   id           BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code         VARCHAR(40)  NOT NULL UNIQUE,                 -- MST-XXXXXXXX
-  school_id    BIGINT       NOT NULL,
-  subdomain_id BIGINT       NOT NULL REFERENCES subdomains(id),  -- never re-parented (BR-DM-02)
-  domain_id    BIGINT       NOT NULL REFERENCES domains(id),     -- denormalized: roll-ups group by domain
+  code         VARCHAR(40)  NOT NULL UNIQUE,                  -- SBD-XXXXXXXX
+  school_code  VARCHAR(40)  NOT NULL,
+  org_code     VARCHAR(40)  NOT NULL,
+  domain_id    BIGINT       NOT NULL REFERENCES domains(id),  -- never re-parented (BR-DM-01)
   name         VARCHAR(200) NOT NULL,
-  description  VARCHAR(1000) NOT NULL DEFAULT '',
+  is_deleted   BOOLEAN      NOT NULL DEFAULT FALSE,
 
-  status       VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
   created_by   VARCHAR(40)  NOT NULL,
   updated_by   VARCHAR(40),
   version      INT          NOT NULL DEFAULT 0,
@@ -190,12 +168,41 @@ CREATE TABLE milestones (
   deleted_at   TIMESTAMPTZ,
   deleted_by   VARCHAR(40)
 );
+-- name unique within parent domain (VR-SD-02)
+CREATE UNIQUE INDEX uq_subdomain_name ON subdomains (domain_id, lower(name))
+  WHERE is_deleted = FALSE;
+CREATE INDEX idx_subdomain_by_domain ON subdomains (domain_id)
+  WHERE is_deleted = FALSE;
+```
+
+### 4.3 `milestones` — atomic scoring unit
+
+```sql
+CREATE TABLE milestones (
+  id            BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code          VARCHAR(40)  NOT NULL UNIQUE,                 -- MST-XXXXXXXX
+  school_code   VARCHAR(40)  NOT NULL,
+  org_code      VARCHAR(40)  NOT NULL,
+  subdomain_id  BIGINT       NOT NULL REFERENCES subdomains(id),  -- never re-parented (BR-DM-02)
+  domain_id     BIGINT       NOT NULL REFERENCES domains(id),     -- denormalized: roll-ups group by domain
+  name          VARCHAR(200) NOT NULL,
+  description   VARCHAR(1000) NOT NULL DEFAULT '',
+
+  is_deleted    BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_by    VARCHAR(40)  NOT NULL,
+  updated_by    VARCHAR(40),
+  version       INT          NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  deleted_at    TIMESTAMPTZ,
+  deleted_by    VARCHAR(40)
+);
 CREATE UNIQUE INDEX uq_milestone_name ON milestones (subdomain_id, lower(name))
-  WHERE status = 'ACTIVE' AND deleted_at IS NULL;                       -- VR-MS-02
+  WHERE is_deleted = FALSE;                       -- VR-MS-02
 CREATE INDEX idx_milestone_by_subdomain ON milestones (subdomain_id)
-  WHERE status = 'ACTIVE' AND deleted_at IS NULL;
+  WHERE is_deleted = FALSE;
 CREATE INDEX idx_milestone_by_domain   ON milestones (domain_id)
-  WHERE status = 'ACTIVE' AND deleted_at IS NULL;
+  WHERE is_deleted = FALSE;
 ```
 
 > `domain_id` on `milestones` is a deliberate denormalization. Classroom and school roll-ups group milestone scores **by domain**; carrying `domain_id` on the scored leaf avoids a two-hop join (`milestone → subdomain → domain`) on the hottest aggregate query. It's set on create and is immutable (parameters never re-parent), so it cannot drift.
@@ -208,34 +215,35 @@ Each school owns its set of age bands. The set is **seeded from a framework pres
 
 ```sql
 CREATE TABLE age_groups (
-  id             BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code           VARCHAR(40)  NOT NULL UNIQUE,              -- AGE-XXXXXXXX (API id)
-  school_id      BIGINT       NOT NULL,
-  name           VARCHAR(100) NOT NULL,                     -- "Birth to Nine Months"
-  min_age_months SMALLINT     NOT NULL CHECK (min_age_months >= 0),
-  max_age_months SMALLINT     NOT NULL,                     -- EXCLUSIVE upper bound
-  sort_order     SMALLINT     NOT NULL DEFAULT 0,
-  preset_code    VARCHAR(40),                               -- provenance when seeded from a preset (§4.7)
+  id              BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code            VARCHAR(40)  NOT NULL UNIQUE,              -- AGE-XXXXXXXX (API id)
+  school_code     VARCHAR(40)  NOT NULL,
+  org_code        VARCHAR(40)  NOT NULL,
+  name            VARCHAR(100) NOT NULL,                     -- "Birth to Nine Months"
+  min_age_months  SMALLINT     NOT NULL CHECK (min_age_months >= 0),
+  max_age_months  SMALLINT     NOT NULL,                     -- EXCLUSIVE upper bound
+  sort_order      SMALLINT     NOT NULL DEFAULT 0,
+  preset_code     VARCHAR(40),                               -- provenance when seeded from a preset (§4.7)
 
-  status         VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
-  created_by     VARCHAR(40)  NOT NULL,
-  updated_by     VARCHAR(40),
-  version        INT          NOT NULL DEFAULT 0,
-  created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_at     TIMESTAMPTZ,
-  deleted_by     VARCHAR(40),
+  is_deleted      BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_by      VARCHAR(40)  NOT NULL,
+  updated_by      VARCHAR(40),
+  version         INT          NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  deleted_at      TIMESTAMPTZ,
+  deleted_by      VARCHAR(40),
 
   CONSTRAINT chk_age_band CHECK (max_age_months > min_age_months)
 );
-CREATE UNIQUE INDEX uq_age_group_name ON age_groups (school_id, lower(name))
-  WHERE status = 'ACTIVE' AND deleted_at IS NULL;
+CREATE UNIQUE INDEX uq_age_group_name ON age_groups (school_code, lower(name))
+  WHERE is_deleted = FALSE;
 -- active bands must not overlap within a school (resolution would be ambiguous); needs btree_gist
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 ALTER TABLE age_groups ADD CONSTRAINT excl_age_band_overlap EXCLUDE USING gist (
-  school_id WITH =,
+  school_code WITH =,
   int4range(min_age_months, max_age_months) WITH &&
-) WHERE (status = 'ACTIVE' AND deleted_at IS NULL);
+) WHERE (is_deleted = FALSE);
 ```
 
 - **Resolution rule:** a student's age group for a period is the active band containing `age_in_months(date_of_birth, period_start)`, computed **as of `period_start`** — a child who crosses a band boundary mid-month is assessed against one deterministic band for that whole month. Gaps between bands are legal (a school may simply not assess 5-year-olds); a student whose age falls in no active band has no milestones to score and the UI says so (OQ-N1, §15).
@@ -247,16 +255,17 @@ A parameter at **any** level is assigned to zero-or-more age groups — this **r
 
 ```sql
 CREATE TABLE parameter_age_groups (
-  id           BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  school_id    BIGINT  NOT NULL,
+  id            BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  school_code   VARCHAR(40)  NOT NULL,
+  org_code      VARCHAR(40)  NOT NULL,
 
-  domain_id    BIGINT  REFERENCES domains(id)    ON DELETE CASCADE,
-  subdomain_id BIGINT  REFERENCES subdomains(id) ON DELETE CASCADE,
-  milestone_id BIGINT  REFERENCES milestones(id) ON DELETE CASCADE,
+  domain_id     BIGINT  REFERENCES domains(id)    ON DELETE CASCADE,
+  subdomain_id  BIGINT  REFERENCES subdomains(id) ON DELETE CASCADE,
+  milestone_id  BIGINT  REFERENCES milestones(id) ON DELETE CASCADE,
 
-  age_group_id BIGINT  NOT NULL REFERENCES age_groups(id),
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
-  created_by   VARCHAR(40) NOT NULL,
+  age_group_id  BIGINT  NOT NULL REFERENCES age_groups(id),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_by    VARCHAR(40) NOT NULL,
 
   CONSTRAINT chk_param_owner CHECK (
     (domain_id IS NOT NULL)::int + (subdomain_id IS NOT NULL)::int
@@ -267,7 +276,7 @@ CREATE UNIQUE INDEX uq_pag_domain    ON parameter_age_groups (domain_id, age_gro
 CREATE UNIQUE INDEX uq_pag_subdomain ON parameter_age_groups (subdomain_id, age_group_id) WHERE subdomain_id IS NOT NULL;
 CREATE UNIQUE INDEX uq_pag_milestone ON parameter_age_groups (milestone_id, age_group_id) WHERE milestone_id IS NOT NULL;
 -- "which milestones does age group X see" — the visibility filter for the student profile
-CREATE INDEX idx_pag_by_age_group ON parameter_age_groups (age_group_id, school_id);
+CREATE INDEX idx_pag_by_age_group ON parameter_age_groups (age_group_id, school_code);
 ```
 
 Lifecycle (adapts PRD FR-MS-18 / BR-PM-02): **un-assigning an age group deletes only the assignment row — never the assessment records.** It changes future visibility, not history. "Applies to all age groups" (adapts FR-DM-18) is a UI rendering when the assignment set equals the school's full active-band set; it is **not** a stored flag.
@@ -276,45 +285,49 @@ Lifecycle (adapts PRD FR-MS-18 / BR-PM-02): **un-assigning an age group deletes 
 
 ```sql
 CREATE TABLE assessments (
-  id             BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code           VARCHAR(40)  NOT NULL UNIQUE,               -- ASM-XXXXXXXX
-  school_id      BIGINT       NOT NULL,
+  id                 BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code               VARCHAR(40)  NOT NULL UNIQUE,               -- ASM-XXXXXXXX
+  school_code        VARCHAR(40)  NOT NULL,
+  org_code           VARCHAR(40)  NOT NULL,
 
-  student_id     BIGINT       NOT NULL,                      -- FK → students (reference module)
-  classroom_id   BIGINT       NOT NULL,                      -- denormalized: staff scope + classroom roll-up
-  age_group_id   BIGINT       NOT NULL REFERENCES age_groups(id),  -- band the child was in when scored (server-resolved, §4.4)
-  milestone_id   BIGINT       NOT NULL REFERENCES milestones(id),
+  student_code       VARCHAR(40)  NOT NULL,                      -- FK → students (reference module)
+  classroom_code     VARCHAR(40)  NOT NULL,                      -- denormalized: staff scope + classroom roll-up
+  age_group_id       BIGINT       NOT NULL REFERENCES age_groups(id),  -- band the child was in when scored (server-resolved, §4.4)
+  milestone_id       BIGINT       NOT NULL REFERENCES milestones(id),
 
-  score          SMALLINT     NOT NULL CHECK (score BETWEEN 1 AND 5),   -- VR-AS-01/02
-  notes          VARCHAR(500),                               -- optional (VR-AS-03)
+  score              SMALLINT     NOT NULL CHECK (score BETWEEN 1 AND 5),   -- VR-AS-01/02
+  notes              VARCHAR(500),                               -- optional (VR-AS-03)
+  is_published       BOOLEAN      NOT NULL DEFAULT FALSE,        -- published (finalized) vs draft
 
-  period_start   DATE         NOT NULL,                      -- 1st of month (VR-AS-06). period_end is computed dynamically to avoid database redundancy.
+  period_start       DATE         NOT NULL,                      -- 1st of month (VR-AS-06). period_end is computed dynamically to avoid database redundancy.
 
-  assessed_by    VARCHAR(40)  NOT NULL,                      -- FK → users (FR-SA-14)
-  assessed_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),        -- (FR-SA-15)
-  impersonator_id VARCHAR(40),                               -- set only under CWW Super-Admin impersonation
+  assessed_by        VARCHAR(40)  NOT NULL,                      -- FK → users (FR-SA-14)
+  assessed_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),        -- (FR-SA-15)
+  impersonator_code  VARCHAR(40),                               -- set only under CWW Super-Admin impersonation
 
-  version        INT          NOT NULL DEFAULT 0,
-  created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  deleted_at     TIMESTAMPTZ,
-  deleted_by     VARCHAR(40)
+  version            INT          NOT NULL DEFAULT 0,
+  created_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  deleted_at         TIMESTAMPTZ,
+  deleted_by         VARCHAR(40)
 );
 -- THE upsert key: re-assessing the same milestone in the same period UPDATES (BR-AS-01)
-CREATE UNIQUE INDEX uq_assessment_upsert ON assessments (student_id, milestone_id, period_start)
+CREATE UNIQUE INDEX uq_assessment_upsert ON assessments (student_code, milestone_id, period_start)
   WHERE deleted_at IS NULL;
 -- student profile: all of one student's scores in a period (one screen load)
-CREATE INDEX idx_asm_student_period ON assessments (student_id, period_start)
+CREATE INDEX idx_asm_student_period ON assessments (student_code, period_start)
   WHERE deleted_at IS NULL;
 -- classroom roll-up: AVG over a classroom + period, grouped by milestone (age_group_id covers the optional band filter)
-CREATE INDEX idx_asm_classroom_rollup ON assessments (classroom_id, period_start)
+CREATE INDEX idx_asm_classroom_rollup ON assessments (classroom_code, period_start)
   INCLUDE (milestone_id, score, age_group_id) WHERE deleted_at IS NULL;
 -- school roll-up: AVG over a school + period
-CREATE INDEX idx_asm_school_rollup ON assessments (school_id, period_start)
+CREATE INDEX idx_asm_school_rollup ON assessments (school_code, period_start)
   INCLUDE (milestone_id, score, age_group_id) WHERE deleted_at IS NULL;
 ```
 
 > `age_group_id` is stamped by the **server** at save time from the resolution rule in §4.4 — the client never sends it. It freezes the band the child was actually in when scored, so later edits to a school's bands (or a switch to different bands entirely) never reinterpret history, and it gives roll-ups an indexed band filter for free.
+
+> `is_published` separates a finalized (published) score from a work-in-progress draft. It defaults to `FALSE`; Save-All sets it per score. Draft (unpublished) scores are persisted and editable but are **excluded from classroom/school roll-up averages** until published, so a half-entered month never skews a dashboard.
 
 > Why `period_start` (a `DATE`) rather than a free `period` string: it makes the upsert key precise, lets the previous-period radar comparison be a plain `period_start = current - interval '1 month'`, and indexes cleanly for range scans. `period_end` is carried for display and for the "valid calendar month" check (VR-AS-06). The pair is the canonical assessment period.
 
@@ -324,23 +337,23 @@ A preset is a **read-only template of a complete framework**: an age-group set, 
 
 ```sql
 CREATE TABLE framework_presets (
-  id             BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code           VARCHAR(40)  NOT NULL UNIQUE,              -- PRS-XXXXXXXX (e.g. PRS-NH-ELS)
-  scope          VARCHAR(16)  NOT NULL,                     -- SYSTEM | ORG
-  org_id         BIGINT,                                    -- non-null iff scope = ORG
-  name           VARCHAR(200) NOT NULL,
-  description    VARCHAR(1000) NOT NULL DEFAULT '',
-  source         VARCHAR(200),                              -- attribution, e.g. "NH Early Learning Standards"
-  content        JSONB        NOT NULL,                     -- full template tree (schema below)
-  preset_version INT          NOT NULL DEFAULT 1,
+  id              BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code            VARCHAR(40)  NOT NULL UNIQUE,              -- PRS-XXXXXXXX (e.g. PRS-NH-ELS)
+  scope           VARCHAR(16)  NOT NULL,                     -- SYSTEM | ORG
+  org_code        VARCHAR(40),                                    -- non-null iff scope = ORG
+  name            VARCHAR(200) NOT NULL,
+  description     VARCHAR(1000) NOT NULL DEFAULT '',
+  source          VARCHAR(200),                              -- attribution, e.g. "NH Early Learning Standards"
+  content         JSONB        NOT NULL,                     -- full template tree (schema below)
+  preset_version  INT          NOT NULL DEFAULT 1,
 
-  status         VARCHAR(16)  NOT NULL DEFAULT 'ACTIVE',
-  created_by     VARCHAR(40)  NOT NULL,
-  version        INT          NOT NULL DEFAULT 0,
-  created_at     TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  updated_at     TIMESTAMPTZ  NOT NULL DEFAULT now()
+  is_deleted      BOOLEAN      NOT NULL DEFAULT FALSE,
+  created_by      VARCHAR(40)  NOT NULL,
+  version         INT          NOT NULL DEFAULT 0,
+  created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
-CREATE INDEX idx_preset_pick ON framework_presets (scope, org_id) WHERE status = 'ACTIVE';
+CREATE INDEX idx_preset_pick ON framework_presets (scope, org_code) WHERE is_deleted = FALSE;
 ```
 
 `content` schema (validated server-side on create):
@@ -373,19 +386,20 @@ CREATE INDEX idx_preset_pick ON framework_presets (scope, org_id) WHERE status =
 
 ```sql
 CREATE TABLE audit_log (
-  id              BIGINT       GENERATED ALWAYS AS IDENTITY,
-  school_id       BIGINT       NOT NULL,
-  entity_type     VARCHAR(24)  NOT NULL,                     -- DOMAIN|SUBDOMAIN|MILESTONE|AGE_GROUP|PRESET|ASSESSMENT
-  entity_code     VARCHAR(40)  NOT NULL,
-  action          VARCHAR(40)  NOT NULL,                     -- CREATED|UPDATED|DEACTIVATED|AGE_GROUPS_UPDATED|PRESET_APPLIED|BULK_SAVED|SCORE_UPDATED
-  actor_code      VARCHAR(40)  NOT NULL,
-  actor_name      VARCHAR(160) NOT NULL,
-  impersonator_id VARCHAR(40),                               -- non-null only for CWW Super-Admin (PRD §19 NOTE)
-  changes         JSONB,                                     -- {"score":{"from":3,"to":4}} / {"added":[…],"removed":[…]}
-  created_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+  id                 BIGINT       GENERATED ALWAYS AS IDENTITY,
+  school_code        VARCHAR(40)  NOT NULL,
+  org_code           VARCHAR(40)  NOT NULL,
+  entity_type        VARCHAR(24)  NOT NULL,                     -- DOMAIN|SUBDOMAIN|MILESTONE|AGE_GROUP|PRESET|ASSESSMENT
+  entity_code        VARCHAR(40)  NOT NULL,
+  action             VARCHAR(40)  NOT NULL,                     -- CREATED|UPDATED|DEACTIVATED|AGE_GROUPS_UPDATED|PRESET_APPLIED|BULK_SAVED|SCORE_UPDATED
+  actor_code         VARCHAR(40)  NOT NULL,
+  actor_name         VARCHAR(160) NOT NULL,
+  impersonator_code  VARCHAR(40),                               -- non-null only for CWW Super-Admin (PRD §19 NOTE)
+  changes            JSONB,                                     -- {"score":{"from":3,"to":4}} / {"added":[…],"removed":[…]}
+  created_at         TIMESTAMPTZ  NOT NULL DEFAULT now()
 ) PARTITION BY RANGE (created_at);
 
-CREATE INDEX idx_audit_entity ON audit_log (school_id, entity_type, entity_code, created_at DESC);
+CREATE INDEX idx_audit_entity ON audit_log (school_code, entity_type, entity_code, created_at DESC);
 -- monthly partitions created ahead (pg_partman/cron); old months detached & archived
 ```
 
@@ -395,19 +409,20 @@ Maps to PRD §19's event list with the assignment events renamed for the age-gro
 
 ```sql
 CREATE TABLE notifications (
-  id             BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  code           VARCHAR(40)  NOT NULL UNIQUE,
-  school_id      BIGINT       NOT NULL,
-  recipient_code VARCHAR(40)  NOT NULL,                      -- user code
-  type           VARCHAR(40)  NOT NULL,                      -- DOMAIN_CREATED|DOMAIN_DEACTIVATED|MILESTONE_ASSIGNED|ASSESSMENT_COMPLETE|ASSESSMENT_OVERDUE
-  channel        VARCHAR(16)  NOT NULL,                      -- IN_APP|PUSH|EMAIL
-  entity_type    VARCHAR(24)  NOT NULL,
-  entity_code    VARCHAR(40)  NOT NULL,
-  title          VARCHAR(200) NOT NULL,
-  body           TEXT,
-  is_read        BOOLEAN      NOT NULL DEFAULT FALSE,
-  sent_at        TIMESTAMPTZ  NOT NULL DEFAULT now(),
-  impersonator_id VARCHAR(40)                                -- impersonated actions do NOT notify school users (PRD §28.3)
+  id                 BIGINT       GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  code               VARCHAR(40)  NOT NULL UNIQUE,
+  school_code        VARCHAR(40)  NOT NULL,
+  org_code           VARCHAR(40)  NOT NULL,
+  recipient_code     VARCHAR(40)  NOT NULL,                      -- user code
+  type               VARCHAR(40)  NOT NULL,                      -- DOMAIN_CREATED|DOMAIN_DEACTIVATED|MILESTONE_ASSIGNED|ASSESSMENT_COMPLETE|ASSESSMENT_OVERDUE
+  channel            VARCHAR(16)  NOT NULL,                      -- IN_APP|PUSH|EMAIL
+  entity_type        VARCHAR(24)  NOT NULL,
+  entity_code        VARCHAR(40)  NOT NULL,
+  title              VARCHAR(200) NOT NULL,
+  body               TEXT,
+  is_read            BOOLEAN      NOT NULL DEFAULT FALSE,
+  sent_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  impersonator_code  VARCHAR(40)                                -- impersonated actions do NOT notify school users (PRD §28.3)
 );
 CREATE INDEX idx_notif_inbox ON notifications (recipient_code, is_read, sent_at DESC);
 ```
@@ -437,48 +452,48 @@ Producers write via a **transactional outbox** (same DB transaction as the trigg
 - **Concurrency:** mutating requests send `If-Match` (entity `version`); a mismatch returns `409` "This record was updated by another user" (PRD §24).
 - **Idempotency:** Native database UPSERT naturally handles idempotency for the `bulk` endpoint, so an explicit `Idempotency-Key` mechanism is not strictly required. Retried requests will simply update with the same values.
 - **Pagination:** keyset/cursor on list reads; responses include `nextCursor` (null at end).
-- **Identity, role, `school_id`, and `org_id`** are derived from the JWT + `X-School-Id` header, never trusted from the body. `impersonator_id` is derived from the impersonation session, never from the client.
+- **Identity, role, `school_code`, and `org_code`** are derived from the JWT + `X-School-Code` header, never trusted from the body. `impersonator_code` is derived from the impersonation session, never from the client.
 
 ### 6.2 Endpoints
 
 ```
 # Age groups (admin write; staff read-only)
-GET    /api/v1/schools/{schoolId}/age-groups                    # active bands, ordered by sort_order
-POST   /api/v1/schools/{schoolId}/age-groups
-PUT    /api/v1/schools/{schoolId}/age-groups/{ageGroupCode}
-DELETE /api/v1/schools/{schoolId}/age-groups/{ageGroupCode}     # deactivate (soft); history preserved
+GET    /api/v1/schools/{schoolCode}/age-groups                    # active bands, ordered by sort_order
+POST   /api/v1/schools/{schoolCode}/age-groups
+PUT    /api/v1/schools/{schoolCode}/age-groups/{ageGroupCode}
+DELETE /api/v1/schools/{schoolCode}/age-groups/{ageGroupCode}     # deactivate (soft); history preserved
 
 # Framework presets
 GET    /api/v1/framework-presets                                # SYSTEM presets + caller's ORG presets
-POST   /api/v1/schools/{schoolId}/framework/apply-preset        # {presetCode} — transactional copy (§4.7); 422 if framework non-empty
-POST   /api/v1/orgs/{orgId}/framework-presets                   # save an ORG-scope preset (snapshot a school's framework or upload content)
+POST   /api/v1/schools/{schoolCode}/framework/apply-preset        # {presetCode} — transactional copy (§4.7); 422 if framework non-empty
+POST   /api/v1/orgs/{orgCode}/framework-presets                   # save an ORG-scope preset (snapshot a school's framework or upload content)
 
 # Parameters — Domains (admin write; staff read-only)
-GET    /api/v1/schools/{schoolId}/domains                       # active hierarchy: domains+subdomains+milestones (nested)
-POST   /api/v1/schools/{schoolId}/domains                       # create domain (+ age-group assignment)
-PUT    /api/v1/schools/{schoolId}/domains/{domainCode}          # edit name/description/age-groups
-DELETE /api/v1/schools/{schoolId}/domains/{domainCode}          # deactivate (soft); history preserved
+GET    /api/v1/schools/{schoolCode}/domains                       # active hierarchy: domains+subdomains+milestones (nested)
+POST   /api/v1/schools/{schoolCode}/domains                       # create domain (+ age-group assignment)
+PUT    /api/v1/schools/{schoolCode}/domains/{domainCode}          # edit name/description/age-groups
+DELETE /api/v1/schools/{schoolCode}/domains/{domainCode}          # deactivate (soft); history preserved
 
 # Subdomains & Milestones
-GET    /api/v1/schools/{schoolId}/domains/{domainCode}/subdomains
-POST   /api/v1/schools/{schoolId}/domains/{domainCode}/subdomains
-PUT    /api/v1/schools/{schoolId}/subdomains/{subdomainCode}
-DELETE /api/v1/schools/{schoolId}/subdomains/{subdomainCode}
-GET    /api/v1/schools/{schoolId}/subdomains/{subdomainCode}/milestones
-POST   /api/v1/schools/{schoolId}/subdomains/{subdomainCode}/milestones
-PUT    /api/v1/schools/{schoolId}/milestones/{milestoneCode}
-DELETE /api/v1/schools/{schoolId}/milestones/{milestoneCode}
-PATCH  /api/v1/schools/{schoolId}/milestones/{milestoneCode}/age-groups   # assignment only (adapts FR-MS-14)
+GET    /api/v1/schools/{schoolCode}/domains/{domainCode}/subdomains
+POST   /api/v1/schools/{schoolCode}/domains/{domainCode}/subdomains
+PUT    /api/v1/schools/{schoolCode}/subdomains/{subdomainCode}
+DELETE /api/v1/schools/{schoolCode}/subdomains/{subdomainCode}
+GET    /api/v1/schools/{schoolCode}/subdomains/{subdomainCode}/milestones
+POST   /api/v1/schools/{schoolCode}/subdomains/{subdomainCode}/milestones
+PUT    /api/v1/schools/{schoolCode}/milestones/{milestoneCode}
+DELETE /api/v1/schools/{schoolCode}/milestones/{milestoneCode}
+PATCH  /api/v1/schools/{schoolCode}/milestones/{milestoneCode}/age-groups   # assignment only (adapts FR-MS-14)
 
 # Assessments — the data-entry + roll-up surface
-GET    /api/v1/schools/{schoolId}/assessments?classroomId=&periodStart=&periodEnd=   # list/filter (student-list view)
-POST   /api/v1/schools/{schoolId}/assessments/bulk                                   # "Save All" — bulk UPSERT, one txn
-GET    /api/v1/schools/{schoolId}/assessments/student/{studentId}?periodStart=        # one student, all milestones (profile)
-GET    /api/v1/schools/{schoolId}/assessments/classroom/{classroomId}?periodStart=&ageGroupId=   # classroom roll-up (avg + radar; band filter optional)
-GET    /api/v1/schools/{schoolId}/assessments/school?periodStart=&ageGroupId=                    # school roll-up (stats + avg + radar; band filter optional)
+GET    /api/v1/schools/{schoolCode}/assessments?classroomCode=&periodStart=&periodEnd=   # list/filter (student-list view)
+POST   /api/v1/schools/{schoolCode}/assessments/bulk                                   # "Save All" — bulk UPSERT, one txn
+GET    /api/v1/schools/{schoolCode}/assessments/student/{studentCode}?periodStart=        # one student, all milestones (profile)
+GET    /api/v1/schools/{schoolCode}/assessments/classroom/{classroomCode}?periodStart=&ageGroupId=   # classroom roll-up (avg + radar; band filter optional)
+GET    /api/v1/schools/{schoolCode}/assessments/school?periodStart=&ageGroupId=                    # school roll-up (stats + avg + radar; band filter optional)
 
 # History
-GET    /api/v1/schools/{schoolId}/{entity}/{code}/history       # audit timeline (entity ∈ domains|…|assessments)
+GET    /api/v1/schools/{schoolCode}/{entity}/{code}/history       # audit timeline (entity ∈ domains|…|assessments)
 ```
 
 ### 6.3 Lean GETs vs the two fat reads
@@ -490,28 +505,28 @@ GET    /api/v1/schools/{schoolId}/{entity}/{code}/history       # audit timeline
 ### 6.4 Bulk upsert payload (the "Save All" operation)
 
 ```jsonc
-POST /api/v1/schools/{schoolId}/assessments/bulk
+POST /api/v1/schools/{schoolCode}/assessments/bulk
 {
-  "studentId": "STU_123",
-  "classroomId": "CLS_PreschoolStars",
+  "studentCode": "STU_123",
+  "classroomCode": "CLS_PreschoolStars",
   "periodStart": "2026-06-01",
   "periodEnd":   "2026-06-30",
   "scores": [
-    { "milestoneCode": "MST_eye_contact", "score": 4, "notes": "Consistent eye contact observed" },
+    { "milestoneCode": "MST_eye_contact", "score": 4, "notes": "Consistent eye contact observed", "isPublished": true },
     { "milestoneCode": "MST_counts_to_5", "score": 3 }
     // milestones left UNSCORED are simply omitted (PRD §24: unscored not sent)
   ]
 }
 ```
 
-Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all rows upsert or none do (rollback on partial failure). Each `(studentId, milestoneCode, periodStart)` resolves against `uq_assessment_upsert`: existing → `UPDATE` (logged `assessment.updated` with old/new score); absent → `INSERT`. `assessed_by` = caller; `impersonator_id` = session impersonator if any. The server resolves the student's band from DOB + `periodStart` and stamps `age_group_id` itself — the client never sends it. A milestone not assigned to the student's resolved age group → `422` (adapts VR-AS-05); a student with no resolvable band (missing DOB / out-of-band age) → `422`; a deactivated milestone → `400` (defensive, PRD §24).
+Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all rows upsert or none do (rollback on partial failure). Each `(studentCode, milestoneCode, periodStart)` resolves against `uq_assessment_upsert`: existing → `UPDATE` (logged `assessment.updated` with old/new score); absent → `INSERT`. `assessed_by` = caller; `impersonator_code` = session impersonator if any. The server resolves the student's band from DOB + `periodStart` and stamps `age_group_id` itself — the client never sends it. A milestone not assigned to the student's resolved age group → `422` (adapts VR-AS-05); a student with no resolvable band (missing DOB / out-of-band age) → `422`; a deactivated milestone → `400` (defensive, PRD §24).
 
 ### 6.5 Common headers
 
 | Header | Required | Purpose |
 |---|---|---|
-| `Authorization` | Yes | Bearer JWT (identity, role, org_id) |
-| `X-School-Id` | Yes | School scope for RLS |
+| `Authorization` | Yes | Bearer JWT (identity, role, org_code) |
+| `X-School-Code` | Yes | School scope for RLS |
 | `Idempotency-Key` | Optional | Not strictly required for bulk saves due to native UPSERT idempotency |
 | `If-Match` | Required for PUT | ETag = `version`; `409` on stale write |
 
@@ -520,7 +535,7 @@ Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all ro
 ## 7. The four assessment views
 
 1. **Parameter Management** (`GET /domains`) — accordion: Domain → Subdomain → Milestone with subdomain/milestone count badges, age-group chips, and Add/Edit/Deactivate/Assign-Age-Groups controls. Includes the **Age Groups** settings surface (list/create/edit bands) and the **apply-preset** entry point, shown only while the framework is empty. **Write controls hidden for Staff** (read-only hierarchy, FR-DM-03 / US-PM-07).
-2. **Student Assessment** (`/assessments?classroomId=`, then `/assessments/student/{id}`) — classroom + MonthPicker filter → student card grid with domain score badges → profile with per-domain accordion showing the milestones for the student's **resolved age band** (banner: "assessing against: 18–24 months"), 1–5 `AssessmentScale` per milestone, notes, **Copy to All Milestones**, and **Save All** (bulk upsert). The only write surface.
+2. **Student Assessment** (`/assessments?classroomCode=`, then `/assessments/student/{id}`) — classroom + MonthPicker filter → student card grid with domain score badges → profile with per-domain accordion showing the milestones for the student's **resolved age band** (banner: "assessing against: 18–24 months"), 1–5 `AssessmentScale` per milestone, notes, **Copy to All Milestones**, and **Save All** (bulk upsert). The only write surface.
 3. **Classroom Assessment** (`/assessments/classroom/{id}`) — read-only roll-up: domain/subdomain/milestone averages table + current-vs-previous radar + assessment-guide card.
 4. **School Assessment** (`/assessments/school`) — read-only school-wide roll-up: statistics card (classrooms, students, active domains, assessments in period) + averages table + radar. Org Admin may select any school in the org (FR-SC-08).
 
@@ -528,11 +543,11 @@ Server behaviour (PRD §23 Reliability + BR-AS-01): **transactional** — all ro
 
 ## 8. Security & multi-tenancy
 
-- **Two-level tenancy:** `org_id` (organisation) → `school_id` (school). Every assessment table is `school_id`-scoped; Org Admins read across all schools in their `org_id`; School Admins and Staff are pinned to one school.
-- **AuthN/Z:** JWT carries identity, role, and `org_id`; `X-School-Id` selects the active school. Role/org/tenant come from the token, never the body.
-- **Tenant isolation:** every query filters by `school_id`; PostgreSQL **Row-Level Security** policies on each table enforce it at the database as a backstop. Cross-school access returns `403` (PRD §23 Security).
+- **Two-level tenancy:** `org_code` (organisation) → `school_code` (school). Every assessment table is `school_code`-scoped; Org Admins read across all schools in their `org_code`; School Admins and Staff are pinned to one school.
+- **AuthN/Z:** JWT carries identity, role, and `org_code`; `X-School-Code` selects the active school. Role/org/tenant come from the token, never the body.
+- **Tenant isolation:** every query filters by `school_code`; PostgreSQL **Row-Level Security** policies on each table enforce it at the database as a backstop. Cross-school access returns `403` (PRD §23 Security).
 - **Classroom scope (BR-AS-02):** Staff may only score students in their assigned classrooms; out-of-classroom attempts (even via URL manipulation) return `403` "You do not have permission to access this student's assessments."
-- **Impersonation:** CWW Super-Admin acts on behalf of any org/school; **every mutating action stamps `impersonator_id`** (logged within 100 ms, PRD §23), the impersonation banner is always visible, and impersonated actions **do not** fire notifications to school users (§28.3).
+- **Impersonation:** CWW Super-Admin acts on behalf of any org/school; **every mutating action stamps `impersonator_code`** (logged within 100 ms, PRD §23), the impersonation banner is always visible, and impersonated actions **do not** fire notifications to school users (§28.3).
 - **Children's data:** assessment scores and notes are sensitive PII. Audit all writes, encrypt at rest and in transit, honor retention (§12). No data exposed to Guardian/Parent accounts in this release.
 - **Input safety:** notes/descriptions sanitized server-side; the web client escapes on render. Lengths capped (name ≤ 200, description ≤ 1000, notes ≤ 500).
 
@@ -641,3 +656,162 @@ Carried from PRD §27.6 (OQ-01…08), framed as decisions this design is ready t
 7. **Missing or out-of-band DOB (OQ-N1)** — a student with no `date_of_birth`, or older/younger than every active band, resolves to no band: the profile shows an empty state and saves are rejected (`422`). Should admins also get a dashboard warning listing unresolvable students, so the gap is noticed before assessment week?
 8. **Band edits mid-period (OQ-N2)** — editing a band mid-month changes resolution for saves made *after* the edit within the same period (already-saved rows keep their stamped band, §4.6). Acceptable, or should bands be frozen for any period that already has data?
 9. **Preset re-import / versioning (OQ-N3)** — when the NH standards are revised, how does a school move to v2: full framework reset (losing custom edits) or the deferred merge path (§14)? Related: should applying a preset later show a "framework differs from preset vN" indicator?
+
+---
+
+## 16. Mock data responses
+
+Illustrative payloads for the contract above, reflecting the final model: cross-service references are **codes** (`schoolCode`, `orgCode`, `studentCode`, `classroomCode`, user codes) while same-service foreign keys stay internal ids (`age_group_id`, `milestone_id`); soft-delete is the boolean `isDeleted`; every entity carries `schoolCode` + `orgCode`; and `Assessment` carries `isPublished`. All responses use the standard envelope `{ success, message, data }`.
+
+### 16.1 `GET /api/v1/schools/{schoolCode}/domains` — parameter hierarchy (nested)
+
+```jsonc
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "domains": [
+      {
+        "code": "DMN-8F3A21C7",
+        "schoolCode": "SCH-1042",
+        "orgCode": "ORG-88",
+        "name": "Social & Emotional",
+        "description": "Relationships, self-regulation, empathy.",
+        "isDeleted": false,
+        "ageGroups": ["AGE-BIRTH9M"],
+        "subdomainCount": 1,
+        "subdomains": [
+          {
+            "code": "SBD-11B2C3D4",
+            "domainCode": "DMN-8F3A21C7",
+            "schoolCode": "SCH-1042",
+            "orgCode": "ORG-88",
+            "name": "Emotional Regulation",
+            "isDeleted": false,
+            "ageGroups": ["AGE-BIRTH9M"],
+            "milestones": [
+              {
+                "code": "MST-55E6F7A8",
+                "subdomainCode": "SBD-11B2C3D4",
+                "domainCode": "DMN-8F3A21C7",
+                "schoolCode": "SCH-1042",
+                "orgCode": "ORG-88",
+                "name": "Identifies basic emotions",
+                "description": "Names happy, sad, angry when prompted.",
+                "isDeleted": false,
+                "ageGroups": ["AGE-BIRTH9M"]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 16.2 `GET /api/v1/schools/{schoolCode}/assessments/student/{studentCode}?periodStart=2026-06-01` — student profile
+
+```jsonc
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "studentCode": "STU-30567",
+    "classroomCode": "CLS-PreschoolStars",
+    "schoolCode": "SCH-1042",
+    "orgCode": "ORG-88",
+    "periodStart": "2026-06-01",
+    "periodEnd": "2026-06-30",
+    "resolvedAgeGroup": { "code": "AGE-18-24M", "name": "18 to 24 Months" },
+    "scores": [
+      {
+        "assessmentCode": "ASM-9A0B1C2D",
+        "milestoneCode": "MST-55E6F7A8",
+        "score": 4,
+        "notes": "Consistently names basic emotions.",
+        "isPublished": true,
+        "assessedBy": "USR-staff-19",
+        "assessedAt": "2026-06-18T11:05:00Z",
+        "impersonatorCode": null
+      },
+      {
+        "assessmentCode": null,
+        "milestoneCode": "MST-77C8D9E0",
+        "score": null,
+        "notes": null,
+        "isPublished": false
+      }
+    ]
+  }
+}
+```
+
+### 16.3 `POST /api/v1/schools/{schoolCode}/assessments/bulk` — Save-All response
+
+```jsonc
+{
+  "success": true,
+  "message": "2 scores saved",
+  "data": {
+    "studentCode": "STU-30567",
+    "classroomCode": "CLS-PreschoolStars",
+    "schoolCode": "SCH-1042",
+    "orgCode": "ORG-88",
+    "periodStart": "2026-06-01",
+    "periodEnd": "2026-06-30",
+    "ageGroupCode": "AGE-18-24M",
+    "saved": [
+      {
+        "assessmentCode": "ASM-9A0B1C2D",
+        "milestoneCode": "MST-55E6F7A8",
+        "score": 4,
+        "isPublished": true,
+        "assessedBy": "USR-staff-19",
+        "impersonatorCode": null
+      },
+      {
+        "assessmentCode": "ASM-3E4F5A6B",
+        "milestoneCode": "MST-77C8D9E0",
+        "score": 3,
+        "isPublished": false,
+        "assessedBy": "USR-staff-19",
+        "impersonatorCode": null
+      }
+    ]
+  }
+}
+```
+
+### 16.4 `GET /api/v1/schools/{schoolCode}/assessments/classroom/{classroomCode}?periodStart=2026-06-01` — classroom roll-up
+
+```jsonc
+{
+  "success": true,
+  "message": "OK",
+  "data": {
+    "classroomCode": "CLS-PreschoolStars",
+    "schoolCode": "SCH-1042",
+    "orgCode": "ORG-88",
+    "period": { "start": "2026-06-01", "end": "2026-06-30" },
+    "comparisonPeriod": { "start": "2026-05-01", "end": "2026-05-31" },
+    "stats": { "students": 18, "activeDomains": 6, "assessments": 214 },
+    "domains": [
+      {
+        "domainCode": "DMN-8F3A21C7",
+        "name": "Social & Emotional",
+        "average": 3.8,
+        "comparisonAverage": 3.5,
+        "subdomains": [
+          {
+            "subdomainCode": "SBD-11B2C3D4",
+            "name": "Emotional Regulation",
+            "average": 3.9,
+            "comparisonAverage": 3.6
+          }
+        ]
+      }
+    ]
+  }
+}
+```
