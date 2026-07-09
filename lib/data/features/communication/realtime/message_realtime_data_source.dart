@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
 // ─── Lightweight DTO for Firestore message data ──────────────────────────────
 
@@ -56,7 +57,7 @@ class MessageFirestoreItem {
   final bool isDeleted;
   final bool isEdited;
   final bool isPrivate;
-  final Map<String, String> reactions;
+  final List<ReactionEntry> reactions;
   final DateTime? editedAt;
   final DateTime? deletedAt;
   final String? deletedPlaceholder;
@@ -102,10 +103,18 @@ class MessageFirestoreItem {
       editedAt: _parseTimestamp(d['editedAt']),
       deletedAt: _parseTimestamp(d['deletedAt']),
       deletedPlaceholder: d['deletedPlaceholder'] as String?,
-      threadParentCode: d['threadParentCode'] as String?,
-      threadParentSenderCode: d['threadParentSenderCode'] as String?,
-      threadParentSenderName: d['threadParentSenderName'] as String?,
-      threadParentText: d['threadParentText'] as String?,
+      // The backend writes the quoted-message context under `parent*` keys
+      // (parentMessageCode/parentSenderCode/parentSenderName/parentText). Reading
+      // the old `threadParent*` names left these null, so a reply arriving live
+      // showed no quote bubble until a REST refresh. Read `parent*` first, keep
+      // `threadParent*` as a fallback for any legacy docs.
+      threadParentCode:
+          (d['parentMessageCode'] ?? d['threadParentCode']) as String?,
+      threadParentSenderCode:
+          (d['parentSenderCode'] ?? d['threadParentSenderCode']) as String?,
+      threadParentSenderName:
+          (d['parentSenderName'] ?? d['threadParentSenderName']) as String?,
+      threadParentText: (d['parentText'] ?? d['threadParentText']) as String?,
       privateParentUserCode: d['privateParentUserCode'] as String?,
       deliveredTo: _parseReceiptMap(d['deliveredTo']),
       readBy: _parseReceiptMap(d['readBy']),
@@ -179,13 +188,33 @@ class MessageFirestoreItem {
     return null;
   }
 
-  static Map<String, String> _parseReactions(dynamic value) {
-    if (value is! Map) return const {};
-    return Map<String, String>.fromEntries(
-      value.entries
-          .where((e) => e.key is String && e.value is String)
-          .map((e) => MapEntry(e.key as String, e.value as String)),
-    );
+  /// The backend writes `reactions` as an ARRAY of `{userCode, emoji, timestamp}`
+  /// objects (a message can carry many reactions per user), matching the REST
+  /// payload and the web client. Map it to a flat `List<ReactionEntry>`
+  /// preserving EVERY {userCode, emoji} pair — a user may hold multiple distinct
+  /// emojis. A legacy `{userCode: emoji}` map shape is still tolerated by
+  /// expanding each entry to a [ReactionEntry].
+  static List<ReactionEntry> _parseReactions(dynamic value) {
+    final result = <ReactionEntry>[];
+    if (value is List) {
+      for (final r in value) {
+        if (r is Map) {
+          final userCode = r['userCode']?.toString();
+          final emoji = r['emoji']?.toString();
+          if (userCode != null && userCode.isNotEmpty &&
+              emoji != null && emoji.isNotEmpty) {
+            result.add(ReactionEntry(userCode: userCode, emoji: emoji));
+          }
+        }
+      }
+    } else if (value is Map) {
+      value.forEach((k, v) {
+        if (k is String && v is String && k.isNotEmpty && v.isNotEmpty) {
+          result.add(ReactionEntry(userCode: k, emoji: v));
+        }
+      });
+    }
+    return result;
   }
 
   static Map<String, DateTime> _parseReceiptMap(dynamic value) {

@@ -1,5 +1,6 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
 class MessageModel extends Message {
   final String? conversationCode;
@@ -67,11 +68,14 @@ class MessageModel extends Message {
           : null,
       deliveredTo: const [],
       readBy: const [],
-      reactions: {
+      reactions: [
         for (var r in (json['reactions'] as List<dynamic>?) ?? [])
           if (r is Map<String, dynamic> && r['userCode'] != null && r['emoji'] != null)
-            r['userCode'].toString(): r['emoji'].toString()
-      },
+            ReactionEntry(
+              userCode: r['userCode'].toString(),
+              emoji: r['emoji'].toString(),
+            ),
+      ],
       quotedMessageId: (json['replyToMessageId'] ?? '').toString().isEmpty
           ? null
           : json['replyToMessageId'].toString(),

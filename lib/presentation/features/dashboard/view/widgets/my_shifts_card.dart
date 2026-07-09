@@ -15,6 +15,7 @@ import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_s
 import 'package:wowcare/presentation/features/scheduling/view/view_shift_screen.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_schedule_calendar.dart';
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// "My Shifts" card for dashboard. Shows staff profile, hour summary tiles, and full calendar.
@@ -186,31 +187,23 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // ── Card Header ────────────────────────────────────────────────
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      DashboardCardHeader(
-                        title: 'My Shifts',
-                        showRedirect: true,
-                        onRedirect: () =>
-                            context.go(StaffSchedulingScreen.routeName),
-                        minimized: _minimized,
-                        onToggle: () =>
-                            setState(() => _minimized = !_minimized),
+                  DashboardCardHeader(
+                    title: 'My Shifts',
+                    showRedirect: true,
+                    onRedirect: () =>
+                        context.go(StaffSchedulingScreen.routeName),
+                    minimized: _minimized,
+                    onToggle: () => setState(() => _minimized = !_minimized),
+                    trailing: _DateNavRow(
+                      selectedDate: selectedDate,
+                      onPreviousDay: () => _onDateChanged(
+                        selectedDate.subtract(const Duration(days: 1)),
                       ),
-                      const SizedBox(height: 12),
-                      // ── Date Navigation ────────────────────────────────────────
-                      _DateNavigationBar(
-                        selectedDate: selectedDate,
-                        onPreviousDay: () => _onDateChanged(
-                          selectedDate.subtract(const Duration(days: 1)),
-                        ),
-                        onNextDay: () => _onDateChanged(
-                          selectedDate.add(const Duration(days: 1)),
-                        ),
-                        onDatePicked: _onDateChanged,
+                      onNextDay: () => _onDateChanged(
+                        selectedDate.add(const Duration(days: 1)),
                       ),
-                    ],
+                      onDatePicked: _onDateChanged,
+                    ),
                   ),
 
                   // ── Collapsible Body ───────────────────────────────────────────
@@ -310,12 +303,14 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// Date Navigation Bar
+// Date Navigation Row (header trailing widget)
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Date navigation with arrows and date picker
-class _DateNavigationBar extends StatelessWidget {
-  const _DateNavigationBar({
+/// Compact date navigation placed in the DashboardCardHeader trailing slot.
+/// Left/right arrows step by one day and re-fetch via [onPreviousDay]/[onNextDay].
+/// Tapping the date label opens the reusable [CalendarDialog].
+class _DateNavRow extends StatelessWidget {
+  const _DateNavRow({
     required this.selectedDate,
     required this.onPreviousDay,
     required this.onNextDay,
@@ -327,67 +322,63 @@ class _DateNavigationBar extends StatelessWidget {
   final VoidCallback onNextDay;
   final ValueChanged<DateTime> onDatePicked;
 
+  Future<void> _openCalendar(BuildContext context) async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (_) => CalendarDialog(
+        isTimePicker: false,
+        isRangePicker: false,
+        initialDate: selectedDate,
+      ),
+    );
+    if (result != null) {
+      final picked = result['date'] as DateTime?;
+      if (picked != null) onDatePicked(picked);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dateLabel = DateFormat('EEE, MMM d').format(selectedDate);
 
     return Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
         // ── Previous Day Arrow ─────────────────────────────────────────────
-        IconButton(
-          onPressed: onPreviousDay,
-          icon: const Icon(Icons.chevron_left),
-          color: AppColors.primaryColor,
-          iconSize: 24,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        GestureDetector(
+          onTap: onPreviousDay,
+          child: const Icon(
+            Icons.chevron_left,
+            color: AppColors.primaryColor,
+            size: 20,
+          ),
         ),
 
-        // ── Date Display ───────────────────────────────────────────────────
-        Expanded(
-          child: GestureDetector(
-            onTap: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: selectedDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-              );
-              if (picked != null) {
-                onDatePicked(picked);
-              }
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: AppColors.primaryColor.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: AppColors.primaryColor.withValues(alpha: 0.1),
-                ),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                '< $dateLabel >',
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  color: AppColors.primaryColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
+        // ── Tappable Date Label ────────────────────────────────────────────
+        GestureDetector(
+          onTap: () => _openCalendar(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              dateLabel,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                color: AppColors.primaryColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ),
         ),
 
-        // ── Next Day Arrow ────────────────────────────────────────────────
-        IconButton(
-          onPressed: onNextDay,
-          icon: const Icon(Icons.chevron_right),
-          color: AppColors.primaryColor,
-          iconSize: 24,
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+        // ── Next Day Arrow ─────────────────────────────────────────────────
+        GestureDetector(
+          onTap: onNextDay,
+          child: const Icon(
+            Icons.chevron_right,
+            color: AppColors.primaryColor,
+            size: 20,
+          ),
         ),
       ],
     );

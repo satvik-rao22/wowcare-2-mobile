@@ -199,7 +199,7 @@ class KioskQrSectionWidget extends StatelessWidget {
           version: QrVersions.auto,
           size: 220,
           gapless: false,
-          errorCorrectionLevel: QrErrorCorrectLevel.H,
+          errorCorrectionLevel: QrErrorCorrectLevel.M,
           errorStateBuilder: (context, error) {
             AppLogger.w('[Kiosk] QR generation failed: $error');
             return _buildQrUnavailable('Failed to generate QR', null);

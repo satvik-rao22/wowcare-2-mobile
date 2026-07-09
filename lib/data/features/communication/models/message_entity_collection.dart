@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
 part 'message_entity_collection.g.dart';
 
@@ -126,11 +127,11 @@ class MessageEntityCollection {
       ..readReceipts = entity.readReceipts
           .map(ReadReceiptEntityCollection.fromEntity)
           .toList()
-      ..reactions = entity.reactions.entries
+      ..reactions = entity.reactions
           .map(
-            (e) => MessageReactionEntityCollection()
-              ..userCode = e.key
-              ..emoji = e.value,
+            (r) => MessageReactionEntityCollection()
+              ..userCode = r.userCode
+              ..emoji = r.emoji,
           )
           .toList()
       ..organizationCode = entity.organizationCode
@@ -164,7 +165,9 @@ class MessageEntityCollection {
       deletedAt: deletedAt,
       attachments: attachments?.map((e) => e.toEntity()).toList() ?? [],
       readReceipts: readReceipts?.map((e) => e.toEntity()).toList() ?? [],
-      reactions: {for (final r in reactions ?? []) r.userCode: r.emoji},
+      reactions: (reactions ?? [])
+          .map((r) => ReactionEntry(userCode: r.userCode, emoji: r.emoji))
+          .toList(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       localTempCode: localTempCode,

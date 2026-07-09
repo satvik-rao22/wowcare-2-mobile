@@ -335,11 +335,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions ?? [],
       );
 
+      // A user may hold multiple distinct emojis; only append this (me, emoji)
+      // pair if it isn't already present — do NOT replace their other emojis.
       final list = List<MessageReactionCollection>.from(originalReactions);
-      final idx = list.indexWhere((r) => r.userId == 'me');
-      if (idx != -1) {
-        list[idx].emoji = emoji;
-      } else {
+      final alreadyPresent =
+          list.any((r) => r.userId == 'me' && r.emoji == emoji);
+      if (!alreadyPresent) {
         list.add(
           MessageReactionCollection()
             ..userId = 'me'
@@ -411,8 +412,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions ?? [],
       );
 
+      // Remove only the matching (me, emoji) pair, leaving any other emojis
+      // this user placed on the message intact.
       final list = List<MessageReactionCollection>.from(originalReactions)
-        ..removeWhere((r) => r.userId == 'me');
+        ..removeWhere((r) => r.userId == 'me' && r.emoji == emoji);
       originalCollection.reactions = list;
       await cacheService.put(originalCollection);
     }
@@ -601,17 +604,33 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
             merged.add(existing.toEntity());
           }
 
-          // Backfill any conversation codes we've never seen via REST — but
-          // only codes not already refreshed this session, so a repeating
-          // unknown code doesn't trigger a refresh storm on every snapshot.
-          final newUnknown =
-              unknownCodes.where((c) => !_refreshedConversationCodes.contains(c));
-          if (newUnknown.isNotEmpty) {
-            _refreshedConversationCodes.addAll(newUnknown);
-            // Best-effort — pull the new conversation(s) in via the API (source
-            // of truth) and persist through the normal getConversations path;
-            // the subsequent inbox snapshot then merges them with full metadata.
-            unawaited(getConversations(type: type));
+          // Backfill any conversation codes not in the local cache (e.g. a
+          // brand-new conversation someone else started). AWAIT the REST fetch
+          // (guarded to once per code so a repeating unknown can't storm) and
+          // then INCLUDE the now-cached conversations in THIS emission. A
+          // fire-and-forget refresh would leave them dropped until the next
+          // Firestore snapshot re-runs the merge — which may never fire — so the
+          // new conversation would stay invisible even though the API has it.
+          final toBackfill = unknownCodes
+              .where((c) => !_refreshedConversationCodes.contains(c))
+              .toList();
+          if (toBackfill.isNotEmpty) {
+            _refreshedConversationCodes.addAll(toBackfill);
+            try {
+              await getConversations(type: type); // source of truth → persists to Isar
+            } catch (_) {
+              // best-effort; a later snapshot / pull-to-refresh will retry
+            }
+          }
+          // Re-include any unknown conversation now present in the cache (from
+          // this or a prior backfill) so it shows without waiting for the next
+          // realtime event.
+          for (final code in unknownCodes) {
+            final backfilled = await cacheService
+                .getByField<ConversationCollection>('code', code);
+            if (backfilled.isNotEmpty) {
+              merged.add(backfilled.first.toEntity());
+            }
           }
 
           return merged;
@@ -742,11 +761,11 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // a reaction doesn't visually vanish the moment any other message
       // arrives via the realtime stream.
       ..reactions = entity.reactions.isNotEmpty
-          ? entity.reactions.entries
+          ? entity.reactions
                 .map(
                   (r) => MessageReactionCollection()
-                    ..userId = r.key
-                    ..emoji = r.value,
+                    ..userId = r.userCode
+                    ..emoji = r.emoji,
                 )
                 .toList()
           : existing?.reactions;

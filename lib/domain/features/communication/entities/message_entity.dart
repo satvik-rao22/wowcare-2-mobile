@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'enums.dart';
+import 'reaction_entry.dart';
 
 /// Extended message entity for the communication v2.1 module.
 ///
@@ -28,7 +29,7 @@ class MessageEntity extends Equatable {
     this.editedAt,
     this.deletedAt,
     this.attachments = const [],
-    this.reactions = const {},
+    this.reactions = const [],
     this.readReceipts = const [],
     this.threadParentCode,
     this.threadParentSenderCode,
@@ -56,8 +57,8 @@ class MessageEntity extends Equatable {
   final MessageType messageType;
   final List<AttachmentEntity> attachments;
 
-  // Reactions: key = userCode, value = emoji
-  final Map<String, String> reactions;
+  // Reactions: a flat list; a user may hold multiple distinct emojis.
+  final List<ReactionEntry> reactions;
 
   // Read receipts
   final List<ReadReceiptEntity> readReceipts;
@@ -107,11 +108,22 @@ class MessageEntity extends Equatable {
   /// Emoji → count map for display.
   Map<String, int> get emojiCounts {
     final counts = <String, int>{};
-    for (final emoji in reactions.values) {
-      counts[emoji] = (counts[emoji] ?? 0) + 1;
+    for (final r in reactions) {
+      counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
     }
     return counts;
   }
+
+  /// True if [userCode] has placed [emoji] on this message (case-insensitive,
+  /// trimmed userCode match; exact emoji match).
+  bool userHasReaction(String userCode, String emoji) =>
+      reactions.any((r) => r.matchesUser(userCode) && r.emoji == emoji);
+
+  /// The emojis [userCode] has reacted with (case-insensitive, trimmed match).
+  List<String> reactionsOf(String userCode) => reactions
+      .where((r) => r.matchesUser(userCode))
+      .map((r) => r.emoji)
+      .toList();
 
   MessageEntity copyWith({
     String? id,
@@ -134,7 +146,7 @@ class MessageEntity extends Equatable {
     DateTime? editedAt,
     DateTime? deletedAt,
     List<AttachmentEntity>? attachments,
-    Map<String, String>? reactions,
+    List<ReactionEntry>? reactions,
     List<ReadReceiptEntity>? readReceipts,
     String? threadParentCode,
     String? threadParentSenderCode,

@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'reaction_entry.dart';
+
 class Message extends Equatable {
   final String id;
   final String code;
@@ -12,7 +14,7 @@ class Message extends Equatable {
   final DateTime? deletedAt;
   final List<RecipientStatus> deliveredTo;
   final List<RecipientStatus> readBy;
-  final Map<String, String> reactions;
+  final List<ReactionEntry> reactions;
   final String? quotedMessageId;
   final List<ChatAttachment> attachments;
   final String? senderName;
@@ -33,7 +35,7 @@ class Message extends Equatable {
     this.deletedAt,
     this.deliveredTo = const [],
     this.readBy = const [],
-    this.reactions = const {},
+    this.reactions = const [],
     this.quotedMessageId,
     this.attachments = const [],
     this.senderName,
@@ -54,16 +56,39 @@ class Message extends Equatable {
   int get reactionCount => reactions.length;
   Map<String, int> get emojiCounts {
     final counts = <String, int>{};
-    for (var emoji in reactions.values) {
-      counts[emoji] = (counts[emoji] ?? 0) + 1;
+    for (final r in reactions) {
+      counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
     }
     return counts;
   }
 
-  bool hasReacted(String currentUserId) => reactions.containsKey(currentUserId);
-  String? getMyReaction(String currentUserId) => reactions[currentUserId];
+  /// True if [userCode] has placed [emoji] on this message (case-insensitive,
+  /// trimmed userCode match; exact emoji match).
+  bool userHasReaction(String userCode, String emoji) =>
+      reactions.any((r) => r.matchesUser(userCode) && r.emoji == emoji);
 
-  Message copyWith({DateTime? deletedAt, List<ChatAttachment>? attachments, String? privateParentUserCode}) {
+  /// The emojis [userCode] has reacted with (case-insensitive, trimmed match).
+  List<String> reactionsOf(String userCode) => reactions
+      .where((r) => r.matchesUser(userCode))
+      .map((r) => r.emoji)
+      .toList();
+
+  bool hasReacted(String currentUserId) =>
+      reactions.any((r) => r.matchesUser(currentUserId));
+
+  /// The first emoji [currentUserId] reacted with, if any. Prefer
+  /// [reactionsOf] now that a user may hold multiple reactions.
+  String? getMyReaction(String currentUserId) {
+    final mine = reactionsOf(currentUserId);
+    return mine.isEmpty ? null : mine.first;
+  }
+
+  Message copyWith({
+    DateTime? deletedAt,
+    List<ChatAttachment>? attachments,
+    String? privateParentUserCode,
+    List<ReactionEntry>? reactions,
+  }) {
     return Message(
       id: id,
       code: code,
@@ -76,7 +101,7 @@ class Message extends Equatable {
       deletedAt: deletedAt ?? this.deletedAt,
       deliveredTo: deliveredTo,
       readBy: readBy,
-      reactions: reactions,
+      reactions: reactions ?? this.reactions,
       quotedMessageId: quotedMessageId,
       attachments: attachments ?? this.attachments,
       senderName: senderName,

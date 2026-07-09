@@ -199,6 +199,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     _cubit = ConversationThreadCubit(
       conversationCode: widget.conversation.code,
       currentUserCode: userCodeFromAuth,
+      // Pass the full conversation so the Firestore message listener uses this
+      // conversation's own org/school (not the session's active school) — fixes
+      // no-live-messages for Classroom Notes and any cross-school thread.
+      conversation: widget.conversation,
       watchMessagesUseCase: serviceLocator(),
       getMessagesUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
@@ -1208,8 +1212,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   }
                 },
                 onReactionAdded: (emoji) {
-                  final myReaction = msg.reactions[_senderCode];
-                  if (myReaction == emoji) {
+                  if (msg.userHasReaction(_senderCode, emoji)) {
                     _cubit.removeReaction(
                       messageCode: msg.code,
                       emoji: emoji,
@@ -1288,6 +1291,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           );
           Future.delayed(const Duration(milliseconds: 300), () {
             if (mounted) _cubit.clearSuccess();
+          });
+        }
+        // Surface an action error (e.g. a delete rejected by the server because
+        // the delete window has passed) as a snackbar. The full-screen error is
+        // only used for an initial load failure (no messages), so here — with the
+        // thread loaded — an errorMessage is always a mid-thread action failure.
+        if (state.errorMessage != null && state.hasMessages) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.errorMessage!,
+            isSuccess: false,
+          );
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) _cubit.clearError();
           });
         }
       },
