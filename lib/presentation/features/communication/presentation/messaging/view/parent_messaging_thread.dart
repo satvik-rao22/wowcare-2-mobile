@@ -658,6 +658,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
+  /// Delete a message and acknowledge the real outcome: a success toast, or the
+  /// server's reason (e.g. the delete window has passed) instead of a premature
+  /// "deleted" message that would be wrong when the server rejects it.
+  Future<void> _deleteMessageWithFeedback(String messageCode) async {
+    final failure = await context.read<CommunicationCubit>().deleteMessage(
+      widget.parentInfo['code'] as String,
+      messageCode,
+    );
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: failure == null
+          ? 'Message deleted successfully'
+          : (failure.message ?? 'Failed to delete message.'),
+      isSuccess: failure == null,
+    );
+  }
+
   void _startEditing(Message message) {
     setState(() {
       _editingMessage = message;
@@ -784,17 +802,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         : () => _startEditing(message),
                     onDelete: message.isDeleted
                         ? null
-                        : () {
-                            context.read<CommunicationCubit>().deleteMessage(
-                              widget.parentInfo['code'] as String,
-                              message.code,
-                            );
-                            CoreUtils.showTopSnackBar(
-                              context: context,
-                              message: 'Message deleted successfully',
-                              isSuccess: true,
-                            );
-                          },
+                        : () => _deleteMessageWithFeedback(message.code),
                     onInfo: message.isDeleted
                         ? null
                         : () => _showMessageStatusDialog(context, message),
@@ -1126,26 +1134,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () {
-                                                                context
-                                                                    .read<
-                                                                      CommunicationCubit
-                                                                    >()
-                                                                    .deleteMessage(
-                                                                      widget.parentInfo['code']
-                                                                          as String,
-                                                                      message
-                                                                          .code,
-                                                                    );
-                                                                CoreUtils.showTopSnackBar(
-                                                                  context:
-                                                                      context,
-                                                                  message:
-                                                                      'Message deleted successfully',
-                                                                  isSuccess:
-                                                                      true,
-                                                                );
-                                                              },
+                                                            : () => _deleteMessageWithFeedback(message.code),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -1436,26 +1425,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () {
-                                                                context
-                                                                    .read<
-                                                                      CommunicationCubit
-                                                                    >()
-                                                                    .deleteMessage(
-                                                                      widget.parentInfo['code']
-                                                                          as String,
-                                                                      message
-                                                                          .code,
-                                                                    );
-                                                                CoreUtils.showTopSnackBar(
-                                                                  context:
-                                                                      context,
-                                                                  message:
-                                                                      'Message deleted successfully',
-                                                                  isSuccess:
-                                                                      true,
-                                                                );
-                                                              },
+                                                            : () => _deleteMessageWithFeedback(message.code),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -1751,26 +1721,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () {
-                                                                context
-                                                                    .read<
-                                                                      CommunicationCubit
-                                                                    >()
-                                                                    .deleteMessage(
-                                                                      widget.parentInfo['code']
-                                                                          as String,
-                                                                      message
-                                                                          .code,
-                                                                    );
-                                                                CoreUtils.showTopSnackBar(
-                                                                  context:
-                                                                      context,
-                                                                  message:
-                                                                      'Message deleted successfully',
-                                                                  isSuccess:
-                                                                      true,
-                                                                );
-                                                              },
+                                                            : () => _deleteMessageWithFeedback(message.code),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -2167,25 +2118,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () {
-                                                              context
-                                                                  .read<
-                                                                    CommunicationCubit
-                                                                  >()
-                                                                  .deleteMessage(
-                                                                    widget.parentInfo['code']
-                                                                        as String,
-                                                                    message
-                                                                        .code,
-                                                                  );
-                                                              CoreUtils.showTopSnackBar(
-                                                                context:
-                                                                    context,
-                                                                message:
-                                                                    'Message deleted',
-                                                                isSuccess: true,
-                                                              );
-                                                            },
+                                                            onDelete: () => _deleteMessageWithFeedback(message.code),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,
@@ -2481,25 +2414,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () {
-                                                              context
-                                                                  .read<
-                                                                    CommunicationCubit
-                                                                  >()
-                                                                  .deleteMessage(
-                                                                    widget.parentInfo['code']
-                                                                        as String,
-                                                                    message
-                                                                        .code,
-                                                                  );
-                                                              CoreUtils.showTopSnackBar(
-                                                                context:
-                                                                    context,
-                                                                message:
-                                                                    'Message deleted',
-                                                                isSuccess: true,
-                                                              );
-                                                            },
+                                                            onDelete: () => _deleteMessageWithFeedback(message.code),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,
@@ -2805,25 +2720,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () {
-                                                              context
-                                                                  .read<
-                                                                    CommunicationCubit
-                                                                  >()
-                                                                  .deleteMessage(
-                                                                    widget.parentInfo['code']
-                                                                        as String,
-                                                                    message
-                                                                        .code,
-                                                                  );
-                                                              CoreUtils.showTopSnackBar(
-                                                                context:
-                                                                    context,
-                                                                message:
-                                                                    'Message deleted',
-                                                                isSuccess: true,
-                                                              );
-                                                            },
+                                                            onDelete: () => _deleteMessageWithFeedback(message.code),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,

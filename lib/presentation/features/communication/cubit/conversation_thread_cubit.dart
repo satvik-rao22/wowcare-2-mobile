@@ -745,6 +745,12 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     }
   }
 
+  void clearError() {
+    if (!isClosed && state.errorMessage != null) {
+      emit(state.copyWith(clearError: true));
+    }
+  }
+
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   Future<void> _markRead() async {

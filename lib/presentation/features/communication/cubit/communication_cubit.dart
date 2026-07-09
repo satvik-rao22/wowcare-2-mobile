@@ -27,6 +27,7 @@ import '../../../../domain/features/communication/usecases/watch_conversations_l
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'communication_state.dart';
@@ -908,8 +909,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     }, (_) {});
   }
 
-  Future<void> deleteMessage(String threadId, String messageCode) async {
-    if (state is! CommunicationLoaded) return;
+  /// Deletes a message. Returns `null` on success, or the [Failure] when the
+  /// server rejects it (e.g. the delete window has passed) so the UI can show
+  /// the reason instead of a false "deleted" acknowledgement.
+  Future<Failure?> deleteMessage(String threadId, String messageCode) async {
+    if (state is! CommunicationLoaded) return null;
     final currentState = state as CommunicationLoaded;
     final originalThreads = currentState.threads;
 
@@ -937,11 +941,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     _markRecentlyMutated(messageCode);
 
     final result = await deleteMessageUseCase(messageCode);
-    if (isClosed) return;
+    if (isClosed) return null;
 
-    result.fold((failure) {
+    return result.fold((failure) {
       emit(currentState.copyWith(threads: originalThreads));
-    }, (_) {});
+      return failure;
+    }, (_) => null);
   }
 
   /// Removes a single attachment from its message without deleting the

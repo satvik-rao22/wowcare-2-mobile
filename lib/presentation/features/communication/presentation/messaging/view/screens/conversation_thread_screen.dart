@@ -1293,6 +1293,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             if (mounted) _cubit.clearSuccess();
           });
         }
+        // Surface an action error (e.g. a delete rejected by the server because
+        // the delete window has passed) as a snackbar. The full-screen error is
+        // only used for an initial load failure (no messages), so here — with the
+        // thread loaded — an errorMessage is always a mid-thread action failure.
+        if (state.errorMessage != null && state.hasMessages) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.errorMessage!,
+            isSuccess: false,
+          );
+          Future.delayed(const Duration(milliseconds: 300), () {
+            if (mounted) _cubit.clearError();
+          });
+        }
       },
       builder: (context, state) {
         return Column(
