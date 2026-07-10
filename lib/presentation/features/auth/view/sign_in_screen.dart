@@ -56,9 +56,22 @@ class _SignInScreenState extends State<SignInScreen>
   void initState() {
     super.initState();
     _bottomMenuHeightAnimationController.forward();
+    // Keep the Sign-In button's enabled state in sync with the fields so it
+    // stays disabled until both email and password have been entered.
+    emailController.addListener(_onCredentialsChanged);
+    passwordController.addListener(_onCredentialsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSavedCredentials();
     });
+  }
+
+  /// Both fields must be non-empty before the user can submit.
+  bool get _canSubmit =>
+      emailController.text.trim().isNotEmpty &&
+      passwordController.text.trim().isNotEmpty;
+
+  void _onCredentialsChanged() {
+    if (mounted) setState(() {});
   }
 
   bool _offeredBiometricPrefill = false;
@@ -241,6 +254,8 @@ class _SignInScreenState extends State<SignInScreen>
   @override
   void dispose() {
     _bottomMenuHeightAnimationController.dispose();
+    emailController.removeListener(_onCredentialsChanged);
+    passwordController.removeListener(_onCredentialsChanged);
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -381,6 +396,7 @@ class _SignInScreenState extends State<SignInScreen>
                             key: const ValueKey('button'),
                             label: 'Sign-In',
                             isLoading: isLoading,
+                            enabled: _canSubmit,
                             onPressed: () => _handleSignIn(context),
                             gradient: AppColors.buildPrimaryGradient(),
                             lableColor: Colors.white,
@@ -413,6 +429,7 @@ class _SignInScreenState extends State<SignInScreen>
 class RoundedButtonNew extends StatelessWidget {
   final String label;
   final bool isLoading;
+  final bool enabled;
   final VoidCallback onPressed;
   final Gradient gradient;
   final Color lableColor;
@@ -423,31 +440,36 @@ class RoundedButtonNew extends StatelessWidget {
     required this.onPressed,
     required this.gradient,
     required this.lableColor,
+    this.enabled = true,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isInteractive = enabled && !isLoading;
     return GestureDetector(
-      onTap: isLoading ? null : onPressed,
-      child: Container(
-        width: double.infinity,
-        height: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(25),
-          gradient: gradient,
-        ),
-        alignment: Alignment.center,
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : Text(
-                label,
-                style: TextStyle(
-                  color: lableColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+      onTap: isInteractive ? onPressed : null,
+      child: Opacity(
+        opacity: isInteractive ? 1.0 : 0.5,
+        child: Container(
+          width: double.infinity,
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            gradient: gradient,
+          ),
+          alignment: Alignment.center,
+          child: isLoading
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: lableColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

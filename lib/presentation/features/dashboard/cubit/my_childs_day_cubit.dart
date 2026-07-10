@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -192,7 +193,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
         state.copyWith(
           status: MyChildsDayStatus.error,
           studentCode: code,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }

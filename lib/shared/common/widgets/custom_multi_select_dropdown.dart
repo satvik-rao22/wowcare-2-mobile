@@ -466,6 +466,22 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
     final renderBox = renderObject as RenderBox;
     final size = renderBox.size;
 
+    // Decide whether the list opens downward (default) or upward. In a bottom
+    // sheet the field sits near the bottom of the screen, so a downward list is
+    // clipped by the screen edge and only a row or two is visible. When there
+    // isn't enough room below, open upward instead.
+    final fieldTopLeft = renderBox.localToGlobal(Offset.zero);
+    final mq = MediaQuery.of(context);
+    final itemCount = widget.items.length + (widget.showSelectAll ? 1 : 0);
+    final desiredHeight =
+        (itemCount * _dropdownRowHeight).clamp(0.0, widget.maxDropdownHeight);
+    final spaceBelow =
+        mq.size.height - mq.viewInsets.bottom - (fieldTopLeft.dy + size.height);
+    final spaceAbove = fieldTopLeft.dy;
+    final openUpward =
+        spaceBelow < desiredHeight + widget.gapHeight + 16 &&
+        spaceAbove > spaceBelow;
+
     return OverlayEntry(
       builder: (context) => Stack(
         children: [
@@ -487,7 +503,12 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
             child: CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
-              offset: Offset(0.0, size.height + widget.gapHeight),
+              targetAnchor:
+                  openUpward ? Alignment.topLeft : Alignment.bottomLeft,
+              followerAnchor:
+                  openUpward ? Alignment.bottomLeft : Alignment.topLeft,
+              offset:
+                  Offset(0.0, openUpward ? -widget.gapHeight : widget.gapHeight),
               child: Material(
                 elevation: 8.0,
                 borderRadius: BorderRadius.circular(8),

@@ -368,9 +368,15 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
               final items = _optionsFor(section);
               final selected = _selectedFor(section);
 
+              // Select All on every multi-select filter (Classroom, Tags,
+              // Parents, Attendance). Status is single-select, so it doesn't
+              // get a Select All row.
+              final showSelectAll = section != StudentFilterSection.status;
+
               return CustomMultiSelectDropdown(
                 label: label,
                 hintText: 'Select',
+                showSelectAll: showSelectAll,
                 items: items,
                 selectedItems: selected,
                 onChanged: (selectedItems) {

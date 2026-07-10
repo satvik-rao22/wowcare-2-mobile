@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/config/notification_preference_catalog.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/notifications/models/notification_preference_model.dart';
@@ -112,7 +113,7 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
       ));
     } catch (e) {
       // Keep the (default) matrix visible; surface the failure.
-      emit(state.copyWith(isLoading: false, errorMessage: e.toString()));
+      emit(state.copyWith(isLoading: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -193,7 +194,7 @@ class NotificationSettingsCubit extends Cubit<NotificationSettingsState> {
       emit(state.copyWith(isSaving: false, saved: true));
       return true;
     } catch (e) {
-      emit(state.copyWith(isSaving: false, errorMessage: e.toString()));
+      emit(state.copyWith(isSaving: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       return false;
     }
   }

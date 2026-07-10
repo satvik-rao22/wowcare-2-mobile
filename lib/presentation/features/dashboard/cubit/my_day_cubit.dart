@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -190,7 +191,7 @@ class MyDayCubit extends Cubit<MyDayState> {
     } catch (e) {
       AppLogger.e('[MyDayCubit] fetch failed: $e');
       emit(
-        state.copyWith(status: MyDayStatus.error, errorMessage: e.toString()),
+        state.copyWith(status: MyDayStatus.error, errorMessage: ApiErrorHandler.extractErrorMessage(e)),
       );
     }
   }

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/attendance_classroom_scope.dart';
@@ -256,7 +257,7 @@ class StudentCubit extends Cubit<StudentState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
@@ -342,7 +343,7 @@ class StudentCubit extends Cubit<StudentState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toString()));
+      emit(state.copyWith(isLoadingMore: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 

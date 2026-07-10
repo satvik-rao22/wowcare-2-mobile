@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -112,7 +113,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
           lastClassroomCode: classroomCode,
         ),
       );
@@ -173,7 +174,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
       emit(
         state.copyWith(
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
           lastClassroomCode: classroomCode,
         ),
       );

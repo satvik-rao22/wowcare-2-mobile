@@ -1,4 +1,3 @@
-import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -299,58 +298,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
   String _capitalizeFirst(String s) =>
       s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
-
-  Future<void> _selectTime(
-    BuildContext context,
-    String day,
-    TimeType timeType,
-  ) async {
-    final currentSchedule = _schedules[day]!;
-    TimeOfDay initialTime = const TimeOfDay(hour: 9, minute: 0);
-
-    switch (timeType) {
-      case TimeType.workStart:
-        initialTime = currentSchedule.workStartTime ?? initialTime;
-        break;
-      case TimeType.workEnd:
-        initialTime = currentSchedule.workEndTime ?? initialTime;
-        break;
-      case TimeType.breakStart:
-        initialTime = currentSchedule.breakStartTime ?? initialTime;
-        break;
-      case TimeType.breakEnd:
-        initialTime = currentSchedule.breakEndTime ?? initialTime;
-        break;
-    }
-
-    try {
-      final picked = await showTimePicker(
-        context: context,
-        initialTime: initialTime,
-        builder: (context, child) {
-          final theme = Theme.of(context);
-          return Theme(
-            data: theme.copyWith(
-              timePickerTheme: const TimePickerThemeData(
-                dialHandColor: Colors.white,
-              ),
-              colorScheme: theme.colorScheme.copyWith(
-                primary: AppColors.primaryColor,
-                secondary: AppColors.primaryColor,
-              ),
-            ),
-            child: child!,
-          );
-        },
-      );
-
-      if (picked != null) {
-        _onTimePicked(day, timeType, picked);
-      }
-    } catch (e) {
-      AppLogger.d('Error opening time picker: $e');
-    }
-  }
 
   void _onTimePicked(String day, TimeType timeType, TimeOfDay selectedTime) {
     final currentSchedule = _schedules[day]!;
@@ -758,7 +705,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
             'Work Time',
             schedule.workStartTime,
             schedule.workEndTime,
-            (timeType) => _selectTime(context, day, timeType),
             responsive,
             day,
             enabled: isEnabled,
@@ -768,7 +714,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
             'Break Time',
             schedule.breakStartTime,
             schedule.breakEndTime,
-            (timeType) => _selectTime(context, day, timeType),
             responsive,
             day,
             enabled: isEnabled,
@@ -782,7 +727,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     String title,
     TimeOfDay? startTime,
     TimeOfDay? endTime,
-    Function(TimeType) onTimeSelected,
     ResponsiveHelper responsive,
     String day, {
     bool enabled = true,
@@ -809,6 +753,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 Expanded(
                   child: GradientTimePickerField(
                     label: 'Start',
+                    minuteInterval: 15,
                     time: startTime,
                     onTimeSelected: (t) => _onTimePicked(
                       day,
@@ -823,6 +768,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 Expanded(
                   child: GradientTimePickerField(
                     label: 'End',
+                    minuteInterval: 15,
                     time: endTime,
                     onTimeSelected: (t) => _onTimePicked(
                       day,

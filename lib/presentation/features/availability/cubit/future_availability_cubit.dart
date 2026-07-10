@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
@@ -103,7 +104,7 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
         isRefreshing: false,
         selectedDate: normalizedDate,
         isTwoShifts: isTwoShifts,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

@@ -133,9 +133,12 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
         SnackBar(content: Text(e.type.message)),
       );
     } catch (e) {
+      debugPrint('Failed to download media: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to download media: $e')),
+        const SnackBar(
+          content: Text('Failed to download media. Please try again.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isDownloading = false);

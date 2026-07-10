@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/messaging/usecases/get_filtered_staff_usecase.dart';
@@ -72,7 +73,7 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
       emit(state.copyWith(
         isLoading: false,
         isRefreshing: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }
@@ -111,7 +112,7 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
       if (isClosed) return;
       emit(state.copyWith(
         isLoadingMore: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

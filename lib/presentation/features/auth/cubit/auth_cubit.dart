@@ -15,6 +15,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -872,7 +873,7 @@ class AuthCubit extends Cubit<AuthState> {
                 prev?.schoolsByOrg ??
                 const <String, List<Map<String, String>>>{},
             isPrefetchingSchools: false,
-            lastErrorMessage: e.toString(),
+            lastErrorMessage: ApiErrorHandler.extractErrorMessage(e),
             orgNames: prev?.orgNames ?? const [],
             hasLastSchoolFromContext: prev?.hasLastSchoolFromContext ?? false,
             redirectUrl: prev?.redirectUrl,

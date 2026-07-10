@@ -156,6 +156,7 @@ class InvoiceRepositoryImpl implements InvoiceRepository {
         .map((m) => FamilySummaryEntity(
               ownerType: m.ownerType,
               ownerCode: m.ownerCode,
+              studentCodes: m.studentCodes,
               familyName: m.familyName,
               guardianName: m.guardianName,
               lastInvoiceAmount: m.lastInvoiceAmount,

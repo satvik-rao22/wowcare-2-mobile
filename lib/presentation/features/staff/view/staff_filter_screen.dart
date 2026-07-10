@@ -493,9 +493,20 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
                 ? _designationLabelsSelected()
                 : selected;
 
+            // Select All only for sections that are genuinely multi-select and
+            // sent to the staff-list API as arrays. Status is single-select
+            // (single `status` query param, coupled to the Show-Inactive
+            // toggle) and Sort by is single, so they don't get Select All.
+            final showSelectAll =
+                section == StaffFilterSection.primaryClassroom ||
+                    section == StaffFilterSection.allowedClassroom ||
+                    section == StaffFilterSection.classroom ||
+                    section == StaffFilterSection.attendanceStatus;
+
             return CustomMultiSelectDropdown(
               label: label,
               hintText: 'Select',
+              showSelectAll: showSelectAll,
               items: dropdownItems,
               selectedItems: dropdownSelected,
               onChanged: (selectedItems) {

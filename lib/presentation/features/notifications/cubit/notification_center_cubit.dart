@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/notifications/entities/app_notification.dart';
@@ -71,7 +72,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         isLoading: false,
         isRefreshing: false,
         isLoadingMore: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }
@@ -123,7 +124,9 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
-      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toString()));
+      emit(state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -176,7 +179,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       emit(state.copyWith(
         items: previous,
         isMutating: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }
@@ -196,7 +199,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       emit(state.copyWith(
         items: previous,
         isMutating: false,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

@@ -17,6 +17,7 @@ import '../../../../domain/features/geofencing/usecases/watch_geofence_usecase.d
 import '../../../../shared/services/geofence_notification_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 part 'geofence_state.dart';
@@ -424,7 +425,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       emit(
         state.copyWith(
           status: GeofenceCubitStatus.error,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
