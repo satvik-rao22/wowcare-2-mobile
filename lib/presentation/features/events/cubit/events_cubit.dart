@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -77,6 +79,7 @@ class EventsCubit extends Cubit<EventsState> {
                 .toUpperCase();
         showMineOnly = role.contains('STAFF') || role.contains('TEACHER');
       }
+      final schoolName = await _resolveSchoolName();
       final events = await _getEvents();
       final holidays = await _getHolidays(year: state.selectedYear);
       _loadedHolidayYears.add(state.selectedYear);
@@ -89,6 +92,7 @@ class EventsCubit extends Cubit<EventsState> {
           currentUserCode: userCode,
           currentUserName: userName,
           currentStaffCode: staffCode,
+          schoolName: schoolName,
           errorMessage: () => null,
         ),
       );
@@ -100,6 +104,40 @@ class EventsCubit extends Cubit<EventsState> {
         ),
       );
     }
+  }
+
+  /// Display name of the active school, for school-wide event audiences.
+  /// Prefers the explicitly selected school name; falls back to matching
+  /// the active school code in the cached org/school list. Returns '' when
+  /// neither is available — the UI shows a generic label then.
+  Future<String> _resolveSchoolName() async {
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    final selected =
+        (await _storageService.getString(StorageKeys.selectedSchoolName) ?? '')
+            .trim();
+    // A stored "name" equal to the code is a placeholder, not a real name.
+    if (selected.isNotEmpty && selected != schoolCode) return selected;
+
+    final raw = (await _storageService
+                .getString(StorageKeys.organizationsAndSchools) ??
+            '')
+        .trim();
+    if (raw.isEmpty || schoolCode.isEmpty) return '';
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        for (final entry in decoded.whereType<Map>()) {
+          if ((entry['schoolCode'] ?? '').toString().trim() == schoolCode) {
+            final name = (entry['schoolName'] ?? '').toString().trim();
+            if (name.isNotEmpty && name != schoolCode) return name;
+          }
+        }
+      }
+    } catch (_) {
+      // Malformed cache — fall through to the generic label.
+    }
+    return '';
   }
 
   // ------------------------------------------------------ search & filters

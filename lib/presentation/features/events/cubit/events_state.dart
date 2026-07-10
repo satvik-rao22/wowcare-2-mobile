@@ -16,6 +16,7 @@ class EventsState extends Equatable {
     required this.currentUserCode,
     required this.currentUserName,
     this.currentStaffCode = '',
+    this.schoolName = '',
     this.errorMessage,
   });
 
@@ -34,6 +35,7 @@ class EventsState extends Equatable {
         currentUserCode = '',
         currentUserName = '',
         currentStaffCode = '',
+        schoolName = '',
         errorMessage = null;
 
   final List<Event> events;
@@ -65,6 +67,10 @@ class EventsState extends Equatable {
   /// empty for guardians or when not resolved yet. Used to match the user
   /// against event staff attendees / `createdBy`.
   final String currentStaffCode;
+
+  /// Display name of the active school — shown as the audience of
+  /// school-wide events. Empty until resolved from storage.
+  final String schoolName;
   final String? errorMessage;
 
   bool get isSearching => searchQuery.length >= 2;
@@ -247,6 +253,7 @@ class EventsState extends Equatable {
     String? currentUserCode,
     String? currentUserName,
     String? currentStaffCode,
+    String? schoolName,
     String? Function()? errorMessage,
   }) {
     return EventsState(
@@ -264,6 +271,7 @@ class EventsState extends Equatable {
       currentUserCode: currentUserCode ?? this.currentUserCode,
       currentUserName: currentUserName ?? this.currentUserName,
       currentStaffCode: currentStaffCode ?? this.currentStaffCode,
+      schoolName: schoolName ?? this.schoolName,
       errorMessage:
           errorMessage != null ? errorMessage() : this.errorMessage,
     );
@@ -285,6 +293,7 @@ class EventsState extends Equatable {
         currentUserCode,
         currentUserName,
         currentStaffCode,
+        schoolName,
         errorMessage,
       ];
 }

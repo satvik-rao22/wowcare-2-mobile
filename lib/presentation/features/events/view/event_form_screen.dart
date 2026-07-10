@@ -8,6 +8,7 @@ import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_access.dart';
+import 'package:wowcare/presentation/features/events/utils/event_audience_cascade.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
@@ -250,7 +251,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
             side: BorderSide(
               color: EventUiUtils.typeColor(type).withValues(alpha: 0.3),
             ),
-            onSelected: (_) => setState(() => _type = type),
+            onSelected: (_) => _onTypeChanged(type),
           ),
       ],
     );
@@ -258,45 +259,29 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   // ------------------------------------------------------------ audience
 
+  /// Audience pickers follow the school hierarchy (school → classroom →
+  /// staff & students): each type exposes exactly its own level. Classroom
+  /// staff, admins and parents are auto-included by the events backend, so
+  /// no extra pickers are shown for them.
   List<Widget> _audienceSection() {
     switch (_type) {
       case EventType.school:
-        return [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: EventUiUtils.typeBackground(EventType.school),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.school_outlined,
-                  size: 18,
-                  color: EventUiUtils.typeColor(EventType.school),
-                ),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'All classrooms and staff in the school will be invited.',
-                    style: TextStyle(fontSize: 12.5, color: Colors.black87),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 8),
-          _staffPicker(),
-        ];
+        return [_schoolAudienceTile()];
       case EventType.classroom:
-        return [_classroomPicker(), const SizedBox(height: 8), _staffPicker()];
+        return [_classroomPicker()];
       case EventType.student:
-        return [_studentPicker(), const SizedBox(height: 8), _staffPicker()];
+        return [_studentPicker()];
       case EventType.staff:
         return [_staffPicker()];
       case EventType.custom:
         return [
-          _classroomPicker(),
+          _classroomPicker(onChanged: _onCustomClassroomsChanged),
+          const SizedBox(height: 6),
+          Text(
+            'Picking a classroom pre-selects its students and staff — '
+            'fine-tune them below.',
+            style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+          ),
           const SizedBox(height: 8),
           _studentPicker(),
           const SizedBox(height: 8),
@@ -307,7 +292,103 @@ class _EventFormScreenState extends State<EventFormScreen> {
     }
   }
 
-  Widget _classroomPicker() {
+  /// School-wide events invite everyone — show who "everyone" is instead
+  /// of a picker.
+  Widget _schoolAudienceTile() {
+    final schoolName = context.select(
+      (EventsCubit cubit) => cubit.state.schoolName,
+    );
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: EventUiUtils.typeBackground(EventType.school),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.school_outlined,
+            size: 18,
+            color: EventUiUtils.typeColor(EventType.school),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  schoolName.isEmpty ? 'Whole school' : schoolName,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'All classrooms, staff and students will be invited.',
+                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Type switches keep prior selections (only the levels owned by the new
+  /// type are shown and submitted). Entering Custom with classrooms already
+  /// picked (e.g. coming from the Classroom type) runs the same cascade as
+  /// picking them inside Custom, so their students/staff show as selected.
+  void _onTypeChanged(EventType next) {
+    if (next == _type) return;
+    if (next == EventType.custom && _classrooms.isNotEmpty) {
+      final allStudents = context.read<StudentCubit>().state.items;
+      final allStaff = context.read<StaffCubit>().state.items;
+      setState(() {
+        _type = next;
+        _students = EventAudienceCascade.nextStudents(
+          current: _students,
+          previousClassrooms: const [],
+          nextClassrooms: _classrooms,
+          allStudents: allStudents,
+        );
+        _staff = EventAudienceCascade.nextStaff(
+          current: _staff,
+          previousClassrooms: const [],
+          nextClassrooms: _classrooms,
+          allStaff: allStaff,
+        );
+      });
+      return;
+    }
+    setState(() => _type = next);
+  }
+
+  /// Custom mode: cascade the classroom change into the student/staff
+  /// selections (classroom members pre-select; manual picks survive).
+  void _onCustomClassroomsChanged(List<EventAttendee> selection) {
+    final allStudents = context.read<StudentCubit>().state.items;
+    final allStaff = context.read<StaffCubit>().state.items;
+    setState(() {
+      _students = EventAudienceCascade.nextStudents(
+        current: _students,
+        previousClassrooms: _classrooms,
+        nextClassrooms: selection,
+        allStudents: allStudents,
+      );
+      _staff = EventAudienceCascade.nextStaff(
+        current: _staff,
+        previousClassrooms: _classrooms,
+        nextClassrooms: selection,
+        allStaff: allStaff,
+      );
+      _classrooms = selection;
+    });
+  }
+
+  Widget _classroomPicker({ValueChanged<List<EventAttendee>>? onChanged}) {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, state) {
         final options = state.classrooms
@@ -320,7 +401,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
           selected: _classrooms,
           options: options,
           isLoading: state.isLoading,
-          onChanged: (selection) => setState(() => _classrooms = selection),
+          onChanged: onChanged ??
+              (selection) => setState(() => _classrooms = selection),
         );
       },
     );
@@ -653,16 +735,27 @@ class _EventFormScreenState extends State<EventFormScreen> {
       startTime: _allDay ? '' : _formatTime(_startTime),
       endTime: _allDay ? '' : _formatTime(_endTime),
       description: _descriptionController.text.trim(),
-      classrooms: (_type == EventType.staff || _type == EventType.individual)
-          ? const []
-          : classrooms,
+      // Only the levels of the hierarchy owned by the chosen type are
+      // kept — pickers hidden for this type may hold stale selections
+      // from a previously chosen type.
+      classrooms:
+          (_type == EventType.school ||
+              _type == EventType.classroom ||
+              _type == EventType.custom)
+          ? classrooms
+          : const [],
       students:
           (_type == EventType.student ||
               _type == EventType.custom ||
               _type == EventType.individual)
           ? _students
           : const [],
-      staff: _staff,
+      staff:
+          (_type == EventType.staff ||
+              _type == EventType.custom ||
+              _type == EventType.individual)
+          ? _staff
+          : const [],
       includeParents: _type == EventType.staff ? false : _includeParents,
       recurring: _recurring,
       recurringPattern: () => _recurring ? _recurringPattern : null,
