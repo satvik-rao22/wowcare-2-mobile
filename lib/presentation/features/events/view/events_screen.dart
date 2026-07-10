@@ -1010,9 +1010,9 @@ class _EventsScreenState extends State<EventsScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          gradient: AppColors.buildPrimaryGradient(),
           borderRadius: BorderRadius.circular(10),
         ),
         child: DropdownButtonHideUnderline(
@@ -1021,12 +1021,32 @@ class _EventsScreenState extends State<EventsScreen> {
                 ? state.selectedYear
                 : currentYear,
             isDense: true,
-            icon: const Icon(Icons.arrow_drop_down, size: 20),
+            dropdownColor: Colors.white,
+            icon: const Icon(
+              Icons.arrow_drop_down,
+              size: 20,
+              color: Colors.white,
+            ),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
             ),
+            // The closed pill sits on the gradient, so its label is white;
+            // the open menu is on white, so items keep the dark style above.
+            selectedItemBuilder: (context) => [
+              for (final year in years)
+                Center(
+                  child: Text(
+                    '$year',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
             items: [
               for (final year in years)
                 DropdownMenuItem<int>(value: year, child: Text('$year')),

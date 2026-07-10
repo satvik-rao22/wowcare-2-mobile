@@ -72,7 +72,8 @@ void main() {
   ) async {
     await openSheet(tester);
 
-    expect(find.text('New School Holiday'), findsOneWidget);
+    // "Add Holiday" appears as both the sheet title and the save button.
+    expect(find.text('Add Holiday'), findsNWidgets(2));
     expect(addButton(), findsOneWidget);
     // Name is required → save disabled initially.
     expect(saveEnabled(tester), isFalse);
@@ -100,7 +101,7 @@ void main() {
   testWidgets('description is hard-capped at 500 characters', (tester) async {
     await openSheet(tester);
 
-    final descField = find.byType(TextField).at(1);
+    final descField = find.byType(TextField).last;
     await tester.enterText(descField, 'x' * 900);
     await tester.pump();
 
@@ -153,7 +154,7 @@ void main() {
     expect(repo.lastCreateArgs!['name'], 'Thanksgiving Break');
     expect(repo.lastUpdateArgs, isNull);
     // Sheet dismissed on success.
-    expect(find.text('New School Holiday'), findsNothing);
+    expect(addButton(), findsNothing);
 
     // Flush the transient success banner's delayed removal.
     await tester.pump(const Duration(seconds: 3));
@@ -175,7 +176,7 @@ void main() {
 
     await openSheet(tester, holiday: existing);
 
-    expect(find.text('Edit School Holiday'), findsOneWidget);
+    expect(find.text('Edit Holiday'), findsOneWidget);
     expect(find.widgetWithText(ElevatedButton, 'Save Changes'), findsOneWidget);
     // Existing values are pre-filled.
     expect(find.text('Old Name'), findsOneWidget);
@@ -233,5 +234,119 @@ void main() {
     expect(repo.lastUpdateArgs!['endDate'], DateTime(2026, 5, 1));
 
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  // -------------------------------------------- manually typed dates
+
+  // Single-date mode field order: name, date, description.
+  Finder dateField() => find.byType(TextField).at(1);
+
+  testWidgets('date field auto-formats typed digits into DD-MM-YYYY', (
+    tester,
+  ) async {
+    await openSheet(tester);
+
+    await tester.enterText(dateField(), '25122026');
+    await tester.pump();
+
+    final controller = tester.widget<TextField>(dateField()).controller!;
+    expect(controller.text, '25-12-2026');
+
+    // Non-digit garbage is stripped at the keyboard.
+    await tester.enterText(dateField(), '25/12.2026abc');
+    await tester.pump();
+    expect(controller.text, '25-12-2026');
+  });
+
+  testWidgets('a manually typed date is what gets saved', (tester) async {
+    repo.nextCreate = (
+      Holiday(
+        code: 'SCH-NEW',
+        name: 'Christmas',
+        startDate: DateTime(2026, 12, 25),
+        endDate: DateTime(2026, 12, 25),
+        type: HolidayType.school,
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      ),
+      'School holiday created successfully',
+    );
+
+    await openSheet(tester);
+    await tester.enterText(nameField(), 'Christmas');
+    await tester.enterText(dateField(), '25-12-2026');
+    await tester.pump();
+
+    await tester.tap(addButton());
+    await tester.pumpAndSettle();
+
+    expect(repo.lastCreateArgs!['startDate'], DateTime(2026, 12, 25));
+    expect(repo.lastCreateArgs!['endDate'], DateTime(2026, 12, 25));
+
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('incomplete or impossible typed dates disable save', (
+    tester,
+  ) async {
+    await openSheet(tester);
+    await tester.enterText(nameField(), 'Holiday');
+    await tester.pump();
+    expect(saveEnabled(tester), isTrue);
+
+    // Partial input.
+    await tester.enterText(dateField(), '2512');
+    await tester.pump();
+    expect(saveEnabled(tester), isFalse);
+    expect(find.text('Use DD-MM-YYYY'), findsOneWidget);
+
+    // Well-formed but not a real calendar date (Feb 31).
+    await tester.enterText(dateField(), '31-02-2026');
+    await tester.pump();
+    expect(saveEnabled(tester), isFalse);
+
+    // Cleared entirely.
+    await tester.enterText(dateField(), '');
+    await tester.pump();
+    expect(saveEnabled(tester), isFalse);
+    expect(find.text('Required'), findsOneWidget);
+
+    // Valid again.
+    await tester.enterText(dateField(), '25-12-2026');
+    await tester.pump();
+    expect(saveEnabled(tester), isTrue);
+  });
+
+  testWidgets('a typed end date before the start disables save', (
+    tester,
+  ) async {
+    await openSheet(tester);
+    await tester.enterText(nameField(), 'Break');
+    await tester.tap(find.text('Date Range'));
+    await tester.pump();
+
+    // Range mode field order: name, starts, ends, description.
+    final startField = find.byType(TextField).at(1);
+    final endField = find.byType(TextField).at(2);
+
+    await tester.enterText(startField, '10-05-2026');
+    await tester.enterText(endField, '05-05-2026');
+    await tester.pump();
+
+    expect(saveEnabled(tester), isFalse);
+    expect(find.text("Can't be before start date"), findsOneWidget);
+
+    await tester.enterText(endField, '11-05-2026');
+    await tester.pump();
+    expect(saveEnabled(tester), isTrue);
+  });
+
+  testWidgets('trailing calendar icon opens the date picker', (tester) async {
+    await openSheet(tester);
+
+    await tester.tap(find.byIcon(Icons.calendar_today_outlined).first);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DatePickerDialog), findsOneWidget);
   });
 }
