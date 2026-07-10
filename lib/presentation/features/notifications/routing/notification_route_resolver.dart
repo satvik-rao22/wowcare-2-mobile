@@ -277,7 +277,17 @@ class NotificationRouteResolver {
         path: _studentProfileByCode, queryParameters: params);
   }
 
-  static const _kDocument = ['documentCode', 'document_code', 'documentUuid'];
+  static const _kDocument = [
+    'documentCode',
+    'document_code',
+    'documentUuid',
+    'document_uuid',
+    // Backend payload currently sends this MISSPELLED key (missing the 'n') for
+    // student-document notifications, e.g. {"documetCode":"DOC_…"}. Tolerate it
+    // so the document row still highlights. Remove once the backend fixes it.
+    'documetCode',
+    'documet_code',
+  ];
 
   static const String _staffProfileByCode = '/dashboard/staff-profile-by-code';
 

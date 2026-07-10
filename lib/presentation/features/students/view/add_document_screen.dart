@@ -351,16 +351,27 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
         sessionCode: uploadSession.sessionCode,
         expectedAssetCodes: <String>[presign.assetCode],
       );
-      final resolvedUrl = await uploadService.getMediaAssetUrlByCode(
-        assetCode: presign.assetCode,
-      );
       if (!mounted) return;
+      // Asset is processed & READY — finish the upload now so the loader stops
+      // and the "Add" button is enabled immediately. The delivery URL is only
+      // used for display and falls back to the file name, so resolve it in the
+      // background instead of keeping the spinner up (URL resolution can poll
+      // for up to ~15s, which was needlessly gating the button).
       setState(() {
         _uploadedAssetCode = presign.assetCode;
-        _uploadedStoragePath = resolvedUrl.trim().isNotEmpty
-            ? resolvedUrl.trim()
-            : selectedFile.name;
+        _uploadedStoragePath = selectedFile.name;
+        _isUploadingFile = false;
+        _uploadProgressPercent = 0;
       });
+      uploadService
+          .getMediaAssetUrlByCode(assetCode: presign.assetCode)
+          .then((resolvedUrl) {
+            final url = resolvedUrl.trim();
+            if (mounted && url.isNotEmpty) {
+              setState(() => _uploadedStoragePath = url);
+            }
+          })
+          .catchError((_) {});
     } catch (e) {
       _showWarningMessage('Failed to upload file: ${e.toString()}');
     } finally {

@@ -103,16 +103,25 @@ class _HighlightableCardState extends State<HighlightableCard>
     _flashedKey = _matchKey;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (widget.scrollOnHighlight) {
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 400),
-          alignment: 0.1,
-          curve: Curves.easeOut,
-        );
-      }
-      widget.onHighlighted?.call();
-      _controller.forward(from: 0);
+      // When the data is cached, the target card mounts synchronously DURING
+      // the route/tab push transition — a flash started right now plays
+      // off-screen and is missed, and the _flashedKey guard then blocks a
+      // re-flash. Delay the start so it lands after the transition settles.
+      // (On the uncached path the data arrives ~1s later anyway, so this small
+      // delay is imperceptible there.)
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        if (widget.scrollOnHighlight) {
+          Scrollable.ensureVisible(
+            context,
+            duration: const Duration(milliseconds: 400),
+            alignment: 0.1,
+            curve: Curves.easeOut,
+          );
+        }
+        widget.onHighlighted?.call();
+        _controller.forward(from: 0);
+      });
     });
   }
 
