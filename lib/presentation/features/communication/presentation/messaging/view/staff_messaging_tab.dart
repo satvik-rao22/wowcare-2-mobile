@@ -168,7 +168,8 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// here instead of just coming up empty. Without a filter/search, this
   /// stays hidden on both tabs so the inbox isn't cluttered with every
   /// contact that doesn't have a conversation yet.
-  bool get _shouldShowStartNewChat => _hasActiveContactFilters || _hasSearchQuery;
+  bool get _shouldShowStartNewChat =>
+      _hasActiveContactFilters || _hasSearchQuery;
 
   /// Human-readable "Classroom: X  •  Status: Y" summary of the active
   /// filters, shown above the conversation list as a title when non-empty.
@@ -411,15 +412,6 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                           isMultiSelectDropDown: true,
                                         ),
                                         FilerSection(
-                                          isMultiSelectDropDown: true,
-                                          label: 'Status',
-                                          hintText: 'Select status',
-                                          items: ['Active', 'Upcoming'],
-                                          initialSelected:
-                                              _currentFilters['Status'] ?? [],
-                                          isSingleSelect: true,
-                                        ),
-                                        FilerSection(
                                           label: 'Designation',
                                           hintText: 'Select designation',
                                           items:
@@ -430,6 +422,18 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                           initialSelected:
                                               _currentFilters['Designation'] ??
                                               [],
+                                        ),
+                                        FilerSection(
+                                          label: 'Status',
+                                          hintText: 'Select status',
+                                          items: const [
+                                            'Active',
+                                            'Upcoming',
+                                            'Inactive',
+                                          ],
+                                          initialSelected:
+                                              _currentFilters['Status'] ?? [],
+                                          isSingleSelect: true,
                                         ),
                                       ],
                                       onApply: (filters) {
@@ -473,7 +477,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                         FilerSection(
                                           label: 'Status',
                                           hintText: 'Select status',
-                                          items: ['Active', 'Upcoming'],
+                                          items: const [
+                                            'Active',
+                                            'Upcoming',
+                                            'Inactive',
+                                          ],
                                           initialSelected:
                                               _currentFilters['Status'] ?? [],
                                           isSingleSelect: true,
@@ -485,7 +493,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                             ..sort(),
                                           initialSelected:
                                               _currentFilters['Tags'] ?? [],
-                                          isMultiSelectDropDown: false,
+                                          isMultiSelectDropDown: true,
                                         ),
                                       ],
                                       onApply: (filters) {
@@ -623,9 +631,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       List<Conversation> conversationsToDisplay = [];
                       Set<String> existingContactCodes = const {};
                       Set<String> existingContactNames = const {};
-                      final query = _searchController.text
-                          .trim()
-                          .toLowerCase();
+                      final query = _searchController.text.trim().toLowerCase();
 
                       if (communicationState
                           is CommunicationConversationsLoaded) {
@@ -694,42 +700,41 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               .toSet();
                         }
 
-                        conversationsToDisplay = allConversationsForType
-                            .where((conv) {
-                              if (query.isNotEmpty &&
-                                  !conv.title.toLowerCase().contains(query)) {
-                                return false;
-                              }
-                              if (_showUnread && conv.unreadCount == 0)
-                                return false;
-                              if (filteredStaffCodes != null &&
-                                  !conv.participants.any(
-                                    (p) =>
-                                        filteredStaffCodes.contains(p.userCode),
-                                  )) {
-                                return false;
-                              }
-                              if (filteredStudentNames != null &&
-                                  !filteredStudentNames.contains(
-                                    conv.title.trim().toLowerCase(),
-                                  )) {
-                                return false;
-                              }
-                              // Hide a conversation a user somehow has with only
-                              // themselves (no other participant). Participants
-                              // are keyed by userCode, so this MUST compare
-                              // against the account code — never the staff code.
-                              if (_currentAccountCode != null &&
-                                  _currentAccountCode!.isNotEmpty &&
-                                  conv.participants.isNotEmpty &&
-                                  conv.participants.every(
-                                    (p) => p.userCode == _currentAccountCode,
-                                  )) {
-                                return false;
-                              }
-                              return true;
-                            })
-                            .toList();
+                        conversationsToDisplay = allConversationsForType.where((
+                          conv,
+                        ) {
+                          if (query.isNotEmpty &&
+                              !conv.title.toLowerCase().contains(query)) {
+                            return false;
+                          }
+                          if (_showUnread && conv.unreadCount == 0)
+                            return false;
+                          if (filteredStaffCodes != null &&
+                              !conv.participants.any(
+                                (p) => filteredStaffCodes.contains(p.userCode),
+                              )) {
+                            return false;
+                          }
+                          if (filteredStudentNames != null &&
+                              !filteredStudentNames.contains(
+                                conv.title.trim().toLowerCase(),
+                              )) {
+                            return false;
+                          }
+                          // Hide a conversation a user somehow has with only
+                          // themselves (no other participant). Participants
+                          // are keyed by userCode, so this MUST compare
+                          // against the account code — never the staff code.
+                          if (_currentAccountCode != null &&
+                              _currentAccountCode!.isNotEmpty &&
+                              conv.participants.isNotEmpty &&
+                              conv.participants.every(
+                                (p) => p.userCode == _currentAccountCode,
+                              )) {
+                            return false;
+                          }
+                          return true;
+                        }).toList();
                       }
 
                       final filteredContacts = (_shouldShowStartNewChat)
@@ -1040,9 +1045,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     return staffState.items
         .where((s) => s.code != _currentUserCode)
         .where((s) => !excludeCodes.contains(s.userCode))
-        .where(
-          (s) => query.isEmpty || s.name.toLowerCase().contains(query),
-        )
+        .where((s) => query.isEmpty || s.name.toLowerCase().contains(query))
         .map(
           (s) => _FilteredContact(
             code: s.code,
@@ -1072,9 +1075,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     return studentState.items
         .where((s) => s.code != _currentUserCode)
         .where((s) => !excludeNames.contains(s.fullName.trim().toLowerCase()))
-        .where(
-          (s) => query.isEmpty || s.fullName.toLowerCase().contains(query),
-        )
+        .where((s) => query.isEmpty || s.fullName.toLowerCase().contains(query))
         .map(
           (s) => _FilteredContact(
             code: s.code,
@@ -1092,10 +1093,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   Widget _buildContactRow(_FilteredContact contact, {Key? key}) {
     return InkWell(
       key: key,
-      onTap: () => _startConversationWith(
-        contact.userCode,
-        contact.name,
-      ),
+      onTap: () => _startConversationWith(contact.userCode, contact.name),
       splashColor: const Color(0x1A6C5CE7),
       highlightColor: Colors.transparent,
       child: Container(

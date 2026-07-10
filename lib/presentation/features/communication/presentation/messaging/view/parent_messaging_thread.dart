@@ -619,7 +619,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
             onEmojiSelected: (category, emoji) {
               Navigator.pop(sheetContext); // close picker
               if (message.userHasReaction(
-                  _currentUserCode ?? '', emoji.emoji)) {
+                _currentUserCode ?? '',
+                emoji.emoji,
+              )) {
                 cubit.removeReaction(
                   convCode,
                   message.code,
@@ -811,7 +813,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     },
                     onReactionAdded: (emoji) {
                       if (message.userHasReaction(
-                          _currentUserCode ?? '', emoji)) {
+                        _currentUserCode ?? '',
+                        emoji,
+                      )) {
                         context.read<CommunicationCubit>().removeReaction(
                           widget.parentInfo['code'] as String,
                           message.code,
@@ -1134,7 +1138,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () => _deleteMessageWithFeedback(message.code),
+                                                            : () =>
+                                                                  _deleteMessageWithFeedback(
+                                                                    message
+                                                                        .code,
+                                                                  ),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -1150,9 +1158,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          if (message.userHasReaction(
-                                                              _currentUserCode ?? '',
-                                                              emoji)) {
+                                                          if (message
+                                                              .userHasReaction(
+                                                                _currentUserCode ??
+                                                                    '',
+                                                                emoji,
+                                                              )) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -1425,7 +1436,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () => _deleteMessageWithFeedback(message.code),
+                                                            : () =>
+                                                                  _deleteMessageWithFeedback(
+                                                                    message
+                                                                        .code,
+                                                                  ),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -1441,9 +1456,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          if (message.userHasReaction(
-                                                              _currentUserCode ?? '',
-                                                              emoji)) {
+                                                          if (message
+                                                              .userHasReaction(
+                                                                _currentUserCode ??
+                                                                    '',
+                                                                emoji,
+                                                              )) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -1721,7 +1739,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () => _deleteMessageWithFeedback(message.code),
+                                                            : () =>
+                                                                  _deleteMessageWithFeedback(
+                                                                    message
+                                                                        .code,
+                                                                  ),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -1737,9 +1759,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          if (message.userHasReaction(
-                                                              _currentUserCode ?? '',
-                                                              emoji)) {
+                                                          if (message
+                                                              .userHasReaction(
+                                                                _currentUserCode ??
+                                                                    '',
+                                                                emoji,
+                                                              )) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -2118,7 +2143,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () => _deleteMessageWithFeedback(message.code),
+                                                            onDelete: () =>
+                                                                _deleteMessageWithFeedback(
+                                                                  message.code,
+                                                                ),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,
@@ -2130,9 +2158,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              if (message.userHasReaction(
-                                                                  _currentUserCode ?? '',
-                                                                  emoji)) {
+                                                              if (message
+                                                                  .userHasReaction(
+                                                                    _currentUserCode ??
+                                                                        '',
+                                                                    emoji,
+                                                                  )) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit
@@ -2414,7 +2445,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () => _deleteMessageWithFeedback(message.code),
+                                                            onDelete: () =>
+                                                                _deleteMessageWithFeedback(
+                                                                  message.code,
+                                                                ),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,
@@ -2426,9 +2460,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              if (message.userHasReaction(
-                                                                  _currentUserCode ?? '',
-                                                                  emoji)) {
+                                                              if (message
+                                                                  .userHasReaction(
+                                                                    _currentUserCode ??
+                                                                        '',
+                                                                    emoji,
+                                                                  )) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit
@@ -2720,7 +2757,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () => _deleteMessageWithFeedback(message.code),
+                                                            onDelete: () =>
+                                                                _deleteMessageWithFeedback(
+                                                                  message.code,
+                                                                ),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,
@@ -2732,9 +2772,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              if (message.userHasReaction(
-                                                                  _currentUserCode ?? '',
-                                                                  emoji)) {
+                                                              if (message
+                                                                  .userHasReaction(
+                                                                    _currentUserCode ??
+                                                                        '',
+                                                                    emoji,
+                                                                  )) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit

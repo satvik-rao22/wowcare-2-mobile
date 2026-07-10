@@ -217,10 +217,17 @@ class _MessageBubbleState extends State<MessageBubble>
   /// dictates alignment for Room Chat (org side on right, parent on left).
   /// Falls back to identity (_isMe) for Staff Direct.
   bool get _alignRight {
-    if (widget.senderIsOrgSide != null) {
-      return widget.senderIsOrgSide!;
+    // If the current user is a guardian/parent (indicated by isParentMessaging)
+    if (widget.isParentMessaging) {
+      // Their own messages go right, all others (staff or other parents) go left.
+      return _isMe;
+    } else {
+      // For other user roles (e.g., staff, admin), the existing logic applies.
+      if (widget.senderIsOrgSide != null) {
+        return widget.senderIsOrgSide!;
+      }
+      return _isMe;
     }
-    return _isMe;
   }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
@@ -1847,10 +1854,7 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
 
     if (perChip) return badge;
 
-    return GestureDetector(
-      onTap: widget.onTap,
-      child: badge,
-    );
+    return GestureDetector(onTap: widget.onTap, child: badge);
   }
 
   Widget _buildAnimatedEmoji(String emoji, int count) {
