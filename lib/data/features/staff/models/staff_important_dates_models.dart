@@ -86,3 +86,28 @@ class PhysicalCheckupSummaryModel {
   }
 }
 
+class WorkBreakReminderResponseModel extends Equatable {
+  const WorkBreakReminderResponseModel({
+    required this.success,
+    required this.message,
+    this.data,
+    this.timestamp = '',
+  });
+
+  final bool success;
+  final String message;
+  final Map<String, dynamic>? data;
+  final String timestamp;
+
+  factory WorkBreakReminderResponseModel.fromJson(Map<String, dynamic> json) {
+    return WorkBreakReminderResponseModel(
+      success: json['success'] as bool? ?? false,
+      message: json['message'] as String? ?? '',
+      data: json['data'] as Map<String, dynamic>?,
+      timestamp: json['timestamp'] as String? ?? '',
+    );
+  }
+
+  @override
+  List<Object?> get props => [success, message, data, timestamp];
+}

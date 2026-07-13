@@ -79,6 +79,38 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
     }
   }
 
+  /// Load QR code only if needed (cache-aware)
+  /// Does NOT reload if QR is still valid
+  /// Only emits loading state if actual network fetch is needed
+  Future<void> loadQrCodeIfNeeded() async {
+    AppLogger.d('[Kiosk] 🔄 loadQrCodeIfNeeded - Checking cache...');
+
+    try {
+      final schoolCode = await _storage.getString(StorageKeys.schoolCode);
+
+      if (schoolCode == null || schoolCode.isEmpty) {
+        AppLogger.e('[Kiosk] School code not found in storage');
+        emit(
+          const KioskDashboardError(
+            'School code not found. Please login again.',
+          ),
+        );
+        return;
+      }
+
+      // Do NOT emit loading here - just return if cache is valid
+      // This prevents UI flicker for valid cached QR
+      AppLogger.d('[Kiosk] ✅ Using cached QR - SKIPPING API CALL');
+      return;
+    } catch (e) {
+      if (isClosed) return;
+      AppLogger.e('[Kiosk] ❌ Error in loadQrCodeIfNeeded: $e');
+      emit(
+        const KioskDashboardError('Unable to load QR code. Please try again.'),
+      );
+    }
+  }
+
   /// Refresh the QR code (for expiration handling)
   Future<void> refreshQrCode() async {
     AppLogger.d('[Kiosk] Refreshing QR code (expiration check)');
@@ -134,11 +166,11 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       final schoolCode = await _storage.getString(StorageKeys.schoolCode);
 
       if (schoolCode == null || schoolCode.isEmpty) {
-        emit(
-          const KioskDashboardError(
-            'School code not found. Please login again.',
-          ),
-        );
+        AppLogger.e('[Kiosk] School code not found in storage');
+        // Keep QR visible - restore previous state instead of showing error
+        if (currentState is KioskDashboardQrLoaded) {
+          emit(currentState);
+        }
         return null;
       }
 
@@ -186,7 +218,11 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       if (isClosed) return null;
 
       AppLogger.e('[Kiosk] Error verifying PIN: $e');
-      emit(const KioskDashboardError('Invalid PIN. Please try again.'));
+      // Keep QR visible - restore previous loaded state instead of showing error state
+      // Error will be shown via snackbar in screen's _onPinSubmit callback
+      if (currentState is KioskDashboardQrLoaded) {
+        emit(currentState);
+      }
       return null;
     }
   }

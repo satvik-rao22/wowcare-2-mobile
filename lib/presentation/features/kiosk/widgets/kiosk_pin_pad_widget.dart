@@ -35,6 +35,15 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       setState(() {
         _pin += digit;
       });
+
+      // Auto-submit when max PIN length is reached
+      if (_pin.length == widget.maxPinLength) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted && !_isSubmitting) {
+            _submitPinInternal();
+          }
+        });
+      }
     }
   }
 
@@ -51,6 +60,15 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       _pin = '';
       _isSubmitting = false;
     });
+  }
+
+  void _submitPinInternal() {
+    if (_pin.length == widget.maxPinLength) {
+      setState(() {
+        _isSubmitting = true;
+      });
+      widget.onPinSubmit(_pin);
+    }
   }
 
   void _validate(BuildContext context) {
@@ -75,10 +93,15 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
   Widget build(BuildContext context) {
     return BlocListener<KioskDashboardCubit, KioskDashboardState>(
       listener: (context, state) {
-        if (state is KioskDashboardError) {
+        if (state is KioskDashboardPinSuccess) {
+          // Clear PIN and reset submitting flag on successful verification
           _reset();
-        } else if (state is KioskDashboardPinSuccess) {
-          _reset();
+        } else if (state is KioskDashboardQrLoaded) {
+          // Reset PIN and re-enable button when PIN verification fails
+          // This clears the entered digits and allows user to retry with a new PIN
+          if (_isSubmitting) {
+            _reset();
+          }
         }
       },
       child: SingleChildScrollView(

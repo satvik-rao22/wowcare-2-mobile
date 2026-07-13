@@ -36,12 +36,23 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
   String _cachedSchoolName =
       'School'; // Cache to preserve school name during QR reload
 
+  /// Track if we're returning from sign-in/sign-out flow
+  /// Prevents unnecessary QR reload on internal navigation
+  bool _returningFromSignFlow = false;
+
+  /// Last app lifecycle state to detect true resume vs internal nav
+  AppLifecycleState? _lastLifecycleState;
+
   @override
   void initState() {
     super.initState();
     AppLogger.d('[KIOSK] Dashboard opened');
     // Add observer for app lifecycle
     WidgetsBinding.instance.addObserver(this);
+
+    // Initialize lifecycle state tracking
+    _lastLifecycleState = AppLifecycleState.resumed;
+    _returningFromSignFlow = false;
 
     // Initial QR load on screen open only. Returning here after a sign-in/
     // sign-out flow must NOT trigger another load — the QR stays put until
@@ -54,16 +65,55 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Refresh QR when app comes to foreground
+    AppLogger.d(
+      '[KIOSK] Lifecycle changed: $_lastLifecycleState → $state, '
+      'returningFromSign=$_returningFromSignFlow',
+    );
+
+    // Only reload QR on true app resume from background
+    // NOT on internal navigation or widget rebuilds
     if (state == AppLifecycleState.resumed) {
-      AppLogger.d('[KIOSK] Dashboard resumed');
-      _loadQrCode();
+      // Distinguish between:
+      // 1. Real resume: paused/detached → resumed ✅ RELOAD (if expired)
+      // 2. Internal nav: resumed → resumed ❌ DON'T RELOAD
+
+      final isRealResume = _lastLifecycleState == AppLifecycleState.paused ||
+          _lastLifecycleState == AppLifecycleState.detached;
+
+      if (isRealResume && !_returningFromSignFlow) {
+        AppLogger.d('[KIOSK] True app resume - checking QR validity');
+        _loadQrCodeIfNeeded(); // ← Smart: only if expired
+      } else {
+        AppLogger.d(
+          '[KIOSK] Skipping QR reload '
+          '(isRealResume=$isRealResume, returningFromSign=$_returningFromSignFlow)',
+        );
+      }
+
+      // CRITICAL: Only reset flag on true app resume (paused/detached → resumed)
+      // NOT on internal navigation (resumed → resumed)
+      // This ensures flag persists through sign-in/out flow and is only cleared
+      // after user returns from actual background
+      if (isRealResume) {
+        AppLogger.d('[KIOSK] Resetting flag after true app resume');
+        _returningFromSignFlow = false;
+      }
     }
+
+    // Update last known state
+    _lastLifecycleState = state;
   }
 
   void _loadQrCode() {
     AppLogger.d('[KIOSK] Refreshing QR');
     unawaited(context.read<KioskDashboardCubit>().loadQrCode());
+  }
+
+  /// Load QR only if needed (cache-aware)
+  /// Checks if cached QR is valid before fetching
+  void _loadQrCodeIfNeeded() {
+    AppLogger.d('[KIOSK] Smart QR refresh (cache-aware)');
+    unawaited(context.read<KioskDashboardCubit>().loadQrCodeIfNeeded());
   }
 
   /// Refresh dashboard data (school info, QR, kiosk settings)
@@ -83,10 +133,20 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     return Platform.isIOS && (MediaQuery.of(context).size.shortestSide >= 600);
   }
 
-  void _onPinSubmit(String pin) {
+  Future<void> _onPinSubmit(String pin) async {
     AppLogger.d('[Kiosk] PIN submitted: length=${pin.length}');
     _currentPin = pin;
-    unawaited(context.read<KioskDashboardCubit>().submitPin(pin));
+    final result = await context.read<KioskDashboardCubit>().submitPin(pin);
+
+    // Handle PIN verification failure - show error without changing state
+    if (result == null && mounted) {
+      AppLogger.d('[Kiosk] PIN verification failed - keeping QR visible');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Invalid PIN. Please try again.',
+        isError: true,
+      );
+    }
   }
 
   @override
@@ -285,6 +345,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
       AppLogger.w(
         '[Kiosk] KIOSK persona detected - clearing session and redirecting to sign-in',
       );
+      _returningFromSignFlow = true;
       unawaited(_handleKioskPersona(context));
       return;
     }
@@ -321,7 +382,11 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     final status = (result.staffStatus ?? 'SIGNED_OUT').toUpperCase();
 
     AppLogger.d('[KIOSK] Attendance action completed (Staff)');
-    AppLogger.d('[KIOSK] Triggering dashboard refresh');
+
+    // Mark that we're navigating away internally
+    // This prevents QR reload when we return
+    _returningFromSignFlow = true;
+    AppLogger.d('[KIOSK] Set flag: _returningFromSignFlow=true');
 
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -359,6 +424,13 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
     String currentPin,
   ) {
     final guardianCode = result.guardianCode ?? '';
+
+    AppLogger.d('[KIOSK] Routing to guardian/student attendance flow');
+
+    // Mark that we're navigating away internally
+    // This prevents QR reload when we return
+    _returningFromSignFlow = true;
+    AppLogger.d('[KIOSK] Set flag: _returningFromSignFlow=true');
 
     // Validation
     if (guardianCode.isEmpty) {

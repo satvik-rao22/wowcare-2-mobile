@@ -3,7 +3,7 @@ description: "WowCare 2.O"
 
 publish_to: 'none' 
 
-version: 1.1.4
+version: 1.1.7
 
 
 environment:
@@ -130,6 +130,8 @@ dependency_overrides:
 
 
 flutter:
+  config:
+    enable-lldb-debugging: false
   uses-material-design: true
   assets:
     - assets/vectors/

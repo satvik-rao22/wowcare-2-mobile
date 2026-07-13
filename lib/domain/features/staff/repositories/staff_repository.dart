@@ -253,6 +253,14 @@ abstract class StaffRepository {
 
   Future<({int overduePhysicalCheckupCount, int staffWithoutActivePhysicalCheckupCount})>
       getPhysicalCheckupSummary({required String schoolCode});
+
+  /// Updates work break reminder preference via PATCH API.
+  ///
+  /// Returns true if the reminder was enabled, false if disabled.
+  Future<bool> updateWorkBreakReminder({
+    required String staffCode,
+    required bool enabled,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.

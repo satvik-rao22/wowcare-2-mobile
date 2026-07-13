@@ -363,6 +363,10 @@ class ApiPaths {
   static String staffMyProfilePinPath(String staffCode) =>
       '$staffMyProfile/$staffCode/pin';
 
+  /// PATCH work break reminder — `/api/v1/staff/staff/my-profile/{staffCode}/work-break-reminder`.
+  static String staffWorkBreakReminderPath(String staffCode) =>
+      '$staffMyProfile/$staffCode/work-break-reminder';
+
   static const String staffCodeByUser = '/api/v1/staff/code';
   static const String staffDocuments = '/api/v1/staff-documents';
   static const String staffDocumentAdd = staffDocuments;
